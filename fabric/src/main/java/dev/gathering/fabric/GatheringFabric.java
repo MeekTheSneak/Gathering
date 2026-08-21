@@ -4,7 +4,9 @@ import dev.gathering.Gathering;
 import dev.gathering.platform.Platform;
 import dev.gathering.service.CardDataService;
 import java.io.IOException;
+import dev.gathering.command.GatheringCommands;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,10 +24,14 @@ public final class GatheringFabric implements ModInitializer {
     @Override
     public void onInitialize() {
         GatheringRegistration.bootstrap();
+        GatheringNetwork.bootstrap();
+
+        CommandRegistrationCallback.EVENT.register(
+                (dispatcher, registry, environment) -> dispatcher.register(GatheringCommands.root()));
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             try {
-                cardData = CardDataService.create(Platform.get());
+                cardData = CardDataService.start(Platform.get());
             } catch (IOException e) {
                 throw new IllegalStateException("Could not open the Gathering card metadata cache", e);
             }

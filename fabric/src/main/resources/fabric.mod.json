@@ -12,7 +12,8 @@
   "license": "${mod_license}",
   "environment": "*",
   "entrypoints": {
-    "main": ["dev.gathering.fabric.GatheringFabric"]
+    "main": ["dev.gathering.fabric.GatheringFabric"],
+    "client": ["dev.gathering.fabric.client.GatheringFabricClient"]
   },
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",

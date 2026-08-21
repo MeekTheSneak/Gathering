@@ -1,0 +1,103 @@
+package dev.gathering.fabric.client;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import dev.gathering.Gathering;
+import dev.gathering.client.CardZoomOverlay;
+import dev.gathering.client.ClientCardCache;
+import dev.gathering.client.ClientCardImages;
+import dev.gathering.client.ClientHoverState;
+import dev.gathering.client.ClientNetworking;
+import dev.gathering.client.DecklistImportScreen;
+import dev.gathering.network.CardMetadataPayload;
+import dev.gathering.network.ImportResultPayload;
+import dev.gathering.network.OpenImportScreenPayload;
+import dev.gathering.service.CardNameLookup;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import org.lwjgl.glfw.GLFW;
+
+/**
+ * Client setup for Fabric, mirroring the NeoForge one.
+ *
+ * <p>Entry point is declared as {@code client} in fabric.mod.json, so a dedicated server
+ * never loads this class or anything it names.
+ */
+public final class GatheringFabricClient implements ClientModInitializer {
+
+    /** Hold to read a card. Deliberately a hold, not a toggle: reading is momentary. */
+    private static final KeyMapping ZOOM_KEY = new KeyMapping(
+            "key." + Gathering.MOD_ID + ".zoom",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_LEFT_ALT,
+            "key.categories." + Gathering.MOD_ID);
+
+    @Override
+    public void onInitializeClient() {
+        KeyBindingHelper.registerKeyBinding(ZOOM_KEY);
+
+        CardNameLookup.Binding.bind(ClientCardCache.get());
+        CardZoomOverlay.bindKeyState(ZOOM_KEY::isDown);
+        ClientNetworking.bindSender(ClientPlayNetworking::send);
+        ClientCardImages.get().identifyAs(
+                Gathering.MOD_NAME + " client (+https://github.com/MeekTheSneak/Gathering)");
+
+        ClientPlayNetworking.registerGlobalReceiver(CardMetadataPayload.TYPE, (payload, context) ->
+                ClientCardCache.get().accept(payload.cards()));
+
+        ClientPlayNetworking.registerGlobalReceiver(OpenImportScreenPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> context.client().setScreen(new DecklistImportScreen())));
+
+        ClientPlayNetworking.registerGlobalReceiver(ImportResultPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> {
+                    if (context.client().screen instanceof DecklistImportScreen screen) {
+                        screen.onResult(payload);
+                    }
+                }));
+
+        // Vanilla keeps the hovered slot private to the container screen, so the tooltip
+        // callback - which already knows which stack it is describing - is where the overlay
+        // learns it.
+        ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> ClientHoverState.setHovered(stack));
+
+        // The tooltip callback only fires when there is a tooltip, so without clearing first
+        // the last card the cursor touched would keep answering for every empty slot after it.
+        ScreenEvents.AFTER_INIT.register((client, screen, width, height) ->
+                ScreenEvents.beforeRender(screen).register(
+                        (rendered, graphics, mouseX, mouseY, tickDelta) -> ClientHoverState.clear()));
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            // No screen means no slots, so nothing is hovered.
+            if (client.screen == null) {
+                ClientHoverState.clear();
+            }
+        });
+
+        HudRenderCallback.EVENT.register((graphics, tickDelta) -> CardZoomOverlay.render(
+                graphics,
+                Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+                Minecraft.getInstance().getWindow().getGuiScaledHeight()));
+
+        // Over an open screen the HUD callback does not run, so the overlay needs its own
+        // hook there; drawn after the screen so it sits above slots and tooltips alike.
+        ScreenEvents.AFTER_INIT.register((client, screen, width, height) ->
+                ScreenEvents.afterRender(screen).register(
+                        (rendered, graphics, mouseX, mouseY, tickDelta) -> CardZoomOverlay.render(
+                                graphics,
+                                client.getWindow().getGuiScaledWidth(),
+                                client.getWindow().getGuiScaledHeight())));
+
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            // What one server told us is not true of the next one.
+            ClientCardCache.get().clear();
+            ClientHoverState.clear();
+        });
+    }
+}

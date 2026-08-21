@@ -38,7 +38,7 @@ public final class GatheringNeoForge {
 
     private void onServerStarting(ServerStartingEvent event) {
         try {
-            cardData = CardDataService.create(Platform.get());
+            cardData = CardDataService.start(Platform.get());
         } catch (IOException e) {
             // Without a cache directory there is no card pipeline, and every later failure
             // would be a confusing symptom of this one.

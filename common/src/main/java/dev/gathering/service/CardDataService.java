@@ -40,21 +40,44 @@ public final class CardDataService implements AutoCloseable {
 
     private static final String CACHE_DIRECTORY = "card-cache";
 
+    /**
+     * The pipeline belonging to the running server.
+     *
+     * <p>A singleton because a server is one, bound and cleared by the loader's own start
+     * and stop handlers. Commands and payload handlers reach it through here rather than
+     * threading a reference through every call site.
+     */
+    private static volatile CardDataService active;
+
     private final ExecutorService executor;
     private final DiskCardMetadataStore store;
     private final ScryfallClient client;
+    private final CachingCardSource source;
     private final DeckImporter importer;
 
     private CardDataService(Path cacheRoot, String userAgent) throws IOException {
         this.executor = Executors.newSingleThreadExecutor(namedDaemonThreads("gathering-scryfall"));
         this.store = new DiskCardMetadataStore(cacheRoot);
         this.client = new ScryfallClient(new JdkHttpTransport(), RateLimiter.defaultLimiter(), userAgent);
-        this.importer = new DeckImporter(new CachingCardSource(store, client));
+        this.source = new CachingCardSource(store, client);
+        this.importer = new DeckImporter(source);
     }
 
     /** Builds the service from what the loader knows about this installation. */
     public static CardDataService create(Platform platform) throws IOException {
         return new CardDataService(platform.dataDirectory().resolve(CACHE_DIRECTORY), userAgentFor(platform));
+    }
+
+    /** Builds the service and makes it the running server's, in one step. */
+    public static CardDataService start(Platform platform) throws IOException {
+        CardDataService service = create(platform);
+        active = service;
+        return service;
+    }
+
+    /** Empty between servers, which is the honest answer rather than a stale pipeline. */
+    public static Optional<CardDataService> active() {
+        return Optional.ofNullable(active);
     }
 
     /**
@@ -71,11 +94,14 @@ public final class CardDataService implements AutoCloseable {
         return supply(() -> importer.importText(decklistText));
     }
 
+    /**
+     * One printing by canonical identity, through the same cache-then-network path as an
+     * import, so a card fetched here is a card the next import does not have to fetch.
+     */
     public CompletableFuture<Optional<CardMetadata>> card(UUID scryfallId) {
         return supply(() -> {
             CardQuery query = CardQuery.byId(scryfallId);
-            Optional<CardMetadata> cached = store.find(query);
-            return cached.isPresent() ? cached : client.cardById(scryfallId);
+            return source.resolve(List.of(query)).get(query);
         });
     }
 
@@ -100,6 +126,9 @@ public final class CardDataService implements AutoCloseable {
 
     @Override
     public void close() {
+        if (active == this) {
+            active = null;
+        }
         executor.shutdown();
         try {
             if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {

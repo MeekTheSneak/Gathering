@@ -67,11 +67,39 @@ gate that cannot fail manufactures confidence rather than providing it.
 - [x] Deck import: pasted text to a resolved deck
 - [x] Card and deck items carrying the data component, on both loaders
 - [x] Verification gate: JUnit + jqwik, data generation, headless game tests
-- [ ] In-game decklist import screen
-- [ ] Zoom overlay reading cards at full resolution
+- [x] Networking: import request, import result, card metadata, all round-trip tested
+- [x] In-game decklist import screen, reached with `/gathering import`
+- [x] Zoom overlay: hold a key over a card to read it at full resolution
+
+### Trying it
+
+```
+/gathering import
+```
+
+opens a box. Paste a decklist, press Import, and a deck lands in your inventory. Hold
+**Left Alt** over any card - in a slot, or in your hand - to read it full size with its
+oracle text.
 
 Phases 1–4 (the solo table, the real game, collection and draft, arenas) are described in
 the design brief, section 14.
+
+## How a card reaches your screen
+
+Worth knowing, because it explains most of the architecture:
+
+1. A card item carries three fields: a Scryfall printing id, a foil flag, and nothing else.
+2. The server resolves printings through a batched, rate-limited Scryfall client and keeps
+   Scryfall's own JSON in a disk cache. A hundred-card decklist costs two requests cold and
+   none warm.
+3. The server sends a client display metadata **only** for cards that client is entitled to
+   see. That is the whole security property: a client cannot leak a hand it was never told
+   about, however modified it is.
+4. That metadata includes image **URLs**, never image bytes. Each client fetches art from
+   Scryfall itself, off-thread, into its own disk cache, with a capped number of textures
+   resident in VRAM.
+
+No card art ships in the jar and none crosses this mod's network.
 
 ## Licence
 
