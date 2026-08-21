@@ -34,17 +34,23 @@ the version-pinned docs second, existing working code in this repo third. Never 
 ## Verification
 
 ```
-./gradlew build          # compile, static analysis, JUnit, module fences
-./gradlew runData        # datagen; catches generated-resource drift
-./gradlew runGameTestServer   # headless in-world behaviour; exit code = failed tests
+./gradlew verify         # all three stages
+```
+
+which is:
+
+```
+./gradlew build                       # compile, JUnit + jqwik, module fences
+./gradlew :neoforge:runData           # datagen; catches generated-resource drift
+./gradlew :neoforge:runGameTestServer # headless in-world behaviour; exit code = failed tests
 ```
 
 Nothing is done until these exit zero. A passing read-through is not a substitute.
 NeoForge is the primary target and runs the full gate; Fabric is verified per phase, not
 per commit.
 
-Both fences are confirmed capable of failing — a gate that cannot fail manufactures
-confidence rather than providing it.
+Every stage has been confirmed capable of failing — a gate that cannot fail manufactures
+confidence rather than providing it. Re-confirm after changing the gate itself.
 
 ## Structure
 
@@ -105,3 +111,17 @@ cannot be inferred from reading the code.
   is a set; the parser distinguishes them by case, which is a heuristic and not a law.
 - **Decklist set hints go stale.** A wrong set code must fall back to a name lookup, never
   to a missing card.
+- **`runGameTestServer` reports success when there are no tests to run.** The server throws
+  `IllegalArgumentException: No test functions were given!`, Minecraft exits 0, and Gradle
+  calls it a pass. Adding a module without adding a game test therefore *widens* the gap
+  the gate is supposed to close. Keep at least one real game test registered, and check the
+  log says how many tests passed rather than trusting the exit code alone.
+- **Game tests need a structure template even when they do not touch the world.** Ours is
+  `data/gathering/structure/empty.nbt` (`structure`, singular, since 1.21).
+- **`helper.fail(...)` returns void**, so it cannot be the body of an `orElseGet`. Throw
+  `GameTestAssertException` instead.
+- **`project(':x')` inside the `neoForge { }` block is a dependency, not a `Project`.** Use
+  `rootProject.file(...)` for paths into another module.
+- **Taking both `sourceSets.main.output` and `sourceSets.main.resources` from `:common`
+  puts every shared asset in the jar twice.** The output already contains the processed
+  resources; take only that.

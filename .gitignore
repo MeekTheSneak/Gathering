@@ -31,3 +31,6 @@ Thumbs.db
 
 # Local caches produced at runtime by the Scryfall pipeline
 /cache/
+
+# Data generation hash cache - build state, not a shipped asset
+common/src/generated/resources/.cache/

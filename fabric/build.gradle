@@ -30,14 +30,16 @@ tasks.named('jar', Jar) {
     from project(':core').sourceSets.main.output
 }
 
+// Dev runs need the shared classes and assets without dragging :common's own Minecraft
+// dependency into Loom's remapped runtime, so take the outputs rather than the projects.
+sourceSets.main.runtimeClasspath += project(':common').sourceSets.main.output
+sourceSets.main.runtimeClasspath += project(':core').sourceSets.main.output
+
 tasks.named('compileJava') {
     dependsOn ':common:classes', ':core:classes'
 }
 
 processResources {
-    from project(':common').sourceSets.main.resources
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
-
     def expandProps = [
         mod_id         : mod_id,
         mod_name       : mod_name,

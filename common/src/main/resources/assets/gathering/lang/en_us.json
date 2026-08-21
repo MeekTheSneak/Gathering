@@ -1,0 +1,9 @@
+{
+  "item.gathering.card": "Card",
+  "item.gathering.deck": "Deck",
+  "itemGroup.gathering.main": "Gathering",
+  "tooltip.gathering.foil": "Foil",
+  "tooltip.gathering.deck_size": "%s cards",
+  "tooltip.gathering.sideboard_size": "%s in sideboard",
+  "tooltip.gathering.scryfall_attribution": "Card data courtesy of Scryfall"
+}

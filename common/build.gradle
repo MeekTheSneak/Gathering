@@ -21,6 +21,14 @@ neoForge {
     }
 }
 
+// Shared assets live here, including the ones data generation produces, so both loaders
+// package one identical set rather than each carrying a copy that can drift.
+sourceSets.main.resources {
+    srcDir 'src/generated/resources'
+    // The data generator's hash cache is build state, not a shipped asset.
+    exclude '.cache/**'
+}
+
 dependencies {
     api project(':core')
 }

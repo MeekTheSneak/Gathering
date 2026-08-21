@@ -30,9 +30,10 @@ neoForge {
         }
         data {
             data()
+            // Generated assets land in :common alongside the hand-authored ones.
             programArguments.addAll '--mod', project.mod_id, '--all',
-                '--output', file('src/generated/resources/').getAbsolutePath(),
-                '--existing', file('src/main/resources/').getAbsolutePath()
+                '--output', rootProject.file('common/src/generated/resources').getAbsolutePath(),
+                '--existing', rootProject.file('common/src/main/resources').getAbsolutePath()
         }
     }
 
@@ -45,22 +46,16 @@ neoForge {
     }
 }
 
-sourceSets.main.resources.srcDir 'src/generated/resources'
-
 dependencies {
     compileOnly project(':common')
     compileOnly project(':core')
 }
 
-// The loader jars carry :common and :core, since neither is published.
+// The loader jars carry :common and :core, since neither is published. Taking the
+// source sets' *output* picks up their processed resources too, so nothing is copied twice.
 tasks.named('jar', Jar) {
     from project(':common').sourceSets.main.output
     from project(':core').sourceSets.main.output
-}
-
-tasks.named('processResources') {
-    from project(':common').sourceSets.main.resources
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 
 tasks.named('compileJava') {

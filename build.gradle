@@ -36,3 +36,15 @@ subprojects {
         maven { name = 'ParchmentMC'; url = 'https://maven.parchmentmc.org' }
     }
 }
+
+/**
+ * The verification gate, in one command.
+ *
+ * Nothing is reported done until this exits zero. NeoForge runs the full gate; Fabric is a
+ * port target, verified per phase rather than per commit, so its runs are not wired in here.
+ */
+tasks.register('verify') {
+    group = 'verification'
+    description = 'Compile, test, fences, data generation, and headless game tests.'
+    dependsOn ':build', ':neoforge:runData', ':neoforge:runGameTestServer'
+}
