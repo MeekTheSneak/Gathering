@@ -81,8 +81,32 @@ opens a box. Paste a decklist, press Import, and a deck lands in your inventory.
 **Left Alt** over any card - in a slot, or in your hand - to read it full size with its
 oracle text.
 
-Phases 1–4 (the solo table, the real game, collection and draft, arenas) are described in
-the design brief, section 14.
+**Phase 1 — the solo table.** Pure core done; the table itself is not started.
+
+- [x] `GameSession` as an event-sourced state machine - the board is the fold of the log
+- [x] Zones, the full v1 verb set, seeded deterministic shuffles
+- [x] Visibility rules, with the invariant suite by example and by property
+- [x] Data-driven format validator (8 presets), pre-game only
+- [ ] Table multiblock and seats
+- [ ] Seated GUI and in-world miniature rendering
+
+Phases 2–4 (the real game, collection and draft, arenas) are described in the design brief,
+section 14.
+
+## Two rules the code is built around
+
+**There is no rules engine, and there never will be.** During play the mod moves cards,
+tracks numbers and shows things. It never says no. You may tap an already-tapped creature,
+set your life to minus eleven, or draw six cards on turn one; the log attributes every action
+by name, and that attribution is the mechanism. The single exception is a static deck check
+before a formatted game starts, exactly like a tournament deck check, and it ends the moment
+the game does not.
+
+**Hidden information is real.** Card identity for a hidden zone never reaches a client that
+is not entitled to it, so a modified client learns nothing. Face-down cards travel as opaque
+markers regenerated on every flip. Shuffles derive from a session seed that is never logged,
+never sent, and never printed. This is the one security property of the mod and it has its
+own test suite, which must never regress.
 
 ## How a card reaches your screen
 

@@ -68,7 +68,7 @@ Four modules, in order of how cheaply they can be checked:
 
 | Module | Contents | Verified by |
 |---|---|---|
-| `:core` | Pure logic. **No `net.minecraft`, no loader.** Card identity, decklist parser, Scryfall client and cache, deck import; later the event-sourced `GameSession`, zones, visibility rules, format validator | JUnit + jqwik, milliseconds |
+| `:core` | Pure logic. **No `net.minecraft`, no loader.** Card identity, decklist parser, Scryfall client and cache, deck import, the event-sourced `GameSession`, zones, verbs, visibility rules, format validator | JUnit + jqwik, milliseconds |
 | `:common` | Minecraft-facing, loader-agnostic. Items, blocks, data components, payloads, block entities, persistence codecs. **Zero loader imports** | `runData`, `runGameTestServer` |
 | `:neoforge` | NeoForge entry point, registration bootstrap, network wiring, client init | full gate |
 | `:fabric` | Fabric entry point, the same small platform surface | per phase |
@@ -97,6 +97,9 @@ milliseconds; everything outside it needs a game.
 | Client/server seam | a holder the client bootstrap binds into | registration code naming a client class |
 | Async results | `CompletableFuture` returned to the caller | a blocking method anyone could call from a tick |
 | Hidden zones | server-side visibility filtering at the payload level | client-side hiding |
+| Game state | events appended to the log; the board is the fold | mutating state directly |
+| Undo | mark entries undone and re-fold | inverse operations, or deleting log entries |
+| Authorization | owner-locked only where the act would reveal to the actor | blocking "illegal" plays |
 
 ## Banned
 
@@ -148,3 +151,13 @@ cannot be inferred from reading the code.
 - **Scryfall's collection endpoint answers, but does not echo, the raw JSON per query.**
   Keep each card's original body alongside the parsed model (`CollectionResult#raw`) or the
   disk cache ends up storing a re-serialisation of only the fields today's codec reads.
+- **Card instance ids are handed out in decklist order, and Commander decklists are usually
+  public.** A public log line naming a card by raw id therefore identifies it, with no hidden
+  payload ever sent. Log lines reference cards through `CardRef`, which picks id, opaque
+  marker, or "a card" against the board. Never put a bare `CardInstanceId` in a `LogLine`.
+- **`java.util.Random` cannot shuffle a deck.** 48 bits of state reach 2^48 permutations; a
+  100-card library has 100! of them. Shuffles use `DeterministicRandom` (SHA-256 counter
+  mode) so they stay replayable *and* reachable. Never swap it for `Random` "for speed".
+- **A record accessor and a wither cannot share a name.** `SeatState.conceded()` is the
+  accessor, so the wither is `withConcede()`; `invalid accessor method in record` is what
+  that collision looks like.
