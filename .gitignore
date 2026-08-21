@@ -1,0 +1,33 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+
+# ModDevGradle / Loom
+run/
+runs/
+run-data/
+.neoforge/
+remappedSrc/
+
+# Generated resources are committed on purpose (runData checks for drift),
+# so nothing under src/generated is ignored.
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local caches produced at runtime by the Scryfall pipeline
+/cache/

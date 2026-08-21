@@ -1,0 +1,58 @@
+// ---------------------------------------------------------------------------
+// :common - Minecraft-facing, loader-agnostic.
+//
+// Compiled against vanilla Minecraft only (ModDevGradle "vanilla mode" via
+// NeoForm), which makes the "zero loader imports" rule of the design brief a
+// compile error rather than a code review note: NeoForge and Fabric classes are
+// simply not on this module's classpath.
+// ---------------------------------------------------------------------------
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+neoForge {
+    // Vanilla mode: no loader, just Minecraft.
+    neoFormVersion = project.neoform_version
+
+    parchment {
+        minecraftVersion = project.parchment_minecraft_version
+        mappingsVersion = project.parchment_mappings_version
+    }
+}
+
+dependencies {
+    api project(':core')
+}
+
+// Belt and braces alongside the classpath fence above: a loader import that
+// somehow resolves (shadowed class, stray dependency) still fails the build.
+def checkNoLoaderImports = tasks.register('checkNoLoaderImports') {
+    group = 'verification'
+    description = 'Fails if :common references NeoForge or Fabric.'
+    def sources = sourceSets.main.java.srcDirs
+    inputs.files(sourceSets.main.java)
+    outputs.upToDateWhen { false }
+    doLast {
+        def banned = ~/^\s*import\s+(net\.neoforged|net\.minecraftforge|net\.fabricmc)\b/
+        def offenders = []
+        sources.each { dir ->
+            if (!dir.exists()) return
+            dir.eachFileRecurse { f ->
+                if (!f.name.endsWith('.java')) return
+                f.eachLine { line, n ->
+                    if (banned.matcher(line).find()) {
+                        offenders << "${f}:${n}: ${line.trim()}"
+                    }
+                }
+            }
+        }
+        if (!offenders.isEmpty()) {
+            throw new GradleException(
+                ":common must hold zero loader imports. Offending imports:\n  " +
+                offenders.join('\n  '))
+        }
+    }
+}
+
+tasks.named('check') { dependsOn checkNoLoaderImports }

@@ -1,0 +1,87 @@
+// ---------------------------------------------------------------------------
+// :neoforge - primary development target, full verification gate.
+// ---------------------------------------------------------------------------
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        minecraftVersion = project.parchment_minecraft_version
+        mappingsVersion = project.parchment_mappings_version
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        gameTestServer {
+            type = 'gameTestServer'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all',
+                '--output', file('src/generated/resources/').getAbsolutePath(),
+                '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+            sourceSet project(':common').sourceSets.main
+            sourceSet project(':core').sourceSets.main
+        }
+    }
+}
+
+sourceSets.main.resources.srcDir 'src/generated/resources'
+
+dependencies {
+    compileOnly project(':common')
+    compileOnly project(':core')
+}
+
+// The loader jars carry :common and :core, since neither is published.
+tasks.named('jar', Jar) {
+    from project(':common').sourceSets.main.output
+    from project(':core').sourceSets.main.output
+}
+
+tasks.named('processResources') {
+    from project(':common').sourceSets.main.resources
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+tasks.named('compileJava') {
+    dependsOn ':common:classes', ':core:classes'
+}
+
+// Property expansion for neoforge.mods.toml, so versions live in one place.
+processResources {
+    def expandProps = [
+        mod_id                     : mod_id,
+        mod_name                   : mod_name,
+        mod_license                : mod_license,
+        mod_version                : mod_version,
+        mod_authors                : mod_authors,
+        mod_description            : mod_description,
+        minecraft_version_range    : minecraft_version_range,
+        neo_version_range          : neo_version_range,
+        neoforge_loader_version_range: neoforge_loader_version_range,
+    ]
+    inputs.properties(expandProps)
+    filesMatching(['META-INF/neoforge.mods.toml', 'pack.mcmeta']) {
+        expand expandProps
+    }
+}

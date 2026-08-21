@@ -1,0 +1,38 @@
+// Root build. Holds only what is genuinely shared; each module states its own toolchain.
+plugins {
+    id 'java'
+    id 'idea'
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'idea'
+
+    group = project.mod_group_id
+    version = project.mod_version
+
+    java {
+        toolchain.languageVersion = JavaLanguageVersion.of(project.java_version as int)
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = project.java_version as int
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        testLogging {
+            events 'failed'
+            exceptionFormat 'full'
+        }
+    }
+
+    repositories {
+        mavenCentral()
+        maven { name = 'NeoForged'; url = 'https://maven.neoforged.net/releases' }
+        maven { name = 'Fabric';    url = 'https://maven.fabricmc.net/' }
+        maven { name = 'ParchmentMC'; url = 'https://maven.parchmentmc.org' }
+    }
+}

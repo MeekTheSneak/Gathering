@@ -1,0 +1,54 @@
+// ---------------------------------------------------------------------------
+// :core - the pure core.
+//
+// Zero net.minecraft, zero loader. This is the layer the design brief wants as
+// large as possible, because it is the layer that can be checked in
+// milliseconds instead of by booting a game.
+//
+// Gson is compileOnly: Minecraft ships com.google.gson on its own classpath, so
+// the mod gets it for free at runtime and the core jar drags no dependency.
+// ---------------------------------------------------------------------------
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    compileOnly "com.google.code.gson:gson:${gson_version}"
+
+    testImplementation "com.google.code.gson:gson:${gson_version}"
+    testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
+    testImplementation "org.assertj:assertj-core:${assertj_version}"
+    testImplementation "net.jqwik:jqwik:${jqwik_version}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// The pure-core fence, enforced by the build rather than by good intentions.
+def checkCorePure = tasks.register('checkCorePure') {
+    group = 'verification'
+    description = 'Fails if :core references Minecraft or a mod loader.'
+    def sources = sourceSets.main.java.srcDirs
+    inputs.files(sourceSets.main.java)
+    outputs.upToDateWhen { false }
+    doLast {
+        def banned = ~/^\s*import\s+(net\.minecraft|net\.neoforged|net\.minecraftforge|net\.fabricmc)\b/
+        def offenders = []
+        sources.each { dir ->
+            if (!dir.exists()) return
+            dir.eachFileRecurse { f ->
+                if (!f.name.endsWith('.java')) return
+                f.eachLine { line, n ->
+                    if (banned.matcher(line).find()) {
+                        offenders << "${f}:${n}: ${line.trim()}"
+                    }
+                }
+            }
+        }
+        if (!offenders.isEmpty()) {
+            throw new GradleException(
+                ":core must stay pure - no Minecraft, no loader. Offending imports:\n  " +
+                offenders.join('\n  '))
+        }
+    }
+}
+
+tasks.named('check') { dependsOn checkCorePure }

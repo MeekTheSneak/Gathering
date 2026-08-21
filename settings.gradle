@@ -1,0 +1,29 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { name = 'NeoForged'; url = 'https://maven.neoforged.net/releases' }
+        maven { name = 'Fabric';    url = 'https://maven.fabricmc.net/' }
+        mavenCentral()
+    }
+
+    // Plugin versions are pinned once, here, so the modules apply them by id
+    // alone and no two modules can drift apart.
+    plugins {
+        id 'net.neoforged.moddev' version settings.moddev_gradle_version
+        id 'fabric-loom'          version settings.fabric_loom_version
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+rootProject.name = 'gathering'
+
+// Pure core: no net.minecraft, no loader. Where as much logic as possible lives.
+include 'core'
+// Minecraft-facing, loader-agnostic. Zero loader imports, enforced by checkNoLoaderImports.
+include 'common'
+// Loader entry points.
+include 'neoforge'
+include 'fabric'

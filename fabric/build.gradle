@@ -1,0 +1,54 @@
+// ---------------------------------------------------------------------------
+// :fabric - port target. Verified per phase, not per commit (design brief 13).
+// ---------------------------------------------------------------------------
+plugins {
+    id 'java-library'
+    id 'fabric-loom'
+}
+
+// Official Mojang mappings, matching :common and :neoforge, so one source of
+// names spans all three modules.
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+    compileOnly project(':common')
+    compileOnly project(':core')
+}
+
+loom {
+    runs {
+        client { client() }
+        server { server() }
+    }
+}
+
+tasks.named('jar', Jar) {
+    from project(':common').sourceSets.main.output
+    from project(':core').sourceSets.main.output
+}
+
+tasks.named('compileJava') {
+    dependsOn ':common:classes', ':core:classes'
+}
+
+processResources {
+    from project(':common').sourceSets.main.resources
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+
+    def expandProps = [
+        mod_id         : mod_id,
+        mod_name       : mod_name,
+        mod_license    : mod_license,
+        mod_version    : mod_version,
+        mod_authors    : mod_authors,
+        mod_description: mod_description,
+        minecraft_version: minecraft_version,
+        java_version   : java_version,
+        fabric_loader_version: fabric_loader_version,
+    ]
+    inputs.properties(expandProps)
+    filesMatching('fabric.mod.json') { expand expandProps }
+}
