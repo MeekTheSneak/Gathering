@@ -18,6 +18,50 @@ plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
 }
 
+// ---------------------------------------------------------------------------
+// Minecraft 1.21.1 runs on Java 21, and so must Gradle itself.
+//
+// The toolchain below handles *compiling* on 21 whatever Gradle runs on, but
+// Fabric Loom sets Minecraft up during configuration, inside the Gradle daemon,
+// so it needs 21 there too - and because Gradle configures every project, that
+// failure takes down a NeoForge-only build as well. Left alone it surfaces as
+// "Failed to setup Minecraft ... Gradle is using 17" from deep inside a plugin,
+// which is a confusing way to learn you have the wrong JDK selected.
+//
+// Checked in the settings file, which is evaluated before any project is configured
+// and therefore before Loom gets a chance to fail less helpfully. It has to sit
+// below pluginManagement, which Gradle requires to be the first statement.
+// ---------------------------------------------------------------------------
+if (!JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_21)) {
+    throw new GradleException("""
+
+        Gathering needs Gradle to run on Java 21, but it is running on Java ${JavaVersion.current()}.
+
+        Minecraft 1.21.1 requires Java 21, so this is not something the project can
+        work around - point Gradle at a JDK 21 and it will build.
+
+          macOS               export JAVA_HOME=\$(/usr/libexec/java_home -v 21)
+          Linux               export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
+          Windows, cmd        set JAVA_HOME=C:\\Program Files\\Java\\jdk-21
+          Windows, PowerShell \$env:JAVA_HOME = "C:\\Program Files\\Java\\jdk-21"
+
+        The two Windows shells are not interchangeable: \$env: is PowerShell only, and
+        cmd wants no quotes and no spaces around the =. Check where your JDK actually
+        landed first - Adoptium installs under C:\\Program Files\\Eclipse Adoptium.
+
+        Then stop the old daemon, which is still on the wrong JDK:
+
+          gradlew --stop          (./gradlew on macOS and Linux)
+
+        Or, without touching JAVA_HOME:
+
+          gradlew -Dorg.gradle.java.home=<path to jdk 21> <task>
+
+        In an IDE the setting is Build Tools > Gradle > Gradle JVM.
+        No JDK 21 installed? https://adoptium.net/temurin/releases/?version=21
+        """.stripIndent())
+}
+
 rootProject.name = 'gathering'
 
 // Pure core: no net.minecraft, no loader. Where as much logic as possible lives.

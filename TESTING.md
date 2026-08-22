@@ -6,12 +6,39 @@ table to sit at yet.
 
 ## Setup
 
-Java 21 is the only requirement; everything else is pinned and downloads on first build.
+**Gradle itself must run on Java 21** — not just your compiler. Minecraft 1.21.1 requires
+it, and Fabric Loom sets Minecraft up inside the Gradle daemon, so a Java 17 daemon fails
+the whole build including NeoForge-only tasks. The build checks this up front and tells you
+how to fix it, but to save a round trip:
+
+```bash
+java -version                      # if this says 17, set JAVA_HOME first
+```
+
+```bash
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)      # macOS
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk         # Linux
+```
+
+```cmd
+set JAVA_HOME=C:\Program Files\Java\jdk-21          :: Windows, cmd - no quotes, no spaces round =
+```
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-21"     # Windows, PowerShell
+```
+
+The two Windows shells are not interchangeable. Check where your JDK actually landed —
+Adoptium installs under `C:\Program Files\Eclipse Adoptium\jdk-21.x.x-hotspot`. No JDK 21?
+[Temurin 21](https://adoptium.net/temurin/releases/?version=21).
+
+Then:
 
 ```bash
 git clone -b claude/new-session-beye3i https://github.com/MeekTheSneak/Gathering
 cd Gathering
-./gradlew :neoforge:runClient
+./gradlew --stop                   # drops any daemon still on the old JDK
+./gradlew :neoforge:runClient      # gradlew, without ./, on Windows
 ```
 
 The first build pulls and decompiles Minecraft — expect **5–10 minutes**, once. After that

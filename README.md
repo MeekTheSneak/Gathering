@@ -45,7 +45,11 @@ possible.
 
 ## Building
 
-Java 21. Everything is pinned in `gradle.properties`.
+**Gradle must run on Java 21**, not merely compile with it: Minecraft 1.21.1 requires it and
+Loom sets Minecraft up inside the Gradle daemon, so a Java 17 daemon fails the build for both
+loaders. Set `JAVA_HOME` to a JDK 21 and run `./gradlew --stop` to drop any stale daemon; the
+build fails early with instructions if you forget. Everything else is pinned in
+`gradle.properties`.
 
 ```bash
 ./gradlew verify               # the gate: build + runData + runGameTestServer
