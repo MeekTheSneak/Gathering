@@ -67,6 +67,40 @@ public final class DeckEditGameTest {
     }
 
     @GameTest(template = "empty")
+    public static void aCardWithNowhereToGoLandsOnTheFloor(GameTestHelper helper) {
+        // A card is a collection item. It must never evaporate because a bag was full, and
+        // it must never stay in the deck while the deck says it left - either way somebody
+        // has lost a card they own.
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        // Its own printing, so the card found on the floor cannot be another test's.
+        CardComponent only = card(UUID.fromString("00000000-0000-4000-8000-00000000f100"));
+        ItemStack deckStack = DeckItem.of(deck(List.of(only, LIGHTNING), List.of(), List.of()));
+        // Off hand, because the main inventory is about to be filled and the hotbar is part
+        // of it - filling that would bury the deck this test is holding.
+        player.setItemInHand(InteractionHand.OFF_HAND, deckStack);
+        fillInventory(player);
+        // The game test world is on disk and outlives the run, so a card dropped by the last
+        // one is still lying there. Without clearing first this passes with the drop deleted,
+        // which is worse than having no test at all - it was, until it was checked.
+        clearDropped(helper, only);
+
+        DeckEdits.handle(player, DeckEditPayload.take(
+                InteractionHand.OFF_HAND, DeckComponent.Section.MAINBOARD, only));
+
+        if (deckIn(deckStack).entries().contains(only)) {
+            helper.fail("The card never left the deck");
+        }
+        if (countCards(player, only) != 0) {
+            helper.fail("The card went into an inventory that had no room");
+        }
+        int dropped = clearDropped(helper, only);
+        if (dropped != 1) {
+            helper.fail("Expected exactly one card on the floor, found " + dropped);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void takingTheLastCardLeavesNoDeckBehind(GameTestHelper helper) {
         // An empty deck is a deckbox with nothing in it. Taking the last card out should hand
         // you a card, not a card and an object to tidy away.
@@ -381,6 +415,29 @@ public final class DeckEditGameTest {
     private static net.minecraft.world.entity.SlotAccess carriedAccess(ItemStack carried) {
         ItemStack[] held = {carried};
         return net.minecraft.world.entity.SlotAccess.of(() -> held[0], stack -> held[0] = stack);
+    }
+
+    /** Every slot {@code Inventory#add} would use - the hotbar included - taken by something else. */
+    private static void fillInventory(Player player) {
+        for (int slot = 0; slot < player.getInventory().items.size(); slot++) {
+            player.getInventory().items.set(slot, new ItemStack(net.minecraft.world.item.Items.BEDROCK, 64));
+        }
+    }
+
+    /**
+     * Removes every dropped copy of this card from the world and says how many there were.
+     *
+     * <p>Matched by the card itself rather than by position, because a mock player stands at
+     * the world origin and not where this test's structure is. Clearing rather than counting
+     * is what makes the test mean something twice in a row.
+     */
+    private static int clearDropped(GameTestHelper helper, CardComponent card) {
+        java.util.List<net.minecraft.world.entity.item.ItemEntity> found = helper.getLevel()
+                .getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                        new net.minecraft.world.phys.AABB(-64, -64, -64, 64, 64, 64),
+                        entity -> CardItem.cardOf(entity.getItem()).filter(card::equals).isPresent());
+        found.forEach(net.minecraft.world.entity.Entity::discard);
+        return found.size();
     }
 
     private static Slot slotHolding(ItemStack stack) {

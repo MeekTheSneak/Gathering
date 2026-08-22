@@ -365,3 +365,8 @@ cannot be inferred from reading the code.
   value, so both have a test.
 - **`DyeColor#getTextureDiffuseColor` is ARGB and a block tint is RGB.** Leaving the alpha in
   makes every dyed surface draw as though it were unlit.
+- **The game test world is on disk and outlives the run.** `neoforge/run/world` is not
+  recreated per invocation, so an entity a test spawns is still there next time. A test that
+  looks for something in the world and does not clear first passes whether or not the feature
+  works - the drop-on-full-inventory test did exactly that, and only stopped when it was
+  checked against the fix being deleted. Clear, act, assert, clear.
