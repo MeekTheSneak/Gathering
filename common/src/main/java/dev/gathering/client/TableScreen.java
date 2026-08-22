@@ -200,6 +200,7 @@ public final class TableScreen extends Screen {
         renderZones(graphics, board, mouseX, mouseY);
         renderHand(graphics, board, mouseX, mouseY);
         renderActions(graphics, board);
+        renderTurn(graphics, board);
         renderHeldCard(graphics, board, mouseX, mouseY);
 
         if (boxFrom != null) {
@@ -245,6 +246,12 @@ public final class TableScreen extends Screen {
             if (isFocused) {
                 GatheringSprites.highlight(graphics, area.x() + 1, line - 2, area.width() - 2,
                         this.font.lineHeight + 3);
+            }
+            // Whose turn it is, marked on the line rather than only in the bar: with four
+            // seats the answer is a name, and the name is already here.
+            if (seat.seat().equals(board.turn().activeSeat())) {
+                graphics.renderOutline(area.x() + 1, line - 2, area.width() - 2,
+                        this.font.lineHeight + 3, ACCENT);
             }
             GuiText.draw(graphics, this.font, text, area.x() + 4, line, area.width() - 8,
                     mine ? ACCENT : LABEL);
@@ -446,11 +453,38 @@ public final class TableScreen extends Screen {
         return new Rect(left + index * step, area.y() + 4, width, height);
     }
 
+    /**
+     * Whose turn it is, which phase, and how to move either on.
+     *
+     * <p>Drawn on the action bar rather than tucked in a menu, because the whole reason a
+     * shared turn marker exists is so four people can agree where they are without saying it
+     * out loud every thirty seconds. A marker nobody can see does not do that.
+     *
+     * <p>The active seat is highlighted in the seat list too; this says the phase, which is the
+     * part that changes several times a turn.
+     */
+    private void renderTurn(GuiGraphics graphics, GameView board) {
+        Rect area = layout().actions();
+        SeatId active = board.turn().activeSeat();
+        String who = board.seat(active).occupant()
+                .map(player -> player.name())
+                .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
+
+        Component line = Component.translatable("screen.gathering.table.turn",
+                board.turn().turnNumber(), who,
+                Component.translatable("phase.gathering." + board.turn().phase().name()
+                        .toLowerCase(Locale.ROOT)));
+        boolean mine = mySeat().map(active::equals).orElse(false);
+        GuiText.draw(graphics, this.font, line, area.x() + 2, area.y() + 7,
+                area.width() / 2, mine ? ACCENT : LABEL);
+    }
+
     private void renderActions(GuiGraphics graphics, GameView board) {
         Rect area = layout().actions();
+        // The turn takes the left half, so the hint takes the right and is drawn to fit.
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.table.actions"),
-                area.x() + 2, area.y() + 7, area.width() - 4, DIM);
+                area.x() + area.width() / 2, area.y() + 7, area.width() / 2 - 4, DIM);
     }
 
     /**
@@ -889,6 +923,11 @@ public final class TableScreen extends Screen {
         }
         List<ContextMenu.Entry> entries = ContextMenu.entries();
         entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
+        view().ifPresent(board -> {
+            entries.add(entry("next_phase", () -> send(new GameEvent.PhaseSet(
+                    me, board.turn().phase().next()))));
+            entries.add(entry("pass_turn", () -> passTurn(board, me)));
+        });
         entries.add(entry("untap_all", () -> send(new GameEvent.SeatUntappedAll(me, me))));
         entries.add(entry("shuffle", () -> send(new GameEvent.LibraryShuffled(me, me))));
         entries.add(entry("gain_life", () -> send(new GameEvent.LifeChanged(me, me, 1))));
@@ -1052,6 +1091,15 @@ public final class TableScreen extends Screen {
                     send(new GameEvent.SeatUntappedAll(me, me));
                     return true;
                 }
+                case org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE -> {
+                    view().ifPresent(board -> send(new GameEvent.PhaseSet(
+                            me, board.turn().phase().next())));
+                    return true;
+                }
+                case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER -> {
+                    view().ifPresent(board -> passTurn(board, me));
+                    return true;
+                }
                 case org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL -> {
                     send(new GameEvent.LifeChanged(me, me, 1));
                     return true;
@@ -1064,6 +1112,30 @@ public final class TableScreen extends Screen {
             }
         }
         return super.keyPressed(key, scanCode, modifiers);
+    }
+
+    /**
+     * Hands the turn on, and untaps whoever is receiving it.
+     *
+     * <p>Two events, because they are two things and the log should say both. Untapping on
+     * arrival rather than making the next player do it is the one piece of turn structure
+     * worth automating: it is unambiguous, everybody does it, and forgetting it is the single
+     * most common way a paper game goes wrong.
+     */
+    private void passTurn(GameView board, SeatId me) {
+        SeatId next = nextSeatAfter(board, board.turn().activeSeat());
+        send(new GameEvent.TurnPassed(me, next));
+        send(new GameEvent.SeatUntappedAll(me, next));
+    }
+
+    private static SeatId nextSeatAfter(GameView board, SeatId seat) {
+        List<SeatView> seats = board.seats();
+        for (int index = 0; index < seats.size(); index++) {
+            if (seats.get(index).seat().equals(seat)) {
+                return seats.get((index + 1) % seats.size()).seat();
+            }
+        }
+        return seat;
     }
 
     private void send(GameEvent event) {
