@@ -30,7 +30,7 @@ import net.jqwik.api.Provide;
  */
 class VisibilityInvariantPropertyTest {
 
-    private static final int ACTION_KINDS = 9;
+    private static final int ACTION_KINDS = 12;
     private static final int SEATS = 2;
 
     @Property(tries = 500)
@@ -74,15 +74,49 @@ class VisibilityInvariantPropertyTest {
             for (SeatId seat : state.seats()) {
                 var seatView = entry.getValue().seat(seat);
 
+                // A library reaches exactly the seat the log says is looking through it, as
+                // deep as the log says, and nobody else. Not "usually nobody" - a spectator
+                // who is handed one card of somebody's library has been handed the top of
+                // their deck.
+                int open = viewer instanceof Viewer.Seated seated
+                        ? state.openCardsOf(seated.seat(), seat)
+                        : 0;
                 assertThat(seatView.zone(Zone.LIBRARY).cards())
-                        .as("library payload for %s", viewer)
-                        .isEmpty();
+                        .as("library payload for %s looking at %s", viewer, seat)
+                        .hasSize(open);
 
                 if (!viewer.isSeatedAt(seat)) {
                     assertThat(seatView.zone(Zone.HAND).cards())
                             .as("hand payload for %s looking at %s", viewer, seat)
                             .isEmpty();
                 }
+            }
+        }
+    }
+
+    /**
+     * A shuffle ends every look at that library.
+     *
+     * <p>The leak this guards is quiet: a search left open across a shuffle keeps sending the
+     * searcher a library whose order has changed underneath them, which is the top of somebody
+     * else's freshly shuffled deck arriving on a client with no reason to have it.
+     */
+    @Property(tries = 300)
+    void shufflingClosesEveryLookAtThatLibrary(@ForAll("actionScripts") List<Integer> script) {
+        GameSession session = GameFixtures.twoPlayerTable(25);
+
+        for (int action : script) {
+            perform(session, action);
+        }
+        GameState state = session.state();
+        for (SeatId seat : state.seats()) {
+            session.submit(new GameEvent.LibraryShuffled(seat, seat));
+
+            GameState after = session.state();
+            for (SeatId looker : after.seats()) {
+                assertThat(after.openCardsOf(looker, seat))
+                        .as("%s still looking at %s's library after it was shuffled", looker, seat)
+                        .isZero();
             }
         }
     }
@@ -196,6 +230,11 @@ class VisibilityInvariantPropertyTest {
             // Stealing: the card stays its owner's, and lands on somebody else's side.
             case 7 -> stealSomething(session, other, actor);
             case 8 -> session.submit(new GameEvent.LifeChanged(actor, actor, -1));
+            // Looking through a library is the one thing that opens one, so a suite that never
+            // does it never tests the only way a library is ever more than a number.
+            case 9 -> session.submit(new GameEvent.LibrarySearched(actor, actor));
+            case 10 -> session.submit(new GameEvent.LibraryLooked(actor, actor, 2));
+            case 11 -> session.submit(new GameEvent.LibraryClosed(actor));
             default -> throw new IllegalStateException("Unhandled action " + action);
         }
     }
@@ -238,7 +277,11 @@ class VisibilityInvariantPropertyTest {
                     CardInstance instance = state.requireCard(visible.id());
 
                     boolean entitled = switch (location.zone()) {
-                        case LIBRARY -> false;
+                        // Only while the log says this viewer is looking, and only as far down
+                        // the library as it says they may look.
+                        case LIBRARY -> viewer instanceof Viewer.Seated seated
+                                && state.contents(location).indexOf(visible.id())
+                                        < state.openCardsOf(seated.seat(), location.seat());
                         case HAND -> viewer.isSeatedAt(location.seat());
                         default -> !instance.isFaceDown() || viewer.isSeatedAt(instance.owner());
                     };

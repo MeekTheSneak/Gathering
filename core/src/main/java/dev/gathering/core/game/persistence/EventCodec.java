@@ -80,6 +80,7 @@ public final class EventCodec {
                 card(out, e.card());
                 out.writeUTF(e.facing().name());
             }
+            case GameEvent.LibraryClosed e -> seat(out, e.actor());
             case GameEvent.CardsDrawn e -> {
                 seat(out, e.actor());
                 seat(out, e.seat());
@@ -182,6 +183,7 @@ public final class EventCodec {
             case "SeatUntappedAll" -> new GameEvent.SeatUntappedAll(seat(in), seat(in));
             case "CardFacingSet" -> new GameEvent.CardFacingSet(
                     seat(in), card(in), Facing.valueOf(in.readUTF()));
+            case "LibraryClosed" -> new GameEvent.LibraryClosed(seat(in));
             case "CardsDrawn" -> new GameEvent.CardsDrawn(seat(in), seat(in), in.readInt());
             case "Mulliganed" -> new GameEvent.Mulliganed(seat(in), seat(in), in.readInt());
             case "LibraryShuffled" -> new GameEvent.LibraryShuffled(seat(in), seat(in));

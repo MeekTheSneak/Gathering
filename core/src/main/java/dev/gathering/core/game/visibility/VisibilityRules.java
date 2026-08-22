@@ -33,7 +33,10 @@ import java.util.Map;
  *
  * <p>Note that a library is count-only <em>even for its owner</em>. Knowing the order of
  * your own library is not a thing you are entitled to; looking at it is a scry or a search,
- * which are events, and which the log announces.
+ * which are events, which the log announces, and which open that library to exactly one seat
+ * until something closes it again. So the one exception to the row above is stated by the
+ * board itself - {@link GameState#openCardsOf} - rather than by whichever screen happens to
+ * be showing a library at the time.
  *
  * <p>A face-down card is read by its <b>owner</b>, not by whoever currently controls it. That
  * is the conservative reading of the table above, and it is conservative on purpose: if a
@@ -84,9 +87,21 @@ public final class VisibilityRules {
     private static ZoneView zoneView(GameState state, ZoneRef ref, Viewer viewer) {
         List<CardInstanceId> contents = state.contents(ref);
 
-        // A library is a count to everybody, its owner included.
+        // A library is a count to everybody, its owner included - unless the log says this
+        // viewer is looking through it right now, in which case they see exactly as far down
+        // it as the event that opened it said they could.
         if (ref.zone() == Zone.LIBRARY) {
-            return ZoneView.countOnly(ref, contents.size());
+            int open = viewer instanceof Viewer.Seated seated
+                    ? state.openCardsOf(seated.seat(), ref.seat())
+                    : 0;
+            if (open <= 0) {
+                return ZoneView.countOnly(ref, contents.size());
+            }
+            List<CardView> top = new ArrayList<>(open);
+            for (CardInstanceId id : contents.subList(0, Math.min(open, contents.size()))) {
+                top.add(cardView(state.requireCard(id), viewer));
+            }
+            return new ZoneView(ref, contents.size(), top);
         }
 
         // A hand is full to its own seat and a count to everyone else. Spectators are

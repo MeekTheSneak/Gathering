@@ -245,8 +245,12 @@ public sealed interface GameEvent {
     }
 
     /**
-     * Opening a library to look through it. Changes nothing on its own - taking a card is a
-     * separate {@link CardMoved} - but it is very much an information boundary.
+     * Opening a library to look through it.
+     *
+     * <p>Moves no cards - taking one is a separate {@link CardMoved} - but it opens the
+     * library to the searcher until {@link LibraryClosed}, and it is very much an information
+     * boundary. Everyone at the table is told it happened, which is exactly what they would
+     * see across a real one.
      */
     record LibrarySearched(SeatId actor, SeatId seat) implements GameEvent {
         @Override
@@ -257,6 +261,20 @@ public sealed interface GameEvent {
         @Override
         public boolean revealsInformation(GameState before) {
             return true;
+        }
+    }
+
+    /**
+     * Shutting a library again.
+     *
+     * <p>Its own event rather than something a screen closing implies, because whether a
+     * library is open is server state and a client that simply stopped drawing one would
+     * still be being sent it.
+     */
+    record LibraryClosed(SeatId actor) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of("log.gathering.library_closed", actor);
         }
     }
 

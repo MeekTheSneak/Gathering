@@ -143,6 +143,7 @@ class SessionCodecTest {
                 new GameEvent.Mulliganed(a, b, 6),
                 new GameEvent.LibraryShuffled(a, b),
                 new GameEvent.LibrarySearched(a, b),
+                new GameEvent.LibraryClosed(a),
                 new GameEvent.LibraryLooked(a, b, 2),
                 new GameEvent.LibraryReordered(a, b, List.of(card), List.of(new CardInstanceId(8))),
                 new GameEvent.Surveiled(a, b, List.of(card), List.of()),

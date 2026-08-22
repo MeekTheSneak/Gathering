@@ -24,6 +24,7 @@ import java.util.Set;
  *
  * @param cards          every card in the session, by instance
  * @param zones          ordered contents of each seat's each zone
+ * @param peeks          who is currently looking through whose library; see {@link Peek}
  * @param nextCardId     the counter tokens and copies draw from
  * @param shuffleOrdinal how many shuffles have happened; the permutation for each is derived
  *                       from the session seed and this, so the log never stores an order
@@ -34,6 +35,7 @@ public record GameState(
         Map<CardInstanceId, CardInstance> cards,
         Map<ZoneRef, List<CardInstanceId>> zones,
         Map<SeatId, SeatState> seatStates,
+        Map<SeatId, Peek> peeks,
         TurnMarker turn,
         int nextCardId,
         int shuffleOrdinal,
@@ -45,6 +47,7 @@ public record GameState(
         cards = Collections.unmodifiableMap(new LinkedHashMap<>(cards));
         zones = deepImmutable(zones);
         seatStates = Collections.unmodifiableMap(new LinkedHashMap<>(seatStates));
+        peeks = peeks == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(peeks));
     }
 
     /** An empty table with the given seats, before any card has entered. */
@@ -61,7 +64,8 @@ public record GameState(
             seatStates.put(seat, SeatState.startingAt(seat, startingLife));
         }
         return new GameState(
-                seats, Map.of(), zones, seatStates, TurnMarker.start(seats.get(0)), 0, 0, 0, false);
+                seats, Map.of(), zones, seatStates, Map.of(),
+                TurnMarker.start(seats.get(0)), 0, 0, 0, false);
     }
 
     // ---------------------------------------------------------------- queries
@@ -100,6 +104,25 @@ public record GameState(
         return Optional.empty();
     }
 
+    /** What this seat is currently looking through, if anything. */
+    public Optional<Peek> peekBy(SeatId seat) {
+        return Optional.ofNullable(peeks.get(seat));
+    }
+
+    /**
+     * Whether {@code viewer} is currently entitled to see the top of {@code library}.
+     *
+     * <p>The single question the visibility rules ask about looking, phrased once here so
+     * that adding a fourth way to look at a library cannot accidentally add a fourth answer.
+     */
+    public int openCardsOf(SeatId viewer, SeatId library) {
+        Peek peek = peeks.get(viewer);
+        if (peek == null || !peek.at().equals(library)) {
+            return 0;
+        }
+        return peek.visibleCount(count(ZoneRef.of(library, Zone.LIBRARY)));
+    }
+
     public SeatState seatState(SeatId seat) {
         SeatState state = seatStates.get(seat);
         if (state == null) {
@@ -133,7 +156,7 @@ public record GameState(
         Map<CardInstanceId, CardInstance> updated = new LinkedHashMap<>(cards);
         updated.put(card.id(), card);
         return new GameState(
-                seats, updated, zones, seatStates, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, updated, zones, seatStates, peeks, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
     /** Adds a card to the session and drops it into a zone in one step. */
@@ -168,7 +191,7 @@ public record GameState(
         updated.put(into, List.copyOf(destination));
 
         GameState moved = new GameState(
-                seats, cards, updated, seatStates, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, cards, updated, seatStates, peeks, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
         return moved.settlePosition(id, into, placement);
     }
 
@@ -229,7 +252,7 @@ public record GameState(
         Map<ZoneRef, List<CardInstanceId>> updated = new LinkedHashMap<>(zones);
         updated.put(ref, List.copyOf(contents));
         return new GameState(
-                seats, cards, updated, seatStates, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, cards, updated, seatStates, peeks, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
     /** Takes a card out of the session entirely. Only tokens and copies ever leave this way. */
@@ -242,41 +265,84 @@ public record GameState(
             updatedZones.put(entry.getKey(), contents.contains(id) ? without(contents, id) : contents);
         }
         return new GameState(
-                seats, updatedCards, updatedZones, seatStates, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, updatedCards, updatedZones, seatStates, peeks, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
     public GameState withSeatState(SeatState state) {
         Map<SeatId, SeatState> updated = new LinkedHashMap<>(seatStates);
         updated.put(state.seat(), state);
         return new GameState(
-                seats, cards, zones, updated, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, cards, zones, updated, peeks, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+    }
+
+    /** Opens a library to one seat. A seat looks at one library at a time, like a person. */
+    public GameState withPeek(SeatId looker, Peek peek) {
+        Map<SeatId, Peek> updated = new LinkedHashMap<>(peeks);
+        updated.put(looker, peek);
+        return new GameState(
+                seats, cards, zones, seatStates, updated, turn, nextCardId, shuffleOrdinal,
+                markerOrdinal, ended);
+    }
+
+    /** Closes whatever this seat had open. */
+    public GameState withoutPeekBy(SeatId looker) {
+        if (!peeks.containsKey(looker)) {
+            return this;
+        }
+        Map<SeatId, Peek> updated = new LinkedHashMap<>(peeks);
+        updated.remove(looker);
+        return new GameState(
+                seats, cards, zones, seatStates, updated, turn, nextCardId, shuffleOrdinal,
+                markerOrdinal, ended);
+    }
+
+    /**
+     * Closes every look at one library.
+     *
+     * <p>What a shuffle does. Whatever anybody had open is no longer what is in front of
+     * them, and leaving it open would show them a library they are no longer looking at.
+     */
+    public GameState withoutPeeksAt(SeatId library) {
+        Map<SeatId, Peek> updated = new LinkedHashMap<>();
+        peeks.forEach((looker, peek) -> {
+            if (!peek.at().equals(library)) {
+                updated.put(looker, peek);
+            }
+        });
+        if (updated.size() == peeks.size()) {
+            return this;
+        }
+        return new GameState(
+                seats, cards, zones, seatStates, updated, turn, nextCardId, shuffleOrdinal,
+                markerOrdinal, ended);
     }
 
     public GameState withTurn(TurnMarker newTurn) {
         return new GameState(
-                seats, cards, zones, seatStates, newTurn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, cards, zones, seatStates, peeks, newTurn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
     public GameState withNextCardId(int newNextCardId) {
         return new GameState(
-                seats, cards, zones, seatStates, turn, newNextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, cards, zones, seatStates, peeks, turn, newNextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
     public GameState withShuffleOrdinal(int newShuffleOrdinal) {
         return new GameState(
-                seats, cards, zones, seatStates, turn, nextCardId, newShuffleOrdinal, markerOrdinal, ended);
+                seats, cards, zones, seatStates, peeks, turn, nextCardId, newShuffleOrdinal, markerOrdinal, ended);
     }
 
     public GameState withMarkerOrdinal(int newMarkerOrdinal) {
         return new GameState(
-                seats, cards, zones, seatStates, turn, nextCardId, shuffleOrdinal, newMarkerOrdinal, ended);
+                seats, cards, zones, seatStates, peeks, turn, nextCardId, shuffleOrdinal, newMarkerOrdinal, ended);
     }
 
     public GameState asEnded() {
         return ended
                 ? this
                 : new GameState(
-                        seats, cards, zones, seatStates, turn, nextCardId, shuffleOrdinal, markerOrdinal, true);
+                        seats, cards, zones, seatStates, peeks, turn, nextCardId, shuffleOrdinal,
+                        markerOrdinal, true);
     }
 
     /** Cards grouped by the zone kind they sit in, for the renderers and for tests. */

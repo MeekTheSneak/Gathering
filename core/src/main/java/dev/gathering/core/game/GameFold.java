@@ -64,10 +64,18 @@ public final class GameFold {
 
             case GameEvent.LibraryShuffled shuffled -> shuffleLibrary(state, shuffled.seat(), seed);
 
-            // Looking changes nothing. Taking a card afterwards is a separate move, and that
-            // separation is what lets the log say "searched" without saying "found".
-            case GameEvent.LibrarySearched ignored -> state;
-            case GameEvent.LibraryLooked ignored -> state;
+            // Looking moves nothing. Taking a card afterwards is a separate move, and that
+            // separation is what lets the log say "searched" without saying "found". What it
+            // does do is open the library to the one seat doing the looking, which is the
+            // only way a library is ever anything but a number.
+            case GameEvent.LibrarySearched searched ->
+                    state.withPeek(searched.actor(), Peek.search(searched.seat()));
+
+            case GameEvent.LibraryLooked looked ->
+                    state.withPeek(looked.actor(), Peek.top(looked.seat(), looked.count()));
+
+            case GameEvent.LibraryClosed closed -> state.withoutPeekBy(closed.actor());
+
             case GameEvent.CardPinged ignored -> state;
 
             case GameEvent.LibraryReordered reordered -> reorderLibrary(state, reordered);
@@ -188,11 +196,20 @@ public final class GameFold {
 
     // ------------------------------------------------------------ pile verbs
 
+    /**
+     * A shuffle, and the end of anybody's look at that library.
+     *
+     * <p>Closing the look is not tidiness. Whatever somebody had open is no longer in front of
+     * them once the order has changed, and leaving it open would keep sending them a library
+     * they are not looking at any more - which is the same leak as never having closed it.
+     */
     private static GameState shuffleLibrary(GameState state, SeatId seat, SessionSeed seed) {
         ZoneRef library = ZoneRef.of(seat, Zone.LIBRARY);
         int ordinal = state.shuffleOrdinal();
         List<CardInstanceId> shuffled = seed.shuffle(state.contents(library), seat, ordinal);
-        return state.withZone(library, shuffled).withShuffleOrdinal(ordinal + 1);
+        return state.withZone(library, shuffled)
+                .withShuffleOrdinal(ordinal + 1)
+                .withoutPeeksAt(seat);
     }
 
     private static GameState reorderLibrary(GameState state, GameEvent.LibraryReordered event) {
@@ -202,7 +219,8 @@ public final class GameFold {
         List<CardInstanceId> updated = new ArrayList<>(event.onTop());
         updated.addAll(rest);
         updated.addAll(event.toBottom());
-        return state.withZone(library, updated);
+        // Deciding is the end of looking: the cards have been put back and the decision made.
+        return state.withZone(library, updated).withoutPeekBy(event.actor());
     }
 
     private static GameState surveil(GameState state, GameEvent.Surveiled event) {
@@ -217,7 +235,7 @@ public final class GameFold {
         for (CardInstanceId id : event.toGraveyard()) {
             result = result.place(id, graveyard, Placement.TOP);
         }
-        return result;
+        return result.withoutPeekBy(event.actor());
     }
 
     /** The library minus the cards the player made a decision about, order preserved. */

@@ -5,6 +5,7 @@
   "itemGroup.gathering.main": "Gathering",
   "key.categories.gathering": "Gathering",
   "key.gathering.zoom": "Read card",
+  "log.gathering.library_closed": "%s stopped looking through the library",
   "menu.gathering.move_to_commanders": "Move to command zone",
   "menu.gathering.move_to_mainboard": "Move to deck",
   "menu.gathering.move_to_sideboard": "Move to sideboard",
