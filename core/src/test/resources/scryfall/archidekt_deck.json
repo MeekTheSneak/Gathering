@@ -1,0 +1,91 @@
+{
+  "id": 1,
+  "name": "Fun With Fungus",
+  "categories": [
+    {
+      "name": "Commander",
+      "isPremier": true,
+      "includedInDeck": true
+    },
+    {
+      "name": "Maybeboard",
+      "isPremier": false,
+      "includedInDeck": false
+    },
+    {
+      "name": "Scrapped",
+      "isPremier": false,
+      "includedInDeck": false
+    }
+  ],
+  "cards": [
+    {
+      "quantity": 1,
+      "modifier": "Normal",
+      "categories": [
+        "Commander"
+      ],
+      "card": {
+        "uid": "92b0be6d-9183-4938-b7a1-ae7f04ba78a0",
+        "collectorNumber": "227",
+        "displayName": null,
+        "oracleCard": {
+          "name": "Thelon of Havenwood"
+        },
+        "edition": {
+          "editioncode": "tsp"
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "modifier": "Normal",
+      "categories": [
+        "Maybeboard"
+      ],
+      "card": {
+        "uid": "480c2b30-c2c2-4b8b-ae0f-9f03732f92a1",
+        "collectorNumber": "16",
+        "displayName": null,
+        "oracleCard": {
+          "name": "Mana Crypt"
+        },
+        "edition": {
+          "editioncode": "mps"
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "modifier": "Foil",
+      "categories": null,
+      "card": {
+        "uid": "de42a771-4f5c-4295-b070-8cb857a0279e",
+        "collectorNumber": "56",
+        "displayName": null,
+        "oracleCard": {
+          "name": "Spread the Sickness"
+        },
+        "edition": {
+          "editioncode": "mbs"
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "modifier": "Normal",
+      "categories": null,
+      "card": {
+        "uid": "52341830-8cea-421f-b901-9229004f2d45",
+        "collectorNumber": "87",
+        "displayName": null,
+        "oracleCard": {
+          "name": "Plaguemaw Beast"
+        },
+        "edition": {
+          "editioncode": "mbs"
+        }
+      }
+    }
+  ]
+}

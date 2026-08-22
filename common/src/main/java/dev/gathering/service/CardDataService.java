@@ -60,7 +60,8 @@ public final class CardDataService implements AutoCloseable {
         this.store = new DiskCardMetadataStore(cacheRoot);
         this.client = new ScryfallClient(new JdkHttpTransport(), RateLimiter.defaultLimiter(), userAgent);
         this.source = new CachingCardSource(store, client);
-        this.importer = new DeckImporter(source);
+        this.importer = new DeckImporter(
+                source, new dev.gathering.core.deck.ArchidektDeckSource(new JdkHttpTransport(), userAgent));
     }
 
     /** Builds the service from what the loader knows about this installation. */

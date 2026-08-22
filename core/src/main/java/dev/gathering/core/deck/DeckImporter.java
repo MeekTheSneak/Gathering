@@ -4,6 +4,7 @@ import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.decklist.DecklistEntry;
 import dev.gathering.core.decklist.DecklistParser;
+import dev.gathering.core.decklist.ParseProblem;
 import dev.gathering.core.decklist.ParsedDecklist;
 import dev.gathering.core.scryfall.CardQuery;
 import dev.gathering.core.scryfall.CollectionResult;
@@ -28,14 +29,50 @@ import java.util.Optional;
 public final class DeckImporter {
 
     private final CardSource source;
+    private final ArchidektDeckSource archidekt;
 
     public DeckImporter(CardSource source) {
-        this.source = java.util.Objects.requireNonNull(source, "source");
+        this(source, null);
     }
 
-    /** Parse and resolve in one step, which is what the import screen actually calls. */
+    /**
+     * @param archidekt the deck-site reader, or null on a build with no outbound access;
+     *                  a link pasted without one is reported rather than silently ignored
+     */
+    public DeckImporter(CardSource source, ArchidektDeckSource archidekt) {
+        this.source = java.util.Objects.requireNonNull(source, "source");
+        this.archidekt = archidekt;
+    }
+
+    /**
+     * Parse and resolve in one step, which is what the import screen actually calls.
+     *
+     * <p>Accepts either a decklist or a single link to one. A link is the thing people
+     * actually have in their clipboard, and a full text export does not fit in a chat
+     * command, so pasting the link has to work.
+     */
     public ResolvedDeck importText(String decklistText) throws IOException {
+        Optional<DeckLink> link = DeckLink.parse(decklistText == null ? "" : decklistText.strip());
+        if (link.isPresent()) {
+            return resolve(fetchLinked(link.get()));
+        }
         return resolve(DecklistParser.parse(decklistText));
+    }
+
+    /** Reads a deck from the site it lives on, or explains why it cannot. */
+    private ParsedDecklist fetchLinked(DeckLink link) throws IOException {
+        if (!link.provider().isFetchable()) {
+            return problemOnly(link.describeUnfetchable());
+        }
+        if (archidekt == null) {
+            return problemOnly("Reading decks from " + link.provider().displayName()
+                    + " is not available on this server. Paste the text export instead.");
+        }
+        return archidekt.fetch(link);
+    }
+
+    private static ParsedDecklist problemOnly(String reason) {
+        return new ParsedDecklist(null, List.of(), List.of(new ParseProblem(1, "", reason)));
     }
 
     public ResolvedDeck resolve(ParsedDecklist parsed) throws IOException {
@@ -102,6 +139,11 @@ public final class DeckImporter {
     }
 
     private static CardQuery primaryQuery(DecklistEntry entry) {
+        // An exact printing beats every hint: a deck site that told us the Scryfall id has
+        // left nothing to resolve, including which half of a split card we meant.
+        if (entry.scryfallId() != null) {
+            return CardQuery.byId(entry.scryfallId());
+        }
         if (entry.setCode() != null && entry.collectorNumber() != null) {
             return CardQuery.byPrinting(entry.setCode(), entry.collectorNumber());
         }

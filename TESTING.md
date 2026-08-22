@@ -55,7 +55,20 @@ in full resolution.*
 /gathering import
 ```
 
-A box opens. Paste a real list — Moxfield, Archidekt, Arena and MTGO exports all work, as do
+Run it **with nothing after it** — that opens a paste box with no length limit. Typing the
+list after the command instead sends it through chat, which caps at 256 characters and will
+never fit a real deck.
+
+Into the box you can paste either:
+
+**An Archidekt link** — `https://archidekt.com/decks/1234567/whatever`. The deck is read
+straight from Archidekt, which hands over exact printings, so nothing is guessed.
+
+Moxfield links are recognised but can't be read: their API refuses other tools, and working
+around that isn't something the mod will do. Use Moxfield's More → Export → Text and paste
+that instead.
+
+**Or the decklist text.** Paste a real list — Moxfield, Archidekt, Arena and MTGO exports all work, as do
 plain `1 Sol Ring` lines. Something like:
 
 ```

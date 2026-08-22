@@ -152,6 +152,14 @@ cannot be inferred from reading the code.
 - **Scryfall's collection endpoint answers, but does not echo, the raw JSON per query.**
   Keep each card's original body alongside the parsed model (`CollectionResult#raw`) or the
   disk cache ends up storing a re-serialisation of only the fields today's codec reads.
+- **A pasted deck link makes the server fetch a URL, so the host list is an allowlist.**
+  `DeckLink` matches whole known hosts and rebuilds the address from the deck id; nothing a
+  player typed reaches the network verbatim. Without that, any player could point the server
+  at a metadata endpoint or an internal service and read the answer. The hostile-input cases
+  are in `DeckLinkTest` - add to them before adding a provider.
+- **Archidekt sends `"categories": null` for an uncategorised card**, not an empty list, and
+  its deck entries carry the printing's Scryfall id in `card.uid` - which is why a link
+  import resolves exactly where a text export can only guess.
 - **Scryfall's collection endpoint refuses combined card names.** `{"name": "Fire // Ice"}`
   comes back not-found; `{"name": "Fire"}` returns the whole card. Same for transform and
   modal double-faced cards - "Delver of Secrets // Insectile Aberration" fails, "Delver of
