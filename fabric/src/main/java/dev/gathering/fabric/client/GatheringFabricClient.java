@@ -79,7 +79,15 @@ public final class GatheringFabricClient implements ClientModInitializer {
         // Vanilla keeps the hovered slot private to the container screen, so the tooltip
         // callback - which already knows which stack it is describing - is where the overlay
         // learns it.
-        ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> ClientHoverState.setHovered(stack));
+        // Fabric has no cancellable tooltip render event, so the tooltip is emptied instead
+        // and vanilla skips drawing it. Safe here because this only ever fires for a card,
+        // and a card has no tooltip image - an empty list plus an image is what would throw.
+        ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> {
+            ClientHoverState.setHovered(stack);
+            if (CardZoomOverlay.replacesTooltipFor(stack)) {
+                lines.clear();
+            }
+        });
 
         // The tooltip callback only fires when there is a tooltip, so without clearing first
         // the last card the cursor touched would keep answering for every empty slot after it.
@@ -99,14 +107,17 @@ public final class GatheringFabricClient implements ClientModInitializer {
                 Minecraft.getInstance().getWindow().getGuiScaledWidth(),
                 Minecraft.getInstance().getWindow().getGuiScaledHeight()));
 
-        // Over an open screen the HUD callback does not run, so the overlay needs its own
-        // hook there; drawn after the screen so it sits above slots and tooltips alike.
+        // Over an open screen the HUD callback does not run, so the inspect panel needs its
+        // own hook there; drawn after the screen so it sits above slots and the vanilla
+        // tooltip it replaces.
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) ->
                 ScreenEvents.afterRender(screen).register(
-                        (rendered, graphics, mouseX, mouseY, tickDelta) -> CardZoomOverlay.render(
+                        (rendered, graphics, mouseX, mouseY, tickDelta) -> CardZoomOverlay.renderAtCursor(
                                 graphics,
                                 client.getWindow().getGuiScaledWidth(),
-                                client.getWindow().getGuiScaledHeight())));
+                                client.getWindow().getGuiScaledHeight(),
+                                mouseX,
+                                mouseY)));
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             // What one server told us is not true of the next one.

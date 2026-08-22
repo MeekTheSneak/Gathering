@@ -233,3 +233,21 @@ cannot be inferred from reading the code.
   frame. A screen built from a snapshot would show the deck as it was before every edit the
   server applied, and there is no packet pushing a fresh copy at it - held-item sync already
   does that.
+- **The carried stack's `overrideStackedOnOther` runs before the slot stack's
+  `overrideOtherStackedOnMe`.** Both fire from `tryItemClickBehaviourOverride`, first match
+  wins, so which item implements which hook decides who handles a click. Card-onto-card is
+  handled by the card *in the slot*, which is also the only one of the two hooks handed a
+  `SlotAccess` for the cursor.
+- **A card is drawn for reading in exactly one place**, `CardInspectPanel`, in three
+  geometries: beside the cursor, into a box a screen set aside, and filling the screen.
+  `CardZoomOverlay` decides whether and what; it does no drawing. A second card renderer is
+  how the table view and the inventory view drift apart.
+- **The inspect panel replaces the vanilla tooltip, it does not cover it.** Both draw in the
+  same place, and the tooltip's Scryfall attribution line is wider than the panel, so a
+  covered tooltip peeks out around the edges. NeoForge cancels `RenderTooltipEvent.Pre`;
+  Fabric has no cancellable equivalent, so `ItemTooltipCallback` empties the line list and
+  vanilla skips drawing. Emptying is only safe because a card has no tooltip image -
+  `GuiGraphics#renderTooltip` does `list.add(1, image)`, which throws on an empty list.
+- **The Scryfall credit is pinned to the bottom of a panel with its height reserved**, never
+  flowed in with the oracle text. Flowed, it is the first thing a wordy card pushes off the
+  end - and it is the one line that is not allowed to be optional.

@@ -153,12 +153,19 @@ public final class GatheringNeoForgeClient {
         }
     }
 
-    /** The overlay over an open screen, for a card in a slot. Drawn last, over the tooltip. */
+    /**
+     * The inspect panel over an open screen, beside the cursor.
+     *
+     * <p>Drawn last, so it sits over the vanilla tooltip it replaces rather than fighting it
+     * for the same patch of screen.
+     */
     private static void onRenderScreen(ScreenEvent.Render.Post event) {
-        CardZoomOverlay.render(
+        CardZoomOverlay.renderAtCursor(
                 event.getGuiGraphics(),
                 Minecraft.getInstance().getWindow().getGuiScaledWidth(),
-                Minecraft.getInstance().getWindow().getGuiScaledHeight());
+                Minecraft.getInstance().getWindow().getGuiScaledHeight(),
+                event.getMouseX(),
+                event.getMouseY());
     }
 
     /**
@@ -167,6 +174,10 @@ public final class GatheringNeoForgeClient {
      */
     private static void onRenderTooltip(RenderTooltipEvent.Pre event) {
         ClientHoverState.setHovered(event.getItemStack());
+        if (CardZoomOverlay.replacesTooltipFor(event.getItemStack())) {
+            // The inspect panel is about to draw in this exact spot and says more.
+            event.setCanceled(true);
+        }
     }
 
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {

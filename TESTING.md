@@ -109,11 +109,20 @@ The card renders as **the actual card** in your hand and in the inventory, not a
 icon. **Right-click** to turn it over: a double-faced card shows its other side, anything else
 shows its back.
 
-Then **hold Left Alt** with the card in your hand, or over it in your inventory.
+Then **hold Left Alt** — over the card in your inventory, or with it in your hand out in the
+world.
 
-**What should happen:** the card fills the screen at full resolution with its oracle text
-beside it. The first look at a given card fetches the art — you may see "Fetching card
-art..." for a moment, then it should be instant forever after, including across restarts.
+**What should happen:** two shapes, on purpose.
+
+- **In a screen** (inventory, chest, anywhere with a cursor) you get a small enclosed panel
+  that follows the mouse, sitting where the tooltip would and replacing it. This is the
+  inspect panel the table will use for cards in play, so it is worth telling me if the size
+  or the position is wrong.
+- **Out in the world**, with a card in hand and no screen open, there is no cursor to sit
+  beside, so the card fills the screen instead.
+
+The first look at a given card fetches the art — you may see "Fetching card art..." for a
+moment, then it should be instant forever after, including across restarts.
 
 Try `/gathering card Delver of Secrets` — a double-faced card should show **both halves**
 side by side.
@@ -123,15 +132,20 @@ side by side.
 **Right-click a deck** to open its list. It sits against the left edge of the screen, grouped
 by zone with copies collapsed the way a decklist reads.
 
-- **Hold Left Alt** over any row and that card is drawn full size in the space to the right,
-  with its oracle text under it. Nothing covers the list, so you can run down it reading each
-  card in turn.
+- **Just hover a row** — no key to hold — and that card is drawn full size in the space to
+  the right, with its oracle text under it. Nothing covers the list, so you can run down it
+  reading each card in turn.
 - **Left-click a row** to take one copy out of the deck. It goes into your inventory, or onto
   the floor if there is no room — a card is never destroyed to make space.
 - **Right-click a row** to make that card a commander. Right-click it again in the command
   zone to send it back to the deck.
 - **Put cards back the way you fill a bundle**: hold a card on the cursor and right-click the
   deck, or hold the deck and right-click a card. Either way the card goes into the deck.
+
+**You can also start a deck from nothing.** Pick up a card in your inventory and right-click
+it onto another card — the two become a deck, and the same click adds a third. That deck has
+no name, so it just reads "Deck" until you give it one; everything else about it works like an
+imported deck, including the list screen.
 
 There is deliberately **no bundle-style way to take a card out**. Right-clicking a deck with
 an empty cursor does nothing, because pulling an unseen card off a hundred-card deck is a
@@ -155,8 +169,10 @@ In rough order of how much it would change what I build next:
    me if they are badly off and I will fix the defaults. Editing
    `neoforge/build/resources/main/assets/gathering/models/item/card.json` and pressing
    **F3+T** in game applies the change immediately, with no rebuild.
-2. **Is Left Alt right?** It conflicts with nothing I know of, but you'll find out in a
-   minute what I can't.
+2. **Is Left Alt right, and is the cursor panel the right size?** The key conflicts with
+   nothing I know of, but you'll find out in a minute what I can't. The panel sizes its art
+   to 45% of the screen height and shrinks it further on a wordy card to keep the text on
+   screen — both numbers are guesses.
 3. **Is the sidebar readable** — width, wrapping, whether oracle text gets cut off on a
    wordy card. Try `/gathering card Kozilek, Butcher of Truth`.
 4. **Does import feel fast enough** to paste a 100-card list without wondering if it hung?
@@ -168,6 +184,8 @@ In rough order of how much it would change what I build next:
   phase and it's gated on this one working.
 - **No collection block.** Specified in the design brief, phase 3.
 - **Cards don't stack, and there's no way to get rid of one** except dropping it.
+- **No way to name a deck after the fact.** Import names one; a deck started from two cards
+  cannot be renamed yet.
 - **No deck legality check anywhere.** Setting a card as a commander asks no questions; the
   format validator exists but nothing calls it until there is a table to sit at.
 

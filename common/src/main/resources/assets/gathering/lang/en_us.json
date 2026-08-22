@@ -39,5 +39,6 @@
   "tooltip.gathering.foil": "Foil",
   "tooltip.gathering.open_deck": "Right-click to look inside",
   "tooltip.gathering.scryfall_attribution": "Card data courtesy of Scryfall",
-  "tooltip.gathering.sideboard_size": "%s in sideboard"
+  "tooltip.gathering.sideboard_size": "%s in sideboard",
+  "tooltip.gathering.start_deck": "Right-click onto another card to start a deck"
 }

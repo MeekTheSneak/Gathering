@@ -103,12 +103,16 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /** The deck the player is holding right now, which is the only one this screen shows. */
     private Optional<DeckComponent> deck() {
+        return heldStack().flatMap(DeckItem::deckOf);
+    }
+
+    private Optional<ItemStack> heldStack() {
         Player player = this.minecraft == null ? null : this.minecraft.player;
         if (player == null) {
             return Optional.empty();
         }
         ItemStack stack = player.getItemInHand(hand);
-        return stack.getItem() instanceof DeckItem ? DeckItem.deckOf(stack) : Optional.empty();
+        return stack.getItem() instanceof DeckItem ? Optional.of(stack) : Optional.empty();
     }
 
     /**
@@ -174,10 +178,16 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         }
     }
 
-    /** The deck's own name, read live, because the player may rename it elsewhere. */
+    /**
+     * The item's own name, read live, because the player may rename the deck elsewhere.
+     *
+     * <p>Through the stack rather than through {@code DeckComponent#name}, so a deck with no
+     * name - one started by putting two cards together - is headed "Deck" rather than by an
+     * empty line.
+     */
     @Override
     public Component getTitle() {
-        return deck().map(DeckComponent::name).<Component>map(Component::literal).orElseGet(Component::empty);
+        return heldStack().map(ItemStack::getHoverName).orElseGet(Component::empty);
     }
 
     @Override
@@ -202,7 +212,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
         int hovered = rowAt(mouseX, mouseY);
         renderHint(graphics, hovered);
-        if (CardZoomOverlay.isActive() && hovered >= 0) {
+        if (hovered >= 0) {
             renderPreview(graphics, rows.get(hovered));
         }
     }
@@ -262,7 +272,14 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
                 listLeft(), listTop() + listHeight() + GAP, PENDING_COLOUR, false);
     }
 
-    /** The hovered card, full size, in the space to the right of the list. */
+    /**
+     * The hovered card, full size, in the space to the right of the list.
+     *
+     * <p>No key to hold. Reading down a decklist is the whole purpose of this screen, and a
+     * modifier you have to keep pressed for a hundred rows is a toll on the one thing the
+     * screen exists to do. The space is already reserved, so nothing is covered by showing
+     * it.
+     */
     private void renderPreview(GuiGraphics graphics, Row row) {
         int regionLeft = panelLeft() + panelWidth() + GAP * 2;
         int regionWidth = this.width - MARGIN - regionLeft;
@@ -272,7 +289,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         int width = Math.min(regionWidth, MAXIMUM_PREVIEW_WIDTH);
         int left = regionLeft + (regionWidth - width) / 2;
         ClientCardCache.get().summary(row.card()).ifPresent(summary ->
-                CardZoomOverlay.renderInto(graphics, summary, left, MARGIN, width, this.height - MARGIN * 2));
+                CardInspectPanel.renderInto(graphics, summary, left, MARGIN, width, this.height - MARGIN * 2));
     }
 
     /**

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.SlotAccess;
@@ -80,6 +81,7 @@ public class DeckItem extends Item {
             return insertable(cards);
         }
         insert(stack, slot.safeTake(room, room, player));
+        playAssembleSound(player);
         return true;
     }
 
@@ -94,9 +96,21 @@ public class DeckItem extends Item {
         if (room <= 0) {
             return insertable(other);
         }
-        ItemStack taken = other.split(room);
-        insert(stack, taken);
+        insert(stack, other.split(room));
+        playAssembleSound(player);
         return true;
+    }
+
+    /**
+     * The click of a card going into a deck, or of two cards becoming one.
+     *
+     * <p>The vanilla bundle sound, because this is the vanilla bundle gesture and a silent
+     * one reads as a click that did not register. {@code Player#playSound} excludes the
+     * player it is given, so running this on both sides plays it exactly once.
+     */
+    static void playAssembleSound(Player player) {
+        player.playSound(
+                SoundEvents.BUNDLE_INSERT, 0.8f, 0.8f + player.level().getRandom().nextFloat() * 0.4f);
     }
 
     private static boolean isInsertClick(ItemStack deck, ClickAction action) {

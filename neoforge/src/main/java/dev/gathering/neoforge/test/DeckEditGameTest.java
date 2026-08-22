@@ -140,6 +140,74 @@ public final class DeckEditGameTest {
     }
 
     @GameTest(template = "empty")
+    public static void twoCardsBecomeAnUnnamedDeck(GameTestHelper helper) {
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        ItemStack inSlot = CardItem.of(SOL);
+        ItemStack carried = CardItem.of(LIGHTNING);
+        Slot slot = slotHolding(inSlot);
+
+        boolean handled = inSlot.getItem().overrideOtherStackedOnMe(
+                inSlot, carried, slot, ClickAction.SECONDARY, player, carriedAccess(carried));
+
+        if (!handled) {
+            helper.fail("A card refused another card");
+        }
+        DeckComponent made = deckIn(slot.getItem());
+        if (!made.entries().equals(List.of(SOL, LIGHTNING))) {
+            helper.fail("The new deck holds the wrong cards: " + made.entries());
+        }
+        if (!made.name().isEmpty()) {
+            helper.fail("A deck started from two cards should have no name, got " + made.name());
+        }
+        if (!made.owner().equals(Optional.of(player.getUUID()))) {
+            helper.fail("A deck started from two cards is not owned by whoever made it");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aDeckStartedFromTwoCardsTakesAThird(GameTestHelper helper) {
+        // The point of the gesture: the same click that made the deck keeps filling it.
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        ItemStack inSlot = CardItem.of(SOL);
+        ItemStack first = CardItem.of(LIGHTNING);
+        Slot slot = slotHolding(inSlot);
+
+        inSlot.getItem().overrideOtherStackedOnMe(
+                inSlot, first, slot, ClickAction.SECONDARY, player, carriedAccess(first));
+
+        ItemStack deckStack = slot.getItem();
+        ItemStack third = CardItem.of(SOL);
+        deckStack.getItem().overrideOtherStackedOnMe(
+                deckStack, third, slot, ClickAction.SECONDARY, player, carriedAccess(third));
+
+        if (deckIn(slot.getItem()).entries().size() != 3) {
+            helper.fail("The third card did not join: " + deckIn(slot.getItem()).entries());
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aBlankCardStartsNothing(GameTestHelper helper) {
+        // The creative-mode card with no component: there is no identity to put in a deck.
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        ItemStack inSlot = CardItem.of(SOL);
+        ItemStack blank = new ItemStack(dev.gathering.item.GatheringContent.CARD.get());
+        Slot slot = slotHolding(inSlot);
+
+        boolean handled = inSlot.getItem().overrideOtherStackedOnMe(
+                inSlot, blank, slot, ClickAction.SECONDARY, player, carriedAccess(blank));
+
+        if (handled) {
+            helper.fail("A blank card was made into a deck");
+        }
+        if (!(slot.getItem().getItem() instanceof CardItem)) {
+            helper.fail("The card in the slot stopped being a card");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void cardsGoIntoADeckLikeABundle(GameTestHelper helper) {
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         ItemStack deckStack = DeckItem.of(deck(List.of(SOL), List.of(), List.of()));
@@ -271,6 +339,12 @@ public final class DeckEditGameTest {
             helper.fail("A deck ate something that was not a card");
         }
         helper.succeed();
+    }
+
+    /** Stands in for the container menu's carried-stack access. */
+    private static net.minecraft.world.entity.SlotAccess carriedAccess(ItemStack carried) {
+        ItemStack[] held = {carried};
+        return net.minecraft.world.entity.SlotAccess.of(() -> held[0], stack -> held[0] = stack);
     }
 
     private static Slot slotHolding(ItemStack stack) {

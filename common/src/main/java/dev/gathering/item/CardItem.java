@@ -9,7 +9,10 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.SlotAccess;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -55,6 +58,54 @@ public class CardItem extends Item {
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
 
+    /**
+     * Right-clicking one card onto another makes a deck of the two.
+     *
+     * <p>Every deck otherwise has to start at the import screen, which is the wrong shape for
+     * the way a deck actually comes together: you pick cards up, and at some point two of
+     * them are the start of something. This is that moment, and it uses the gesture already
+     * in the player's hands - the same right-click that adds a third card to the deck it just
+     * made.
+     *
+     * <p>The deck has no name. Naming a pile of two cards is a decision to make later, and
+     * an unnamed deck reads as "Deck" on the item rather than as a blank.
+     */
+    @Override
+    public boolean overrideOtherStackedOnMe(
+            ItemStack stack, ItemStack other, Slot slot, ClickAction action, Player player, SlotAccess access) {
+        if (action != ClickAction.SECONDARY || !slot.allowModification(player)) {
+            return false;
+        }
+        // Cards never stack, so anything holding more than one is not a card the player is
+        // looking at and should be left to vanilla.
+        if (stack.getCount() != 1 || other.getCount() != 1 || !(other.getItem() instanceof CardItem)) {
+            return false;
+        }
+        Optional<CardComponent> beneath = cardOf(stack);
+        Optional<CardComponent> carried = cardOf(other);
+        if (beneath.isEmpty() || carried.isEmpty()) {
+            // A blank creative card carries no identity, so there is nothing to put in a deck.
+            return false;
+        }
+
+        ItemStack deck = DeckItem.of(new DeckComponent(
+                "",
+                "",
+                Optional.of(player.getUUID()),
+                List.of(beneath.get().faceUp(), carried.get().faceUp()),
+                List.of(),
+                List.of()));
+        if (!slot.mayPlace(deck)) {
+            // Somewhere a deck cannot go - a fuel slot, a crafting result. Leave the cards be.
+            return false;
+        }
+
+        slot.setByPlayer(deck);
+        access.set(ItemStack.EMPTY);
+        DeckItem.playAssembleSound(player);
+        return true;
+    }
+
     @Override
     public Component getName(ItemStack stack) {
         return cardOf(stack)
@@ -82,6 +133,8 @@ public class CardItem extends Item {
             }
         });
         tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".flip_card")
+                .withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".start_deck")
                 .withStyle(ChatFormatting.DARK_GRAY));
         // Attribution where card data appears, per the Scryfall API guidelines.
         tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".scryfall_attribution")
