@@ -139,6 +139,11 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> Minecraft.getInstance().setScreen(new DecklistImportScreen()));
             return;
         }
+        if (payload instanceof dev.gathering.network.OpenTableSetupPayload setup) {
+            context.enqueueWork(() -> Minecraft.getInstance()
+                    .setScreen(new dev.gathering.client.TableSetupScreen(setup.table())));
+            return;
+        }
         if (payload instanceof dev.gathering.network.TableViewPayload table) {
             context.enqueueWork(() -> acceptTableView(table));
             return;

@@ -6,13 +6,15 @@ import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
+import dev.gathering.network.OpenTableSetupPayload;
 import dev.gathering.network.RequestCardMetadataPayload;
+import dev.gathering.network.StartTablePayload;
 import dev.gathering.network.TableActionPayload;
 import dev.gathering.network.TableViewPayload;
 import dev.gathering.server.CardMetadataRequests;
 import dev.gathering.server.DeckEdits;
-import dev.gathering.server.TableActions;
 import dev.gathering.server.DecklistImport;
+import dev.gathering.server.TableActions;
 import dev.gathering.service.CardDataService;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -36,11 +38,14 @@ final class GatheringNetwork {
                 RequestCardMetadataPayload.TYPE, RequestCardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(DeckEditPayload.TYPE, DeckEditPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(TableActionPayload.TYPE, TableActionPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(StartTablePayload.TYPE, StartTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(TableViewPayload.TYPE, TableViewPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CloseTablePayload.TYPE, CloseTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(ImportResultPayload.TYPE, ImportResultPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(OpenImportScreenPayload.TYPE, OpenImportScreenPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                OpenTableSetupPayload.TYPE, OpenTableSetupPayload.STREAM_CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(ImportDecklistPayload.TYPE, (payload, context) -> {
             CardDataService service = CardDataService.active().orElse(null);
@@ -64,5 +69,8 @@ final class GatheringNetwork {
 
         ServerPlayNetworking.registerGlobalReceiver(TableActionPayload.TYPE, (payload, context) ->
                 TableActions.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(StartTablePayload.TYPE, (payload, context) ->
+                dev.gathering.server.TableSetup.handle(context.player(), payload));
     }
 }

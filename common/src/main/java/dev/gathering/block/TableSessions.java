@@ -13,8 +13,11 @@ import dev.gathering.core.table.TableCluster;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import dev.gathering.item.DeckItem;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 
@@ -129,6 +132,7 @@ public final class TableSessions {
             return Outcome.NOT_RUNNING;
         }
         table.session().ifPresent(session -> session.submit(new GameEvent.SessionEnded(actor, reason)));
+        returnDecks(level, tableOrigin, table);
         table.endSession();
         // Told before it is forgotten, or everyone at the table keeps looking at the last
         // board they were sent - which is worse than an empty screen, because it looks live.
@@ -136,6 +140,35 @@ public final class TableSessions {
             dev.gathering.server.TableBroadcast.closeAtTable(server, tableOrigin);
         }
         return Outcome.ENDED;
+    }
+
+    /**
+     * Gives every deck back to whoever put it down.
+     *
+     * <p>To the player if they are still here, and onto the table if they are not - never
+     * nowhere. A deck is somebody's collection and hours of building; losing one because its
+     * owner logged out before the game ended is not a trade-off, it is a bug with an
+     * explanation attached.
+     */
+    public static void returnDecks(Level level, BlockPos tableOrigin, TableBlockEntity table) {
+        List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
+        table.releaseDecks().forEach((seat, deck) -> {
+            ItemStack stack = DeckItem.of(deck);
+            Player owner = seat.index() < anchors.size()
+                    ? occupantOf(level, tableOrigin, anchors.get(seat.index())).orElse(null)
+                    : null;
+            if (owner == null || !owner.getInventory().add(stack)) {
+                Containers.dropItemStack(level,
+                        tableOrigin.getX() + 0.5, tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
+            }
+        });
+    }
+
+    private static Optional<Player> occupantOf(Level level, BlockPos tableOrigin, SeatAnchor seat) {
+        return TableBlock
+                .entityAt(level, TableClusters.blockPos(tableOrigin, seat.cell()))
+                .flatMap(table -> table.occupantOf(seat.side()))
+                .map(level::getPlayerByUUID);
     }
 
     /** Which session seat a player holds at this cluster, if any. */

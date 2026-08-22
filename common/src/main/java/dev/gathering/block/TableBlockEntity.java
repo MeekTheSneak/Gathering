@@ -1,15 +1,18 @@
 package dev.gathering.block;
 
 import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.persistence.SessionCipher;
 import dev.gathering.core.game.persistence.StoredSession;
 import dev.gathering.core.match.MatchRules;
 import dev.gathering.core.match.MatchState;
 import dev.gathering.core.table.Side;
+import dev.gathering.item.DeckComponent;
 import dev.gathering.server.SessionKeyring;
 import java.io.IOException;
 import javax.crypto.SecretKey;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,6 +58,9 @@ public class TableBlockEntity extends BlockEntity {
     private static final String BEST_OF_KEY = "best_of";
     private static final String GAME_NUMBER_KEY = "game_number";
     private static final String WINS_KEY = "wins";
+    private static final String DECKS_KEY = "decks";
+    private static final String DECK_SEAT_KEY = "seat";
+    private static final String DECK_KEY = "deck";
 
     /** Two seconds. Ambience, not gameplay - moves are pushed as they happen. */
     private static final int AMBIENT_INTERVAL_TICKS = 40;
@@ -89,6 +95,21 @@ public class TableBlockEntity extends BlockEntity {
      * fact at a table.
      */
     private MatchState match;
+
+    /**
+     * The decks that were put down on this table, held until the match is over.
+     *
+     * <p>A deck committed to a game used to be a deck destroyed: the item was consumed, the
+     * library and commanders went into the session, and the sideboard went nowhere at all.
+     * Ending the game then left its owner with nothing, which is not something a table may do
+     * to somebody's deck.
+     *
+     * <p>So the table is a deckbox for the duration. It holds each seat's whole deck -
+     * sideboard included, which is the only reason sideboarding between games is possible at
+     * all - hands it back when the match ends, and is saved with the world, because a server
+     * restart mid-match must not eat four decks.
+     */
+    private final Map<SeatId, DeckComponent> decks = new LinkedHashMap<>();
 
     public TableBlockEntity(BlockPos pos, BlockState state) {
         super(dev.gathering.item.GatheringContent.TABLE_ENTITY.get(), pos, state);
@@ -133,16 +154,55 @@ public class TableBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** Takes a seat's deck into the table's keeping for the rest of the match. */
+    public void holdDeck(SeatId seat, DeckComponent deck) {
+        decks.put(seat, deck);
+        setChanged();
+    }
+
+    public Optional<DeckComponent> deckOf(SeatId seat) {
+        return Optional.ofNullable(decks.get(seat));
+    }
+
+    /** Every deck the table is holding, in seat order. */
+    public Map<SeatId, DeckComponent> heldDecks() {
+        return Map.copyOf(decks);
+    }
+
+    /** Hands the decks back and forgets them, which is what the end of a match is. */
+    public Map<SeatId, DeckComponent> releaseDecks() {
+        Map<SeatId, DeckComponent> released = Map.copyOf(decks);
+        decks.clear();
+        setChanged();
+        return released;
+    }
+
     /** Records how a game went, without ending the set it belongs to. */
     public void recordMatch(MatchState updated) {
         this.match = updated;
         setChanged();
     }
 
+    /**
+     * Ends the game and the match, keeping nothing.
+     *
+     * <p>Does not hand the decks back on its own - the caller has players to hand them to and
+     * this does not. It does drop them, so a caller that forgets loses them loudly at the next
+     * save rather than quietly leaving four decks inside a table forever.
+     */
     public void endSession() {
         this.session = null;
         this.stored = null;
         this.match = null;
+        this.restoreFailed = false;
+        this.decks.clear();
+        setChanged();
+    }
+
+    /** Ends the current game but keeps the match and the decks, for the next game of a set. */
+    public void endGameKeepingMatch() {
+        this.session = null;
+        this.stored = null;
         this.restoreFailed = false;
         setChanged();
     }
@@ -267,6 +327,17 @@ public class TableBlockEntity extends BlockEntity {
                 : null;
         match = readMatch(tag);
 
+        decks.clear();
+        ListTag heldDecks = tag.getList(DECKS_KEY, Tag.TAG_COMPOUND);
+        for (int index = 0; index < heldDecks.size(); index++) {
+            CompoundTag held = heldDecks.getCompound(index);
+            DeckComponent.CODEC
+                    .parse(net.minecraft.nbt.NbtOps.INSTANCE, held.get(DECK_KEY))
+                    .resultOrPartial(problem -> LOGGER.error(
+                            "A deck held at {} will not load: {}", worldPosition, problem))
+                    .ifPresent(deck -> decks.put(new SeatId(held.getInt(DECK_SEAT_KEY)), deck));
+        }
+
         claims.clear();
         ListTag seats = tag.getList(SEATS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < seats.size(); index++) {
@@ -289,6 +360,7 @@ public class TableBlockEntity extends BlockEntity {
         }
         writeSession(tag);
         writeMatch(tag);
+        writeDecks(tag);
         ListTag seats = new ListTag();
         claims.forEach((side, player) -> {
             CompoundTag seat = new CompoundTag();
@@ -297,6 +369,22 @@ public class TableBlockEntity extends BlockEntity {
             seats.add(seat);
         });
         tag.put(SEATS_KEY, seats);
+    }
+
+    /** Writes the held decks down. Losing one to a server restart is losing somebody's deck. */
+    private void writeDecks(CompoundTag tag) {
+        ListTag held = new ListTag();
+        decks.forEach((seat, deck) -> DeckComponent.CODEC
+                .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, deck)
+                .resultOrPartial(problem -> LOGGER.error(
+                        "A deck held at {} will not save: {}", worldPosition, problem))
+                .ifPresent(encoded -> {
+                    CompoundTag entry = new CompoundTag();
+                    entry.putInt(DECK_SEAT_KEY, seat.index());
+                    entry.put(DECK_KEY, encoded);
+                    held.add(entry);
+                }));
+        tag.put(DECKS_KEY, held);
     }
 
     /**

@@ -174,6 +174,7 @@ public class TableBlock extends BaseEntityBlock {
     @Override
     public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
         if (!level.isClientSide()) {
+            spillDecks(level, pos, state);
             removeRestOfTable(level, pos, state);
         }
         return super.playerWillDestroy(level, pos, state, player);
@@ -182,9 +183,25 @@ public class TableBlock extends BaseEntityBlock {
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock()) && !level.isClientSide()) {
+            spillDecks(level, pos, state);
             removeRestOfTable(level, pos, state);
         }
         super.onRemove(state, level, pos, newState, moved);
+    }
+
+    /**
+     * Gives back any decks the table was holding before it stops existing.
+     *
+     * <p>A table cannot be broken while anybody is sitting at it, so this is the case where
+     * everyone has walked away from an unfinished match. The decks are still theirs, and a
+     * table that ate four of them because the last player left is not a table anybody should
+     * put a deck on twice.
+     */
+    private static void spillDecks(Level level, BlockPos pos, BlockState state) {
+        BlockPos origin = originOf(state, pos);
+        TableSessions.anchorOf(level, origin)
+                .flatMap(anchor -> entityAt(level, anchor))
+                .ifPresent(table -> TableSessions.returnDecks(level, origin, table));
     }
 
     private static void removeRestOfTable(LevelAccessor level, BlockPos pos, BlockState state) {
@@ -259,10 +276,17 @@ public class TableBlock extends BaseEntityBlock {
         }
 
         // Crouching is the deliberate gesture, because starting a game is a deliberate act.
+        // It asks rather than starts: which format and how many games is the difference
+        // between a Commander pod and a best-of-three of Modern, and picking one for the
+        // table picks a format to be the real one.
         if (player.isShiftKeyDown()) {
-            TableSessions.Outcome outcome = TableSessions.start(
-                    level, tableOrigin, TableSessions.defaultRules());
-            player.sendSystemMessage(Component.translatable(outcome.messageKey()));
+            if (player instanceof net.minecraft.server.level.ServerPlayer asking
+                    && !TableSessions.hasSession(level, tableOrigin)) {
+                dev.gathering.server.TableSetup.ask(asking, tableOrigin);
+            } else if (TableSessions.hasSession(level, tableOrigin)) {
+                player.sendSystemMessage(
+                        Component.translatable("message.gathering.session_already_running"));
+            }
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -308,9 +332,14 @@ public class TableBlock extends BaseEntityBlock {
 
         session.submit(new GameEvent.DeckLoaded(seat, library, commanders));
         session.submit(new GameEvent.LibraryShuffled(seat, seat));
+
+        // The table takes the deck rather than the game eating it. The sideboard never went
+        // into the session and never could - it is not in play - so without somewhere to keep
+        // it, committing a deck destroyed a quarter of it and ending the game destroyed the
+        // rest. The table hands the whole thing back when the match is over.
         TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
-                .ifPresent(TableBlockEntity::setChanged);
+                .ifPresent(table -> table.holdDeck(seat, deck));
 
         stack.shrink(1);
         player.sendSystemMessage(Component.translatable(

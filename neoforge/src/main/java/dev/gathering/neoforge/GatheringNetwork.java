@@ -7,13 +7,15 @@ import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
+import dev.gathering.network.OpenTableSetupPayload;
 import dev.gathering.network.RequestCardMetadataPayload;
+import dev.gathering.network.StartTablePayload;
 import dev.gathering.network.TableActionPayload;
 import dev.gathering.network.TableViewPayload;
 import dev.gathering.server.CardMetadataRequests;
 import dev.gathering.server.DeckEdits;
-import dev.gathering.server.TableActions;
 import dev.gathering.server.DecklistImport;
+import dev.gathering.server.TableActions;
 import dev.gathering.service.CardDataService;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -61,6 +63,11 @@ public final class GatheringNetwork {
                 TableActionPayload.STREAM_CODEC,
                 GatheringNetwork::onTableAction);
 
+        registrar.playToServer(
+                StartTablePayload.TYPE,
+                StartTablePayload.STREAM_CODEC,
+                GatheringNetwork::onStartTable);
+
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.
         registrar.playToClient(
@@ -83,6 +90,10 @@ public final class GatheringNetwork {
                 CloseTablePayload.TYPE,
                 CloseTablePayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                OpenTableSetupPayload.TYPE,
+                OpenTableSetupPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
     }
 
     private static void onImportRequest(ImportDecklistPayload payload, IPayloadContext context) {
@@ -98,6 +109,12 @@ public final class GatheringNetwork {
         // card pipeline's executor rather than doing anything on the network thread.
         DecklistImport.importFor(
                 player, service, payload.decklist(), payload.deckName(), payload.description());
+    }
+
+    private static void onStartTable(StartTablePayload payload, IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) {
+            dev.gathering.server.TableSetup.handle(player, payload);
+        }
     }
 
     private static void onTableAction(TableActionPayload payload, IPayloadContext context) {
