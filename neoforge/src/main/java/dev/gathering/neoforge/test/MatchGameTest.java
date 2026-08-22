@@ -25,6 +25,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -204,6 +205,39 @@ public final class MatchGameTest {
 
         if (TableSessions.hasSession(helper.getLevel(), origin)) {
             helper.fail("Scooping a solo game left it running");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void crouchingOnAnEmptyTableSitsYouDown(GameTestHelper helper) {
+        // The first thing anybody does alone is put a table down and crouch on it. Making that
+        // fail because they had not clicked an edge first is how a mod looks broken to
+        // somebody trying it for the first time.
+        BlockPos origin = place(helper);
+        var player = helper.makeMockPlayer(GameType.SURVIVAL);
+
+        TableBlock.startGameFor(helper.getLevel(), origin, player);
+
+        if (TableSeats.seatOf(helper.getLevel(), origin, player.getUUID()).isEmpty()) {
+            helper.fail("Crouching on an empty table did not sit the player down");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void sittingDownDoesNotMoveSomebodyAlreadySeated(GameTestHelper helper) {
+        BlockPos origin = place(helper);
+        var player = helper.makeMockPlayer(GameType.SURVIVAL);
+        List<SeatAnchor> anchors = dev.gathering.block.TableClusters.at(helper.getLevel(), origin).seats();
+        SeatAnchor chosen = anchors.get(anchors.size() - 1);
+        TableSeats.take(helper.getLevel(), origin, chosen.cell(), chosen.side(), player.getUUID());
+
+        TableBlock.startGameFor(helper.getLevel(), origin, player);
+
+        SeatAnchor now = TableSeats.seatOf(helper.getLevel(), origin, player.getUUID()).orElse(null);
+        if (now == null || now.side() != chosen.side()) {
+            helper.fail("Starting a game moved a player who already had a seat");
         }
         helper.succeed();
     }

@@ -12,6 +12,7 @@ import dev.gathering.core.game.visibility.Viewer;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
 import dev.gathering.item.DeckItem;
+import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.Side;
 import dev.gathering.core.table.TableCell;
 import dev.gathering.core.table.TableCluster;
@@ -317,9 +318,26 @@ public class TableBlock extends BaseEntityBlock {
      * between games of a best-of-three would be asking a question that has been answered, and
      * offering to change it mid-set is offering to make the score meaningless.
      */
+    /**
+     * The crouch gesture, reachable without a click.
+     *
+     * <p>Named and public so a test can perform the thing a player performs rather than the
+     * pieces underneath it - the seating and the starting are one gesture and the bug worth
+     * catching is in how they fit together.
+     */
+    public static void startGameFor(Level level, BlockPos tableOrigin, Player player) {
+        startOrContinue(level, tableOrigin, player);
+    }
+
     private static void startOrContinue(Level level, BlockPos tableOrigin, Player player) {
         if (TableSessions.hasSession(level, tableOrigin)) {
             player.sendSystemMessage(Component.translatable("message.gathering.session_already_running"));
+            return;
+        }
+        // Sitting down comes first and needs nothing but a world. Only the asking - which is
+        // a packet - needs a connection to ask down, so a player without one still ends up in
+        // a seat rather than being turned away before anything happened.
+        if (!sitDownIfNeeded(level, tableOrigin, player)) {
             return;
         }
         if (!(level instanceof net.minecraft.server.level.ServerLevel server)
@@ -331,6 +349,34 @@ public class TableBlock extends BaseEntityBlock {
             return;
         }
         dev.gathering.server.TableSetup.ask(asking, tableOrigin);
+    }
+
+    /**
+     * Puts the player in a seat if they are not already in one.
+     *
+     * <p>Somebody crouching on a table to start a game has said what they want clearly enough.
+     * Refusing because they had not performed the separate ceremony of clicking an edge first
+     * is the kind of thing that makes a mod look broken to the person trying it alone - which
+     * is everybody, the first time.
+     *
+     * <p>Only ever takes a free seat, and never moves somebody who already has one.
+     *
+     * @return whether they now have a seat
+     */
+    private static boolean sitDownIfNeeded(Level level, BlockPos tableOrigin, Player player) {
+        if (TableSeats.seatOf(level, tableOrigin, player.getUUID()).isPresent()) {
+            return true;
+        }
+        for (SeatAnchor anchor : TableClusters.at(level, tableOrigin).seats()) {
+            TableSeats.Claim claim = TableSeats.take(
+                    level, tableOrigin, anchor.cell(), anchor.side(), player.getUUID());
+            if (claim == TableSeats.Claim.TAKEN) {
+                player.sendSystemMessage(Component.translatable("message.gathering.seat_taken"));
+                return true;
+            }
+        }
+        player.sendSystemMessage(Component.translatable("message.gathering.table_full"));
+        return false;
     }
 
     /**
