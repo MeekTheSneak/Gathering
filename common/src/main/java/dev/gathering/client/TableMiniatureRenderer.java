@@ -50,6 +50,15 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** How deep a card is drawn within its seat's band, leaving room to spread out in it. */
     private static final float BAND_CARD_DEPTH = 0.42f;
 
+    /**
+     * How far above the one below each card of a pile sits, in blocks.
+     *
+     * <p>Two jobs. It makes a pile look like a pile from across the room, and it keeps two
+     * cards on the same spot off exactly the same plane - coplanar quads z-fight, and a pile
+     * of four flickering in the middle of somebody's board is worse than not drawing it.
+     */
+    private static final float STACK_LIFT = 0.0015f;
+
     public TableMiniatureRenderer(BlockEntityRendererProvider.Context context) {
     }
 
@@ -107,11 +116,18 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         float acrossRoom = Math.max(0f, span - cardWidth);
         float downRoom = Math.max(0f, bandDepth - cardDepth);
 
-        int drawn = 0;
+        List<TablePosition> spots = new java.util.ArrayList<>(cards.size());
         for (CardView card : cards) {
+            spots.add(card.placedAt().orElse(null));
+        }
+        List<Integer> depths = dev.gathering.core.ui.TableStacking.depths(spots);
+
+        int drawn = 0;
+        for (int index = 0; index < cards.size(); index++) {
             if (drawn >= budget) {
                 break;
             }
+            CardView card = cards.get(index);
             // A card with no position of its own is one the game has not put down yet; it is
             // still somebody's permanent, so it goes at the front of the band rather than
             // nowhere.
@@ -121,7 +137,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
             draw(poseStack, buffers, packedLight, textureFor(card),
                     across * acrossRoom, bandZ + down * downRoom, cardWidth, cardDepth,
-                    where.rotation(), isTapped(card));
+                    where.rotation(), isTapped(card), depths.get(index) * STACK_LIFT);
             drawn++;
         }
         return drawn;
@@ -141,9 +157,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private void draw(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
             ResourceLocation texture, float x, float z, float width, float depth,
-            int angle, boolean tapped) {
+            int angle, boolean tapped, float lift) {
         poseStack.pushPose();
-        poseStack.translate(x + width / 2f, 0f, z + depth / 2f);
+        poseStack.translate(x + width / 2f, lift, z + depth / 2f);
         int turned = angle + (tapped ? TablePosition.QUARTER_TURN : 0);
         if (Math.floorMod(turned, 360) != 0) {
             poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-turned));

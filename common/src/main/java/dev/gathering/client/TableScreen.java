@@ -17,6 +17,7 @@ import dev.gathering.core.game.visibility.Viewer;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.TableScreenLayout;
+import dev.gathering.core.ui.TableStacking;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
@@ -62,6 +63,20 @@ public final class TableScreen extends Screen {
     private static final int TAPPED_TINT = 0x60000000;
     private static final int GHOST_TINT = 0x50000000;
     private static final int COUNTER_TEXT = 0xFFFFE9A8;
+
+    /**
+     * The shadow every card on the table casts.
+     *
+     * <p>Nothing here has thickness, so without this a card lying across another one is two
+     * flat pictures sharing an edge and you cannot tell which is on top. A shadow is the
+     * cheapest possible answer and the one every real table already gives you.
+     */
+    private static final int SHADOW = 0x70000000;
+    private static final int SHADOW_OFFSET = 2;
+
+    /** The badge on a pile, saying how many cards are in it. */
+    private static final int PILE_BADGE = 0xE0141210;
+    private static final int PILE_TEXT = 0xFFF2EEE6;
 
     /** How far a card is turned by one nudge. Small enough to be a gesture, not a mode. */
     private static final int NUDGE_DEGREES = 15;
@@ -211,22 +226,60 @@ public final class TableScreen extends Screen {
      */
     private void renderSurface(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
+        List<TablePosition> spots = spotsIn(cards);
+        List<Integer> depths = TableStacking.depths(spots);
         CardView hovered = cardOnSurfaceAt(board, mouseX, mouseY).orElse(null);
 
-        for (CardView card : cards) {
+        for (int index = 0; index < cards.size(); index++) {
+            CardView card = cards.get(index);
             if (isHeld(card)) {
                 continue;
             }
-            drawTableCard(graphics, card, card == hovered);
+            drawTableCard(graphics, card, spotOf(card, depths.get(index)), card == hovered);
+
+            // Only the top card of a pile says how many are in it. Every card in the pile
+            // agrees on the number, so saying it four times would be four badges on one stack.
+            if (!TableStacking.isBuriedAt(spots, index)) {
+                int pile = TableStacking.pileSizeAt(spots, index);
+                if (pile > 1) {
+                    drawPileBadge(graphics, spotOf(card, depths.get(index)), pile);
+                }
+            }
         }
         if (hovered != null) {
             offerToInspector(hovered);
         }
     }
 
-    /** Where a card on the surface is drawn, and which way round. */
-    private Rect spotOf(CardView card) {
-        return layout().cardAt(card.placedAt().orElse(TablePosition.ORIGIN));
+    private static List<TablePosition> spotsIn(List<CardView> cards) {
+        List<TablePosition> spots = new ArrayList<>(cards.size());
+        for (CardView card : cards) {
+            spots.add(card.placedAt().orElse(null));
+        }
+        return spots;
+    }
+
+    /**
+     * Where a card on the surface is drawn.
+     *
+     * <p>Its own place, leaned up and to the left by however many cards are under it. The card
+     * has not moved - that is state - but a pile that draws every card in exactly the same
+     * pixels is a pile that looks like one card.
+     */
+    private Rect spotOf(CardView card, int depth) {
+        Rect where = layout().cardAt(card.placedAt().orElse(TablePosition.ORIGIN));
+        int lean = TableStacking.offsetFor(depth);
+        return lean == 0 ? where : new Rect(where.x() + lean, where.y() + lean, where.width(), where.height());
+    }
+
+    /** The pile count, on the corner nearest the top of the stack. */
+    private void drawPileBadge(GuiGraphics graphics, Rect where, int size) {
+        Component label = Component.literal("x" + size);
+        int width = this.font.width(label) + 5;
+        int left = where.right() - width - 1;
+        int top = where.y() + 1;
+        graphics.fill(left, top, left + width, top + this.font.lineHeight + 1, PILE_BADGE);
+        GuiText.draw(graphics, this.font, label, left + 2, top + 1, width, PILE_TEXT);
     }
 
     /**
@@ -428,7 +481,8 @@ public final class TableScreen extends Screen {
 
         Optional<CardView> onSurface = cardOnSurfaceAt(board, x, y);
         if (onSurface.isPresent()) {
-            return pressCard(board, onSurface.get(), spotOf(onSurface.get()), false, x, y, button);
+            return pressCard(board, onSurface.get(), surfaceRectOf(board, onSurface.get()),
+                    false, x, y, button);
         }
 
         Optional<CardView> inHand = cardInHandAt(board, x, y);
@@ -676,9 +730,11 @@ public final class TableScreen extends Screen {
             return Optional.empty();
         }
         List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
+        List<Integer> depths = TableStacking.depths(spotsIn(cards));
         for (int index = cards.size() - 1; index >= 0; index--) {
             CardView card = cards.get(index);
-            if (!isHeld(card) && spotOf(card).containsTurned(angleOf(card), x, y)) {
+            if (!isHeld(card)
+                    && spotOf(card, depths.get(index)).containsTurned(angleOf(card), x, y)) {
                 return Optional.of(card);
             }
         }
@@ -698,6 +754,16 @@ public final class TableScreen extends Screen {
             }
         }
         return Optional.empty();
+    }
+
+    /** Where a card on the focused board is currently drawn, lean included. */
+    private Rect surfaceRectOf(GameView board, CardView card) {
+        List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
+        int index = cards.indexOf(card);
+        if (index < 0) {
+            return layout().cardAt(card.placedAt().orElse(TablePosition.ORIGIN));
+        }
+        return spotOf(card, TableStacking.depths(spotsIn(cards)).get(index));
     }
 
     private Rect handSlotOf(GameView board, CardView card) {
@@ -756,8 +822,7 @@ public final class TableScreen extends Screen {
     // --------------------------------------------------------------- drawing
 
     /** A card on the table: at its own spot, turned to its own angle, counters and all. */
-    private void drawTableCard(GuiGraphics graphics, CardView card, boolean hovered) {
-        Rect where = spotOf(card);
+    private void drawTableCard(GuiGraphics graphics, CardView card, Rect where, boolean hovered) {
         int angle = angleOf(card);
 
         if (angle == 0) {
@@ -776,6 +841,9 @@ public final class TableScreen extends Screen {
         if (where.isEmpty()) {
             return;
         }
+        // Cast first, under everything, so the card above reads as being above.
+        graphics.fill(where.x() + SHADOW_OFFSET, where.y() + SHADOW_OFFSET,
+                where.right() + SHADOW_OFFSET, where.bottom() + SHADOW_OFFSET, SHADOW);
         GatheringSprites.frame(graphics, where.x(), where.y(), where.width(), where.height());
         Rect art = where.shrink(2);
 
