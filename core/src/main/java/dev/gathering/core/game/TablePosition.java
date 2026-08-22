@@ -42,6 +42,19 @@ public record TablePosition(int x, int y, int rotation) {
         rotation = Math.floorMod(rotation, 360);
     }
 
+    /**
+     * A position, with anything off the table pulled back onto it.
+     *
+     * <p>For the places where a coordinate is being read off a screen rather than chosen: a
+     * drag that ends past the edge, a cursor over the felt's surround. Those are all "as far
+     * as it goes" rather than errors, and {@link #of} throwing at them means a client crashes
+     * when somebody drags a card a little too far - which is how this was found.
+     */
+    public static TablePosition clamped(int x, int y) {
+        return new TablePosition(
+                Math.max(0, Math.min(SPAN, x)), Math.max(0, Math.min(SPAN, y)), 0);
+    }
+
     public static TablePosition of(int x, int y) {
         return new TablePosition(x, y, 0);
     }
