@@ -91,6 +91,9 @@ public final class GameFold {
 
             case GameEvent.TokenRemoved removed -> state.removeCard(removed.card());
 
+            case GameEvent.SeatCounterChanged counter -> state.withSeatState(
+                    state.seatState(counter.seat()).withCounter(counter.counter(), counter.delta()));
+
             case GameEvent.LifeChanged life ->
                     state.withSeatState(state.seatState(life.seat()).withLife(life.delta()));
 

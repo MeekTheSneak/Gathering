@@ -384,6 +384,21 @@ public sealed interface GameEvent {
 
     // --------------------------------------------------------- player verbs
 
+    /**
+     * Poison, energy, experience, or anything else somebody is keeping count of beside a seat.
+     *
+     * <p>Distinct from {@link CounterChanged}, which is about a card. A counter on a player and
+     * a counter on a permanent are different things that happen to share a word, and the log
+     * has to be able to say which - "three poison" and "three +1/+1 counters on the bear" are
+     * not the same sentence.
+     */
+    record SeatCounterChanged(SeatId actor, SeatId seat, String counter, int delta) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of("log.gathering.seat_counter_changed", actor, seat, counter, delta);
+        }
+    }
+
     record LifeChanged(SeatId actor, SeatId seat, int delta) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
@@ -455,6 +470,7 @@ public sealed interface GameEvent {
             case Surveiled surveiled -> Optional.of(surveiled.seat());
             case SeatUntappedAll untapped -> Optional.of(untapped.seat());
             case LifeChanged life -> Optional.of(life.seat());
+            case SeatCounterChanged counter -> Optional.of(counter.seat());
             case CommanderDamageChanged damage -> Optional.of(damage.toSeat());
             case CommanderTaxChanged tax -> Optional.of(tax.seat());
             case TokenCreated token -> Optional.of(token.seat());

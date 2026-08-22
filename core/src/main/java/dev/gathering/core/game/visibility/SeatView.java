@@ -15,13 +15,19 @@ public record SeatView(
         int life,
         Map<SeatId, Integer> commanderDamage,
         Map<CardInstanceId, Integer> commanderTax,
+        Map<String, Integer> counters,
         boolean conceded,
         Map<Zone, ZoneView> zones) {
 
     public SeatView {
         commanderDamage = commanderDamage == null ? Map.of() : Map.copyOf(commanderDamage);
         commanderTax = commanderTax == null ? Map.of() : Map.copyOf(commanderTax);
+        counters = counters == null ? Map.of() : Map.copyOf(counters);
         zones = zones == null ? Map.of() : Map.copyOf(new EnumMap<>(zones));
+    }
+
+    public int counter(String name) {
+        return counters.getOrDefault(name, 0);
     }
 
     public Optional<PlayerRef> occupant() {

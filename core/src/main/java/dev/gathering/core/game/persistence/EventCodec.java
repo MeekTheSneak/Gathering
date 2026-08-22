@@ -137,6 +137,12 @@ public final class EventCodec {
                 seat(out, e.actor());
                 card(out, e.card());
             }
+            case GameEvent.SeatCounterChanged e -> {
+                seat(out, e.actor());
+                seat(out, e.seat());
+                out.writeUTF(e.counter());
+                out.writeInt(e.delta());
+            }
             case GameEvent.LifeChanged e -> {
                 seat(out, e.actor());
                 seat(out, e.seat());
@@ -198,6 +204,8 @@ public final class EventCodec {
                     seat(in), seat(in), identity(in), in.readInt());
             case "TokenCopyCreated" -> new GameEvent.TokenCopyCreated(seat(in), card(in), seat(in));
             case "TokenRemoved" -> new GameEvent.TokenRemoved(seat(in), card(in));
+            case "SeatCounterChanged" -> new GameEvent.SeatCounterChanged(
+                    seat(in), seat(in), in.readUTF(), in.readInt());
             case "LifeChanged" -> new GameEvent.LifeChanged(seat(in), seat(in), in.readInt());
             case "CommanderDamageChanged" -> new GameEvent.CommanderDamageChanged(
                     seat(in), seat(in), seat(in), in.readInt());

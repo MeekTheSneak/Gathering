@@ -145,6 +145,12 @@ public final class ViewCodec {
             out.writeInt(entry.getValue());
         }
 
+        out.writeInt(seat.counters().size());
+        for (Map.Entry<String, Integer> entry : seat.counters().entrySet()) {
+            out.writeUTF(entry.getKey());
+            out.writeInt(entry.getValue());
+        }
+
         out.writeInt(seat.zones().size());
         for (Map.Entry<Zone, ZoneView> entry : seat.zones().entrySet()) {
             out.writeUTF(entry.getKey().name());
@@ -174,13 +180,19 @@ public final class ViewCodec {
             tax.put(new CardInstanceId(in.readInt()), in.readInt());
         }
 
+        Map<String, Integer> counters = new LinkedHashMap<>();
+        int counterCount = size(in.readInt());
+        for (int index = 0; index < counterCount; index++) {
+            counters.put(in.readUTF(), in.readInt());
+        }
+
         Map<Zone, ZoneView> zones = new EnumMap<>(Zone.class);
         int zoneCount = size(in.readInt());
         for (int index = 0; index < zoneCount; index++) {
             Zone zone = Zone.valueOf(in.readUTF());
             zones.put(zone, zone(in));
         }
-        return new SeatView(id, player, life, damage, tax, conceded, zones);
+        return new SeatView(id, player, life, damage, tax, counters, conceded, zones);
     }
 
     private static void zone(DataOutput out, ZoneView zone) throws IOException {

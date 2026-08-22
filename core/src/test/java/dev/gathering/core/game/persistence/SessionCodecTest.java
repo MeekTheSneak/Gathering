@@ -152,6 +152,7 @@ class SessionCodecTest {
                 new GameEvent.TokenCopyCreated(a, card, b),
                 new GameEvent.TokenRemoved(a, card),
                 new GameEvent.LifeChanged(a, b, -3),
+                new GameEvent.SeatCounterChanged(a, b, "poison", 2),
                 new GameEvent.CommanderDamageChanged(a, b, a, 5),
                 new GameEvent.CommanderTaxChanged(a, b, card, 2),
                 new GameEvent.Conceded(a),

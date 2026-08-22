@@ -236,6 +236,11 @@ public final class TableScreen extends Screen {
                     who, seat.life(),
                     count(seat, Zone.HAND), count(seat, Zone.LIBRARY),
                     count(seat, Zone.BATTLEFIELD), count(seat, Zone.GRAVEYARD));
+            // Poison and energy belong on the seat line rather than in a screen: they change
+            // the game as much as life does and nobody goes looking for a number.
+            if (!seat.counters().isEmpty()) {
+                text = text.copy().append(Component.literal("  " + describeCounters(seat)));
+            }
 
             if (isFocused) {
                 GatheringSprites.highlight(graphics, area.x() + 1, line - 2, area.width() - 2,
@@ -715,6 +720,8 @@ public final class TableScreen extends Screen {
             entries.add(entry(card.facing() == Facing.FACE_UP ? "turn_face_down" : "turn_face_up",
                     () -> eachTarget(board, targets, target ->
                             new GameEvent.CardFacingSet(me, target, turnTo))));
+            // The single most common one keeps its own line, because a menu that makes you
+            // open a screen to put a +1/+1 on something is a menu nobody uses for counters.
             entries.add(entry("add_counter", () -> eachTarget(board, targets, target ->
                     new GameEvent.CounterChanged(
                             me, target, CardInstance.Counters.PLUS_ONE_PLUS_ONE, 1))));
@@ -723,6 +730,8 @@ public final class TableScreen extends Screen {
                         new GameEvent.CounterChanged(
                                 me, target, CardInstance.Counters.PLUS_ONE_PLUS_ONE, -1))));
             }
+            entries.add(entry("counters", () -> openCounters(new CountersScreen.Subject.Cards(
+                    targets, CountersScreen.titleFor(targets, nameOf(card))))));
             entries.add(entry("copy", () -> eachTarget(board, targets, target ->
                     new GameEvent.TokenCopyCreated(me, target, focused))));
             if (card.token()) {
@@ -862,7 +871,23 @@ public final class TableScreen extends Screen {
         entries.add(entry("shuffle", () -> send(new GameEvent.LibraryShuffled(me, me))));
         entries.add(entry("gain_life", () -> send(new GameEvent.LifeChanged(me, me, 1))));
         entries.add(entry("lose_life", () -> send(new GameEvent.LifeChanged(me, me, -1))));
+        view().ifPresent(board -> entries.add(entry("my_counters",
+                () -> openCounters(new CountersScreen.Subject.Seat(
+                        me, CountersScreen.titleForSeat(board, me))))));
         menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
+    }
+
+    private void openCounters(CountersScreen.Subject subject) {
+        net.minecraft.client.Minecraft.getInstance()
+                .setScreen(new CountersScreen(table, subject));
+    }
+
+    /** What to call a card on a screen that has to name what it is about to change. */
+    private Component nameOf(CardView card) {
+        return summaryOf(card)
+                .map(summary -> Component.literal(summary.name()))
+                .map(Component.class::cast)
+                .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
     }
 
     private static ContextMenu.Entry entry(String key, Runnable action) {
@@ -1134,6 +1159,18 @@ public final class TableScreen extends Screen {
                 .filter(visible -> visible.id().equals(id))
                 .map(CardView.class::cast)
                 .findFirst();
+    }
+
+    /** A seat's counters as one short run of text, for the line across the top. */
+    private static String describeCounters(SeatView seat) {
+        StringBuilder text = new StringBuilder();
+        seat.counters().forEach((name, count) -> {
+            if (text.length() > 0) {
+                text.append(' ');
+            }
+            text.append(count).append(' ').append(name);
+        });
+        return text.toString();
     }
 
     private static int count(SeatView seat, Zone zone) {

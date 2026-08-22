@@ -16,6 +16,9 @@ import java.util.Map;
  * @param commanderDamage damage taken from each other seat's commanders, the 21-point grid
  * @param commanderTax    per commander, the number of times it has been cast from the
  *                        command zone; displayed, never charged
+ * @param counters        poison, energy, experience and anything else a player cares to name;
+ *                        the same open-ended bag a card has, for the same reason - the set of
+ *                        things a player can accumulate is not one anybody can finish listing
  */
 public record SeatState(
         SeatId seat,
@@ -23,6 +26,7 @@ public record SeatState(
         int life,
         Map<SeatId, Integer> commanderDamage,
         Map<CardInstanceId, Integer> commanderTax,
+        Map<String, Integer> counters,
         boolean conceded) {
 
     public SeatState {
@@ -31,19 +35,22 @@ public record SeatState(
         }
         commanderDamage = immutable(commanderDamage);
         commanderTax = immutable(commanderTax);
+        counters = counters == null || counters.isEmpty()
+                ? Map.of()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(counters));
     }
 
     public static SeatState startingAt(SeatId seat, int startingLife) {
-        return new SeatState(seat, null, startingLife, Map.of(), Map.of(), false);
+        return new SeatState(seat, null, startingLife, Map.of(), Map.of(), Map.of(), false);
     }
 
     /** A seat is held until the player leaves it, not until they walk away or log out. */
     public SeatState occupiedBy(PlayerRef player) {
-        return new SeatState(seat, player, life, commanderDamage, commanderTax, conceded);
+        return new SeatState(seat, player, life, commanderDamage, commanderTax, counters, conceded);
     }
 
     public SeatState released() {
-        return new SeatState(seat, null, life, commanderDamage, commanderTax, conceded);
+        return new SeatState(seat, null, life, commanderDamage, commanderTax, counters, conceded);
     }
 
     public java.util.Optional<PlayerRef> player() {
@@ -55,7 +62,7 @@ public record SeatState(
     }
 
     public SeatState withLife(int delta) {
-        return new SeatState(seat, occupant, life + delta, commanderDamage, commanderTax, conceded);
+        return new SeatState(seat, occupant, life + delta, commanderDamage, commanderTax, counters, conceded);
     }
 
     public SeatState withCommanderDamage(SeatId from, int delta) {
@@ -66,7 +73,7 @@ public record SeatState(
         } else {
             updated.put(from, now);
         }
-        return new SeatState(seat, occupant, life, updated, commanderTax, conceded);
+        return new SeatState(seat, occupant, life, updated, commanderTax, counters, conceded);
     }
 
     public SeatState withCommanderTax(CardInstanceId commander, int delta) {
@@ -77,11 +84,45 @@ public record SeatState(
         } else {
             updated.put(commander, now);
         }
-        return new SeatState(seat, occupant, life, commanderDamage, updated, conceded);
+        return new SeatState(seat, occupant, life, commanderDamage, updated, counters, conceded);
     }
 
     public SeatState withConcede() {
-        return conceded ? this : new SeatState(seat, occupant, life, commanderDamage, commanderTax, true);
+        return conceded
+                ? this
+                : new SeatState(seat, occupant, life, commanderDamage, commanderTax, counters, true);
+    }
+
+    /**
+     * Adds to a named counter beside this seat, dropping the entry when it reaches zero.
+     *
+     * <p>Poison, energy, experience, the day/night marker somebody is tracking by hand. Goes
+     * negative as freely as everything else here, because a player who wants minus two energy
+     * has a reason and the mod does not argue.
+     */
+    public SeatState withCounter(String name, int delta) {
+        Map<String, Integer> updated = new LinkedHashMap<>(counters);
+        int now = updated.getOrDefault(name, 0) + delta;
+        if (now == 0) {
+            updated.remove(name);
+        } else {
+            updated.put(name, now);
+        }
+        return new SeatState(seat, occupant, life, commanderDamage, commanderTax, updated, conceded);
+    }
+
+    public int counter(String name) {
+        return counters.getOrDefault(name, 0);
+    }
+
+    /** The counters a player accumulates often enough to be worth spelling once. */
+    public static final class Counters {
+        public static final String POISON = "poison";
+        public static final String ENERGY = "energy";
+        public static final String EXPERIENCE = "experience";
+
+        private Counters() {
+        }
     }
 
     public int commanderDamageFrom(SeatId from) {
