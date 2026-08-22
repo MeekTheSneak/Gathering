@@ -177,6 +177,37 @@ class ScryfallClientTest {
     }
 
     @Test
+    @DisplayName("split and double-faced cards are asked for by one face, because the API insists")
+    void combinedNamesAreSplitBeforeTheyGoOnTheWire() throws Exception {
+        FakeHttpTransport transport = new FakeHttpTransport()
+                .reply(200, Fixtures.collectionResponse("delver_of_secrets"));
+
+        CardQuery query = CardQuery.byName("Delver of Secrets // Insectile Aberration");
+        CollectionResult result = client(transport).resolve(List.of(query));
+
+        JsonObject sent = JsonParser.parseString(transport.requests().get(0).body()).getAsJsonObject();
+        String askedFor = sent.getAsJsonArray("identifiers").get(0).getAsJsonObject()
+                .get("name").getAsString();
+
+        // Verified against the live API: the combined name comes back not-found, either half
+        // returns the whole card. Every split card in every decklist depends on this.
+        assertThat(askedFor).isEqualTo("Delver of Secrets");
+        assertThat(result.get(query)).isPresent();
+    }
+
+    @Test
+    void aSplitNameStillTiesBackToTheQueryThatAskedForIt() throws Exception {
+        FakeHttpTransport transport = new FakeHttpTransport()
+                .reply(200, Fixtures.collectionResponse("delver_of_secrets"));
+
+        CardQuery query = CardQuery.byName("Delver of Secrets // Insectile Aberration");
+
+        assertThat(client(transport).resolve(List.of(query)).get(query))
+                .map(CardMetadata::name)
+                .contains("Delver of Secrets // Insectile Aberration");
+    }
+
+    @Test
     void aBodyThatIsNotJsonIsReportedClearly() {
         FakeHttpTransport transport = new FakeHttpTransport().reply(200, "<html>maintenance</html>");
 

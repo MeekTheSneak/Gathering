@@ -3,6 +3,7 @@ package dev.gathering.command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.gathering.network.OpenImportScreenPayload;
+import dev.gathering.server.CardGrant;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.service.CardDataService;
 import net.minecraft.commands.CommandSourceStack;
@@ -30,7 +31,33 @@ public final class GatheringCommands {
                         .then(Commands.argument("decklist", StringArgumentType.greedyString())
                                 .executes(context -> importInline(
                                         context.getSource(),
-                                        StringArgumentType.getString(context, "decklist")))));
+                                        StringArgumentType.getString(context, "decklist")))))
+                // A single card in hand: the only way to hold one, and therefore the only way
+                // to read one, until tables exist to deal them out.
+                .then(Commands.literal("card")
+                        .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .executes(context -> giveCard(
+                                        context.getSource(),
+                                        StringArgumentType.getString(context, "name"),
+                                        false))))
+                .then(Commands.literal("foil")
+                        .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .executes(context -> giveCard(
+                                        context.getSource(),
+                                        StringArgumentType.getString(context, "name"),
+                                        true))));
+    }
+
+    private static int giveCard(CommandSourceStack source, String cardName, boolean foil)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        CardDataService service = CardDataService.active().orElse(null);
+        if (service == null) {
+            source.sendFailure(Component.translatable("message.gathering.pipeline_unavailable"));
+            return 0;
+        }
+        CardGrant.byName(player, service, cardName, foil);
+        return 1;
     }
 
     private static int openImportScreen(CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {

@@ -47,6 +47,22 @@ public sealed interface CardQuery {
         return value.trim();
     }
 
+    /**
+     * The name to actually put on the wire.
+     *
+     * <p>Scryfall's collection endpoint does not accept a combined name. Asking it for
+     * "Fire // Ice", "Wear // Tear", or "Delver of Secrets // Insectile Aberration" - all
+     * exactly as every decklist exporter writes them - comes back not-found, while asking for
+     * either half alone returns the whole card. So every split card, transform card and modal
+     * double-faced card in a list would silently fail to import.
+     *
+     * <p>Verified against the live API rather than inferred; see DIALECT.md.
+     */
+    static String lookupName(String name) {
+        int split = name.indexOf("//");
+        return split < 0 ? name : name.substring(0, split).strip();
+    }
+
     record ById(UUID id) implements CardQuery {
         @Override
         public JsonObject toJson() {
@@ -65,7 +81,7 @@ public sealed interface CardQuery {
         @Override
         public JsonObject toJson() {
             JsonObject json = new JsonObject();
-            json.addProperty("name", name);
+            json.addProperty("name", lookupName(name));
             return json;
         }
 
@@ -79,7 +95,7 @@ public sealed interface CardQuery {
         @Override
         public JsonObject toJson() {
             JsonObject json = new JsonObject();
-            json.addProperty("name", name);
+            json.addProperty("name", lookupName(name));
             json.addProperty("set", setCode);
             return json;
         }

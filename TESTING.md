@@ -1,0 +1,116 @@
+# Testing Gathering by hand
+
+What's built so far is **Phase 0** — the card pipeline — plus the **pure core of Phase 1**,
+which has no in-world presence yet. So: you can import decks and read cards. There is no
+table to sit at yet.
+
+## Setup
+
+Java 21 is the only requirement; everything else is pinned and downloads on first build.
+
+```bash
+git clone -b claude/new-session-beye3i https://github.com/MeekTheSneak/Gathering
+cd Gathering
+./gradlew :neoforge:runClient
+```
+
+The first build pulls and decompiles Minecraft — expect **5–10 minutes**, once. After that
+it's seconds. A launch window will open; make a creative world.
+
+## The Phase 0 checklist
+
+This is the deliverable from the design brief: *paste the list, get a deck, read every card
+in full resolution.*
+
+### 1. Import a decklist
+
+```
+/gathering import
+```
+
+A box opens. Paste a real list — Moxfield, Archidekt, Arena and MTGO exports all work, as do
+plain `1 Sol Ring` lines. Something like:
+
+```
+Commander
+1 Halana and Alena, Partners (VOW) 239
+
+Deck
+1 Sol Ring (LTC) 284 *F*
+1 Arcane Signet
+1 Fire // Ice
+4 Persistent Petitioners
+30 Forest
+```
+
+Press **Import**. A deck item lands in your inventory.
+
+**What should happen:** roughly a second on a cold cache, near-instant if you import the same
+list again. The deck item is named after the list and its tooltip shows the card count.
+
+**Worth deliberately breaking:** put a typo in a line (`1 Sol Rong`) and a bad quantity
+(`0 Sol Ring`). Both should come back named, with line numbers, and the *other* cards should
+still import. A list that half works should still give you a deck.
+
+### 2. Read a card
+
+Import gives you a deck, not loose cards, so to hold one:
+
+```
+/gathering card Lightning Bolt
+/gathering foil Sol Ring
+```
+
+Then **hold Left Alt** with the card in your hand, or over it in your inventory.
+
+**What should happen:** the card fills the screen at full resolution with its oracle text
+beside it. The first look at a given card fetches the art — you may see "Fetching card
+art..." for a moment, then it should be instant forever after, including across restarts.
+
+Try `/gathering card Delver of Secrets` — a double-faced card should show **both halves**
+side by side.
+
+## What I'd most like to know
+
+In rough order of how much it would change what I build next:
+
+1. **Does the overlay actually draw?** I have never seen a pixel of it. If the card is
+   stretched, off-centre, or the art never appears, that's the thing to tell me — three more
+   renderers are due to be built on that same code.
+2. **Is Left Alt right?** It conflicts with nothing I know of, but you'll find out in a
+   minute what I can't.
+3. **Is the sidebar readable** — width, wrapping, whether oracle text gets cut off on a
+   wordy card. Try `/gathering card Kozilek, Butcher of Truth`.
+4. **Does import feel fast enough** to paste a 100-card list without wondering if it hung?
+
+## What is deliberately not there yet
+
+- **No table, no seats, no game.** The game core — zones, the verb set, visibility, undo,
+  drag-and-drop positions — is built and tested but has no block to live in. That's the next
+  phase and it's gated on this one working.
+- **No collection block.** Specified in the design brief, phase 3.
+- **Cards don't stack, and there's no way to get rid of one** except dropping it.
+
+## Checking the parts you can't see
+
+The half of the mod that never appears on screen has its own gate:
+
+```bash
+./gradlew verify        # everything: unit tests, data generation, in-world game tests
+./gradlew :core:test    # just the fast pure-core suite, a few seconds
+```
+
+Every stage of that has been confirmed capable of failing — a gate that can't fail
+manufactures confidence rather than providing it.
+
+## If something goes wrong
+
+- **Cards import but show no art.** The client fetches images directly from Scryfall. Check
+  the client log for `Could not load card art`; a proxy or firewall between you and
+  `cards.scryfall.io` would do it.
+- **`The card pipeline is not running on this server.`** The pipeline starts with the world.
+  Rejoining fixes it; if not, the server log will say why the cache directory couldn't open.
+- **The import screen says it can't reach Scryfall.** Their API was unreachable. The cache
+  keeps everything it already fetched, so a retry costs nothing.
+- **Anything crashes.** The log is in `run/logs/latest.log`. The real error is the last
+  `Caused by:` at the bottom, not the first line.

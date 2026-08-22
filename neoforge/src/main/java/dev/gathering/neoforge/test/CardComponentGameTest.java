@@ -109,6 +109,34 @@ public final class CardComponentGameTest {
     }
 
     @GameTest(template = "empty")
+    public static void grantingACardProducesAReadableStack(GameTestHelper helper) {
+        // The path /gathering card takes. Until this works there is no way to hold a card at
+        // all, and everything about reading one is unreachable.
+        dev.gathering.core.card.CardMetadata card = new dev.gathering.core.card.CardMetadata(
+                SOL_RING, SOL_RING, "Sol Ring", "{1}", 1.0, "Artifact", "{T}: Add {C}{C}.",
+                java.util.Set.of(), java.util.Set.of(), List.of(), "normal", "ltc", "Commander", "284",
+                dev.gathering.core.card.Rarity.UNCOMMON, false, true, true, false, false,
+                List.of("paper"), java.util.Map.of(), java.util.Map.of(), "https://scryfall.com/");
+
+        ItemStack stack = dev.gathering.server.CardGrant.stackFor(card, true)
+                .orElseThrow(() -> new GameTestAssertException("A granted card produced no stack"));
+
+        CardComponent component = CardItem.cardOf(stack)
+                .orElseThrow(() -> new GameTestAssertException("A granted card carries no card component"));
+
+        if (!component.scryfallId().equals(Optional.of(SOL_RING))) {
+            helper.fail("A granted card points at the wrong printing: " + component.scryfallId());
+        }
+        if (!component.foil()) {
+            helper.fail("A granted foil card is not foil");
+        }
+        if (stack.getItem() != GatheringContent.CARD.get()) {
+            helper.fail("A granted card is not a card item");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void aDroppedCardKeepsItsPrinting(GameTestHelper helper) {
         ItemStack stack = CardItem.of(CardComponent.of(CardIdentity.ofPrinting(SOL_RING, false)));
 

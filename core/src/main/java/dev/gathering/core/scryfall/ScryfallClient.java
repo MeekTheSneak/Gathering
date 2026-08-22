@@ -76,7 +76,9 @@ public final class ScryfallClient {
 
     /** Exact name lookup, for the single-card path and for import fallbacks. */
     public Optional<CardMetadata> cardByExactName(String name) throws IOException {
-        JsonObject json = getJson("/cards/named?exact=" + encode(name));
+        // The named endpoint is happier with combined names than the collection endpoint is,
+        // but a half name resolves correctly on both, so use one rule everywhere.
+        JsonObject json = getJson("/cards/named?exact=" + encode(CardQuery.lookupName(name)));
         return json == null ? Optional.empty() : ScryfallCardCodec.parse(json);
     }
 
@@ -87,7 +89,7 @@ public final class ScryfallClient {
      * chooser in the import screen" one request instead of a research project.
      */
     public List<CardMetadata> printingsOf(String name) throws IOException {
-        String query = "!" + '"' + name.replace("\"", "") + '"';
+        String query = "!" + '"' + CardQuery.lookupName(name).replace("\"", "") + '"';
         JsonObject json = getJson("/cards/search?unique=prints&order=usd&dir=asc&q=" + encode(query));
         if (json == null) {
             return List.of();

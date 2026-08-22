@@ -152,6 +152,12 @@ cannot be inferred from reading the code.
 - **Scryfall's collection endpoint answers, but does not echo, the raw JSON per query.**
   Keep each card's original body alongside the parsed model (`CollectionResult#raw`) or the
   disk cache ends up storing a re-serialisation of only the fields today's codec reads.
+- **Scryfall's collection endpoint refuses combined card names.** `{"name": "Fire // Ice"}`
+  comes back not-found; `{"name": "Fire"}` returns the whole card. Same for transform and
+  modal double-faced cards - "Delver of Secrets // Insectile Aberration" fails, "Delver of
+  Secrets" works. Every exporter writes the combined form, so without `CardQuery#lookupName`
+  every split and double-faced card in every decklist fails to import. Verified against the
+  live API, not inferred.
 - **Card instance ids are handed out in decklist order, and Commander decklists are usually
   public.** A public log line naming a card by raw id therefore identifies it, with no hidden
   payload ever sent. Log lines reference cards through `CardRef`, which picks id, opaque

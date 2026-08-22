@@ -105,6 +105,19 @@ public final class CardDataService implements AutoCloseable {
         });
     }
 
+    /**
+     * One card by exact name, through the cache first.
+     *
+     * <p>The single-card counterpart to an import: what the grant command and, later, a
+     * collection search resolve against.
+     */
+    public CompletableFuture<Optional<CardMetadata>> findByName(String cardName) {
+        return supply(() -> {
+            CardQuery query = CardQuery.byName(cardName);
+            return source.resolve(List.of(query)).get(query);
+        });
+    }
+
     /** Every printing of a card, cheapest first - what the import screen's chooser offers. */
     public CompletableFuture<List<CardMetadata>> printingsOf(String cardName) {
         return supply(() -> client.printingsOf(cardName));
