@@ -47,6 +47,9 @@ public final class CardZoomOverlay {
     private static final int PADDING = 8;
     private static final int SIDEBAR_WIDTH = 180;
 
+    /** How much of a side panel the art may take before the oracle text is squeezed out. */
+    private static final float PANEL_ART_FRACTION = 0.6f;
+
     private static volatile BooleanSupplier keyHeld = () -> false;
 
     private CardZoomOverlay() {
@@ -69,6 +72,11 @@ public final class CardZoomOverlay {
      */
     public static void render(GuiGraphics graphics, int screenWidth, int screenHeight) {
         if (!isActive()) {
+            return;
+        }
+        if (Minecraft.getInstance().screen instanceof CardPreviewHost) {
+            // That screen shows the card itself, in a place chosen to leave its own content
+            // readable. Drawing over the top of it would undo exactly that.
             return;
         }
         Optional<CardSummary> target = cardUnderAttention();
@@ -139,6 +147,41 @@ public final class CardZoomOverlay {
         }
 
         drawTextPanel(graphics, faces, left, top, SIDEBAR_WIDTH, cardHeight);
+    }
+
+    /**
+     * The same card, drawn into a box a screen has set aside for it rather than over
+     * everything.
+     *
+     * <p>Art across the top, oracle text beneath - a portrait layout, because a panel beside
+     * a list is tall and narrow where the full-screen overlay is wide.
+     */
+    public static void renderInto(
+            GuiGraphics graphics, CardSummary summary, int x, int y, int width, int height) {
+        List<CardFaceSummary> faces = summary.faces();
+        int count = Math.max(1, faces.size());
+
+        int artWidth = (width - GAP * (count - 1)) / count;
+        int artHeight = Math.round(artWidth / CARD_ASPECT);
+        int artCeiling = Math.round(height * PANEL_ART_FRACTION);
+        if (artHeight > artCeiling) {
+            artHeight = artCeiling;
+            artWidth = Math.round(artHeight * CARD_ASPECT);
+        }
+        if (artWidth <= 0 || artHeight <= 0) {
+            return;
+        }
+
+        int row = x + (width - (artWidth * count + GAP * (count - 1))) / 2;
+        for (CardFaceSummary face : faces) {
+            drawFace(graphics, face, row, y, artWidth, artHeight);
+            row += artWidth + GAP;
+        }
+
+        int textTop = y + artHeight + GAP;
+        if (textTop < y + height) {
+            drawTextPanel(graphics, faces, x, textTop, width, y + height - textTop);
+        }
     }
 
     private static void drawFace(GuiGraphics graphics, CardFaceSummary face, int x, int y, int width, int height) {

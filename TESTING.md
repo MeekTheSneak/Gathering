@@ -86,8 +86,8 @@ Deck
 Name it and add a description if you like - both show on the item, and a Commander deck also
 shows its commander. Press **Import**, and a deck lands in your inventory.
 
-**Right-click the deck** to see what is in it, grouped by zone with copies collapsed. Hold
-Left Alt over any row to read that card.
+**Right-click the deck** to see what is in it, grouped by zone with copies collapsed. That
+screen is section 3.
 
 **What should happen:** roughly a second on a cold cache, near-instant if you import the same
 list again. The deck item is named after the list and its tooltip shows the card count.
@@ -118,6 +118,33 @@ art..." for a moment, then it should be instant forever after, including across 
 Try `/gathering card Delver of Secrets` — a double-faced card should show **both halves**
 side by side.
 
+### 3. Open a deck and change it
+
+**Right-click a deck** to open its list. It sits against the left edge of the screen, grouped
+by zone with copies collapsed the way a decklist reads.
+
+- **Hold Left Alt** over any row and that card is drawn full size in the space to the right,
+  with its oracle text under it. Nothing covers the list, so you can run down it reading each
+  card in turn.
+- **Left-click a row** to take one copy out of the deck. It goes into your inventory, or onto
+  the floor if there is no room — a card is never destroyed to make space.
+- **Right-click a row** to make that card a commander. Right-click it again in the command
+  zone to send it back to the deck.
+- **Put cards back the way you fill a bundle**: hold a card on the cursor and right-click the
+  deck, or hold the deck and right-click a card. Either way the card goes into the deck.
+
+There is deliberately **no bundle-style way to take a card out**. Right-clicking a deck with
+an empty cursor does nothing, because pulling an unseen card off a hundred-card deck is a
+thing you would only ever do by accident. Taking a card is done from the list, where you can
+read its name first.
+
+The list is live: the server owns the deck and the screen shows whatever is in your hand, so
+every change appears the moment it is applied. Drop the deck, or swap it out of that hand,
+and the screen closes.
+
+**What should happen:** the deck's tooltip count follows every edit, and a commander you set
+this way shows on the item in gold like an imported one does.
+
 ## What I'd most like to know
 
 In rough order of how much it would change what I build next:
@@ -141,6 +168,8 @@ In rough order of how much it would change what I build next:
   phase and it's gated on this one working.
 - **No collection block.** Specified in the design brief, phase 3.
 - **Cards don't stack, and there's no way to get rid of one** except dropping it.
+- **No deck legality check anywhere.** Setting a card as a commander asks no questions; the
+  format validator exists but nothing calls it until there is a table to sit at.
 
 ## Checking the parts you can't see
 

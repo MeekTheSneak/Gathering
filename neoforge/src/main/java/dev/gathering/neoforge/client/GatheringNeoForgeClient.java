@@ -82,7 +82,7 @@ public final class GatheringNeoForgeClient {
         // Not parallel-safe work: these bind shared state, so they go on the main thread.
         event.enqueueWork(() -> {
             CardNameLookup.Binding.bind(ClientCardCache.get());
-            DeckScreenHook.Binding.bind(deck -> Minecraft.getInstance().setScreen(new DeckContentsScreen(deck)));
+            DeckScreenHook.Binding.bind(hand -> Minecraft.getInstance().setScreen(new DeckContentsScreen(hand)));
             CardZoomOverlay.bindKeyState(ZoomKeyState.of(ZOOM_KEY, ZOOM_KEY::getKey));
             ClientNetworking.bindSender(payload -> {
                 var connection = Minecraft.getInstance().getConnection();

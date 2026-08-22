@@ -1,11 +1,13 @@
 package dev.gathering.fabric;
 
 import dev.gathering.network.CardMetadataPayload;
+import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
 import dev.gathering.network.RequestCardMetadataPayload;
 import dev.gathering.server.CardMetadataRequests;
+import dev.gathering.server.DeckEdits;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.service.CardDataService;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -28,6 +30,7 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(ImportDecklistPayload.TYPE, ImportDecklistPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
                 RequestCardMetadataPayload.TYPE, RequestCardMetadataPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(DeckEditPayload.TYPE, DeckEditPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(ImportResultPayload.TYPE, ImportResultPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(OpenImportScreenPayload.TYPE, OpenImportScreenPayload.STREAM_CODEC);
@@ -48,5 +51,8 @@ final class GatheringNetwork {
         ServerPlayNetworking.registerGlobalReceiver(RequestCardMetadataPayload.TYPE, (payload, context) ->
                 CardDataService.active().ifPresent(service ->
                         CardMetadataRequests.handle(context.player(), service, payload)));
+
+        ServerPlayNetworking.registerGlobalReceiver(DeckEditPayload.TYPE, (payload, context) ->
+                DeckEdits.handle(context.player(), payload));
     }
 }

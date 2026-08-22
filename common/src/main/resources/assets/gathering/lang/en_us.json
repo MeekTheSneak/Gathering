@@ -14,6 +14,8 @@
   "overlay.gathering.image_unavailable": "Card art unavailable",
   "overlay.gathering.no_image": "This printing has no art on Scryfall",
   "screen.gathering.deck.commanders": "Command zone (%s)",
+  "screen.gathering.deck.hint_card": "Left-click to take a copy   Right-click to make it a commander",
+  "screen.gathering.deck.hint_commander": "Left-click to take a copy   Right-click to return it to the deck",
   "screen.gathering.deck.loading_card": "Loading...",
   "screen.gathering.deck.mainboard": "Deck (%s)",
   "screen.gathering.deck.sideboard": "Sideboard (%s)",

@@ -1,27 +1,42 @@
 package dev.gathering.client;
 
+import dev.gathering.Gathering;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DeckItem;
 import dev.gathering.network.CardSummary;
+import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.RequestCardMetadataPayload;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 /**
- * What is actually in a deck.
+ * What is actually in a deck, and the place you change it.
  *
  * <p>Without this a deck is an opaque item that claims a number, which is a strange thing to
  * hand somebody after they pasted a hundred cards. The list groups by zone, collapses copies
- * into counts the way a decklist does, and lets the zoom overlay read any row - so the deck
- * is browsable before there is a table to play it at.
+ * into counts the way a decklist does, and reads any row on demand - so the deck is browsable
+ * and editable before there is a table to play it at.
+ *
+ * <p>The list sits against the left edge rather than centred, because holding the read key
+ * over a row shows that card full size on the right. Centring the list would put the card on
+ * top of it.
+ *
+ * <p>The screen owns no copy of the deck. It reads the stack in the player's hand every
+ * frame, so an edit the server applies appears here as soon as the held item syncs, and a
+ * deck that stops being in that hand closes the screen instead of showing a ghost.
  *
  * <p>Card names come from the client's metadata cache, which is emptied on disconnect, so
  * the screen asks the server about its printings when it opens. Until the answer arrives
@@ -29,7 +44,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Client-only.
  */
-public final class DeckContentsScreen extends Screen {
+public final class DeckContentsScreen extends Screen implements CardPreviewHost {
 
     private static final int MARGIN = 16;
     private static final int PADDING = 8;
@@ -38,49 +53,87 @@ public final class DeckContentsScreen extends Screen {
     private static final int PANEL_WIDTH = 300;
     private static final int BUTTON_HEIGHT = 20;
 
+    /** Below this the preview would be a thumbnail, so it is not worth the space it takes. */
+    private static final int MINIMUM_PREVIEW_WIDTH = 140;
+
+    /**
+     * Above this the oracle text stops being readable.
+     *
+     * <p>A card preview that fills a 21:9 monitor is a line of text a metre wide over a
+     * postage-stamp image, because the art is bounded by the panel's height and the text is
+     * not. Capping the width and centring what is left keeps the proportions of a card.
+     */
+    private static final int MAXIMUM_PREVIEW_WIDTH = 420;
+
     private static final int HEADING_COLOUR = 0xFFC49E4A;
     private static final int NAME_COLOUR = 0xFFE8E4DC;
     private static final int COUNT_COLOUR = 0xFF9A9690;
     private static final int PENDING_COLOUR = 0xFF6E6A66;
 
-    private final DeckComponent deck;
+    private final InteractionHand hand;
     private final List<Row> rows = new ArrayList<>();
 
-    private int scroll;
-    private int hoveredRow = -1;
+    /** What the rows were built from, so a deck the server changed rebuilds them. */
+    private DeckComponent shown;
 
-    public DeckContentsScreen(DeckComponent deck) {
-        super(Component.literal(deck.name()));
-        this.deck = deck;
+    private int scroll;
+
+    public DeckContentsScreen(InteractionHand hand) {
+        super(Component.empty());
+        this.hand = hand;
     }
 
     @Override
     protected void init() {
-        buildRows();
-
-        // The client may know none of these cards - a deck from a previous session is a list
-        // of ids until the server says otherwise.
-        List<java.util.UUID> printings = deck.distinctPrintings();
-        if (!printings.isEmpty()) {
-            ClientNetworking.send(new RequestCardMetadataPayload(printings));
+        DeckComponent deck = deck().orElse(null);
+        if (deck == null) {
+            // Nothing to lay out. tick() closes the screen on the next server tick rather
+            // than here, because closing a screen from inside its own init is a re-entrant
+            // setScreen.
+            return;
         }
+        rebuild(deck);
+        requestNames(deck);
 
-        int left = panelLeft();
         this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> this.onClose())
-                .bounds(left + panelWidth() - PADDING - 80, this.height - MARGIN - PADDING - BUTTON_HEIGHT,
-                        80, BUTTON_HEIGHT)
+                .bounds(panelLeft() + panelWidth() - PADDING - 80,
+                        this.height - MARGIN - PADDING - BUTTON_HEIGHT, 80, BUTTON_HEIGHT)
                 .build());
     }
 
-    /** Groups the deck by zone and collapses copies, the way a decklist reads. */
-    private void buildRows() {
-        rows.clear();
-        addSection("screen.gathering.deck.commanders", deck.commanders());
-        addSection("screen.gathering.deck.mainboard", deck.entries());
-        addSection("screen.gathering.deck.sideboard", deck.sideboard());
+    /** The deck the player is holding right now, which is the only one this screen shows. */
+    private Optional<DeckComponent> deck() {
+        Player player = this.minecraft == null ? null : this.minecraft.player;
+        if (player == null) {
+            return Optional.empty();
+        }
+        ItemStack stack = player.getItemInHand(hand);
+        return stack.getItem() instanceof DeckItem ? DeckItem.deckOf(stack) : Optional.empty();
     }
 
-    private void addSection(String headingKey, List<CardComponent> cards) {
+    /**
+     * The client may know none of these cards - a deck from a previous session is a list of
+     * ids until the server says otherwise.
+     */
+    private void requestNames(DeckComponent deck) {
+        List<UUID> printings = deck.distinctPrintings();
+        if (!printings.isEmpty()) {
+            ClientNetworking.send(new RequestCardMetadataPayload(printings));
+        }
+    }
+
+    private void rebuild(DeckComponent deck) {
+        shown = deck;
+        rows.clear();
+        addSection(DeckComponent.Section.COMMANDERS, "screen.gathering.deck.commanders", deck);
+        addSection(DeckComponent.Section.MAINBOARD, "screen.gathering.deck.mainboard", deck);
+        addSection(DeckComponent.Section.SIDEBOARD, "screen.gathering.deck.sideboard", deck);
+        scroll = Math.min(scroll, maximumScroll());
+    }
+
+    /** Groups the deck by zone and collapses copies, the way a decklist reads. */
+    private void addSection(DeckComponent.Section section, String headingKey, DeckComponent deck) {
+        List<CardComponent> cards = deck.section(section);
         if (cards.isEmpty()) {
             return;
         }
@@ -89,7 +142,7 @@ public final class DeckContentsScreen extends Screen {
             counts.merge(card, 1, Integer::sum);
         }
         rows.add(Row.heading(Component.translatable(headingKey, cards.size())));
-        counts.forEach((card, count) -> rows.add(Row.card(card, count)));
+        counts.forEach((card, count) -> rows.add(Row.card(section, card, count)));
     }
 
     /**
@@ -107,52 +160,68 @@ public final class DeckContentsScreen extends Screen {
         GatheringSprites.panel(graphics, panelLeft(), MARGIN, panelWidth(), this.height - MARGIN * 2);
     }
 
+    /**
+     * The deck left the player's hand - dropped, swapped, taken by a hopper.
+     *
+     * <p>There is then nothing here to show and nothing an edit could safely land on, so the
+     * screen goes away rather than showing a deck that is no longer there.
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        if (deck().isEmpty()) {
+            this.onClose();
+        }
+    }
+
+    /** The deck's own name, read live, because the player may rename it elsewhere. */
+    @Override
+    public Component getTitle() {
+        return deck().map(DeckComponent::name).<Component>map(Component::literal).orElseGet(Component::empty);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        DeckComponent deck = deck().orElse(null);
+        if (deck == null) {
+            super.render(graphics, mouseX, mouseY, partialTick);
+            return;
+        }
+        if (!deck.equals(shown)) {
+            rebuild(deck);
+        }
+
         // Background, panel and widgets, in that order.
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        int left = panelLeft();
-        int width = panelWidth();
+        graphics.drawCenteredString(
+                this.font, getTitle(), panelLeft() + panelWidth() / 2, MARGIN + PADDING - 1, 0xFFFFFF);
 
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, MARGIN + PADDING - 1, 0xFFFFFF);
+        GatheringSprites.inset(graphics, listLeft() - 2, listTop() - 2, listWidth() + 4, listHeight() + 4);
+        renderRows(graphics, mouseX, mouseY);
 
-        int listTop = MARGIN + PADDING + this.font.lineHeight + GAP;
-        int listBottom = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP;
-        int listLeft = left + PADDING;
-        int listWidth = width - PADDING * 2;
-
-        GatheringSprites.inset(graphics, listLeft - 2, listTop - 2, listWidth + 4, listBottom - listTop + 4);
-
-        // Sets the hovered row, which is what the zoom overlay reads. The overlay itself is
-        // drawn by each loader's after-screen hook, so calling it here as well would run the
-        // whole thing twice and darken the backdrop twice over.
-        renderRows(graphics, mouseX, mouseY, listLeft, listTop, listWidth, listBottom);
+        int hovered = rowAt(mouseX, mouseY);
+        renderHint(graphics, hovered);
+        if (CardZoomOverlay.isActive() && hovered >= 0) {
+            renderPreview(graphics, rows.get(hovered));
+        }
     }
 
-    private void renderRows(
-            GuiGraphics graphics, int mouseX, int mouseY, int left, int top, int width, int bottom) {
+    private void renderRows(GuiGraphics graphics, int mouseX, int mouseY) {
+        int left = listLeft();
+        int top = listTop();
+        int width = listWidth();
+        int bottom = top + listHeight();
+        int hovered = rowAt(mouseX, mouseY);
+
         graphics.enableScissor(left, top, left + width, bottom);
-
-        hoveredRow = -1;
-        ClientHoverState.clear();
-
         int y = top - scroll;
         for (int index = 0; index < rows.size(); index++) {
-            Row row = rows.get(index);
             if (y + ROW_HEIGHT >= top && y <= bottom) {
-                boolean hovered = mouseX >= left && mouseX <= left + width && mouseY >= y && mouseY < y + ROW_HEIGHT
-                        && mouseY >= top && mouseY < bottom;
-                renderRow(graphics, row, left, y, width, hovered);
-                if (hovered && row.card() != null) {
-                    hoveredRow = index;
-                    // Feeds the zoom overlay exactly as an inventory slot would.
-                    ClientHoverState.setHovered(dev.gathering.item.CardItem.of(row.card()));
-                }
+                renderRow(graphics, rows.get(index), left, y, width, index == hovered);
             }
             y += ROW_HEIGHT;
         }
-
         graphics.disableScissor();
     }
 
@@ -167,33 +236,97 @@ public final class DeckContentsScreen extends Screen {
 
         Optional<CardSummary> summary = ClientCardCache.get().summary(row.card());
         Component name = summary
-                .map(found -> Component.literal(found.name()).withStyle(style -> style))
+                .<Component>map(found -> Component.literal(found.name()))
                 .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
-        int colour = summary.isPresent() ? NAME_COLOUR : PENDING_COLOUR;
 
         graphics.drawString(this.font, row.count() + "x", left + 2, y + 2, COUNT_COLOUR, false);
-        graphics.drawString(this.font, name, left + 24, y + 2, colour, false);
+        graphics.drawString(this.font, name, left + 24, y + 2,
+                summary.isPresent() ? NAME_COLOUR : PENDING_COLOUR, false);
         if (row.card().foil()) {
             graphics.drawString(this.font,
-                    Component.translatable("tooltip." + dev.gathering.Gathering.MOD_ID + ".foil")
+                    Component.translatable("tooltip." + Gathering.MOD_ID + ".foil")
                             .withStyle(ChatFormatting.AQUA),
                     left + width - 26, y + 2, 0xFF6FD3E8, false);
         }
     }
 
+    /** What a click on this row would do, said plainly under the list. */
+    private void renderHint(GuiGraphics graphics, int hovered) {
+        if (hovered < 0) {
+            return;
+        }
+        String key = rows.get(hovered).section() == DeckComponent.Section.COMMANDERS
+                ? "screen.gathering.deck.hint_commander"
+                : "screen.gathering.deck.hint_card";
+        graphics.drawString(this.font, Component.translatable(key),
+                listLeft(), listTop() + listHeight() + GAP, PENDING_COLOUR, false);
+    }
+
+    /** The hovered card, full size, in the space to the right of the list. */
+    private void renderPreview(GuiGraphics graphics, Row row) {
+        int regionLeft = panelLeft() + panelWidth() + GAP * 2;
+        int regionWidth = this.width - MARGIN - regionLeft;
+        if (regionWidth < MINIMUM_PREVIEW_WIDTH) {
+            return;
+        }
+        int width = Math.min(regionWidth, MAXIMUM_PREVIEW_WIDTH);
+        int left = regionLeft + (regionWidth - width) / 2;
+        ClientCardCache.get().summary(row.card()).ifPresent(summary ->
+                CardZoomOverlay.renderInto(graphics, summary, left, MARGIN, width, this.height - MARGIN * 2));
+    }
+
+    /**
+     * Left-click takes a card out of the deck; right-click moves it to or from the command
+     * zone.
+     *
+     * <p>Both are requests, not edits: the server owns the deck and this screen only shows
+     * what it is told. The card is named rather than the row, so a click that arrives after
+     * the list has shifted still means the card the player was pointing at.
+     */
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int contentHeight = rows.size() * ROW_HEIGHT;
-        int viewHeight = this.height - MARGIN * 2 - PADDING * 2 - this.font.lineHeight - GAP * 2 - BUTTON_HEIGHT;
-        int maximum = Math.max(0, contentHeight - viewHeight);
-        scroll = Math.max(0, Math.min(maximum, scroll - (int) (scrollY * ROW_HEIGHT * 2)));
-        return true;
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (super.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        int index = rowAt((int) mouseX, (int) mouseY);
+        if (index < 0) {
+            return false;
+        }
+        Row row = rows.get(index);
+        if (button == 0) {
+            ClientNetworking.send(DeckEditPayload.take(hand, row.section(), row.card()));
+            return true;
+        }
+        if (button == 1) {
+            ClientNetworking.send(DeckEditPayload.toggleCommander(hand, row.section(), row.card()));
+            return true;
+        }
+        return false;
+    }
+
+    /** The card row under this point, or -1 for a heading, a gap, or somewhere else entirely. */
+    private int rowAt(int mouseX, int mouseY) {
+        int left = listLeft();
+        int top = listTop();
+        int bottom = top + listHeight();
+        if (mouseX < left || mouseX >= left + listWidth() || mouseY < top || mouseY >= bottom) {
+            return -1;
+        }
+        int index = (mouseY - top + scroll) / ROW_HEIGHT;
+        if (index < 0 || index >= rows.size() || rows.get(index).card() == null) {
+            return -1;
+        }
+        return index;
     }
 
     @Override
-    public void onClose() {
-        ClientHoverState.clear();
-        super.onClose();
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        scroll = Math.max(0, Math.min(maximumScroll(), scroll - (int) (scrollY * ROW_HEIGHT * 2)));
+        return true;
+    }
+
+    private int maximumScroll() {
+        return Math.max(0, rows.size() * ROW_HEIGHT - listHeight());
     }
 
     @Override
@@ -202,22 +335,40 @@ public final class DeckContentsScreen extends Screen {
     }
 
     private int panelLeft() {
-        return (this.width - panelWidth()) / 2;
+        return MARGIN;
     }
 
     private int panelWidth() {
         return Math.min(PANEL_WIDTH, this.width - MARGIN * 2);
     }
 
-    /** Either a section heading or a card with a count. */
-    private record Row(Component heading, CardComponent card, int count) {
+    private int listLeft() {
+        return panelLeft() + PADDING;
+    }
+
+    private int listWidth() {
+        return panelWidth() - PADDING * 2;
+    }
+
+    private int listTop() {
+        return MARGIN + PADDING + this.font.lineHeight + GAP;
+    }
+
+    private int listHeight() {
+        // Room under the list for the click hint, then the Done button.
+        int bottom = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP * 2 - this.font.lineHeight;
+        return Math.max(ROW_HEIGHT, bottom - listTop());
+    }
+
+    /** Either a section heading or a card with a count and the pile it came from. */
+    private record Row(Component heading, DeckComponent.Section section, CardComponent card, int count) {
 
         static Row heading(Component heading) {
-            return new Row(heading, null, 0);
+            return new Row(heading, null, null, 0);
         }
 
-        static Row card(CardComponent card, int count) {
-            return new Row(Component.empty(), card, count);
+        static Row card(DeckComponent.Section section, CardComponent card, int count) {
+            return new Row(Component.empty(), section, card, count);
         }
     }
 }

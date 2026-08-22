@@ -6,10 +6,12 @@ import dev.gathering.core.decklist.DeckSection;
 import dev.gathering.core.decklist.DecklistEntry;
 import dev.gathering.core.deck.ResolvedCard;
 import dev.gathering.core.deck.ResolvedDeck;
+import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
 import dev.gathering.network.CardFaceSummary;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.CardSummary;
+import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
@@ -115,6 +117,28 @@ public final class PayloadGameTest {
         }
         if (!restored.cards().get(1).isDoubleFaced()) {
             helper.fail("The back face did not survive the wire");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void deckEditsRoundTripForEveryHandActionAndSection(GameTestHelper helper) {
+        // Three small enums on the wire: an off-by-one in any of them silently edits the
+        // wrong pile, which reads as "the game lost my card" rather than as a protocol bug.
+        CardComponent card = CardComponent.of(CardIdentity.ofPrinting(SOL_RING, true));
+        for (boolean offHand : new boolean[] {false, true}) {
+            for (DeckEditPayload.Action action : DeckEditPayload.Action.values()) {
+                for (DeckComponent.Section section : DeckComponent.Section.values()) {
+                    DeckEditPayload payload = new DeckEditPayload(offHand, action, section, card);
+                    DeckEditPayload restored = roundTrip(helper, payload, DeckEditPayload.STREAM_CODEC);
+                    if (!restored.equals(payload)) {
+                        helper.fail("A deck edit changed on the wire: " + payload + " became " + restored);
+                    }
+                    if (restored.hand() != payload.hand()) {
+                        helper.fail("A deck edit changed hands on the wire");
+                    }
+                }
+            }
         }
         helper.succeed();
     }

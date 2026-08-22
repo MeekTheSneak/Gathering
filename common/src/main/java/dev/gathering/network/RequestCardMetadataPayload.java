@@ -22,8 +22,11 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  */
 public record RequestCardMetadataPayload(List<UUID> printings) implements CustomPacketPayload {
 
-    /** A Commander deck is a hundred cards; a cap well above that bounds a hostile request. */
-    public static final int MAX_REQUESTED = 512;
+    /**
+     * A deck is the largest legitimate source of one of these, so its own card limit is the
+     * right ceiling: a deck can never hold more distinct printings than it holds cards.
+     */
+    public static final int MAX_REQUESTED = dev.gathering.item.DeckComponent.MAX_CARDS;
 
     public static final CustomPacketPayload.Type<RequestCardMetadataPayload> TYPE =
             GatheringPayloads.type("request_card_metadata");

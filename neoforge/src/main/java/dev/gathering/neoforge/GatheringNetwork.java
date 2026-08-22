@@ -2,11 +2,13 @@ package dev.gathering.neoforge;
 
 import dev.gathering.Gathering;
 import dev.gathering.network.CardMetadataPayload;
+import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
 import dev.gathering.network.RequestCardMetadataPayload;
 import dev.gathering.server.CardMetadataRequests;
+import dev.gathering.server.DeckEdits;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.service.CardDataService;
 import net.minecraft.network.chat.Component;
@@ -45,6 +47,11 @@ public final class GatheringNetwork {
                 RequestCardMetadataPayload.STREAM_CODEC,
                 GatheringNetwork::onMetadataRequest);
 
+        registrar.playToServer(
+                DeckEditPayload.TYPE,
+                DeckEditPayload.STREAM_CODEC,
+                GatheringNetwork::onDeckEdit);
+
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.
         registrar.playToClient(
@@ -74,6 +81,12 @@ public final class GatheringNetwork {
         // card pipeline's executor rather than doing anything on the network thread.
         DecklistImport.importFor(
                 player, service, payload.decklist(), payload.deckName(), payload.description());
+    }
+
+    private static void onDeckEdit(DeckEditPayload payload, IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) {
+            DeckEdits.handle(player, payload);
+        }
     }
 
     private static void onMetadataRequest(RequestCardMetadataPayload payload, IPayloadContext context) {

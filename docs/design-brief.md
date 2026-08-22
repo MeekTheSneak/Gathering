@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.14
+## Design Brief v1.15
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -148,6 +148,8 @@ Three renderers, one state:
 **The spectator view:** any non-seated player near a table can open a read-only GUI of the full public state, and arena tables broadcast a joinable spectate camera. Spectator clients receive exactly the public payload set defined by the visibility table, nothing more, so a spectating client is incapable of leaking a hand even if modified.
 
 **Texture budget**, informed by the TTS Azorius project: two image tiers per card, Scryfall small (146x204) for table miniatures and normal (488x680) for the overlay and GUI. A 4-player Commander game touches perhaps 450 distinct cards; at these tiers that is well under 200 MB of VRAM worst case, managed with an LRU cap (config, default 256 normal-tier textures resident) and disk cache for everything ever fetched. Never fetch or register textures on the render thread.
+
+**The deck item is a container you can read, and edits are asymmetric on purpose.** Right-clicking a deck opens its list — grouped by zone, copies collapsed, sat against the left edge of the screen so the read key can draw the hovered card full size to the right without covering it. From that list, left-click takes one copy out and right-click names a commander. Cards go back in with the bundle gesture (card on the cursor, right-click the deck, or the reverse). The other half of the bundle gesture — empty cursor, right-click, receive one item — is deliberately not implemented: taking a card must always be a thing you did to a card you could see the name of. A blind pull off a hundred-card deck is only ever an accident. Deck edits are server-authoritative and the screen keeps no copy of the deck; it reads the stack in the hand it was opened from, so it is never showing a deck that no longer exists. No legality check runs here — whether a card may be a commander is a format question, and the validator answers it when a game starts.
 
 ## 9. Collection mode (phase 3)
 

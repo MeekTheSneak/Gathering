@@ -57,6 +57,18 @@ public record CardComponent(
         return new CardComponent(scryfallId, foil, customId, !flipped);
     }
 
+    /**
+     * The same card, the right way up.
+     *
+     * <p>Which way a card is sitting is a property of the table, not of the card, so cards
+     * are stored face up wherever they are put away. Without this a face-down copy and a
+     * face-up copy of one card are two different components, and the deck list would show
+     * them as two separate rows of the same card.
+     */
+    public CardComponent faceUp() {
+        return flipped ? new CardComponent(scryfallId, foil, customId, false) : this;
+    }
+
     /** Back to the pure-core type, where every rule about identity actually lives. */
     public CardIdentity toIdentity() {
         return scryfallId

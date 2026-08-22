@@ -220,3 +220,16 @@ cannot be inferred from reading the code.
 - **A record accessor and a wither cannot share a name.** `SeatState.conceded()` is the
   accessor, so the wither is `withConcede()`; `invalid accessor method in record` is what
   that collision looks like.
+- **`SimpleContainer#setItem` clamps to the item's max stack size.** Cards are `stacksTo(1)`,
+  so a slot can never hold two of them however the test set it up - which made a test of the
+  multi-card insert path fail against code that was correct. The cursor stack is not clamped
+  the same way, which is why the multi-copy path is reachable there and only there.
+- **A deck takes the bundle gesture but only half of it.** `overrideOtherStackedOnMe` and
+  `overrideStackedOnOther` put cards in; the empty-cursor branch that a bundle answers by
+  handing one item back is deliberately declined. Taking a card is done from the deck list,
+  where the card's name is visible before the click. Never make the gesture symmetrical -
+  blind-pulling from a hundred-card deck is a mistake a player makes by accident.
+- **The deck screen holds no copy of the deck.** It reads the stack in the named hand every
+  frame. A screen built from a snapshot would show the deck as it was before every edit the
+  server applied, and there is no packet pushing a fresh copy at it - held-item sync already
+  does that.
