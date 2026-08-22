@@ -56,11 +56,7 @@ public final class CardFaceRenderer {
     public static void render(
             ItemStack stack, PoseStack poseStack, MultiBufferSource buffers, int packedLight) {
         Optional<CardComponent> card = CardItem.cardOf(stack);
-        // The two sides are always complementary: whatever is facing you, the other one is
-        // behind it. Hard-coding the reverse to the card back means a flipped ordinary card
-        // shows a back on both sides, which is not a card, it is a coaster.
         ResourceLocation facing = card.map(c -> textureForSide(c, c.flipped())).orElse(CARD_BACK);
-        ResourceLocation reverse = card.map(c -> textureForSide(c, !c.flipped())).orElse(CARD_BACK);
 
         poseStack.pushPose();
         // Item models are drawn in a 1x1 space with the origin at a corner; centre the card.
@@ -68,7 +64,15 @@ public final class CardFaceRenderer {
 
         Matrix4f pose = poseStack.last().pose();
         drawFace(buffers, pose, facing, packedLight, HALF_THICKNESS);
-        drawFace(buffers, pose, reverse, packedLight, -HALF_THICKNESS);
+        // The reverse is always the sleeve, never the printed face behind it. Think of every
+        // card as sleeved: the back of a sleeve is opaque.
+        //
+        // This is not only a look. A face-down card has to be unreadable from *every* angle,
+        // or an opponent can walk round behind it and read what the visibility rules went to
+        // such lengths to withhold. Making the two sides complementary would put the card's
+        // face on the back of a face-down card, which is a hole in the one security property
+        // this mod has.
+        drawFace(buffers, pose, CARD_BACK, packedLight, -HALF_THICKNESS);
 
         poseStack.popPose();
     }
@@ -82,6 +86,11 @@ public final class CardFaceRenderer {
      *
      * <p>Art that has not been fetched yet falls back to the back rather than to nothing, so a
      * hand of cards looks like a hand of cards while it loads.
+     *
+     * <p>Note that {@code flipped} currently means two things at once: "show me the other
+     * printed side" for a double-faced card, and "this card is face down" for everything
+     * else. That is the right shape for a card in hand. When the table arrives and face-down
+     * becomes a zone-level fact with a marker attached, the two will want separating.
      *
      * @param reverseSide false for the printed front, true for whatever is on the other side
      */

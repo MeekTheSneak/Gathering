@@ -185,6 +185,11 @@ cannot be inferred from reading the code.
 - **The card back is our own art and must stay that way.** The mod ships no Wizards imagery -
   that is a project pillar and a Fan Content Policy requirement, not a placeholder. It is
   also the seed of the sleeve system in section 9.
+- **A card's reverse is always the sleeve, never the printed face behind it.** Every card is
+  sleeved, and the back of a sleeve is opaque. This is a security property rather than a
+  look: complementary sides would put a face-down card's face on its own back, so anyone
+  could read it by moving round behind it. Never "fix" the two-backs appearance of a
+  face-down card - that appearance is the point.
 - **GUI art is nine-slice sprites**, not rectangles drawn in code: PNGs under
   `textures/gui/sprites` with a `.mcmeta` beside each. Repainting the PNG reskins the mod and
   a resource pack can override it. Draw them through `GatheringSprites`, never `graphics.fill`.
