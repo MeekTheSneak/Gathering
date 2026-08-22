@@ -20,6 +20,12 @@ import net.minecraft.world.item.ItemStack;
  * the deck, and every disagreement resolves as "do nothing" rather than as an error, because
  * a click that raced a change is ordinary rather than hostile.
  *
+ * <p>No legality check on any of it. Whether a card may be a commander, or how big a
+ * sideboard may be, is a format question, and the validator answers it when a game starts.
+ * Refusing here would make the screen argue with a player about a deck they have not chosen a
+ * format for yet - and would be wrong for every house rule and every card the validator does
+ * not know about.
+ *
  * <p>Only ever called from a serverbound payload handler. It takes a {@link Player} rather
  * than a {@code ServerPlayer} because nothing it does needs the wider type, and the narrower
  * one makes the deck rules reachable from a test without standing up a connection.
@@ -42,8 +48,8 @@ public final class DeckEdits {
         DeckComponent deck = held.get();
 
         Optional<DeckComponent> updated = switch (edit.action()) {
-            case TAKE -> take(player, deck, edit.section(), edit.card());
-            case TOGGLE_COMMANDER -> toggleCommander(deck, edit.section(), edit.card());
+            case TAKE -> take(player, deck, edit.from(), edit.card());
+            case MOVE -> deck.moved(edit.from(), edit.to(), edit.card());
         };
         updated.ifPresent(next -> {
             if (next.isEmpty()) {
@@ -77,18 +83,4 @@ public final class DeckEdits {
         return without;
     }
 
-    /**
-     * Moves one copy between the command zone and the mainboard.
-     *
-     * <p>No legality check: whether a card may be a commander is a format question, and the
-     * validator answers it when a game starts. Refusing here would make the screen argue
-     * with a player about a deck they have not yet chosen a format for - and would be wrong
-     * for every house rule and every card the validator does not know about yet.
-     */
-    private static Optional<DeckComponent> toggleCommander(
-            DeckComponent deck, DeckComponent.Section section, CardComponent card) {
-        return section == DeckComponent.Section.COMMANDERS
-                ? deck.moved(DeckComponent.Section.COMMANDERS, DeckComponent.Section.MAINBOARD, card)
-                : deck.moved(section, DeckComponent.Section.COMMANDERS, card);
-    }
 }

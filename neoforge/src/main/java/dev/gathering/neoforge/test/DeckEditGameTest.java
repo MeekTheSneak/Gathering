@@ -157,36 +157,56 @@ public final class DeckEditGameTest {
     }
 
     @GameTest(template = "empty")
-    public static void theCommanderToggleMovesBothWays(GameTestHelper helper) {
+    public static void aCardMovesBetweenAnyTwoPiles(GameTestHelper helper) {
+        // Every direction is the same operation. A deck editor where the command zone is the
+        // special one is a Commander deck editor, and the formats that live on their
+        // sideboard are the ones that would notice.
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         ItemStack deckStack = DeckItem.of(deck(List.of(SOL, LIGHTNING), List.of(), List.of()));
         player.setItemInHand(InteractionHand.MAIN_HAND, deckStack);
 
-        DeckEdits.handle(player, DeckEditPayload.toggleCommander(
-                InteractionHand.MAIN_HAND, DeckComponent.Section.MAINBOARD, SOL));
-
-        DeckComponent promoted = deckIn(deckStack);
-        if (!promoted.commanders().equals(List.of(SOL))) {
-            helper.fail("The card did not reach the command zone: " + promoted.commanders());
+        move(player, DeckComponent.Section.MAINBOARD, DeckComponent.Section.SIDEBOARD, SOL);
+        if (!deckIn(deckStack).sideboard().equals(List.of(SOL))) {
+            helper.fail("The card did not reach the sideboard: " + deckIn(deckStack).sideboard());
         }
-        if (!promoted.entries().equals(List.of(LIGHTNING))) {
-            helper.fail("The mainboard is wrong after a promotion: " + promoted.entries());
-        }
-        if (promoted.deckSize() != 2) {
-            helper.fail("A promotion changed the size of the deck");
+        if (deckIn(deckStack).deckSize() != 1) {
+            helper.fail("A sideboarded card still counts towards the deck");
         }
 
-        DeckEdits.handle(player, DeckEditPayload.toggleCommander(
-                InteractionHand.MAIN_HAND, DeckComponent.Section.COMMANDERS, SOL));
-
-        DeckComponent demoted = deckIn(deckStack);
-        if (!demoted.commanders().isEmpty()) {
-            helper.fail("The command zone should be empty again: " + demoted.commanders());
+        move(player, DeckComponent.Section.SIDEBOARD, DeckComponent.Section.COMMANDERS, SOL);
+        if (!deckIn(deckStack).commanders().equals(List.of(SOL))) {
+            helper.fail("Sideboard to command zone did not work: " + deckIn(deckStack).commanders());
         }
-        if (demoted.entries().size() != 2 || !demoted.entries().contains(SOL)) {
-            helper.fail("The card did not go back to the mainboard: " + demoted.entries());
+
+        move(player, DeckComponent.Section.COMMANDERS, DeckComponent.Section.MAINBOARD, SOL);
+        DeckComponent back = deckIn(deckStack);
+        if (!back.commanders().isEmpty() || back.entries().size() != 2) {
+            helper.fail("The card did not come back to the deck: " + back);
+        }
+        if (back.totalCards() != 2) {
+            helper.fail("Moving a card between piles changed how many there are");
         }
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void movingACardNowhereChangesNothing(GameTestHelper helper) {
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        DeckComponent before = deck(List.of(SOL), List.of(), List.of());
+        ItemStack deckStack = DeckItem.of(before);
+        player.setItemInHand(InteractionHand.MAIN_HAND, deckStack);
+
+        move(player, DeckComponent.Section.MAINBOARD, DeckComponent.Section.MAINBOARD, SOL);
+
+        if (!deckIn(deckStack).equals(before)) {
+            helper.fail("Moving a card to the pile it is already in changed the deck");
+        }
+        helper.succeed();
+    }
+
+    private static void move(
+            Player player, DeckComponent.Section from, DeckComponent.Section to, CardComponent card) {
+        DeckEdits.handle(player, DeckEditPayload.move(InteractionHand.MAIN_HAND, from, to, card));
     }
 
     @GameTest(template = "empty")
@@ -198,7 +218,8 @@ public final class DeckEditGameTest {
         player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
 
         DeckEdits.handle(player, new DeckEditPayload(
-                true, DeckEditPayload.Action.TAKE, DeckComponent.Section.MAINBOARD, SOL));
+                true, DeckEditPayload.Action.TAKE,
+                DeckComponent.Section.MAINBOARD, DeckComponent.Section.MAINBOARD, SOL));
 
         if (deckIn(deckStack).entries().size() != 1) {
             helper.fail("An edit aimed at an empty hand reached the deck in the other one");

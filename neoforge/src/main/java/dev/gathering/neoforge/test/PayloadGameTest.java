@@ -128,14 +128,18 @@ public final class PayloadGameTest {
         CardComponent card = CardComponent.of(CardIdentity.ofPrinting(SOL_RING, true));
         for (boolean offHand : new boolean[] {false, true}) {
             for (DeckEditPayload.Action action : DeckEditPayload.Action.values()) {
-                for (DeckComponent.Section section : DeckComponent.Section.values()) {
-                    DeckEditPayload payload = new DeckEditPayload(offHand, action, section, card);
-                    DeckEditPayload restored = roundTrip(helper, payload, DeckEditPayload.STREAM_CODEC);
-                    if (!restored.equals(payload)) {
-                        helper.fail("A deck edit changed on the wire: " + payload + " became " + restored);
-                    }
-                    if (restored.hand() != payload.hand()) {
-                        helper.fail("A deck edit changed hands on the wire");
+                for (DeckComponent.Section from : DeckComponent.Section.values()) {
+                    for (DeckComponent.Section to : DeckComponent.Section.values()) {
+                        DeckEditPayload payload = new DeckEditPayload(offHand, action, from, to, card);
+                        DeckEditPayload restored =
+                                roundTrip(helper, payload, DeckEditPayload.STREAM_CODEC);
+                        if (!restored.equals(payload)) {
+                            helper.fail("A deck edit changed on the wire: " + payload
+                                    + " became " + restored);
+                        }
+                        if (restored.hand() != payload.hand()) {
+                            helper.fail("A deck edit changed hands on the wire");
+                        }
                     }
                 }
             }

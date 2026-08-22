@@ -158,8 +158,10 @@ it.
   reading each card in turn.
 - **Left-click a row** to take one copy out of the deck. It goes into your inventory, or onto
   the floor if there is no room — a card is never destroyed to make space.
-- **Right-click a row** to make that card a commander. Right-click it again in the command
-  zone to send it back to the deck.
+- **Right-click a row** for a menu of every pile the card is not already in — deck, sideboard,
+  command zone — plus taking a copy. Moving to the command zone is one entry among them rather
+  than what right-click does, because a deck editor whose right-click means "make commander"
+  is a Commander deck editor.
 - **Put cards back the way you fill a bundle**: hold a card on the cursor and right-click the
   deck, or hold the deck and right-click a card. Either way the card goes into the deck.
 
@@ -287,7 +289,8 @@ In rough order of how much it would change what I build next:
 ## What is deliberately not there yet
 
 - **No format validation at a table.** The validator exists and nothing calls it: any deck
-  can be put down at any table. Formatted games are phase 2.
+  can be put down at any table. Choosing a format when you start a game, best-of-three, and
+  sideboarding between games are the next thing being built.
 - **No undo button.** Undo is built and tested in the core and has no way to be reached from
   the seated view yet.
 - **No spectator screen.** You can see a table's miniature from across the room, but there is

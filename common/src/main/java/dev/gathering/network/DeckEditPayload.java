@@ -26,15 +26,26 @@ import net.minecraft.world.InteractionHand;
  *                codec, and a boolean is the whole of it
  */
 public record DeckEditPayload(
-        boolean offHand, Action action, DeckComponent.Section section, CardComponent card)
+        boolean offHand,
+        Action action,
+        DeckComponent.Section from,
+        DeckComponent.Section to,
+        CardComponent card)
         implements CustomPacketPayload {
 
     /** What the player asked for. */
     public enum Action {
-        /** Left-click a row: take one copy out of the deck and into the player's hands. */
+        /** Take one copy out of the deck and into the player's hands. */
         TAKE,
-        /** Right-click a row: move one copy between the command zone and the mainboard. */
-        TOGGLE_COMMANDER;
+        /**
+         * Move one copy from one pile to another.
+         *
+         * <p>One operation for every direction rather than a verb per destination. The
+         * command zone is a pile like the sideboard is a pile; making "make this a commander"
+         * its own action is how a deck editor quietly becomes a Commander deck editor, and
+         * the formats that need a sideboard are the ones that would notice.
+         */
+        MOVE;
 
         static final StreamCodec<io.netty.buffer.ByteBuf, Action> STREAM_CODEC =
                 ByteBufCodecs.idMapper(Action::byId, Action::ordinal);
@@ -53,18 +64,23 @@ public record DeckEditPayload(
     public static final StreamCodec<RegistryFriendlyByteBuf, DeckEditPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.BOOL, DeckEditPayload::offHand,
             Action.STREAM_CODEC, DeckEditPayload::action,
-            DeckComponent.Section.STREAM_CODEC, DeckEditPayload::section,
+            DeckComponent.Section.STREAM_CODEC, DeckEditPayload::from,
+            DeckComponent.Section.STREAM_CODEC, DeckEditPayload::to,
             CardComponent.STREAM_CODEC, DeckEditPayload::card,
             DeckEditPayload::new);
 
     public static DeckEditPayload take(
             InteractionHand hand, DeckComponent.Section section, CardComponent card) {
-        return new DeckEditPayload(hand == InteractionHand.OFF_HAND, Action.TAKE, section, card);
+        return new DeckEditPayload(
+                hand == InteractionHand.OFF_HAND, Action.TAKE, section, section, card);
     }
 
-    public static DeckEditPayload toggleCommander(
-            InteractionHand hand, DeckComponent.Section section, CardComponent card) {
-        return new DeckEditPayload(hand == InteractionHand.OFF_HAND, Action.TOGGLE_COMMANDER, section, card);
+    public static DeckEditPayload move(
+            InteractionHand hand,
+            DeckComponent.Section from,
+            DeckComponent.Section to,
+            CardComponent card) {
+        return new DeckEditPayload(hand == InteractionHand.OFF_HAND, Action.MOVE, from, to, card);
     }
 
     public InteractionHand hand() {

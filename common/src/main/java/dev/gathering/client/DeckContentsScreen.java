@@ -71,6 +71,9 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     private int scroll;
     private boolean draggingThumb;
 
+    /** Open only between a right-click and the next click anywhere. */
+    private ContextMenu menu;
+
     public DeckContentsScreen(InteractionHand hand) {
         super(Component.empty());
         this.hand = hand;
@@ -198,6 +201,8 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         }
         if (!deck.equals(shown)) {
             rebuild(deck);
+            // The row this menu was opened on may not exist any more.
+            menu = null;
         }
 
         // Background, panel and widgets, in that order.
@@ -212,6 +217,10 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         renderScrollbar(graphics);
         renderHint(graphics, hovered);
         renderPreview(graphics, hovered >= 0 ? rows.get(hovered) : null);
+
+        if (menu != null) {
+            menu.render(graphics, this.font, mouseX, mouseY);
+        }
     }
 
     private void renderRows(GuiGraphics graphics, int hovered) {
@@ -292,26 +301,15 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         return new Matrix4f().m10(layout().taperSlope());
     }
 
-    /**
-     * What each mouse button would do to this row, said plainly under the list.
-     *
-     * <p>A line per button. Both on one line is more text than a panel this narrow has room
-     * for: it shrank to the smallest readable size and was cut off on top of that, which
-     * makes an instruction worse than no instruction at all.
-     */
+    /** What each mouse button would do to this row, said plainly under the list. */
     private void renderHint(GuiGraphics graphics, int hovered) {
         if (hovered < 0) {
             return;
         }
         Rect hint = layout().hint();
-        boolean isCommander = rows.get(hovered).section() == DeckComponent.Section.COMMANDERS;
-
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.deck.hint_take"),
                 hint.x(), hint.y(), hint.width(), PENDING_COLOUR);
-        GuiText.draw(graphics, this.font,
-                Component.translatable(isCommander
-                        ? "screen.gathering.deck.hint_uncommander"
-                        : "screen.gathering.deck.hint_commander"),
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.deck.hint_menu"),
                 hint.x(), hint.y() + this.font.lineHeight, hint.width(), PENDING_COLOUR);
     }
 
@@ -362,6 +360,16 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
      */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // An open menu gets first refusal on every click, including the ones that miss it -
+        // clicking away is how a menu is dismissed, and that click should not also do
+        // whatever it landed on.
+        if (menu != null) {
+            ContextMenu open = menu;
+            menu = null;
+            if (open.mouseClicked((int) mouseX, (int) mouseY)) {
+                return true;
+            }
+        }
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
@@ -381,10 +389,37 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
             return true;
         }
         if (button == 1) {
-            ClientNetworking.send(DeckEditPayload.toggleCommander(hand, row.section(), row.card()));
+            menu = menuFor(row, (int) mouseX, (int) mouseY);
             return true;
         }
         return false;
+    }
+
+    /**
+     * What you can do with this card, given where it currently is.
+     *
+     * <p>Every pile it is not already in, plus taking a copy. Moving to the command zone is
+     * one entry among them rather than what right-click does, because a deck editor whose
+     * right-click means "make commander" is a Commander deck editor - and the formats that
+     * live and die on their sideboard are exactly the ones that would notice.
+     */
+    private ContextMenu menuFor(Row row, int x, int y) {
+        List<ContextMenu.Entry> entries = ContextMenu.entries();
+        for (DeckComponent.Section destination : DeckComponent.Section.values()) {
+            if (destination == row.section()) {
+                continue;
+            }
+            entries.add(ContextMenu.Entry.of(
+                    Component.translatable("menu.gathering.move_to_"
+                            + destination.name().toLowerCase(java.util.Locale.ROOT)),
+                    () -> ClientNetworking.send(
+                            DeckEditPayload.move(hand, row.section(), destination, row.card()))));
+        }
+        entries.add(ContextMenu.Entry.of(
+                Component.translatable("menu.gathering.take_a_copy"),
+                () -> ClientNetworking.send(DeckEditPayload.take(hand, row.section(), row.card()))));
+
+        return ContextMenu.at(this.font, x, y, this.width, this.height, entries);
     }
 
     @Override

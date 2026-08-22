@@ -399,3 +399,7 @@ cannot be inferred from reading the code.
 - **Nothing is applied on the client before the server agrees.** A board that showed a move
   and then took it back would be leaking, because "take that back" is a sentence with
   information in it.
+- **Moving a card between piles is one operation, in every direction.** Not "make commander"
+  plus "move to sideboard": a verb per destination is how a deck editor quietly becomes a
+  Commander deck editor, and the formats that live on their sideboard are the ones that would
+  notice. The mod is Commander-first in its defaults, never in what it makes possible.
