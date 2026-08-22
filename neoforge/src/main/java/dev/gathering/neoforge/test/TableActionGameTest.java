@@ -110,7 +110,7 @@ public final class TableActionGameTest {
     private static BlockPos seatedGame(GameTestHelper helper, int x, int y, int z) {
         BlockPos origin = place(helper, x, y, z);
         TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, ALICE);
-        TableSessions.start(helper.getLevel(), origin, 40);
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
         return origin;
     }
 

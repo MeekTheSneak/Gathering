@@ -266,7 +266,7 @@ public final class TableGameTest {
     public static void aGameNeedsSomebodySittingAtTheTable(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
 
-        if (TableSessions.start(helper.getLevel(), origin, 40) != TableSessions.Outcome.NOBODY_SEATED) {
+        if (TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules()) != TableSessions.Outcome.NOBODY_SEATED) {
             helper.fail("A game started at an empty table");
         }
         if (TableSessions.hasSession(helper.getLevel(), origin)) {
@@ -285,7 +285,7 @@ public final class TableGameTest {
         UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
         TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
 
-        if (TableSessions.start(helper.getLevel(), origin, 40) != TableSessions.Outcome.STARTED) {
+        if (TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules()) != TableSessions.Outcome.STARTED) {
             helper.fail("A game would not start with somebody seated");
         }
 
@@ -298,7 +298,7 @@ public final class TableGameTest {
             helper.fail("Two tables seat four, so the game should have four seats, got "
                     + session.state().seats().size());
         }
-        if (TableSessions.start(helper.getLevel(), origin, 40) != TableSessions.Outcome.ALREADY_RUNNING) {
+        if (TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules()) != TableSessions.Outcome.ALREADY_RUNNING) {
             helper.fail("A second game started on top of the first");
         }
         helper.succeed();
@@ -311,7 +311,7 @@ public final class TableGameTest {
         BlockPos origin = place(helper, 1, 2, 1);
         UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
         TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
-        TableSessions.start(helper.getLevel(), origin, 40);
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
 
         GameSession before = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
         before.submit(new GameEvent.DeckLoaded(new SeatId(0), library(), List.of()));
@@ -345,7 +345,7 @@ public final class TableGameTest {
         BlockPos origin = place(helper, 1, 2, 1);
         UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
         TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
-        TableSessions.start(helper.getLevel(), origin, 40);
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
 
         UUID printing = UUID.fromString("5805f64c-dd88-4e94-8f0a-a01dae67e3ba");
         GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
@@ -376,7 +376,7 @@ public final class TableGameTest {
         BlockPos origin = place(helper, 1, 2, 1);
         UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
         TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
-        TableSessions.start(helper.getLevel(), origin, 40);
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
         TableSeats.leave(helper.getLevel(), origin, player);
 
         if (TableSeats.occupiedSeats(helper.getLevel(), origin) != 0) {
@@ -406,7 +406,7 @@ public final class TableGameTest {
         UUID solo = new UUID(0L, 77L);
         TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, solo);
 
-        if (TableSessions.start(helper.getLevel(), origin, 40) != TableSessions.Outcome.STARTED) {
+        if (TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules()) != TableSessions.Outcome.STARTED) {
             helper.fail("One player alone could not start a game");
         }
         GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();

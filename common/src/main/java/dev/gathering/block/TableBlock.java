@@ -261,7 +261,7 @@ public class TableBlock extends BaseEntityBlock {
         // Crouching is the deliberate gesture, because starting a game is a deliberate act.
         if (player.isShiftKeyDown()) {
             TableSessions.Outcome outcome = TableSessions.start(
-                    level, tableOrigin, TableSessions.DEFAULT_STARTING_LIFE);
+                    level, tableOrigin, TableSessions.defaultRules());
             player.sendSystemMessage(Component.translatable(outcome.messageKey()));
             return ItemInteractionResult.SUCCESS;
         }

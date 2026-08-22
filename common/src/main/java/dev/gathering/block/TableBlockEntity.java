@@ -3,6 +3,8 @@ package dev.gathering.block;
 import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.persistence.SessionCipher;
 import dev.gathering.core.game.persistence.StoredSession;
+import dev.gathering.core.match.MatchRules;
+import dev.gathering.core.match.MatchState;
 import dev.gathering.core.table.Side;
 import dev.gathering.server.SessionKeyring;
 import java.io.IOException;
@@ -49,6 +51,10 @@ public class TableBlockEntity extends BlockEntity {
     private static final String SESSION_OPEN_KEY = "session_open";
     private static final String SESSION_SEALED_KEY = "session_sealed";
     private static final String STARTING_LIFE_KEY = "starting_life";
+    private static final String FORMAT_KEY = "format";
+    private static final String BEST_OF_KEY = "best_of";
+    private static final String GAME_NUMBER_KEY = "game_number";
+    private static final String WINS_KEY = "wins";
 
     /** Two seconds. Ambience, not gameplay - moves are pushed as they happen. */
     private static final int AMBIENT_INTERVAL_TICKS = 40;
@@ -74,6 +80,15 @@ public class TableBlockEntity extends BlockEntity {
     private boolean restoreFailed;
 
     private int ambientCountdown;
+
+    /**
+     * The set of games this table is playing, if any.
+     *
+     * <p>Kept beside the session rather than in it, and in the open rather than sealed: a
+     * match outlives the game it is currently on, and who has won how many is the most public
+     * fact at a table.
+     */
+    private MatchState match;
 
     public TableBlockEntity(BlockPos pos, BlockState state) {
         super(dev.gathering.item.GatheringContent.TABLE_ENTITY.get(), pos, state);
@@ -105,17 +120,29 @@ public class TableBlockEntity extends BlockEntity {
         return session != null || stored != null;
     }
 
-    public void beginSession(GameSession newSession, int life) {
+    public Optional<MatchState> match() {
+        return Optional.ofNullable(match);
+    }
+
+    public void beginSession(GameSession newSession, int life, MatchState newMatch) {
         this.session = newSession;
         this.startingLife = life;
+        this.match = newMatch;
         this.stored = null;
         this.restoreFailed = false;
+        setChanged();
+    }
+
+    /** Records how a game went, without ending the set it belongs to. */
+    public void recordMatch(MatchState updated) {
+        this.match = updated;
         setChanged();
     }
 
     public void endSession() {
         this.session = null;
         this.stored = null;
+        this.match = null;
         this.restoreFailed = false;
         setChanged();
     }
@@ -238,6 +265,7 @@ public class TableBlockEntity extends BlockEntity {
         stored = tag.contains(SESSION_OPEN_KEY)
                 ? new StoredSession(tag.getByteArray(SESSION_OPEN_KEY), tag.getByteArray(SESSION_SEALED_KEY))
                 : null;
+        match = readMatch(tag);
 
         claims.clear();
         ListTag seats = tag.getList(SEATS_KEY, Tag.TAG_COMPOUND);
@@ -260,6 +288,7 @@ public class TableBlockEntity extends BlockEntity {
             tag.putString(FELT_KEY, felt.getSerializedName());
         }
         writeSession(tag);
+        writeMatch(tag);
         ListTag seats = new ListTag();
         claims.forEach((side, player) -> {
             CompoundTag seat = new CompoundTag();
@@ -298,6 +327,57 @@ public class TableBlockEntity extends BlockEntity {
         tag.putByteArray(SESSION_OPEN_KEY, toWrite.openPart());
         tag.putByteArray(SESSION_SEALED_KEY, toWrite.sealedPart());
         tag.putInt(STARTING_LIFE_KEY, startingLife);
+    }
+
+    /**
+     * The set of games, written in the open.
+     *
+     * <p>By format id rather than by anything derived from the preset, so a format whose
+     * numbers change does not silently change a match already in progress into a different
+     * one - it changes what the preset says, which is the honest outcome.
+     */
+    private void writeMatch(CompoundTag tag) {
+        if (match == null) {
+            return;
+        }
+        tag.putString(FORMAT_KEY, match.rules().format().id());
+        tag.putInt(BEST_OF_KEY, match.rules().bestOf());
+        tag.putInt(GAME_NUMBER_KEY, match.gameNumber());
+
+        ListTag wins = new ListTag();
+        match.wins().forEach((seat, count) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putInt("seat", seat.index());
+            entry.putInt("won", count);
+            wins.add(entry);
+        });
+        tag.put(WINS_KEY, wins);
+    }
+
+    private static MatchState readMatch(CompoundTag tag) {
+        if (!tag.contains(FORMAT_KEY)) {
+            return null;
+        }
+        var format = dev.gathering.core.format.FormatPresets.byId(tag.getString(FORMAT_KEY));
+        if (format.isEmpty()) {
+            // A format this build does not know about. The game itself is untouched; it
+            // simply stops being a match, which beats refusing to load the table.
+            LOGGER.warn("Table at {} plays an unknown format {}", "?", tag.getString(FORMAT_KEY));
+            return null;
+        }
+        try {
+            MatchRules rules = new MatchRules(format.get(), tag.getInt(BEST_OF_KEY));
+            java.util.Map<dev.gathering.core.game.SeatId, Integer> wins = new java.util.LinkedHashMap<>();
+            ListTag stored = tag.getList(WINS_KEY, Tag.TAG_COMPOUND);
+            for (int index = 0; index < stored.size(); index++) {
+                CompoundTag entry = stored.getCompound(index);
+                wins.put(new dev.gathering.core.game.SeatId(entry.getInt("seat")), entry.getInt("won"));
+            }
+            return new MatchState(rules, wins, Math.max(1, tag.getInt(GAME_NUMBER_KEY)));
+        } catch (IllegalArgumentException e) {
+            LOGGER.warn("Table has an unreadable match: {}", e.getMessage());
+            return null;
+        }
     }
 
     private static Side sideNamed(String name) {

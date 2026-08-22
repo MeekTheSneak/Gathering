@@ -6,6 +6,8 @@ import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.SessionSeed;
 import dev.gathering.core.game.UndoMode;
 import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.match.MatchRules;
+import dev.gathering.core.match.MatchState;
 import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.TableCluster;
 import java.util.ArrayList;
@@ -30,8 +32,10 @@ import net.minecraft.world.level.Level;
  */
 public final class TableSessions {
 
-    /** Commander, because that is the format the mod is built around. */
-    public static final int DEFAULT_STARTING_LIFE = 40;
+    /** What a table offers before anybody has chosen: a single game of Commander. */
+    public static MatchRules defaultRules() {
+        return MatchRules.single(dev.gathering.core.format.FormatPresets.COMMANDER);
+    }
 
     private TableSessions() {
     }
@@ -50,6 +54,13 @@ public final class TableSessions {
                 .flatMap(TableBlockEntity::session);
     }
 
+    /** The set of games running here, if there is one. */
+    public static Optional<MatchState> matchAt(BlockGetter level, BlockPos tableOrigin) {
+        return anchorOf(level, tableOrigin)
+                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
+                .flatMap(TableBlockEntity::match);
+    }
+
     public static boolean hasSession(BlockGetter level, BlockPos tableOrigin) {
         return anchorOf(level, tableOrigin)
                 .flatMap(anchor -> TableBlock.entityAt(level, anchor))
@@ -64,7 +75,7 @@ public final class TableSessions {
      * in it: the shape is frozen for the duration, so the seats cannot move, and somebody
      * arriving later should find a seat waiting rather than a game that has no room.
      */
-    public static Outcome start(Level level, BlockPos tableOrigin, int startingLife) {
+    public static Outcome start(Level level, BlockPos tableOrigin, MatchRules rules) {
         BlockPos anchor = anchorOf(level, tableOrigin).orElse(null);
         if (anchor == null) {
             return Outcome.NO_TABLE;
@@ -88,7 +99,7 @@ public final class TableSessions {
             seats.add(new SeatId(index));
         }
         GameSession session = GameSession.create(
-                seats, startingLife, SessionSeed.random(), UndoMode.shippedDefault());
+                seats, rules.format().startingLife(), SessionSeed.random(), UndoMode.shippedDefault());
 
         // Everybody already registered joins the game they were waiting for.
         for (int index = 0; index < anchors.size(); index++) {
@@ -104,7 +115,7 @@ public final class TableSessions {
             session.submit(new GameEvent.SeatTaken(new SeatId(index), new PlayerRef(occupant.get(), name)));
         }
 
-        table.beginSession(session, startingLife);
+        table.beginSession(session, rules.format().startingLife(), MatchState.beginning(rules));
         return Outcome.STARTED;
     }
 
