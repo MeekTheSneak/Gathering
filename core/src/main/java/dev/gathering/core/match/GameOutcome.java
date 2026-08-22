@@ -30,15 +30,37 @@ public final class GameOutcome {
      * <p>Empty while more than one player is still in - which is most of the time - and empty
      * when everybody has conceded, because a game nobody won is a drawn game and
      * {@link MatchState#afterDrawnGame()} is what that is for.
+     *
+     * <p><b>Winning by outlasting requires somebody to outlast.</b> One player left standing
+     * out of one is not a victory, it is a person sitting at a table on their own, and calling
+     * it a win ends a solo game the instant it starts.
      */
     public static Optional<SeatId> winnerOf(GameState state) {
         List<SeatId> standing = standing(state);
-        return standing.size() == 1 ? Optional.of(standing.get(0)) : Optional.empty();
+        return standing.size() == 1 && playerCount(state) >= 2
+                ? Optional.of(standing.get(0))
+                : Optional.empty();
     }
 
-    /** Whether the game is over at all, won or drawn. */
+    /**
+     * Whether the game is over at all, won or drawn.
+     *
+     * <p>Three ways, and the third is the one that is easy to leave out. The session has been
+     * ended outright; everybody who was playing has conceded; or one player is left out of
+     * two or more. A table with a single player at it is none of those until they concede,
+     * which is what makes goldfishing possible - and goldfishing is how anybody tests a deck,
+     * so a mod that cannot do it cannot be used alone at all.
+     */
     public static boolean isFinished(GameState state) {
-        return state.ended() || playerCount(state) > 0 && standing(state).size() <= 1;
+        if (state.ended()) {
+            return true;
+        }
+        int players = playerCount(state);
+        if (players == 0) {
+            return false;
+        }
+        int standing = standing(state).size();
+        return standing == 0 || players >= 2 && standing == 1;
     }
 
     /** Occupied seats that have not conceded. */

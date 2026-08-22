@@ -7,7 +7,6 @@ import dev.gathering.core.ui.Rect;
 import dev.gathering.network.StartTablePayload;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -45,6 +44,8 @@ public final class TableSetupScreen extends Screen {
     private int bestOf = MatchRules.single(FormatPresets.defaultPreset()).bestOf();
 
     private Rect panel = Rect.NONE;
+    private int formatsHeading;
+    private int lengthsHeading;
 
     public TableSetupScreen(BlockPos table) {
         super(Component.translatable("screen.gathering.setup"));
@@ -64,6 +65,7 @@ public final class TableSetupScreen extends Screen {
                 Math.min(height, this.height - MARGIN * 2));
 
         int y = panel.y() + MARGIN + ROW_HEIGHT;
+        formatsHeading = y - this.font.lineHeight - 2;
         int columns = 3;
         int buttonWidth = (panel.width() - MARGIN * 2 - GAP * (columns - 1)) / columns;
 
@@ -71,31 +73,32 @@ public final class TableSetupScreen extends Screen {
             FormatPreset preset = formats.get(index);
             int column = index % columns;
             int row = index / columns;
-            addRenderableWidget(Button.builder(
-                            Component.literal(preset.displayName()), ignored -> chooseFormat(preset))
-                    .bounds(panel.x() + MARGIN + column * (buttonWidth + GAP),
-                            y + row * (ROW_HEIGHT + GAP), buttonWidth, ROW_HEIGHT)
-                    .build());
+            addRenderableWidget(GatheringButtons.toggle(
+                    panel.x() + MARGIN + column * (buttonWidth + GAP),
+                    y + row * (ROW_HEIGHT + GAP), buttonWidth, ROW_HEIGHT,
+                    Component.literal(preset.displayName()),
+                    () -> format.equals(preset),
+                    () -> chooseFormat(preset)));
         }
 
         int lengthsTop = y + rowsFor(formats.size()) * (ROW_HEIGHT + GAP) + ROW_HEIGHT;
+        lengthsHeading = lengthsTop - this.font.lineHeight - 2;
         List<Integer> lengths = MatchRules.SUPPORTED_LENGTHS;
         int lengthWidth = (panel.width() - MARGIN * 2 - GAP * (lengths.size() - 1)) / lengths.size();
         for (int index = 0; index < lengths.size(); index++) {
             int length = lengths.get(index);
-            addRenderableWidget(Button.builder(
-                            Component.translatable("screen.gathering.setup.best_of", length),
-                            ignored -> bestOf = length)
-                    .bounds(panel.x() + MARGIN + index * (lengthWidth + GAP),
-                            lengthsTop, lengthWidth, ROW_HEIGHT)
-                    .build());
+            addRenderableWidget(GatheringButtons.toggle(
+                    panel.x() + MARGIN + index * (lengthWidth + GAP),
+                    lengthsTop, lengthWidth, ROW_HEIGHT,
+                    Component.translatable("screen.gathering.setup.best_of", length),
+                    () -> bestOf == length,
+                    () -> bestOf = length));
         }
 
-        addRenderableWidget(Button.builder(
-                        Component.translatable("screen.gathering.setup.start"), ignored -> start())
-                .bounds(panel.x() + MARGIN, lengthsTop + ROW_HEIGHT + GAP * 2,
-                        panel.width() - MARGIN * 2, ROW_HEIGHT)
-                .build());
+        addRenderableWidget(GatheringButtons.of(
+                panel.x() + MARGIN, lengthsTop + ROW_HEIGHT + GAP * 2,
+                panel.width() - MARGIN * 2, ROW_HEIGHT,
+                Component.translatable("screen.gathering.setup.start"), this::start));
     }
 
     private static int rowsFor(int formats) {
@@ -127,6 +130,10 @@ public final class TableSetupScreen extends Screen {
 
         GuiText.drawCentred(graphics, this.font, this.title,
                 panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.setup.format"),
+                panel.x() + MARGIN, formatsHeading, panel.width() - MARGIN * 2, DIM);
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.setup.length"),
+                panel.x() + MARGIN, lengthsHeading, panel.width() - MARGIN * 2, DIM);
 
         // What is currently chosen, spelled out, because eight buttons with one of them
         // selected is only legible if the selection is written down somewhere.

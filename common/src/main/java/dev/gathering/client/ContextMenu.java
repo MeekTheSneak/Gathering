@@ -28,6 +28,7 @@ public final class ContextMenu {
     private static final int SCREEN_EDGE = 4;
 
     private static final int TEXT = 0xFFE8E4DC;
+    private static final int HOVERED = 0xFFFFFFFF;
     private static final int DISABLED = 0xFF6E6A66;
 
     private final List<Entry> entries;
@@ -80,8 +81,10 @@ public final class ContextMenu {
             if (hovered) {
                 GatheringSprites.highlight(graphics, x + 2, row, width - 4, ROW_HEIGHT);
             }
-            GuiText.draw(graphics, font, entry.label(),
-                    x + PADDING, row + 2, width - PADDING * 2, entry.enabled() ? TEXT : DISABLED);
+            // The row under the cursor brightens as well as lighting up, so a menu read at a
+            // glance still says which line a click would take.
+            int colour = entry.enabled() ? (hovered ? HOVERED : TEXT) : DISABLED;
+            GuiText.draw(graphics, font, entry.label(), x + PADDING, row + 2, width - PADDING * 2, colour);
             row += ROW_HEIGHT;
         }
     }
@@ -101,6 +104,9 @@ public final class ContextMenu {
         if (index >= 0 && index < entries.size()) {
             Entry entry = entries.get(index);
             if (entry.enabled()) {
+                // The same click a button makes. Without it there is no way to tell a menu
+                // entry that ran from one that was a pixel outside the row.
+                GatheringButtons.clickSound();
                 entry.action().run();
             }
         }

@@ -1,0 +1,88 @@
+package dev.gathering.client;
+
+import java.util.function.BooleanSupplier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+
+/**
+ * Buttons that behave like buttons.
+ *
+ * <p>Everything clickable in this mod used to be a rectangle that happened to react to a
+ * click. That is not the same thing: a real button lights up when the cursor is over it, dips
+ * when you press it, clicks when it takes, greys out when it will not, and can be reached with
+ * the keyboard. Losing any of those makes a screen feel broken even when it works, because you
+ * cannot tell whether anything happened.
+ *
+ * <p>So these are vanilla {@link Button}s, drawn by vanilla, sounding like vanilla. Not a
+ * reskin - a player already knows what these do, and a bespoke button that looks nearly like
+ * the ones in every other screen is worse than one that looks exactly like them.
+ *
+ * <p>The one thing vanilla has no notion of is a button that is <em>currently chosen</em>,
+ * which a format picker needs, so {@link #toggle} adds that on top and nothing else.
+ *
+ * <p>Client-only.
+ */
+public final class GatheringButtons {
+
+    /** The chosen-option outline. Bright enough to find at a glance across eight buttons. */
+    private static final int CHOSEN = 0xFF6FD3E8;
+
+    private GatheringButtons() {
+    }
+
+    public static Button of(int x, int y, int width, int height, Component label, Runnable action) {
+        return Button.builder(label, ignored -> action.run()).bounds(x, y, width, height).build();
+    }
+
+    /**
+     * A button that shows whether its option is the one currently picked.
+     *
+     * <p>Asks a supplier rather than holding a flag, so one button cannot disagree with the
+     * screen about what is selected - which is exactly what happens when eight buttons each
+     * remember their own answer.
+     */
+    public static Button toggle(
+            int x, int y, int width, int height, Component label, BooleanSupplier chosen, Runnable action) {
+        return new Toggle(x, y, width, height, label, ignored -> action.run(), chosen);
+    }
+
+    /** Named rather than anonymous only because a subclass may reach {@code DEFAULT_NARRATION}. */
+    private static final class Toggle extends Button {
+
+        private final BooleanSupplier chosen;
+
+        private Toggle(
+                int x, int y, int width, int height, Component label, OnPress onPress, BooleanSupplier chosen) {
+            super(x, y, width, height, label, onPress, DEFAULT_NARRATION);
+            this.chosen = chosen;
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            super.renderWidget(graphics, mouseX, mouseY, partialTick);
+            if (chosen.getAsBoolean()) {
+                // Two rings rather than one: a single-pixel outline on a vanilla button's own
+                // border is nearly invisible, and this has to be findable at a glance.
+                graphics.renderOutline(getX(), getY(), getWidth(), getHeight(), CHOSEN);
+                graphics.renderOutline(getX() + 1, getY() + 1, getWidth() - 2, getHeight() - 2, CHOSEN);
+            }
+        }
+    }
+
+    /**
+     * The click a button makes, for the things that cannot be buttons.
+     *
+     * <p>A card on the table and a row in a list are not widgets and should not become them -
+     * a hundred-row deck list made of a hundred focusable buttons is a screen you cannot tab
+     * through. They still have to sound like they were pressed, because that noise is how a
+     * player knows the click landed on something.
+     */
+    public static void clickSound() {
+        Minecraft.getInstance().getSoundManager()
+                .play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0f));
+    }
+}

@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -96,10 +95,9 @@ public final class SideboardScreen extends Screen implements CardPreviewHost {
                 ? new Rect(sideboard.right() + GAP, top, PREVIEW_WIDTH, bottom - top)
                 : Rect.NONE;
 
-        addRenderableWidget(Button.builder(
-                        Component.translatable("screen.gathering.sideboard.done"), ignored -> onClose())
-                .bounds(this.width / 2 - 60, this.height - MARGIN - FOOTER + 4, 120, 18)
-                .build());
+        addRenderableWidget(GatheringButtons.of(
+                this.width / 2 - 60, this.height - MARGIN - FOOTER + 4, 120, 18,
+                Component.translatable("screen.gathering.sideboard.done"), this::onClose));
     }
 
     // ---------------------------------------------------------------- render
@@ -192,6 +190,7 @@ public final class SideboardScreen extends Screen implements CardPreviewHost {
             // whatever is underneath.
             return true;
         }
+        GatheringButtons.clickSound();
         ClientNetworking.send(new SideboardEditPayload(table, from, to, entries.get(index).card()));
         return true;
     }

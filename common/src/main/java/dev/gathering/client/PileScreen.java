@@ -77,6 +77,12 @@ public final class PileScreen extends Screen implements CardPreviewHost {
         grid = new Rect(MARGIN, MARGIN + HEADER,
                 this.width - MARGIN * 2, this.height - MARGIN * 2 - HEADER - FOOTER);
         columns = Math.max(1, (grid.width() + GAP) / (cardWidth + GAP));
+
+        // Escape closes it, but a screen whose only way out is a key you have to know is a
+        // screen somebody gets stuck in.
+        addRenderableWidget(GatheringButtons.of(
+                this.width - MARGIN - 54, MARGIN - 4, 54, 16,
+                Component.translatable("gui.done"), this::onClose));
     }
 
     // ------------------------------------------------------------- the cards
@@ -202,6 +208,7 @@ public final class PileScreen extends Screen implements CardPreviewHost {
                 continue;
             }
             if (cards.get(index) instanceof CardView.Visible visible) {
+                GatheringButtons.clickSound();
                 openMenu(visible, x, y);
             }
             return true;

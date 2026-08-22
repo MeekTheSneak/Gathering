@@ -175,6 +175,39 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void aSoloGameKeepsRunningWhileYouPlayIt(GameTestHelper helper) {
+        // Goldfishing: one player, one table, no opponent. This broke because one player left
+        // standing out of one looked like a last player standing, so the game settled itself
+        // on the first action anybody took and the board vanished.
+        BlockPos origin = seatedTable(helper, 1);
+        startMatch(helper, origin, 1);
+
+        var session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        session.submit(new GameEvent.LifeChanged(new SeatId(0), new SeatId(0), -3));
+        TableMatch.settleIfFinished(helper.getLevel(), origin, session.state());
+
+        if (!TableSessions.hasSession(helper.getLevel(), origin)) {
+            helper.fail("A solo game ended itself as soon as it was played");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aSoloGameEndsWhenYouScoop(GameTestHelper helper) {
+        BlockPos origin = seatedTable(helper, 1);
+        startMatch(helper, origin, 1);
+
+        var session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        session.submit(new GameEvent.Conceded(new SeatId(0)));
+        TableMatch.settleIfFinished(helper.getLevel(), origin, session.state());
+
+        if (TableSessions.hasSession(helper.getLevel(), origin)) {
+            helper.fail("Scooping a solo game left it running");
+        }
+        helper.succeed();
+    }
+
     // ------------------------------------------------------------- fixtures
 
     private static void startMatch(GameTestHelper helper, BlockPos origin, int bestOf) {
@@ -211,10 +244,14 @@ public final class MatchGameTest {
      * actually be online.
      */
     private static BlockPos seatedTable(GameTestHelper helper) {
+        return seatedTable(helper, 2);
+    }
+
+    private static BlockPos seatedTable(GameTestHelper helper, int players) {
         BlockPos origin = place(helper);
         TableCluster cluster = dev.gathering.block.TableClusters.at(helper.getLevel(), origin);
         List<SeatAnchor> anchors = cluster.seats();
-        for (int index = 0; index < Math.min(2, anchors.size()); index++) {
+        for (int index = 0; index < Math.min(players, anchors.size()); index++) {
             SeatAnchor anchor = anchors.get(index);
             TableSeats.take(helper.getLevel(), origin, anchor.cell(), anchor.side(), new UUID(7L, index));
         }

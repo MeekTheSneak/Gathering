@@ -11,6 +11,7 @@ import dev.gathering.core.game.event.GameEvent;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -83,6 +84,72 @@ class GameOutcomeTest {
         assertThat(session.state().seatState(BOB).life()).isNotPositive();
         assertThat(GameOutcome.winnerOf(session.state())).isEmpty();
         assertThat(GameOutcome.isFinished(session.state())).isFalse();
+    }
+
+    @Nested
+    @DisplayName("playing alone")
+    class PlayingAlone {
+
+        @Test
+        @DisplayName("a solo game is not over the moment it starts")
+        void goldfishingIsPossible() {
+            // The one that broke it: one player left standing out of one looked like a last
+            // player standing, so a solo game ended on its first action. Goldfishing is how
+            // anybody tests a deck, and a mod that cannot do it cannot be used alone at all.
+            GameSession session = table(ALICE);
+
+            assertThat(GameOutcome.isFinished(session.state())).isFalse();
+            assertThat(GameOutcome.winnerOf(session.state())).isEmpty();
+        }
+
+        @Test
+        @DisplayName("nor after doing things in it")
+        void aSoloGameSurvivesBeingPlayed() {
+            GameSession session = table(ALICE);
+
+            session.submit(new GameEvent.CardsDrawn(ALICE, ALICE, 7));
+            session.submit(new GameEvent.LifeChanged(ALICE, ALICE, -3));
+            session.submit(new GameEvent.LibraryShuffled(ALICE, ALICE));
+
+            assertThat(GameOutcome.isFinished(session.state())).isFalse();
+        }
+
+        @Test
+        @DisplayName("a solo game at a table with empty chairs is still a solo game")
+        void emptyChairsDoNotMakeItAMatch() {
+            // A table cluster gives the session a seat per chair whether anybody is in it or
+            // not, so this is what playing alone actually looks like.
+            GameSession session = GameSession.create(
+                    List.of(ALICE, BOB, CHRIS), 20, SessionSeed.random(), UndoMode.shippedDefault());
+            session.submit(new GameEvent.SeatTaken(ALICE, player("Alice")));
+
+            assertThat(GameOutcome.isFinished(session.state())).isFalse();
+        }
+
+        @Test
+        @DisplayName("scooping ends it, because that is the one result there is")
+        void concedingEndsASoloGame() {
+            GameSession session = table(ALICE);
+
+            session.submit(new GameEvent.Conceded(ALICE));
+
+            assertThat(GameOutcome.isFinished(session.state())).isTrue();
+            assertThat(GameOutcome.winnerOf(session.state())).isEmpty();
+        }
+
+        @Test
+        @DisplayName("somebody sitting down turns it into a game that can be won")
+        void asecondPlayerMakesItAMatch() {
+            GameSession session = GameSession.create(
+                    List.of(ALICE, BOB), 20, SessionSeed.random(), UndoMode.shippedDefault());
+            session.submit(new GameEvent.SeatTaken(ALICE, player("Alice")));
+            assertThat(GameOutcome.isFinished(session.state())).isFalse();
+
+            session.submit(new GameEvent.SeatTaken(BOB, player("Bob")));
+            session.submit(new GameEvent.Conceded(BOB));
+
+            assertThat(GameOutcome.winnerOf(session.state())).contains(ALICE);
+        }
     }
 
     @Test

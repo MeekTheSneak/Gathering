@@ -800,6 +800,7 @@ public final class TableScreen extends Screen {
         if (me == null) {
             return true;
         }
+        GatheringButtons.clickSound();
         if (button == 1) {
             openPileMenu(me, pile, x, y);
             return true;

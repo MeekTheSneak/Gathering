@@ -385,6 +385,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         }
         Row row = rows.get(index);
         if (button == 0) {
+            GatheringButtons.clickSound();
             ClientNetworking.send(DeckEditPayload.take(hand, row.section(), row.card()));
             return true;
         }
