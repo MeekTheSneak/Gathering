@@ -119,6 +119,11 @@ public final class TableSessions {
         }
         table.session().ifPresent(session -> session.submit(new GameEvent.SessionEnded(actor, reason)));
         table.endSession();
+        // Told before it is forgotten, or everyone at the table keeps looking at the last
+        // board they were sent - which is worse than an empty screen, because it looks live.
+        if (level instanceof net.minecraft.server.level.ServerLevel server) {
+            dev.gathering.server.TableBroadcast.closeAtTable(server, tableOrigin);
+        }
         return Outcome.ENDED;
     }
 

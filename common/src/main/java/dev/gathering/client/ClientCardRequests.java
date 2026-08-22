@@ -89,6 +89,17 @@ public final class ClientCardRequests {
             collect(inventory.getItem(slot), printings);
         }
         collect(player.containerMenu == null ? ItemStack.EMPTY : player.containerMenu.getCarried(), printings);
+
+        // Cards on a table are not in anybody's inventory, and they are the ones being looked
+        // at hardest. Only the ones this client was told the identity of - an anonymous card
+        // has no printing to ask about, which is the point of it.
+        ClientTableState.view().ifPresent(board -> board.allCardViews().stream()
+                .filter(dev.gathering.core.game.visibility.CardView.Visible.class::isInstance)
+                .map(dev.gathering.core.game.visibility.CardView.Visible.class::cast)
+                .map(visible -> visible.identity().scryfallId())
+                .filter(java.util.Objects::nonNull)
+                .forEach(printings::add));
+
         return printings;
     }
 

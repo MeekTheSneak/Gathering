@@ -247,6 +247,13 @@ public class TableBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
 
+        // A game running here means you came to play it, not to read a summary of it.
+        if (player instanceof net.minecraft.server.level.ServerPlayer seated
+                && TableSessions.hasSession(level, tableOrigin)) {
+            dev.gathering.server.TableActions.openFor(seated, tableOrigin);
+            return ItemInteractionResult.SUCCESS;
+        }
+
         report(level, tableOrigin, cluster, player);
         return ItemInteractionResult.SUCCESS;
     }

@@ -47,6 +47,22 @@ public final class GatheringFabricClient implements ClientModInitializer {
             GLFW.GLFW_KEY_LEFT_ALT,
             "key.categories." + Gathering.MOD_ID);
 
+    /** Takes a board off the wire and, if asked, sits the player down at it. */
+    private static void acceptTableView(dev.gathering.network.TableViewPayload payload) {
+        try {
+            dev.gathering.client.ClientTableState.accept(payload.table(),
+                    dev.gathering.core.game.persistence.ViewCodec.read(payload.view()));
+        } catch (java.io.IOException e) {
+            // A board this client cannot read is one it must not draw a guess at.
+            dev.gathering.client.ClientTableState.clear();
+            return;
+        }
+        if (payload.open() && !(Minecraft.getInstance().screen
+                instanceof dev.gathering.client.TableScreen)) {
+            Minecraft.getInstance().setScreen(new dev.gathering.client.TableScreen(payload.table()));
+        }
+    }
+
     @Override
     public void onInitializeClient() {
         KeyBindingHelper.registerKeyBinding(ZOOM_KEY);
@@ -74,6 +90,19 @@ public final class GatheringFabricClient implements ClientModInitializer {
 
         ClientPlayNetworking.registerGlobalReceiver(CardMetadataPayload.TYPE, (payload, context) ->
                 ClientCardCache.get().accept(payload.cards()));
+
+        ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.TableViewPayload.TYPE, (payload, context) ->
+                        context.client().execute(() -> acceptTableView(payload)));
+
+        ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.CloseTablePayload.TYPE, (payload, context) ->
+                        context.client().execute(() -> {
+                            dev.gathering.client.ClientTableState.clear();
+                            if (context.client().screen instanceof dev.gathering.client.TableScreen) {
+                                context.client().setScreen(null);
+                            }
+                        }));
 
         ClientPlayNetworking.registerGlobalReceiver(OpenImportScreenPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> context.client().setScreen(new DecklistImportScreen())));
@@ -134,6 +163,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
             ClientCardCache.get().clear();
             ClientCardRequests.clear();
             ClientHoverState.clear();
+            dev.gathering.client.ClientTableState.clear();
         });
     }
 }

@@ -1,0 +1,112 @@
+package dev.gathering.server;
+
+import dev.gathering.block.TableBlock;
+import dev.gathering.block.TableClusters;
+import dev.gathering.block.TableSeats;
+import dev.gathering.block.TableSessions;
+import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.persistence.ViewCodec;
+import dev.gathering.core.game.visibility.VisibilityRules;
+import dev.gathering.core.game.visibility.Viewer;
+import dev.gathering.core.table.SeatAnchor;
+import dev.gathering.core.table.TableCluster;
+import dev.gathering.network.CloseTablePayload;
+import dev.gathering.network.TableViewPayload;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Tells everyone at a table what the board looks like - each of them something different.
+ *
+ * <p>A view is built per recipient and sent to that recipient alone. There is no shared board
+ * packet, because a shared board packet is the whole class of bug this design exists to
+ * prevent: it would have to contain everybody's hand, and every client would hold it.
+ */
+public final class TableBroadcast {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
+
+    private TableBroadcast() {
+    }
+
+    /** Sends the board to every seated player at this cluster. */
+    public static void sendToTable(ServerLevel level, BlockPos tableOrigin) {
+        GameSession session = TableSessions.sessionAt(level, tableOrigin).orElse(null);
+        if (session == null) {
+            return;
+        }
+        for (Seated seated : seatedAt(level, tableOrigin)) {
+            send(seated.player(), tableOrigin, session, Optional.of(seated.seat()), false);
+        }
+    }
+
+    /** Sends the board to one player, seated or not. */
+    public static void send(
+            ServerPlayer player, BlockPos tableOrigin, GameSession session, Optional<SeatId> seat,
+            boolean open) {
+        Viewer viewer = seat.<Viewer>map(Viewer.Seated::new).orElseGet(Viewer.Spectator::new);
+        try {
+            byte[] view = ViewCodec.write(VisibilityRules.viewFor(session.state(), viewer));
+            player.connection.send(new ClientboundCustomPayloadPacket(
+                    new TableViewPayload(tableOrigin, view, open)));
+        } catch (IOException e) {
+            LOGGER.error("Could not send the board at {} to {}: {}",
+                    tableOrigin, player.getGameProfile().getName(), e.getMessage());
+        }
+    }
+
+    /** Tells everyone at this cluster that the game is over and to stop watching it. */
+    public static void closeAtTable(ServerLevel level, BlockPos tableOrigin) {
+        for (Seated seated : seatedAt(level, tableOrigin)) {
+            seated.player().connection.send(new ClientboundCustomPayloadPacket(CloseTablePayload.INSTANCE));
+        }
+    }
+
+    /** Everyone registered at this cluster who is actually online. */
+    public static List<Seated> seatedAt(ServerLevel level, BlockPos tableOrigin) {
+        TableCluster cluster = TableClusters.at(level, tableOrigin);
+        List<Seated> found = new ArrayList<>();
+
+        List<SeatAnchor> anchors = cluster.seats();
+        for (int index = 0; index < anchors.size(); index++) {
+            SeatAnchor anchor = anchors.get(index);
+            Optional<UUID> occupant = TableBlock
+                    .entityAt(level, TableClusters.blockPos(tableOrigin, anchor.cell()))
+                    .flatMap(table -> table.occupantOf(anchor.side()));
+            if (occupant.isEmpty()) {
+                continue;
+            }
+            // Registered but offline is normal - the design says leaving does not drop your
+            // seat - so an absent player is simply somebody there is nothing to send to.
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(occupant.get());
+            if (player != null) {
+                found.add(new Seated(player, new SeatId(index)));
+            }
+        }
+        return found;
+    }
+
+    /** Which seat of the session a player at this cluster holds. */
+    public static Optional<SeatId> seatOf(ServerLevel level, BlockPos tableOrigin, UUID player) {
+        return TableSessions.seatIdOf(level, tableOrigin, player);
+    }
+
+    /** A player and the seat they hold. */
+    public record Seated(ServerPlayer player, SeatId seat) {
+    }
+
+    /** Whether anybody at all is registered here, online or not. */
+    public static boolean anybodySeated(ServerLevel level, BlockPos tableOrigin) {
+        return TableSeats.occupiedSeats(level, tableOrigin) > 0;
+    }
+}

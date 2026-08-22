@@ -2,13 +2,17 @@ package dev.gathering.neoforge;
 
 import dev.gathering.Gathering;
 import dev.gathering.network.CardMetadataPayload;
+import dev.gathering.network.CloseTablePayload;
 import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
 import dev.gathering.network.RequestCardMetadataPayload;
+import dev.gathering.network.TableActionPayload;
+import dev.gathering.network.TableViewPayload;
 import dev.gathering.server.CardMetadataRequests;
 import dev.gathering.server.DeckEdits;
+import dev.gathering.server.TableActions;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.service.CardDataService;
 import net.minecraft.network.chat.Component;
@@ -52,6 +56,11 @@ public final class GatheringNetwork {
                 DeckEditPayload.STREAM_CODEC,
                 GatheringNetwork::onDeckEdit);
 
+        registrar.playToServer(
+                TableActionPayload.TYPE,
+                TableActionPayload.STREAM_CODEC,
+                GatheringNetwork::onTableAction);
+
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.
         registrar.playToClient(
@@ -65,6 +74,14 @@ public final class GatheringNetwork {
         registrar.playToClient(
                 OpenImportScreenPayload.TYPE,
                 OpenImportScreenPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                TableViewPayload.TYPE,
+                TableViewPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                CloseTablePayload.TYPE,
+                CloseTablePayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
     }
 
@@ -81,6 +98,12 @@ public final class GatheringNetwork {
         // card pipeline's executor rather than doing anything on the network thread.
         DecklistImport.importFor(
                 player, service, payload.decklist(), payload.deckName(), payload.description());
+    }
+
+    private static void onTableAction(TableActionPayload payload, IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) {
+            TableActions.handle(player, payload);
+        }
     }
 
     private static void onDeckEdit(DeckEditPayload payload, IPayloadContext context) {

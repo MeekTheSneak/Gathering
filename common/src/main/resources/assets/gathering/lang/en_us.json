@@ -55,6 +55,12 @@
   "screen.gathering.import.placeholder": "Paste a decklist here - the card list itself, not a link to it.\nOn Archidekt or Moxfield use Export, then Text.\n\nCommander\n1 Halana and Alena, Partners (VOW) 239\n\nDeck\n1 Sol Ring (LTC) 284",
   "screen.gathering.import.too_long": "That decklist is longer than %s characters.",
   "screen.gathering.import.working": "Resolving cards...",
+  "screen.gathering.table": "Table",
+  "screen.gathering.table.actions": "D draw   S shuffle   U untap all   +/- life   drag to play   right-click to turn over",
+  "screen.gathering.table.seat_line": "%s - %s life | hand %s | library %s | board %s | yard %s",
+  "screen.gathering.table.spectating": "Watching - take a seat to play",
+  "screen.gathering.table.tapped": "tapped",
+  "screen.gathering.table.zone": "%s: %s",
   "tooltip.gathering.deck_size": "%s cards",
   "tooltip.gathering.face_down": "Face down",
   "tooltip.gathering.flip_card": "Right-click to turn over",
@@ -62,5 +68,11 @@
   "tooltip.gathering.open_deck": "Right-click to look inside",
   "tooltip.gathering.scryfall_attribution": "Card data courtesy of Scryfall",
   "tooltip.gathering.sideboard_size": "%s in sideboard",
-  "tooltip.gathering.start_deck": "Right-click onto another card to start a deck"
+  "tooltip.gathering.start_deck": "Right-click onto another card to start a deck",
+  "zone.gathering.battlefield": "Battlefield",
+  "zone.gathering.command": "Command",
+  "zone.gathering.exile": "Exile",
+  "zone.gathering.graveyard": "Graveyard",
+  "zone.gathering.hand": "Hand",
+  "zone.gathering.library": "Library"
 }

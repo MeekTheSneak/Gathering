@@ -130,12 +130,41 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> Minecraft.getInstance().setScreen(new DecklistImportScreen()));
             return;
         }
+        if (payload instanceof dev.gathering.network.TableViewPayload table) {
+            context.enqueueWork(() -> acceptTableView(table));
+            return;
+        }
+        if (payload instanceof dev.gathering.network.CloseTablePayload) {
+            context.enqueueWork(() -> {
+                dev.gathering.client.ClientTableState.clear();
+                if (Minecraft.getInstance().screen instanceof dev.gathering.client.TableScreen) {
+                    Minecraft.getInstance().setScreen(null);
+                }
+            });
+            return;
+        }
         if (payload instanceof ImportResultPayload result) {
             context.enqueueWork(() -> {
                 if (Minecraft.getInstance().screen instanceof DecklistImportScreen screen) {
                     screen.onResult(result);
                 }
             });
+        }
+    }
+
+    /** Takes a board off the wire and, if asked, sits the player down at it. */
+    private static void acceptTableView(dev.gathering.network.TableViewPayload payload) {
+        try {
+            dev.gathering.client.ClientTableState.accept(payload.table(),
+                    dev.gathering.core.game.persistence.ViewCodec.read(payload.view()));
+        } catch (java.io.IOException e) {
+            // A board this client cannot read is one it must not draw a guess at.
+            dev.gathering.client.ClientTableState.clear();
+            return;
+        }
+        if (payload.open() && !(Minecraft.getInstance().screen
+                instanceof dev.gathering.client.TableScreen)) {
+            Minecraft.getInstance().setScreen(new dev.gathering.client.TableScreen(payload.table()));
         }
     }
 
@@ -202,5 +231,6 @@ public final class GatheringNeoForgeClient {
         ClientCardCache.get().clear();
         ClientCardRequests.clear();
         ClientHoverState.clear();
+        dev.gathering.client.ClientTableState.clear();
     }
 }
