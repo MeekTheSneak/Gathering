@@ -292,17 +292,27 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         return new Matrix4f().m10(layout().taperSlope());
     }
 
-    /** What a click on this row would do, said plainly under the list. */
+    /**
+     * What each mouse button would do to this row, said plainly under the list.
+     *
+     * <p>A line per button. Both on one line is more text than a panel this narrow has room
+     * for: it shrank to the smallest readable size and was cut off on top of that, which
+     * makes an instruction worse than no instruction at all.
+     */
     private void renderHint(GuiGraphics graphics, int hovered) {
         if (hovered < 0) {
             return;
         }
         Rect hint = layout().hint();
-        String key = rows.get(hovered).section() == DeckComponent.Section.COMMANDERS
-                ? "screen.gathering.deck.hint_commander"
-                : "screen.gathering.deck.hint_card";
-        GuiText.draw(graphics, this.font, Component.translatable(key),
+        boolean isCommander = rows.get(hovered).section() == DeckComponent.Section.COMMANDERS;
+
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.deck.hint_take"),
                 hint.x(), hint.y(), hint.width(), PENDING_COLOUR);
+        GuiText.draw(graphics, this.font,
+                Component.translatable(isCommander
+                        ? "screen.gathering.deck.hint_uncommander"
+                        : "screen.gathering.deck.hint_commander"),
+                hint.x(), hint.y() + this.font.lineHeight, hint.width(), PENDING_COLOUR);
     }
 
     /**

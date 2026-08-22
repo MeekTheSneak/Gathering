@@ -94,6 +94,10 @@ class DeckScreenLayoutTest {
         assertThat(layout.title().bottom()).isLessThanOrEqualTo(layout.rows().y());
         assertThat(layout.rows().bottom()).isLessThanOrEqualTo(layout.hint().y());
         assertThat(layout.hint().bottom()).isLessThanOrEqualTo(layout.done().y());
+
+        // One hint line per mouse button. Squeezing both onto one line is what made the hint
+        // shrink to the smallest readable size and then get cut off on top of that.
+        assertThat(layout.hint().height()).isEqualTo(DeckScreenLayout.HINT_LINES * LINE_HEIGHT);
     }
 
     @Property(tries = 3000)
@@ -146,6 +150,9 @@ class DeckScreenLayoutTest {
         assertThat(layout.rows().width()).isGreaterThan(60);
         assertThat(layout.rows().height()).isGreaterThan(LINE_HEIGHT * 4);
         assertThat(layout.card().isEmpty()).isFalse();
+        // Wide enough that "Right-click: make commander" shrinks a little rather than being
+        // trimmed. This module cannot measure text, so it guards the room instead.
+        assertThat(layout.hint().width()).isGreaterThan(85);
     }
 
     @Test

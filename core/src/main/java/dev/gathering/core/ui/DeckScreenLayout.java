@@ -65,6 +65,9 @@ public record DeckScreenLayout(
     private static final int CARD_MAX = 420;
     private static final int INFO_MIN = 140;
 
+    /** One hint line per mouse button. */
+    public static final int HINT_LINES = 2;
+
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_WIDTH = 72;
 
@@ -93,7 +96,11 @@ public record DeckScreenLayout(
 
         int buttonTop = height - PAD - BUTTON_HEIGHT;
         Rect done = new Rect(PAD, buttonTop, Math.min(BUTTON_WIDTH, contentWidth), BUTTON_HEIGHT);
-        Rect hint = new Rect(PAD, buttonTop - GAP - line, contentWidth, line);
+        // Two lines, one per mouse button. One line has to say what both buttons do, and in
+        // a panel this narrow that is more text than there is room for - it shrank to the
+        // smallest readable size and was then cut off anyway.
+        int hintHeight = line * HINT_LINES;
+        Rect hint = new Rect(PAD, buttonTop - GAP - hintHeight, contentWidth, hintHeight);
 
         int rowsTop = title.bottom() + GAP;
         Rect rows = new Rect(PAD, rowsTop, contentWidth, Math.max(line, hint.y() - GAP - rowsTop));
