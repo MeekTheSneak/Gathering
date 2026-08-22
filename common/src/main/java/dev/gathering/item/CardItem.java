@@ -7,9 +7,13 @@ import java.util.List;
 import java.util.Optional;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
 
 /**
  * One card, as an item.
@@ -34,6 +38,23 @@ public class CardItem extends Item {
         return Optional.ofNullable(stack.get(GatheringComponents.CARD.get()));
     }
 
+    /**
+     * Right-click to turn the card over.
+     *
+     * <p>Server-authoritative, like every other change to a card: the component is written on
+     * the server and syncs back, so two players looking at the same card never disagree about
+     * which way up it is.
+     */
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (!level.isClientSide()) {
+            cardOf(stack).ifPresent(card ->
+                    stack.set(GatheringComponents.CARD.get(), card.flip()));
+        }
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+    }
+
     @Override
     public Component getName(ItemStack stack) {
         return cardOf(stack)
@@ -45,6 +66,10 @@ public class CardItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         cardOf(stack).ifPresent(card -> {
+            if (card.flipped()) {
+                tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".face_down")
+                        .withStyle(ChatFormatting.DARK_GRAY));
+            }
             if (card.foil()) {
                 tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".foil")
                         .withStyle(ChatFormatting.AQUA));
@@ -56,6 +81,8 @@ public class CardItem extends Item {
                         Component.literal(id).withStyle(ChatFormatting.DARK_GRAY)));
             }
         });
+        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".flip_card")
+                .withStyle(ChatFormatting.DARK_GRAY));
         // Attribution where card data appears, per the Scryfall API guidelines.
         tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".scryfall_attribution")
                 .withStyle(ChatFormatting.DARK_GRAY));

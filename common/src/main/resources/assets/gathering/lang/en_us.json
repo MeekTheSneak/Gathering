@@ -32,6 +32,8 @@
   "screen.gathering.import.too_long": "That decklist is longer than %s characters.",
   "screen.gathering.import.working": "Resolving cards...",
   "tooltip.gathering.deck_size": "%s cards",
+  "tooltip.gathering.face_down": "Face down",
+  "tooltip.gathering.flip_card": "Right-click to turn over",
   "tooltip.gathering.foil": "Foil",
   "tooltip.gathering.open_deck": "Right-click to look inside",
   "tooltip.gathering.scryfall_attribution": "Card data courtesy of Scryfall",

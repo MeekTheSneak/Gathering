@@ -23,8 +23,12 @@ public final class GatheringContent {
     }
 
     /** Cards never stack: two cards are two objects, even when they are the same printing. */
+    public static Item.Properties cardProperties() {
+        return new Item.Properties().stacksTo(1);
+    }
+
     public static Item createCard() {
-        return new CardItem(new Item.Properties().stacksTo(1));
+        return new CardItem(cardProperties());
     }
 
     public static Item createDeck() {

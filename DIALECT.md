@@ -162,6 +162,19 @@ cannot be inferred from reading the code.
   orange - rather than failing.
 - **Client image failures log at WARN, on purpose.** Each URL is attempted once, so it is one
   line per card, and art that will not draw is the most visible way this mod can look broken.
+- **`BlockEntityWithoutLevelRenderer` is in `net.minecraft.client.renderer`**, not
+  `.blockentity`. It is a vanilla class, which is why `CardItemRenderer` can live in
+  `:common` and both loaders share one renderer.
+- **Attach item renderers with `RegisterClientExtensionsEvent`** (in
+  `neoforge.client.extensions.common`, not `client.event`). `Item#initializeClient` still
+  works on 21.1.248 but is deprecated for removal, and using it would force a NeoForge-only
+  subclass of an item that has no other loader-specific behaviour.
+- **A custom item renderer is only consulted if the item's model is `builtin/entity`.**
+  `card.json` is hand-authored for that reason and deliberately excluded from datagen; its
+  display transforms are meant to be edited by hand.
+- **The card back is our own art and must stay that way.** The mod ships no Wizards imagery -
+  that is a project pillar and a Fan Content Policy requirement, not a placeholder. It is
+  also the seed of the sleeve system in section 9.
 - **GUI art is nine-slice sprites**, not rectangles drawn in code: PNGs under
   `textures/gui/sprites` with a `.mcmeta` beside each. Repainting the PNG reskins the mod and
   a resource pack can override it. Draw them through `GatheringSprites`, never `graphics.fill`.

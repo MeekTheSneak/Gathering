@@ -21,7 +21,9 @@ public final class GatheringItemModels extends ItemModelProvider {
 
     @Override
     protected void registerModels() {
-        basicItem(GatheringContent.CARD.get());
+        // The card is deliberately absent: its model is hand-authored as builtin/entity so
+        // CardItemRenderer draws the real card art, and its display transforms are meant to
+        // be edited by hand rather than regenerated.
         basicItem(GatheringContent.DECK.get());
     }
 }

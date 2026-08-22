@@ -2,6 +2,7 @@ package dev.gathering.neoforge.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.gathering.Gathering;
+import dev.gathering.client.CardItemRenderer;
 import dev.gathering.client.CardZoomOverlay;
 import dev.gathering.client.ClientCardCache;
 import dev.gathering.client.ClientCardImages;
@@ -9,6 +10,7 @@ import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientNetworking;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
+import dev.gathering.item.GatheringContent;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
@@ -16,12 +18,15 @@ import dev.gathering.neoforge.GatheringClientPayloadHandlers;
 import dev.gathering.service.CardNameLookup;
 import dev.gathering.service.DeckScreenHook;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
+import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
@@ -52,6 +57,23 @@ public final class GatheringNeoForgeClient {
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(ZOOM_KEY);
+    }
+
+    /**
+     * Attaches the card's own renderer, so a card in hand shows its printed face.
+     *
+     * <p>Through the event rather than {@code Item#initializeClient}, which is deprecated for
+     * removal - and which would have forced a NeoForge-only subclass of an item that otherwise
+     * has no loader-specific behaviour at all.
+     */
+    @SubscribeEvent
+    public static void onRegisterClientExtensions(RegisterClientExtensionsEvent event) {
+        event.registerItem(new IClientItemExtensions() {
+            @Override
+            public BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                return CardItemRenderer.instance();
+            }
+        }, GatheringContent.CARD.get());
     }
 
     @SubscribeEvent

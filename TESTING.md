@@ -105,6 +105,10 @@ Import gives you a deck, not loose cards, so to hold one:
 /gathering foil Sol Ring
 ```
 
+The card renders as **the actual card** in your hand and in the inventory, not a generic
+icon. **Right-click** to turn it over: a double-faced card shows its other side, anything else
+shows its back.
+
 Then **hold Left Alt** with the card in your hand, or over it in your inventory.
 
 **What should happen:** the card fills the screen at full resolution with its oracle text
@@ -118,9 +122,10 @@ side by side.
 
 In rough order of how much it would change what I build next:
 
-1. **Does the overlay actually draw?** I have never seen a pixel of it. If the card is
-   stretched, off-centre, or the art never appears, that's the thing to tell me — three more
-   renderers are due to be built on that same code.
+1. **How does a card sit in your hand?** The display transforms in
+   `assets/gathering/models/item/card.json` are guesses — I cannot see the result. Angle,
+   scale and position are all plain model data in that file, so they are editable, but tell
+   me if they are badly off and I will fix the defaults.
 2. **Is Left Alt right?** It conflicts with nothing I know of, but you'll find out in a
    minute what I can't.
 3. **Is the sidebar readable** — width, wrapping, whether oracle text gets cut off on a

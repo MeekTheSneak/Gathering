@@ -2,6 +2,7 @@ package dev.gathering.fabric.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.gathering.Gathering;
+import dev.gathering.client.CardFaceRenderer;
 import dev.gathering.client.CardZoomOverlay;
 import dev.gathering.client.ClientCardCache;
 import dev.gathering.client.ClientCardImages;
@@ -9,6 +10,7 @@ import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientNetworking;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
+import dev.gathering.item.GatheringContent;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
@@ -20,6 +22,7 @@ import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.KeyMapping;
@@ -51,6 +54,13 @@ public final class GatheringFabricClient implements ClientModInitializer {
         ClientNetworking.bindSender(ClientPlayNetworking::send);
         ClientCardImages.get().identifyAs(
                 Gathering.MOD_NAME + " client (+https://github.com/MeekTheSneak/Gathering)");
+
+        // Cards draw their own printed face rather than a generic icon. Same drawing code as
+        // NeoForge; only the way it is reached differs.
+        BuiltinItemRendererRegistry.INSTANCE.register(
+                GatheringContent.CARD.get(),
+                (stack, matrices, buffers, light, overlay) ->
+                        CardFaceRenderer.render(stack, matrices, buffers, light));
 
         ClientPlayNetworking.registerGlobalReceiver(CardMetadataPayload.TYPE, (payload, context) ->
                 ClientCardCache.get().accept(payload.cards()));

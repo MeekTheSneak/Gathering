@@ -19,19 +19,26 @@ import net.minecraft.network.codec.StreamCodec;
  *
  * <p>On 1.21.1 this is a registered {@code DataComponentType} with a codec, not raw NBT -
  * {@code getOrCreateTag()} has not existed since 1.20.5.
+ *
+ * <p>{@code flipped} is the one piece of per-card state that is not identity: which way up it
+ * is sitting. A flipped double-faced card shows its other side; a flipped ordinary card shows
+ * its back, which is your sleeve.
  */
-public record CardComponent(Optional<UUID> scryfallId, boolean foil, Optional<String> customId) {
+public record CardComponent(
+        Optional<UUID> scryfallId, boolean foil, Optional<String> customId, boolean flipped) {
 
     public static final Codec<CardComponent> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             UUIDUtil.STRING_CODEC.optionalFieldOf("scryfall_id").forGetter(CardComponent::scryfallId),
             Codec.BOOL.optionalFieldOf("foil", false).forGetter(CardComponent::foil),
-            Codec.STRING.optionalFieldOf("custom_id").forGetter(CardComponent::customId))
+            Codec.STRING.optionalFieldOf("custom_id").forGetter(CardComponent::customId),
+            Codec.BOOL.optionalFieldOf("flipped", false).forGetter(CardComponent::flipped))
             .apply(instance, CardComponent::new));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, CardComponent> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.optional(UUIDUtil.STREAM_CODEC), CardComponent::scryfallId,
             ByteBufCodecs.BOOL, CardComponent::foil,
             ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8), CardComponent::customId,
+            ByteBufCodecs.BOOL, CardComponent::flipped,
             CardComponent::new);
 
     public CardComponent {
@@ -42,7 +49,12 @@ public record CardComponent(Optional<UUID> scryfallId, boolean foil, Optional<St
     }
 
     public static CardComponent of(CardIdentity identity) {
-        return new CardComponent(identity.printing(), identity.foil(), identity.custom());
+        return new CardComponent(identity.printing(), identity.foil(), identity.custom(), false);
+    }
+
+    /** The same card, turned over. */
+    public CardComponent flip() {
+        return new CardComponent(scryfallId, foil, customId, !flipped);
     }
 
     /** Back to the pure-core type, where every rule about identity actually lives. */
