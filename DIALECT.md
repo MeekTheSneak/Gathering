@@ -370,3 +370,16 @@ cannot be inferred from reading the code.
   looks for something in the world and does not clear first passes whether or not the feature
   works - the drop-on-full-inventory test did exactly that, and only stopped when it was
   checked against the fix being deleted. Clear, act, assert, clear.
+- **A cluster's game lives on its first cell in sorted order.** That is the same order that
+  numbers the seats, so every table in a cluster agrees where the game is without anything
+  being written down about it, and seat *n* of the session is the *n*th of the cluster's seat
+  positions. The shape is frozen while a game runs, so those numbers cannot move under it.
+- **A session is restored lazily, never at world load.** Reading one needs the session key,
+  and a key that cannot be read must never be the reason a world fails to load. A session that
+  will not open keeps its bytes and is written back unchanged: it is still somebody's game,
+  and replacing it with nothing because this server could not read it is the one irreversible
+  option available.
+- **Anything that reads the board for a player goes through `VisibilityRules`.** Reading
+  `GameState` directly is easier and is how one convenience becomes the single place in the
+  mod that can see everybody's hand. The chat status readout is built from a `GameView` for
+  exactly that reason, even though it runs on the server and could have looked.

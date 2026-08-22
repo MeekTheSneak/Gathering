@@ -100,7 +100,10 @@ public final class TableSeats {
      * session.
      */
     public static boolean isShapeFrozen(BlockGetter level, BlockPos clusterOrigin) {
-        return occupiedSeats(level, clusterOrigin) > 0;
+        // A running game freezes it too, and not only because the seats would move: the game
+        // lives on one of these tables, so breaking that one takes the game with it.
+        return occupiedSeats(level, clusterOrigin) > 0
+                || TableSessions.hasSession(level, clusterOrigin);
     }
 
     /**

@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.20
+## Design Brief v1.21
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 

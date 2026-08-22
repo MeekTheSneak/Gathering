@@ -205,6 +205,37 @@ whether merging feels like pushing tables together or like a puzzle. The model i
 plain — a felt top on a wooden frame — because that is a thing you will want to design rather
 than have me guess at.
 
+### 6. Start a game
+
+This is new and it is the first time any of the game core has been reachable at all.
+
+1. **Take a seat** at a table (right-click an edge).
+2. **Crouch and right-click the table.** A game begins, with a seat for every place at the
+   cluster whether or not anybody is in it.
+3. **Right-click holding a deck.** Your deck goes on the table and is shuffled — two separate
+   entries in the log, because an unshuffled deck is an unshuffled deck.
+4. **Right-click the table with an empty hand** to read the board: every seat, who is in it,
+   life, and how many cards are in each zone.
+5. **`/gathering table end`** while looking at the table ends the game. It is a command rather
+   than a click because it cannot be undone and a table is a thing people lean on.
+
+**Worth deliberately breaking:** start a game, put a deck down, then quit to the title screen
+and come back. The board should be exactly as you left it, shuffle included. A game also locks
+its tables — you cannot break or extend the cluster until it ends.
+
+**What you will not see** is anybody else's hand or the order of your own library, and that is
+the point rather than a gap. The status readout is built from the same visibility-filtered
+view a real client will be sent, so it can only say what that client would be entitled to
+know.
+
+**Where the secrets live.** The log is saved in two halves. The readable half has the shape of
+the game — who is at which seat, life totals, whose turn. The sealed half has your library's
+order and the shuffle seed, encrypted with a key kept in the server's config directory rather
+than in the world folder. Copy a world save and you have taken the ciphertext and left the key
+behind. A test flips every bit of a sealed stream in turn to confirm an edited one will not
+open, because a library edited on disk that still decrypted would be a stacked deck that
+looked legitimate.
+
 ## What I'd most like to know
 
 In rough order of how much it would change what I build next:
@@ -225,9 +256,9 @@ In rough order of how much it would change what I build next:
 
 ## What is deliberately not there yet
 
-- **A table, seats, but no game yet.** The table block is in and the game core — zones, the
-  verb set, visibility, undo, drag-and-drop positions — is still waiting for a screen to sit
-  down into. See section 5 below for what you can try.
+- **A game you can start, but no screen to play it in.** You can sit down, start a session,
+  put a deck on the table and read the board in chat — but every verb after that (draw, move,
+  tap) has no way to be reached yet. See section 6.
 - **No collection block.** Specified in the design brief, phase 3.
 - **Cards don't stack, and there's no way to get rid of one** except dropping it.
 - **No way to name a deck after the fact.** Import names one; a deck started from two cards

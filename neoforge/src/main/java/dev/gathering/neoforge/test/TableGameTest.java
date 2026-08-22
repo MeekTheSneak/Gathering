@@ -6,11 +6,16 @@ import dev.gathering.block.TableBlockEntity;
 import dev.gathering.block.TableClusters;
 import dev.gathering.block.TablePart;
 import dev.gathering.block.TableSeats;
+import dev.gathering.block.TableSessions;
+import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.Side;
 import dev.gathering.core.table.TableCell;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.item.GatheringContent;
+import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -255,6 +260,162 @@ public final class TableGameTest {
             helper.fail("A joining client is not told the felt colour: " + update);
         }
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aGameNeedsSomebodySittingAtTheTable(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+
+        if (TableSessions.start(helper.getLevel(), origin, 40) != TableSessions.Outcome.NOBODY_SEATED) {
+            helper.fail("A game started at an empty table");
+        }
+        if (TableSessions.hasSession(helper.getLevel(), origin)) {
+            helper.fail("An empty table has a game on it");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aGameStartsWithASeatForEveryPlaceAtTheTable(GameTestHelper helper) {
+        // Every seat the cluster has becomes a seat in the game, occupied or not: the shape
+        // is frozen for the duration, so somebody arriving later should find a seat waiting
+        // rather than a game with no room in it.
+        BlockPos origin = place(helper, 1, 2, 1);
+        place(helper, 3, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
+
+        if (TableSessions.start(helper.getLevel(), origin, 40) != TableSessions.Outcome.STARTED) {
+            helper.fail("A game would not start with somebody seated");
+        }
+
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElse(null);
+        if (session == null) {
+            helper.fail("The game did not land on the table");
+            return;
+        }
+        if (session.state().seats().size() != 4) {
+            helper.fail("Two tables seat four, so the game should have four seats, got "
+                    + session.state().seats().size());
+        }
+        if (TableSessions.start(helper.getLevel(), origin, 40) != TableSessions.Outcome.ALREADY_RUNNING) {
+            helper.fail("A second game started on top of the first");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aGameSurvivesTheWorldBeingSavedAndLoaded(GameTestHelper helper) {
+        // The whole reason a session lives on a block entity. State is the fold of the log,
+        // so a log that does not come back is a board that never existed.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
+        TableSessions.start(helper.getLevel(), origin, 40);
+
+        GameSession before = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        before.submit(new GameEvent.DeckLoaded(new SeatId(0), library(), List.of()));
+        before.submit(new GameEvent.LibraryShuffled(new SeatId(0), new SeatId(0)));
+        before.submit(new GameEvent.LifeChanged(new SeatId(0), new SeatId(0), -7));
+
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        CompoundTag saved = table.saveWithFullMetadata(helper.getLevel().registryAccess());
+
+        TableBlockEntity reloaded = new TableBlockEntity(origin, helper.getLevel().getBlockState(origin));
+        reloaded.loadWithComponents(saved, helper.getLevel().registryAccess());
+
+        GameSession after = reloaded.session().orElse(null);
+        if (after == null) {
+            helper.fail("The game did not come back after a save and load");
+            return;
+        }
+        if (!after.state().equals(before.state())) {
+            helper.fail("The game came back on a different board");
+        }
+        if (!after.records().equals(before.records())) {
+            helper.fail("The log came back different");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aSavedGameKeepsItsLibraryOutOfTheReadableHalf(GameTestHelper helper) {
+        // The security property, checked where it actually lands: in the block entity's NBT,
+        // which is what ends up in a world folder somebody could copy.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
+        TableSessions.start(helper.getLevel(), origin, 40);
+
+        UUID printing = UUID.fromString("5805f64c-dd88-4e94-8f0a-a01dae67e3ba");
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        session.submit(new GameEvent.DeckLoaded(new SeatId(0),
+                List.of(dev.gathering.core.card.CardIdentity.ofPrinting(printing, false)), List.of()));
+
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        CompoundTag saved = table.saveWithFullMetadata(helper.getLevel().registryAccess());
+
+        byte[] readable = saved.getByteArray("session_open");
+        byte[] needle = new byte[16];
+        java.nio.ByteBuffer.wrap(needle)
+                .putLong(printing.getMostSignificantBits())
+                .putLong(printing.getLeastSignificantBits());
+        if (indexOf(readable, needle) >= 0) {
+            helper.fail("A card from a library is sitting in the readable half of the save");
+        }
+        if (saved.getByteArray("session_sealed").length == 0) {
+            helper.fail("Nothing was sealed, so nothing was protected");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aTableWithAGameOnItCannotBeBroken(GameTestHelper helper) {
+        // Not only because the seats would move. The game lives on one of these tables, so
+        // breaking that one takes the game with it.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID player = UUID.fromString("00000000-0000-4000-8000-00000000beef");
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player);
+        TableSessions.start(helper.getLevel(), origin, 40);
+        TableSeats.leave(helper.getLevel(), origin, player);
+
+        if (TableSeats.occupiedSeats(helper.getLevel(), origin) != 0) {
+            helper.fail("The seat was not given up");
+        }
+        if (TableSeats.mayBreak(helper.getLevel(), origin)) {
+            helper.fail("A table with a game running on it could be broken");
+        }
+
+        TableSessions.end(helper.getLevel(), origin, new SeatId(0), "test");
+
+        if (!TableSeats.mayBreak(helper.getLevel(), origin)) {
+            helper.fail("The table was still locked after the game ended");
+        }
+        if (TableSessions.hasSession(helper.getLevel(), origin)) {
+            helper.fail("The game outlived being ended");
+        }
+        helper.succeed();
+    }
+
+    private static List<dev.gathering.core.card.CardIdentity> library() {
+        List<dev.gathering.core.card.CardIdentity> cards = new java.util.ArrayList<>();
+        for (int index = 0; index < 20; index++) {
+            cards.add(dev.gathering.core.card.CardIdentity.ofPrinting(new UUID(0, index), false));
+        }
+        return cards;
+    }
+
+    private static int indexOf(byte[] haystack, byte[] needle) {
+        outer:
+        for (int start = 0; start + needle.length <= haystack.length; start++) {
+            for (int offset = 0; offset < needle.length; offset++) {
+                if (haystack[start + offset] != needle[offset]) {
+                    continue outer;
+                }
+            }
+            return start;
+        }
+        return -1;
     }
 
     /** Places a whole table with its corner at these relative coordinates. */

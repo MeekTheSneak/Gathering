@@ -34,8 +34,15 @@ public record StoredSession(byte[] openPart, byte[] sealedPart) {
     /** Well past any real table; a bound so a corrupt file cannot ask for an allocation. */
     private static final int MAX_SEATS = 64;
 
-    public static StoredSession of(GameSession session, List<SeatId> seats, int startingLife, SecretKey key)
+    /**
+     * @param startingLife the life the table started on, which the session itself does not
+     *                     remember once anybody has gained or lost any
+     */
+    public static StoredSession of(GameSession session, int startingLife, SecretKey key)
             throws IOException {
+        // Seats come from the session rather than from a caller, so there is no way to store
+        // a session against a seat list that is not its own.
+        List<SeatId> seats = session.state().seats();
         SessionCodec.Streams streams = SessionCodec.write(session.records());
 
         ByteArrayOutputStream open = new ByteArrayOutputStream();

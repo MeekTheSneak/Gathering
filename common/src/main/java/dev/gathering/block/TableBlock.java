@@ -1,9 +1,21 @@
 package dev.gathering.block;
 
 import com.mojang.serialization.MapCodec;
+import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.Zone;
+import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.game.visibility.GameView;
+import dev.gathering.core.game.visibility.VisibilityRules;
+import dev.gathering.core.game.visibility.Viewer;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DeckItem;
 import dev.gathering.core.table.Side;
 import dev.gathering.core.table.TableCell;
 import dev.gathering.core.table.TableCluster;
+import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -221,11 +233,77 @@ public class TableBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
 
+        // A deck in hand on a running game means you came to put your deck down.
+        if (DeckItem.deckOf(stack).isPresent()) {
+            commitDeck(level, tableOrigin, player, stack);
+            return ItemInteractionResult.SUCCESS;
+        }
+
+        // Crouching is the deliberate gesture, because starting a game is a deliberate act.
+        if (player.isShiftKeyDown()) {
+            TableSessions.Outcome outcome = TableSessions.start(
+                    level, tableOrigin, TableSessions.DEFAULT_STARTING_LIFE);
+            player.sendSystemMessage(Component.translatable(outcome.messageKey()));
+            return ItemInteractionResult.SUCCESS;
+        }
+
+        report(level, tableOrigin, cluster, player);
+        return ItemInteractionResult.SUCCESS;
+    }
+
+    /**
+     * Puts a deck into the game, then shuffles it.
+     *
+     * <p>Two events rather than one, because they are two different things and the log should
+     * say so: an unshuffled deck is an unshuffled deck, and "shuffled" is a line somebody at
+     * the table is entitled to see happen.
+     */
+    private static void commitDeck(Level level, BlockPos tableOrigin, Player player, ItemStack stack) {
+        GameSession session = TableSessions.sessionAt(level, tableOrigin).orElse(null);
+        if (session == null) {
+            player.sendSystemMessage(Component.translatable("message.gathering.session_not_running"));
+            return;
+        }
+        SeatId seat = TableSessions.seatIdOf(level, tableOrigin, player.getUUID()).orElse(null);
+        if (seat == null) {
+            player.sendSystemMessage(Component.translatable("message.gathering.deck_needs_seat"));
+            return;
+        }
+
+        GameView view = VisibilityRules.viewFor(session.state(), new Viewer.Seated(seat));
+        if (view.seat(seat).zone(Zone.LIBRARY).count() > 0) {
+            player.sendSystemMessage(Component.translatable("message.gathering.deck_already_down"));
+            return;
+        }
+
+        DeckComponent deck = DeckItem.deckOf(stack).orElseThrow();
+        List<CardIdentity> library = deck.entries().stream().map(CardComponent::toIdentity).toList();
+        List<CardIdentity> commanders = deck.commanders().stream().map(CardComponent::toIdentity).toList();
+
+        session.submit(new GameEvent.DeckLoaded(seat, library, commanders));
+        session.submit(new GameEvent.LibraryShuffled(seat, seat));
+        TableSessions.anchorOf(level, tableOrigin)
+                .flatMap(anchor -> entityAt(level, anchor))
+                .ifPresent(TableBlockEntity::setChanged);
+
+        stack.shrink(1);
+        player.sendSystemMessage(Component.translatable(
+                "message.gathering.deck_committed", deck.deckSize()));
+    }
+
+    /** What is going on here, said to whoever asked and filtered to what they may know. */
+    private static void report(Level level, BlockPos tableOrigin, TableCluster cluster, Player player) {
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.table_status",
                 cluster.tableCount(),
                 TableSeats.occupiedSeats(level, tableOrigin),
                 cluster.capacity()));
-        return ItemInteractionResult.SUCCESS;
+
+        TableSessions.sessionAt(level, tableOrigin).ifPresent(session -> {
+            Viewer viewer = TableStatus.viewerFor(
+                    TableSessions.seatIdOf(level, tableOrigin, player.getUUID()));
+            TableStatus.describe(VisibilityRules.viewFor(session.state(), viewer))
+                    .forEach(player::sendSystemMessage);
+        });
     }
 }

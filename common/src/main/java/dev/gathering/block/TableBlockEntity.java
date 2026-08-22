@@ -1,6 +1,12 @@
 package dev.gathering.block;
 
+import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.persistence.SessionCipher;
+import dev.gathering.core.game.persistence.StoredSession;
 import dev.gathering.core.table.Side;
+import dev.gathering.server.SessionKeyring;
+import java.io.IOException;
+import javax.crypto.SecretKey;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
@@ -33,10 +39,16 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public class TableBlockEntity extends BlockEntity {
 
+    private static final org.slf4j.Logger LOGGER =
+            org.slf4j.LoggerFactory.getLogger("Gathering");
+
     public static final String ID = "table";
 
     private static final String FELT_KEY = "felt";
     private static final String SEATS_KEY = "seats";
+    private static final String SESSION_OPEN_KEY = "session_open";
+    private static final String SESSION_SEALED_KEY = "session_sealed";
+    private static final String STARTING_LIFE_KEY = "starting_life";
     private static final String SIDE_KEY = "side";
     private static final String PLAYER_KEY = "player";
 
@@ -45,8 +57,62 @@ public class TableBlockEntity extends BlockEntity {
     /** Empty for the felt's own colour; a dye replaces it. */
     private DyeColor felt;
 
+    /**
+     * The game on this cluster, if there is one and this is the table holding it.
+     *
+     * <p>Restored from {@link #stored} the first time somebody asks rather than at load,
+     * because reading it needs the session key and a key that cannot be read must never be
+     * the reason a world fails to load.
+     */
+    private GameSession session;
+
+    private StoredSession stored;
+    private int startingLife;
+    private boolean restoreFailed;
+
     public TableBlockEntity(BlockPos pos, BlockState state) {
         super(dev.gathering.item.GatheringContent.TABLE_ENTITY.get(), pos, state);
+    }
+
+    /**
+     * The game on this table, opening it from storage if this is the first time anybody has
+     * asked since the world loaded.
+     */
+    public Optional<GameSession> session() {
+        if (session == null && stored != null && !restoreFailed) {
+            restoreFailed = true;
+            SessionKeyring.key().ifPresent(key -> {
+                try {
+                    session = stored.restore(key);
+                    restoreFailed = false;
+                } catch (IOException | SessionCipher.SealedStreamException e) {
+                    // The table keeps the bytes: an unopenable session is still somebody's
+                    // game, and overwriting it with nothing would be the one irreversible
+                    // thing to do about it.
+                    LOGGER.error("The session at {} will not open: {}", worldPosition, e.getMessage());
+                }
+            });
+        }
+        return Optional.ofNullable(session);
+    }
+
+    public boolean hasSession() {
+        return session != null || stored != null;
+    }
+
+    public void beginSession(GameSession newSession, int life) {
+        this.session = newSession;
+        this.startingLife = life;
+        this.stored = null;
+        this.restoreFailed = false;
+        setChanged();
+    }
+
+    public void endSession() {
+        this.session = null;
+        this.stored = null;
+        this.restoreFailed = false;
+        setChanged();
     }
 
     public Optional<DyeColor> felt() {
@@ -135,6 +201,14 @@ public class TableBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         felt = tag.contains(FELT_KEY) ? DyeColor.byName(tag.getString(FELT_KEY), null) : null;
+
+        session = null;
+        restoreFailed = false;
+        startingLife = tag.getInt(STARTING_LIFE_KEY);
+        stored = tag.contains(SESSION_OPEN_KEY)
+                ? new StoredSession(tag.getByteArray(SESSION_OPEN_KEY), tag.getByteArray(SESSION_SEALED_KEY))
+                : null;
+
         claims.clear();
         ListTag seats = tag.getList(SEATS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < seats.size(); index++) {
@@ -155,6 +229,7 @@ public class TableBlockEntity extends BlockEntity {
             // By name, like the seat sides and for the same reason: this is a save file.
             tag.putString(FELT_KEY, felt.getSerializedName());
         }
+        writeSession(tag);
         ListTag seats = new ListTag();
         claims.forEach((side, player) -> {
             CompoundTag seat = new CompoundTag();
@@ -163,6 +238,36 @@ public class TableBlockEntity extends BlockEntity {
             seats.add(seat);
         });
         tag.put(SEATS_KEY, seats);
+    }
+
+    /**
+     * Writes the game down, sealed.
+     *
+     * <p>A session that could not be opened is written back exactly as it was found. It is
+     * still somebody's game, and replacing it with nothing because this server could not read
+     * it is the one irreversible thing available here.
+     */
+    private void writeSession(CompoundTag tag) {
+        StoredSession toWrite = stored;
+        if (session != null) {
+            Optional<SecretKey> key = SessionKeyring.key();
+            if (key.isEmpty()) {
+                LOGGER.error("No session key, so the game at {} cannot be saved", worldPosition);
+                return;
+            }
+            try {
+                toWrite = StoredSession.of(session, startingLife, key.get());
+            } catch (IOException e) {
+                LOGGER.error("Could not write the game at {}: {}", worldPosition, e.getMessage());
+                return;
+            }
+        }
+        if (toWrite == null) {
+            return;
+        }
+        tag.putByteArray(SESSION_OPEN_KEY, toWrite.openPart());
+        tag.putByteArray(SESSION_SEALED_KEY, toWrite.sealedPart());
+        tag.putInt(STARTING_LIFE_KEY, startingLife);
     }
 
     private static Side sideNamed(String name) {

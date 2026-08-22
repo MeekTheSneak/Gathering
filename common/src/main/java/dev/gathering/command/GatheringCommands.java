@@ -45,7 +45,49 @@ public final class GatheringCommands {
                                 .executes(context -> giveCard(
                                         context.getSource(),
                                         StringArgumentType.getString(context, "name"),
-                                        true))));
+                                        true))))
+                // Ending a game is a command rather than a click, because it cannot be undone
+                // and a table is a thing people lean on.
+                .then(Commands.literal("table")
+                        .then(Commands.literal("end")
+                                .executes(context -> endSession(context.getSource()))));
+    }
+
+    /**
+     * Ends the game at the table the player is looking at.
+     *
+     * <p>The table has to be named by pointing at it: a player standing in a shop full of
+     * them should not be able to end the wrong game by typing.
+     */
+    private static int endSession(CommandSourceStack source)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        net.minecraft.world.phys.HitResult hit = player.pick(6.0d, 0.0f, false);
+        if (!(hit instanceof net.minecraft.world.phys.BlockHitResult block)) {
+            source.sendFailure(net.minecraft.network.chat.Component.translatable(
+                    "message.gathering.session_no_table"));
+            return 0;
+        }
+
+        net.minecraft.world.level.block.state.BlockState state =
+                player.level().getBlockState(block.getBlockPos());
+        if (!(state.getBlock() instanceof dev.gathering.block.TableBlock)) {
+            source.sendFailure(net.minecraft.network.chat.Component.translatable(
+                    "message.gathering.session_no_table"));
+            return 0;
+        }
+
+        net.minecraft.core.BlockPos origin =
+                dev.gathering.block.TableBlock.originOf(state, block.getBlockPos());
+        dev.gathering.core.game.SeatId seat = dev.gathering.block.TableSessions
+                .seatIdOf(player.level(), origin, player.getUUID())
+                .orElseGet(() -> new dev.gathering.core.game.SeatId(0));
+
+        dev.gathering.block.TableSessions.Outcome outcome = dev.gathering.block.TableSessions.end(
+                player.level(), origin, seat, "ended by " + player.getGameProfile().getName());
+        source.sendSuccess(() -> net.minecraft.network.chat.Component.translatable(
+                outcome.messageKey()), true);
+        return outcome == dev.gathering.block.TableSessions.Outcome.ENDED ? 1 : 0;
     }
 
     private static int giveCard(CommandSourceStack source, String cardName, boolean foil)

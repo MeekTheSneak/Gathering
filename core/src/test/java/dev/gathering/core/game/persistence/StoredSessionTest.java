@@ -35,7 +35,7 @@ class StoredSessionTest {
         SecretKey key = SessionCipher.newKey();
         GameSession session = playALittle();
 
-        StoredSession stored = StoredSession.of(session, List.of(ALICE, BOB), 40, key);
+        StoredSession stored = StoredSession.of(session, 40, key);
         GameSession restored = stored.restore(key);
 
         assertThat(restored.records()).isEqualTo(session.records());
@@ -55,7 +55,7 @@ class StoredSessionTest {
                 .max()
                 .orElse(0);
 
-        GameSession restored = StoredSession.of(session, List.of(ALICE, BOB), 40, key).restore(key);
+        GameSession restored = StoredSession.of(session, 40, key).restore(key);
         restored.submit(new GameEvent.LifeChanged(ALICE, BOB, -1));
 
         long newest = restored.records().stream()
@@ -74,7 +74,7 @@ class StoredSessionTest {
         SecretKey key = SessionCipher.newKey();
         GameSession session = playALittle();
 
-        StoredSession stored = StoredSession.of(session, List.of(ALICE, BOB), 40, key);
+        StoredSession stored = StoredSession.of(session, 40, key);
 
         assertThat(indexOf(stored.openPart(), session.seed().toBytes()))
                 .describedAs("the shuffle seed is sitting in the readable half of the save")
@@ -93,7 +93,7 @@ class StoredSessionTest {
         session.submit(new GameEvent.DeckLoaded(ALICE,
                 List.of(CardIdentity.ofPrinting(printing, false)), List.of()));
 
-        StoredSession stored = StoredSession.of(session, List.of(ALICE), 40, key);
+        StoredSession stored = StoredSession.of(session, 40, key);
 
         byte[] identity = new byte[16];
         java.nio.ByteBuffer.wrap(identity)
@@ -110,7 +110,7 @@ class StoredSessionTest {
         SecretKey key = SessionCipher.newKey();
         GameSession session = playALittle();
 
-        StoredSession stored = StoredSession.of(session, List.of(ALICE, BOB), 40, key);
+        StoredSession stored = StoredSession.of(session, 40, key);
 
         assertThat(new String(stored.openPart(), StandardCharsets.ISO_8859_1)).contains("LifeChanged");
     }
@@ -119,7 +119,7 @@ class StoredSessionTest {
     @DisplayName("somebody else's key does not open it")
     void theWrongKeyIsRefused() throws Exception {
         GameSession session = playALittle();
-        StoredSession stored = StoredSession.of(session, List.of(ALICE, BOB), 40, SessionCipher.newKey());
+        StoredSession stored = StoredSession.of(session, 40, SessionCipher.newKey());
 
         assertThatThrownBy(() -> stored.restore(SessionCipher.newKey()))
                 .isInstanceOf(SessionCipher.SealedStreamException.class);
