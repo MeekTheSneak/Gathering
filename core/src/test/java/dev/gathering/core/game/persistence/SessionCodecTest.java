@@ -123,6 +123,24 @@ class SessionCodecTest {
         assertThat(samples).hasSize(GameEvent.class.getPermittedSubclasses().length);
     }
 
+    @Test
+    @DisplayName("taking a card off another one survives the round trip as an absence")
+    void aDetachRoundTrips() throws Exception {
+        // The one event with an optional field in it. A null host that came back as a card id
+        // would silently re-attach something the moment a session was reopened.
+        GameEvent detach = new GameEvent.CardAttached(new SeatId(0), new CardInstanceId(3), null);
+
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        try (java.io.DataOutputStream out = new java.io.DataOutputStream(bytes)) {
+            EventCodec.write(out, detach);
+        }
+        GameEvent back = EventCodec.read(
+                new java.io.DataInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray())));
+
+        assertThat(back).isEqualTo(detach);
+        assertThat(((GameEvent.CardAttached) back).host()).isNull();
+    }
+
     private static List<GameEvent> everyKind() {
         SeatId a = new SeatId(0);
         SeatId b = new SeatId(1);
@@ -137,6 +155,7 @@ class SessionCodecTest {
                         new Placement.At(new TablePosition(3, 4, 90))),
                 new GameEvent.CardTapSet(a, card, true),
                 new GameEvent.CardRotated(a, card, 137),
+                new GameEvent.CardAttached(a, card, new CardInstanceId(4)),
                 new GameEvent.SeatUntappedAll(a, b),
                 new GameEvent.CardFacingSet(a, card, Facing.FACE_DOWN),
                 new GameEvent.CardsDrawn(a, b, 7),

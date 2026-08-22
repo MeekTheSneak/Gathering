@@ -17,6 +17,7 @@ import dev.gathering.core.game.visibility.Viewer;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.TableScreenLayout;
+import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.item.CardComponent;
@@ -116,6 +117,15 @@ public final class TableScreen extends Screen {
     /** The corner a box-select started from, while one is being dragged out. */
     private int[] boxFrom;
 
+    /**
+     * The cards waiting to be put onto something, once their host has been picked.
+     *
+     * <p>A mode rather than a gesture, because dragging already means "put this here" and a
+     * drop that sometimes attached and sometimes stacked would be a coin flip. Asking first
+     * and then clicking the host is two deliberate acts, which is what attaching is.
+     */
+    private List<CardInstanceId> attaching = List.of();
+
     private ContextMenu menu;
 
     public TableScreen(BlockPos table) {
@@ -203,6 +213,12 @@ public final class TableScreen extends Screen {
         renderTurn(graphics, board);
         renderHeldCard(graphics, board, mouseX, mouseY);
 
+        if (!attaching.isEmpty()) {
+            GuiText.drawCentred(graphics, this.font,
+                    Component.translatable("screen.gathering.table.attaching", attaching.size()),
+                    layout().surface().x() + layout().surface().width() / 2,
+                    layout().surface().y() + 4, layout().surface().width() - 8, ACCENT);
+        }
         if (boxFrom != null) {
             Rect box = boxBetween(boxFrom[0], boxFrom[1], mouseX, mouseY);
             graphics.fill(box.x(), box.y(), box.right(), box.bottom(), BOX_FILL);
@@ -274,11 +290,14 @@ public final class TableScreen extends Screen {
 
         for (int index = 0; index < cards.size(); index++) {
             CardView card = cards.get(index);
-            if (isHeld(card)) {
+            if (isHeld(card) || card.host().isPresent()) {
+                // Attachments are drawn by whatever they are attached to, so they land over
+                // their host rather than wherever the zone order happened to put them.
                 continue;
             }
             drawTableCard(graphics, card, spotOf(card, depths.get(index)),
                     card == hovered || isSelected(card));
+            drawAttachments(graphics, cards, card, spotOf(card, depths.get(index)), hovered);
 
             // Only the top card of a pile says how many are in it. Every card in the pile
             // agrees on the number, so saying it four times would be four badges on one stack.
@@ -292,6 +311,65 @@ public final class TableScreen extends Screen {
         if (hovered != null) {
             offerToInspector(hovered);
         }
+    }
+
+    /**
+     * The cards sitting on this one, fanned down its side.
+     *
+     * <p>Drawn from the host outwards rather than in zone order, because an attachment's place
+     * on the table is its host's place - it has a position of its own and the renderer ignores
+     * it, which is what makes an aura follow the creature when somebody drags it.
+     */
+    private void drawAttachments(
+            GuiGraphics graphics, List<CardView> all, CardView host, Rect where, CardView hovered) {
+        List<CardView> attached = attachmentsOf(all, host);
+        if (attached.isEmpty()) {
+            return;
+        }
+        boolean left = TableAttachments.fansLeft(where, layout().surface());
+        for (int index = 0; index < attached.size(); index++) {
+            Rect slot = left
+                    ? TableAttachments.slot(where, index)
+                    : TableAttachments.slotOnTheRight(where, index);
+            CardView card = attached.get(index);
+            drawCard(graphics, card, slot, card == hovered || isSelected(card), card.tapped());
+        }
+    }
+
+    /** Everything on the focused board currently sitting on this card, in the board's order. */
+    private static List<CardView> attachmentsOf(List<CardView> all, CardView host) {
+        if (!(host instanceof CardView.Visible visible)) {
+            return List.of();
+        }
+        List<CardView> found = new ArrayList<>();
+        for (CardView card : all) {
+            if (card.host().filter(visible.id()::equals).isPresent()) {
+                found.add(card);
+            }
+        }
+        return found;
+    }
+
+    /** Where an attached card is actually drawn, which is beside its host and nowhere else. */
+    private Rect attachmentRectOf(List<CardView> all, List<Integer> depths, CardView card) {
+        CardInstanceId hostId = card.host().orElse(null);
+        if (hostId == null) {
+            return null;
+        }
+        for (int index = 0; index < all.size(); index++) {
+            if (!(all.get(index) instanceof CardView.Visible visible) || !visible.id().equals(hostId)) {
+                continue;
+            }
+            Rect where = spotOf(all.get(index), depths.get(index));
+            int slot = attachmentsOf(all, all.get(index)).indexOf(card);
+            if (slot < 0) {
+                return null;
+            }
+            return TableAttachments.fansLeft(where, layout().surface())
+                    ? TableAttachments.slot(where, slot)
+                    : TableAttachments.slotOnTheRight(where, slot);
+        }
+        return null;
     }
 
     private static List<TablePosition> spotsIn(List<CardView> cards) {
@@ -550,6 +628,12 @@ public final class TableScreen extends Screen {
         }
 
         Optional<CardView> onSurface = cardOnSurfaceAt(board, x, y);
+        if (!attaching.isEmpty()) {
+            // Anywhere but a card cancels, which is what clicking off a half-finished thing
+            // should always do.
+            onSurface.ifPresentOrElse(host -> finishAttaching(host), () -> attaching = List.of());
+            return true;
+        }
         if (onSurface.isPresent()) {
             return pressCard(board, onSurface.get(), surfaceRectOf(board, onSurface.get()),
                     false, x, y, button);
@@ -766,6 +850,15 @@ public final class TableScreen extends Screen {
             }
             entries.add(entry("counters", () -> openCounters(new CountersScreen.Subject.Cards(
                     targets, CountersScreen.titleFor(targets, nameOf(card))))));
+            if (card.host().isPresent()) {
+                entries.add(entry("detach", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CardAttached(me, target, null))));
+            } else {
+                entries.add(entry("attach", () -> {
+                    attaching = targets;
+                    selected.clear();
+                }));
+            }
             entries.add(entry("copy", () -> eachTarget(board, targets, target ->
                     new GameEvent.TokenCopyCreated(me, target, focused))));
             if (card.token()) {
@@ -938,6 +1031,22 @@ public final class TableScreen extends Screen {
         menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
     }
 
+    /** Puts the waiting cards onto the one just clicked, and leaves the mode either way. */
+    private void finishAttaching(CardView host) {
+        List<CardInstanceId> cards = attaching;
+        attaching = List.of();
+        SeatId me = mySeat().orElse(null);
+        if (me == null || !(host instanceof CardView.Visible visible)) {
+            return;
+        }
+        GatheringButtons.clickSound();
+        for (CardInstanceId card : cards) {
+            if (!card.equals(visible.id())) {
+                send(new GameEvent.CardAttached(me, card, visible.id()));
+            }
+        }
+    }
+
     private void openCounters(CountersScreen.Subject subject) {
         net.minecraft.client.Minecraft.getInstance()
                 .setScreen(new CountersScreen(table, subject));
@@ -978,9 +1087,22 @@ public final class TableScreen extends Screen {
         }
         List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
         List<Integer> depths = TableStacking.depths(spotsIn(cards));
+
+        // Attachments are drawn over their hosts, so they are tested first - otherwise the
+        // creature underneath swallows every click meant for its equipment.
         for (int index = cards.size() - 1; index >= 0; index--) {
             CardView card = cards.get(index);
-            if (!isHeld(card)
+            if (isHeld(card) || card.host().isEmpty()) {
+                continue;
+            }
+            Rect slot = attachmentRectOf(cards, depths, card);
+            if (slot != null && slot.containsTurned(angleOf(card), x, y)) {
+                return Optional.of(card);
+            }
+        }
+        for (int index = cards.size() - 1; index >= 0; index--) {
+            CardView card = cards.get(index);
+            if (!isHeld(card) && card.host().isEmpty()
                     && spotOf(card, depths.get(index)).containsTurned(angleOf(card), x, y)) {
                 return Optional.of(card);
             }
@@ -1003,14 +1125,16 @@ public final class TableScreen extends Screen {
         return Optional.empty();
     }
 
-    /** Where a card on the focused board is currently drawn, lean included. */
+    /** Where a card on the focused board is currently drawn, lean and attachment included. */
     private Rect surfaceRectOf(GameView board, CardView card) {
         List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
         int index = cards.indexOf(card);
         if (index < 0) {
             return layout().cardAt(card.placedAt().orElse(TablePosition.ORIGIN));
         }
-        return spotOf(card, TableStacking.depths(spotsIn(cards)).get(index));
+        List<Integer> depths = TableStacking.depths(spotsIn(cards));
+        Rect attached = attachmentRectOf(cards, depths, card);
+        return attached != null ? attached : spotOf(card, depths.get(index));
     }
 
     private Rect handSlotOf(GameView board, CardView card) {
@@ -1072,8 +1196,9 @@ public final class TableScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
-        if (menu != null && key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && (menu != null || !attaching.isEmpty())) {
             menu = null;
+            attaching = List.of();
             return true;
         }
         SeatId me = mySeat().orElse(null);

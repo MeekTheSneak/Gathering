@@ -66,6 +66,14 @@ public final class EventCodec {
                 card(out, e.card());
                 out.writeBoolean(e.tapped());
             }
+            case GameEvent.CardAttached e -> {
+                seat(out, e.actor());
+                card(out, e.card());
+                out.writeBoolean(e.host() != null);
+                if (e.host() != null) {
+                    card(out, e.host());
+                }
+            }
             case GameEvent.CardRotated e -> {
                 seat(out, e.actor());
                 card(out, e.card());
@@ -195,6 +203,8 @@ public final class EventCodec {
             case "SessionEnded" -> new GameEvent.SessionEnded(seat(in), in.readUTF());
             case "CardMoved" -> new GameEvent.CardMoved(seat(in), card(in), zone(in), placement(in));
             case "CardTapSet" -> new GameEvent.CardTapSet(seat(in), card(in), in.readBoolean());
+            case "CardAttached" -> new GameEvent.CardAttached(
+                    seat(in), card(in), in.readBoolean() ? card(in) : null);
             case "CardRotated" -> new GameEvent.CardRotated(seat(in), card(in), in.readInt());
             case "SeatUntappedAll" -> new GameEvent.SeatUntappedAll(seat(in), seat(in));
             case "CardFacingSet" -> new GameEvent.CardFacingSet(

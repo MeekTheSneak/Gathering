@@ -54,6 +54,8 @@ public final class GameFold {
 
             case GameEvent.CardRotated rotated -> rotate(state, rotated);
 
+            case GameEvent.CardAttached attached -> attach(state, attached);
+
             case GameEvent.SeatUntappedAll untapped -> untapAll(state, untapped.seat());
 
             case GameEvent.CardFacingSet facing -> setFacing(state, facing, seed);
@@ -151,6 +153,29 @@ public final class GameFold {
         return card.placedAt()
                 .map(where -> state.withCard(card.withPosition(where.rotatedTo(event.rotation()))))
                 .orElse(state);
+    }
+
+    /**
+     * Puts a card onto another one, or takes it off.
+     *
+     * <p>Three arrangements are refused rather than drawn: a card on itself, a card on
+     * something in a pile, and a card on something that is itself on a third card. The first
+     * two cannot be drawn at all; the third is a chain nobody plays and the only remaining way
+     * to make a loop out of this.
+     *
+     * <p>Refusing here means leaving the board alone, not throwing. A stale click - the host
+     * went to the graveyard a moment ago - should do nothing rather than end the session.
+     */
+    private static GameState attach(GameState state, GameEvent.CardAttached event) {
+        CardInstance card = state.requireCard(event.card());
+        if (event.host() == null) {
+            return state.withCard(card.attachedToCard(null));
+        }
+        CardInstance host = state.card(event.host()).orElse(null);
+        if (host == null || host.id().equals(card.id()) || host.isAttached() || host.position() == null) {
+            return state;
+        }
+        return state.withCard(card.attachedToCard(host.id()));
     }
 
     private static GameState untapAll(GameState state, SeatId seat) {

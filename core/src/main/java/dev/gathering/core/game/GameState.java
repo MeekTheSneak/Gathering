@@ -86,7 +86,7 @@ public record GameState(
     }
 
     public List<CardInstanceId> contents(ZoneRef ref) {
-        return zones.getOrDefault(ref, List.of());
+        return ref == null ? List.of() : zones.getOrDefault(ref, List.of());
     }
 
     public List<CardInstanceId> contents(SeatId seat, Zone zone) {
@@ -210,17 +210,47 @@ public record GameState(
         return moved.settlePosition(id, into, placement);
     }
 
-    /** Gives an arriving card its spot, or takes one away from a card joining a pile. */
+    /**
+     * Gives an arriving card its spot, or takes one away from a card joining a pile.
+     *
+     * <p>A card that has left the table also stops being on anything and stops having anything
+     * on it. An aura attached to a creature that has gone to the graveyard is an aura attached
+     * to a card that is not there, which would draw beside nothing - and in paper it would
+     * have fallen off too.
+     */
     private GameState settlePosition(CardInstanceId id, ZoneRef into, Placement placement) {
         CardInstance card = cards.get(id);
         if (card == null) {
             return this;
         }
         if (!into.zone().isSurface()) {
-            return withCard(card.withPosition(null));
+            return withCard(card.withPosition(null).attachedToCard(null)).withNothingAttachedTo(id);
         }
         TablePosition where = placement.chosenPosition().orElseGet(() -> unaimedSpot(into, id));
         return withCard(card.withPosition(where));
+    }
+
+    /** Takes everything off a card, for when that card has stopped being somewhere to sit. */
+    public GameState withNothingAttachedTo(CardInstanceId host) {
+        GameState updated = this;
+        for (CardInstance card : cards.values()) {
+            if (host.equals(card.attachedTo())) {
+                updated = updated.withCard(card.attachedToCard(null));
+            }
+        }
+        return updated;
+    }
+
+    /** Every card currently sitting on this one, in the order their zone keeps them. */
+    public List<CardInstanceId> attachmentsOf(CardInstanceId host) {
+        List<CardInstanceId> found = new ArrayList<>();
+        for (CardInstanceId id : contents(locationOf(host).orElse(null))) {
+            CardInstance card = cards.get(id);
+            if (card != null && host.equals(card.attachedTo())) {
+                found.add(id);
+            }
+        }
+        return List.copyOf(found);
     }
 
     /**
@@ -270,8 +300,17 @@ public record GameState(
                 seats, cards, updated, seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
-    /** Takes a card out of the session entirely. Only tokens and copies ever leave this way. */
+    /**
+     * Takes a card out of the session entirely. Only tokens and copies ever leave this way.
+     *
+     * <p>Anything sitting on it comes off first, or it would be attached to a card that no
+     * longer exists.
+     */
     public GameState removeCard(CardInstanceId id) {
+        return withNothingAttachedTo(id).forgetCard(id);
+    }
+
+    private GameState forgetCard(CardInstanceId id) {
         Map<CardInstanceId, CardInstance> updatedCards = new LinkedHashMap<>(cards);
         updatedCards.remove(id);
         Map<ZoneRef, List<CardInstanceId>> updatedZones = new LinkedHashMap<>();

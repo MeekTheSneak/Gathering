@@ -125,7 +125,7 @@ public final class VisibilityRules {
         if (entitled) {
             return new CardView.Visible(
                     card.id(), card.identity(), card.owner(), card.facing(), card.tapped(),
-                    card.counters(), card.position(), card.token());
+                    card.counters(), card.position(), card.token(), card.attachedTo());
         }
         // The spot goes to everyone: where a card sits was never a secret, and an opponent
         // who cannot see which card it is still has to be able to see that it is there.
@@ -134,6 +134,7 @@ public final class VisibilityRules {
                         new IllegalStateException("A face-down card without a marker: " + card.id())),
                 card.tapped(),
                 card.counters(),
-                card.position());
+                card.position(),
+                card.attachedTo());
     }
 }

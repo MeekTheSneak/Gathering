@@ -180,6 +180,26 @@ public sealed interface GameEvent {
         }
     }
 
+    /**
+     * Putting a card onto another one, or taking it off again with a null host.
+     *
+     * <p>An aura on a creature, a piece of equipment on the thing it is equipping, a card
+     * somebody is using to mean "this one is blocking that one". The mod knows none of those
+     * words: attaching is a drawing relationship, and what it means is the group's business.
+     *
+     * <p>One verb for on and off, because they are one decision - "this card is on that card,
+     * or on nothing" - and two verbs could get out of step with each other.
+     */
+    record CardAttached(SeatId actor, CardInstanceId card, CardInstanceId host) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return host == null
+                    ? LogLine.of("log.gathering.card_detached", actor, CardRef.publicRefFor(before, card))
+                    : LogLine.of("log.gathering.card_attached", actor,
+                            CardRef.publicRefFor(before, card), CardRef.publicRefFor(before, host));
+        }
+    }
+
     /** Untap-all, because doing it one permanent at a time is how a turn takes four minutes. */
     record SeatUntappedAll(SeatId actor, SeatId seat) implements GameEvent {
         @Override

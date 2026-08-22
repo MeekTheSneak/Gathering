@@ -238,6 +238,7 @@ public final class ViewCodec {
                 counters(out, visible.counters());
                 position(out, visible.position());
                 out.writeBoolean(visible.token());
+                host(out, visible.attachedTo());
             }
             case CardView.Anonymous anonymous -> {
                 out.writeBoolean(false);
@@ -245,6 +246,7 @@ public final class ViewCodec {
                 out.writeBoolean(anonymous.tapped());
                 counters(out, anonymous.counters());
                 position(out, anonymous.position());
+                host(out, anonymous.attachedTo());
             }
         }
     }
@@ -259,10 +261,22 @@ public final class ViewCodec {
                     in.readBoolean(),
                     counters(in),
                     position(in),
-                    in.readBoolean());
+                    in.readBoolean(),
+                    host(in));
         }
         return new CardView.Anonymous(
-                new MarkerId(in.readUTF()), in.readBoolean(), counters(in), position(in));
+                new MarkerId(in.readUTF()), in.readBoolean(), counters(in), position(in), host(in));
+    }
+
+    private static void host(DataOutput out, CardInstanceId host) throws IOException {
+        out.writeBoolean(host != null);
+        if (host != null) {
+            out.writeInt(host.value());
+        }
+    }
+
+    private static CardInstanceId host(DataInput in) throws IOException {
+        return in.readBoolean() ? new CardInstanceId(in.readInt()) : null;
     }
 
     private static void identity(DataOutput out, CardIdentity identity) throws IOException {

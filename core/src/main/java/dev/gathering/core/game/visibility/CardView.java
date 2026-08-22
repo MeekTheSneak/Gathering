@@ -36,7 +36,8 @@ public sealed interface CardView {
             boolean tapped,
             Map<String, Integer> counters,
             TablePosition position,
-            boolean token) implements CardView {
+            boolean token,
+            CardInstanceId attachedTo) implements CardView {
 
         public Visible {
             counters = counters == null ? Map.of() : Map.copyOf(counters);
@@ -57,7 +58,8 @@ public sealed interface CardView {
             MarkerId marker,
             boolean tapped,
             Map<String, Integer> counters,
-            TablePosition position) implements CardView {
+            TablePosition position,
+            CardInstanceId attachedTo) implements CardView {
 
         public Anonymous {
             counters = counters == null ? Map.of() : Map.copyOf(counters);
@@ -109,5 +111,19 @@ public sealed interface CardView {
 
     default int counter(String name) {
         return counters().getOrDefault(name, 0);
+    }
+
+    /**
+     * The card this one is sitting on, if any.
+     *
+     * <p>Carried by an anonymous card too. Which card a face-down permanent is attached to is
+     * not a secret - everybody at a real table can see the equipment lying across it - and the
+     * host it names is a card the viewer can already see, so there is nothing here to invert.
+     */
+    default Optional<CardInstanceId> host() {
+        return Optional.ofNullable(switch (this) {
+            case Visible visible -> visible.attachedTo();
+            case Anonymous anonymous -> anonymous.attachedTo();
+        });
     }
 }

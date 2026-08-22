@@ -27,8 +27,14 @@ import java.util.Optional;
  * being looked at from the other side of the table. Cards in a pile carry no position,
  * because a pile is an order rather than a place.
  *
+ * <p><b>Attachment is a drawing relationship, not a rule.</b> A card attached to another
+ * follows it around the table and draws small beside it, which is what an aura or a piece of
+ * equipment looks like. Nothing here knows what an aura is or checks that one may legally be
+ * where it is - the group decides that, as with everything else.
+ *
  * @param token tokens and copies cease to exist at end of session rather than returning to
  *              a deck, which is the only case where a card does not go home
+ * @param attachedTo the card this one is on, or null for a card standing on its own
  */
 public record CardInstance(
         CardInstanceId id,
@@ -39,7 +45,8 @@ public record CardInstance(
         Map<String, Integer> counters,
         MarkerId marker,
         TablePosition position,
-        boolean token) {
+        boolean token,
+        CardInstanceId attachedTo) {
 
     public CardInstance {
         if (id == null || identity == null || owner == null || facing == null) {
@@ -56,35 +63,39 @@ public record CardInstance(
     }
 
     public static CardInstance faceUp(CardInstanceId id, CardIdentity identity, SeatId owner) {
-        return new CardInstance(id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false);
+        return new CardInstance(
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false, null);
     }
 
     public static CardInstance token(CardInstanceId id, CardIdentity identity, SeatId owner) {
-        return new CardInstance(id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true);
+        return new CardInstance(
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true, null);
     }
 
     public CardInstance withTapped(boolean newTapped) {
         return newTapped == tapped
                 ? this
-                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token);
+                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token, attachedTo);
     }
 
     /** Where a drag dropped it, or nothing once it goes back into a pile. */
     public CardInstance withPosition(TablePosition newPosition) {
         return java.util.Objects.equals(newPosition, position)
                 ? this
-                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token);
+                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token, attachedTo);
     }
 
     /** Flipping down needs a fresh marker; flipping up drops the one it had. */
     public CardInstance faceDownWith(MarkerId newMarker) {
-        return new CardInstance(id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token);
+        return new CardInstance(
+                id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token, attachedTo);
     }
 
     public CardInstance faceUp() {
         return facing == Facing.FACE_UP
                 ? this
-                : new CardInstance(id, identity, owner, Facing.FACE_UP, tapped, counters, null, position, token);
+                : new CardInstance(
+                        id, identity, owner, Facing.FACE_UP, tapped, counters, null, position, token, attachedTo);
     }
 
     /**
@@ -101,7 +112,7 @@ public record CardInstance(
         } else {
             updated.put(name, now);
         }
-        return new CardInstance(id, identity, owner, facing, tapped, updated, marker, position, token);
+        return new CardInstance(id, identity, owner, facing, tapped, updated, marker, position, token, attachedTo);
     }
 
     public int counter(String name) {
@@ -118,6 +129,28 @@ public record CardInstance(
 
     public Optional<TablePosition> placedAt() {
         return Optional.ofNullable(position);
+    }
+
+    /**
+     * Puts this card on another one, or takes it off with null.
+     *
+     * <p>Refuses to attach a card to itself, which is the one arrangement that cannot be
+     * drawn and the only way to make a cycle out of a relationship this shallow.
+     */
+    public CardInstance attachedToCard(CardInstanceId host) {
+        CardInstanceId target = id.equals(host) ? null : host;
+        return java.util.Objects.equals(target, attachedTo)
+                ? this
+                : new CardInstance(
+                        id, identity, owner, facing, tapped, counters, marker, position, token, target);
+    }
+
+    public Optional<CardInstanceId> host() {
+        return Optional.ofNullable(attachedTo);
+    }
+
+    public boolean isAttached() {
+        return attachedTo != null;
     }
 
     /** Counters commonly enough named to be worth spelling once. */
