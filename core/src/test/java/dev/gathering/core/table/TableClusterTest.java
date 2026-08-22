@@ -196,6 +196,33 @@ class TableClusterTest {
                         .map(steps -> grow(size, steps)));
     }
 
+    @Test
+    @DisplayName("what a client assumes from a seat count is what the cluster actually laid out")
+    void assumedSeatingMatchesARowOfTables() {
+        // A client is told a board, not a building, so it rebuilds the seating from the seat
+        // count alone. If that ever stops agreeing with the real thing, the screen and the
+        // table in the world put everybody's playmat somewhere the server never put it - and
+        // nothing would say so, because both sides would be internally consistent.
+        for (int tables = 1; tables <= TableCluster.MAX_TABLES; tables++) {
+            Set<TableCell> row = new LinkedHashSet<>();
+            for (int x = 0; x < tables; x++) {
+                row.add(cell(x, 0));
+            }
+            List<SeatAnchor> real = TableCluster.of(row).seats();
+
+            assertThat(TableCluster.assumedSeating(real.size()))
+                    .describedAs("%s tables in a row", tables)
+                    .isEqualTo(real);
+        }
+    }
+
+    @Test
+    @DisplayName("assuming a seating for nobody is a seating for nobody")
+    void assumedSeatingHandlesNothing() {
+        assertThat(TableCluster.assumedSeating(0)).isEmpty();
+        assertThat(TableCluster.assumedSeating(-4)).isEmpty();
+    }
+
     /** Grows a connected blob by repeatedly stepping off a cell already in it. */
     private static Set<TableCell> grow(int size, List<Integer> steps) {
         Set<TableCell> cells = new LinkedHashSet<>();

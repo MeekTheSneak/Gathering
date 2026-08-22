@@ -87,26 +87,15 @@ public final class BoardGeometry {
      * eight seats draws smaller cards than one with two - exactly as a real one would, and for
      * the same reason.
      *
-     * <p>One factor for both axes, though, taken from whichever side of the mat is tighter.
-     * Scaling width by the mat's width and height by its height looks like the obvious thing
-     * and is wrong: mats are rarely square - two players at one table get a mat that is the
-     * full width and half the depth - so a card drawn that way comes out squat and half again
-     * as wide as it is tall. A card is a card whatever shape the board under it is.
+     * <p>The rule itself lives on {@link TableSurface}, because the table in the world draws
+     * this same board and two answers to how big a card is would be two different boards.
      */
     public int cardWidth(SeatId seat) {
-        return Math.max(1, (int) Math.round(
-                TableCamera.CARD_WIDTH_UNITS * matScale(seat) * camera.scale()));
+        return Math.max(1, (int) Math.round(surface.cardWidthOn(seat.index()) * camera.scale()));
     }
 
     public int cardHeight(SeatId seat) {
-        return Math.max(1, (int) Math.round(
-                TableCamera.CARD_HEIGHT_UNITS * matScale(seat) * camera.scale()));
-    }
-
-    /** How much of a whole table's worth of card fits on this mat, by its tighter side. */
-    private double matScale(SeatId seat) {
-        Rect mat = surface.matOf(seat.index());
-        return Math.min(mat.width(), mat.height()) / (double) TableSurface.SPAN;
+        return Math.max(1, (int) Math.round(surface.cardHeightOn(seat.index()) * camera.scale()));
     }
 
     // ---------------------------------------------------------- screen to card

@@ -79,6 +79,30 @@ public final class TableCluster {
      * the same seats in the same order however it was discovered - a seat index that depends
      * on which table happened to load first is a seat that changes hands on a chunk reload.
      */
+    /**
+     * The shape a client should assume from nothing but a seat count.
+     *
+     * <p>A client is told a board, not a building: the session froze the cluster's shape when
+     * it started, and what arrives on the wire is a list of seats. That is enough, because
+     * seats come in facing pairs, so a row of {@code seats / 2} tables reproduces the seating
+     * the server laid out.
+     *
+     * <p>Here rather than in whichever screen needs it, because the seated view and the table
+     * in the world both have to work this out and two answers would be two different boards -
+     * one of them behind the other by however long it took somebody to notice.
+     */
+    public static List<SeatAnchor> assumedSeating(int seatCount) {
+        int tables = Math.max(0, seatCount + SEATS_PER_TABLE - 1) / SEATS_PER_TABLE;
+        Set<TableCell> row = new LinkedHashSet<>();
+        for (int x = 0; x < tables; x++) {
+            row.add(new TableCell(x, 0));
+        }
+        // Built by asking the real thing rather than by reproducing what it does. Writing the
+        // rule out a second time is how the client ended up seating everybody on the opposite
+        // edge from the server: both sides were internally consistent and neither said so.
+        return of(row).seats();
+    }
+
     public static TableCluster of(Set<TableCell> cells) {
         List<TableCell> ordered = new ArrayList<>(cells);
         ordered.sort(Comparator.comparingInt(TableCell::z).thenComparingInt(TableCell::x));

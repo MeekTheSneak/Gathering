@@ -17,8 +17,7 @@ import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.Viewer;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.table.SeatAnchor;
-import dev.gathering.core.table.Side;
-import dev.gathering.core.table.TableCell;
+import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.TableAttachments;
@@ -262,13 +261,7 @@ public final class TableScreen extends Screen implements CardPreviewHost {
      * so the cells fall out of the count.
      */
     private List<SeatAnchor> anchors() {
-        int seats = view().map(board -> board.seats().size()).orElse(2);
-        List<SeatAnchor> anchors = new ArrayList<>(seats);
-        for (int index = 0; index < seats; index++) {
-            TableCell cell = new TableCell(index / 2, 0);
-            anchors.add(new SeatAnchor(cell, index % 2 == 0 ? Side.SOUTH : Side.NORTH));
-        }
-        return anchors;
+        return TableCluster.assumedSeating(view().map(board -> board.seats().size()).orElse(2));
     }
 
     @Override

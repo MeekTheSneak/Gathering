@@ -41,6 +41,19 @@ public record TableSurface(List<Rect> mats) {
     /** The row is divided into at least this many slots, so four piles never fill a whole mat. */
     private static final int PILE_ROW_SLOTS = 6;
 
+    /**
+     * How wide a card is on a table with one mat on it, in surface units.
+     *
+     * <p>Ten cards across. That is roughly what a real table holds in a row, and it is what
+     * makes a zoomed-out board readable rather than a mosaic.
+     */
+    public static final double CARD_WIDTH_UNITS = SPAN / 10.0;
+
+    private static final double CARD_ASPECT = 488.0 / 680.0;
+
+    /** How tall a card is on that same table, in surface units. */
+    public static final double CARD_HEIGHT_UNITS = CARD_WIDTH_UNITS / CARD_ASPECT;
+
     public TableSurface {
         mats = List.copyOf(mats);
     }
@@ -223,5 +236,37 @@ public record TableSurface(List<Rect> mats) {
             }
         }
         return -1;
+    }
+
+    /**
+     * How big a card is on this seat's mat, against a card on a table with one mat on it.
+     *
+     * <p>A mat is a share of the table and a card is a share of a mat, so a table with eight
+     * seats draws smaller cards than one with two - exactly as a real one would, and for the
+     * same reason.
+     *
+     * <p>One factor for both axes, taken from whichever side of the mat is tighter. Scaling
+     * width by the mat's width and height by its height looks like the obvious thing and is
+     * wrong: mats are rarely square - two players at one table get a mat that is the full
+     * width and half the depth - so a card drawn that way comes out squat and half again as
+     * wide as it is tall. A card is a card whatever shape the board under it is.
+     *
+     * <p>Here rather than in whatever happens to be drawing, because the screen and the table
+     * in the world both draw this board, and two answers to how big a card is would be two
+     * different boards.
+     */
+    public double cardScale(int seat) {
+        Rect mat = matOf(seat);
+        return Math.min(mat.width(), mat.height()) / (double) SPAN;
+    }
+
+    /** A card's width on this seat's mat, in surface units. */
+    public double cardWidthOn(int seat) {
+        return CARD_WIDTH_UNITS * cardScale(seat);
+    }
+
+    /** A card's height on this seat's mat, in surface units. */
+    public double cardHeightOn(int seat) {
+        return CARD_HEIGHT_UNITS * cardScale(seat);
     }
 }

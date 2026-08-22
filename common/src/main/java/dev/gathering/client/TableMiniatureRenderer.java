@@ -8,13 +8,19 @@ import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
+import dev.gathering.core.table.TableCluster;
+import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.TableStacking;
+import dev.gathering.core.ui.TableSurface;
 import dev.gathering.item.CardComponent;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
@@ -28,27 +34,29 @@ import org.joml.Matrix4f;
  * anybody standing at the table would get - so a face-down card is a card back here for the
  * same reason it is one on the table it is modelled on.
  *
- * <p>Each seat gets a band of the surface and its permanents run along it. Cards are drawn at
- * a size that fits the band, so a busy board is drawn smaller rather than spilling off the
- * table - the table never grows in world footprint.
+ * <p><b>The same board the screen draws, through the same arithmetic.</b> This used to squash
+ * each seat's region into a band of its own, which was a second layout: a card sat in one
+ * place on your screen and somewhere else on the block, and the two drifted every time either
+ * changed. Both now go through {@link TableSurface} - the same mats, in the same places, with
+ * cards the same size relative to them - so the block is a small copy of the screen rather
+ * than an impression of it. That is worth having on its own, and it is what makes moving the
+ * board onto the block itself a change of camera rather than a third layout.
  *
  * <p>Client-only.
  */
 public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEntity> {
 
-    /** Just above the felt, so the cards are on the table rather than in it. */
+    /** Just above the felt, so the mats are on the table rather than in it. */
     private static final float SURFACE_Y = 15.02f / 16f;
+
+    /** And cards just above the mats, so a mat never z-fights the board on top of it. */
+    private static final float CARD_Y = SURFACE_Y + 0.0008f;
 
     /** The table is two blocks across; the miniature stays inside a margin of that. */
     private static final float MARGIN = 0.12f;
 
-    private static final float CARD_ASPECT = 488f / 680f;
-
     /** Nothing on a table is worth a draw call past this. */
     private static final int MAX_CARDS = 256;
-
-    /** How deep a card is drawn within its seat's band, leaving room to spread out in it. */
-    private static final float BAND_CARD_DEPTH = 0.42f;
 
     /**
      * How far above the one below each card of a pile sits, in blocks.
@@ -58,6 +66,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * of four flickering in the middle of somebody's board is worse than not drawing it.
      */
     private static final float STACK_LIFT = 0.0015f;
+
+    /** A taken seat's mat, and the darker line around it. Read from above, in a lit room. */
+    private static final int MAT_COLOUR = 0x30000000;
+    private static final int MAT_EDGE_COLOUR = 0x60000000;
+
+    /** How thick the line around a mat is, as a fraction of the mat's shorter side. */
+    private static final float MAT_EDGE_THICKNESS = 0.035f;
 
     public TableMiniatureRenderer(BlockEntityRendererProvider.Context context) {
     }
@@ -72,75 +87,108 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             return;
         }
 
-        // Two blocks square, inset a little. Bands run north to south, one per seat, so the
-        // seat you are standing behind is the band nearest you.
+        TableSurface surface = TableSurface.forSeats(
+                TableCluster.assumedSeating(board.seats().size()));
         float span = 2f - MARGIN * 2f;
-        int bands = board.seats().size();
-        float bandDepth = span / bands;
 
         poseStack.pushPose();
         poseStack.translate(MARGIN, SURFACE_Y, MARGIN);
 
+        // Mats first and all of them, then the cards. A mat is drawn for a seat somebody has
+        // actually taken: a playmat appearing when a player sits down is how a table shows
+        // that it now has a game in it, and an empty seat's mat would say the opposite.
+        for (int index = 0; index < board.seats().size(); index++) {
+            if (board.seats().get(index).occupant().isPresent()) {
+                drawMat(poseStack, buffers, surface.matOf(index), span);
+            }
+        }
+        poseStack.popPose();
+
+        poseStack.pushPose();
+        poseStack.translate(MARGIN, CARD_Y, MARGIN);
         int drawn = 0;
-        for (int index = 0; index < bands; index++) {
-            SeatView seat = board.seats().get(index);
-            List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
-            if (cards.isEmpty()) {
-                continue;
-            }
-            drawn += drawBand(poseStack, buffers, packedLight, cards,
-                    index * bandDepth, bandDepth, span, MAX_CARDS - drawn);
-            if (drawn >= MAX_CARDS) {
-                break;
-            }
+        for (int index = 0; index < board.seats().size() && drawn < MAX_CARDS; index++) {
+            drawn += drawSeat(poseStack, buffers, packedLight, board.seats().get(index),
+                    surface, index, span, MAX_CARDS - drawn);
         }
         poseStack.popPose();
     }
 
     /**
-     * One seat's permanents, along its band.
+     * One seat's playmat: a tinted rectangle with a darker line around it.
      *
-     * <p>Laid out where their owner actually put them: the seat's region is squashed into the
-     * band and every card keeps its place and its angle within it. A board somebody has
-     * arranged into lands at the back and creatures at the front reads as that from across the
-     * room, which is the entire point of the block showing anything at all.
+     * <p>Four quads for the line rather than an outline draw, because a line width in world
+     * space is a pixel width on screen and a mat you can only see the edge of from two blocks
+     * away is not an edge.
      */
-    private int drawBand(
-            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
-            List<CardView> cards, float bandZ, float bandDepth, float span, int budget) {
-        float cardDepth = bandDepth * BAND_CARD_DEPTH;
-        float cardWidth = cardDepth * CARD_ASPECT;
-        if (cardDepth <= 0f || cardWidth <= 0f || cardWidth > span) {
+    private void drawMat(PoseStack poseStack, MultiBufferSource buffers, Rect mat, float span) {
+        if (mat.isEmpty()) {
+            return;
+        }
+        float left = onSurface(mat.x(), span);
+        float top = onSurface(mat.y(), span);
+        float right = onSurface(mat.right(), span);
+        float bottom = onSurface(mat.bottom(), span);
+        float edge = Math.min(right - left, bottom - top) * MAT_EDGE_THICKNESS;
+
+        VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
+        Matrix4f pose = poseStack.last().pose();
+
+        flat(consumer, pose, left, top, right, bottom, MAT_COLOUR);
+        flat(consumer, pose, left, top, right, top + edge, MAT_EDGE_COLOUR);
+        flat(consumer, pose, left, bottom - edge, right, bottom, MAT_EDGE_COLOUR);
+        flat(consumer, pose, left, top, left + edge, bottom, MAT_EDGE_COLOUR);
+        flat(consumer, pose, right - edge, top, right, bottom, MAT_EDGE_COLOUR);
+    }
+
+    /**
+     * One seat's permanents, on its own mat.
+     *
+     * <p>Laid out where their owner actually put them, at the size the screen draws them
+     * relative to the mat. A board somebody has arranged into lands at the back and creatures
+     * at the front reads as that from across the room, which is the entire point of the block
+     * showing anything at all.
+     */
+    private int drawSeat(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight, SeatView seat,
+            TableSurface surface, int seatIndex, float span, int budget) {
+        List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
+        if (cards.isEmpty()) {
             return 0;
         }
-        float acrossRoom = Math.max(0f, span - cardWidth);
-        float downRoom = Math.max(0f, bandDepth - cardDepth);
+        float cardWidth = (float) (surface.cardWidthOn(seatIndex) / TableSurface.SPAN * span);
+        float cardDepth = (float) (surface.cardHeightOn(seatIndex) / TableSurface.SPAN * span);
+        if (cardWidth <= 0f || cardDepth <= 0f) {
+            return 0;
+        }
 
-        List<TablePosition> spots = new java.util.ArrayList<>(cards.size());
+        List<TablePosition> spots = new ArrayList<>(cards.size());
         for (CardView card : cards) {
             spots.add(card.placedAt().orElse(null));
         }
-        List<Integer> depths = dev.gathering.core.ui.TableStacking.depths(spots);
+        List<Integer> depths = TableStacking.depths(spots);
 
         int drawn = 0;
-        for (int index = 0; index < cards.size(); index++) {
-            if (drawn >= budget) {
-                break;
-            }
+        for (int index = 0; index < cards.size() && drawn < budget; index++) {
             CardView card = cards.get(index);
             // A card with no position of its own is one the game has not put down yet; it is
-            // still somebody's permanent, so it goes at the front of the band rather than
+            // still somebody's permanent, so it goes at the corner of the mat rather than
             // nowhere.
             TablePosition where = card.placedAt().orElse(TablePosition.ORIGIN);
-            float across = (float) where.acrossFraction();
-            float down = (float) where.downFraction();
 
             draw(poseStack, buffers, packedLight, textureFor(card),
-                    across * acrossRoom, bandZ + down * downRoom, cardWidth, cardDepth,
+                    onSurface(surface.surfaceX(seatIndex, where.x()), span),
+                    onSurface(surface.surfaceY(seatIndex, where.y()), span),
+                    cardWidth, cardDepth,
                     where.rotation(), isTapped(card), depths.get(index) * STACK_LIFT);
             drawn++;
         }
         return drawn;
+    }
+
+    /** A point on the shared surface, in blocks across the table's own footprint. */
+    private static float onSurface(double surfaceUnits, float span) {
+        return (float) (surfaceUnits / TableSurface.SPAN * span);
     }
 
     /**
@@ -184,9 +232,19 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         consumer.addVertex(pose, x, 0f, z)
                 .setColor(0xFFFFFFFF)
                 .setUv(u, v)
-                .setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY)
+                .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(light)
                 .setNormal(0f, 1f, 0f);
+    }
+
+    /** A flat coloured rectangle on the surface, wound to face the sky. */
+    private static void flat(
+            VertexConsumer consumer, Matrix4f pose,
+            float left, float top, float right, float bottom, int argb) {
+        consumer.addVertex(pose, left, 0f, top).setColor(argb);
+        consumer.addVertex(pose, left, 0f, bottom).setColor(argb);
+        consumer.addVertex(pose, right, 0f, bottom).setColor(argb);
+        consumer.addVertex(pose, right, 0f, top).setColor(argb);
     }
 
     /**
@@ -214,11 +272,5 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             case CardView.Visible visible -> visible.tapped();
             case CardView.Anonymous anonymous -> anonymous.tapped();
         };
-    }
-
-    /** Tables are read from across the room, so they render well past the default range. */
-    @Override
-    public int getViewDistance() {
-        return 64;
     }
 }

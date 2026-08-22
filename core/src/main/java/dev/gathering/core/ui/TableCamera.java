@@ -21,18 +21,10 @@ import dev.gathering.core.game.TablePosition;
  */
 public record TableCamera(double centreX, double centreY, double scale) {
 
-    /**
-     * How wide a card is, as a fraction of the table.
-     *
-     * <p>Ten cards across. That is roughly what a real table holds in a row and it is what
-     * makes a zoomed-out board readable rather than a mosaic.
-     */
-    public static final double CARD_WIDTH_UNITS = TablePosition.SPAN / 10.0;
+    /** A card's footprint, which is the surface's business rather than the camera's. */
+    public static final double CARD_WIDTH_UNITS = TableSurface.CARD_WIDTH_UNITS;
 
-    private static final double CARD_ASPECT = 488.0 / 680.0;
-
-    /** How tall a card is drawn, in table units. */
-    public static final double CARD_HEIGHT_UNITS = CARD_WIDTH_UNITS / CARD_ASPECT;
+    public static final double CARD_HEIGHT_UNITS = TableSurface.CARD_HEIGHT_UNITS;
 
     /** A card at the size it stops being identifiable, and at the size it stops being useful. */
     private static final double MIN_CARD_PIXELS = 24.0;
