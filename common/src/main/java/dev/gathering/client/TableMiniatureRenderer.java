@@ -12,6 +12,7 @@ import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
+import dev.gathering.core.ui.TableTop;
 import dev.gathering.item.CardComponent;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,14 +47,19 @@ import org.joml.Matrix4f;
  */
 public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEntity> {
 
-    /** Just above the felt, so the mats are on the table rather than in it. */
-    private static final float SURFACE_Y = 15.02f / 16f;
+    /**
+     * Where the surface is, taken from {@link TableTop} rather than restated here.
+     *
+     * <p>The same numbers decide what a player is pointing at when they reach onto the table,
+     * and a picture measured from one corner while the pointing is measured from another is
+     * a table where cards are not where they look.
+     */
+    private static final float SURFACE_Y = (float) TableTop.SURFACE_HEIGHT;
 
     /** And cards just above the mats, so a mat never z-fights the board on top of it. */
     private static final float CARD_Y = SURFACE_Y + 0.0008f;
 
-    /** The table is two blocks across; the miniature stays inside a margin of that. */
-    private static final float MARGIN = 0.12f;
+    private static final float MARGIN = (float) TableTop.MARGIN;
 
     /** Nothing on a table is worth a draw call past this. */
     private static final int MAX_CARDS = 256;
@@ -89,7 +95,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
         TableSurface surface = TableSurface.forSeats(
                 TableCluster.assumedSeating(board.seats().size()));
-        float span = 2f - MARGIN * 2f;
+        float span = (float) TableTop.SPAN_BLOCKS;
 
         poseStack.pushPose();
         poseStack.translate(MARGIN, SURFACE_Y, MARGIN);
