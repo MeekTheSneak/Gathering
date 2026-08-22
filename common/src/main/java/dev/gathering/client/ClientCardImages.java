@@ -2,8 +2,8 @@ package dev.gathering.client;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.gathering.Gathering;
+import dev.gathering.core.image.CardImageDecoder;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -61,7 +61,12 @@ public final class ClientCardImages {
     private static final ClientCardImages INSTANCE = new ClientCardImages();
 
     private final ExecutorService fetchers = Executors.newFixedThreadPool(2, daemonThreads("gathering-card-art"));
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
+    // Redirects followed on purpose: a CDN that moves an image should not look like a
+    // missing card. The JDK client never follows them by default.
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(TIMEOUT)
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build();
 
     /** Access-ordered, so iteration order is least-recently-used first. Client thread only. */
     private final LinkedHashMap<String, ResourceLocation> resident = new LinkedHashMap<>(64, 0.75f, true);
@@ -127,7 +132,7 @@ public final class ClientCardImages {
             // Back to the client thread: NativeImage and the GL upload both belong there.
             Minecraft.getInstance().execute(() -> upload(url, bytes));
         } catch (RuntimeException e) {
-            LOGGER.debug("Could not load card art from {}", url, e);
+            LOGGER.warn("Could not load card art from {}: {}", url, e.toString());
             markFailed(url);
         } finally {
             inFlight.remove(url);
@@ -135,16 +140,36 @@ public final class ClientCardImages {
     }
 
     private void upload(String url, byte[] bytes) {
-        try (InputStream in = new java.io.ByteArrayInputStream(bytes)) {
-            NativeImage image = NativeImage.read(in);
+        try {
+            NativeImage image = toNativeImage(CardImageDecoder.decode(bytes));
             ResourceLocation id = Gathering.id("card_art/" + textureCounter.incrementAndGet());
             Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));
             resident.put(url, id);
             evictDownToCap();
         } catch (IOException | RuntimeException e) {
-            LOGGER.debug("Could not decode card art from {}", url, e);
+            // Loud rather than debug: a card that will not draw is the single most visible
+            // way this mod can look broken, and each url is only ever attempted once, so
+            // this is one line per card rather than a flood.
+            LOGGER.warn("Could not decode card art from {}: {}", url, e.toString());
             markFailed(url);
         }
+    }
+
+    /**
+     * Copies decoded pixels into a texture.
+     *
+     * <p>Decoding happens in the pure core with ImageIO, because Minecraft's own
+     * {@code NativeImage.read} is stb_image and stb cannot read progressive JPEG - which is
+     * what Scryfall serves for every tier but png. All that is left here is the copy.
+     */
+    private static NativeImage toNativeImage(CardImageDecoder.DecodedImage decoded) {
+        NativeImage image = new NativeImage(NativeImage.Format.RGBA, decoded.width(), decoded.height(), false);
+        for (int y = 0; y < decoded.height(); y++) {
+            for (int x = 0; x < decoded.width(); x++) {
+                image.setPixelRGBA(x, y, decoded.pixelAt(x, y));
+            }
+        }
+        return image;
     }
 
     /** Client thread only, because releasing a texture touches GL. */
@@ -179,11 +204,13 @@ public final class ClientCardImages {
                     .build();
             HttpResponse<byte[]> response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() != 200) {
+                LOGGER.warn("Card art fetch returned HTTP {} for {}", response.statusCode(), url);
                 return null;
             }
             writeCache(url, response.body());
             return response.body();
         } catch (IOException e) {
+            LOGGER.warn("Card art fetch failed for {}: {}", url, e.toString());
             return null;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

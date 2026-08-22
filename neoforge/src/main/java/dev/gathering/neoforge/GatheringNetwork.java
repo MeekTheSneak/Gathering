@@ -5,6 +5,8 @@ import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
+import dev.gathering.network.RequestCardMetadataPayload;
+import dev.gathering.server.CardMetadataRequests;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.service.CardDataService;
 import net.minecraft.network.chat.Component;
@@ -38,6 +40,11 @@ public final class GatheringNetwork {
                 ImportDecklistPayload.STREAM_CODEC,
                 GatheringNetwork::onImportRequest);
 
+        registrar.playToServer(
+                RequestCardMetadataPayload.TYPE,
+                RequestCardMetadataPayload.STREAM_CODEC,
+                GatheringNetwork::onMetadataRequest);
+
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.
         registrar.playToClient(
@@ -65,6 +72,15 @@ public final class GatheringNetwork {
         }
         // Import itself is asynchronous by construction, so this hands straight off to the
         // card pipeline's executor rather than doing anything on the network thread.
-        DecklistImport.importFor(player, service, payload.decklist());
+        DecklistImport.importFor(
+                player, service, payload.decklist(), payload.deckName(), payload.description());
+    }
+
+    private static void onMetadataRequest(RequestCardMetadataPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
+            return;
+        }
+        CardDataService.active().ifPresent(service ->
+                CardMetadataRequests.handle(player, service, payload));
     }
 }

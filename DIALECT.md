@@ -152,6 +152,19 @@ cannot be inferred from reading the code.
 - **Scryfall's collection endpoint answers, but does not echo, the raw JSON per query.**
   Keep each card's original body alongside the parsed model (`CollectionResult#raw`) or the
   disk cache ends up storing a re-serialisation of only the fields today's codec reads.
+- **Scryfall serves progressive JPEG, and Minecraft cannot read it.** `NativeImage.read` is
+  stb_image, which handles baseline JPEG only, so every card image fails to decode and the
+  only symptom is art that never appears. Decoding goes through `CardImageDecoder` (ImageIO,
+  in `:core`, tested against a real progressive fixture). Never route card art back through
+  `NativeImage.read`.
+- **`setPixelRGBA` wants ABGR** (`0xAABBGGRR`) despite the name, while Java's `BufferedImage`
+  gives ARGB. Getting it backwards renders plausible, wrong colours - blue lands come out
+  orange - rather than failing.
+- **Client image failures log at WARN, on purpose.** Each URL is attempted once, so it is one
+  line per card, and art that will not draw is the most visible way this mod can look broken.
+- **GUI art is nine-slice sprites**, not rectangles drawn in code: PNGs under
+  `textures/gui/sprites` with a `.mcmeta` beside each. Repainting the PNG reskins the mod and
+  a resource pack can override it. Draw them through `GatheringSprites`, never `graphics.fill`.
 - **A pasted deck link makes the server fetch a URL, so the host list is an allowlist.**
   `DeckLink` matches whole known hosts and rebuilds the address from the deck id; nothing a
   player typed reaches the network verbatim. Without that, any player could point the server

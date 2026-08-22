@@ -7,12 +7,14 @@ import dev.gathering.client.ClientCardCache;
 import dev.gathering.client.ClientCardImages;
 import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientNetworking;
+import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
 import dev.gathering.neoforge.GatheringClientPayloadHandlers;
 import dev.gathering.service.CardNameLookup;
+import dev.gathering.service.DeckScreenHook;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
@@ -57,6 +59,7 @@ public final class GatheringNeoForgeClient {
         // Not parallel-safe work: these bind shared state, so they go on the main thread.
         event.enqueueWork(() -> {
             CardNameLookup.Binding.bind(ClientCardCache.get());
+            DeckScreenHook.Binding.bind(deck -> Minecraft.getInstance().setScreen(new DeckContentsScreen(deck)));
             CardZoomOverlay.bindKeyState(ZOOM_KEY::isDown);
             ClientNetworking.bindSender(payload -> {
                 var connection = Minecraft.getInstance().getConnection();

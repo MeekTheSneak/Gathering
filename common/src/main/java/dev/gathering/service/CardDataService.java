@@ -119,6 +119,19 @@ public final class CardDataService implements AutoCloseable {
         });
     }
 
+    /**
+     * Several printings at once, cache first.
+     *
+     * <p>What answers a client opening a deck: one batched resolution rather than a hundred
+     * separate ones, and usually zero network at all.
+     */
+    public CompletableFuture<List<CardMetadata>> findAll(List<UUID> scryfallIds) {
+        return supply(() -> {
+            List<CardQuery> queries = scryfallIds.stream().map(CardQuery::byId).toList();
+            return List.copyOf(source.resolve(queries).found().values());
+        });
+    }
+
     /** Every printing of a card, cheapest first - what the import screen's chooser offers. */
     public CompletableFuture<List<CardMetadata>> printingsOf(String cardName) {
         return supply(() -> client.printingsOf(cardName));

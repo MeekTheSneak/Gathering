@@ -52,10 +52,33 @@ public final class PayloadGameTest {
                 """;
 
         ImportDecklistPayload restored = roundTrip(
-                helper, new ImportDecklistPayload(decklist), ImportDecklistPayload.STREAM_CODEC);
+                helper,
+                new ImportDecklistPayload(decklist, "Halana and Tevesh", "Two commanders, one bad idea"),
+                ImportDecklistPayload.STREAM_CODEC);
 
         if (!restored.decklist().equals(decklist)) {
             helper.fail("A decklist changed on the wire");
+        }
+        if (!restored.deckName().equals("Halana and Tevesh")) {
+            helper.fail("A deck name changed on the wire: " + restored.deckName());
+        }
+        if (!restored.description().equals("Two commanders, one bad idea")) {
+            helper.fail("A deck description changed on the wire: " + restored.description());
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void metadataRequestsRoundTrip(GameTestHelper helper) {
+        List<UUID> printings = List.of(SOL_RING, UUID.fromString("11bf83bb-c95b-4b4f-9a56-ce7a1816307a"));
+
+        dev.gathering.network.RequestCardMetadataPayload restored = roundTrip(
+                helper,
+                new dev.gathering.network.RequestCardMetadataPayload(printings),
+                dev.gathering.network.RequestCardMetadataPayload.STREAM_CODEC);
+
+        if (!restored.printings().equals(printings)) {
+            helper.fail("A metadata request changed on the wire");
         }
         helper.succeed();
     }

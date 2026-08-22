@@ -4,6 +4,8 @@ import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
+import dev.gathering.network.RequestCardMetadataPayload;
+import dev.gathering.server.CardMetadataRequests;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.service.CardDataService;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -24,6 +26,8 @@ final class GatheringNetwork {
 
     static void bootstrap() {
         PayloadTypeRegistry.playC2S().register(ImportDecklistPayload.TYPE, ImportDecklistPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                RequestCardMetadataPayload.TYPE, RequestCardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(ImportResultPayload.TYPE, ImportResultPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(OpenImportScreenPayload.TYPE, OpenImportScreenPayload.STREAM_CODEC);
@@ -37,7 +41,12 @@ final class GatheringNetwork {
             }
             // Import is asynchronous by construction; nothing here touches the network thread
             // beyond handing the text over.
-            DecklistImport.importFor(context.player(), service, payload.decklist());
+            DecklistImport.importFor(
+                    context.player(), service, payload.decklist(), payload.deckName(), payload.description());
         });
+
+        ServerPlayNetworking.registerGlobalReceiver(RequestCardMetadataPayload.TYPE, (payload, context) ->
+                CardDataService.active().ifPresent(service ->
+                        CardMetadataRequests.handle(context.player(), service, payload)));
     }
 }

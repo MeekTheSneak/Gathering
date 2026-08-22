@@ -83,7 +83,11 @@ Deck
 30 Forest
 ```
 
-Press **Import**. A deck item lands in your inventory.
+Name it and add a description if you like - both show on the item, and a Commander deck also
+shows its commander. Press **Import**, and a deck lands in your inventory.
+
+**Right-click the deck** to see what is in it, grouped by zone with copies collapsed. Hold
+Left Alt over any row to read that card.
 
 **What should happen:** roughly a second on a cold cache, near-instant if you import the same
 list again. The deck item is named after the list and its tooltip shows the card count.

@@ -86,6 +86,7 @@ public final class CardComponentGameTest {
     public static void aDeckSurvivesSavingAndLoading(GameTestHelper helper) {
         DeckComponent deck = new DeckComponent(
                 "Halana and Tevesh",
+                "Two commanders, one bad idea",
                 Optional.of(UUID.fromString("00000000-0000-4000-8000-000000000001")),
                 List.of(CardComponent.of(CardIdentity.ofPrinting(SOL_RING, true))),
                 List.of(CardComponent.of(CardIdentity.ofCustom("myserver:goblin_king", false))),

@@ -63,6 +63,15 @@ public final class DecklistImport {
      * @param decklist the pasted text, exactly as typed
      */
     public static void importFor(ServerPlayer player, CardDataService service, String decklist) {
+        importFor(player, service, decklist, "", "");
+    }
+
+    /**
+     * @param deckName    what the player called it, or blank to take the list's own name
+     * @param description the player's note, shown under the name on the item
+     */
+    public static void importFor(
+            ServerPlayer player, CardDataService service, String decklist, String deckName, String description) {
         UUID id = player.getUUID();
 
         if (!inFlight.add(id)) {
@@ -97,13 +106,13 @@ public final class DecklistImport {
                                     List.of("The import could not reach Scryfall: " + rootMessage(failure))));
                             return;
                         }
-                        deliver(player, deck);
+                        deliver(player, deck, deckName, description);
                     });
                 });
     }
 
-    private static void deliver(ServerPlayer player, ResolvedDeck deck) {
-        DeckComponent component = toComponent(deck, player.getUUID());
+    private static void deliver(ServerPlayer player, ResolvedDeck deck, String deckName, String description) {
+        DeckComponent component = toComponent(deck, player.getUUID(), deckName, description);
         ItemStack stack = DeckItem.of(component);
 
         if (!player.getInventory().add(stack)) {
@@ -122,8 +131,18 @@ public final class DecklistImport {
      * becomes four cards, because four copies is four objects on a table.
      */
     public static DeckComponent toComponent(ResolvedDeck deck, UUID owner) {
+        return toComponent(deck, owner, "", "");
+    }
+
+    public static DeckComponent toComponent(
+            ResolvedDeck deck, UUID owner, String deckName, String description) {
+        // What the player typed wins; a list that named itself is the fallback.
+        String chosen = deckName == null || deckName.isBlank()
+                ? deck.deckName().orElse("Imported Deck")
+                : deckName.strip();
         return new DeckComponent(
-                deck.deckName().orElse("Imported Deck"),
+                chosen,
+                description == null ? "" : description.strip(),
                 java.util.Optional.of(owner),
                 flatten(deck, DeckSection.MAINBOARD),
                 flatten(deck, DeckSection.COMMANDER),
