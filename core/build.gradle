@@ -52,3 +52,14 @@ def checkCorePure = tasks.register('checkCorePure') {
 }
 
 tasks.named('check') { dependsOn checkCorePure }
+
+// :core ships no resources, but both loaders list its resource directory on the classpath.
+// Fabric warns about classpath entries that do not exist, and a warning nobody can act on
+// trains people to skim the log past the ones they can.
+// Hung off `classes` rather than `processResources`: with no resources to process that task
+// is UP-TO-DATE from the first build onwards and its doLast never runs again.
+tasks.named('classes') {
+    doLast {
+        sourceSets.main.output.resourcesDir.mkdirs()
+    }
+}

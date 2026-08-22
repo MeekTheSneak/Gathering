@@ -6,6 +6,11 @@ plugins {
     id 'net.neoforged.moddev'
 }
 
+// A local, not rootProject.sharedModules used inline: inside a plugin's configuration
+// closure the delegate resolves `rootProject` to something of its own, and the failure reads
+// as a missing property on an unrelated type.
+def sharedModules = rootProject.ext.sharedModules
+
 neoForge {
     version = project.neo_version
 
@@ -40,22 +45,21 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet sourceSets.main
-            sourceSet project(':common').sourceSets.main
-            sourceSet project(':core').sourceSets.main
+            // sharedModules, so this and :fabric cannot disagree about what the
+            // mod is made of - see the note there.
+            sharedModules.each { sourceSet project(it).sourceSets.main }
         }
     }
 }
 
 dependencies {
-    compileOnly project(':common')
-    compileOnly project(':core')
+    sharedModules.each { compileOnly project(it) }
 }
 
 // The loader jars carry :common and :core, since neither is published. Taking the
 // source sets' *output* picks up their processed resources too, so nothing is copied twice.
 tasks.named('jar', Jar) {
-    from project(':common').sourceSets.main.output
-    from project(':core').sourceSets.main.output
+    sharedModules.each { from project(it).sourceSets.main.output }
 }
 
 tasks.named('compileJava') {

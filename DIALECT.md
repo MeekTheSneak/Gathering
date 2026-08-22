@@ -319,3 +319,18 @@ cannot be inferred from reading the code.
   opened. `ClientCardRequests` sweeps the inventory; what is worth asking about is decided by
   `MetadataRequests` in `:core`, because this runs from a tick handler and the failure mode
   of getting it wrong is a request storm aimed at somebody else's server.
+- **A loader can serve the mod's classes without its assets, and nothing fails.** Fabric did
+  exactly that: Fabric Loader works out a mod's roots from where it found the
+  `fabric.mod.json`, so `:common`'s processed resources - every texture, model, lang file and
+  font - sat on the classpath as an entry no mod claimed. The mod compiled, built, passed
+  every test, booted, registered everything and logged happily, and would have drawn missing
+  textures and raw translation keys. Both loaders now take their module list from
+  `rootProject.ext.sharedModules` so they cannot drift apart again.
+- **`rootProject.sharedModules` does not resolve inside a plugin's configuration closure.**
+  The delegate finds something of its own and the failure reads as a missing property on an
+  unrelated type. Capture it in a local at the top of the build file.
+- **`./gradlew verify` cannot prove a loader was wired up right**, only that the code is. Run
+  `tools/smoke.sh` before claiming one works: it boots both loaders, client and dedicated
+  server, and checks the mod's resource pack is actually in the list the game loaded. Its
+  Fabric check was confirmed to fail when the fix for the above is reverted. Grep the mod id
+  alone and it passes regardless - the id is all over any log.

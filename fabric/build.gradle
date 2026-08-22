@@ -6,6 +6,11 @@ plugins {
     id 'fabric-loom'
 }
 
+// A local, not rootProject.sharedModules used inline: inside a plugin's configuration
+// closure the delegate resolves `rootProject` to something of its own, and the failure reads
+// as a missing property on an unrelated type.
+def sharedModules = rootProject.ext.sharedModules
+
 // Official Mojang mappings, matching :common and :neoforge, so one source of
 // names spans all three modules.
 dependencies {
@@ -14,8 +19,7 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 
-    compileOnly project(':common')
-    compileOnly project(':core')
+    sharedModules.each { compileOnly project(it) }
 }
 
 loom {
@@ -23,20 +27,39 @@ loom {
         client { client() }
         server { server() }
     }
+
+    // Without this the mod's code loads and its assets do not.
+    //
+    // Fabric Loader works out a mod's roots from where it found the fabric.mod.json, which
+    // is this module and only this module. :common's processed resources - every texture,
+    // model, lang file and font in the mod - sit on the runtime classpath as a separate
+    // entry with no fabric.mod.json of their own, so nothing serves them as a resource pack
+    // and the game never sees them.
+    //
+    // The symptom is not a crash. It is a mod that boots, registers everything, logs happily,
+    // and then draws missing textures and raw translation keys - which is why this survived
+    // until somebody actually looked at the resource pack list on startup. :neoforge has
+    // carried the same declaration since it was written.
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+            sharedModules.each { sourceSet project(it).sourceSets.main }
+        }
+    }
 }
 
 tasks.named('jar', Jar) {
-    from project(':common').sourceSets.main.output
-    from project(':core').sourceSets.main.output
+    sharedModules.each { from project(it).sourceSets.main.output }
 }
 
 // Dev runs need the shared classes and assets without dragging :common's own Minecraft
 // dependency into Loom's remapped runtime, so take the outputs rather than the projects.
-sourceSets.main.runtimeClasspath += project(':common').sourceSets.main.output
-sourceSets.main.runtimeClasspath += project(':core').sourceSets.main.output
+sharedModules.each {
+    sourceSets.main.runtimeClasspath += project(it).sourceSets.main.output
+}
 
 tasks.named('compileJava') {
-    dependsOn ':common:classes', ':core:classes'
+    dependsOn sharedModules.collect { "${it}:classes" }
 }
 
 processResources {

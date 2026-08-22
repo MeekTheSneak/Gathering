@@ -4,6 +4,19 @@ plugins {
     id 'idea'
 }
 
+/**
+ * The modules whose classes and resources are part of the mod itself rather than of a loader.
+ *
+ * <p>Both loaders have to declare these to their own loader plugin, or that loader serves the
+ * mod's code without its assets - a mod that boots, registers everything, logs happily, and
+ * then draws missing textures and untranslated keys. Fabric shipped exactly that until
+ * somebody read the resource pack list on startup.
+ *
+ * <p>Stated once here so the two cannot drift apart again. Adding a shared module means
+ * adding it here and nowhere else.
+ */
+ext.sharedModules = [':common', ':core']
+
 subprojects {
     apply plugin: 'java'
     apply plugin: 'idea'

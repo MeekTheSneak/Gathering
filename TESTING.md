@@ -237,7 +237,14 @@ The half of the mod that never appears on screen has its own gate:
 ```bash
 ./gradlew verify        # everything: unit tests, data generation, in-world game tests
 ./gradlew :core:test    # just the fast pure-core suite, a few seconds
+tools/smoke.sh          # boots both loaders, client and dedicated server
 ```
+
+`verify` proves the code is right. It cannot prove a *loader* was wired up right — a loader
+serving the mod's classes without its assets compiles, builds, passes every test, boots,
+registers everything, and then draws missing textures and untranslated keys. Fabric was doing
+precisely that until the resource pack list got read on startup, so `smoke.sh` now checks for
+it.
 
 Every stage of that has been confirmed capable of failing — a gate that can't fail
 manufactures confidence rather than providing it.
