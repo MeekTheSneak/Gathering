@@ -92,13 +92,28 @@ public final class DeckContentsScreen extends Screen {
         counts.forEach((card, count) -> rows.add(Row.card(card, count)));
     }
 
+    /**
+     * The panel goes here, not in {@link #render}.
+     *
+     * <p>{@code Screen#render} calls this itself, and this applies a full-screen blur to
+     * everything already drawn. Drawing the panel in {@code render} before calling
+     * {@code super.render} therefore blurs the panel and every hand-drawn label on it -
+     * widgets survive because they are drawn afterwards, which makes the bug look like
+     * "some of the screen is fuzzy" rather than like a render-order mistake.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.panel(graphics, panelLeft(), MARGIN, panelWidth(), this.height - MARGIN * 2);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        // Background, panel and widgets, in that order.
+        super.render(graphics, mouseX, mouseY, partialTick);
 
         int left = panelLeft();
         int width = panelWidth();
-        GatheringSprites.panel(graphics, left, MARGIN, width, this.height - MARGIN * 2);
 
         graphics.drawCenteredString(this.font, this.title, this.width / 2, MARGIN + PADDING - 1, 0xFFFFFF);
 
@@ -110,8 +125,6 @@ public final class DeckContentsScreen extends Screen {
         GatheringSprites.inset(graphics, listLeft - 2, listTop - 2, listWidth + 4, listBottom - listTop + 4);
 
         renderRows(graphics, mouseX, mouseY, listLeft, listTop, listWidth, listBottom);
-
-        super.render(graphics, mouseX, mouseY, partialTick);
 
         // The overlay draws on top of everything, so a row under the cursor can be read.
         CardZoomOverlay.render(graphics, this.width, this.height);

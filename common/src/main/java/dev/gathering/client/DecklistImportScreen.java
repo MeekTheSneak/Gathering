@@ -143,15 +143,24 @@ public final class DecklistImportScreen extends Screen {
         this.problems = List.copyOf(lines);
     }
 
+    /**
+     * The panel goes here, not in {@link #render}.
+     *
+     * <p>{@code Screen#render} calls this itself and it applies a full-screen blur, so
+     * anything drawn before {@code super.render} gets blurred along with the world behind it.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.panel(graphics, panelLeft(), MARGIN, panelWidth(), this.height - MARGIN * 2);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        super.render(graphics, mouseX, mouseY, partialTick);
 
         int left = panelLeft();
         int width = panelWidth();
-        GatheringSprites.panel(graphics, left, MARGIN, width, this.height - MARGIN * 2);
-
-        super.render(graphics, mouseX, mouseY, partialTick);
 
         graphics.drawCenteredString(this.font, this.title, this.width / 2, MARGIN + PADDING - 1, 0xFFFFFF);
 

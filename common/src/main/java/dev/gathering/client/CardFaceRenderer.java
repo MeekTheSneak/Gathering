@@ -55,41 +55,48 @@ public final class CardFaceRenderer {
      */
     public static void render(
             ItemStack stack, PoseStack poseStack, MultiBufferSource buffers, int packedLight) {
-        ResourceLocation front = CardItem.cardOf(stack)
-                .map(CardFaceRenderer::faceTexture)
-                .orElse(CARD_BACK);
+        Optional<CardComponent> card = CardItem.cardOf(stack);
+        // The two sides are always complementary: whatever is facing you, the other one is
+        // behind it. Hard-coding the reverse to the card back means a flipped ordinary card
+        // shows a back on both sides, which is not a card, it is a coaster.
+        ResourceLocation facing = card.map(c -> textureForSide(c, c.flipped())).orElse(CARD_BACK);
+        ResourceLocation reverse = card.map(c -> textureForSide(c, !c.flipped())).orElse(CARD_BACK);
 
         poseStack.pushPose();
         // Item models are drawn in a 1x1 space with the origin at a corner; centre the card.
         poseStack.translate(0.5f, 0.5f, 0.5f);
 
         Matrix4f pose = poseStack.last().pose();
-        drawFace(buffers, pose, front, packedLight, HALF_THICKNESS);
-        // The reverse is always the card back, so a card seen from behind looks like a card.
-        drawFace(buffers, pose, CARD_BACK, packedLight, -HALF_THICKNESS);
+        drawFace(buffers, pose, facing, packedLight, HALF_THICKNESS);
+        drawFace(buffers, pose, reverse, packedLight, -HALF_THICKNESS);
 
         poseStack.popPose();
     }
 
     /**
-     * Which texture faces the viewer.
+     * The texture for one side of a card.
      *
-     * <p>Unflipped: the printed front. Flipped: the other face if the card has one, otherwise
-     * the back. A card whose art has not been fetched yet falls back to the back rather than
-     * to nothing, so a hand full of cards looks like a hand full of cards while art loads.
+     * <p>A double-faced card genuinely has two printed sides, so turning one over shows its
+     * other face. Everything else has a front and a back, and its back is the sleeve it sits
+     * in - our own artwork, never Wizards'.
+     *
+     * <p>Art that has not been fetched yet falls back to the back rather than to nothing, so a
+     * hand of cards looks like a hand of cards while it loads.
+     *
+     * @param reverseSide false for the printed front, true for whatever is on the other side
      */
-    static ResourceLocation faceTexture(CardComponent card) {
+    static ResourceLocation textureForSide(CardComponent card, boolean reverseSide) {
         Optional<CardSummary> summary = ClientCardCache.get().summary(card);
         if (summary.isEmpty()) {
             return CARD_BACK;
         }
 
         CardSummary details = summary.get();
-        Optional<CardFaceSummary> face = card.flipped()
+        Optional<CardFaceSummary> face = reverseSide
                 ? details.back()
                 : Optional.of(details.front());
         if (face.isEmpty()) {
-            // Flipped, and there is no other side: this is a normal card, so show its back.
+            // No other side: an ordinary card, so this side is its sleeve.
             return CARD_BACK;
         }
 

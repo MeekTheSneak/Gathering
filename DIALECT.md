@@ -172,6 +172,16 @@ cannot be inferred from reading the code.
 - **A custom item renderer is only consulted if the item's model is `builtin/entity`.**
   `card.json` is hand-authored for that reason and deliberately excluded from datagen; its
   display transforms are meant to be edited by hand.
+- **`Screen#render` calls `renderBackground` itself, and that applies a full-screen blur.**
+  Drawing a panel in `render` before `super.render` therefore blurs the panel and every
+  hand-drawn label on it, while widgets stay sharp - which reads as "part of the screen is
+  fuzzy" rather than as a render-order mistake. Draw screen backgrounds by overriding
+  `renderBackground`, never before `super.render`.
+- **`item/generated` is the reference for flat items, not `item/handheld`.** Handheld's
+  third-person `[0,-90,55]` is a fist grip on a tool; applied to a card it looks skewed and
+  edge-on. Flat items use `[0,0,0]`.
+- **Display transforms reload with F3+T**, so iterating on how an item sits in hand does not
+  need a restart - edit the copy under `build/resources/main`.
 - **The card back is our own art and must stay that way.** The mod ships no Wizards imagery -
   that is a project pillar and a Fan Content Policy requirement, not a placeholder. It is
   also the seed of the sleeve system in section 9.

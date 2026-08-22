@@ -125,7 +125,9 @@ In rough order of how much it would change what I build next:
 1. **How does a card sit in your hand?** The display transforms in
    `assets/gathering/models/item/card.json` are guesses — I cannot see the result. Angle,
    scale and position are all plain model data in that file, so they are editable, but tell
-   me if they are badly off and I will fix the defaults.
+   me if they are badly off and I will fix the defaults. Editing
+   `neoforge/build/resources/main/assets/gathering/models/item/card.json` and pressing
+   **F3+T** in game applies the change immediately, with no rebuild.
 2. **Is Left Alt right?** It conflicts with nothing I know of, but you'll find out in a
    minute what I can't.
 3. **Is the sidebar readable** — width, wrapping, whether oracle text gets cut off on a
