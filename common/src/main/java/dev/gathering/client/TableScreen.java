@@ -17,14 +17,17 @@ import dev.gathering.core.game.visibility.Viewer;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.TableScreenLayout;
+import dev.gathering.core.ui.TableDrag;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -78,6 +81,9 @@ public final class TableScreen extends Screen {
     private static final int PILE_BADGE = 0xE0141210;
     private static final int PILE_TEXT = 0xFFF2EEE6;
 
+    /** The rubber band drawn while picking out several cards at once. */
+    private static final int BOX_FILL = 0x206FD3E8;
+
     /** How far a card is turned by one nudge. Small enough to be a gesture, not a mode. */
     private static final int NUDGE_DEGREES = 15;
 
@@ -97,6 +103,18 @@ public final class TableScreen extends Screen {
 
     /** The card in the air, if any, and where on it the cursor took hold. */
     private Held held;
+
+    /**
+     * The cards a player has picked out to act on together.
+     *
+     * <p>Purely this client's idea. Nothing about a selection reaches the server: what gets
+     * sent is the same events one card at a time would have sent, so a selection cannot do
+     * anything a sequence of ordinary moves could not, and the log reads the same either way.
+     */
+    private final Set<CardInstanceId> selected = new LinkedHashSet<>();
+
+    /** The corner a box-select started from, while one is being dragged out. */
+    private int[] boxFrom;
 
     private ContextMenu menu;
 
@@ -184,9 +202,21 @@ public final class TableScreen extends Screen {
         renderActions(graphics, board);
         renderHeldCard(graphics, board, mouseX, mouseY);
 
+        if (boxFrom != null) {
+            Rect box = boxBetween(boxFrom[0], boxFrom[1], mouseX, mouseY);
+            graphics.fill(box.x(), box.y(), box.right(), box.bottom(), BOX_FILL);
+            graphics.renderOutline(box.x(), box.y(), box.width(), box.height(), ACCENT);
+        }
         if (menu != null) {
             menu.render(graphics, this.font, mouseX, mouseY);
         }
+    }
+
+    /** The rectangle between two corners, whichever way round they were dragged. */
+    private static Rect boxBetween(int fromX, int fromY, int toX, int toY) {
+        return new Rect(
+                Math.min(fromX, toX), Math.min(fromY, toY),
+                Math.abs(toX - fromX), Math.abs(toY - fromY));
     }
 
     private void renderOpponents(GuiGraphics graphics, GameView board) {
@@ -235,7 +265,8 @@ public final class TableScreen extends Screen {
             if (isHeld(card)) {
                 continue;
             }
-            drawTableCard(graphics, card, spotOf(card, depths.get(index)), card == hovered);
+            drawTableCard(graphics, card, spotOf(card, depths.get(index)),
+                    card == hovered || isSelected(card));
 
             // Only the top card of a pile says how many are in it. Every card in the pile
             // agrees on the number, so saying it four times would be four badges on one stack.
@@ -490,9 +521,17 @@ public final class TableScreen extends Screen {
             return pressCard(board, inHand.get(), handSlotOf(board, inHand.get()), true, x, y, button);
         }
 
-        if (layout().isOnSurface(x, y) && button == 1) {
-            openTableMenu(x, y);
-            return true;
+        if (layout().isOnSurface(x, y)) {
+            if (button == 1) {
+                openTableMenu(x, y);
+                return true;
+            }
+            // Empty table: drag out a box to pick several cards, or click to let go of them.
+            if (button == 0) {
+                selected.clear();
+                boxFrom = new int[] {x, y};
+                return true;
+            }
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
@@ -507,6 +546,19 @@ public final class TableScreen extends Screen {
             return true;
         }
         if (button == 0) {
+            // Shift picks cards out one at a time rather than picking one up, which is the
+            // gesture everything else with a selection uses.
+            if (hasShiftDown() && !fromHand) {
+                if (!selected.remove(visible.id())) {
+                    selected.add(visible.id());
+                }
+                return true;
+            }
+            if (!fromHand && !selected.isEmpty() && !selected.contains(visible.id())) {
+                // Grabbing something outside the selection means that was the selection you
+                // meant, not the one you forgot to clear.
+                selected.clear();
+            }
             held = new Held(visible.id(), fromHand, x - where.x(), y - where.y(), x, y);
             return true;
         }
@@ -515,6 +567,13 @@ public final class TableScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (boxFrom != null) {
+            int[] from = boxFrom;
+            boxFrom = null;
+            view().ifPresent(board ->
+                    selectWithin(board, boxBetween(from[0], from[1], (int) mouseX, (int) mouseY)));
+            return true;
+        }
         if (held == null) {
             return super.mouseReleased(mouseX, mouseY, button);
         }
@@ -538,8 +597,13 @@ public final class TableScreen extends Screen {
                         .ifPresent(card -> send(new GameEvent.CardTapSet(me, dropped.card(), !card.tapped())));
                 return true;
             }
-            send(new GameEvent.CardMoved(me, dropped.card(), ZoneRef.of(focused, Zone.BATTLEFIELD),
-                    Placement.at(current.positionForDrop(x, y, dropped.grabX(), dropped.grabY()))));
+            TablePosition landing = current.positionForDrop(x, y, dropped.grabX(), dropped.grabY());
+            if (!dropped.fromHand() && selected.contains(dropped.card())) {
+                dropGroup(dropped.card(), landing, me);
+            } else {
+                send(new GameEvent.CardMoved(me, dropped.card(), ZoneRef.of(focused, Zone.BATTLEFIELD),
+                        Placement.at(landing)));
+            }
             return true;
         }
         if (!dropped.fromHand() && current.hand().contains(x, y)) {
@@ -547,6 +611,43 @@ public final class TableScreen extends Screen {
             send(new GameEvent.CardMoved(me, dropped.card(), ZoneRef.of(me, Zone.HAND), Placement.BOTTOM));
         }
         return true;
+    }
+
+    /**
+     * Puts a whole selection down, keeping the arrangement it was in.
+     *
+     * <p>One delta for all of them, trimmed until every card fits on the table - so a group
+     * shoved into a corner slides along the edge instead of collapsing into a single pile,
+     * which is what clamping each card on its own would do to a board somebody spent the game
+     * building.
+     */
+    private void dropGroup(CardInstanceId grabbed, TablePosition landing, SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return;
+        }
+        List<CardView> moving = selectedOn(board);
+        TablePosition before = findCard(board, grabbed).flatMap(CardView::placedAt).orElse(null);
+        if (before == null || moving.isEmpty()) {
+            send(new GameEvent.CardMoved(me, grabbed, ZoneRef.of(focused, Zone.BATTLEFIELD),
+                    Placement.at(landing)));
+            return;
+        }
+
+        List<TablePosition> spots = new ArrayList<>(moving.size());
+        for (CardView card : moving) {
+            spots.add(card.placedAt().orElse(null));
+        }
+        List<TablePosition> after = TableDrag.movedTogether(
+                spots, landing.x() - before.x(), landing.y() - before.y());
+
+        for (int index = 0; index < moving.size(); index++) {
+            if (!(moving.get(index) instanceof CardView.Visible visible) || after.get(index) == null) {
+                continue;
+            }
+            send(new GameEvent.CardMoved(me, visible.id(), ZoneRef.of(focused, Zone.BATTLEFIELD),
+                    Placement.at(after.get(index))));
+        }
     }
 
     @Override
@@ -579,7 +680,16 @@ public final class TableScreen extends Screen {
     private void openCardMenu(GameView board, CardView.Visible card, boolean fromHand, int x, int y) {
         SeatId me = mySeat().orElseThrow();
         CardInstanceId id = card.id();
+        // Every verb below applies to the whole selection when this card is part of it, and to
+        // this card alone otherwise. What goes on the wire is the same events one card at a
+        // time would have sent, so a selection can do nothing an ordinary sequence of moves
+        // could not, and the log reads the same either way.
+        List<CardInstanceId> targets = fromHand ? List.of(id) : targetsFor(id);
         List<ContextMenu.Entry> entries = ContextMenu.entries();
+        if (targets.size() > 1) {
+            entries.add(ContextMenu.Entry.disabled(Component.translatable(
+                    "menu.gathering.table.selected", targets.size())));
+        }
 
         if (fromHand) {
             entries.add(entry("play", () -> send(new GameEvent.CardMoved(
@@ -589,42 +699,92 @@ public final class TableScreen extends Screen {
                 send(new GameEvent.CardFacingSet(me, id, Facing.FACE_DOWN));
             }));
         } else {
+            boolean tapping = !card.tapped();
             entries.add(entry(card.tapped() ? "untap" : "tap",
-                    () -> send(new GameEvent.CardTapSet(me, id, !card.tapped()))));
-            entries.add(entry("turn_right",
-                    () -> send(new GameEvent.CardRotated(me, id, restingAngle(card) + NUDGE_DEGREES))));
-            entries.add(entry("turn_left",
-                    () -> send(new GameEvent.CardRotated(me, id, restingAngle(card) - NUDGE_DEGREES))));
+                    () -> eachTarget(board, targets, target ->
+                            new GameEvent.CardTapSet(me, target, tapping))));
+            entries.add(entry("turn_right", () -> eachCard(board, targets, seen ->
+                    new GameEvent.CardRotated(me, seen.id(), restingAngle(seen) + NUDGE_DEGREES))));
+            entries.add(entry("turn_left", () -> eachCard(board, targets, seen ->
+                    new GameEvent.CardRotated(me, seen.id(), restingAngle(seen) - NUDGE_DEGREES))));
             if (restingAngle(card) != 0) {
-                entries.add(entry("straighten", () -> send(new GameEvent.CardRotated(me, id, 0))));
+                entries.add(entry("straighten", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CardRotated(me, target, 0))));
             }
+            Facing turnTo = card.facing() == Facing.FACE_UP ? Facing.FACE_DOWN : Facing.FACE_UP;
             entries.add(entry(card.facing() == Facing.FACE_UP ? "turn_face_down" : "turn_face_up",
-                    () -> send(new GameEvent.CardFacingSet(me, id,
-                            card.facing() == Facing.FACE_UP ? Facing.FACE_DOWN : Facing.FACE_UP))));
-            entries.add(entry("add_counter", () -> send(new GameEvent.CounterChanged(
-                    me, id, CardInstance.Counters.PLUS_ONE_PLUS_ONE, 1))));
+                    () -> eachTarget(board, targets, target ->
+                            new GameEvent.CardFacingSet(me, target, turnTo))));
+            entries.add(entry("add_counter", () -> eachTarget(board, targets, target ->
+                    new GameEvent.CounterChanged(
+                            me, target, CardInstance.Counters.PLUS_ONE_PLUS_ONE, 1))));
             if (card.counter(CardInstance.Counters.PLUS_ONE_PLUS_ONE) != 0) {
-                entries.add(entry("remove_counter", () -> send(new GameEvent.CounterChanged(
-                        me, id, CardInstance.Counters.PLUS_ONE_PLUS_ONE, -1))));
+                entries.add(entry("remove_counter", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CounterChanged(
+                                me, target, CardInstance.Counters.PLUS_ONE_PLUS_ONE, -1))));
             }
-            entries.add(entry("copy", () -> send(new GameEvent.TokenCopyCreated(me, id, focused))));
+            entries.add(entry("copy", () -> eachTarget(board, targets, target ->
+                    new GameEvent.TokenCopyCreated(me, target, focused))));
             if (card.token()) {
-                entries.add(entry("remove_token", () -> send(new GameEvent.TokenRemoved(me, id))));
+                entries.add(entry("remove_token", () -> eachCard(board, targets, seen ->
+                        seen.token() ? new GameEvent.TokenRemoved(me, seen.id()) : null)));
             }
-            entries.add(entry("to_hand", () -> send(new GameEvent.CardMoved(
-                    me, id, ZoneRef.of(card.owner(), Zone.HAND), Placement.BOTTOM))));
+            entries.add(entry("to_hand", () -> eachCard(board, targets, seen ->
+                    new GameEvent.CardMoved(
+                            me, seen.id(), ZoneRef.of(seen.owner(), Zone.HAND), Placement.BOTTOM))));
         }
-        entries.add(entry("to_graveyard", () -> send(new GameEvent.CardMoved(
-                me, id, ZoneRef.of(card.owner(), Zone.GRAVEYARD), Placement.TOP))));
-        entries.add(entry("to_exile", () -> send(new GameEvent.CardMoved(
-                me, id, ZoneRef.of(card.owner(), Zone.EXILE), Placement.TOP))));
-        entries.add(entry("to_library_top", () -> send(new GameEvent.CardMoved(
-                me, id, ZoneRef.of(card.owner(), Zone.LIBRARY), Placement.TOP))));
-        entries.add(entry("to_library_bottom", () -> send(new GameEvent.CardMoved(
-                me, id, ZoneRef.of(card.owner(), Zone.LIBRARY), Placement.BOTTOM))));
+        entries.add(entry("to_graveyard", () -> eachCard(board, targets, seen ->
+                new GameEvent.CardMoved(
+                        me, seen.id(), ZoneRef.of(seen.owner(), Zone.GRAVEYARD), Placement.TOP))));
+        entries.add(entry("to_exile", () -> eachCard(board, targets, seen ->
+                new GameEvent.CardMoved(
+                        me, seen.id(), ZoneRef.of(seen.owner(), Zone.EXILE), Placement.TOP))));
+        entries.add(entry("to_library_top", () -> eachCard(board, targets, seen ->
+                new GameEvent.CardMoved(
+                        me, seen.id(), ZoneRef.of(seen.owner(), Zone.LIBRARY), Placement.TOP))));
+        entries.add(entry("to_library_bottom", () -> eachCard(board, targets, seen ->
+                new GameEvent.CardMoved(
+                        me, seen.id(), ZoneRef.of(seen.owner(), Zone.LIBRARY), Placement.BOTTOM))));
         entries.add(entry("ping", () -> send(new GameEvent.CardPinged(me, id))));
 
         menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
+    }
+
+    /**
+     * Sends one event per target, built from the id alone.
+     *
+     * <p>For verbs where every card gets the same instruction - tap them all, turn them all
+     * face down - which is what makes a selection useful rather than just faster clicking.
+     */
+    private void eachTarget(
+            GameView board, List<CardInstanceId> targets,
+            java.util.function.Function<CardInstanceId, GameEvent> verb) {
+        for (CardInstanceId target : targets) {
+            GameEvent event = verb.apply(target);
+            if (event != null) {
+                send(event);
+            }
+        }
+        selected.clear();
+    }
+
+    /**
+     * Sends one event per target, built from what that card currently is.
+     *
+     * <p>For verbs whose answer differs per card - which angle it is at, whose graveyard it
+     * goes to. Cards that have already left the board are skipped rather than guessed at.
+     */
+    private void eachCard(
+            GameView board, List<CardInstanceId> targets,
+            java.util.function.Function<CardView.Visible, GameEvent> verb) {
+        for (CardInstanceId target : targets) {
+            findCard(board, target)
+                    .filter(CardView.Visible.class::isInstance)
+                    .map(CardView.Visible.class::cast)
+                    .map(verb)
+                    .ifPresent(this::send);
+        }
+        selected.clear();
     }
 
     /**
@@ -774,6 +934,49 @@ public final class TableScreen extends Screen {
         List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
         int index = hand.indexOf(card);
         return index < 0 ? Rect.NONE : handSlot(layout().hand(), hand.size(), index);
+    }
+
+    private boolean isSelected(CardView card) {
+        return card instanceof CardView.Visible visible && selected.contains(visible.id());
+    }
+
+    /**
+     * The cards a verb should apply to.
+     *
+     * <p>The selection when the card acted on is part of it, and just that card otherwise.
+     * Right-clicking a card outside the selection is somebody addressing that card, not
+     * forgetting what they had picked - so it acts on the one under the cursor and leaves the
+     * selection alone.
+     */
+    private List<CardInstanceId> targetsFor(CardInstanceId card) {
+        if (!selected.contains(card)) {
+            return List.of(card);
+        }
+        return List.copyOf(selected);
+    }
+
+    /** Every selected card on the focused board, in the board's own stacking order. */
+    private List<CardView> selectedOn(GameView board) {
+        List<CardView> found = new ArrayList<>();
+        for (CardView card : board.seat(focused).zone(Zone.BATTLEFIELD).cards()) {
+            if (isSelected(card)) {
+                found.add(card);
+            }
+        }
+        return found;
+    }
+
+    /** Picks out every card the box touches, in place of whatever was picked before. */
+    private void selectWithin(GameView board, Rect box) {
+        selected.clear();
+        List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
+        List<Integer> depths = TableStacking.depths(spotsIn(cards));
+        for (int index = 0; index < cards.size(); index++) {
+            if (cards.get(index) instanceof CardView.Visible visible
+                    && spotOf(cards.get(index), depths.get(index)).overlaps(box)) {
+                selected.add(visible.id());
+            }
+        }
     }
 
     private boolean isHeld(CardView card) {
