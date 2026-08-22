@@ -35,6 +35,12 @@ public record TableSurface(List<Rect> mats) {
     /** A gap around each mat, so two mats read as two rather than as one big felt. */
     private static final int MAT_INSET = SPAN / 120;
 
+    /** How much of a mat's depth the pile row takes along its near edge. */
+    private static final double PILE_ROW_DEPTH = 0.26;
+
+    /** The row is divided into at least this many slots, so four piles never fill a whole mat. */
+    private static final int PILE_ROW_SLOTS = 6;
+
     public TableSurface {
         mats = List.copyOf(mats);
     }
@@ -180,6 +186,30 @@ public record TableSurface(List<Rect> mats) {
         return TablePosition.clamped(
                 (int) Math.round((surfaceX - mat.x()) * SPAN / (double) mat.width()),
                 (int) Math.round((surfaceY - mat.y()) * SPAN / (double) mat.height()));
+    }
+
+    /**
+     * Where a seat's piles sit: a row along the near edge of their own mat.
+     *
+     * <p>On the table rather than in a side column, because a library is an object you reach
+     * for. Along the edge nearest the player for the same reason a real one sits there - it is
+     * the part of the mat you never put permanents on.
+     *
+     * @param index which pile, left to right
+     * @param count how many piles the row holds
+     */
+    public Rect pileSlot(int seat, int index, int count) {
+        Rect mat = matOf(seat);
+        if (mat.isEmpty() || count <= 0) {
+            return Rect.NONE;
+        }
+        int height = Math.max(1, (int) (mat.height() * PILE_ROW_DEPTH));
+        int width = Math.max(1, mat.width() / Math.max(count, PILE_ROW_SLOTS));
+        return new Rect(
+                mat.x() + Math.max(0, Math.min(count - 1, index)) * width,
+                mat.bottom() - height,
+                width,
+                height);
     }
 
     /** Whose mat a surface point is on, or -1 for the felt between them. */

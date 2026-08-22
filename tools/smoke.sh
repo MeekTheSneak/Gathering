@@ -85,6 +85,19 @@ boot() {
 
 TARGET="${1:-all}"
 
+# Before booting anything: every translation key the source asks for has an entry. A missing
+# one is the other half of the failure this script exists for - the assets load, the game runs,
+# and a screen draws "screen.gathering.table.key_flip" where a sentence should be. Nothing else
+# in the build catches it, and a boot only catches it if somebody happens to open that screen.
+printf '%-24s ' "translation keys"
+if LANG_OUT=$(python3 tools/langcheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$LANG_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
 if [ "$TARGET" = all ] || [ "$TARGET" = neoforge ]; then
     # "mod/gathering" is the mod's own resource pack. Without it the assets are not loaded.
     boot "neoforge client" ":neoforge:runClient" yes \

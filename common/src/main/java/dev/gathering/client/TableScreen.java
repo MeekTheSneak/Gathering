@@ -10,15 +10,20 @@ import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.ZoneRef;
 import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.game.event.LogEntry;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.Viewer;
 import dev.gathering.core.game.visibility.ZoneView;
+import dev.gathering.core.table.SeatAnchor;
+import dev.gathering.core.table.Side;
+import dev.gathering.core.table.TableCell;
+import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.Rect;
-import dev.gathering.core.ui.TableScreenLayout;
 import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
+import dev.gathering.core.ui.TableScreenLayout;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
@@ -36,22 +41,18 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 /**
- * The seat you play from.
+ * The table, seen from above.
  *
- * <p>Four bands: the other seats across the top, the table surface in the middle, your zones
- * beside it and your hand along the bottom. The surface shows one seat's board at a time -
- * yours to begin with, anybody's if you click them - because a legible board somebody is
- * actually looking at beats every board at once rendered too small to read. Any public card
- * on any board can be moved from here, which is the paper-Magic rule the design keeps: the
- * mod never says no, and the log says who did it.
+ * <p>The whole screen is the felt. Every seat has a mat on it, everybody's board is visible at
+ * once, and a camera says which part you are looking at - scroll to zoom, middle-drag to pan,
+ * the way every table simulator works. This replaced four bands with a play surface panelled
+ * into the middle of them, which was a menu with a game in it: you could only look at one
+ * player's board at a time, which is the one thing a table is for.
  *
- * <p><b>There is no grid.</b> A card is an object you pick up and put down: it goes exactly
- * where you dropped it, at exactly the angle you left it at, over or under whatever is
- * already there. Overlapping a creature with an aura, fanning a pile out, turning something
- * sideways to mean "this one is attacking" - none of those are features, they are what
- * happens when the table stops having opinions about where things go. Everything else lives
- * in a menu on the card, because the alternative is fourteen keyboard shortcuts nobody
- * remembers.
+ * <p><b>There is no grid and no focused seat.</b> A card goes exactly where you dropped it, at
+ * the angle you left it, on whosever mat you dropped it on - so stealing a creature is
+ * literally dragging it to your side of the table, and the move event falls out of where it
+ * landed rather than out of a mode somebody had to set first.
  *
  * <p>The screen draws only what it was sent. It never asks the game anything, because it has
  * not been told the game - it has been told a {@code GameView}, which is the board with
@@ -60,7 +61,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Client-only.
  */
-public final class TableScreen extends Screen {
+public final class TableScreen extends Screen implements CardPreviewHost {
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
@@ -69,12 +70,17 @@ public final class TableScreen extends Screen {
     private static final int GHOST_TINT = 0x50000000;
     private static final int COUNTER_TEXT = 0xFFFFE9A8;
 
+    /** The felt, and a mat on it. Mats are lighter so the table reads as somebody's space. */
+    private static final int FELT = 0xFF1E3A2E;
+    private static final int MAT = 0x30FFFFFF;
+    private static final int MAT_EDGE = 0x60FFFFFF;
+    private static final int MAT_MINE = 0x406FD3E8;
+
     /**
      * The shadow every card on the table casts.
      *
      * <p>Nothing here has thickness, so without this a card lying across another one is two
-     * flat pictures sharing an edge and you cannot tell which is on top. A shadow is the
-     * cheapest possible answer and the one every real table already gives you.
+     * flat pictures sharing an edge and you cannot tell which is on top.
      */
     private static final int SHADOW = 0x70000000;
     private static final int SHADOW_OFFSET = 2;
@@ -85,6 +91,10 @@ public final class TableScreen extends Screen {
 
     /** The rubber band drawn while picking out several cards at once. */
     private static final int BOX_FILL = 0x206FD3E8;
+
+    /** The piles on every mat, left to right, in the order a player reaches for them. */
+    private static final List<Zone> PILES =
+            List.of(Zone.LIBRARY, Zone.GRAVEYARD, Zone.EXILE, Zone.COMMAND);
 
     /** How far a card is turned by one nudge. Small enough to be a gesture, not a mode. */
     private static final int NUDGE_DEGREES = 15;
@@ -98,10 +108,51 @@ public final class TableScreen extends Screen {
     /** Where the dragged card is drawn relative to the cursor while it is in the air. */
     private static final float LIFT = 300f;
 
+    /**
+     * The key list, in the order it reads best rather than the order the switch handles them.
+     *
+     * <p>Translation keys only - the strings themselves live in the language file, because a
+     * control list is exactly the thing somebody translating the mod has to be able to reword.
+     */
+    private static final List<String[]> KEY_HELP = List.of(
+            new String[] {
+                "screen.gathering.table.keys_camera",
+                "screen.gathering.table.key_zoom",
+                "screen.gathering.table.key_pan",
+                "screen.gathering.table.key_frame",
+            },
+            new String[] {
+                "screen.gathering.table.keys_cards",
+                "screen.gathering.table.key_pick",
+                "screen.gathering.table.key_tap",
+                "screen.gathering.table.key_menu",
+                "screen.gathering.table.key_flip",
+                "screen.gathering.table.key_turn",
+                "screen.gathering.table.key_select",
+                "screen.gathering.table.key_group",
+                "screen.gathering.table.key_delete",
+                "screen.gathering.table.key_read",
+            },
+            new String[] {
+                "screen.gathering.table.keys_game",
+                "screen.gathering.table.key_draw",
+                "screen.gathering.table.key_shuffle",
+                "screen.gathering.table.key_untap",
+                "screen.gathering.table.key_life",
+                "screen.gathering.table.key_pass",
+                "screen.gathering.table.key_log",
+            });
+
+    /** How much one wheel notch zooms. A shallow step, because zoom is used constantly. */
+    private static final double ZOOM_STEP = 1.18;
+
+    /** How far one press of a pan key slides the table. */
+    private static final int PAN_STEP = 60;
+
     private final BlockPos table;
 
     private TableScreenLayout layout;
-    private SeatId focused;
+    private BoardGeometry geometry;
 
     /** The card in the air, if any, and where on it the cursor took hold. */
     private Held held;
@@ -118,12 +169,14 @@ public final class TableScreen extends Screen {
     /** The corner a box-select started from, while one is being dragged out. */
     private int[] boxFrom;
 
+    /** Where a middle-drag pan started, so the table follows the hand. */
+    private int[] panFrom;
+
     /**
      * The cards waiting to be put onto something, once their host has been picked.
      *
      * <p>A mode rather than a gesture, because dragging already means "put this here" and a
-     * drop that sometimes attached and sometimes stacked would be a coin flip. Asking first
-     * and then clicking the host is two deliberate acts, which is what attaching is.
+     * drop that sometimes attached and sometimes stacked would be a coin flip.
      */
     private List<CardInstanceId> attaching = List.of();
 
@@ -131,6 +184,9 @@ public final class TableScreen extends Screen {
 
     /** Whether the log panel is open. Off by default: the table is the thing you came for. */
     private boolean showingLog;
+
+    /** Whether the key list is open. */
+    private boolean showingKeys;
 
     /**
      * Where the cursor was last frame.
@@ -150,22 +206,37 @@ public final class TableScreen extends Screen {
      * A card that has been picked up.
      *
      * <p>The grab offset is the whole reason this is a record rather than an id: a card that
-     * snaps its corner to the cursor jumps out from under your finger the moment you touch
-     * it, and putting something down where you are pointing is the one thing a table has to
-     * get right.
+     * snaps its corner to the cursor jumps out from under your finger the moment you touch it,
+     * and putting something down where you are pointing is the one thing a table has to get
+     * right.
      */
-    private record Held(CardInstanceId card, boolean fromHand, int grabX, int grabY, int pressX, int pressY) {
+    private record Held(
+            CardInstanceId card, SeatId from, boolean fromHand,
+            int grabX, int grabY, int pressX, int pressY) {
 
         boolean hasMoved(int mouseX, int mouseY) {
-            return Math.abs(mouseX - pressX) >= DRAG_THRESHOLD || Math.abs(mouseY - pressY) >= DRAG_THRESHOLD;
+            return Math.abs(mouseX - pressX) >= DRAG_THRESHOLD
+                    || Math.abs(mouseY - pressY) >= DRAG_THRESHOLD;
         }
+    }
+
+    /**
+     * One card as it is currently drawn: whose it is, where on screen, and which way round.
+     *
+     * <p>Built once a frame and used by both the drawing and the hit-testing, which is what
+     * stops them disagreeing about where anything is. In back-to-front order, so drawing walks
+     * it forwards and picking walks it backwards.
+     */
+    private record Placed(SeatId seat, CardView card, Rect where, int angle) {
     }
 
     @Override
     protected void init() {
-        layout = TableScreenLayout.of(this.width, this.height, otherSeats().size());
-        if (focused == null) {
-            focused = mySeat().orElseGet(() -> view().map(v -> v.seats().get(0).seat()).orElse(new SeatId(0)));
+        layout = TableScreenLayout.of(this.width, this.height);
+        if (geometry == null) {
+            geometry = new BoardGeometry(anchors(), this.width, this.height);
+        } else {
+            geometry.reshape(anchors(), this.width, this.height);
         }
     }
 
@@ -182,11 +253,22 @@ public final class TableScreen extends Screen {
                 .map(Viewer.Seated::seat);
     }
 
-    private List<SeatView> otherSeats() {
-        return view().map(board -> board.seats().stream()
-                        .filter(seat -> mySeat().map(mine -> !mine.equals(seat.seat())).orElse(true))
-                        .toList())
-                .orElse(List.of());
+    /**
+     * The shape of the table, as the mat layout needs it.
+     *
+     * <p>Derived from how many seats the session has rather than from the blocks in the world:
+     * the client is told a board, not a building, and the session froze the cluster's shape
+     * when it started. Seats come in facing pairs, which is what {@code SEATS_PER_TABLE} means,
+     * so the cells fall out of the count.
+     */
+    private List<SeatAnchor> anchors() {
+        int seats = view().map(board -> board.seats().size()).orElse(2);
+        List<SeatAnchor> anchors = new ArrayList<>(seats);
+        for (int index = 0; index < seats; index++) {
+            TableCell cell = new TableCell(index / 2, 0);
+            anchors.add(new SeatAnchor(cell, index % 2 == 0 ? Side.SOUTH : Side.NORTH));
+        }
+        return anchors;
     }
 
     @Override
@@ -195,52 +277,75 @@ public final class TableScreen extends Screen {
         // The game ended, or this client stopped being told about it.
         if (view().isEmpty()) {
             this.onClose();
+            return;
+        }
+        if (geometry.surface().seatCount() != view().get().seats().size()) {
+            geometry.reshape(anchors(), this.width, this.height);
         }
     }
 
+    // ------------------------------------------------------------- rendering
+
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        TableScreenLayout current = layout();
-        panel(graphics, current.opponents());
-        panel(graphics, current.surface());
-        panel(graphics, current.zones());
-        panel(graphics, current.hand());
+        // Deliberately empty, and it has to stay that way. Screen.render draws the background
+        // first and the widgets after it, so anything painted here lands on top of the mats,
+        // piles and cards that render() has already drawn - the felt would swallow the whole
+        // board. The felt is laid down by render() itself instead, before anything sits on it.
+        // (No vanilla dim either: the table is the screen, and a darkened world behind a
+        // full-screen table is a smear nobody can see.)
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // The felt, edge to edge, under everything including the buttons.
+        graphics.fill(0, 0, this.width, this.height, FELT);
+
         GameView board = view().orElse(null);
         if (board == null) {
             super.render(graphics, mouseX, mouseY, partialTick);
             return;
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
-
-        ClientHoverState.clear();
         cursorX = mouseX;
         cursorY = mouseY;
-        renderOpponents(graphics, board);
-        renderSurface(graphics, board, mouseX, mouseY);
-        renderZones(graphics, board, mouseX, mouseY);
+        ClientHoverState.clear();
+
+        renderMats(graphics, board);
+        renderPiles(graphics, board, mouseX, mouseY);
+
+        List<Placed> onTable = everythingOnTheTable(board);
+        Placed hovered = frontMostAt(onTable, mouseX, mouseY);
+        for (Placed placed : onTable) {
+            drawTableCard(graphics, placed.card(), placed.where(), placed.angle(),
+                    placed == hovered || isSelected(placed.card()));
+        }
+        renderPileBadges(graphics, board, onTable);
+        if (hovered != null) {
+            offerToInspector(hovered.card());
+        }
+
+        super.render(graphics, mouseX, mouseY, partialTick);
+
         renderHand(graphics, board, mouseX, mouseY);
         renderActions(graphics, board);
         renderTurn(graphics, board);
-        if (showingLog) {
-            renderLog(graphics, board);
-        }
         renderHeldCard(graphics, board, mouseX, mouseY);
 
         if (!attaching.isEmpty()) {
             GuiText.drawCentred(graphics, this.font,
                     Component.translatable("screen.gathering.table.attaching", attaching.size()),
-                    layout().surface().x() + layout().surface().width() / 2,
-                    layout().surface().y() + 4, layout().surface().width() - 8, ACCENT);
+                    this.width / 2, 6, this.width - 16, ACCENT);
         }
         if (boxFrom != null) {
             Rect box = boxBetween(boxFrom[0], boxFrom[1], mouseX, mouseY);
             graphics.fill(box.x(), box.y(), box.right(), box.bottom(), BOX_FILL);
             graphics.renderOutline(box.x(), box.y(), box.width(), box.height(), ACCENT);
+        }
+        if (showingLog) {
+            renderLog(graphics, board);
+        }
+        if (showingKeys) {
+            renderKeys(graphics);
         }
         if (menu != null) {
             menu.render(graphics, this.font, mouseX, mouseY);
@@ -254,107 +359,140 @@ public final class TableScreen extends Screen {
                 Math.abs(toX - fromX), Math.abs(toY - fromY));
     }
 
-    private void renderOpponents(GuiGraphics graphics, GameView board) {
-        Rect area = layout().opponents();
-        int line = area.y() + 3;
+    /**
+     * Everybody's mat, with their name and life on it.
+     *
+     * <p>On the mat rather than in a list across the top, because that is where the
+     * information belongs: you look at somebody's board and their life total is right there
+     * with it, the way a life pad sits beside a real one.
+     */
+    private void renderMats(GuiGraphics graphics, GameView board) {
+        SeatId me = mySeat().orElse(null);
         for (SeatView seat : board.seats()) {
-            if (line + this.font.lineHeight > area.bottom()) {
-                break;
+            Rect mat = geometry.matRect(seat.seat());
+            if (mat.isEmpty()) {
+                continue;
             }
-            boolean isFocused = seat.seat().equals(focused);
-            boolean mine = mySeat().map(seat.seat()::equals).orElse(false);
+            boolean mine = me != null && me.equals(seat.seat());
+            graphics.fill(mat.x(), mat.y(), mat.right(), mat.bottom(), mine ? MAT_MINE : MAT);
+            graphics.renderOutline(mat.x(), mat.y(), mat.width(), mat.height(),
+                    seat.seat().equals(board.turn().activeSeat()) ? ACCENT : MAT_EDGE);
 
             String who = seat.occupant().map(player -> player.name())
                     .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
-            Component text = Component.translatable(
-                    "screen.gathering.table.seat_line",
-                    who, seat.life(),
-                    count(seat, Zone.HAND), count(seat, Zone.LIBRARY),
-                    count(seat, Zone.BATTLEFIELD), count(seat, Zone.GRAVEYARD));
-            // Poison and energy belong on the seat line rather than in a screen: they change
-            // the game as much as life does and nobody goes looking for a number.
+            Component line = Component.translatable(
+                    "screen.gathering.table.mat_line", who, seat.life(),
+                    count(seat, Zone.HAND), count(seat, Zone.LIBRARY));
             if (!seat.counters().isEmpty()) {
-                text = text.copy().append(Component.literal("  " + describeCounters(seat)));
+                line = line.copy().append(Component.literal("  " + describeCounters(seat)));
             }
+            GuiText.draw(graphics, this.font, line,
+                    mat.x() + 3, mat.y() + 2, mat.width() - 6, mine ? ACCENT : LABEL);
+        }
+    }
 
-            if (isFocused) {
-                GatheringSprites.highlight(graphics, area.x() + 1, line - 2, area.width() - 2,
-                        this.font.lineHeight + 3);
+    /** Everybody's piles, in a row along the near edge of their own mat. */
+    private void renderPiles(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
+        for (SeatView seat : board.seats()) {
+            for (int index = 0; index < PILES.size(); index++) {
+                Rect where = geometry.pileRect(seat.seat(), index, PILES.size());
+                if (where.isEmpty() || where.width() < 4) {
+                    continue;
+                }
+                drawPile(graphics, seat, PILES.get(index), where.shrink(1),
+                        where.contains(mouseX, mouseY));
             }
-            // Whose turn it is, marked on the line rather than only in the bar: with four
-            // seats the answer is a name, and the name is already here.
-            if (seat.seat().equals(board.turn().activeSeat())) {
-                graphics.renderOutline(area.x() + 1, line - 2, area.width() - 2,
-                        this.font.lineHeight + 3, ACCENT);
-            }
-            GuiText.draw(graphics, this.font, text, area.x() + 4, line, area.width() - 8,
-                    mine ? ACCENT : LABEL);
-            line += this.font.lineHeight + 3;
         }
     }
 
     /**
-     * The board, drawn back to front.
+     * One pile: the top card if anyone may see it, the sleeve if not, and the count.
      *
-     * <p>The zone's own order is the stacking order, so a card played onto another one lies on
-     * top of it and the last thing you touched is the thing you can pick up again. Hit-testing
-     * runs the other way for the same reason.
+     * <p>Showing the graveyard's top card rather than a generic stack is what makes a board
+     * readable from across the table - "he has a Bolt on top of his yard" is information the
+     * rules already give everyone, and hiding it behind a number just makes people click.
      */
-    private void renderSurface(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
-        List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
-        List<TablePosition> spots = spotsIn(cards);
-        List<Integer> depths = TableStacking.depths(spots);
-        CardView hovered = cardOnSurfaceAt(board, mouseX, mouseY).orElse(null);
+    private void drawPile(GuiGraphics graphics, SeatView view, Zone zone, Rect pile, boolean hovered) {
+        ZoneView contents = view.zone(zone);
+        int count = contents == null ? 0 : contents.count();
 
-        for (int index = 0; index < cards.size(); index++) {
-            CardView card = cards.get(index);
-            if (isHeld(card) || card.host().isPresent()) {
-                // Attachments are drawn by whatever they are attached to, so they land over
-                // their host rather than wherever the zone order happened to put them.
-                continue;
-            }
-            drawTableCard(graphics, card, spotOf(card, depths.get(index)),
-                    card == hovered || isSelected(card));
-            drawAttachments(graphics, cards, card, spotOf(card, depths.get(index)), hovered);
+        GatheringSprites.frame(graphics, pile.x(), pile.y(), pile.width(), pile.height());
+        Rect art = pile.shrink(1);
+        Optional<CardView> top = topOf(contents);
 
-            // Only the top card of a pile says how many are in it. Every card in the pile
-            // agrees on the number, so saying it four times would be four badges on one stack.
-            if (!TableStacking.isBuriedAt(spots, index)) {
-                int pile = TableStacking.pileSizeAt(spots, index);
-                if (pile > 1) {
-                    drawPileBadge(graphics, spotOf(card, depths.get(index)), pile);
+        if (count == 0) {
+            GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height());
+        } else if (top.isPresent() && !top.get().isFaceDown()) {
+            summaryOf(top.get()).ifPresentOrElse(
+                    summary -> CardInspectPanel.renderArt(
+                            graphics, summary, art.x(), art.y(), art.width(), art.height()),
+                    () -> GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height()));
+        } else {
+            graphics.blit(CardFaceRenderer.CARD_BACK, art.x(), art.y(), 0f, 0f,
+                    art.width(), art.height(), art.width(), art.height());
+        }
+
+        if (art.height() > this.font.lineHeight + 2) {
+            Component label = Component.literal(Integer.toString(count));
+            int labelWidth = this.font.width(label) + 4;
+            graphics.fill(art.right() - labelWidth, art.bottom() - this.font.lineHeight - 1,
+                    art.right(), art.bottom(), GHOST_TINT);
+            GuiText.draw(graphics, this.font, label, art.right() - labelWidth + 2,
+                    art.bottom() - this.font.lineHeight, labelWidth, LABEL);
+        }
+        if (hovered) {
+            graphics.renderOutline(pile.x(), pile.y(), pile.width(), pile.height(), ACCENT);
+            top.filter(card -> !card.isFaceDown()).ifPresent(this::offerToInspector);
+        }
+    }
+
+    private static Optional<CardView> topOf(ZoneView zone) {
+        if (zone == null || zone.cards().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(zone.cards().get(0));
+    }
+
+    /**
+     * Every card on every mat, back to front, ready to draw or to click.
+     *
+     * <p>Built once a frame and handed to both, which is what stops them disagreeing about
+     * where anything is. Attachments come immediately after the card they are on, so they draw
+     * over their host and are found before it - otherwise the creature underneath swallows
+     * every click meant for its equipment.
+     */
+    private List<Placed> everythingOnTheTable(GameView board) {
+        List<Placed> placed = new ArrayList<>();
+        for (SeatView seat : board.seats()) {
+            List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
+            List<TablePosition> spots = spotsIn(cards);
+            List<Integer> depths = TableStacking.depths(spots);
+
+            for (int index = 0; index < cards.size(); index++) {
+                CardView card = cards.get(index);
+                if (isHeld(card) || card.host().isPresent()) {
+                    continue;
+                }
+                Rect where = spotOf(seat.seat(), card, depths.get(index));
+                placed.add(new Placed(seat.seat(), card, where, angleOf(card)));
+
+                List<CardView> attached = attachmentsOf(cards, card);
+                boolean left = TableAttachments.fansLeft(where, new Rect(0, 0, this.width, this.height));
+                for (int slot = 0; slot < attached.size(); slot++) {
+                    if (isHeld(attached.get(slot))) {
+                        continue;
+                    }
+                    Rect at = left
+                            ? TableAttachments.slot(where, slot)
+                            : TableAttachments.slotOnTheRight(where, slot);
+                    placed.add(new Placed(seat.seat(), attached.get(slot), at, angleOf(attached.get(slot))));
                 }
             }
         }
-        if (hovered != null) {
-            offerToInspector(hovered);
-        }
+        return placed;
     }
 
-    /**
-     * The cards sitting on this one, fanned down its side.
-     *
-     * <p>Drawn from the host outwards rather than in zone order, because an attachment's place
-     * on the table is its host's place - it has a position of its own and the renderer ignores
-     * it, which is what makes an aura follow the creature when somebody drags it.
-     */
-    private void drawAttachments(
-            GuiGraphics graphics, List<CardView> all, CardView host, Rect where, CardView hovered) {
-        List<CardView> attached = attachmentsOf(all, host);
-        if (attached.isEmpty()) {
-            return;
-        }
-        boolean left = TableAttachments.fansLeft(where, layout().surface());
-        for (int index = 0; index < attached.size(); index++) {
-            Rect slot = left
-                    ? TableAttachments.slot(where, index)
-                    : TableAttachments.slotOnTheRight(where, index);
-            CardView card = attached.get(index);
-            drawCard(graphics, card, slot, card == hovered || isSelected(card), card.tapped());
-        }
-    }
-
-    /** Everything on the focused board currently sitting on this card, in the board's order. */
+    /** Everything currently sitting on this card, in the board's own order. */
     private static List<CardView> attachmentsOf(List<CardView> all, CardView host) {
         if (!(host instanceof CardView.Visible visible)) {
             return List.of();
@@ -368,28 +506,6 @@ public final class TableScreen extends Screen {
         return found;
     }
 
-    /** Where an attached card is actually drawn, which is beside its host and nowhere else. */
-    private Rect attachmentRectOf(List<CardView> all, List<Integer> depths, CardView card) {
-        CardInstanceId hostId = card.host().orElse(null);
-        if (hostId == null) {
-            return null;
-        }
-        for (int index = 0; index < all.size(); index++) {
-            if (!(all.get(index) instanceof CardView.Visible visible) || !visible.id().equals(hostId)) {
-                continue;
-            }
-            Rect where = spotOf(all.get(index), depths.get(index));
-            int slot = attachmentsOf(all, all.get(index)).indexOf(card);
-            if (slot < 0) {
-                return null;
-            }
-            return TableAttachments.fansLeft(where, layout().surface())
-                    ? TableAttachments.slot(where, slot)
-                    : TableAttachments.slotOnTheRight(where, slot);
-        }
-        return null;
-    }
-
     private static List<TablePosition> spotsIn(List<CardView> cards) {
         List<TablePosition> spots = new ArrayList<>(cards.size());
         for (CardView card : cards) {
@@ -399,20 +515,49 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * Where a card on the surface is drawn.
+     * Where a card on a mat is drawn.
      *
      * <p>Its own place, leaned up and to the left by however many cards are under it. The card
      * has not moved - that is state - but a pile that draws every card in exactly the same
      * pixels is a pile that looks like one card.
      */
-    private Rect spotOf(CardView card, int depth) {
-        Rect where = layout().cardAt(card.placedAt().orElse(TablePosition.ORIGIN));
+    private Rect spotOf(SeatId seat, CardView card, int depth) {
+        Rect where = geometry.screenRect(seat, card.placedAt().orElse(TablePosition.ORIGIN));
         int lean = TableStacking.offsetFor(depth);
-        return lean == 0 ? where : new Rect(where.x() + lean, where.y() + lean, where.width(), where.height());
+        return lean == 0
+                ? where
+                : new Rect(where.x() + lean, where.y() + lean, where.width(), where.height());
+    }
+
+    /** The pile counts, drawn last so a stack of four says four over whatever is on top of it. */
+    private void renderPileBadges(GuiGraphics graphics, GameView board, List<Placed> onTable) {
+        for (SeatView seat : board.seats()) {
+            List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
+            List<TablePosition> spots = spotsIn(cards);
+            for (int index = 0; index < cards.size(); index++) {
+                if (TableStacking.isBuriedAt(spots, index)) {
+                    continue;
+                }
+                int pile = TableStacking.pileSizeAt(spots, index);
+                if (pile <= 1) {
+                    continue;
+                }
+                CardView card = cards.get(index);
+                for (Placed placed : onTable) {
+                    if (placed.card() == card) {
+                        drawPileBadge(graphics, placed.where(), pile);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     /** The pile count, on the corner nearest the top of the stack. */
     private void drawPileBadge(GuiGraphics graphics, Rect where, int size) {
+        if (where.height() < this.font.lineHeight + 3) {
+            return;
+        }
         Component label = Component.literal("x" + size);
         int width = this.font.width(label) + 5;
         int left = where.right() - width - 1;
@@ -433,81 +578,9 @@ public final class TableScreen extends Screen {
         return card.tapped() ? resting + TablePosition.QUARTER_TURN : resting;
     }
 
-    /**
-     * Your piles, beside the table.
-     *
-     * <p>Card-shaped and stacked, with a count on each, because a pile of cards is a thing you
-     * reach for and a row of numbers is a status bar. Clicking one does the obvious thing -
-     * draw from the library, open everything else - and right-clicking one offers the rest.
-     */
-    private void renderZones(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
-        Rect area = layout().zones();
-        if (area.isEmpty()) {
-            return;
-        }
-        SeatId seat = mySeat().orElse(focused);
-        SeatView view = board.seat(seat);
-
-        for (Zone zone : TableScreenLayout.PILES) {
-            Rect pile = layout().pile(zone);
-            if (pile.isEmpty()) {
-                continue;
-            }
-            drawPile(graphics, view, zone, pile, pile.contains(mouseX, mouseY));
-        }
-    }
-
-    /**
-     * One pile: the top card if anyone may see it, the sleeve if not, and the count.
-     *
-     * <p>Showing the graveyard's top card rather than a generic stack is what makes a board
-     * readable from across the table - "he has a Bolt on top of his yard" is information the
-     * rules already give everyone, and hiding it behind a number just makes people click.
-     */
-    private void drawPile(GuiGraphics graphics, SeatView view, Zone zone, Rect pile, boolean hovered) {
-        ZoneView contents = view.zone(zone);
-        int count = contents == null ? 0 : contents.count();
-
-        GatheringSprites.frame(graphics, pile.x(), pile.y(), pile.width(), pile.height());
-        Rect art = pile.shrink(2);
-
-        Optional<CardView> top = topOf(contents);
-        if (count == 0) {
-            GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height());
-        } else if (top.isPresent() && !top.get().isFaceDown()) {
-            summaryOf(top.get()).ifPresentOrElse(
-                    summary -> CardInspectPanel.renderArt(
-                            graphics, summary, art.x(), art.y(), art.width(), art.height()),
-                    () -> GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height()));
-        } else {
-            graphics.blit(CardFaceRenderer.CARD_BACK, art.x(), art.y(), 0f, 0f,
-                    art.width(), art.height(), art.width(), art.height());
-        }
-
-        // The count sits on the pile rather than under it, so a short window that squeezes the
-        // piles does not squeeze the one number that has to be there.
-        Component label = Component.literal(Integer.toString(count));
-        int labelWidth = this.font.width(label) + 4;
-        graphics.fill(art.right() - labelWidth, art.bottom() - this.font.lineHeight - 1,
-                art.right(), art.bottom(), GHOST_TINT);
-        GuiText.draw(graphics, this.font, label, art.right() - labelWidth + 2,
-                art.bottom() - this.font.lineHeight, labelWidth, LABEL);
-
-        if (hovered) {
-            graphics.renderOutline(pile.x(), pile.y(), pile.width(), pile.height(), ACCENT);
-            top.filter(card -> !card.isFaceDown()).ifPresent(this::offerToInspector);
-        }
-    }
-
-    private static Optional<CardView> topOf(ZoneView zone) {
-        if (zone == null || zone.cards().isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(zone.cards().get(0));
-    }
-
     private void renderHand(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         Rect area = layout().hand();
+        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
         SeatId seat = mySeat().orElse(null);
         if (seat == null) {
             GuiText.drawCentred(graphics, this.font,
@@ -517,9 +590,6 @@ public final class TableScreen extends Screen {
         }
 
         List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
-        if (hand.isEmpty()) {
-            return;
-        }
         for (int index = 0; index < hand.size(); index++) {
             if (isHeld(hand.get(index))) {
                 continue;
@@ -543,57 +613,46 @@ public final class TableScreen extends Screen {
         int height = area.height() - 8;
         int width = Math.max(8, Math.round(height * 488f / 680f));
         int room = area.width() - 8;
-        int step = handSize <= 1 ? 0 : Math.min(width + 3, (room - width) / (handSize - 1));
-        int total = width + step * (handSize - 1);
+        int step = handSize <= 1 ? 0 : Math.min(width + 3, (room - width) / Math.max(1, handSize - 1));
+        int total = width + step * Math.max(0, handSize - 1);
         int left = area.x() + Math.max(4, (area.width() - total) / 2);
         return new Rect(left + index * step, area.y() + 4, width, height);
     }
 
-    /**
-     * Whose turn it is, which phase, and how to move either on.
-     *
-     * <p>Drawn on the action bar rather than tucked in a menu, because the whole reason a
-     * shared turn marker exists is so four people can agree where they are without saying it
-     * out loud every thirty seconds. A marker nobody can see does not do that.
-     *
-     * <p>The active seat is highlighted in the seat list too; this says the phase, which is the
-     * part that changes several times a turn.
-     */
+    /** Whose turn it is, on the bar. Whole turns; the mat outline says the same thing. */
     private void renderTurn(GuiGraphics graphics, GameView board) {
         Rect area = layout().actions();
         SeatId active = board.turn().activeSeat();
         String who = board.seat(active).occupant()
                 .map(player -> player.name())
                 .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
-
-        // Whole turns. The phase marker still exists in the game and the log, but stepping
-        // through twelve of them by hand is bookkeeping nobody at a real table does out loud -
-        // people say "your turn", and that is the granularity this shows.
-        Component line = Component.translatable("screen.gathering.table.turn",
-                board.turn().turnNumber(), who);
         boolean mine = mySeat().map(active::equals).orElse(false);
-        GuiText.draw(graphics, this.font, line, area.x() + 2, area.y() + 7,
-                area.width() / 2, mine ? ACCENT : LABEL);
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.table.turn", board.turn().turnNumber(), who),
+                area.x() + 4, area.y() + 7, area.width() / 3, mine ? ACCENT : LABEL);
+    }
+
+    private void renderActions(GuiGraphics graphics, GameView board) {
+        Rect area = layout().actions();
+        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.table.actions"),
+                area.x() + area.width() / 3, area.y() + 7, area.width() * 2 / 3 - 6, DIM);
     }
 
     /**
      * What has happened, most recent last.
      *
-     * <p>Over the surface rather than beside it. The log is read in bursts - somebody asks
-     * "wait, what did you just do" - and giving it a permanent column would cost the table
-     * space every turn to answer a question asked twice a game.
+     * <p>Over the table rather than beside it. The log is read in bursts - somebody asks
+     * "wait, what did you just do" - and giving it a permanent column would cost table space
+     * every turn to answer a question asked twice a game.
      */
     private void renderLog(GuiGraphics graphics, GameView board) {
-        Rect surface = layout().surface();
-        Rect area = new Rect(
-                surface.x() + surface.width() / 3,
-                surface.y(),
-                surface.width() - surface.width() / 3,
-                surface.height());
+        Rect area = new Rect(this.width / 3, 0, this.width - this.width / 3, layout().hand().y());
         GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
 
         int lines = Math.max(1, (area.height() - 8) / (this.font.lineHeight + 1));
-        List<dev.gathering.core.game.event.LogEntry> log = board.log();
+        List<LogEntry> log = board.log();
         int from = Math.max(0, log.size() - lines);
 
         int y = area.y() + 4;
@@ -609,21 +668,59 @@ public final class TableScreen extends Screen {
         }
     }
 
-    private void renderActions(GuiGraphics graphics, GameView board) {
-        Rect area = layout().actions();
-        // The turn takes the left half, so the hint takes the right and is drawn to fit.
+    /**
+     * Every key, in one place.
+     *
+     * <p>A Tabletop Simulator control scheme is a good one and a completely undiscoverable
+     * one: nothing on screen suggests that F turns a card over or that Home finds the table
+     * again. The bar along the bottom carries the handful people need in the first minute and
+     * this carries the rest, on the key every game uses for exactly this.
+     */
+    private void renderKeys(GuiGraphics graphics) {
+        Rect area = new Rect(this.width / 8, this.height / 12,
+                Math.min(this.width - this.width / 4, 420),
+                layout().hand().y() - this.height / 12 - 4);
+        if (area.width() < 80 || area.height() < 60) {
+            return;
+        }
+        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
+
+        int y = area.y() + 5;
+        int line = this.font.lineHeight + 1;
+        int inner = area.width() - 10;
         GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.table.actions"),
-                area.x() + area.width() / 2, area.y() + 7, area.width() / 2 - 4, DIM);
+                Component.translatable("screen.gathering.table.keys_title"),
+                area.x() + 5, y, inner, ACCENT);
+        y += line + 2;
+
+        for (String[] section : KEY_HELP) {
+            if (y + line > area.bottom() - line - 4) {
+                break;
+            }
+            GuiText.draw(graphics, this.font, Component.translatable(section[0]),
+                    area.x() + 5, y, inner, ACCENT);
+            y += line;
+            for (int index = 1; index < section.length; index++) {
+                if (y + line > area.bottom() - line - 4) {
+                    break;
+                }
+                GuiText.draw(graphics, this.font, Component.translatable(section[index]),
+                        area.x() + 11, y, inner - 6, LABEL);
+                y += line;
+            }
+            y += 2;
+        }
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.table.keys_close"),
+                area.x() + 5, area.bottom() - line - 3, inner, DIM);
     }
 
     /**
      * The card in the air, drawn under the cursor exactly where it would land.
      *
-     * <p>Same size and same angle as it will have once dropped, so the drag is a preview
-     * rather than a promise. A ghost is left behind at the drop point when the cursor has
-     * strayed off the table, because a card that would go back where it came from should say
-     * so before you let go of it.
+     * <p>Same size and angle as it will have once dropped, so the drag is a preview rather
+     * than a promise, and an outline on the mat it would land on so you can see whose side you
+     * are about to put it on.
      */
     private void renderHeldCard(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         if (held == null) {
@@ -633,14 +730,15 @@ public final class TableScreen extends Screen {
         if (card == null) {
             return;
         }
-        TableScreenLayout current = layout();
-        if (current.isOnSurface(mouseX, mouseY)) {
-            Rect landing = current.cardAt(current.positionForDrop(mouseX, mouseY, held.grabX(), held.grabY()));
-            graphics.renderOutline(landing.x(), landing.y(), landing.width(), landing.height(), ACCENT);
+        SeatId landing = geometry.seatAt(mouseX - held.grabX(), mouseY - held.grabY());
+        if (landing != null) {
+            Rect mat = geometry.matRect(landing);
+            graphics.renderOutline(mat.x(), mat.y(), mat.width(), mat.height(), ACCENT);
         }
 
+        SeatId size = landing != null ? landing : held.from();
         Rect airborne = new Rect(mouseX - held.grabX(), mouseY - held.grabY(),
-                current.cardWidth(), current.cardHeight());
+                geometry.cardWidth(size), geometry.cardHeight(size));
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, LIFT);
         drawCard(graphics, card, airborne, false, false);
@@ -663,52 +761,57 @@ public final class TableScreen extends Screen {
                 return true;
             }
         }
-
         GameView board = view().orElse(null);
         if (board == null) {
             return super.mouseClicked(mouseX, mouseY, button);
         }
 
-        if (showingLog && layout().isOnSurface(x, y)) {
-            // It is covering the table; the first click puts it away rather than doing
-            // something to a card the player cannot see.
+        if ((showingLog || showingKeys) && layout().isOnFelt(x, y)) {
+            // Either panel is covering the table; the first click puts it away rather than
+            // doing something to a card the player cannot see.
             showingLog = false;
+            showingKeys = false;
             return true;
         }
 
-        if (layout().opponents().contains(x, y)) {
-            focusSeatAt(board, y);
+        // Middle-drag pans, which is what it does in every table simulator.
+        if (button == 2) {
+            panFrom = new int[] {x, y};
             return true;
         }
 
-        Zone pile = layout().pileAt(x, y);
-        if (pile != null) {
-            return clickPile(pile, x, y, button);
-        }
-
-        Optional<CardView> onSurface = cardOnSurfaceAt(board, x, y);
+        Placed onTable = frontMostAt(everythingOnTheTable(board), x, y);
         if (!attaching.isEmpty()) {
             // Anywhere but a card cancels, which is what clicking off a half-finished thing
             // should always do.
-            onSurface.ifPresentOrElse(host -> finishAttaching(host), () -> attaching = List.of());
+            if (onTable != null) {
+                finishAttaching(onTable.card());
+            } else {
+                attaching = List.of();
+            }
             return true;
         }
-        if (onSurface.isPresent()) {
-            return pressCard(board, onSurface.get(), surfaceRectOf(board, onSurface.get()),
-                    false, x, y, button);
+        if (onTable != null) {
+            return pressCard(board, onTable.card(), onTable.seat(), onTable.where(), false, x, y, button);
         }
 
         Optional<CardView> inHand = cardInHandAt(board, x, y);
         if (inHand.isPresent()) {
-            return pressCard(board, inHand.get(), handSlotOf(board, inHand.get()), true, x, y, button);
+            return pressCard(board, inHand.get(), mySeat().orElseThrow(),
+                    handSlotOf(board, inHand.get()), true, x, y, button);
         }
 
-        if (layout().isOnSurface(x, y)) {
+        SeatId pileSeat = pileSeatAt(board, x, y);
+        if (pileSeat != null) {
+            return clickPile(pileSeat, pileZoneAt(board, x, y), x, y, button);
+        }
+
+        if (layout().isOnFelt(x, y)) {
             if (button == 1) {
                 openTableMenu(x, y);
                 return true;
             }
-            // Empty table: drag out a box to pick several cards, or click to let go of them.
+            // Empty table: drag out a box to pick several cards, or click to let them go.
             if (button == 0) {
                 selected.clear();
                 boxFrom = new int[] {x, y};
@@ -719,7 +822,8 @@ public final class TableScreen extends Screen {
     }
 
     private boolean pressCard(
-            GameView board, CardView card, Rect where, boolean fromHand, int x, int y, int button) {
+            GameView board, CardView card, SeatId seat, Rect where,
+            boolean fromHand, int x, int y, int button) {
         if (!(card instanceof CardView.Visible visible) || mySeat().isEmpty()) {
             return true;
         }
@@ -741,14 +845,28 @@ public final class TableScreen extends Screen {
                 // meant, not the one you forgot to clear.
                 selected.clear();
             }
-            held = new Held(visible.id(), fromHand, x - where.x(), y - where.y(), x, y);
+            held = new Held(visible.id(), seat, fromHand,
+                    x - where.x(), y - where.y(), x, y);
             return true;
         }
         return true;
     }
 
     @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (panFrom != null && button == 2) {
+            geometry.pan(dragX, dragY);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (panFrom != null && button == 2) {
+            panFrom = null;
+            return true;
+        }
         if (boxFrom != null) {
             int[] from = boxFrom;
             boxFrom = null;
@@ -768,29 +886,35 @@ public final class TableScreen extends Screen {
         }
         int x = (int) mouseX;
         int y = (int) mouseY;
-        TableScreenLayout current = layout();
 
-        if (current.isOnSurface(x, y)) {
-            // A press that never moved is a click, and a click on a card already on the table
-            // taps it - the single most common thing anyone does, and the one gesture worth
-            // spending the plain left click on.
-            if (!dropped.fromHand() && !dropped.hasMoved(x, y)) {
-                findCard(view().orElse(null), dropped.card())
-                        .ifPresent(card -> send(new GameEvent.CardTapSet(me, dropped.card(), !card.tapped())));
-                return true;
-            }
-            TablePosition landing = current.positionForDrop(x, y, dropped.grabX(), dropped.grabY());
-            if (!dropped.fromHand() && selected.contains(dropped.card())) {
-                dropGroup(dropped.card(), landing, me);
-            } else {
-                send(new GameEvent.CardMoved(me, dropped.card(), ZoneRef.of(focused, Zone.BATTLEFIELD),
-                        Placement.at(landing)));
+        if (layout().hand().contains(x, y)) {
+            if (!dropped.fromHand()) {
+                send(new GameEvent.CardMoved(me, dropped.card(), ZoneRef.of(me, Zone.HAND), Placement.BOTTOM));
             }
             return true;
         }
-        if (!dropped.fromHand() && current.hand().contains(x, y)) {
-            // Dragged off the table and back into your hand.
-            send(new GameEvent.CardMoved(me, dropped.card(), ZoneRef.of(me, Zone.HAND), Placement.BOTTOM));
+
+        // A press that never moved is a click, and a click on a card already on the table taps
+        // it - the most common thing anyone does, and the one gesture worth the plain left click.
+        if (!dropped.fromHand() && !dropped.hasMoved(x, y)) {
+            findCard(view().orElse(null), dropped.card())
+                    .ifPresent(card -> send(new GameEvent.CardTapSet(me, dropped.card(), !card.tapped())));
+            return true;
+        }
+
+        // Whose mat it landed on is where it goes. Stealing a creature is dragging it to your
+        // own side of the table, and the move event falls out of that rather than out of a
+        // mode somebody had to set first.
+        SeatId landing = geometry.seatAt(x - dropped.grabX(), y - dropped.grabY());
+        if (landing == null) {
+            return true;
+        }
+        TablePosition where = geometry.positionOn(landing, x - dropped.grabX(), y - dropped.grabY());
+        if (!dropped.fromHand() && selected.contains(dropped.card())) {
+            dropGroup(dropped, landing, where, me);
+        } else {
+            send(new GameEvent.CardMoved(
+                    me, dropped.card(), ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(where)));
         }
         return true;
     }
@@ -798,21 +922,21 @@ public final class TableScreen extends Screen {
     /**
      * Puts a whole selection down, keeping the arrangement it was in.
      *
-     * <p>One delta for all of them, trimmed until every card fits on the table - so a group
+     * <p>One delta for all of them, trimmed until every card fits on the mat - so a group
      * shoved into a corner slides along the edge instead of collapsing into a single pile,
      * which is what clamping each card on its own would do to a board somebody spent the game
      * building.
      */
-    private void dropGroup(CardInstanceId grabbed, TablePosition landing, SeatId me) {
+    private void dropGroup(Held dropped, SeatId landing, TablePosition where, SeatId me) {
         GameView board = view().orElse(null);
         if (board == null) {
             return;
         }
         List<CardView> moving = selectedOn(board);
-        TablePosition before = findCard(board, grabbed).flatMap(CardView::placedAt).orElse(null);
+        TablePosition before = findCard(board, dropped.card()).flatMap(CardView::placedAt).orElse(null);
         if (before == null || moving.isEmpty()) {
-            send(new GameEvent.CardMoved(me, grabbed, ZoneRef.of(focused, Zone.BATTLEFIELD),
-                    Placement.at(landing)));
+            send(new GameEvent.CardMoved(
+                    me, dropped.card(), ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(where)));
             return;
         }
 
@@ -821,44 +945,147 @@ public final class TableScreen extends Screen {
             spots.add(card.placedAt().orElse(null));
         }
         List<TablePosition> after = TableDrag.movedTogether(
-                spots, landing.x() - before.x(), landing.y() - before.y());
+                spots, where.x() - before.x(), where.y() - before.y());
 
         for (int index = 0; index < moving.size(); index++) {
             if (!(moving.get(index) instanceof CardView.Visible visible) || after.get(index) == null) {
                 continue;
             }
-            send(new GameEvent.CardMoved(me, visible.id(), ZoneRef.of(focused, Zone.BATTLEFIELD),
-                    Placement.at(after.get(index))));
+            send(new GameEvent.CardMoved(me, visible.id(),
+                    ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(after.get(index))));
+        }
+        selected.clear();
+    }
+
+    /**
+     * The wheel zooms, anchored to the cursor.
+     *
+     * <p>Tabletop Simulator's wheel, and every map's: turning a card is Q and E, which leaves
+     * the wheel free for the thing a wheel is for.
+     */
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scrollY == 0) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        geometry.zoom(scrollY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP, mouseX, mouseY);
+        return true;
+    }
+
+    // ------------------------------------------------------------ hit-testing
+
+    /**
+     * The card under a point, front-most first.
+     *
+     * <p>Front to back, because the card you can see is the card you meant, and turned cards
+     * are tested at the angle they are drawn at - so the empty corner of an angled card is
+     * table and a click there reaches whatever is underneath it.
+     */
+    private Placed frontMostAt(List<Placed> onTable, int x, int y) {
+        if (!layout().isOnFelt(x, y)) {
+            return null;
+        }
+        for (int index = onTable.size() - 1; index >= 0; index--) {
+            Placed placed = onTable.get(index);
+            if (placed.where().containsTurned(placed.angle(), x, y)) {
+                return placed;
+            }
+        }
+        return null;
+    }
+
+    private Optional<CardView> cardInHandAt(GameView board, int x, int y) {
+        SeatId seat = mySeat().orElse(null);
+        if (seat == null || !layout().hand().contains(x, y)) {
+            return Optional.empty();
+        }
+        Rect area = layout().hand();
+        List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
+        for (int index = hand.size() - 1; index >= 0; index--) {
+            if (!isHeld(hand.get(index)) && handSlot(area, hand.size(), index).contains(x, y)) {
+                return Optional.of(hand.get(index));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Rect handSlotOf(GameView board, CardView card) {
+        SeatId seat = mySeat().orElse(null);
+        if (seat == null) {
+            return Rect.NONE;
+        }
+        List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
+        int index = hand.indexOf(card);
+        return index < 0 ? Rect.NONE : handSlot(layout().hand(), hand.size(), index);
+    }
+
+    /** Whose pile row a point is in, or null. */
+    private SeatId pileSeatAt(GameView board, int x, int y) {
+        for (SeatView seat : board.seats()) {
+            for (int index = 0; index < PILES.size(); index++) {
+                if (geometry.pileRect(seat.seat(), index, PILES.size()).contains(x, y)) {
+                    return seat.seat();
+                }
+            }
+        }
+        return null;
+    }
+
+    private Zone pileZoneAt(GameView board, int x, int y) {
+        for (SeatView seat : board.seats()) {
+            for (int index = 0; index < PILES.size(); index++) {
+                if (geometry.pileRect(seat.seat(), index, PILES.size()).contains(x, y)) {
+                    return PILES.get(index);
+                }
+            }
+        }
+        return Zone.LIBRARY;
+    }
+
+    private boolean isSelected(CardView card) {
+        return card instanceof CardView.Visible visible && selected.contains(visible.id());
+    }
+
+    /**
+     * The cards a verb should apply to.
+     *
+     * <p>The selection when the card acted on is part of it, and just that card otherwise.
+     * Right-clicking a card outside the selection is somebody addressing that card, not
+     * forgetting what they had picked.
+     */
+    private List<CardInstanceId> targetsFor(CardInstanceId card) {
+        return selected.contains(card) ? List.copyOf(selected) : List.of(card);
+    }
+
+    /** Every selected card on the table, wherever it is, in board order. */
+    private List<CardView> selectedOn(GameView board) {
+        List<CardView> found = new ArrayList<>();
+        for (SeatView seat : board.seats()) {
+            for (CardView card : seat.zone(Zone.BATTLEFIELD).cards()) {
+                if (isSelected(card)) {
+                    found.add(card);
+                }
+            }
+        }
+        return found;
+    }
+
+    /** Picks out every card the box touches, in place of whatever was picked before. */
+    private void selectWithin(GameView board, Rect box) {
+        selected.clear();
+        for (Placed placed : everythingOnTheTable(board)) {
+            if (placed.card() instanceof CardView.Visible visible && placed.where().overlaps(box)) {
+                selected.add(visible.id());
+            }
         }
     }
 
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        GameView board = view().orElse(null);
-        SeatId me = mySeat().orElse(null);
-        if (board == null || me == null || scrollY == 0) {
-            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        }
-        // Scrolling over a card turns it. It is the gesture a mouse already has for "a bit
-        // more of this", and it is what makes angling a card cheap enough to bother doing.
-        Optional<CardView> under = cardOnSurfaceAt(board, (int) mouseX, (int) mouseY);
-        if (under.isPresent() && under.get() instanceof CardView.Visible visible) {
-            int step = scrollY > 0 ? NUDGE_DEGREES : -NUDGE_DEGREES;
-            send(new GameEvent.CardRotated(me, visible.id(), restingAngle(visible) + step));
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    private boolean isHeld(CardView card) {
+        return held != null && card instanceof CardView.Visible visible && visible.id().equals(held.card());
     }
 
     // ----------------------------------------------------------------- menus
 
-    /**
-     * Everything you can do to one card, in one place.
-     *
-     * <p>Every entry here is a verb somebody would otherwise have to remember a key for, and
-     * the list is deliberately flat: a table where "put a counter on it" is two levels deep is
-     * a table where nobody uses counters.
-     */
     private void openCardMenu(GameView board, CardView.Visible card, boolean fromHand, int x, int y) {
         SeatId me = mySeat().orElseThrow();
         CardInstanceId id = card.id();
@@ -919,7 +1146,7 @@ public final class TableScreen extends Screen {
                 }));
             }
             entries.add(entry("copy", () -> eachTarget(board, targets, target ->
-                    new GameEvent.TokenCopyCreated(me, target, focused))));
+                    new GameEvent.TokenCopyCreated(me, target, me))));
             if (card.token()) {
                 entries.add(entry("remove_token", () -> eachCard(board, targets, seen ->
                         seen.token() ? new GameEvent.TokenRemoved(me, seen.id()) : null)));
@@ -990,20 +1217,23 @@ public final class TableScreen extends Screen {
      * card, because that is what a library is for; for every other pile it is to open it,
      * because a pile you cannot look through is a number.
      */
-    private boolean clickPile(Zone pile, int x, int y, int button) {
+    private boolean clickPile(SeatId owner, Zone pile, int x, int y, int button) {
         SeatId me = mySeat().orElse(null);
         if (me == null) {
             return true;
         }
         GatheringButtons.clickSound();
-        if (button == 1) {
+        // Anybody may open anybody's graveyard - it is public - but the verbs that only make
+        // sense on your own library are offered only there, because the mod refuses a search
+        // of somebody else's anyway and a menu full of refusals is worse than a short one.
+        if (button == 1 && owner.equals(me)) {
             openPileMenu(me, pile, x, y);
             return true;
         }
-        if (pile == Zone.LIBRARY) {
+        if (pile == Zone.LIBRARY && owner.equals(me)) {
             send(new GameEvent.CardsDrawn(me, me, 1));
-        } else {
-            openPile(me, pile, false);
+        } else if (pile != Zone.LIBRARY) {
+            openPile(owner, pile, false);
         }
         return true;
     }
@@ -1080,9 +1310,9 @@ public final class TableScreen extends Screen {
         return board.seat(me).zone(Zone.LIBRARY).cards().size();
     }
 
-    private void openPile(SeatId me, Zone pile, boolean opensALibrary) {
+    private void openPile(SeatId owner, Zone pile, boolean opensALibrary) {
         net.minecraft.client.Minecraft.getInstance()
-                .setScreen(new PileScreen(table, me, pile, opensALibrary));
+                .setScreen(new PileScreen(table, owner, pile, opensALibrary));
     }
 
     /** The menu for the table itself, for the verbs that are about a seat rather than a card. */
@@ -1103,6 +1333,7 @@ public final class TableScreen extends Screen {
         view().ifPresent(board -> entries.add(entry("my_counters",
                 () -> openCounters(new CountersScreen.Subject.Seat(
                         me, CountersScreen.titleForSeat(board, me))))));
+        entries.add(entry("show_everything", () -> geometry.showEverything()));
         menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
     }
 
@@ -1141,133 +1372,6 @@ public final class TableScreen extends Screen {
 
     // ------------------------------------------------------------ hit-testing
 
-    private void focusSeatAt(GameView board, int y) {
-        Rect area = layout().opponents();
-        int index = (y - area.y() - 3) / (this.font.lineHeight + 3);
-        if (index >= 0 && index < board.seats().size()) {
-            focused = board.seats().get(index).seat();
-        }
-    }
-
-    /**
-     * The card under the cursor, front-most first.
-     *
-     * <p>Front to back, because the card you can see is the card you meant. Turned cards are
-     * tested at the angle they are drawn at, so the empty corner of an angled card is table
-     * and a click there reaches whatever is underneath it.
-     */
-    private Optional<CardView> cardOnSurfaceAt(GameView board, int x, int y) {
-        if (!layout().isOnSurface(x, y)) {
-            return Optional.empty();
-        }
-        List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
-        List<Integer> depths = TableStacking.depths(spotsIn(cards));
-
-        // Attachments are drawn over their hosts, so they are tested first - otherwise the
-        // creature underneath swallows every click meant for its equipment.
-        for (int index = cards.size() - 1; index >= 0; index--) {
-            CardView card = cards.get(index);
-            if (isHeld(card) || card.host().isEmpty()) {
-                continue;
-            }
-            Rect slot = attachmentRectOf(cards, depths, card);
-            if (slot != null && slot.containsTurned(angleOf(card), x, y)) {
-                return Optional.of(card);
-            }
-        }
-        for (int index = cards.size() - 1; index >= 0; index--) {
-            CardView card = cards.get(index);
-            if (!isHeld(card) && card.host().isEmpty()
-                    && spotOf(card, depths.get(index)).containsTurned(angleOf(card), x, y)) {
-                return Optional.of(card);
-            }
-        }
-        return Optional.empty();
-    }
-
-    private Optional<CardView> cardInHandAt(GameView board, int x, int y) {
-        SeatId seat = mySeat().orElse(null);
-        if (seat == null) {
-            return Optional.empty();
-        }
-        Rect area = layout().hand();
-        List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
-        for (int index = hand.size() - 1; index >= 0; index--) {
-            if (!isHeld(hand.get(index)) && handSlot(area, hand.size(), index).contains(x, y)) {
-                return Optional.of(hand.get(index));
-            }
-        }
-        return Optional.empty();
-    }
-
-    /** Where a card on the focused board is currently drawn, lean and attachment included. */
-    private Rect surfaceRectOf(GameView board, CardView card) {
-        List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
-        int index = cards.indexOf(card);
-        if (index < 0) {
-            return layout().cardAt(card.placedAt().orElse(TablePosition.ORIGIN));
-        }
-        List<Integer> depths = TableStacking.depths(spotsIn(cards));
-        Rect attached = attachmentRectOf(cards, depths, card);
-        return attached != null ? attached : spotOf(card, depths.get(index));
-    }
-
-    private Rect handSlotOf(GameView board, CardView card) {
-        SeatId seat = mySeat().orElse(null);
-        if (seat == null) {
-            return Rect.NONE;
-        }
-        List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
-        int index = hand.indexOf(card);
-        return index < 0 ? Rect.NONE : handSlot(layout().hand(), hand.size(), index);
-    }
-
-    private boolean isSelected(CardView card) {
-        return card instanceof CardView.Visible visible && selected.contains(visible.id());
-    }
-
-    /**
-     * The cards a verb should apply to.
-     *
-     * <p>The selection when the card acted on is part of it, and just that card otherwise.
-     * Right-clicking a card outside the selection is somebody addressing that card, not
-     * forgetting what they had picked - so it acts on the one under the cursor and leaves the
-     * selection alone.
-     */
-    private List<CardInstanceId> targetsFor(CardInstanceId card) {
-        if (!selected.contains(card)) {
-            return List.of(card);
-        }
-        return List.copyOf(selected);
-    }
-
-    /** Every selected card on the focused board, in the board's own stacking order. */
-    private List<CardView> selectedOn(GameView board) {
-        List<CardView> found = new ArrayList<>();
-        for (CardView card : board.seat(focused).zone(Zone.BATTLEFIELD).cards()) {
-            if (isSelected(card)) {
-                found.add(card);
-            }
-        }
-        return found;
-    }
-
-    /** Picks out every card the box touches, in place of whatever was picked before. */
-    private void selectWithin(GameView board, Rect box) {
-        selected.clear();
-        List<CardView> cards = board.seat(focused).zone(Zone.BATTLEFIELD).cards();
-        List<Integer> depths = TableStacking.depths(spotsIn(cards));
-        for (int index = 0; index < cards.size(); index++) {
-            if (cards.get(index) instanceof CardView.Visible visible
-                    && spotOf(cards.get(index), depths.get(index)).overlaps(box)) {
-                selected.add(visible.id());
-            }
-        }
-    }
-
-    private boolean isHeld(CardView card) {
-        return held != null && card instanceof CardView.Visible visible && visible.id().equals(held.card());
-    }
 
     /**
      * The keys, matched to Tabletop Simulator's defaults.
@@ -1282,9 +1386,15 @@ public final class TableScreen extends Screen {
      */
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
-        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && (menu != null || !attaching.isEmpty())) {
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_F1) {
+            showingKeys = !showingKeys;
+            return true;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE
+                && (menu != null || !attaching.isEmpty() || showingKeys)) {
             menu = null;
             attaching = List.of();
+            showingKeys = false;
             return true;
         }
         SeatId me = mySeat().orElse(null);
@@ -1320,6 +1430,33 @@ public final class TableScreen extends Screen {
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE -> {
                 return deleteSelection(me);
+            }
+
+            // --- TTS camera keys ---
+            // WASD and the arrows slide the view, which is how TTS moves its camera and the
+            // only way to pan at all on a mouse without a wheel to press. The sign is the
+            // table's, not the camera's: pressing right looks further right, so the table
+            // slides left under you - the same direction dragging the felt leftwards would.
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_W, org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> {
+                geometry.pan(0, PAN_STEP);
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_S, org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> {
+                geometry.pan(0, -PAN_STEP);
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_A, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT -> {
+                geometry.pan(PAN_STEP, 0);
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_D, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT -> {
+                geometry.pan(-PAN_STEP, 0);
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> {
+                // The way back when you have zoomed into a corner and lost the table.
+                geometry.showEverything();
+                return true;
             }
 
             // --- ours, chosen to keep clear of theirs ---
@@ -1362,11 +1499,10 @@ public final class TableScreen extends Screen {
         if (board == null) {
             return List.of();
         }
-        return cardOnSurfaceAt(board, cursorX, cursorY)
-                .filter(CardView.Visible.class::isInstance)
-                .map(CardView.Visible.class::cast)
-                .map(visible -> List.of(visible.id()))
-                .orElseGet(List::of);
+        Placed under = frontMostAt(everythingOnTheTable(board), cursorX, cursorY);
+        return under != null && under.card() instanceof CardView.Visible visible
+                ? List.of(visible.id())
+                : List.of();
     }
 
     private boolean flipUnderCursor(SeatId me) {
@@ -1413,7 +1549,7 @@ public final class TableScreen extends Screen {
         for (CardView card : cards) {
             if (card instanceof CardView.Visible visible) {
                 send(new GameEvent.CardMoved(me, visible.id(),
-                        ZoneRef.of(focused, Zone.BATTLEFIELD), Placement.at(onto)));
+                        ZoneRef.of(me, Zone.BATTLEFIELD), Placement.at(onto)));
             }
         }
         selected.clear();
@@ -1437,6 +1573,7 @@ public final class TableScreen extends Screen {
                 seen.token() ? new GameEvent.TokenRemoved(me, seen.id()) : null);
         return !targets.isEmpty();
     }
+
 
     /**
      * Hands the turn on, and untaps whoever is receiving it.
@@ -1469,9 +1606,7 @@ public final class TableScreen extends Screen {
     // --------------------------------------------------------------- drawing
 
     /** A card on the table: at its own spot, turned to its own angle, counters and all. */
-    private void drawTableCard(GuiGraphics graphics, CardView card, Rect where, boolean hovered) {
-        int angle = angleOf(card);
-
+    private void drawTableCard(GuiGraphics graphics, CardView card, Rect where, int angle, boolean hovered) {
         if (angle == 0) {
             drawCard(graphics, card, where, hovered, card.tapped());
             return;
@@ -1602,9 +1737,10 @@ public final class TableScreen extends Screen {
         }
     }
 
+
     private TableScreenLayout layout() {
         if (layout == null) {
-            layout = TableScreenLayout.of(this.width, this.height, otherSeats().size());
+            layout = TableScreenLayout.of(this.width, this.height);
         }
         return layout;
     }
