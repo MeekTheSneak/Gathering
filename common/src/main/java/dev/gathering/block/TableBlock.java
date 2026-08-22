@@ -280,13 +280,7 @@ public class TableBlock extends BaseEntityBlock {
         // between a Commander pod and a best-of-three of Modern, and picking one for the
         // table picks a format to be the real one.
         if (player.isShiftKeyDown()) {
-            if (player instanceof net.minecraft.server.level.ServerPlayer asking
-                    && !TableSessions.hasSession(level, tableOrigin)) {
-                dev.gathering.server.TableSetup.ask(asking, tableOrigin);
-            } else if (TableSessions.hasSession(level, tableOrigin)) {
-                player.sendSystemMessage(
-                        Component.translatable("message.gathering.session_already_running"));
-            }
+            startOrContinue(level, tableOrigin, player);
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -297,8 +291,46 @@ public class TableBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
 
+        // Between games of a set, the same click opens your deck to change it. Same gesture,
+        // because "open the table" is what a player means either way and the table knows
+        // which of those it currently is.
+        if (player instanceof net.minecraft.server.level.ServerPlayer between
+                && level instanceof net.minecraft.server.level.ServerLevel server
+                && dev.gathering.server.TableMatch.isBetweenGames(server, tableOrigin)) {
+            if (dev.gathering.server.TableMatch.isSideboarding(server, tableOrigin)) {
+                dev.gathering.server.Sideboarding.offerTo(between, tableOrigin);
+            } else {
+                between.sendSystemMessage(
+                        Component.translatable("message.gathering.next_game_ready"));
+            }
+            return ItemInteractionResult.SUCCESS;
+        }
+
         report(level, tableOrigin, cluster, player);
         return ItemInteractionResult.SUCCESS;
+    }
+
+    /**
+     * Crouching on a table: either "what shall we play" or "next game, please".
+     *
+     * <p>Which one depends on whether a set is already running here. Asking the format again
+     * between games of a best-of-three would be asking a question that has been answered, and
+     * offering to change it mid-set is offering to make the score meaningless.
+     */
+    private static void startOrContinue(Level level, BlockPos tableOrigin, Player player) {
+        if (TableSessions.hasSession(level, tableOrigin)) {
+            player.sendSystemMessage(Component.translatable("message.gathering.session_already_running"));
+            return;
+        }
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server)
+                || !(player instanceof net.minecraft.server.level.ServerPlayer asking)) {
+            return;
+        }
+        if (dev.gathering.server.TableMatch.isBetweenGames(server, tableOrigin)) {
+            dev.gathering.server.TableMatch.startNextGame(server, tableOrigin, asking);
+            return;
+        }
+        dev.gathering.server.TableSetup.ask(asking, tableOrigin);
     }
 
     /**

@@ -69,6 +69,10 @@ public final class TableActions {
                 .flatMap(anchor -> TableBlock.entityAt(level, anchor))
                 .ifPresent(TableBlockEntity::setChanged);
         TableBroadcast.sendToTable(level, origin);
+
+        // Last, and after the board has gone out: a move that ended the game is still a move,
+        // and everybody should see the board it ended on before it is taken away.
+        TableMatch.settleIfFinished(level, origin, session.state());
     }
 
     /**

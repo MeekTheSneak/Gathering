@@ -144,6 +144,10 @@ public final class GatheringNeoForgeClient {
                     .setScreen(new dev.gathering.client.TableSetupScreen(setup.table())));
             return;
         }
+        if (payload instanceof dev.gathering.network.OpenSideboardPayload sideboard) {
+            context.enqueueWork(() -> acceptSideboard(sideboard));
+            return;
+        }
         if (payload instanceof dev.gathering.network.TableViewPayload table) {
             context.enqueueWork(() -> acceptTableView(table));
             return;
@@ -164,6 +168,22 @@ public final class GatheringNeoForgeClient {
                 }
             });
         }
+    }
+
+    /**
+     * Opens the sideboard, or refreshes the one already open.
+     *
+     * <p>Refreshing rather than reopening matters: every swap sends the deck back, and a
+     * screen that was rebuilt each time would lose its scroll position after every single
+     * card - which is most of the interaction.
+     */
+    private static void acceptSideboard(dev.gathering.network.OpenSideboardPayload payload) {
+        if (Minecraft.getInstance().screen instanceof dev.gathering.client.SideboardScreen open) {
+            open.update(payload.deck(), payload.gameNumber(), payload.bestOf());
+            return;
+        }
+        Minecraft.getInstance().setScreen(new dev.gathering.client.SideboardScreen(
+                payload.table(), payload.deck(), payload.gameNumber(), payload.bestOf()));
     }
 
     /** Takes a board off the wire and, if asked, sits the player down at it. */

@@ -79,6 +79,19 @@ public final class TableSessions {
      * arriving later should find a seat waiting rather than a game that has no room.
      */
     public static Outcome start(Level level, BlockPos tableOrigin, MatchRules rules) {
+        return start(level, tableOrigin, rules, null);
+    }
+
+    /**
+     * Starts a game, either the first of a set or the next one.
+     *
+     * <p>{@code continuing} is the score so far, or null to begin a new set at nil-nil. The
+     * next game of a set also gets every deck the table is holding put straight back down and
+     * shuffled: in paper you keep your deck between games of a match, and making people hand
+     * it over again each time would be ceremony with a chance of getting it wrong.
+     */
+    public static Outcome start(
+            Level level, BlockPos tableOrigin, MatchRules rules, MatchState continuing) {
         BlockPos anchor = anchorOf(level, tableOrigin).orElse(null);
         if (anchor == null) {
             return Outcome.NO_TABLE;
@@ -118,7 +131,20 @@ public final class TableSessions {
             session.submit(new GameEvent.SeatTaken(new SeatId(index), new PlayerRef(occupant.get(), name)));
         }
 
-        table.beginSession(session, rules.format().startingLife(), MatchState.beginning(rules));
+        table.beginSession(session, rules.format().startingLife(),
+                continuing == null ? MatchState.beginning(rules) : continuing);
+
+        // Decks the table is already holding go back down by themselves. Only ever true for
+        // the second game of a set onwards, because nothing is held before the first.
+        table.heldDecks().forEach((seat, deck) -> {
+            if (!session.state().hasSeat(seat)) {
+                return;
+            }
+            session.submit(new GameEvent.DeckLoaded(seat,
+                    deck.entries().stream().map(dev.gathering.item.CardComponent::toIdentity).toList(),
+                    deck.commanders().stream().map(dev.gathering.item.CardComponent::toIdentity).toList()));
+            session.submit(new GameEvent.LibraryShuffled(seat, seat));
+        });
         return Outcome.STARTED;
     }
 

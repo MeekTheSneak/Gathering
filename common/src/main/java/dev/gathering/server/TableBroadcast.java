@@ -101,6 +101,13 @@ public final class TableBroadcast {
         }
     }
 
+    /** Says something to everyone at this cluster. What happened at the table is table news. */
+    public static void tell(ServerLevel level, BlockPos tableOrigin, net.minecraft.network.chat.Component line) {
+        for (Seated seated : seatedAt(level, tableOrigin)) {
+            seated.player().sendSystemMessage(line);
+        }
+    }
+
     /** Everyone registered at this cluster who is actually online. */
     public static List<Seated> seatedAt(ServerLevel level, BlockPos tableOrigin) {
         TableCluster cluster = TableClusters.at(level, tableOrigin);

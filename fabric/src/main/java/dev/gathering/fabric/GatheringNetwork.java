@@ -6,8 +6,10 @@ import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
+import dev.gathering.network.OpenSideboardPayload;
 import dev.gathering.network.OpenTableSetupPayload;
 import dev.gathering.network.RequestCardMetadataPayload;
+import dev.gathering.network.SideboardEditPayload;
 import dev.gathering.network.StartTablePayload;
 import dev.gathering.network.TableActionPayload;
 import dev.gathering.network.TableViewPayload;
@@ -39,6 +41,8 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(DeckEditPayload.TYPE, DeckEditPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(TableActionPayload.TYPE, TableActionPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(StartTablePayload.TYPE, StartTablePayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                SideboardEditPayload.TYPE, SideboardEditPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(TableViewPayload.TYPE, TableViewPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CloseTablePayload.TYPE, CloseTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC);
@@ -46,6 +50,8 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playS2C().register(OpenImportScreenPayload.TYPE, OpenImportScreenPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
                 OpenTableSetupPayload.TYPE, OpenTableSetupPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                OpenSideboardPayload.TYPE, OpenSideboardPayload.STREAM_CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(ImportDecklistPayload.TYPE, (payload, context) -> {
             CardDataService service = CardDataService.active().orElse(null);
@@ -72,5 +78,8 @@ final class GatheringNetwork {
 
         ServerPlayNetworking.registerGlobalReceiver(StartTablePayload.TYPE, (payload, context) ->
                 dev.gathering.server.TableSetup.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(SideboardEditPayload.TYPE, (payload, context) ->
+                dev.gathering.server.Sideboarding.handle(context.player(), payload));
     }
 }

@@ -7,8 +7,10 @@ import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
 import dev.gathering.network.OpenImportScreenPayload;
+import dev.gathering.network.OpenSideboardPayload;
 import dev.gathering.network.OpenTableSetupPayload;
 import dev.gathering.network.RequestCardMetadataPayload;
+import dev.gathering.network.SideboardEditPayload;
 import dev.gathering.network.StartTablePayload;
 import dev.gathering.network.TableActionPayload;
 import dev.gathering.network.TableViewPayload;
@@ -68,6 +70,11 @@ public final class GatheringNetwork {
                 StartTablePayload.STREAM_CODEC,
                 GatheringNetwork::onStartTable);
 
+        registrar.playToServer(
+                SideboardEditPayload.TYPE,
+                SideboardEditPayload.STREAM_CODEC,
+                GatheringNetwork::onSideboardEdit);
+
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.
         registrar.playToClient(
@@ -94,6 +101,10 @@ public final class GatheringNetwork {
                 OpenTableSetupPayload.TYPE,
                 OpenTableSetupPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                OpenSideboardPayload.TYPE,
+                OpenSideboardPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
     }
 
     private static void onImportRequest(ImportDecklistPayload payload, IPayloadContext context) {
@@ -114,6 +125,12 @@ public final class GatheringNetwork {
     private static void onStartTable(StartTablePayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
             dev.gathering.server.TableSetup.handle(player, payload);
+        }
+    }
+
+    private static void onSideboardEdit(SideboardEditPayload payload, IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) {
+            dev.gathering.server.Sideboarding.handle(player, payload);
         }
     }
 
