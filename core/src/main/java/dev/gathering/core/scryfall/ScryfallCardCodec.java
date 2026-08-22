@@ -112,12 +112,25 @@ public final class ScryfallCardCodec {
         JsonArray cardFaces = array(json, "card_faces");
         if (cardFaces != null && !cardFaces.isEmpty()) {
             ImageUris cardLevelImages = parseImageUris(object(json, "image_uris"));
+            boolean cardLevelImageUsed = false;
             for (JsonElement element : cardFaces) {
                 if (!element.isJsonObject()) {
                     continue;
                 }
                 JsonObject face = element.getAsJsonObject();
                 ImageUris faceImages = parseImageUris(object(face, "image_uris"));
+                // Split, flip, adventure and aftermath cards are two lots of rules text on
+                // one piece of card, so Scryfall publishes one image at card level and none
+                // per face. That image belongs to the front and to no other face: giving it
+                // to both makes a split card look like two faces that happen to be identical,
+                // and everything downstream then draws the same picture twice. A transform
+                // card, which really is two pictures, carries its own art on each face and is
+                // untouched by this.
+                ImageUris images = faceImages;
+                if (images.isEmpty() && !cardLevelImageUsed) {
+                    images = cardLevelImages;
+                    cardLevelImageUsed = true;
+                }
                 faces.add(new CardFace(
                         string(face, "name"),
                         string(face, "mana_cost"),
@@ -128,9 +141,7 @@ public final class ScryfallCardCodec {
                         string(face, "loyalty"),
                         string(face, "flavor_text"),
                         string(face, "artist"),
-                        // Split and adventure cards carry one image at card level and none
-                        // per face; both halves then share the printed image.
-                        faceImages.isEmpty() ? cardLevelImages : faceImages));
+                        images));
             }
             return faces;
         }

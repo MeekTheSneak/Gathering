@@ -104,7 +104,9 @@ public final class CardInspectPanel {
 
     private static void drawBeside(
             GuiGraphics graphics, CardSummary summary, int anchorX, int anchorY, int screenWidth, int screenHeight) {
-        List<CardFaceSummary> faces = summary.faces();
+        // Art per printed side, text per face: a split card is one picture and two rules
+        // boxes.
+        List<CardFaceSummary> faces = summary.printedSides();
         Font font = Minecraft.getInstance().font;
 
         int artHeight = Mth.clamp(
@@ -121,7 +123,7 @@ public final class CardInspectPanel {
             content = available;
         }
 
-        List<Line> text = describe(font, faces, content);
+        List<Line> text = describe(font, summary.faces(), content);
         List<Line> credit = credit(font, content);
         int creditHeight = GAP + heightOf(credit);
         int ceiling = screenHeight - SCREEN_EDGE * 2;
@@ -170,7 +172,7 @@ public final class CardInspectPanel {
      */
     public static void renderArt(
             GuiGraphics graphics, CardSummary summary, int x, int y, int width, int height) {
-        List<CardFaceSummary> faces = summary.faces();
+        List<CardFaceSummary> faces = summary.printedSides();
         int count = Math.max(1, faces.size());
         if (width <= 0 || height <= 0) {
             return;
@@ -234,7 +236,7 @@ public final class CardInspectPanel {
             GuiGraphics graphics, CardSummary summary, int screenWidth, int screenHeight) {
         graphics.fill(0, 0, screenWidth, screenHeight, BACKDROP);
 
-        List<CardFaceSummary> faces = summary.faces();
+        List<CardFaceSummary> faces = summary.printedSides();
         int cardHeight = Math.round(screenHeight * FULL_SCREEN_HEIGHT_FRACTION);
         int cardWidth = Math.round(cardHeight * CARD_ASPECT);
 
@@ -255,7 +257,7 @@ public final class CardInspectPanel {
             left += cardWidth + GAP;
         }
 
-        drawTextPanel(graphics, faces, left, top, SIDEBAR_WIDTH, cardHeight);
+        drawTextPanel(graphics, summary.faces(), left, top, SIDEBAR_WIDTH, cardHeight);
     }
 
     private static void drawFace(GuiGraphics graphics, CardFaceSummary face, int x, int y, int width, int height) {

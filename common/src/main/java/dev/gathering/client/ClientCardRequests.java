@@ -1,0 +1,105 @@
+package dev.gathering.client;
+
+import dev.gathering.core.card.MetadataRequests;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.CardItem;
+import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DeckItem;
+import dev.gathering.network.RequestCardMetadataPayload;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+
+/**
+ * Asks the server what the cards in this player's inventory are.
+ *
+ * <p>Card metadata is thrown away on disconnect, so after a restart - or a crash, or a server
+ * hop - a card in an inventory is a UUID and nothing else: no name, no art, nothing to look
+ * at when the read key is held. Opening a deck asked about that deck's cards, and nothing
+ * asked about anything else, so a loose card stayed blank until it happened to be in a deck
+ * somebody opened.
+ *
+ * <p>Which printings are worth asking about is decided by {@link MetadataRequests}, which is
+ * pure and tested, because this runs every tick and the failure mode of getting it wrong is
+ * a request storm aimed at somebody else's server.
+ *
+ * <p>Only ever asks about cards the player can see themselves holding, so it grants no
+ * access they did not have.
+ *
+ * <p>Client-only.
+ */
+public final class ClientCardRequests {
+
+    /** Every half second. Cards do not appear in an inventory quickly enough to need more. */
+    private static final int TICK_INTERVAL = 10;
+
+    /** One request per sweep; a big inventory takes a few sweeps rather than one huge packet. */
+    private static final int BATCH = 64;
+
+    private static final MetadataRequests REQUESTS = new MetadataRequests();
+
+    private static int countdown;
+
+    private ClientCardRequests() {
+    }
+
+    public static void tick() {
+        if (--countdown > 0) {
+            return;
+        }
+        countdown = TICK_INTERVAL;
+
+        Minecraft minecraft = Minecraft.getInstance();
+        Player player = minecraft.player;
+        if (player == null || minecraft.getConnection() == null) {
+            return;
+        }
+
+        List<UUID> held = heldPrintings(player);
+        List<UUID> wanted = REQUESTS.next(
+                held, printing -> ClientCardCache.get().summary(printing).isPresent(),
+                System.currentTimeMillis(), BATCH);
+        if (!wanted.isEmpty()) {
+            ClientNetworking.send(new RequestCardMetadataPayload(wanted));
+        }
+    }
+
+    /** Called on disconnect, alongside the cache: the next server is a different one. */
+    public static void clear() {
+        REQUESTS.clear();
+        countdown = 0;
+    }
+
+    /**
+     * Every printing the player is holding.
+     *
+     * <p>Loose cards, plus each deck's commanders - a deck shows its commander's name on the
+     * item itself, so that much is needed without opening it. The rest of a deck is asked for
+     * when the deck is opened, because a shelf of deckboxes should not be a thousand-card
+     * request.
+     */
+    private static List<UUID> heldPrintings(Player player) {
+        List<UUID> printings = new ArrayList<>();
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            collect(inventory.getItem(slot), printings);
+        }
+        collect(player.containerMenu == null ? ItemStack.EMPTY : player.containerMenu.getCarried(), printings);
+        return printings;
+    }
+
+    private static void collect(ItemStack stack, List<UUID> into) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+        CardItem.cardOf(stack).flatMap(CardComponent::scryfallId).ifPresent(into::add);
+        DeckItem.deckOf(stack)
+                .map(DeckComponent::commanders)
+                .ifPresent(commanders -> commanders.forEach(
+                        card -> card.scryfallId().ifPresent(into::add)));
+    }
+}

@@ -131,6 +131,16 @@ a symbol worth adding.
 Card art has rounded corners now, cut into the image itself, so it looks like a card wherever
 it appears rather than only where something happens to be framing it.
 
+**Worth deliberately breaking:** import a deck, quit to the title screen, and come back — or
+kill the game outright. Cards in your inventory should still know their names and still have
+art, without you having to open anything. That did not work before: only opening a deck asked
+the server about cards, so a loose card stayed blank for the rest of the session.
+
+**Worth checking on the odd cards.** A split card (`/gathering card Fire`) is two lots of
+rules text on **one** picture — if you see the same picture twice side by side, that is the
+bug. A transform card (`/gathering card Delver of Secrets`) really is two pictures. Both
+should survive a restart with both halves intact.
+
 The first look at a given card fetches the art — you may see "Fetching card art..." for a
 moment, then it should be instant forever after, including across restarts.
 

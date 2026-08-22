@@ -60,6 +60,32 @@ class DiskCardMetadataStoreTest {
     }
 
     @Test
+    @DisplayName("a double-faced card comes back off disk with both faces intact")
+    void bothFacesSurviveARestart(@TempDir Path root) throws IOException {
+        // A restart throws away everything a client was told, so what it is told again comes
+        // straight off this disk. A card whose back face did not survive the round trip would
+        // come back single-faced - a transform card that will not turn over, and a split card
+        // missing half its rules.
+        CardMetadata delver = store(new DiskCardMetadataStore(root), "delver_of_secrets");
+        CardMetadata fireIce = store(new DiskCardMetadataStore(root), "fire_ice");
+
+        DiskCardMetadataStore reopened = new DiskCardMetadataStore(root);
+
+        CardMetadata restoredDelver = reopened.find(CardQuery.byId(delver.scryfallId())).orElseThrow();
+        assertThat(restoredDelver.faces()).hasSize(2);
+        assertThat(restoredDelver.faces()).isEqualTo(delver.faces());
+        assertThat(restoredDelver.faces().get(1).oracleText()).isNotBlank();
+        assertThat(restoredDelver.faces().get(1).imageUris().normal()).isNotBlank();
+
+        CardMetadata restoredFireIce = reopened.find(CardQuery.byId(fireIce.scryfallId())).orElseThrow();
+        assertThat(restoredFireIce.faces()).hasSize(2);
+        assertThat(restoredFireIce.faces()).isEqualTo(fireIce.faces());
+        // Still one picture on the front and none on the back, exactly as it went in.
+        assertThat(restoredFireIce.faces().get(0).hasImages()).isTrue();
+        assertThat(restoredFireIce.faces().get(1).hasImages()).isFalse();
+    }
+
+    @Test
     void loadIndexMakesNameAndPrintingLookupsWorkAfterRestart(@TempDir Path root) throws IOException {
         DiskCardMetadataStore store = new DiskCardMetadataStore(root);
         store(store, "sol_ring");

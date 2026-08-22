@@ -7,6 +7,7 @@ import dev.gathering.client.CardZoomOverlay;
 import dev.gathering.client.ClientCardCache;
 import dev.gathering.client.ClientCardImages;
 import dev.gathering.client.ClientHoverState;
+import dev.gathering.client.ClientCardRequests;
 import dev.gathering.client.ClientNetworking;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
@@ -100,6 +101,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
             if (client.screen == null) {
                 ClientHoverState.clear();
             }
+            ClientCardRequests.tick();
         });
 
         HudRenderCallback.EVENT.register((graphics, tickDelta) -> CardZoomOverlay.render(
@@ -122,6 +124,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             // What one server told us is not true of the next one.
             ClientCardCache.get().clear();
+            ClientCardRequests.clear();
             ClientHoverState.clear();
         });
     }

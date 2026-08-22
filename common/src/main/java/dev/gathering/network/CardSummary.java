@@ -62,4 +62,19 @@ public record CardSummary(UUID scryfallId, CardFaceSummary front, Optional<CardF
     public List<CardFaceSummary> faces() {
         return back.map(b -> List.of(front, b)).orElseGet(() -> List.of(front));
     }
+
+    /**
+     * The sides that are actually printed, which is what gets drawn.
+     *
+     * <p>Not the same as {@link #faces()}. A split or flip card has two faces of rules text
+     * on one piece of card, and drawing one image per face shows the same picture twice; a
+     * transform card has two of everything. The difference is whether the faces carry their
+     * own art, which {@link #of} has already sorted out.
+     */
+    public List<CardFaceSummary> printedSides() {
+        List<CardFaceSummary> printed = faces().stream()
+                .filter(face -> face.readableImage().isPresent())
+                .toList();
+        return printed.isEmpty() ? List.of(front) : printed;
+    }
 }

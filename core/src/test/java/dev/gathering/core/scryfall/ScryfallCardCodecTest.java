@@ -43,6 +43,24 @@ class ScryfallCardCodecTest {
     }
 
     @Test
+    @DisplayName("a split card is two lots of text but only one picture")
+    void aSplitCardCarriesItsOneImageOnTheFrontFaceOnly() {
+        // Fire // Ice is two halves printed on one piece of card, so Scryfall publishes one
+        // image at card level and none per face. Handing that image to both faces makes the
+        // card look like two faces that happen to match, and everything that draws per face
+        // then draws the same picture twice - which is what it did.
+        CardMetadata fireIce = Fixtures.card("fire_ice");
+
+        assertThat(fireIce.layout()).isEqualTo("split");
+        assertThat(fireIce.faces()).hasSize(2);
+        assertThat(fireIce.faces().get(0).name()).isEqualTo("Fire");
+        assertThat(fireIce.faces().get(1).name()).isEqualTo("Ice");
+
+        assertThat(fireIce.faces().get(0).hasImages()).isTrue();
+        assertThat(fireIce.faces().get(1).hasImages()).isFalse();
+    }
+
+    @Test
     void unknownRaritiesAndLegalitiesDegradeRatherThanThrow() {
         JsonObject json = Fixtures.json("sol_ring");
         json.addProperty("rarity", "supermythic");

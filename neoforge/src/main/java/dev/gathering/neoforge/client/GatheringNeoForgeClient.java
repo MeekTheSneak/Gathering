@@ -7,6 +7,7 @@ import dev.gathering.client.CardZoomOverlay;
 import dev.gathering.client.ClientCardCache;
 import dev.gathering.client.ClientCardImages;
 import dev.gathering.client.ClientHoverState;
+import dev.gathering.client.ClientCardRequests;
 import dev.gathering.client.ClientNetworking;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
@@ -146,11 +147,12 @@ public final class GatheringNeoForgeClient {
         ClientHoverState.clear();
     }
 
-    /** No screen means no slots, so nothing is hovered. */
     private static void onClientTick(ClientTickEvent.Post event) {
+        // No screen means no slots, so nothing is hovered.
         if (Minecraft.getInstance().screen == null) {
             ClientHoverState.clear();
         }
+        ClientCardRequests.tick();
     }
 
     /**
@@ -183,6 +185,7 @@ public final class GatheringNeoForgeClient {
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         // What one server told us is not true of the next one.
         ClientCardCache.get().clear();
+        ClientCardRequests.clear();
         ClientHoverState.clear();
     }
 }

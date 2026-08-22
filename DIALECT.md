@@ -305,3 +305,17 @@ cannot be inferred from reading the code.
 - **Inside a screen the read key follows the cursor and nothing else.** It deliberately does
   not fall back to the card in the player's hand: falling back meant a held card shadowed
   every slot the cursor was not over, and answered a question nobody had asked.
+- **"Two faces" and "two sides" are different things.** A split, flip, adventure or aftermath
+  card is two lots of rules text printed on one piece of card; a transform card is two of
+  everything. Scryfall says which by where it puts the art - on the card for the first kind,
+  on each face for the second - so the codec gives a card-level image to the **front face
+  only**, and `CardSummary#printedSides` is what gets drawn while `faces()` is what gets
+  read. Copying the card image onto both faces makes a split card look like two faces that
+  happen to match, and every renderer downstream then draws the same picture twice.
+- **A client is told about cards it holds, and something has to keep asking.** Metadata is
+  memory only and cleared on disconnect on purpose, so after a restart a card in an inventory
+  is a UUID and nothing else. Opening a deck asked about that deck; nothing asked about a
+  loose card, so it stayed nameless and artless until it happened to be in a deck somebody
+  opened. `ClientCardRequests` sweeps the inventory; what is worth asking about is decided by
+  `MetadataRequests` in `:core`, because this runs from a tick handler and the failure mode
+  of getting it wrong is a request storm aimed at somebody else's server.
