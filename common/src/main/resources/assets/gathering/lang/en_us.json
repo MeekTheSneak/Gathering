@@ -19,7 +19,7 @@
   "screen.gathering.import.done_with_problems": "Imported %s cards, with %s lines that need a look:",
   "screen.gathering.import.empty": "Nothing to import yet.",
   "screen.gathering.import.more_problems": "...and %s more.",
-  "screen.gathering.import.placeholder": "Paste a decklist here.\n\nCommander\n1 Halana and Alena, Partners (VOW) 239\n\nDeck\n1 Sol Ring (LTC) 284",
+  "screen.gathering.import.placeholder": "Paste a decklist here - the card list itself, not a link to it.\nOn Archidekt or Moxfield use Export, then Text.\n\nCommander\n1 Halana and Alena, Partners (VOW) 239\n\nDeck\n1 Sol Ring (LTC) 284",
   "screen.gathering.import.too_long": "That decklist is longer than %s characters.",
   "screen.gathering.import.working": "Resolving cards...",
   "tooltip.gathering.deck_size": "%s cards",

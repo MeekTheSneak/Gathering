@@ -339,6 +339,46 @@ class DecklistParserTest {
         }
 
         @Test
+        @DisplayName("pasting a deck link says what to do instead of hunting for a card called https")
+        void deckLinksAreRecognisedAndExplained() {
+            ParsedDecklist archidekt = DecklistParser.parse("https://archidekt.com/decks/1234567/my_deck");
+            ParsedDecklist moxfield = DecklistParser.parse("https://www.moxfield.com/decks/AbCdEf123456");
+            ParsedDecklist bare = DecklistParser.parse("archidekt.com/decks/1234567");
+
+            assertThat(archidekt.entries()).isEmpty();
+            assertThat(archidekt.problems()).singleElement().satisfies(problem -> {
+                assertThat(problem.reason()).contains("deck link").contains("Archidekt").contains("Export");
+                assertThat(problem.lineNumber()).isEqualTo(1);
+            });
+            assertThat(moxfield.problems()).singleElement()
+                    .satisfies(problem -> assertThat(problem.reason()).contains("Moxfield"));
+            assertThat(bare.problems()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("a link among real lines costs only its own line")
+        void aLinkDoesNotCostTheRestOfTheList() {
+            ParsedDecklist result = DecklistParser.parse("""
+                    https://archidekt.com/decks/1234567/my_deck
+                    1 Sol Ring
+                    1 Command Tower
+                    """);
+
+            assertThat(result.entries()).hasSize(2);
+            assertThat(result.problems()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("a card with slashes in its name is still a card, not a web address")
+        void splitCardsAreNotMistakenForLinks() {
+            assertThat(DecklistParser.parse("1 Fire // Ice (MH2) 290").problems()).isEmpty();
+            assertThat(DecklistParser.parse("Fire // Ice").entries()).singleElement()
+                    .satisfies(entry -> assertThat(entry.name()).isEqualTo("Fire // Ice"));
+            assertThat(DecklistParser.parse("1 Delver of Secrets // Insectile Aberration").problems()).isEmpty();
+            assertThat(DecklistParser.parse("1 Mr. Orfeo, the Boulder").problems()).isEmpty();
+        }
+
+        @Test
         void emptyInputIsEmptyNotBroken() {
             assertThat(DecklistParser.parse("")).isEqualTo(ParsedDecklist.EMPTY);
             assertThat(DecklistParser.parse("   \n\n  ")).isEqualTo(ParsedDecklist.EMPTY);

@@ -52,6 +52,21 @@ public final class DecklistParser {
     private static final Pattern ARENA_NAME = Pattern.compile("^Name\\s+(.+)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern WHITESPACE_RUN = Pattern.compile("\\s+");
 
+    /**
+     * A bare web address on its own line.
+     *
+     * <p>Pasting the link to a deck instead of the deck is the single most natural mistake to
+     * make here - it is what you have in your clipboard after looking at your list, and every
+     * deck site's share button hands you one. Without this it parses as a card named
+     * "https://archidekt.com/decks/1234567", resolves to nothing, and the player is told no
+     * such card exists, which is true and no help at all.
+     *
+     * <p>Requires a dotted domain followed by a slash and no spaces, so it cannot swallow a
+     * real card name: "Fire // Ice" has no dotted domain before its slashes.
+     */
+    private static final Pattern LOOKS_LIKE_A_LINK = Pattern.compile(
+            "^(?:https?://)?(?:www\\.)?[a-z0-9-]+(?:\\.[a-z0-9-]+)+/\\S*$", Pattern.CASE_INSENSITIVE);
+
     private DecklistParser() {
     }
 
@@ -114,6 +129,10 @@ public final class DecklistParser {
             }
 
             inAboutBlock = false;
+            if (LOOKS_LIKE_A_LINK.matcher(line).matches()) {
+                problems.add(new ParseProblem(lineNumber, line, linkAdviceFor(line)));
+                continue;
+            }
             LineResult result = parseCardLine(line, current, lineNumber, rawLine);
             if (result.problem() != null) {
                 problems.add(result.problem());
@@ -141,6 +160,25 @@ public final class DecklistParser {
             entries.add(applies && positioned.block() == 1 ? entry.withSection(DeckSection.SIDEBOARD) : entry);
         }
         return entries;
+    }
+
+    /**
+     * What to do about a pasted link, named per site because "export it" is useless without
+     * saying where the button is.
+     */
+    private static String linkAdviceFor(String link) {
+        String host = link.toLowerCase(Locale.ROOT);
+        if (host.contains("archidekt.com")) {
+            return "that is a deck link - open the deck on Archidekt, choose Export, pick Text, and paste that";
+        }
+        if (host.contains("moxfield.com")) {
+            return "that is a deck link - open the deck on Moxfield, choose More, Export, Text, and paste that";
+        }
+        if (host.contains("tappedout.net") || host.contains("deckstats.net")
+                || host.contains("mtggoldfish.com") || host.contains("scryfall.com")) {
+            return "that is a deck link - use the site's export or download option and paste the card list itself";
+        }
+        return "that looks like a web address rather than a card - paste the decklist text itself";
     }
 
     private static boolean isComment(String line) {
