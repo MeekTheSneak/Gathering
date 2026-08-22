@@ -50,11 +50,24 @@ public final class VisibilityRules {
     }
 
     public static GameView viewFor(GameState state, Viewer viewer) {
+        return viewFor(state, viewer, List.of());
+    }
+
+    /**
+     * A view with the public log attached.
+     *
+     * <p>The same log for every viewer, which is the point of it: the log is what everybody
+     * agrees happened. It is safe to send unfiltered because {@link CardRef} has already
+     * decided how strongly each line may name a card, against the board at the time - a line
+     * about a card in somebody's hand says "a card" to its own author too.
+     */
+    public static GameView viewFor(
+            GameState state, Viewer viewer, List<dev.gathering.core.game.event.LogEntry> log) {
         List<SeatView> seats = new ArrayList<>(state.seats().size());
         for (SeatId seat : state.seats()) {
             seats.add(seatView(state, seat, viewer));
         }
-        return new GameView(viewer, seats, state.turn(), state.ended());
+        return new GameView(viewer, seats, state.turn(), state.ended(), log);
     }
 
     /** Every seated view plus the spectator view, for tests and for broadcast. */

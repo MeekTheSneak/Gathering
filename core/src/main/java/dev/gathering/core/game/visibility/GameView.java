@@ -13,10 +13,16 @@ import java.util.Map;
  * is what makes the security property checkable: assert on this object and you have asserted
  * on the payload.
  */
-public record GameView(Viewer viewer, List<SeatView> seats, TurnMarker turn, boolean ended) {
+public record GameView(
+        Viewer viewer,
+        List<SeatView> seats,
+        TurnMarker turn,
+        boolean ended,
+        List<dev.gathering.core.game.event.LogEntry> log) {
 
     public GameView {
         seats = List.copyOf(seats);
+        log = log == null ? List.of() : List.copyOf(log);
     }
 
     public SeatView seat(SeatId id) {

@@ -3,6 +3,9 @@ package dev.gathering.core.game.persistence;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
+import dev.gathering.core.game.event.CardRef;
+import dev.gathering.core.game.event.LogArg;
+import dev.gathering.core.game.event.LogEntry;
 import dev.gathering.core.game.MarkerId;
 import dev.gathering.core.game.Phase;
 import dev.gathering.core.game.SeatId;
@@ -65,6 +68,11 @@ public final class ViewCodec {
             for (SeatView seat : view.seats()) {
                 seat(out, seat);
             }
+
+            out.writeInt(view.log().size());
+            for (LogEntry entry : view.log()) {
+                logEntry(out, entry);
+            }
         }
         return bytes.toByteArray();
     }
@@ -84,8 +92,82 @@ public final class ViewCodec {
             for (int index = 0; index < seatCount; index++) {
                 seats.add(seat(in));
             }
-            return new GameView(viewer, seats, turn, ended);
+            int logCount = size(in.readInt());
+            List<LogEntry> log = new ArrayList<>(logCount);
+            for (int index = 0; index < logCount; index++) {
+                log.add(logEntry(in));
+            }
+            return new GameView(viewer, seats, turn, ended, log);
         }
+    }
+
+    /**
+     * One log line.
+     *
+     * <p>Arguments are tagged by name rather than by ordinal, like every other tagged thing
+     * written here: an ordinal means something different the moment the sealed set gains a
+     * member, and this crosses versions.
+     */
+    private static void logEntry(DataOutput out, LogEntry entry) throws IOException {
+        out.writeLong(entry.sequence());
+        out.writeUTF(entry.key());
+        out.writeBoolean(entry.undone());
+        out.writeInt(entry.args().size());
+        for (LogArg arg : entry.args()) {
+            switch (arg) {
+                case LogArg.Seat seat -> {
+                    out.writeUTF("seat");
+                    out.writeInt(seat.seat().index());
+                }
+                case LogArg.Amount amount -> {
+                    out.writeUTF("amount");
+                    out.writeInt(amount.value());
+                }
+                case LogArg.Where where -> {
+                    out.writeUTF("zone");
+                    out.writeUTF(where.zone().name());
+                }
+                case LogArg.Text text -> {
+                    out.writeUTF("text");
+                    out.writeUTF(text.text());
+                }
+                case LogArg.Card card -> {
+                    switch (card.card()) {
+                        case CardRef.ById byId -> {
+                            out.writeUTF("card");
+                            out.writeInt(byId.id().value());
+                        }
+                        case CardRef.ByMarker byMarker -> {
+                            out.writeUTF("marker");
+                            out.writeUTF(byMarker.marker().value());
+                        }
+                        case CardRef.Anonymous ignored -> out.writeUTF("anonymous");
+                    }
+                }
+            }
+        }
+    }
+
+    private static LogEntry logEntry(DataInput in) throws IOException {
+        long sequence = in.readLong();
+        String key = in.readUTF();
+        boolean undone = in.readBoolean();
+        int count = size(in.readInt());
+        List<LogArg> args = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            String tag = in.readUTF();
+            args.add(switch (tag) {
+                case "seat" -> new LogArg.Seat(new SeatId(in.readInt()));
+                case "amount" -> new LogArg.Amount(in.readInt());
+                case "zone" -> new LogArg.Where(Zone.valueOf(in.readUTF()));
+                case "text" -> new LogArg.Text(in.readUTF());
+                case "card" -> new LogArg.Card(new CardRef.ById(new CardInstanceId(in.readInt())));
+                case "marker" -> new LogArg.Card(new CardRef.ByMarker(new MarkerId(in.readUTF())));
+                case "anonymous" -> new LogArg.Card(CardRef.ANONYMOUS);
+                default -> throw new IOException("Unknown log argument: " + tag);
+            });
+        }
+        return new LogEntry(sequence, key, args, undone);
     }
 
     private static void viewer(DataOutput out, Viewer viewer) throws IOException {

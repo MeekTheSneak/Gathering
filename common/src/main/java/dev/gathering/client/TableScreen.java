@@ -129,6 +129,9 @@ public final class TableScreen extends Screen {
 
     private ContextMenu menu;
 
+    /** Whether the log panel is open. Off by default: the table is the thing you came for. */
+    private boolean showingLog;
+
     public TableScreen(BlockPos table) {
         super(Component.translatable("screen.gathering.table"));
         this.table = table;
@@ -212,6 +215,9 @@ public final class TableScreen extends Screen {
         renderHand(graphics, board, mouseX, mouseY);
         renderActions(graphics, board);
         renderTurn(graphics, board);
+        if (showingLog) {
+            renderLog(graphics, board);
+        }
         renderHeldCard(graphics, board, mouseX, mouseY);
 
         if (!attaching.isEmpty()) {
@@ -558,6 +564,39 @@ public final class TableScreen extends Screen {
                 area.width() / 2, mine ? ACCENT : LABEL);
     }
 
+    /**
+     * What has happened, most recent last.
+     *
+     * <p>Over the surface rather than beside it. The log is read in bursts - somebody asks
+     * "wait, what did you just do" - and giving it a permanent column would cost the table
+     * space every turn to answer a question asked twice a game.
+     */
+    private void renderLog(GuiGraphics graphics, GameView board) {
+        Rect surface = layout().surface();
+        Rect area = new Rect(
+                surface.x() + surface.width() / 3,
+                surface.y(),
+                surface.width() - surface.width() / 3,
+                surface.height());
+        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
+
+        int lines = Math.max(1, (area.height() - 8) / (this.font.lineHeight + 1));
+        List<dev.gathering.core.game.event.LogEntry> log = board.log();
+        int from = Math.max(0, log.size() - lines);
+
+        int y = area.y() + 4;
+        for (int index = from; index < log.size(); index++) {
+            GuiText.draw(graphics, this.font, GameLogText.render(board, log.get(index)),
+                    area.x() + 4, y, area.width() - 8, LABEL);
+            y += this.font.lineHeight + 1;
+        }
+        if (log.isEmpty()) {
+            GuiText.drawCentred(graphics, this.font,
+                    Component.translatable("screen.gathering.table.log_empty"),
+                    area.x() + area.width() / 2, area.y() + area.height() / 2, area.width() - 8, DIM);
+        }
+    }
+
     private void renderActions(GuiGraphics graphics, GameView board) {
         Rect area = layout().actions();
         // The turn takes the left half, so the hint takes the right and is drawn to fit.
@@ -616,6 +655,13 @@ public final class TableScreen extends Screen {
         GameView board = view().orElse(null);
         if (board == null) {
             return super.mouseClicked(mouseX, mouseY, button);
+        }
+
+        if (showingLog && layout().isOnSurface(x, y)) {
+            // It is covering the table; the first click puts it away rather than doing
+            // something to a card the player cannot see.
+            showingLog = false;
+            return true;
         }
 
         if (layout().opponents().contains(x, y)) {
@@ -1036,6 +1082,7 @@ public final class TableScreen extends Screen {
         List<ContextMenu.Entry> entries = ContextMenu.entries();
         entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
         entries.add(entry("make_token", this::askForToken));
+        entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
         view().ifPresent(board -> {
             entries.add(entry("next_phase", () -> send(new GameEvent.PhaseSet(
                     me, board.turn().phase().next()))));
@@ -1234,6 +1281,10 @@ public final class TableScreen extends Screen {
                 }
                 case org.lwjgl.glfw.GLFW.GLFW_KEY_U -> {
                     send(new GameEvent.SeatUntappedAll(me, me));
+                    return true;
+                }
+                case org.lwjgl.glfw.GLFW.GLFW_KEY_L -> {
+                    showingLog = !showingLog;
                     return true;
                 }
                 case org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE -> {

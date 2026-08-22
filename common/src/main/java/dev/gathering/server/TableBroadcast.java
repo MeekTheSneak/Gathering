@@ -42,6 +42,14 @@ public final class TableBroadcast {
     /** How far away a table's miniature is worth keeping up to date. */
     private static final double AMBIENT_RANGE = 32.0d;
 
+    /**
+     * How much of the log goes out with each board.
+     *
+     * <p>Enough to read what just happened during a complicated turn, and few enough that the
+     * board payload stays a board payload. The whole log lives on the server.
+     */
+    private static final int LOG_LINES_SENT = 40;
+
     /** Sends the board to every seated player at this cluster, and the public one to the room. */
     public static void sendToTable(ServerLevel level, BlockPos tableOrigin) {
         GameSession session = TableSessions.sessionAt(level, tableOrigin).orElse(null);
@@ -85,7 +93,10 @@ public final class TableBroadcast {
             boolean open) {
         Viewer viewer = seat.<Viewer>map(Viewer.Seated::new).orElseGet(Viewer.Spectator::new);
         try {
-            byte[] view = ViewCodec.write(VisibilityRules.viewFor(session.state(), viewer));
+            // The tail rather than the whole log: a long game's log is thousands of lines and
+            // nobody scrolls back past the last dozen. What is kept is kept on the server.
+            byte[] view = ViewCodec.write(VisibilityRules.viewFor(
+                    session.state(), viewer, session.recentLog(LOG_LINES_SENT)));
             player.connection.send(new ClientboundCustomPayloadPacket(
                     new TableViewPayload(tableOrigin, view, open)));
         } catch (IOException e) {

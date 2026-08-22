@@ -1,6 +1,7 @@
 package dev.gathering.core.game;
 
 import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.game.event.LogEntry;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -34,6 +35,17 @@ public final class GameSession {
     private final SessionSeed seed;
     private final GameState initial;
     private final List<SessionRecord> records = new ArrayList<>();
+
+    /**
+     * The public log, built as events arrive.
+     *
+     * <p>Built here rather than derived on demand because each line has to be described
+     * against the board <em>as it was before its own event</em> - "Chris moved Sol Ring to the
+     * graveyard" needs the Sol Ring to still be on the battlefield to be nameable - and that
+     * board is only free at the moment the event is applied. Rebuilding it later means folding
+     * the whole log again, which {@link #rebuildLog} does after a rewind and nowhere else.
+     */
+    private final List<LogEntry> log = new ArrayList<>();
 
     private UndoMode undoMode;
     private GameState state;
@@ -77,6 +89,8 @@ public final class GameSession {
         }
         session.nextSequence = highest + 1;
         session.state = session.refold();
+        // A restored session has a whole log's worth of lines nobody has described yet.
+        session.rebuildLog();
         return session;
     }
 
@@ -101,6 +115,8 @@ public final class GameSession {
         }
         SessionRecord.EventRecord record = new SessionRecord.EventRecord(nextSequence++, event, false);
         records.add(record);
+        // Described first: the line is about the board this event is about to change.
+        log.add(LogEntry.of(record.sequence(), event.describe(state), false));
         state = GameFold.apply(state, event, seed);
         return new Result.Accepted(record, state);
     }
@@ -174,6 +190,7 @@ public final class GameSession {
         records.add(undoRecord);
 
         state = refold();
+        rebuildLog();
         return new Result.Accepted(undoRecord, state);
     }
 
@@ -198,6 +215,43 @@ public final class GameSession {
     /** The whole record, undone entries included, in order. Public by default. */
     public List<SessionRecord> records() {
         return List.copyOf(records);
+    }
+
+    /**
+     * The public log, oldest first, rewound entries included and marked as such.
+     *
+     * <p>Rewound lines stay. A log that quietly loses entries when somebody undoes something
+     * is not a record of what happened, and "what happened" is the entire job.
+     */
+    public List<LogEntry> log() {
+        return List.copyOf(log);
+    }
+
+    /** The last {@code count} lines, which is what a table is actually shown. */
+    public List<LogEntry> recentLog(int count) {
+        int from = Math.max(0, log.size() - Math.max(0, count));
+        return List.copyOf(log.subList(from, log.size()));
+    }
+
+    /**
+     * Rebuilds every line by folding the log again.
+     *
+     * <p>Only after a rewind, and only because a line describes the board before its own
+     * event: undoing something in the middle changes what every later line was describing.
+     */
+    private void rebuildLog() {
+        log.clear();
+        GameState walking = initial;
+        for (SessionRecord record : records) {
+            if (!(record instanceof SessionRecord.EventRecord eventRecord)) {
+                continue;
+            }
+            log.add(LogEntry.of(
+                    eventRecord.sequence(), eventRecord.event().describe(walking), !eventRecord.isStanding()));
+            if (eventRecord.isStanding()) {
+                walking = GameFold.apply(walking, eventRecord.event(), seed);
+            }
+        }
     }
 
     /** Just the events still standing, which is what the board is folded from. */

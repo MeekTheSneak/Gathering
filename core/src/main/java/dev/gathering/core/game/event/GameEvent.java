@@ -141,7 +141,7 @@ public sealed interface GameEvent {
                         .orElseGet(() -> new CardRef.ById(card));
             }
             return LogLine.of(
-                    "log.gathering.card_moved", actor, reference, to.seat(), to.zone().name(), placement.label());
+                    "log.gathering.card_moved", actor, reference, to.seat(), to.zone(), placement.label());
         }
 
         @Override
@@ -502,7 +502,7 @@ public sealed interface GameEvent {
     record PhaseSet(SeatId actor, Phase phase) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
-            return LogLine.of("log.gathering.phase_set", actor, phase.name());
+            return LogLine.of("log.gathering.phase_set", actor, phase.displayName());
         }
     }
 
