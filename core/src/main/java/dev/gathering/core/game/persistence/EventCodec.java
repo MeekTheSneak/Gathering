@@ -66,6 +66,11 @@ public final class EventCodec {
                 card(out, e.card());
                 out.writeBoolean(e.tapped());
             }
+            case GameEvent.CardRotated e -> {
+                seat(out, e.actor());
+                card(out, e.card());
+                out.writeInt(e.rotation());
+            }
             case GameEvent.SeatUntappedAll e -> {
                 seat(out, e.actor());
                 seat(out, e.seat());
@@ -173,6 +178,7 @@ public final class EventCodec {
             case "SessionEnded" -> new GameEvent.SessionEnded(seat(in), in.readUTF());
             case "CardMoved" -> new GameEvent.CardMoved(seat(in), card(in), zone(in), placement(in));
             case "CardTapSet" -> new GameEvent.CardTapSet(seat(in), card(in), in.readBoolean());
+            case "CardRotated" -> new GameEvent.CardRotated(seat(in), card(in), in.readInt());
             case "SeatUntappedAll" -> new GameEvent.SeatUntappedAll(seat(in), seat(in));
             case "CardFacingSet" -> new GameEvent.CardFacingSet(
                     seat(in), card(in), Facing.valueOf(in.readUTF()));
@@ -247,8 +253,9 @@ public final class EventCodec {
             case Placement.Bottom ignored -> out.writeUTF("Bottom");
             case Placement.At at -> {
                 out.writeUTF("At");
-                out.writeInt(at.position().column());
-                out.writeInt(at.position().row());
+                out.writeInt(at.position().x());
+                out.writeInt(at.position().y());
+                out.writeInt(at.position().rotation());
             }
         }
     }
@@ -258,7 +265,8 @@ public final class EventCodec {
         return switch (tag) {
             case "Top" -> new Placement.Top();
             case "Bottom" -> new Placement.Bottom();
-            case "At" -> new Placement.At(new TablePosition(in.readInt(), in.readInt()));
+            case "At" -> new Placement.At(
+                    new TablePosition(in.readInt(), in.readInt(), in.readInt()));
             default -> throw new IOException("Unknown placement in the session log: " + tag);
         };
     }

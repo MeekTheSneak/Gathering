@@ -1,5 +1,7 @@
 package dev.gathering.core.ui;
 
+import dev.gathering.core.game.TablePosition;
+
 /**
  * Where everything goes on the seated view, at whatever size the window happens to be.
  *
@@ -9,8 +11,19 @@ package dev.gathering.core.ui;
  * than in the screen is that "at whatever size the window happens to be" can then be checked
  * against every size rather than the one it was written at.
  *
- * <p>The surface is a grid of card squares. How many fit is a function of the space, not a
- * constant: a busy board is drawn smaller rather than wider, because the table never grows.
+ * <p>The surface is not a grid. A card goes wherever it was dropped, at whatever angle it was
+ * left at, and may overlap its neighbours as much as a player likes - that is what a table
+ * is, and a grid is a spreadsheet with card art in it. So the only thing this has to say
+ * about the surface is how big a card is drawn on it and how a stored
+ * {@link TablePosition} and a screen pixel convert into each other.
+ *
+ * <p>That conversion addresses a card's top-left corner within the surface <em>inset by one
+ * card</em>, rather than its centre within the whole surface. Position zero is then flush
+ * against the left edge and position one is flush against the right, every card is fully on
+ * the table without anything having to clamp it afterwards, and the two directions are exact
+ * inverses - which matters because one of them draws the card and the other decides what the
+ * cursor is pointing at, and a table where those disagree drops cards next to where you
+ * aimed.
  */
 public record TableScreenLayout(
         Rect opponents,
@@ -18,10 +31,8 @@ public record TableScreenLayout(
         Rect zones,
         Rect hand,
         Rect actions,
-        int squareWidth,
-        int squareHeight,
-        int columns,
-        int rows) {
+        int cardWidth,
+        int cardHeight) {
 
     /** The printed aspect ratio, 2.5 by 3.5 inches. */
     private static final float CARD_ASPECT = 488f / 680f;
@@ -43,8 +54,8 @@ public record TableScreenLayout(
     private static final float OPPONENTS_HEIGHT_FRACTION = 0.14f;
 
     /** A card on the surface, at the size it stops being identifiable. */
-    private static final int SQUARE_MIN = 26;
-    private static final int SQUARE_MAX = 74;
+    private static final int CARD_HEIGHT_MIN = 26;
+    private static final int CARD_HEIGHT_MAX = 74;
 
     public static TableScreenLayout of(int screenWidth, int screenHeight, int opponentCount) {
         int width = Math.max(1, screenWidth);
@@ -68,12 +79,12 @@ public record TableScreenLayout(
                 MARGIN, actions.y() - GAP - handHeight, width - MARGIN * 2, handHeight);
 
         int middleTop = opponents.bottom() + GAP;
-        int middleHeight = Math.max(SQUARE_MIN, hand.y() - GAP - middleTop);
+        int middleHeight = Math.max(CARD_HEIGHT_MIN, hand.y() - GAP - middleTop);
 
         // The zone column goes beside the surface when there is room for both, and under the
         // hand's own margin when there is not - a table you cannot see is worse than one
         // whose graveyard count you have to go looking for.
-        boolean roomForZones = width - MARGIN * 2 > ZONE_WIDTH + GAP + SQUARE_MIN * 3;
+        boolean roomForZones = width - MARGIN * 2 > ZONE_WIDTH + GAP + CARD_HEIGHT_MIN * 3;
         Rect zones = roomForZones
                 ? new Rect(MARGIN, middleTop, ZONE_WIDTH, middleHeight)
                 : Rect.NONE;
@@ -82,40 +93,59 @@ public record TableScreenLayout(
         Rect surface = new Rect(
                 surfaceLeft, middleTop, width - MARGIN - surfaceLeft, middleHeight);
 
-        int squareHeight = clamp(surface.height() / 3, SQUARE_MIN, SQUARE_MAX);
-        int squareWidth = Math.max(1, Math.round(squareHeight * CARD_ASPECT));
-        int columns = Math.max(1, surface.width() / (squareWidth + 2));
-        int rows = Math.max(1, surface.height() / (squareHeight + 2));
+        // A busy board is drawn smaller rather than wider, because the table never grows.
+        int cardHeight = clamp(surface.height() / 3, CARD_HEIGHT_MIN, CARD_HEIGHT_MAX);
+        cardHeight = Math.min(cardHeight, Math.max(1, surface.height()));
+        int cardWidth = Math.max(1, Math.round(cardHeight * CARD_ASPECT));
+        cardWidth = Math.min(cardWidth, Math.max(1, surface.width()));
 
-        return new TableScreenLayout(
-                opponents, surface, zones, hand, actions, squareWidth, squareHeight, columns, rows);
+        return new TableScreenLayout(opponents, surface, zones, hand, actions, cardWidth, cardHeight);
     }
 
-    /** Where a square of the surface grid sits on screen. */
-    public Rect squareAt(int column, int row) {
+    /** Where a card at this position is drawn, upright. Rotation is the renderer's business. */
+    public Rect cardAt(TablePosition position) {
         return new Rect(
-                surface.x() + column * (squareWidth + 2),
-                surface.y() + row * (squareHeight + 2),
-                squareWidth,
-                squareHeight);
+                surface.x() + (int) Math.round(position.acrossFraction() * placeableWidth()),
+                surface.y() + (int) Math.round(position.downFraction() * placeableHeight()),
+                cardWidth,
+                cardHeight);
     }
 
-    /** Which square of the grid a point is over, or null if it is off the surface. */
-    public int[] squareOf(int x, int y) {
-        if (!surface.contains(x, y)) {
-            return null;
-        }
-        int column = (x - surface.x()) / (squareWidth + 2);
-        int row = (y - surface.y()) / (squareHeight + 2);
-        if (column >= columns || row >= rows) {
-            return null;
-        }
-        return new int[] {column, row};
+    /**
+     * The position a card would have if its top-left corner were put here.
+     *
+     * <p>Clamps rather than refusing: a drag that ends past the edge of the table puts the
+     * card against the edge, which is what happens when you shove a card across a real one.
+     * Callers that care whether the cursor was actually over the surface ask
+     * {@link #isOnSurface}.
+     */
+    public TablePosition positionFor(int screenX, int screenY) {
+        return TablePosition.fraction(
+                (double) (screenX - surface.x()) / placeableWidth(),
+                (double) (screenY - surface.y()) / placeableHeight());
     }
 
-    /** How many squares the surface shows at once. */
-    public int visibleSquares() {
-        return columns * rows;
+    /** The position for a drop that grabbed the card {@code grabX, grabY} in from its corner. */
+    public TablePosition positionForDrop(int screenX, int screenY, int grabX, int grabY) {
+        return positionFor(screenX - grabX, screenY - grabY);
+    }
+
+    public boolean isOnSurface(int x, int y) {
+        return surface.contains(x, y);
+    }
+
+    /**
+     * How far a card's corner can travel across the surface, in pixels.
+     *
+     * <p>Never zero, so the conversion cannot divide by nothing on a window too small to hold
+     * a single card beside itself.
+     */
+    private int placeableWidth() {
+        return Math.max(1, surface.width() - cardWidth);
+    }
+
+    private int placeableHeight() {
+        return Math.max(1, surface.height() - cardHeight);
     }
 
     private static int clamp(int value, int minimum, int maximum) {

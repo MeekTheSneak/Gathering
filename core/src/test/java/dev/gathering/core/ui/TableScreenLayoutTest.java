@@ -2,6 +2,7 @@ package dev.gathering.core.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.gathering.core.game.TablePosition;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
@@ -12,8 +13,9 @@ import org.junit.jupiter.api.Test;
  * The seated view, laid out at every window size anybody could have.
  *
  * <p>This is the screen a game is played in, so the failure this guards against is not
- * cosmetic: a hand drawn under the action bar is cards you cannot pick up, and a surface with
- * no squares on it is a board you cannot put anything on.
+ * cosmetic: a hand drawn under the action bar is cards you cannot pick up, and a surface that
+ * draws cards somewhere other than where the cursor says they are is a table you cannot play
+ * on.
  */
 class TableScreenLayoutTest {
 
@@ -61,32 +63,79 @@ class TableScreenLayoutTest {
             @ForAll @IntRange(min = 0, max = 7) int opponents) {
         TableScreenLayout layout = TableScreenLayout.of(width, height, opponents);
 
-        assertThat(layout.visibleSquares()).isPositive();
-        assertThat(layout.squareWidth()).isPositive();
-        assertThat(layout.squareHeight()).isPositive();
+        assertThat(layout.cardWidth()).isPositive();
+        assertThat(layout.cardHeight()).isPositive();
+        assertThat(layout.surface().isEmpty()).isFalse();
         assertThat(layout.hand().isEmpty()).isFalse();
     }
 
     @Property(tries = 3000)
-    void everySquareIsOnTheSurfaceAndFindableAgain(
+    void everyCardIsDrawnFullyOnTheSurface(
             @ForAll @IntRange(min = 320, max = 3840) int width,
-            @ForAll @IntRange(min = 240, max = 2160) int height) {
-        // Drawing a card at a square and then working out which square the cursor is over are
-        // two pieces of arithmetic that have to agree, or you drop cards next to where you
-        // aimed.
+            @ForAll @IntRange(min = 240, max = 2160) int height,
+            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int across,
+            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int down) {
+        // Cards may overlap each other as much as a player likes. What they may not do is
+        // hang off the table, because half a card drawn over the hand band is a card you
+        // cannot tell apart from one in your grip.
         TableScreenLayout layout = TableScreenLayout.of(width, height, 3);
 
-        for (int column = 0; column < layout.columns(); column++) {
-            for (int row = 0; row < layout.rows(); row++) {
-                Rect square = layout.squareAt(column, row);
-                assertThat(layout.surface().overlaps(square)).isTrue();
+        Rect drawn = layout.cardAt(TablePosition.of(across, down));
 
-                int[] found = layout.squareOf(square.x() + square.width() / 2,
-                        square.y() + square.height() / 2);
-                assertThat(found).describedAs("square %s,%s is not findable", column, row).isNotNull();
-                assertThat(found).containsExactly(column, row);
-            }
-        }
+        assertThat(drawn.x()).isGreaterThanOrEqualTo(layout.surface().x());
+        assertThat(drawn.y()).isGreaterThanOrEqualTo(layout.surface().y());
+        assertThat(drawn.right()).isLessThanOrEqualTo(layout.surface().right());
+        assertThat(drawn.bottom()).isLessThanOrEqualTo(layout.surface().bottom());
+    }
+
+    @Property(tries = 3000)
+    void whereACardIsDrawnIsWhereTheCursorFindsIt(
+            @ForAll @IntRange(min = 320, max = 3840) int width,
+            @ForAll @IntRange(min = 240, max = 2160) int height,
+            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int across,
+            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int down) {
+        // Drawing a card at a position and working out what position the cursor is over are
+        // two pieces of arithmetic that have to agree, or you drop cards next to where you
+        // aimed. They agree to within the pixel they are both rounded to.
+        TableScreenLayout layout = TableScreenLayout.of(width, height, 3);
+        TablePosition position = TablePosition.of(across, down);
+
+        Rect drawn = layout.cardAt(position);
+        TablePosition found = layout.positionFor(drawn.x(), drawn.y());
+
+        assertThat(layout.cardAt(found)).isEqualTo(drawn);
+    }
+
+    @Property(tries = 3000)
+    void aDropKeepsTheGripWhereItWasGrabbed(
+            @ForAll @IntRange(min = 320, max = 3840) int width,
+            @ForAll @IntRange(min = 240, max = 2160) int height,
+            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int across,
+            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int down) {
+        // Picking a card up by its corner and dropping it should leave it where the cursor
+        // is, not offset by wherever you happened to grab it.
+        TableScreenLayout layout = TableScreenLayout.of(width, height, 3);
+        Rect drawn = layout.cardAt(TablePosition.of(across, down));
+        int grabX = layout.cardWidth() / 3;
+        int grabY = layout.cardHeight() / 3;
+
+        TablePosition dropped =
+                layout.positionForDrop(drawn.x() + grabX, drawn.y() + grabY, grabX, grabY);
+
+        assertThat(layout.cardAt(dropped)).isEqualTo(drawn);
+    }
+
+    @Property(tries = 3000)
+    void aDropPastTheEdgeLandsAgainstTheEdgeRatherThanThrowing(
+            @ForAll @IntRange(min = 320, max = 3840) int width,
+            @ForAll @IntRange(min = 240, max = 2160) int height) {
+        TableScreenLayout layout = TableScreenLayout.of(width, height, 3);
+
+        assertThat(layout.cardAt(layout.positionFor(-9000, -9000)))
+                .isEqualTo(new Rect(layout.surface().x(), layout.surface().y(),
+                        layout.cardWidth(), layout.cardHeight()));
+        assertThat(layout.cardAt(layout.positionFor(width * 4, height * 4)).right())
+                .isLessThanOrEqualTo(layout.surface().right());
     }
 
     @Test
@@ -94,7 +143,7 @@ class TableScreenLayoutTest {
     void theSmallestWindowIsStillPlayable() {
         TableScreenLayout layout = TableScreenLayout.of(320, 240, 3);
 
-        assertThat(layout.visibleSquares()).isGreaterThanOrEqualTo(3);
+        assertThat(layout.surface().width()).isGreaterThan(layout.cardWidth());
         assertThat(layout.hand().height()).isGreaterThan(20);
     }
 

@@ -42,4 +42,38 @@ public record Rect(int x, int y, int width, int height) {
     public Rect shrink(int inset) {
         return new Rect(x + inset, y + inset, width - inset * 2, height - inset * 2);
     }
+
+    public double centreX() {
+        return x + width / 2.0;
+    }
+
+    public double centreY() {
+        return y + height / 2.0;
+    }
+
+    /**
+     * Whether a point is on this rectangle after it has been turned about its centre.
+     *
+     * <p>A card lying at an angle is still a card-shaped thing, so clicking it means clicking
+     * the card and not its bounding box: turn a card forty-five degrees and a quarter of that
+     * box is table, where a click should reach whatever is underneath. This spins the point
+     * back instead of the rectangle forwards, which is the same test and one rotation rather
+     * than four.
+     */
+    public boolean containsTurned(int degrees, int pointX, int pointY) {
+        if (isEmpty()) {
+            return false;
+        }
+        if (Math.floorMod(degrees, 360) == 0) {
+            return contains(pointX, pointY);
+        }
+        double radians = Math.toRadians(-Math.floorMod(degrees, 360));
+        double offsetX = pointX - centreX();
+        double offsetY = pointY - centreY();
+        double cos = Math.cos(radians);
+        double sin = Math.sin(radians);
+        double localX = offsetX * cos - offsetY * sin + centreX();
+        double localY = offsetX * sin + offsetY * cos + centreY();
+        return localX >= x && localX < right() && localY >= y && localY < bottom();
+    }
 }

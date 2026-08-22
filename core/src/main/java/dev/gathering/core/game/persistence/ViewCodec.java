@@ -2,6 +2,7 @@ package dev.gathering.core.game.persistence;
 
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.game.CardInstanceId;
+import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.MarkerId;
 import dev.gathering.core.game.Phase;
 import dev.gathering.core.game.SeatId;
@@ -220,6 +221,7 @@ public final class ViewCodec {
                 out.writeInt(visible.id().value());
                 identity(out, visible.identity());
                 out.writeInt(visible.owner().index());
+                out.writeUTF(visible.facing().name());
                 out.writeBoolean(visible.tapped());
                 counters(out, visible.counters());
                 position(out, visible.position());
@@ -241,6 +243,7 @@ public final class ViewCodec {
                     new CardInstanceId(in.readInt()),
                     identity(in),
                     new SeatId(in.readInt()),
+                    Facing.valueOf(in.readUTF()),
                     in.readBoolean(),
                     counters(in),
                     position(in),
@@ -291,13 +294,16 @@ public final class ViewCodec {
         boolean present = position != null;
         out.writeBoolean(present);
         if (present) {
-            out.writeInt(position.column());
-            out.writeInt(position.row());
+            out.writeInt(position.x());
+            out.writeInt(position.y());
+            out.writeInt(position.rotation());
         }
     }
 
     private static TablePosition position(DataInput in) throws IOException {
-        return in.readBoolean() ? new TablePosition(in.readInt(), in.readInt()) : null;
+        return in.readBoolean()
+                ? new TablePosition(in.readInt(), in.readInt(), in.readInt())
+                : null;
     }
 
     private static int size(int size) throws IOException {

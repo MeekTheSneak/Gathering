@@ -161,6 +161,25 @@ public sealed interface GameEvent {
         }
     }
 
+    /**
+     * Turning a card on the table to any angle.
+     *
+     * <p>Distinct from {@link CardTapSet} even though both end up as an angle on screen.
+     * Tapping is a game state with a meaning everyone at the table agrees on; turning a card
+     * sideways to show it is attacking, or upside down to show you have read it, means
+     * whatever the group says it means. Keeping them apart is what lets the log say "turned"
+     * rather than "moved", and lets untap-all leave a deliberately angled card alone.
+     *
+     * <p>The angle is absolute rather than a delta, because two clicks racing each other
+     * should land on one angle rather than compounding.
+     */
+    record CardRotated(SeatId actor, CardInstanceId card, int rotation) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of("log.gathering.card_rotated", actor, CardRef.publicRefFor(before, card), rotation);
+        }
+    }
+
     /** Untap-all, because doing it one permanent at a time is how a turn takes four minutes. */
     record SeatUntappedAll(SeatId actor, SeatId seat) implements GameEvent {
         @Override

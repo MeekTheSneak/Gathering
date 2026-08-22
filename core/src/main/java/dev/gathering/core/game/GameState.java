@@ -3,10 +3,12 @@ package dev.gathering.core.game;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * The whole board, as an immutable value.
@@ -142,11 +144,11 @@ public record GameState(
     /**
      * Moves a card to a zone, taking it out of wherever it was.
      *
-     * <p>Also settles where the card now sits. A card arriving on a surface gets the square
-     * it was dropped on, or the first free one when a verb rather than a drag put it there -
-     * so a card always has a definite place and every client draws the same board instead of
-     * each inventing a layout. A card going back into a pile forgets its square, because a
-     * pile is an order rather than a place.
+     * <p>Also settles where the card now sits. A card arriving on a surface gets the spot
+     * it was dropped on, or one fanned out beside what is already down when a verb rather
+     * than a hand put it there - so a card always has a definite place and every client draws
+     * the same board instead of each inventing a layout. A card going back into a pile
+     * forgets where it sat, because a pile is an order rather than a place.
      *
      * <p>Silently a no-op-with-a-move if the card was nowhere: adding a token straight to the
      * battlefield goes through the same path as moving one, and both should work.
@@ -170,7 +172,7 @@ public record GameState(
         return moved.settlePosition(id, into, placement);
     }
 
-    /** Gives an arriving card its square, or takes one away from a card joining a pile. */
+    /** Gives an arriving card its spot, or takes one away from a card joining a pile. */
     private GameState settlePosition(CardInstanceId id, ZoneRef into, Placement placement) {
         CardInstance card = cards.get(id);
         if (card == null) {
@@ -179,34 +181,47 @@ public record GameState(
         if (!into.zone().isSurface()) {
             return withCard(card.withPosition(null));
         }
-        TablePosition square = placement.chosenSquare().orElseGet(() -> firstFreeSquare(into, id));
-        return withCard(card.withPosition(square));
+        TablePosition where = placement.chosenPosition().orElseGet(() -> unaimedSpot(into, id));
+        return withCard(card.withPosition(where));
     }
 
     /**
-     * The first grid square in this zone nothing is already on.
+     * Somewhere to put a card that arrived without being aimed.
      *
-     * <p>Deliberately not "the next index": cards leave the battlefield constantly, and
-     * filling the gaps keeps a board compact instead of letting it drift across the table
-     * over the course of a long game.
+     * <p>A token appearing, a card put down by a verb rather than by a hand. Two cards may
+     * sit on top of each other - a player stacking them means something by it and the mod
+     * never says no - but the game must never do the stacking itself, because a permanent
+     * hidden under another one reads as a card that failed to arrive. So this walks the fan
+     * and takes the first spot nothing is already on, which also means a board that has had
+     * things die does not drift across the table.
+     *
+     * <p>Only where the card sits counts, not the angle it is at: a spot occupied by a
+     * sideways card is occupied.
      */
-    public TablePosition firstFreeSquare(ZoneRef ref, CardInstanceId ignoring) {
-        java.util.Set<TablePosition> taken = new java.util.HashSet<>();
+    public TablePosition unaimedSpot(ZoneRef ref, CardInstanceId ignoring) {
+        Set<Long> taken = new HashSet<>();
         for (CardInstanceId occupant : contents(ref)) {
             if (occupant.equals(ignoring)) {
                 continue;
             }
             CardInstance card = cards.get(occupant);
-            if (card != null) {
-                card.square().ifPresent(taken::add);
+            if (card != null && card.position() != null) {
+                taken.add(spotKey(card.position()));
             }
         }
-        for (int slot = 0; ; slot++) {
-            TablePosition candidate = TablePosition.slot(slot);
-            if (!taken.contains(candidate)) {
+        for (int index = 0; index < TablePosition.FAN_SPOTS; index++) {
+            TablePosition candidate = TablePosition.unaimed(index);
+            if (!taken.contains(spotKey(candidate))) {
                 return candidate;
             }
         }
+        // Every fan spot is occupied, which takes hundreds of permanents on one side. Landing
+        // on top of something beats refusing to put the card down at all.
+        return TablePosition.unaimed(taken.size());
+    }
+
+    private static long spotKey(TablePosition position) {
+        return (long) position.x() * (TablePosition.SPAN + 1) + position.y();
     }
 
     /** Replaces a zone's contents wholesale. How a shuffle, a scry, and a reorder all land. */

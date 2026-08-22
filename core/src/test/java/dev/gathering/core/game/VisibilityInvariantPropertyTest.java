@@ -9,6 +9,7 @@ import dev.gathering.core.game.visibility.VisibilityRules;
 import dev.gathering.core.game.visibility.Viewer;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
@@ -30,6 +31,7 @@ import net.jqwik.api.Provide;
 class VisibilityInvariantPropertyTest {
 
     private static final int ACTION_KINDS = 9;
+    private static final int SEATS = 2;
 
     @Property(tries = 500)
     void noViewerEverHoldsIdentityTheyAreNotEntitledTo(@ForAll("actionScripts") List<Integer> script) {
@@ -110,14 +112,15 @@ class VisibilityInvariantPropertyTest {
     }
 
     /**
-     * Auto-placement must never put two cards on one square.
+     * Auto-placement must never put two cards on one spot.
      *
      * <p>A player may deliberately stack cards - the mod never says no - but a card the game
      * placed on a player's behalf landing under an existing one would look like a bug and
-     * hide a permanent.
+     * hide a permanent. Nothing in these scripts ever aims a card, so every position here was
+     * chosen by the game and every duplicate is the game's fault.
      */
     @Property(tries = 300)
-    void automaticallyPlacedCardsNeverShareASquare(@ForAll("actionScripts") List<Integer> script) {
+    void automaticallyPlacedCardsNeverShareASpot(@ForAll("actionScripts") List<Integer> script) {
         GameSession session = GameFixtures.twoPlayerTable(25);
 
         for (int action : script) {
@@ -125,16 +128,16 @@ class VisibilityInvariantPropertyTest {
 
             GameState state = session.state();
             for (SeatId seat : state.seats()) {
-                List<dev.gathering.core.game.TablePosition> squares = state.contents(seat, Zone.BATTLEFIELD).stream()
+                List<TablePosition> spots = state.contents(seat, Zone.BATTLEFIELD).stream()
                         .map(id -> state.requireCard(id).position())
-                        .filter(java.util.Objects::nonNull)
+                        .filter(Objects::nonNull)
                         .toList();
-                assertThat(squares).as("squares on %s's battlefield", seat).doesNotHaveDuplicates();
+                assertThat(spots).as("spots on %s's battlefield", seat).doesNotHaveDuplicates();
             }
         }
     }
 
-    /** Every card on a surface has a square, and every card in a pile has none. */
+    /** Every card on a surface has a place, and every card in a pile has none. */
     @Property(tries = 300)
     void positionsExistExactlyWhereTheyShould(@ForAll("actionScripts") List<Integer> script) {
         GameSession session = GameFixtures.twoPlayerTable(25);
@@ -147,7 +150,7 @@ class VisibilityInvariantPropertyTest {
         for (SeatId seat : state.seats()) {
             for (Zone zone : Zone.values()) {
                 for (CardInstanceId id : state.contents(seat, zone)) {
-                    assertThat(state.requireCard(id).square().isPresent())
+                    assertThat(state.requireCard(id).placedAt().isPresent())
                             .as("%s in %s", id, zone)
                             .isEqualTo(zone.isSurface());
                 }
@@ -157,18 +160,29 @@ class VisibilityInvariantPropertyTest {
 
     @Provide
     Arbitrary<List<Integer>> actionScripts() {
-        return Arbitraries.integers().between(0, ACTION_KINDS - 1).list().ofMinSize(1).ofMaxSize(40);
+        return Arbitraries.integers()
+                .between(0, ACTION_KINDS * SEATS - 1)
+                .list()
+                .ofMinSize(1)
+                .ofMaxSize(40);
     }
 
     /**
-     * Interprets one number as a verb against the current board.
+     * Interprets one number as a verb and a seat against the current board.
+     *
+     * <p>The seat is a separate factor rather than the verb modulo the seat count. Deriving
+     * one from the other looks like it saves a dimension and instead makes whole regions of
+     * the state space unreachable: with two seats it meant only ever one player putting cards
+     * on the table and only ever the other one having cards taken off it, which is exactly the
+     * shape of board a placement bug hides in.
      *
      * <p>Actions that do not apply right now are skipped rather than forced, so a script is
      * always a plausible game rather than a pile of rejections.
      */
-    private static void perform(GameSession session, int action) {
+    private static void perform(GameSession session, int choice) {
         GameState state = session.state();
-        SeatId actor = state.seats().get(action % state.seats().size());
+        int action = choice % ACTION_KINDS;
+        SeatId actor = state.seats().get((choice / ACTION_KINDS) % state.seats().size());
         SeatId other = state.seatAfter(actor);
 
         switch (action) {

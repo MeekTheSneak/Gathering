@@ -52,6 +52,8 @@ public final class GameFold {
             case GameEvent.CardTapSet tap ->
                     state.withCard(state.requireCard(tap.card()).withTapped(tap.tapped()));
 
+            case GameEvent.CardRotated rotated -> rotate(state, rotated);
+
             case GameEvent.SeatUntappedAll untapped -> untapAll(state, untapped.seat());
 
             case GameEvent.CardFacingSet facing -> setFacing(state, facing, seed);
@@ -120,6 +122,20 @@ public final class GameFold {
     }
 
     // ------------------------------------------------------------ card verbs
+
+    /**
+     * Turns a card where it stands.
+     *
+     * <p>A card in a pile has no angle to turn, and silently staying put is the right answer:
+     * the alternative is a client that clicked a beat after somebody scooped the card losing
+     * the whole session to an exception.
+     */
+    private static GameState rotate(GameState state, GameEvent.CardRotated event) {
+        CardInstance card = state.requireCard(event.card());
+        return card.placedAt()
+                .map(where -> state.withCard(card.withPosition(where.rotatedTo(event.rotation()))))
+                .orElse(state);
+    }
 
     private static GameState untapAll(GameState state, SeatId seat) {
         GameState updated = state;

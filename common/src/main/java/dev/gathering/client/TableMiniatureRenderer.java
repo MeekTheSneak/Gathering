@@ -47,6 +47,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** Nothing on a table is worth a draw call past this. */
     private static final int MAX_CARDS = 256;
 
+    /** How deep a card is drawn within its seat's band, leaving room to spread out in it. */
+    private static final float BAND_CARD_DEPTH = 0.42f;
+
     public TableMiniatureRenderer(BlockEntityRendererProvider.Context context) {
     }
 
@@ -88,49 +91,62 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /**
      * One seat's permanents, along its band.
      *
-     * <p>Laid out by their own table position where that fits the band, and packed in reading
-     * order where it does not. A card that is somewhere is better than a card that is nowhere,
-     * and the exact square is cosmetic here - this is the view you read from across a room.
+     * <p>Laid out where their owner actually put them: the seat's region is squashed into the
+     * band and every card keeps its place and its angle within it. A board somebody has
+     * arranged into lands at the back and creatures at the front reads as that from across the
+     * room, which is the entire point of the block showing anything at all.
      */
     private int drawBand(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
             List<CardView> cards, float bandZ, float bandDepth, float span, int budget) {
-        int columns = Math.max(1, Math.min(TablePosition.DEFAULT_ROW_WIDTH, cards.size()));
-        float cardWidth = span / columns;
-        float cardDepth = Math.min(bandDepth * 0.9f, cardWidth / CARD_ASPECT);
-        if (cardDepth <= 0f) {
+        float cardDepth = bandDepth * BAND_CARD_DEPTH;
+        float cardWidth = cardDepth * CARD_ASPECT;
+        if (cardDepth <= 0f || cardWidth <= 0f || cardWidth > span) {
             return 0;
         }
+        float acrossRoom = Math.max(0f, span - cardWidth);
+        float downRoom = Math.max(0f, bandDepth - cardDepth);
 
         int drawn = 0;
         for (CardView card : cards) {
             if (drawn >= budget) {
                 break;
             }
-            int column = card.square().map(TablePosition::column).orElse(drawn) % columns;
-            float x = column * cardWidth;
-            float z = bandZ + (bandDepth - cardDepth) / 2f;
+            // A card with no position of its own is one the game has not put down yet; it is
+            // still somebody's permanent, so it goes at the front of the band rather than
+            // nowhere.
+            TablePosition where = card.placedAt().orElse(TablePosition.ORIGIN);
+            float across = (float) where.acrossFraction();
+            float down = (float) where.downFraction();
 
             draw(poseStack, buffers, packedLight, textureFor(card),
-                    x, z, cardWidth * 0.92f, cardDepth, isTapped(card));
+                    across * acrossRoom, bandZ + down * downRoom, cardWidth, cardDepth,
+                    where.rotation(), isTapped(card));
             drawn++;
         }
         return drawn;
     }
 
     /**
-     * One card, face up on the surface.
+     * One card, lying on the surface at whatever angle it was left at.
      *
-     * <p>A tapped card is turned a quarter turn, which is the whole reason tapping is legible
-     * across a table in paper.
+     * <p>A tapped card gets its quarter turn on top of that angle, which is the whole reason
+     * tapping is legible across a table in paper - and why it has to be a turn here too rather
+     * than a tint nobody can see from six blocks away.
+     *
+     * <p>The turn is negated because a card turned clockwise on the seated screen has to look
+     * turned clockwise from above, and looking down at the surface flips the sense of a
+     * rotation about the vertical.
      */
     private void draw(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
-            ResourceLocation texture, float x, float z, float width, float depth, boolean tapped) {
+            ResourceLocation texture, float x, float z, float width, float depth,
+            int angle, boolean tapped) {
         poseStack.pushPose();
         poseStack.translate(x + width / 2f, 0f, z + depth / 2f);
-        if (tapped) {
-            poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90f));
+        int turned = angle + (tapped ? TablePosition.QUARTER_TURN : 0);
+        if (Math.floorMod(turned, 360) != 0) {
+            poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-turned));
         }
 
         float halfWidth = width / 2f;

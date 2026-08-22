@@ -106,10 +106,10 @@ public final class VisibilityRules {
         boolean entitled = !card.isFaceDown() || viewer.isSeatedAt(card.owner());
         if (entitled) {
             return new CardView.Visible(
-                    card.id(), card.identity(), card.owner(), card.tapped(), card.counters(),
-                    card.position(), card.token());
+                    card.id(), card.identity(), card.owner(), card.facing(), card.tapped(),
+                    card.counters(), card.position(), card.token());
         }
-        // The square goes to everyone: where a card sits was never a secret, and an opponent
+        // The spot goes to everyone: where a card sits was never a secret, and an opponent
         // who cannot see which card it is still has to be able to see that it is there.
         return new CardView.Anonymous(
                 card.markerId().orElseThrow(() ->

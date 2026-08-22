@@ -16,11 +16,11 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Where cards sit once they are on the table.
+ * Where cards sit once they are on the table, and which way round they are.
  *
- * <p>Cards snap to a grid and stay where they were put. The board a player arranges is the
- * board everyone else sees, which is the whole reason position is state rather than a
- * per-client layout guess.
+ * <p>There is no grid. A card goes exactly where it was put down, at exactly the angle it was
+ * left at, and stays there. The board a player arranges is the board everyone else sees,
+ * which is the whole reason position is state rather than a per-client layout guess.
  */
 class TablePositionTest {
 
@@ -29,44 +29,58 @@ class TablePositionTest {
     class Dropping {
 
         @Test
-        @DisplayName("a card dragged onto a square lands on that square")
-        void aDragLandsWhereItWasAimed() {
+        @DisplayName("a card dropped somewhere lands exactly there, not on the nearest anything")
+        void aDropLandsWhereItWasAimed() {
             GameSession session = GameFixtures.twoPlayerTable(40);
             CardInstanceId card = drawOne(session, GameFixtures.ALICE);
 
             session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, card,
-                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(5, 2)));
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(5137, 2049)));
 
-            assertThat(session.state().requireCard(card).square())
-                    .contains(TablePosition.of(5, 2));
+            assertThat(session.state().requireCard(card).placedAt())
+                    .contains(TablePosition.of(5137, 2049));
         }
 
         @Test
-        @DisplayName("a card that arrives without being aimed still gets a definite square")
-        void unaimedArrivalsGetTheFirstFreeSquare() {
+        @DisplayName("two spots a pixel apart are two spots, because the table is continuous")
+        void neighbouringSpotsAreDistinct() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            List<CardInstanceId> cards = drawMany(session, GameFixtures.ALICE, 2);
+
+            session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, cards.get(0),
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(4000, 4000)));
+            session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, cards.get(1),
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(4001, 4000)));
+
+            assertThat(session.state().requireCard(cards.get(0)).placedAt())
+                    .isNotEqualTo(session.state().requireCard(cards.get(1)).placedAt());
+        }
+
+        @Test
+        @DisplayName("a card that arrives without being aimed still gets a definite spot")
+        void unaimedArrivalsAreStillPutDownSomewhere() {
             GameSession session = GameFixtures.twoPlayerTable(40);
             CardInstanceId card = drawOne(session, GameFixtures.ALICE);
 
             session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, card,
                     ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.BOTTOM));
 
-            assertThat(session.state().requireCard(card).square()).contains(TablePosition.ORIGIN);
+            assertThat(session.state().requireCard(card).placedAt()).contains(TablePosition.unaimed(0));
         }
 
         @Test
         @DisplayName("tokens land somewhere rather than nowhere, and never on top of each other")
-        void tokensGetDistinctSquares() {
+        void tokensGetDistinctSpots() {
             GameSession session = GameFixtures.twoPlayerTable(10);
 
             session.submit(new GameEvent.TokenCreated(
                     GameFixtures.ALICE, GameFixtures.ALICE, GameFixtures.card(500), 5));
 
-            Set<TablePosition> squares = squaresOn(session, GameFixtures.ALICE);
-            assertThat(squares).hasSize(5);
+            assertThat(spotsOn(session, GameFixtures.ALICE)).hasSize(5);
         }
 
         @Test
-        @DisplayName("a freed square is reused, so a long game does not drift across the table")
+        @DisplayName("a vacated spot is reused, so a long game does not drift across the table")
         void gapsAreFilledRatherThanSkipped() {
             GameSession session = GameFixtures.twoPlayerTable(40);
             List<CardInstanceId> cards = drawMany(session, GameFixtures.ALICE, 3);
@@ -74,7 +88,7 @@ class TablePositionTest {
                 session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, card,
                         ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.BOTTOM));
             }
-            // Kill the middle one, leaving a hole at slot 1.
+            // Kill the middle one, leaving a hole where the second card was fanned out.
             session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, cards.get(1),
                     ZoneRef.of(GameFixtures.ALICE, Zone.GRAVEYARD), Placement.TOP));
 
@@ -82,24 +96,110 @@ class TablePositionTest {
             session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, replacement,
                     ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.BOTTOM));
 
-            assertThat(session.state().requireCard(replacement).square())
-                    .contains(TablePosition.slot(1));
+            assertThat(session.state().requireCard(replacement).placedAt())
+                    .contains(TablePosition.unaimed(1));
         }
 
         @Test
-        @DisplayName("stacking two cards on one square is allowed, because the mod never says no")
+        @DisplayName("an unaimed card never lands under a card a player put there by hand")
+        void unaimedArrivalsAvoidHandPlacedCards() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            List<CardInstanceId> cards = drawMany(session, GameFixtures.ALICE, 2);
+
+            session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, cards.get(0),
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD),
+                    Placement.at(TablePosition.unaimed(0))));
+            session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, cards.get(1),
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.BOTTOM));
+
+            assertThat(session.state().requireCard(cards.get(1)).placedAt())
+                    .isNotEqualTo(session.state().requireCard(cards.get(0)).placedAt());
+        }
+
+        @Test
+        @DisplayName("stacking two cards on one spot is allowed, because the mod never says no")
         void deliberateStackingIsPermitted() {
             GameSession session = GameFixtures.twoPlayerTable(40);
             List<CardInstanceId> cards = drawMany(session, GameFixtures.ALICE, 2);
 
             for (CardInstanceId card : cards) {
                 GameSession.Result result = session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, card,
-                        ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(3, 3)));
+                        ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(3000, 3000)));
                 assertThat(result.isAccepted()).isTrue();
             }
 
-            assertThat(session.state().requireCard(cards.get(0)).square())
-                    .isEqualTo(session.state().requireCard(cards.get(1)).square());
+            assertThat(session.state().requireCard(cards.get(0)).placedAt())
+                    .isEqualTo(session.state().requireCard(cards.get(1)).placedAt());
+        }
+    }
+
+    @Nested
+    @DisplayName("turning")
+    class Turning {
+
+        @Test
+        @DisplayName("a card turned to an angle stays at that angle")
+        void rotationSticks() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            CardInstanceId card = onTheBattlefield(session, GameFixtures.ALICE);
+
+            session.submit(new GameEvent.CardRotated(GameFixtures.ALICE, card, 37));
+
+            assertThat(session.state().requireCard(card).placedAt())
+                    .get()
+                    .extracting(TablePosition::rotation)
+                    .isEqualTo(37);
+        }
+
+        @Test
+        @DisplayName("turning does not move the card")
+        void rotationKeepsTheSpot() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            CardInstanceId card = drawOne(session, GameFixtures.ALICE);
+            session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, card,
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(1234, 5678)));
+
+            session.submit(new GameEvent.CardRotated(GameFixtures.ALICE, card, 90));
+
+            assertThat(session.state().requireCard(card).placedAt())
+                    .contains(TablePosition.of(1234, 5678, 90));
+        }
+
+        @Test
+        @DisplayName("any angle is a legal angle, and it wraps rather than being refused")
+        void anglesWrap() {
+            assertThat(TablePosition.of(0, 0, 450).rotation()).isEqualTo(90);
+            assertThat(TablePosition.of(0, 0, -90).rotation()).isEqualTo(270);
+            assertThat(TablePosition.of(0, 0, 360).rotation()).isZero();
+        }
+
+        @Test
+        @DisplayName("untapping everything leaves a deliberately angled card alone")
+        void untapAllDoesNotStraightenCards() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            CardInstanceId card = onTheBattlefield(session, GameFixtures.ALICE);
+            session.submit(new GameEvent.CardRotated(GameFixtures.ALICE, card, 15));
+            session.submit(new GameEvent.CardTapSet(GameFixtures.ALICE, card, true));
+
+            session.submit(new GameEvent.SeatUntappedAll(GameFixtures.ALICE, GameFixtures.ALICE));
+
+            assertThat(session.state().requireCard(card).tapped()).isFalse();
+            assertThat(session.state().requireCard(card).placedAt())
+                    .get()
+                    .extracting(TablePosition::rotation)
+                    .isEqualTo(15);
+        }
+
+        @Test
+        @DisplayName("turning a card that is no longer on the table changes nothing and throws nothing")
+        void rotatingAPiledCardIsHarmless() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            CardInstanceId card = drawOne(session, GameFixtures.ALICE);
+
+            GameSession.Result result = session.submit(new GameEvent.CardRotated(GameFixtures.ALICE, card, 90));
+
+            assertThat(result.isAccepted()).isTrue();
+            assertThat(session.state().requireCard(card).placedAt()).isEmpty();
         }
     }
 
@@ -108,26 +208,26 @@ class TablePositionTest {
     class LeavingTheSurface {
 
         @Test
-        @DisplayName("a card going into a pile forgets its square, because a pile is an order")
+        @DisplayName("a card going into a pile forgets where it sat, because a pile is an order")
         void pilesHaveNoGeometry() {
             GameSession session = GameFixtures.twoPlayerTable(40);
             CardInstanceId card = drawOne(session, GameFixtures.ALICE);
             session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, card,
-                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(4, 1)));
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(4000, 1000)));
 
             session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, card,
                     ZoneRef.of(GameFixtures.ALICE, Zone.GRAVEYARD), Placement.TOP));
 
-            assertThat(session.state().requireCard(card).square()).isEmpty();
+            assertThat(session.state().requireCard(card).placedAt()).isEmpty();
         }
 
         @Test
-        @DisplayName("cards drawn into a hand have no square either")
+        @DisplayName("cards drawn into a hand have no place on the table either")
         void handsHaveNoGeometry() {
             GameSession session = GameFixtures.twoPlayerTable(40);
             CardInstanceId card = drawOne(session, GameFixtures.ALICE);
 
-            assertThat(session.state().requireCard(card).square()).isEmpty();
+            assertThat(session.state().requireCard(card).placedAt()).isEmpty();
         }
     }
 
@@ -141,14 +241,14 @@ class TablePositionTest {
             GameSession session = GameFixtures.twoPlayerTable(40);
             CardInstanceId bobsCard = drawOne(session, GameFixtures.BOB);
             session.submit(new GameEvent.CardMoved(GameFixtures.BOB, bobsCard,
-                    ZoneRef.of(GameFixtures.BOB, Zone.BATTLEFIELD), Placement.at(2, 0)));
+                    ZoneRef.of(GameFixtures.BOB, Zone.BATTLEFIELD), Placement.at(2000, 500)));
 
             session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, bobsCard,
-                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(7, 1)));
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(7000, 1500)));
 
             assertThat(session.state().contents(GameFixtures.ALICE, Zone.BATTLEFIELD)).contains(bobsCard);
             assertThat(session.state().contents(GameFixtures.BOB, Zone.BATTLEFIELD)).isEmpty();
-            assertThat(session.state().requireCard(bobsCard).square()).contains(TablePosition.of(7, 1));
+            assertThat(session.state().requireCard(bobsCard).placedAt()).contains(TablePosition.of(7000, 1500));
             assertThat(session.state().requireCard(bobsCard).owner()).isEqualTo(GameFixtures.BOB);
         }
     }
@@ -158,59 +258,100 @@ class TablePositionTest {
     class WhatTheTableSees {
 
         @Test
-        @DisplayName("every viewer gets the square, so every client draws the same board")
+        @DisplayName("every viewer gets the spot and the angle, so every client draws the same board")
         void positionsReachEveryView() {
             GameSession session = GameFixtures.twoPlayerTable(40);
             CardInstanceId card = drawOne(session, GameFixtures.ALICE);
             session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, card,
-                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(6, 2)));
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(6000, 2000)));
+            session.submit(new GameEvent.CardRotated(GameFixtures.ALICE, card, 45));
 
             for (var view : VisibilityRules.allViews(session.state()).values()) {
                 assertThat(view.seat(GameFixtures.ALICE).zone(Zone.BATTLEFIELD).cards())
                         .singleElement()
-                        .satisfies(seen -> assertThat(seen.square()).contains(TablePosition.of(6, 2)));
+                        .satisfies(seen ->
+                                assertThat(seen.placedAt()).contains(TablePosition.of(6000, 2000, 45)));
             }
         }
 
         @Test
-        @DisplayName("a face-down card's square is public; only which card it is stays hidden")
+        @DisplayName("a face-down card's place is public; only which card it is stays hidden")
         void facedownCardsStillHaveAVisiblePlace() {
             GameSession session = GameFixtures.twoPlayerTable(40);
             CardInstanceId card = drawOne(session, GameFixtures.ALICE);
             session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, card,
-                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(1, 1)));
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.at(1000, 1000)));
             session.submit(new GameEvent.CardFacingSet(GameFixtures.ALICE, card, Facing.FACE_DOWN));
 
             CardView seen = VisibilityRules.viewFor(session.state(), Viewer.seat(GameFixtures.BOB))
                     .seat(GameFixtures.ALICE).zone(Zone.BATTLEFIELD).cards().get(0);
 
             assertThat(seen).isInstanceOf(CardView.Anonymous.class);
-            assertThat(seen.square()).contains(TablePosition.of(1, 1));
+            assertThat(seen.placedAt()).contains(TablePosition.of(1000, 1000));
         }
     }
 
-    @Test
-    @DisplayName("a position off the table is refused rather than drawn a mile away")
-    void positionsAreBounded() {
-        assertThatThrownBy(() -> TablePosition.of(-1, 0)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> TablePosition.of(0, TablePosition.MAX_ROW + 1))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThat(TablePosition.of(TablePosition.MAX_COLUMN, TablePosition.MAX_ROW)).isNotNull();
-    }
+    @Nested
+    @DisplayName("the coordinate space itself")
+    class CoordinateSpace {
 
-    @Test
-    @DisplayName("auto-placement wraps into rows rather than running off the side")
-    void autoPlacementWraps() {
-        assertThat(TablePosition.slot(0)).isEqualTo(TablePosition.of(0, 0));
-        assertThat(TablePosition.slot(TablePosition.DEFAULT_ROW_WIDTH - 1))
-                .isEqualTo(TablePosition.of(TablePosition.DEFAULT_ROW_WIDTH - 1, 0));
-        assertThat(TablePosition.slot(TablePosition.DEFAULT_ROW_WIDTH)).isEqualTo(TablePosition.of(0, 1));
+        @Test
+        @DisplayName("a position off the table is refused rather than drawn a mile away")
+        void positionsAreBounded() {
+            assertThatThrownBy(() -> TablePosition.of(-1, 0)).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> TablePosition.of(0, TablePosition.SPAN + 1))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(TablePosition.of(TablePosition.SPAN, TablePosition.SPAN)).isNotNull();
+        }
+
+        @Test
+        @DisplayName("dragging past the edge stops at the edge rather than being refused")
+        void movesClampInsteadOfThrowing() {
+            TablePosition position = TablePosition.of(500, 500, 90);
+
+            assertThat(position.movedTo(-4000, TablePosition.SPAN * 2))
+                    .isEqualTo(TablePosition.of(0, TablePosition.SPAN, 90));
+        }
+
+        @Test
+        @DisplayName("a fraction of the way across survives the round trip")
+        void fractionsRoundTrip() {
+            assertThat(TablePosition.fraction(0.25, 0.75).acrossFraction()).isEqualTo(0.25);
+            assertThat(TablePosition.fraction(0.25, 0.75).downFraction()).isEqualTo(0.75);
+        }
+
+        @Test
+        @DisplayName("the fan hands out distinct spots for as long as it claims to")
+        void theFanDoesNotRepeatEarly() {
+            Set<TablePosition> spots = new HashSet<>();
+            for (int index = 0; index < TablePosition.FAN_SPOTS; index++) {
+                spots.add(TablePosition.unaimed(index));
+            }
+            assertThat(spots).hasSize(TablePosition.FAN_SPOTS);
+        }
+
+        @Test
+        @DisplayName("every fanned spot is on the table")
+        void theFanStaysOnTheTable() {
+            for (int index = 0; index < TablePosition.FAN_SPOTS; index++) {
+                TablePosition spot = TablePosition.unaimed(index);
+                assertThat(spot.acrossFraction()).isBetween(0.0, 1.0);
+                assertThat(spot.downFraction()).isBetween(0.0, 1.0);
+            }
+        }
     }
 
     // ------------------------------------------------------------- fixtures
 
     private static CardInstanceId drawOne(GameSession session, SeatId seat) {
         return drawMany(session, seat, 1).get(0);
+    }
+
+    private static CardInstanceId onTheBattlefield(GameSession session, SeatId seat) {
+        CardInstanceId card = drawOne(session, seat);
+        session.submit(new GameEvent.CardMoved(
+                seat, card, ZoneRef.of(seat, Zone.BATTLEFIELD), Placement.BOTTOM));
+        return card;
     }
 
     private static List<CardInstanceId> drawMany(GameSession session, SeatId seat, int count) {
@@ -221,11 +362,11 @@ class TablePositionTest {
         return after;
     }
 
-    private static Set<TablePosition> squaresOn(GameSession session, SeatId seat) {
-        Set<TablePosition> squares = new HashSet<>();
+    private static Set<TablePosition> spotsOn(GameSession session, SeatId seat) {
+        Set<TablePosition> spots = new HashSet<>();
         for (CardInstanceId id : session.state().contents(seat, Zone.BATTLEFIELD)) {
-            session.state().requireCard(id).square().ifPresent(squares::add);
+            session.state().requireCard(id).placedAt().ifPresent(spots::add);
         }
-        return squares;
+        return spots;
     }
 }

@@ -22,10 +22,10 @@ import java.util.Optional;
  * face-down periods cannot be correlated.
  *
  * <p><b>Position is where it was dropped.</b> Cards on a surface - the battlefield, and
- * exile when a group spreads it out - carry the grid square they were dragged onto, so every
- * client draws the same board and a player's arrangement of their lands survives being
- * looked at from the other side of the table. Cards in a pile carry no position, because a
- * pile is an order rather than a place.
+ * exile when a group spreads it out - carry the exact spot and angle they were put down at,
+ * so every client draws the same board and a player's arrangement of their lands survives
+ * being looked at from the other side of the table. Cards in a pile carry no position,
+ * because a pile is an order rather than a place.
  *
  * @param token tokens and copies cease to exist at end of session rather than returning to
  *              a deck, which is the only case where a card does not go home
@@ -116,7 +116,7 @@ public record CardInstance(
         return Optional.ofNullable(marker);
     }
 
-    public Optional<TablePosition> square() {
+    public Optional<TablePosition> placedAt() {
         return Optional.ofNullable(position);
     }
 

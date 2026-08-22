@@ -76,7 +76,7 @@ public enum Zone {
      *
      * <p>Only the battlefield. Everything else renders as a thin stack with a count, and a
      * stack has an order rather than a geometry - so only the battlefield gives its cards a
-     * grid square, and only the battlefield accepts a drop at a chosen one.
+     * place and an angle, and only the battlefield accepts a drop at a chosen one.
      */
     public boolean isSurface() {
         return this == BATTLEFIELD;
