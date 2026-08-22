@@ -97,6 +97,25 @@ public class TableBlock extends BaseEntityBlock {
 
     private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 15, 16);
 
+    /**
+     * Only the corner that owns the table ticks, and only when there is a game on it.
+     *
+     * <p>Three empty block entities per table ticking for nothing is the sort of cost that
+     * does not show up until somebody builds a shop full of tables.
+     */
+    @Override
+    public <T extends BlockEntity> net.minecraft.world.level.block.entity.BlockEntityTicker<T> getTicker(
+            Level level, BlockState state, net.minecraft.world.level.block.entity.BlockEntityType<T> type) {
+        if (level.isClientSide() || !state.getValue(PART).isOrigin()) {
+            return null;
+        }
+        return (ticking, pos, ticked, entity) -> {
+            if (entity instanceof TableBlockEntity table && table.hasSession()) {
+                TableBlockEntity.serverTick(ticking, pos, ticked, table);
+            }
+        };
+    }
+
     /** The corner that owns the table this block is part of. */
     public static BlockPos originOf(BlockState state, BlockPos pos) {
         return state.getValue(PART).originFrom(pos);

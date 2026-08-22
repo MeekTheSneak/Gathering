@@ -1,43 +1,83 @@
 package dev.gathering.client;
 
 import dev.gathering.core.game.visibility.GameView;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 
 /**
- * The board this client has been told about.
+ * The boards this client has been told about, by table.
  *
- * <p>One table at a time, because a player sits at one table at a time. Replaced wholesale
- * every time the server sends a new view rather than patched: the server decides what this
- * client may know, and a client that merged updates into a board it was keeping would
- * eventually be holding something it was told once and is no longer entitled to.
+ * <p>More than one, because a player sits at one table and can see several: the table you are
+ * playing at sends you your own view, and every table in sight sends you the public one for
+ * the miniature on its surface. Keyed by table so those cannot be confused for each other -
+ * the seated view and the spectator view of the same game are different objects and only one
+ * of them has your hand in it.
+ *
+ * <p>Each is replaced wholesale rather than patched. The server decides what this client may
+ * know; a client that merged updates into a board it was keeping would eventually hold
+ * something it was told once and is no longer entitled to.
  *
  * <p>Client-only.
  */
 public final class ClientTableState {
 
-    private static volatile BlockPos table;
-    private static volatile GameView view;
+    /**
+     * How many tables a client remembers at once.
+     *
+     * <p>A shop full of tables is the case this is for, and forgetting the oldest is the right
+     * failure: a miniature that stops updating is a table you walked away from.
+     */
+    private static final int MAX_TABLES = 32;
+
+    private static final Map<BlockPos, GameView> BOARDS = new ConcurrentHashMap<>();
+
+    /** The table this player is seated at, whose view is theirs rather than the public one. */
+    private static volatile BlockPos seatedAt;
 
     private ClientTableState() {
     }
 
-    public static void accept(BlockPos at, GameView board) {
-        table = at;
-        view = board;
+    public static void accept(BlockPos table, GameView board, boolean seated) {
+        if (BOARDS.size() >= MAX_TABLES && !BOARDS.containsKey(table)) {
+            BOARDS.keySet().stream().findFirst().ifPresent(BOARDS::remove);
+        }
+        BOARDS.put(table.immutable(), board);
+        if (seated) {
+            seatedAt = table.immutable();
+        }
     }
 
+    public static Optional<GameView> viewOf(BlockPos table) {
+        return Optional.ofNullable(BOARDS.get(table));
+    }
+
+    /** The board of the table this player is seated at, which is the one the screen draws. */
     public static Optional<GameView> view() {
-        return Optional.ofNullable(view);
+        return Optional.ofNullable(seatedAt).flatMap(ClientTableState::viewOf);
     }
 
     public static Optional<BlockPos> table() {
-        return Optional.ofNullable(table);
+        return Optional.ofNullable(seatedAt);
     }
 
-    /** On disconnect, and when a game ends: what one table showed is not true of the next. */
+    /** Stops watching one table, without forgetting the rest of the room. */
+    public static void forget(BlockPos table) {
+        BOARDS.remove(table);
+        if (table.equals(seatedAt)) {
+            seatedAt = null;
+        }
+    }
+
+    /** The seat is given up, but the tables in sight are still in sight. */
+    public static void leaveSeat() {
+        seatedAt = null;
+    }
+
+    /** On disconnect: what one server's tables showed is not true of the next. */
     public static void clear() {
-        table = null;
-        view = null;
+        BOARDS.clear();
+        seatedAt = null;
     }
 }

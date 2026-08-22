@@ -50,11 +50,16 @@ public final class GatheringFabricClient implements ClientModInitializer {
     /** Takes a board off the wire and, if asked, sits the player down at it. */
     private static void acceptTableView(dev.gathering.network.TableViewPayload payload) {
         try {
-            dev.gathering.client.ClientTableState.accept(payload.table(),
-                    dev.gathering.core.game.persistence.ViewCodec.read(payload.view()));
+            dev.gathering.core.game.visibility.GameView board =
+                    dev.gathering.core.game.persistence.ViewCodec.read(payload.view());
+            // A seated view is this player's own board; a spectator view is the public one
+            // that feeds the miniature on the table. Only the first belongs to a seat.
+            boolean seated = board.viewer()
+                    instanceof dev.gathering.core.game.visibility.Viewer.Seated;
+            dev.gathering.client.ClientTableState.accept(payload.table(), board, seated);
         } catch (java.io.IOException e) {
             // A board this client cannot read is one it must not draw a guess at.
-            dev.gathering.client.ClientTableState.clear();
+            dev.gathering.client.ClientTableState.forget(payload.table());
             return;
         }
         if (payload.open() && !(Minecraft.getInstance().screen
@@ -80,6 +85,11 @@ public final class GatheringFabricClient implements ClientModInitializer {
                 GatheringContent.CARD.get(),
                 (stack, matrices, buffers, light, overlay) ->
                         CardFaceRenderer.render(stack, matrices, buffers, light));
+
+        // The miniature on the table top, which is what makes a table worth more than a menu.
+        net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(
+                GatheringContent.TABLE_ENTITY.get(),
+                dev.gathering.client.TableMiniatureRenderer::new);
 
         // The felt is one texture tinted per table, so the tint needs a handler on each loader.
         net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.BLOCK.register(

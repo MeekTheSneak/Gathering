@@ -223,6 +223,9 @@ This is new and it is the first time any of the game core has been reachable at 
 and come back. The board should be exactly as you left it, shuffle included. A game also locks
 its tables — you cannot break or extend the cluster until it ends.
 
+6. **Right-click the table again while a game is running** and you sit down at the board
+   itself. That is section 7.
+
 **What you will not see** is anybody else's hand or the order of your own library, and that is
 the point rather than a gap. The status readout is built from the same visibility-filtered
 view a real client will be sent, so it can only say what that client would be entitled to
@@ -235,6 +238,33 @@ than in the world folder. Copy a world save and you have taken the ciphertext an
 behind. A test flips every bit of a sealed stream in turn to confirm an edited one will not
 open, because a library edited on disk that still decrypted would be a stacked deck that
 looked legitimate.
+
+### 7. Play a game
+
+Right-clicking a table with a game on it opens the seated view. This is new, and it is the
+first time any verb past "put your deck down" has been reachable at all.
+
+- **Your hand** runs along the bottom. **Drag a card onto the table** to play it; drag it back
+  to your hand to pick it up; drag one already on the table to move it.
+- **Left-click a card on the table** to pick it up, **right-click** to turn it over.
+- **D** draws, **S** shuffles, **U** untaps everything, **+** and **-** change your life.
+- **The strip along the top** is every seat: who, life, and how many cards in each zone. Click
+  one to look at their board — you can move their public cards too, because that is the
+  paper-Magic rule the design keeps. The log says who did it.
+- **Hold the read key** over any card, here or anywhere, and the same inspect panel opens.
+
+**Goldfishing works alone.** One person at a table is not a special mode: sit down, start,
+put a deck down, draw seven. That is the phase 1 deliverable, so it is the thing most worth
+half an hour of your time and a verdict.
+
+**Look at the table from across the room.** A game in progress is drawn small on the table
+top — each seat's permanents along their own band, tapped cards turned sideways. It updates
+as moves happen and on a slow beat for anybody who walks up mid-game. That view is the public
+board and nothing else: face-down cards are card backs, and nobody's hand is in it.
+
+**What I would most like to know** is whether half an hour of goldfishing is bearable, and
+where it stops being. The layout, the sizes, the keys and the drag feel are all first guesses
+and all cheap to change.
 
 ## What I'd most like to know
 
@@ -256,9 +286,12 @@ In rough order of how much it would change what I build next:
 
 ## What is deliberately not there yet
 
-- **A game you can start, but no screen to play it in.** You can sit down, start a session,
-  put a deck on the table and read the board in chat — but every verb after that (draw, move,
-  tap) has no way to be reached yet. See section 6.
+- **No format validation at a table.** The validator exists and nothing calls it: any deck
+  can be put down at any table. Formatted games are phase 2.
+- **No undo button.** Undo is built and tested in the core and has no way to be reached from
+  the seated view yet.
+- **No spectator screen.** You can see a table's miniature from across the room, but there is
+  no read-only GUI for watching a game you are not in.
 - **No collection block.** Specified in the design brief, phase 3.
 - **Cards don't stack, and there's no way to get rid of one** except dropping it.
 - **No way to name a deck after the fact.** Import names one; a deck started from two cards

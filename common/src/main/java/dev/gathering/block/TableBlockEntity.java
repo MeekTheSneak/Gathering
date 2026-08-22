@@ -49,6 +49,9 @@ public class TableBlockEntity extends BlockEntity {
     private static final String SESSION_OPEN_KEY = "session_open";
     private static final String SESSION_SEALED_KEY = "session_sealed";
     private static final String STARTING_LIFE_KEY = "starting_life";
+
+    /** Two seconds. Ambience, not gameplay - moves are pushed as they happen. */
+    private static final int AMBIENT_INTERVAL_TICKS = 40;
     private static final String SIDE_KEY = "side";
     private static final String PLAYER_KEY = "player";
 
@@ -69,6 +72,8 @@ public class TableBlockEntity extends BlockEntity {
     private StoredSession stored;
     private int startingLife;
     private boolean restoreFailed;
+
+    private int ambientCountdown;
 
     public TableBlockEntity(BlockPos pos, BlockState state) {
         super(dev.gathering.item.GatheringContent.TABLE_ENTITY.get(), pos, state);
@@ -113,6 +118,31 @@ public class TableBlockEntity extends BlockEntity {
         this.stored = null;
         this.restoreFailed = false;
         setChanged();
+    }
+
+    /**
+     * Keeps the room's view of this table up to date.
+     *
+     * <p>Moves are pushed as they happen, but somebody who walks up to a game in progress has
+     * missed all of them - so the public board goes out on a slow beat as well. Slow because
+     * it is ambience: a miniature that lags a second behind is a miniature, and a miniature
+     * that costs a packet a tick to everyone in range is a bill nobody agreed to.
+     */
+    public static void serverTick(
+            net.minecraft.world.level.Level level, BlockPos pos, BlockState state, TableBlockEntity table) {
+        if (++table.ambientCountdown < AMBIENT_INTERVAL_TICKS) {
+            return;
+        }
+        table.ambientCountdown = 0;
+
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server)) {
+            return;
+        }
+        table.session().ifPresent(session -> dev.gathering.server.TableBroadcast.sendAmbient(
+                server, pos, session,
+                dev.gathering.server.TableBroadcast.seatedAt(server, pos).stream()
+                        .map(seated -> seated.player().getUUID())
+                        .collect(java.util.stream.Collectors.toSet())));
     }
 
     public Optional<DyeColor> felt() {

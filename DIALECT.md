@@ -383,3 +383,19 @@ cannot be inferred from reading the code.
   `GameState` directly is easier and is how one convenience becomes the single place in the
   mod that can see everybody's hand. The chat status readout is built from a `GameView` for
   exactly that reason, even though it runs on the server and could have looked.
+- **What crosses the wire to a client is a `GameView`, never a `GameState`.** The view has
+  already been through the visibility rules, so there is nothing in the packet to extract. One
+  view is built per recipient and addressed to them alone - a shared board packet would have
+  to contain everybody's hand and every client would hold it.
+- **A client signs its own moves and the server checks the signature.** An action arrives as
+  an encoded event; the server refuses any whose actor is not the sender's seat. That check is
+  what makes the permissiveness safe: any seated player may move any public card *because* the
+  log says who did. Deleting the check makes a forged move go through, which is what its test
+  asserts.
+- **The miniature draws the spectator view**, the same public board anybody standing at the
+  table would get, and the seated view is a different object for a different recipient. Two
+  views of one game, and only one of them has your hand in it - which is why the client keeps
+  them keyed by table rather than merged.
+- **Nothing is applied on the client before the server agrees.** A board that showed a move
+  and then took it back would be leaking, because "take that back" is a sentence with
+  information in it.

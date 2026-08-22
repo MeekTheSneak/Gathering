@@ -39,14 +39,43 @@ public final class TableBroadcast {
     private TableBroadcast() {
     }
 
-    /** Sends the board to every seated player at this cluster. */
+    /** How far away a table's miniature is worth keeping up to date. */
+    private static final double AMBIENT_RANGE = 32.0d;
+
+    /** Sends the board to every seated player at this cluster, and the public one to the room. */
     public static void sendToTable(ServerLevel level, BlockPos tableOrigin) {
         GameSession session = TableSessions.sessionAt(level, tableOrigin).orElse(null);
         if (session == null) {
             return;
         }
-        for (Seated seated : seatedAt(level, tableOrigin)) {
-            send(seated.player(), tableOrigin, session, Optional.of(seated.seat()), false);
+        java.util.Set<java.util.UUID> seated = new java.util.HashSet<>();
+        for (Seated player : seatedAt(level, tableOrigin)) {
+            seated.add(player.player().getUUID());
+            send(player.player(), tableOrigin, session, Optional.of(player.seat()), false);
+        }
+        sendAmbient(level, tableOrigin, session, seated);
+    }
+
+    /**
+     * Sends the public board to everyone nearby who is not sitting at it.
+     *
+     * <p>This is what the miniature on the table top is drawn from, and it is the spectator
+     * view rather than anybody's: a player walking past a game sees what somebody standing
+     * over the table would see, which is the whole point of having a table in a world rather
+     * than a menu. Nobody's hand is in it.
+     */
+    public static void sendAmbient(
+            ServerLevel level, BlockPos tableOrigin, GameSession session,
+            java.util.Set<java.util.UUID> exclude) {
+        for (ServerPlayer nearby : level.players()) {
+            if (exclude.contains(nearby.getUUID())) {
+                continue;
+            }
+            if (nearby.distanceToSqr(tableOrigin.getX() + 1.0, tableOrigin.getY() + 1.0,
+                    tableOrigin.getZ() + 1.0) > AMBIENT_RANGE * AMBIENT_RANGE) {
+                continue;
+            }
+            send(nearby, tableOrigin, session, Optional.empty(), false);
         }
     }
 

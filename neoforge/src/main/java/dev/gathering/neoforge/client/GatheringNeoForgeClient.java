@@ -69,6 +69,15 @@ public final class GatheringNeoForgeClient {
      * removal - and which would have forced a NeoForge-only subclass of an item that otherwise
      * has no loader-specific behaviour at all.
      */
+    /** The miniature on the table top, which is what makes a table worth more than a menu. */
+    @SubscribeEvent
+    public static void onRegisterRenderers(
+            net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(
+                GatheringContent.TABLE_ENTITY.get(),
+                dev.gathering.client.TableMiniatureRenderer::new);
+    }
+
     @SubscribeEvent
     public static void onRegisterClientExtensions(RegisterClientExtensionsEvent event) {
         event.registerItem(new IClientItemExtensions() {
@@ -155,11 +164,16 @@ public final class GatheringNeoForgeClient {
     /** Takes a board off the wire and, if asked, sits the player down at it. */
     private static void acceptTableView(dev.gathering.network.TableViewPayload payload) {
         try {
-            dev.gathering.client.ClientTableState.accept(payload.table(),
-                    dev.gathering.core.game.persistence.ViewCodec.read(payload.view()));
+            dev.gathering.core.game.visibility.GameView board =
+                    dev.gathering.core.game.persistence.ViewCodec.read(payload.view());
+            // A seated view is this player's own board; a spectator view is the public one
+            // that feeds the miniature on the table. Only the first belongs to a seat.
+            boolean seated = board.viewer()
+                    instanceof dev.gathering.core.game.visibility.Viewer.Seated;
+            dev.gathering.client.ClientTableState.accept(payload.table(), board, seated);
         } catch (java.io.IOException e) {
             // A board this client cannot read is one it must not draw a guess at.
-            dev.gathering.client.ClientTableState.clear();
+            dev.gathering.client.ClientTableState.forget(payload.table());
             return;
         }
         if (payload.open() && !(Minecraft.getInstance().screen

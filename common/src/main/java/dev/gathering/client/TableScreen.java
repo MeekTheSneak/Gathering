@@ -76,7 +76,7 @@ public final class TableScreen extends Screen {
     // ------------------------------------------------------------- the board
 
     private Optional<GameView> view() {
-        return ClientTableState.view();
+        return ClientTableState.viewOf(table);
     }
 
     private Optional<SeatId> mySeat() {

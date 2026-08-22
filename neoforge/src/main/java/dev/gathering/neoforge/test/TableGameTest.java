@@ -397,6 +397,29 @@ public final class TableGameTest {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void oneplayerCanGoldfishAlone(GameTestHelper helper) {
+        // Sandbox mode, which the design says ships in the first playable phase: all the same
+        // verbs, no other humans required. It is not a separate mode - it is one person at a
+        // table, and it has to work without anything special being asked for.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID solo = new UUID(0L, 77L);
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, solo);
+
+        if (TableSessions.start(helper.getLevel(), origin, 40) != TableSessions.Outcome.STARTED) {
+            helper.fail("One player alone could not start a game");
+        }
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        session.submit(new GameEvent.DeckLoaded(new SeatId(0), library(), List.of()));
+        session.submit(new GameEvent.LibraryShuffled(new SeatId(0), new SeatId(0)));
+        session.submit(new GameEvent.CardsDrawn(new SeatId(0), new SeatId(0), 7));
+
+        if (session.state().contents(new SeatId(0), dev.gathering.core.game.Zone.HAND).size() != 7) {
+            helper.fail("A solo player could not draw an opening hand");
+        }
+        helper.succeed();
+    }
+
     private static List<dev.gathering.core.card.CardIdentity> library() {
         List<dev.gathering.core.card.CardIdentity> cards = new java.util.ArrayList<>();
         for (int index = 0; index < 20; index++) {
