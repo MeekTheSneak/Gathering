@@ -50,6 +50,36 @@ public final class GameSession {
         return new GameSession(seed, GameState.empty(seats, startingLife), undoMode);
     }
 
+    /**
+     * A session put back together from a stored log.
+     *
+     * <p>Nothing is re-run and nothing is re-authorised: the log is what happened, and the
+     * board is folded from it exactly as it was. Re-authorising would be worse than
+     * pointless, because the state each decision was made against is gone.
+     *
+     * <p>The next sequence number continues past the highest one restored rather than from
+     * the count, so a log that has had entries undone does not hand out a number twice.
+     */
+    public static GameSession restore(
+            List<SeatId> seats,
+            int startingLife,
+            SessionSeed seed,
+            UndoMode undoMode,
+            List<SessionRecord> records) {
+        GameSession session = create(seats, startingLife, seed, undoMode);
+        session.records.addAll(records);
+
+        long highest = 0;
+        for (SessionRecord record : records) {
+            if (record instanceof SessionRecord.EventRecord event) {
+                highest = Math.max(highest, event.sequence());
+            }
+        }
+        session.nextSequence = highest + 1;
+        session.state = session.refold();
+        return session;
+    }
+
     /** A solo table. Goldfishing needs no other humans, and ships in the first playable phase. */
     public static GameSession sandbox(int startingLife) {
         return create(List.of(SeatId.of(0)), startingLife, SessionSeed.random(), UndoMode.shippedDefault());
