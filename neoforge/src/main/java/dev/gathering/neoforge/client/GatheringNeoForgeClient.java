@@ -9,6 +9,7 @@ import dev.gathering.client.ClientCardImages;
 import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientCardRequests;
 import dev.gathering.client.ClientNetworking;
+import dev.gathering.client.TableColours;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
 import dev.gathering.client.ZoomKeyState;
@@ -76,6 +77,20 @@ public final class GatheringNeoForgeClient {
                 return CardItemRenderer.instance();
             }
         }, GatheringContent.CARD.get());
+    }
+
+    /** The felt is one texture tinted per table, so the tint needs a handler on each loader. */
+    @SubscribeEvent
+    public static void onRegisterBlockColours(
+            net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Block event) {
+        event.register(TableColours::tintOf, GatheringContent.TABLE.get());
+    }
+
+    @SubscribeEvent
+    public static void onRegisterItemColours(
+            net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Item event) {
+        event.register((stack, tintIndex) -> TableColours.itemTintOf(tintIndex),
+                GatheringContent.TABLE_ITEM.get());
     }
 
     @SubscribeEvent

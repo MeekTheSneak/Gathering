@@ -15,6 +15,7 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.PushReaction;
@@ -223,6 +224,35 @@ public final class TableGameTest {
         if (state.getPistonPushReaction() != PushReaction.BLOCK) {
             helper.fail("A piston can move a table, which moves one quarter of it: "
                     + state.getPistonPushReaction());
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void feltColourIsKeptAndIsToldToClients(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+
+        if (!table.dye(DyeColor.PURPLE)) {
+            helper.fail("Dyeing an undyed table changed nothing");
+        }
+        if (table.dye(DyeColor.PURPLE)) {
+            helper.fail("Dyeing a table the colour it already is counted as a change");
+        }
+
+        // Saved with the world...
+        CompoundTag saved = table.saveWithFullMetadata(helper.getLevel().registryAccess());
+        TableBlockEntity reloaded = new TableBlockEntity(origin, helper.getLevel().getBlockState(origin));
+        reloaded.loadWithComponents(saved, helper.getLevel().registryAccess());
+        if (!reloaded.felt().equals(java.util.Optional.of(DyeColor.PURPLE))) {
+            helper.fail("The felt colour did not survive a save and load: " + reloaded.felt());
+        }
+
+        // ...and told to a client that joins later, which is a separate tag and so a
+        // separate way to lose it.
+        CompoundTag update = table.getUpdateTag(helper.getLevel().registryAccess());
+        if (!DyeColor.PURPLE.getSerializedName().equals(update.getString("felt"))) {
+            helper.fail("A joining client is not told the felt colour: " + update);
         }
         helper.succeed();
     }

@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.DyeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -188,6 +189,18 @@ public class TableBlock extends BaseEntityBlock {
         }
 
         BlockPos tableOrigin = originOf(state, pos);
+
+        // Dye in hand means you came to change the felt, not to sit down.
+        if (stack.getItem() instanceof DyeItem dye) {
+            boolean changed = entityAt(level, pos)
+                    .map(table -> table.dye(dye.getDyeColor()))
+                    .orElse(false);
+            if (changed && !player.getAbilities().instabuild) {
+                stack.shrink(1);
+            }
+            return ItemInteractionResult.SUCCESS;
+        }
+
         // The cluster is worked out relative to the table that was clicked, so that table is
         // always its origin cell. Only outward faces of a table are reachable, so the face
         // clicked is the edge meant.

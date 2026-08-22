@@ -196,6 +196,10 @@ tab. It is a 2x2 multiblock: the block you click becomes its north-west corner.
 - **Break any quarter** and the whole table comes up. Try it with somebody seated: it should
   refuse, and refuse to let you extend the cluster too, because reshaping moves the seats.
 
+- **Right-click with a dye** to colour the felt. The colour is stored on the table rather
+  than in its blockstate, so it survives a restart and a chunk reload, and it does not
+  multiply the block's state count by sixteen.
+
 **What I would most like to know here** is whether the table is the right height and size, and
 whether merging feels like pushing tables together or like a puzzle. The model is deliberately
 plain — a felt top on a wooden frame — because that is a thing you will want to design rather

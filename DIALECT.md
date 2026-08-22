@@ -357,3 +357,11 @@ cannot be inferred from reading the code.
   on it would put somebody inside the furniture and one would make a four-table cluster seat
   seven. So the count is per cluster and the seats are placed around its perimeter, facing
   pairs first. The property tests caught this; the first implementation seated seven.
+- **Colour lives in the block entity, not the blockstate.** A dyeable surface in the
+  blockstate multiplies a block's state count by sixteen to answer a question only the
+  renderer ever asks. The cost is that a blockstate change will not sync it, so the block
+  entity has to say so itself: `sendBlockUpdated` on change, plus `getUpdateTag` and
+  `getUpdatePacket` for clients that join later. Those are two separate ways to lose the same
+  value, so both have a test.
+- **`DyeColor#getTextureDiffuseColor` is ARGB and a block tint is RGB.** Leaving the alpha in
+  makes every dyed surface draw as though it were unlit.
