@@ -141,7 +141,11 @@ public final class ClientCardImages {
 
     private void upload(String url, byte[] bytes) {
         try {
-            NativeImage image = toNativeImage(CardImageDecoder.decode(bytes));
+            CardImageDecoder.DecodedImage decoded = CardImageDecoder.decode(bytes);
+            // Card art arrives as a rectangle with the corners printed on it. A card is not a
+            // rectangle.
+            dev.gathering.core.image.RoundedCorners.apply(decoded);
+            NativeImage image = toNativeImage(decoded);
             ResourceLocation id = Gathering.id("card_art/" + textureCounter.incrementAndGet());
             Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));
             resident.put(url, id);

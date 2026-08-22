@@ -46,10 +46,15 @@ PALETTE = {
 }
 
 # The deck panel's right edge runs from this fraction of the width at the top to this
-# fraction at the bottom. DeckScreenLayout.TAPER_BOTTOM must match, or the scrollbar drawn
-# along that edge will not sit on it. A theme replacing deck_panel.png keeps these.
-TAPER_TOP = 1.0
-TAPER_BOTTOM = 0.80
+# fraction at the bottom. DeckScreenLayout.TAPER_TOP and TAPER_BOTTOM must match, or the
+# scrollbar drawn along that edge will not sit on it. A theme replacing deck_panel.png
+# keeps these.
+#
+# The top is short of the full width on purpose: the edge line and the shadow outside it
+# need room, and at 1.0 they run off the right of the texture and the panel's top corner
+# arrives visibly unfinished.
+TAPER_TOP = 0.90
+TAPER_BOTTOM = 0.74
 
 # Width of the line down the tapered edge, as a fraction of panel width. Deliberately thin
 # and muted: the bright thing on that edge is the scroll thumb, not the panel border.
@@ -191,6 +196,211 @@ def scrollbar():
         write_mcmeta(path, border, size, size)
 
 
+# ---------------------------------------------------------------------------
+# Mana and tap symbols.
+#
+# Our own art: lettered discs, not Wizards' pictographs, for the same reason the card back
+# is our own. The colours are the conventional five because which colour a cost is happens
+# to be the information the symbol carries.
+#
+# Order must match ManaSymbols.NAMES exactly - the index is the glyph's codepoint.
+# ---------------------------------------------------------------------------
+SYMBOL_SIZE = 32
+
+MANA_COLOURS = {
+    "w": (0xFF, 0xFB, 0xD5),
+    "u": (0x9A, 0xD9, 0xF7),
+    "b": (0xA9, 0x9F, 0x9C),
+    "r": (0xF6, 0x9E, 0x81),
+    "g": (0x8C, 0xCE, 0xA3),
+    "c": (0xC9, 0xC4, 0xBF),
+    "s": (0xD5, 0xE4, 0xEE),
+}
+GENERIC = (0xC9, 0xC4, 0xBF)
+GLYPH_INK = (0x1A, 0x16, 0x12)
+SYMBOL_RIM = (0x00, 0x00, 0x00, 0x88)
+
+# A 5x7 bitmap face, hand-set so a symbol stays legible once it is scaled down to the
+# height of a line of text. Anything not here is drawn as a plain disc.
+FACE = {
+    "0": (".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."),
+    "1": ("..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."),
+    "2": (".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"),
+    "3": ("####.", "....#", "..##.", "....#", "....#", "#...#", ".###."),
+    "4": ("...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."),
+    "5": ("#####", "#....", "####.", "....#", "....#", "#...#", ".###."),
+    "6": ("..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."),
+    "7": ("#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."),
+    "8": (".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."),
+    "9": (".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."),
+    "W": ("#...#", "#...#", "#...#", "#.#.#", "#.#.#", "##.##", "#...#"),
+    "U": ("#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."),
+    "B": ("####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."),
+    "R": ("####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"),
+    "G": (".###.", "#...#", "#....", "#..##", "#...#", "#...#", ".###."),
+    "C": (".###.", "#...#", "#....", "#....", "#....", "#...#", ".###."),
+    "S": (".####", "#....", "#....", ".###.", "....#", "....#", "####."),
+    "T": ("#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."),
+    "Q": (".###.", "#...#", "#...#", "#...#", "#.#.#", "#..#.", ".##.#"),
+    "E": ("#####", "#....", "####.", "#....", "#....", "#....", "#####"),
+    "X": ("#...#", "#...#", ".#.#.", "..#..", ".#.#.", "#...#", "#...#"),
+    "Y": ("#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#.."),
+    "Z": ("#####", "....#", "...#.", "..#..", ".#...", "#....", "#####"),
+    "P": ("####.", "#...#", "#...#", "####.", "#....", "#....", "#...."),
+}
+
+
+def over(under, above):
+    """Alpha-composites `above` onto `under`, both RGBA tuples."""
+    alpha = above[3] / 255.0
+    if alpha <= 0:
+        return under
+    if under[3] == 0:
+        return above[:3] + (above[3],)
+    return tuple(round(above[i] * alpha + under[i] * (1 - alpha)) for i in range(3)) + (
+        max(under[3], above[3]),
+    )
+
+
+def disc_sample(fx, fy, size, left, right, split):
+    """The disc's colour at one point, or transparent outside it.
+
+    `split` picks how the two colours are divided: None for a plain disc, "diagonal" for a
+    hybrid, "slash" for the Phyrexian bar.
+    """
+    centre = size / 2.0
+    radius = centre - 1.0
+    dx = fx - centre
+    dy = fy - centre
+    distance = (dx * dx + dy * dy) ** 0.5
+    if distance > radius:
+        return (0, 0, 0, 0)
+
+    colour = left
+    if split == "diagonal" and (dx - dy) > 0:
+        colour = right
+    body = colour + (255,)
+    if distance > radius - 1.5:
+        # A dark rim so a pale disc still reads against a pale background.
+        return over(body, SYMBOL_RIM)
+    return body
+
+
+def draw_face(px, glyph, size, scale, offset_x, offset_y):
+    rows = FACE.get(glyph)
+    if rows is None:
+        return
+    width = len(rows[0]) * scale
+    height = len(rows) * scale
+    origin_x = round((size - width) / 2) + offset_x
+    origin_y = round((size - height) / 2) + offset_y
+    for row, bits in enumerate(rows):
+        for column, bit in enumerate(bits):
+            if bit != "#":
+                continue
+            for sy in range(scale):
+                for sx in range(scale):
+                    x = origin_x + column * scale + sx
+                    y = origin_y + row * scale + sy
+                    if 0 <= x < size and 0 <= y < size and px[y][x][3] > 0:
+                        px[y][x] = rgba(GLYPH_INK)
+
+
+def symbol(name):
+    size = SYMBOL_SIZE
+    px = blank(size, size)
+
+    left = right = GENERIC
+    split = None
+    glyphs = []
+
+    if name in MANA_COLOURS:
+        left = right = MANA_COLOURS[name]
+        glyphs = [name.upper()]
+    elif name in ("tap", "untap", "energy"):
+        glyphs = [{"tap": "T", "untap": "Q", "energy": "E"}[name]]
+    elif name in ("x", "y", "z"):
+        glyphs = [name.upper()]
+    elif name.isdigit():
+        glyphs = list(name)
+    elif len(name) == 2 and name[1] == "p":
+        left = right = MANA_COLOURS[name[0]]
+        glyphs = ["P"]
+    elif len(name) == 2 and name[0] == "2":
+        left, right = GENERIC, MANA_COLOURS[name[1]]
+        split = "diagonal"
+        glyphs = []
+    elif len(name) == 2:
+        left, right = MANA_COLOURS[name[0]], MANA_COLOURS[name[1]]
+        split = "diagonal"
+        glyphs = []
+
+    for y in range(size):
+        for x in range(size):
+            r = g = b = a = 0.0
+            for sy in range(SUPERSAMPLE):
+                for sx in range(SUPERSAMPLE):
+                    sample = disc_sample(
+                        x + (sx + 0.5) / SUPERSAMPLE,
+                        y + (sy + 0.5) / SUPERSAMPLE,
+                        size, left, right, split,
+                    )
+                    r += sample[0] * sample[3]
+                    g += sample[1] * sample[3]
+                    b += sample[2] * sample[3]
+                    a += sample[3]
+            samples = SUPERSAMPLE * SUPERSAMPLE
+            px[y][x] = (0, 0, 0, 0) if a <= 0 else (
+                round(r / a), round(g / a), round(b / a), round(a / samples))
+
+    if len(glyphs) == 1:
+        # Scale 3 gives a 15x21 glyph inside a 30px disc: clear of the rim at the corners,
+        # where a taller one pokes through and the symbol stops looking like a disc.
+        draw_face(px, glyphs[0], size, 3, 0, 0)
+    elif len(glyphs) == 2:
+        # Two digits share the disc, so they go smaller and side by side.
+        draw_face(px, glyphs[0], size, 2, -6, 0)
+        draw_face(px, glyphs[1], size, 2, 6, 0)
+
+    write_png(
+        f"common/src/main/resources/assets/gathering/textures/font/mana/{name}.png",
+        size, size, px)
+
+
+# Must match dev.gathering.core.text.ManaSymbols.NAMES, in order: the index is the glyph.
+SYMBOL_NAMES = (
+    ["w", "u", "b", "r", "g", "c", "s"]
+    + [str(n) for n in range(0, 21)]
+    + ["x", "y", "z", "tap", "untap", "energy"]
+    + ["wu", "wb", "ub", "ur", "br", "bg", "rg", "rw", "gw", "gu"]
+    + ["2w", "2u", "2b", "2r", "2g"]
+    + ["wp", "up", "bp", "rp", "gp"]
+)
+
+# Where the glyphs start, matching ManaSymbols.FIRST_CODEPOINT.
+FIRST_CODEPOINT = 0xE000
+
+
+def symbols():
+    providers = []
+    for index, name in enumerate(SYMBOL_NAMES):
+        symbol(name)
+        providers.append(
+            '    {\n'
+            '      "type": "bitmap",\n'
+            f'      "file": "gathering:font/mana/{name}.png",\n'
+            '      "ascent": 8,\n'
+            '      "height": 9,\n'
+            f'      "chars": ["\\u{FIRST_CODEPOINT + index:04X}"]\n'
+            "    }"
+        )
+    path = "common/src/main/resources/assets/gathering/font/mana.json"
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as handle:
+        handle.write('{\n  "providers": [\n' + ",\n".join(providers) + "\n  ]\n}\n")
+    print("wrote", path, f"({len(providers)} glyphs)")
+
+
 def main():
     nine_slice("panel", PALETTE["panel"], PALETTE["panel_edge"])
     nine_slice("panel_inset", PALETTE["inset"], PALETTE["inset_edge"])
@@ -199,6 +409,7 @@ def main():
     nine_slice("frame", PALETTE["frame_fill"], PALETTE["frame"], lip=PALETTE["frame_lip"])
     deck_panel()
     scrollbar()
+    symbols()
 
 
 if __name__ == "__main__":

@@ -2,7 +2,10 @@ package dev.gathering.client;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.util.FormattedCharSequence;
 
 /**
  * Text that fits the space it was given.
@@ -28,47 +31,55 @@ public final class GuiText {
     /** Draws left-aligned at {@code x}, shrinking or trimming to sit inside {@code maxWidth}. */
     public static void draw(
             GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int colour) {
-        drawFitted(graphics, font, text.getString(), x, y, maxWidth, colour);
+        drawFitted(graphics, font, text, x, y, maxWidth, colour);
     }
 
     /** Draws centred on {@code centreX}, shrinking or trimming to sit inside {@code maxWidth}. */
     public static void drawCentred(
             GuiGraphics graphics, Font font, Component text, int centreX, int y, int maxWidth, int colour) {
-        String value = text.getString();
-        int drawn = Math.min(font.width(value), maxWidth);
-        drawFitted(graphics, font, value, centreX - drawn / 2, y, maxWidth, colour);
+        drawFitted(graphics, font, text, centreX - width(font, text, maxWidth) / 2, y, maxWidth, colour);
     }
 
     /** How wide this text will actually be drawn, once fitted. */
     public static int width(Font font, Component text, int maxWidth) {
-        return Math.min(font.width(text.getString()), Math.max(0, maxWidth));
+        return Math.min(font.width(text), Math.max(0, maxWidth));
     }
 
+    /**
+     * Works in {@link FormattedText} rather than in plain strings, so a bold or coloured
+     * component still arrives bold or coloured after being shrunk or trimmed - flattening to
+     * a string here would quietly drop the styling a caller went to the trouble of adding.
+     */
     private static void drawFitted(
-            GuiGraphics graphics, Font font, String text, int x, int y, int maxWidth, int colour) {
-        if (maxWidth <= 0 || text.isEmpty()) {
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int colour) {
+        if (maxWidth <= 0) {
             return;
         }
         int width = font.width(text);
+        if (width == 0) {
+            return;
+        }
         if (width <= maxWidth) {
             graphics.drawString(font, text, x, y, colour, false);
             return;
         }
 
         float scale = Math.max(MINIMUM_SCALE, (float) maxWidth / width);
-        String shown = text;
+        FormattedText shown = text;
         if (width * scale > maxWidth) {
             // Even at the smallest readable size it does not fit, so the tail goes.
             int room = Math.round(maxWidth / scale) - font.width(ELLIPSIS);
-            shown = font.plainSubstrByWidth(text, Math.max(0, room)) + ELLIPSIS;
+            shown = FormattedText.composite(
+                    font.substrByWidth(text, Math.max(0, room)), FormattedText.of(ELLIPSIS));
         }
+        FormattedCharSequence sequence = Language.getInstance().getVisualOrder(shown);
 
         graphics.pose().pushPose();
         // Keep the shrunken line on the same baseline the full-size one would have used,
         // so a shrunk row does not sit visibly higher than its neighbours.
         graphics.pose().translate(x, y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
         graphics.pose().scale(scale, scale, 1f);
-        graphics.drawString(font, shown, 0, 0, colour, false);
+        graphics.drawString(font, sequence, 0, 0, colour, false);
         graphics.pose().popPose();
     }
 }

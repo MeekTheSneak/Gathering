@@ -275,3 +275,33 @@ cannot be inferred from reading the code.
   applied, and `DeckItem#inventoryTick` is the server-side backstop for every other route.
   A deck item carrying no component at all is left alone - that is the creative-menu deck,
   which is blank rather than empty.
+- **Mana symbols are a bitmap font, not a custom text renderer.** Each braced code maps to a
+  private-use character styled with `gathering:mana`, so the game's own layout does wrapping,
+  width and drawing for symbols exactly as it does for letters. Writing a token-aware layout
+  pass instead means reimplementing all three and having them disagree with the rest of the
+  text.
+- **Three artefacts have to agree on which glyph is which**: `ManaSymbols.NAMES`, the
+  generator that draws the textures, and `font/mana.json`. Nothing connects them at compile
+  time and getting it wrong does not fail - it draws a different mana symbol, which on a card
+  is a different cost. `ManaFontGameTest` reads the font back and matches it against the
+  list. Append to `NAMES`, never insert: inserting renumbers every glyph after it.
+- **The mana symbols are the mod's own art**, lettered discs rather than Wizards'
+  pictographs, for the same reason the card back is. The five colours are the conventional
+  ones because which colour a cost is happens to be the information the symbol carries.
+- **`TAPER_TOP` is 0.90 and not 1.0 on purpose.** The panel's edge line and the shadow
+  outside it need somewhere to go, and at 1.0 they run off the right of the texture - which
+  is not a subtle artefact, it is the top corner of the panel arriving unfinished.
+- **The scrollbar is anchored to the edge at the *top* of the panel.** The shear carries it
+  the rest of the way in. Anchoring it to the narrow end and then shearing it as well tapers
+  it twice and walks it off the panel.
+- **Card art gets its corners rounded at decode, not by drawing over them.** What sits behind
+  a card is different everywhere it appears - a frame, a panel, a dimmed world - so a corner
+  mask painted in one background colour is right in exactly one place. Only the alpha is
+  cleared, never the colour, because `entityCutout` in the world does not blend and a
+  zeroed pixel would leave black corners.
+- **`GuiText` works in `FormattedText`, never in `String`.** Flattening to a string to
+  measure or trim silently drops the styling the caller added - a bold title comes out plain
+  the moment it is long enough to need shrinking, which is the one case nobody tests.
+- **Inside a screen the read key follows the cursor and nothing else.** It deliberately does
+  not fall back to the card in the player's hand: falling back meant a held card shadowed
+  every slot the cursor was not over, and answered a question nobody had asked.

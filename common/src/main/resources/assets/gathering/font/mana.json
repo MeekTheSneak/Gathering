@@ -1,0 +1,382 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/w.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE000"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/u.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE001"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/b.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE002"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/r.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE003"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/g.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE004"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/c.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE005"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/s.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE006"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/0.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE007"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/1.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE008"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/2.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE009"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/3.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE00A"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/4.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE00B"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/5.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE00C"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/6.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE00D"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/7.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE00E"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/8.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE00F"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/9.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE010"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/10.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE011"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/11.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE012"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/12.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE013"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/13.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE014"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/14.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE015"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/15.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE016"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/16.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE017"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/17.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE018"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/18.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE019"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/19.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE01A"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/20.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE01B"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/x.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE01C"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/y.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE01D"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/z.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE01E"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/tap.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE01F"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/untap.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE020"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/energy.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE021"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/wu.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE022"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/wb.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE023"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/ub.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE024"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/ur.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE025"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/br.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE026"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/bg.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE027"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/rg.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE028"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/rw.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE029"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/gw.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE02A"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/gu.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE02B"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/2w.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE02C"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/2u.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE02D"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/2b.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE02E"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/2r.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE02F"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/2g.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE030"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/wp.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE031"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/up.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE032"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/bp.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE033"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/rp.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE034"]
+    },
+    {
+      "type": "bitmap",
+      "file": "gathering:font/mana/gp.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": ["\uE035"]
+    }
+  ]
+}

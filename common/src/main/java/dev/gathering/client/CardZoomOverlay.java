@@ -53,7 +53,7 @@ public final class CardZoomOverlay {
         if (!isActive()) {
             return;
         }
-        cardUnderAttention().ifPresent(card ->
+        cardInHand().ifPresent(card ->
                 CardInspectPanel.renderFullScreen(graphics, card, screenWidth, screenHeight));
     }
 
@@ -74,7 +74,7 @@ public final class CardZoomOverlay {
             // readable. A second copy chasing the cursor would undo exactly that.
             return;
         }
-        cardUnderAttention().ifPresent(card ->
+        cardUnderCursor().ifPresent(card ->
                 CardInspectPanel.renderBeside(graphics, card, mouseX, mouseY, screenWidth, screenHeight));
     }
 
@@ -97,26 +97,31 @@ public final class CardZoomOverlay {
     }
 
     /**
-     * What the player is asking about: the card in the slot under the mouse if a container
-     * screen is open, otherwise the one in their hand.
+     * The card the cursor is pointing at: the one in the slot under it, or the one it is
+     * carrying.
+     *
+     * <p>Deliberately never falls back to the card in the player's hand. Inside a screen the
+     * cursor is what the player is pointing with, so holding the key over an empty slot must
+     * show nothing - falling back meant a card in your hand shadowed every slot you were not
+     * over, and answered a question nobody asked.
      */
-    static Optional<CardSummary> cardUnderAttention() {
+    static Optional<CardSummary> cardUnderCursor() {
         Minecraft minecraft = Minecraft.getInstance();
 
         Optional<CardSummary> hovered = summaryOf(ClientHoverState.hovered());
         if (hovered.isPresent()) {
             return hovered;
         }
-
         if (minecraft.screen instanceof AbstractContainerScreen<?> && minecraft.player != null) {
             // A card being dragged is held by the cursor rather than sitting in a slot.
-            Optional<CardSummary> carried = summaryOf(minecraft.player.containerMenu.getCarried());
-            if (carried.isPresent()) {
-                return carried;
-            }
+            return summaryOf(minecraft.player.containerMenu.getCarried());
         }
+        return Optional.empty();
+    }
 
-        Player player = minecraft.player;
+    /** The card the player is actually holding, which is the question the HUD answers. */
+    static Optional<CardSummary> cardInHand() {
+        Player player = Minecraft.getInstance().player;
         if (player == null) {
             return Optional.empty();
         }

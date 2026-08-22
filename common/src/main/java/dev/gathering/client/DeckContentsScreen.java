@@ -167,7 +167,10 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
      */
     @Override
     public Component getTitle() {
-        return heldStack().map(ItemStack::getHoverName).orElseGet(Component::empty);
+        return heldStack()
+                .map(ItemStack::getHoverName)
+                .map(name -> (Component) name.copy().withStyle(ChatFormatting.BOLD))
+                .orElseGet(Component::empty);
     }
 
     /**
@@ -286,11 +289,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
      * the amount the edge does.
      */
     private Matrix4f taper() {
-        Rect panel = layout().panel();
-        float slope = panel.height() == 0
-                ? 0f
-                : panel.width() * (DeckScreenLayout.TAPER_BOTTOM - 1f) / panel.height();
-        return new Matrix4f().m10(slope);
+        return new Matrix4f().m10(layout().taperSlope());
     }
 
     /** What a click on this row would do, said plainly under the list. */
@@ -405,11 +404,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         if (maximumScroll() <= 0) {
             return false;
         }
-        Rect panel = layout().panel();
-        double slope = panel.height() == 0
-                ? 0d
-                : panel.width() * (DeckScreenLayout.TAPER_BOTTOM - 1d) / panel.height();
-        double upright = mouseX - slope * mouseY;
+        double upright = mouseX - layout().taperSlope() * mouseY;
         return upright >= track.x() && upright < track.right() && mouseY >= track.y() && mouseY < track.bottom();
     }
 

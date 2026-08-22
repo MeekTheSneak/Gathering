@@ -341,7 +341,9 @@ public final class CardInspectPanel {
             return;
         }
         for (String paragraph : text.split("\n")) {
-            for (FormattedCharSequence sequence : font.split(Component.literal(paragraph), width)) {
+            // Through ManaText, so {T} and {1}{W} arrive as symbols - and, because they are
+            // just styled characters, wrap and measure like any other text.
+            for (FormattedCharSequence sequence : font.split(ManaText.of(paragraph), width)) {
                 into.add(new Line(sequence, colour));
             }
         }

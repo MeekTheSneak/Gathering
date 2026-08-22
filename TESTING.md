@@ -117,9 +117,19 @@ world.
 - **In a screen** (inventory, chest, anywhere with a cursor) you get a small enclosed panel
   that follows the mouse, sitting where the tooltip would and replacing it. This is the
   inspect panel the table will use for cards in play, so it is worth telling me if the size
-  or the position is wrong.
+  or the position is wrong. It follows the **cursor only** — a card in your hand no longer
+  shadows every slot you are not pointing at.
 - **Out in the world**, with a card in hand and no screen open, there is no cursor to sit
   beside, so the card fills the screen instead.
+
+Mana and tap symbols are drawn as symbols rather than printed as `{T}` and `{1}{W}`. They are
+the mod's own art — lettered discs, not Wizards' pictographs, same reasoning as the card back
+— so tell me if any of them are hard to read at size. Anything the mod has no symbol for is
+left as written, braces and all, rather than becoming a blank box: if you spot one, that is
+a symbol worth adding.
+
+Card art has rounded corners now, cut into the image itself, so it looks like a card wherever
+it appears rather than only where something happens to be framing it.
 
 The first look at a given card fetches the art — you may see "Fetching card art..." for a
 moment, then it should be instant forever after, including across restarts.

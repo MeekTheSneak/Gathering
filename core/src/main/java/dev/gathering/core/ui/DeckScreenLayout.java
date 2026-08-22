@@ -28,15 +28,21 @@ public record DeckScreenLayout(
         Rect info) {
 
     /**
-     * How far in the panel's right edge has come by the bottom, as a fraction of its width.
+     * Where the panel's right edge sits at the top and at the bottom, as fractions of the
+     * rectangle it is drawn into.
      *
      * <p>Shared with {@code tools/gui_textures.py}, which draws the taper into
-     * {@code deck_panel.png}. A theme that replaces that texture keeps this angle, or the
+     * {@code deck_panel.png}. A theme that replaces that texture keeps these, or the
      * scrollbar stops sitting on the edge it is drawn along.
+     *
+     * <p>The top is deliberately short of the full width. The edge line and the shadow
+     * outside it need somewhere to go, and at 1.0 they fall off the right of the texture -
+     * which is not a subtle artefact, it is the top corner of the panel arriving unfinished.
      */
-    public static final float TAPER_BOTTOM = 0.80f;
+    public static final float TAPER_TOP = 0.90f;
+    public static final float TAPER_BOTTOM = 0.74f;
 
-    /** Width of the accent strip down the tapered edge, as a fraction of panel width. */
+    /** Width of the edge line down the taper, as a fraction of panel width. */
     public static final float EDGE_FRACTION = 0.010f;
 
     private static final int PAD = 8;
@@ -91,7 +97,11 @@ public record DeckScreenLayout(
 
         int rowsTop = title.bottom() + GAP;
         Rect rows = new Rect(PAD, rowsTop, contentWidth, Math.max(line, hint.y() - GAP - rowsTop));
-        Rect scrollbar = new Rect(contentRight + 2, rows.y(), SCROLL_WIDTH, rows.height());
+        // Anchored to where the edge is at the top, because the shear that lays the bar along
+        // the taper carries it the rest of the way in. Anchoring it to the bottom edge and
+        // then shearing it as well tapers it twice, which walks it off the panel.
+        int scrollLeft = Math.round(panelWidth * TAPER_TOP) - edge - SCROLL_WIDTH;
+        Rect scrollbar = new Rect(scrollLeft, rows.y(), SCROLL_WIDTH, rows.height());
 
         return new DeckScreenLayout(
                 panel, title, rows, scrollbar, hint, done,
@@ -136,13 +146,23 @@ public record DeckScreenLayout(
     }
 
     /**
-     * How far the panel's right edge has come in at this height, in screen coordinates.
+     * How far in the panel's right edge has come at this height, in screen coordinates.
      *
      * <p>What the scrollbar is drawn along, so it sits on the edge rather than beside it.
      */
     public int edgeAt(int y) {
-        float t = panel.height() == 0 ? 0f : (float) y / panel.height();
-        return Math.round(panel.width() * (1f + (TAPER_BOTTOM - 1f) * t));
+        return Math.round(panel.width() * TAPER_TOP + taperSlope() * y);
+    }
+
+    /**
+     * How far left a point slides for every unit it goes down the panel.
+     *
+     * <p>The scrollbar is drawn and hit-tested as an upright bar under a shear by exactly
+     * this much, which is how it and the texture's edge stay on the same line without two
+     * separate pieces of arithmetic having to agree.
+     */
+    public float taperSlope() {
+        return panel.height() == 0 ? 0f : panel.width() * (TAPER_BOTTOM - TAPER_TOP) / panel.height();
     }
 
     private static int clamp(int value, int minimum, int maximum) {

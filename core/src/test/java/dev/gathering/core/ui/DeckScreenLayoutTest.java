@@ -65,7 +65,24 @@ class DeckScreenLayoutTest {
         for (Rect rect : new Rect[] {layout.title(), layout.rows(), layout.hint(), layout.done()}) {
             assertThat(rect.right()).isLessThanOrEqualTo(narrow);
         }
-        assertThat(layout.scrollbar().right()).isLessThanOrEqualTo(narrow);
+    }
+
+    @Property(tries = 2000)
+    void theScrollbarSitsOnTheTaperedEdgeAllTheWayDown(
+            @ForAll @IntRange(min = 320, max = 3840) int width,
+            @ForAll @IntRange(min = 240, max = 2160) int height) {
+        // The bar is drawn as an upright rectangle under a shear, so what has to stay on the
+        // edge is its sheared position, not the rectangle. Anchoring it to the bottom of the
+        // taper and shearing it as well tapers it twice and walks it off the panel, which is
+        // exactly the bug this pins down.
+        DeckScreenLayout layout = DeckScreenLayout.of(width, height, LINE_HEIGHT);
+        Rect bar = layout.scrollbar();
+
+        for (int y = bar.y(); y <= bar.bottom(); y++) {
+            int left = Math.round(bar.x() + layout.taperSlope() * y);
+            assertThat(left + bar.width()).isLessThanOrEqualTo(layout.edgeAt(y));
+            assertThat(left).isGreaterThanOrEqualTo(layout.rows().right());
+        }
     }
 
     @Property(tries = 3000)
