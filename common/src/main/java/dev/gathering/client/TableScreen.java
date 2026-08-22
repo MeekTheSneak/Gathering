@@ -66,6 +66,9 @@ public final class TableScreen extends Screen {
     /** How far a card is turned by one nudge. Small enough to be a gesture, not a mode. */
     private static final int NUDGE_DEGREES = 15;
 
+    /** An opening hand, for the mulligan the library menu offers. */
+    private static final int MULLIGAN_HAND = 7;
+
     /** How far the cursor must travel before a press becomes a drag rather than a click. */
     private static final int DRAG_THRESHOLD = 3;
 
@@ -161,7 +164,7 @@ public final class TableScreen extends Screen {
         ClientHoverState.clear();
         renderOpponents(graphics, board);
         renderSurface(graphics, board, mouseX, mouseY);
-        renderZones(graphics, board);
+        renderZones(graphics, board, mouseX, mouseY);
         renderHand(graphics, board, mouseX, mouseY);
         renderActions(graphics, board);
         renderHeldCard(graphics, board, mouseX, mouseY);
@@ -238,26 +241,77 @@ public final class TableScreen extends Screen {
         return card.tapped() ? resting + TablePosition.QUARTER_TURN : resting;
     }
 
-    private void renderZones(GuiGraphics graphics, GameView board) {
+    /**
+     * Your piles, beside the table.
+     *
+     * <p>Card-shaped and stacked, with a count on each, because a pile of cards is a thing you
+     * reach for and a row of numbers is a status bar. Clicking one does the obvious thing -
+     * draw from the library, open everything else - and right-clicking one offers the rest.
+     */
+    private void renderZones(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         Rect area = layout().zones();
         if (area.isEmpty()) {
             return;
         }
         SeatId seat = mySeat().orElse(focused);
         SeatView view = board.seat(seat);
-        int line = area.y() + 4;
 
-        for (Zone zone : List.of(Zone.LIBRARY, Zone.HAND, Zone.GRAVEYARD, Zone.EXILE, Zone.COMMAND)) {
-            if (line + this.font.lineHeight > area.bottom()) {
-                break;
+        for (Zone zone : TableScreenLayout.PILES) {
+            Rect pile = layout().pile(zone);
+            if (pile.isEmpty()) {
+                continue;
             }
-            GuiText.draw(graphics, this.font,
-                    Component.translatable("screen.gathering.table.zone",
-                            Component.translatable("zone.gathering." + zone.name().toLowerCase(Locale.ROOT)),
-                            count(view, zone)),
-                    area.x() + 4, line, area.width() - 8, LABEL);
-            line += this.font.lineHeight + 4;
+            drawPile(graphics, view, zone, pile, pile.contains(mouseX, mouseY));
         }
+    }
+
+    /**
+     * One pile: the top card if anyone may see it, the sleeve if not, and the count.
+     *
+     * <p>Showing the graveyard's top card rather than a generic stack is what makes a board
+     * readable from across the table - "he has a Bolt on top of his yard" is information the
+     * rules already give everyone, and hiding it behind a number just makes people click.
+     */
+    private void drawPile(GuiGraphics graphics, SeatView view, Zone zone, Rect pile, boolean hovered) {
+        ZoneView contents = view.zone(zone);
+        int count = contents == null ? 0 : contents.count();
+
+        GatheringSprites.frame(graphics, pile.x(), pile.y(), pile.width(), pile.height());
+        Rect art = pile.shrink(2);
+
+        Optional<CardView> top = topOf(contents);
+        if (count == 0) {
+            GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height());
+        } else if (top.isPresent() && !top.get().isFaceDown()) {
+            summaryOf(top.get()).ifPresentOrElse(
+                    summary -> CardInspectPanel.renderArt(
+                            graphics, summary, art.x(), art.y(), art.width(), art.height()),
+                    () -> GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height()));
+        } else {
+            graphics.blit(CardFaceRenderer.CARD_BACK, art.x(), art.y(), 0f, 0f,
+                    art.width(), art.height(), art.width(), art.height());
+        }
+
+        // The count sits on the pile rather than under it, so a short window that squeezes the
+        // piles does not squeeze the one number that has to be there.
+        Component label = Component.literal(Integer.toString(count));
+        int labelWidth = this.font.width(label) + 4;
+        graphics.fill(art.right() - labelWidth, art.bottom() - this.font.lineHeight - 1,
+                art.right(), art.bottom(), GHOST_TINT);
+        GuiText.draw(graphics, this.font, label, art.right() - labelWidth + 2,
+                art.bottom() - this.font.lineHeight, labelWidth, LABEL);
+
+        if (hovered) {
+            graphics.renderOutline(pile.x(), pile.y(), pile.width(), pile.height(), ACCENT);
+            top.filter(card -> !card.isFaceDown()).ifPresent(this::offerToInspector);
+        }
+    }
+
+    private static Optional<CardView> topOf(ZoneView zone) {
+        if (zone == null || zone.cards().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(zone.cards().get(0));
     }
 
     private void renderHand(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
@@ -365,6 +419,11 @@ public final class TableScreen extends Screen {
         if (layout().opponents().contains(x, y)) {
             focusSeatAt(board, y);
             return true;
+        }
+
+        Zone pile = layout().pileAt(x, y);
+        if (pile != null) {
+            return clickPile(pile, x, y, button);
         }
 
         Optional<CardView> onSurface = cardOnSurfaceAt(board, x, y);
@@ -512,6 +571,68 @@ public final class TableScreen extends Screen {
         entries.add(entry("ping", () -> send(new GameEvent.CardPinged(me, id))));
 
         menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
+    }
+
+    /**
+     * Clicking one of your own piles.
+     *
+     * <p>Left-click does the obvious thing and right-click offers the rest, which is the same
+     * bargain as everywhere else on this screen. The obvious thing for a library is to draw a
+     * card, because that is what a library is for; for every other pile it is to open it,
+     * because a pile you cannot look through is a number.
+     */
+    private boolean clickPile(Zone pile, int x, int y, int button) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return true;
+        }
+        if (button == 1) {
+            openPileMenu(me, pile, x, y);
+            return true;
+        }
+        if (pile == Zone.LIBRARY) {
+            send(new GameEvent.CardsDrawn(me, me, 1));
+        } else {
+            openPile(me, pile, false);
+        }
+        return true;
+    }
+
+    private void openPileMenu(SeatId me, Zone pile, int x, int y) {
+        List<ContextMenu.Entry> entries = ContextMenu.entries();
+        if (pile == Zone.LIBRARY) {
+            entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
+            entries.add(entry("draw_seven", () -> send(new GameEvent.CardsDrawn(me, me, 7))));
+            entries.add(entry("mulligan", () -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND))));
+            entries.add(entry("scry_one", () -> {
+                send(new GameEvent.LibraryLooked(me, me, 1));
+                openPile(me, Zone.LIBRARY, true);
+            }));
+            entries.add(entry("scry_two", () -> {
+                send(new GameEvent.LibraryLooked(me, me, 2));
+                openPile(me, Zone.LIBRARY, true);
+            }));
+            entries.add(entry("search", () -> {
+                send(new GameEvent.LibrarySearched(me, me));
+                openPile(me, Zone.LIBRARY, true);
+            }));
+            entries.add(entry("shuffle", () -> send(new GameEvent.LibraryShuffled(me, me))));
+        } else {
+            entries.add(entry("open_pile", () -> openPile(me, pile, false)));
+        }
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
+    }
+
+    /**
+     * Spreads a pile out on its own screen.
+     *
+     * <p>{@code opensALibrary} is what makes the screen responsible for closing it again. A
+     * library is open because an event said so, so it stays open until an event says
+     * otherwise - not until a screen happens to go away.
+     */
+    private void openPile(SeatId me, Zone pile, boolean opensALibrary) {
+        net.minecraft.client.Minecraft.getInstance()
+                .setScreen(new PileScreen(table, me, pile, opensALibrary));
     }
 
     /** The menu for the table itself, for the verbs that are about a seat rather than a card. */

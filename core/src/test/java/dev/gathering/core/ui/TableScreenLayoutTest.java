@@ -3,6 +3,8 @@ package dev.gathering.core.ui;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.gathering.core.game.TablePosition;
+import dev.gathering.core.game.Zone;
+import java.util.List;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
@@ -136,6 +138,65 @@ class TableScreenLayoutTest {
                         layout.cardWidth(), layout.cardHeight()));
         assertThat(layout.cardAt(layout.positionFor(width * 4, height * 4)).right())
                 .isLessThanOrEqualTo(layout.surface().right());
+    }
+
+    @Property(tries = 3000)
+    void everyPileIsInsideTheColumnAndClearOfTheOthers(
+            @ForAll @IntRange(min = 320, max = 3840) int width,
+            @ForAll @IntRange(min = 240, max = 2160) int height,
+            @ForAll @IntRange(min = 0, max = 7) int opponents) {
+        // A pile drawn over another one is two piles you cannot tell apart, and a pile drawn
+        // outside its column is one sitting on the table where a card should go.
+        TableScreenLayout layout = TableScreenLayout.of(width, height, opponents);
+
+        List<Rect> drawn = TableScreenLayout.PILES.stream()
+                .map(layout::pile)
+                .filter(rect -> !rect.isEmpty())
+                .toList();
+
+        for (int first = 0; first < drawn.size(); first++) {
+            assertThat(layout.zones().isEmpty()).isFalse();
+            assertThat(drawn.get(first).x()).isGreaterThanOrEqualTo(layout.zones().x());
+            assertThat(drawn.get(first).right()).isLessThanOrEqualTo(layout.zones().right());
+            assertThat(drawn.get(first).y()).isGreaterThanOrEqualTo(layout.zones().y());
+            assertThat(drawn.get(first).bottom()).isLessThanOrEqualTo(layout.zones().bottom());
+            for (int second = first + 1; second < drawn.size(); second++) {
+                assertThat(drawn.get(first).overlaps(drawn.get(second)))
+                        .describedAs("piles %s and %s overlap at %sx%s", first, second, width, height)
+                        .isFalse();
+            }
+        }
+    }
+
+    @Property(tries = 3000)
+    void everyPileDrawnCanBeClicked(
+            @ForAll @IntRange(min = 320, max = 3840) int width,
+            @ForAll @IntRange(min = 240, max = 2160) int height) {
+        // Drawing a pile and finding the pile under the cursor are the same two pieces of
+        // arithmetic that have to agree as anywhere else on this screen.
+        TableScreenLayout layout = TableScreenLayout.of(width, height, 3);
+
+        for (Zone zone : TableScreenLayout.PILES) {
+            Rect pile = layout.pile(zone);
+            if (pile.isEmpty()) {
+                continue;
+            }
+            assertThat(layout.pileAt(pile.x() + pile.width() / 2, pile.y() + pile.height() / 2))
+                    .describedAs("%s pile is not clickable at %sx%s", zone, width, height)
+                    .isEqualTo(zone);
+        }
+    }
+
+    @Property(tries = 3000)
+    void nothingOnTheTableIsEverMistakenForAPile(
+            @ForAll @IntRange(min = 320, max = 3840) int width,
+            @ForAll @IntRange(min = 240, max = 2160) int height,
+            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int across,
+            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int down) {
+        TableScreenLayout layout = TableScreenLayout.of(width, height, 3);
+        Rect card = layout.cardAt(TablePosition.of(across, down));
+
+        assertThat(layout.pileAt(card.x() + card.width() / 2, card.y() + card.height() / 2)).isNull();
     }
 
     @Test

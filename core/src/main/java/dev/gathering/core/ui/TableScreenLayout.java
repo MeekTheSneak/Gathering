@@ -1,12 +1,14 @@
 package dev.gathering.core.ui;
 
 import dev.gathering.core.game.TablePosition;
+import dev.gathering.core.game.Zone;
+import java.util.List;
 
 /**
  * Where everything goes on the seated view, at whatever size the window happens to be.
  *
  * <p>Four bands, in the order a player looks at them: the other seats across the top, the
- * table surface in the middle, your own zones down the side of it, and your hand along the
+ * table surface in the middle, your own piles down the side of it, and your hand along the
  * bottom. That is the shape of sitting at a table, and the point of stating it here rather
  * than in the screen is that "at whatever size the window happens to be" can then be checked
  * against every size rather than the one it was written at.
@@ -40,8 +42,23 @@ public record TableScreenLayout(
     private static final int MARGIN = 6;
     private static final int GAP = 6;
 
-    /** Zones column: library, graveyard, exile and command zone, stacked. */
+    /**
+     * The piles beside the table, top to bottom, in the order a player reaches for them.
+     *
+     * <p>Library first because you draw from it every turn; graveyard next because it is the
+     * one people actually read; exile and the command zone below, because most games never
+     * touch them. The hand is not here - it is a band of its own along the bottom, because a
+     * hand is fanned out and looked at rather than stacked and counted.
+     */
+    public static final List<Zone> PILES = List.of(Zone.LIBRARY, Zone.GRAVEYARD, Zone.EXILE, Zone.COMMAND);
+
+    /** Zones column: the piles, stacked, with room for a count under each. */
     private static final int ZONE_WIDTH = 76;
+
+    private static final int PILE_GAP = 4;
+
+    /** A pile small enough that four fit down a short window and still reads as a card. */
+    private static final int PILE_HEIGHT_MIN = 18;
 
     private static final int ACTION_HEIGHT = 22;
 
@@ -100,6 +117,44 @@ public record TableScreenLayout(
         cardWidth = Math.min(cardWidth, Math.max(1, surface.width()));
 
         return new TableScreenLayout(opponents, surface, zones, hand, actions, cardWidth, cardHeight);
+    }
+
+    /**
+     * Where one pile sits in the zone column.
+     *
+     * <p>{@link Rect#NONE} when there is no column, or when the window is too short to draw
+     * this many piles at a size anybody could hit. A pile you cannot click is worse than a
+     * pile that is honestly not there: the first looks like the game is ignoring you.
+     */
+    public Rect pile(Zone zone) {
+        int index = PILES.indexOf(zone);
+        if (index < 0 || zones.isEmpty()) {
+            return Rect.NONE;
+        }
+        int slot = (zones.height() - PILE_GAP) / PILES.size();
+        int height = slot - PILE_GAP;
+        if (height < PILE_HEIGHT_MIN) {
+            return Rect.NONE;
+        }
+        int width = Math.min(zones.width() - PILE_GAP * 2, Math.round(height * CARD_ASPECT));
+        if (width <= 0) {
+            return Rect.NONE;
+        }
+        return new Rect(
+                zones.x() + (zones.width() - width) / 2,
+                zones.y() + PILE_GAP + index * slot,
+                width,
+                height);
+    }
+
+    /** Which pile a point is over, if any. */
+    public Zone pileAt(int x, int y) {
+        for (Zone zone : PILES) {
+            if (pile(zone).contains(x, y)) {
+                return zone;
+            }
+        }
+        return null;
     }
 
     /** Where a card at this position is drawn, upright. Rotation is the renderer's business. */

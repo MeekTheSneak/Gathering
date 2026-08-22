@@ -54,6 +54,21 @@ public final class ClientTableState {
     }
 
     /** The board of the table this player is seated at, which is the one the screen draws. */
+    /**
+     * The seat this client holds at a table, if any.
+     *
+     * <p>Comes from the view the server sent, not from anything the client decided: the
+     * viewer stamped on a {@code GameView} is the only account of who this client is that
+     * the server would agree with.
+     */
+    public static Optional<dev.gathering.core.game.SeatId> seatAt(BlockPos table) {
+        return viewOf(table)
+                .map(dev.gathering.core.game.visibility.GameView::viewer)
+                .filter(dev.gathering.core.game.visibility.Viewer.Seated.class::isInstance)
+                .map(dev.gathering.core.game.visibility.Viewer.Seated.class::cast)
+                .map(dev.gathering.core.game.visibility.Viewer.Seated::seat);
+    }
+
     public static Optional<GameView> view() {
         return Optional.ofNullable(seatedAt).flatMap(ClientTableState::viewOf);
     }
