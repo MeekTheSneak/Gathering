@@ -32,3 +32,9 @@ type = "required"
 versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "BOTH"
+
+# The one place this mod reaches into the game's own code. Camera.setup moves the camera onto
+# the player through a protected method, after the event that offers the angles has fired, so
+# looking down at a table cannot be done with a listener. See CameraMixin.
+[[mixins]]
+config = "gathering.mixins.json"

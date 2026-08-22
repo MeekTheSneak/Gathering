@@ -100,14 +100,19 @@ fi
 
 if [ "$TARGET" = all ] || [ "$TARGET" = neoforge ]; then
     # "mod/gathering" is the mod's own resource pack. Without it the assets are not loaded.
+    # The camera hook is a mixin, and a mixin that is never listed fails silently: the mod
+    # boots, everything registers, and the camera just never moves. So the client boot checks
+    # it went in.
     boot "neoforge client" ":neoforge:runClient" yes \
-        "Reloading ResourceManager:.*mod/gathering" "Gathering loaded"
+        "Reloading ResourceManager:.*mod/gathering" "Gathering loaded" \
+        "Gathering camera hook installed"
     boot "neoforge server" ":neoforge:runServer" no "Done \\(" "Gathering loaded"
 fi
 
 if [ "$TARGET" = all ] || [ "$TARGET" = fabric ]; then
     boot "fabric client" ":fabric:runClient" yes \
-        "Reloading ResourceManager:.*[ ,]gathering" "Gathering loaded"
+        "Reloading ResourceManager:.*[ ,]gathering" "Gathering loaded" \
+        "Gathering camera hook installed"
     boot "fabric server" ":fabric:runServer" no "Done \\(" "Gathering loaded"
 fi
 
