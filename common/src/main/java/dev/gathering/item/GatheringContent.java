@@ -12,6 +12,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 
 /**
  * Everything the mod registers into vanilla registries, named once and bound by whichever
@@ -55,9 +56,12 @@ public final class GatheringContent {
                 .mapColor(MapColor.WOOD)
                 .strength(2.0f)
                 .sound(SoundType.WOOD)
-                // Not flammable: a table with a live session on it burning down is a way to
-                // lose a game that nobody signed up for.
-                .ignitedByLava());
+                // The model is a table rather than a cube, so neighbouring blocks must not
+                // cull their faces against it.
+                .noOcclusion()
+                // A piston would push one quarter of a table and leave the other three, which
+                // is a table broken in a way nothing else in the mod can produce.
+                .pushReaction(PushReaction.BLOCK));
     }
 
     public static Item createTableItem() {

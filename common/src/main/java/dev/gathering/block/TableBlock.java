@@ -23,6 +23,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The table: two blocks by two, and the thing a game of cards happens on.
@@ -68,6 +70,19 @@ public class TableBlock extends BaseEntityBlock {
     protected RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
     }
+
+    /**
+     * Solid up to the felt, so you stand on the surface rather than a pixel above it.
+     *
+     * <p>Square-sided rather than following the legs: a shape with a gap under it is a shape
+     * a player can walk into and a card can fall through, and neither is worth the accuracy.
+     */
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return SHAPE;
+    }
+
+    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 15, 16);
 
     /** The corner that owns the table this block is part of. */
     public static BlockPos originOf(BlockState state, BlockPos pos) {
@@ -173,9 +188,12 @@ public class TableBlock extends BaseEntityBlock {
         }
 
         BlockPos tableOrigin = originOf(state, pos);
+        // The cluster is worked out relative to the table that was clicked, so that table is
+        // always its origin cell. Only outward faces of a table are reachable, so the face
+        // clicked is the edge meant.
         TableCluster cluster = TableClusters.at(level, tableOrigin);
+        TableCell cell = new TableCell(0, 0);
         Side side = TableClusters.sideFacing(hit.getDirection());
-        TableCell cell = TableClusters.cellOf(tableOrigin, tableOrigin);
 
         if (side != null && TableSeats.seatOf(level, tableOrigin, player.getUUID())
                 .filter(seat -> seat.cell().equals(cell) && seat.side() == side).isPresent()) {

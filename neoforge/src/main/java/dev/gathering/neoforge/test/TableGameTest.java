@@ -17,6 +17,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -202,6 +203,26 @@ public final class TableGameTest {
 
         if (!TableSeats.mayBreak(helper.getLevel(), origin)) {
             helper.fail("An empty table still could not be broken");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aTableCannotBeBurntOrPushedApart(GameTestHelper helper) {
+        // Both of these break a table in a way nothing else can: lava takes it out from under
+        // a game nobody agreed to end, and a piston moves one quarter and leaves three.
+        //
+        // The lava half is here because the first version of this block called
+        // ignitedByLava(), which switches lava ignition *on*, under a comment saying the
+        // table was not flammable.
+        BlockState state = GatheringContent.TABLE.get().defaultBlockState();
+
+        if (state.ignitedByLava()) {
+            helper.fail("A table burns");
+        }
+        if (state.getPistonPushReaction() != PushReaction.BLOCK) {
+            helper.fail("A piston can move a table, which moves one quarter of it: "
+                    + state.getPistonPushReaction());
         }
         helper.succeed();
     }
