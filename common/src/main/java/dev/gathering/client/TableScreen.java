@@ -825,17 +825,21 @@ public final class TableScreen extends Screen {
     private void openPileMenu(SeatId me, Zone pile, int x, int y) {
         List<ContextMenu.Entry> entries = ContextMenu.entries();
         if (pile == Zone.LIBRARY) {
+            boolean showing = revealedFromMyLibrary() > 0;
             entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
-            entries.add(entry("draw_seven", () -> send(new GameEvent.CardsDrawn(me, me, 7))));
+            entries.add(entry("draw_many", () -> ask("draw_many", 1,
+                    count -> send(new GameEvent.CardsDrawn(me, me, count)))));
             entries.add(entry("mulligan", () -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND))));
-            entries.add(entry("scry_one", () -> {
-                send(new GameEvent.LibraryLooked(me, me, 1));
+            entries.add(entry("scry", () -> ask("scry", 1, count -> {
+                send(new GameEvent.LibraryLooked(me, me, count));
                 openPile(me, Zone.LIBRARY, true);
-            }));
-            entries.add(entry("scry_two", () -> {
-                send(new GameEvent.LibraryLooked(me, me, 2));
-                openPile(me, Zone.LIBRARY, true);
-            }));
+            })));
+            entries.add(entry("mill", () -> ask("mill", 1,
+                    count -> send(new GameEvent.LibraryMilled(me, me, count)))));
+            entries.add(showing
+                    ? entry("stop_revealing", () -> send(new GameEvent.LibraryRevealed(me, me, 0)))
+                    : entry("reveal", () -> ask("reveal", 1,
+                            count -> send(new GameEvent.LibraryRevealed(me, me, count)))));
             entries.add(entry("search", () -> {
                 send(new GameEvent.LibrarySearched(me, me));
                 openPile(me, Zone.LIBRARY, true);
@@ -854,6 +858,24 @@ public final class TableScreen extends Screen {
      * library is open because an event said so, so it stays open until an event says
      * otherwise - not until a screen happens to go away.
      */
+    /** Asks how many, then does it. The screen closes itself before the answer arrives. */
+    private void ask(String key, int suggested, java.util.function.IntConsumer action) {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
+                Component.translatable("screen.gathering.amount." + key), suggested, action));
+    }
+
+    /** How much of my own library is currently face up to the table. */
+    private int revealedFromMyLibrary() {
+        SeatId me = mySeat().orElse(null);
+        GameView board = view().orElse(null);
+        if (me == null || board == null) {
+            return 0;
+        }
+        // What the server sent is the truth about what is showing: a revealed card arrives as
+        // a card in the library's card list, and a hidden one does not arrive at all.
+        return board.seat(me).zone(Zone.LIBRARY).cards().size();
+    }
+
     private void openPile(SeatId me, Zone pile, boolean opensALibrary) {
         net.minecraft.client.Minecraft.getInstance()
                 .setScreen(new PileScreen(table, me, pile, opensALibrary));

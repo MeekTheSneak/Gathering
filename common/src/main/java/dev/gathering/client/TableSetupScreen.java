@@ -123,10 +123,16 @@ public final class TableSetupScreen extends Screen {
         this.onClose();
     }
 
+    /** Behind the widgets. Drawn in render(), the panel covers every button on the screen. */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
 
         GuiText.drawCentred(graphics, this.font, this.title,
                 panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);

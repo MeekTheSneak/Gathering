@@ -92,9 +92,11 @@ public final class VisibilityRules {
         // viewer is looking through it right now, in which case they see exactly as far down
         // it as the event that opened it said they could.
         if (ref.zone() == Zone.LIBRARY) {
+            // A spectator sees what the whole table sees and nothing more: a revealed card is
+            // revealed to the room, not to a list of people.
             int open = viewer instanceof Viewer.Seated seated
                     ? state.openCardsOf(seated.seat(), ref.seat())
-                    : 0;
+                    : state.revealedIn(ref.seat());
             if (open <= 0) {
                 return ZoneView.countOnly(ref, contents.size());
             }

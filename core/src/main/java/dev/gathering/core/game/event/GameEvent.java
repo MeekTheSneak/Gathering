@@ -278,6 +278,54 @@ public sealed interface GameEvent {
         }
     }
 
+    /**
+     * Cards off the top of a library into the graveyard.
+     *
+     * <p>Its own verb rather than a run of {@link CardMoved}, because nobody may name a card
+     * in a library - the whole point of milling is that you find out what it was by it
+     * arriving in the graveyard, and a client that could name the cards it wanted milled would
+     * already have had to see them.
+     *
+     * <p>Public. The cards land face up in a graveyard anybody may read, so nothing here is a
+     * secret a moment later, and the log saying "milled four" is what a table would see.
+     */
+    record LibraryMilled(SeatId actor, SeatId seat, int count) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of("log.gathering.library_milled", actor, seat, count);
+        }
+
+        @Override
+        public boolean revealsInformation(GameState before) {
+            return true;
+        }
+    }
+
+    /**
+     * Turning the top of a library face up for the whole table.
+     *
+     * <p>Distinct from {@link LibraryLooked}, which opens a library to one seat. This opens it
+     * to everybody, spectators included, which is what "reveal" means - and it stays revealed
+     * until somebody says otherwise, because that is how a revealed card behaves while people
+     * read it and argue about it.
+     *
+     * <p>A count of zero puts it back face down, so stopping is the same verb rather than a
+     * second one that could get out of step with the first.
+     */
+    record LibraryRevealed(SeatId actor, SeatId seat, int count) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return count > 0
+                    ? LogLine.of("log.gathering.library_revealed", actor, seat, count)
+                    : LogLine.of("log.gathering.library_unrevealed", actor, seat);
+        }
+
+        @Override
+        public boolean revealsInformation(GameState before) {
+            return count > 0;
+        }
+    }
+
     /** The looking half of scry and surveil, before anything is decided. */
     record LibraryLooked(SeatId actor, SeatId seat, int count) implements GameEvent {
         @Override
@@ -466,6 +514,8 @@ public sealed interface GameEvent {
             case LibraryShuffled shuffled -> Optional.of(shuffled.seat());
             case LibrarySearched searched -> Optional.of(searched.seat());
             case LibraryLooked looked -> Optional.of(looked.seat());
+            case LibraryMilled milled -> Optional.of(milled.seat());
+            case LibraryRevealed revealed -> Optional.of(revealed.seat());
             case LibraryReordered reordered -> Optional.of(reordered.seat());
             case Surveiled surveiled -> Optional.of(surveiled.seat());
             case SeatUntappedAll untapped -> Optional.of(untapped.seat());
@@ -499,6 +549,8 @@ public sealed interface GameEvent {
         return switch (event) {
             case CardsDrawn ignored -> List.of(Zone.LIBRARY, Zone.HAND);
             case Mulliganed ignored -> List.of(Zone.LIBRARY, Zone.HAND);
+            case LibraryMilled ignored -> List.of(Zone.LIBRARY, Zone.GRAVEYARD);
+            case LibraryRevealed ignored -> List.of(Zone.LIBRARY);
             case LibraryShuffled ignored -> List.of(Zone.LIBRARY);
             case LibrarySearched ignored -> List.of(Zone.LIBRARY);
             case LibraryLooked ignored -> List.of(Zone.LIBRARY);

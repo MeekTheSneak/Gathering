@@ -76,6 +76,11 @@ public final class GameFold {
 
             case GameEvent.LibraryClosed closed -> state.withoutPeekBy(closed.actor());
 
+            case GameEvent.LibraryMilled milled -> mill(state, milled.seat(), milled.count());
+
+            case GameEvent.LibraryRevealed revealed ->
+                    state.withRevealed(revealed.seat(), revealed.count());
+
             case GameEvent.CardPinged ignored -> state;
 
             case GameEvent.LibraryReordered reordered -> reorderLibrary(state, reordered);
@@ -186,6 +191,28 @@ public final class GameFold {
         return updated;
     }
 
+    /**
+     * Cards off the top of a library into the graveyard.
+     *
+     * <p>Milling an empty library mills nothing. Whether that means the player has lost is a
+     * rules question, and there is no rules engine here to answer it - the same answer drawing
+     * from an empty library gets.
+     */
+    private static GameState mill(GameState state, SeatId seat, int count) {
+        ZoneRef library = ZoneRef.of(seat, Zone.LIBRARY);
+        ZoneRef graveyard = ZoneRef.of(seat, Zone.GRAVEYARD);
+        GameState updated = state;
+        for (int milled = 0; milled < count; milled++) {
+            List<CardInstanceId> contents = updated.contents(library);
+            if (contents.isEmpty()) {
+                break;
+            }
+            updated = updated.place(contents.get(0), graveyard, Placement.TOP);
+        }
+        // Whatever was revealed off the top is not on top any more.
+        return count > 0 ? updated.withRevealed(seat, 0) : updated;
+    }
+
     private static GameState mulligan(GameState state, GameEvent.Mulliganed event, SessionSeed seed) {
         SeatId seat = event.seat();
         ZoneRef library = ZoneRef.of(seat, Zone.LIBRARY);
@@ -212,7 +239,8 @@ public final class GameFold {
         List<CardInstanceId> shuffled = seed.shuffle(state.contents(library), seat, ordinal);
         return state.withZone(library, shuffled)
                 .withShuffleOrdinal(ordinal + 1)
-                .withoutPeeksAt(seat);
+                .withoutPeeksAt(seat)
+                .withRevealed(seat, 0);
     }
 
     private static GameState reorderLibrary(GameState state, GameEvent.LibraryReordered event) {

@@ -30,7 +30,7 @@ import net.jqwik.api.Provide;
  */
 class VisibilityInvariantPropertyTest {
 
-    private static final int ACTION_KINDS = 12;
+    private static final int ACTION_KINDS = 15;
     private static final int SEATS = 2;
 
     @Property(tries = 500)
@@ -80,7 +80,7 @@ class VisibilityInvariantPropertyTest {
                 // their deck.
                 int open = viewer instanceof Viewer.Seated seated
                         ? state.openCardsOf(seated.seat(), seat)
-                        : 0;
+                        : state.revealedIn(seat);
                 assertThat(seatView.zone(Zone.LIBRARY).cards())
                         .as("library payload for %s looking at %s", viewer, seat)
                         .hasSize(open);
@@ -90,6 +90,30 @@ class VisibilityInvariantPropertyTest {
                             .as("hand payload for %s looking at %s", viewer, seat)
                             .isEmpty();
                 }
+            }
+        }
+    }
+
+    /**
+     * Nothing a spectator gets from a library was not revealed to the whole table.
+     *
+     * <p>A spectator is the least entitled viewer there is, and revealing is the only thing
+     * that gives one a library card at all. If a scry or a search ever leaked into the
+     * spectator view, this is where it would show up.
+     */
+    @Property(tries = 300)
+    void spectatorsSeeOnlyWhatWasRevealedToEverybody(@ForAll("actionScripts") List<Integer> script) {
+        GameSession session = GameFixtures.twoPlayerTable(25);
+
+        for (int action : script) {
+            perform(session, action);
+
+            GameState state = session.state();
+            GameView spectator = VisibilityRules.viewFor(state, Viewer.SPECTATOR);
+            for (SeatId seat : state.seats()) {
+                assertThat(spectator.seat(seat).zone(Zone.LIBRARY).cards())
+                        .as("spectator's view of %s's library", seat)
+                        .hasSize(state.revealedIn(seat));
             }
         }
     }
@@ -235,6 +259,11 @@ class VisibilityInvariantPropertyTest {
             case 9 -> session.submit(new GameEvent.LibrarySearched(actor, actor));
             case 10 -> session.submit(new GameEvent.LibraryLooked(actor, actor, 2));
             case 11 -> session.submit(new GameEvent.LibraryClosed(actor));
+            // Revealing is the one thing that opens a library to a spectator, so a suite that
+            // never does it never tests the only route hidden cards have to one.
+            case 12 -> session.submit(new GameEvent.LibraryRevealed(actor, actor, 2));
+            case 13 -> session.submit(new GameEvent.LibraryRevealed(actor, actor, 0));
+            case 14 -> session.submit(new GameEvent.LibraryMilled(actor, actor, 2));
             default -> throw new IllegalStateException("Unhandled action " + action);
         }
     }
@@ -279,9 +308,10 @@ class VisibilityInvariantPropertyTest {
                     boolean entitled = switch (location.zone()) {
                         // Only while the log says this viewer is looking, and only as far down
                         // the library as it says they may look.
-                        case LIBRARY -> viewer instanceof Viewer.Seated seated
-                                && state.contents(location).indexOf(visible.id())
-                                        < state.openCardsOf(seated.seat(), location.seat());
+                        case LIBRARY -> state.contents(location).indexOf(visible.id())
+                                < (viewer instanceof Viewer.Seated seated
+                                        ? state.openCardsOf(seated.seat(), location.seat())
+                                        : state.revealedIn(location.seat()));
                         case HAND -> viewer.isSeatedAt(location.seat());
                         default -> !instance.isFaceDown() || viewer.isSeatedAt(instance.owner());
                     };
