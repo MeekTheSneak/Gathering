@@ -72,6 +72,17 @@ public enum Zone {
     }
 
     /**
+     * Whether cards here sit on a surface rather than in a pile.
+     *
+     * <p>Only the battlefield. Everything else renders as a thin stack with a count, and a
+     * stack has an order rather than a geometry - so only the battlefield gives its cards a
+     * grid square, and only the battlefield accepts a drop at a chosen one.
+     */
+    public boolean isSurface() {
+        return this == BATTLEFIELD;
+    }
+
+    /**
      * Whether a non-owner may manipulate cards here.
      *
      * <p>The mod never says no about rules. It does say no about reaching into someone's

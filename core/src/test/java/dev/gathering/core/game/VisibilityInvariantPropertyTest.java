@@ -109,6 +109,52 @@ class VisibilityInvariantPropertyTest {
         }
     }
 
+    /**
+     * Auto-placement must never put two cards on one square.
+     *
+     * <p>A player may deliberately stack cards - the mod never says no - but a card the game
+     * placed on a player's behalf landing under an existing one would look like a bug and
+     * hide a permanent.
+     */
+    @Property(tries = 300)
+    void automaticallyPlacedCardsNeverShareASquare(@ForAll("actionScripts") List<Integer> script) {
+        GameSession session = GameFixtures.twoPlayerTable(25);
+
+        for (int action : script) {
+            perform(session, action);
+
+            GameState state = session.state();
+            for (SeatId seat : state.seats()) {
+                List<dev.gathering.core.game.TablePosition> squares = state.contents(seat, Zone.BATTLEFIELD).stream()
+                        .map(id -> state.requireCard(id).position())
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+                assertThat(squares).as("squares on %s's battlefield", seat).doesNotHaveDuplicates();
+            }
+        }
+    }
+
+    /** Every card on a surface has a square, and every card in a pile has none. */
+    @Property(tries = 300)
+    void positionsExistExactlyWhereTheyShould(@ForAll("actionScripts") List<Integer> script) {
+        GameSession session = GameFixtures.twoPlayerTable(25);
+
+        for (int action : script) {
+            perform(session, action);
+        }
+
+        GameState state = session.state();
+        for (SeatId seat : state.seats()) {
+            for (Zone zone : Zone.values()) {
+                for (CardInstanceId id : state.contents(seat, zone)) {
+                    assertThat(state.requireCard(id).square().isPresent())
+                            .as("%s in %s", id, zone)
+                            .isEqualTo(zone.isSurface());
+                }
+            }
+        }
+    }
+
     @Provide
     Arbitrary<List<Integer>> actionScripts() {
         return Arbitraries.integers().between(0, ACTION_KINDS - 1).list().ofMinSize(1).ofMaxSize(40);

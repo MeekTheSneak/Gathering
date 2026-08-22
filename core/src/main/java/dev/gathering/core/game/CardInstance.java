@@ -21,6 +21,12 @@ import java.util.Optional;
  * see instead of identity, and it is regenerated on every flip down so two separate
  * face-down periods cannot be correlated.
  *
+ * <p><b>Position is where it was dropped.</b> Cards on a surface - the battlefield, and
+ * exile when a group spreads it out - carry the grid square they were dragged onto, so every
+ * client draws the same board and a player's arrangement of their lands survives being
+ * looked at from the other side of the table. Cards in a pile carry no position, because a
+ * pile is an order rather than a place.
+ *
  * @param token tokens and copies cease to exist at end of session rather than returning to
  *              a deck, which is the only case where a card does not go home
  */
@@ -32,6 +38,7 @@ public record CardInstance(
         boolean tapped,
         Map<String, Integer> counters,
         MarkerId marker,
+        TablePosition position,
         boolean token) {
 
     public CardInstance {
@@ -49,28 +56,35 @@ public record CardInstance(
     }
 
     public static CardInstance faceUp(CardInstanceId id, CardIdentity identity, SeatId owner) {
-        return new CardInstance(id, identity, owner, Facing.FACE_UP, false, Map.of(), null, false);
+        return new CardInstance(id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false);
     }
 
     public static CardInstance token(CardInstanceId id, CardIdentity identity, SeatId owner) {
-        return new CardInstance(id, identity, owner, Facing.FACE_UP, false, Map.of(), null, true);
+        return new CardInstance(id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true);
     }
 
     public CardInstance withTapped(boolean newTapped) {
         return newTapped == tapped
                 ? this
-                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, token);
+                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token);
+    }
+
+    /** Where a drag dropped it, or nothing once it goes back into a pile. */
+    public CardInstance withPosition(TablePosition newPosition) {
+        return java.util.Objects.equals(newPosition, position)
+                ? this
+                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token);
     }
 
     /** Flipping down needs a fresh marker; flipping up drops the one it had. */
     public CardInstance faceDownWith(MarkerId newMarker) {
-        return new CardInstance(id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, token);
+        return new CardInstance(id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token);
     }
 
     public CardInstance faceUp() {
         return facing == Facing.FACE_UP
                 ? this
-                : new CardInstance(id, identity, owner, Facing.FACE_UP, tapped, counters, null, token);
+                : new CardInstance(id, identity, owner, Facing.FACE_UP, tapped, counters, null, position, token);
     }
 
     /**
@@ -87,7 +101,7 @@ public record CardInstance(
         } else {
             updated.put(name, now);
         }
-        return new CardInstance(id, identity, owner, facing, tapped, updated, marker, token);
+        return new CardInstance(id, identity, owner, facing, tapped, updated, marker, position, token);
     }
 
     public int counter(String name) {
@@ -100,6 +114,10 @@ public record CardInstance(
 
     public Optional<MarkerId> markerId() {
         return Optional.ofNullable(marker);
+    }
+
+    public Optional<TablePosition> square() {
+        return Optional.ofNullable(position);
     }
 
     /** Counters commonly enough named to be worth spelling once. */

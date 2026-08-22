@@ -98,6 +98,7 @@ milliseconds; everything outside it needs a game.
 | Async results | `CompletableFuture` returned to the caller | a blocking method anyone could call from a tick |
 | Hidden zones | server-side visibility filtering at the payload level | client-side hiding |
 | Game state | events appended to the log; the board is the fold | mutating state directly |
+| Card position | a `TablePosition` in state, settled by the fold | letting each client lay the board out |
 | Undo | mark entries undone and re-fold | inverse operations, or deleting log entries |
 | Authorization | owner-locked only where the act would reveal to the actor | blocking "illegal" plays |
 
@@ -158,6 +159,9 @@ cannot be inferred from reading the code.
 - **`java.util.Random` cannot shuffle a deck.** 48 bits of state reach 2^48 permutations; a
   100-card library has 100! of them. Shuffles use `DeterministicRandom` (SHA-256 counter
   mode) so they stay replayable *and* reachable. Never swap it for `Random` "for speed".
+- **Only the battlefield is a surface.** `Zone#isSurface` decides whether cards there carry a
+  `TablePosition`; piles have an order and no geometry, and a card moving into one drops its
+  square. A property test asserts the two never disagree.
 - **A record accessor and a wither cannot share a name.** `SeatState.conceded()` is the
   accessor, so the wither is `withConcede()`; `invalid accessor method in record` is what
   that collision looks like.

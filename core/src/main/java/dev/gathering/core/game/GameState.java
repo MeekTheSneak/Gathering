@@ -142,6 +142,12 @@ public record GameState(
     /**
      * Moves a card to a zone, taking it out of wherever it was.
      *
+     * <p>Also settles where the card now sits. A card arriving on a surface gets the square
+     * it was dropped on, or the first free one when a verb rather than a drag put it there -
+     * so a card always has a definite place and every client draws the same board instead of
+     * each inventing a layout. A card going back into a pile forgets its square, because a
+     * pile is an order rather than a place.
+     *
      * <p>Silently a no-op-with-a-move if the card was nowhere: adding a token straight to the
      * battlefield goes through the same path as moving one, and both should work.
      */
@@ -158,8 +164,49 @@ public record GameState(
             destination.add(id);
         }
         updated.put(into, List.copyOf(destination));
-        return new GameState(
+
+        GameState moved = new GameState(
                 seats, cards, updated, seatStates, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+        return moved.settlePosition(id, into, placement);
+    }
+
+    /** Gives an arriving card its square, or takes one away from a card joining a pile. */
+    private GameState settlePosition(CardInstanceId id, ZoneRef into, Placement placement) {
+        CardInstance card = cards.get(id);
+        if (card == null) {
+            return this;
+        }
+        if (!into.zone().isSurface()) {
+            return withCard(card.withPosition(null));
+        }
+        TablePosition square = placement.chosenSquare().orElseGet(() -> firstFreeSquare(into, id));
+        return withCard(card.withPosition(square));
+    }
+
+    /**
+     * The first grid square in this zone nothing is already on.
+     *
+     * <p>Deliberately not "the next index": cards leave the battlefield constantly, and
+     * filling the gaps keeps a board compact instead of letting it drift across the table
+     * over the course of a long game.
+     */
+    public TablePosition firstFreeSquare(ZoneRef ref, CardInstanceId ignoring) {
+        java.util.Set<TablePosition> taken = new java.util.HashSet<>();
+        for (CardInstanceId occupant : contents(ref)) {
+            if (occupant.equals(ignoring)) {
+                continue;
+            }
+            CardInstance card = cards.get(occupant);
+            if (card != null) {
+                card.square().ifPresent(taken::add);
+            }
+        }
+        for (int slot = 0; ; slot++) {
+            TablePosition candidate = TablePosition.slot(slot);
+            if (!taken.contains(candidate)) {
+                return candidate;
+            }
+        }
     }
 
     /** Replaces a zone's contents wholesale. How a shuffle, a scry, and a reorder all land. */

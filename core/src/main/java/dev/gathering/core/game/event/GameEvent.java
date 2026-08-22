@@ -141,7 +141,7 @@ public sealed interface GameEvent {
                         .orElseGet(() -> new CardRef.ById(card));
             }
             return LogLine.of(
-                    "log.gathering.card_moved", actor, reference, to.seat(), to.zone().name(), placement.name());
+                    "log.gathering.card_moved", actor, reference, to.seat(), to.zone().name(), placement.label());
         }
 
         @Override

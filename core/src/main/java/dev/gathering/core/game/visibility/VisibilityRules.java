@@ -106,12 +106,16 @@ public final class VisibilityRules {
         boolean entitled = !card.isFaceDown() || viewer.isSeatedAt(card.owner());
         if (entitled) {
             return new CardView.Visible(
-                    card.id(), card.identity(), card.owner(), card.tapped(), card.counters(), card.token());
+                    card.id(), card.identity(), card.owner(), card.tapped(), card.counters(),
+                    card.position(), card.token());
         }
+        // The square goes to everyone: where a card sits was never a secret, and an opponent
+        // who cannot see which card it is still has to be able to see that it is there.
         return new CardView.Anonymous(
                 card.markerId().orElseThrow(() ->
                         new IllegalStateException("A face-down card without a marker: " + card.id())),
                 card.tapped(),
-                card.counters());
+                card.counters(),
+                card.position());
     }
 }
