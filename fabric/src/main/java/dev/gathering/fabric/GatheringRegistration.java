@@ -23,6 +23,24 @@ final class GatheringRegistration {
     }
 
     static void bootstrap() {
+        // The block first: the table's item names its block when it is created.
+        net.minecraft.world.level.block.Block table = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.TABLE_ID), GatheringContent.createTable());
+        GatheringContent.TABLE.bindValue(table);
+
+        GatheringContent.TABLE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.TABLE_ID),
+                GatheringContent.createTableItem()));
+
+        // Fabric's own builder, because BlockEntityType.Builder's supplier interface is
+        // package-private in vanilla and only NeoForge access-transforms it.
+        GatheringContent.TABLE_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.TableBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        .create(GatheringContent::createTableEntity, table)
+                        .build()));
+
         Item card = Registry.register(
                 BuiltInRegistries.ITEM, Gathering.id(GatheringContent.CARD_ID), GatheringContent.createCard());
         Item deck = Registry.register(
@@ -49,6 +67,7 @@ final class GatheringRegistration {
                         .displayItems((parameters, output) -> {
                             output.accept(new ItemStack(card));
                             output.accept(new ItemStack(deck));
+                            output.accept(new ItemStack(GatheringContent.TABLE_ITEM.get()));
                         })
                         .build());
     }

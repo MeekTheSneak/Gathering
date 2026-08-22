@@ -334,3 +334,26 @@ cannot be inferred from reading the code.
   server, and checks the mod's resource pack is actually in the list the game loaded. Its
   Fabric check was confirmed to fail when the fix for the above is reverted. Grep the mod id
   alone and it passes regardless - the id is all over any log.
+- **`BlockEntityType.BlockEntitySupplier` is package-private in vanilla.** Both loaders
+  access-transform or replace it, so `:common` - which compiles against vanilla and nothing
+  else - cannot name `BlockEntityType.Builder`. The block entity's constructor stays in
+  `:common` and each loader builds the type: two lines each, which is the right size for the
+  platform surface.
+- **A table is four blocks and one of them is real.** The north-west corner carries the block
+  entity and owns the table; the other three know where it is. Breaking any quarter takes the
+  whole table, guarded by checking the neighbour really is this table's quarter - without
+  that, breaking a corner takes a bite out of the table pushed up against it.
+- **Seat claims live on the table whose edge they are.** A seat is (table, edge), so storing
+  the claim there means it is saved with that table and comes back with it, and reshaping a
+  cluster cannot lose somebody else's seat. Sides are written by **name**, never by ordinal:
+  an ordinal means something different the moment the enum gains a value, and this is a save
+  file.
+- **A block cannot decline to be broken in vanilla.** By the time the block hears about it the
+  decision is made, so "you cannot break a table somebody is sitting at" lives in each
+  loader's break event - `BlockEvent.BreakEvent` on NeoForge, `PlayerBlockBreakEvents.BEFORE`
+  on Fabric - over one shared predicate.
+- **Cluster capacity is a property of the cluster, not of each table.** Four tables always
+  seat eight, but push them into a T and the middle one has a single outward edge: two seats
+  on it would put somebody inside the furniture and one would make a four-table cluster seat
+  seven. So the count is per cluster and the seats are placed around its perimeter, facing
+  pairs first. The property tests caught this; the first implementation seated seven.

@@ -12,6 +12,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -32,10 +34,30 @@ final class GatheringRegistration {
     private static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(BuiltInRegistries.CREATIVE_MODE_TAB, Gathering.MOD_ID);
 
+    private static final DeferredRegister<Block> BLOCKS =
+            DeferredRegister.create(BuiltInRegistries.BLOCK, Gathering.MOD_ID);
+
+    private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
+            DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, Gathering.MOD_ID);
+
     private static final Supplier<Item> CARD =
             ITEMS.register(GatheringContent.CARD_ID, GatheringContent::createCard);
     private static final Supplier<Item> DECK =
             ITEMS.register(GatheringContent.DECK_ID, GatheringContent::createDeck);
+
+    private static final Supplier<Block> TABLE =
+            BLOCKS.register(GatheringContent.TABLE_ID, GatheringContent::createTable);
+    private static final Supplier<Item> TABLE_ITEM =
+            ITEMS.register(GatheringContent.TABLE_ID, GatheringContent::createTableItem);
+
+    // BlockEntityType.Builder is only reachable here: its supplier interface is
+    // package-private in vanilla and NeoForge access-transforms it. The null is the data
+    // fixer type, which a mod has no business supplying.
+    private static final Supplier<BlockEntityType<dev.gathering.block.TableBlockEntity>> TABLE_ENTITY =
+            BLOCK_ENTITIES.register(dev.gathering.block.TableBlockEntity.ID, () ->
+                    BlockEntityType.Builder
+                            .of(GatheringContent::createTableEntity, TABLE.get())
+                            .build(null));
 
     private static final Supplier<DataComponentType<CardComponent>> CARD_COMPONENT =
             DATA_COMPONENTS.register(GatheringComponents.CARD_ID, GatheringComponents::createCardType);
@@ -48,6 +70,7 @@ final class GatheringRegistration {
             .displayItems((parameters, output) -> {
                 output.accept(new ItemStack(CARD.get()));
                 output.accept(new ItemStack(DECK.get()));
+                output.accept(new ItemStack(TABLE_ITEM.get()));
             })
             .build());
 
@@ -55,6 +78,9 @@ final class GatheringRegistration {
     }
 
     static void bootstrap(IEventBus modBus) {
+        // Blocks before items: the table's item names its block when it is created.
+        BLOCKS.register(modBus);
+        BLOCK_ENTITIES.register(modBus);
         ITEMS.register(modBus);
         DATA_COMPONENTS.register(modBus);
         CREATIVE_TABS.register(modBus);
@@ -63,6 +89,9 @@ final class GatheringRegistration {
         // waiting on a lifecycle event: nothing is resolved until something asks.
         GatheringContent.CARD.bind(CARD);
         GatheringContent.DECK.bind(DECK);
+        GatheringContent.TABLE.bind(TABLE);
+        GatheringContent.TABLE_ITEM.bind(TABLE_ITEM);
+        GatheringContent.TABLE_ENTITY.bind(TABLE_ENTITY);
         GatheringComponents.CARD.bind(CARD_COMPONENT);
         GatheringComponents.DECK.bind(DECK_COMPONENT);
     }

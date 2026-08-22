@@ -8,6 +8,7 @@ import dev.gathering.command.GatheringCommands;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +29,18 @@ public final class GatheringFabric implements ModInitializer {
 
         CommandRegistrationCallback.EVENT.register(
                 (dispatcher, registry, environment) -> dispatcher.register(GatheringCommands.root()));
+
+        // A block cannot decline to be broken in vanilla - by the time the block hears about
+        // it the decision is made - so a table in use is protected at the break event, which
+        // is the one place the answer can still be no.
+        PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, entity) -> {
+            if (dev.gathering.block.TableSeats.mayBreak(level, pos)) {
+                return true;
+            }
+            player.sendSystemMessage(
+                    net.minecraft.network.chat.Component.translatable("message.gathering.table_in_use"));
+            return false;
+        });
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             try {

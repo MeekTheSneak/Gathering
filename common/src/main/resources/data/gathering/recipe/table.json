@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "WWW",
+    "PPP",
+    "P P"
+  ],
+  "key": {
+    "W": { "tag": "minecraft:wool" },
+    "P": { "tag": "minecraft:planks" }
+  },
+  "result": {
+    "id": "gathering:table",
+    "count": 1
+  }
+}

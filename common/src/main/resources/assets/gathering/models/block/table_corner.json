@@ -1,0 +1,48 @@
+{
+  "__comment": "One quarter of a table: a felt top over a wooden apron, with a leg on the outside corner. Rotated by the blockstate into each of the four quarters, so the leg always lands on an outer corner and the four pieces meet flush.",
+  "parent": "block/block",
+  "textures": {
+    "particle": "gathering:block/table_felt",
+    "felt": "gathering:block/table_felt",
+    "wood": "minecraft:block/stripped_oak_log"
+  },
+  "elements": [
+    {
+      "__comment": "Felt surface.",
+      "from": [0, 13, 0],
+      "to": [16, 15, 16],
+      "faces": {
+        "up":    { "texture": "#felt", "uv": [0, 0, 16, 16] },
+        "down":  { "texture": "#wood", "uv": [0, 0, 16, 16] },
+        "north": { "texture": "#felt", "uv": [0, 0, 16, 2] },
+        "south": { "texture": "#felt", "uv": [0, 0, 16, 2] },
+        "east":  { "texture": "#felt", "uv": [0, 0, 16, 2] },
+        "west":  { "texture": "#felt", "uv": [0, 0, 16, 2] }
+      }
+    },
+    {
+      "__comment": "Apron under the surface.",
+      "from": [0, 11, 0],
+      "to": [16, 13, 16],
+      "faces": {
+        "down":  { "texture": "#wood", "uv": [0, 0, 16, 16] },
+        "north": { "texture": "#wood", "uv": [0, 3, 16, 5] },
+        "south": { "texture": "#wood", "uv": [0, 3, 16, 5] },
+        "east":  { "texture": "#wood", "uv": [0, 3, 16, 5] },
+        "west":  { "texture": "#wood", "uv": [0, 3, 16, 5] }
+      }
+    },
+    {
+      "__comment": "Leg, on the outer corner of this quarter.",
+      "from": [1, 0, 1],
+      "to": [4, 11, 4],
+      "faces": {
+        "down":  { "texture": "#wood", "uv": [0, 0, 3, 3] },
+        "north": { "texture": "#wood", "uv": [0, 5, 3, 16] },
+        "south": { "texture": "#wood", "uv": [0, 5, 3, 16] },
+        "east":  { "texture": "#wood", "uv": [0, 5, 3, 16] },
+        "west":  { "texture": "#wood", "uv": [0, 5, 3, 16] }
+      }
+    }
+  ]
+}

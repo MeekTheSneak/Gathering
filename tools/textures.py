@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates the mod's GUI sprites from a palette.
+"""Generates the mod's textures from a palette.
 
 The PNGs under assets/gathering/textures/gui/sprites are the source of truth for how the
 mod looks - repaint one and the screens change, and a resource pack can replace any of
@@ -8,7 +8,7 @@ instead of being edited pixel by pixel, which is what a second theme will want.
 
 Run from the repository root:
 
-    python3 tools/gui_textures.py
+    python3 tools/textures.py
 
 No dependencies: PNGs are written with zlib and struct so this runs anywhere Python does.
 """
@@ -43,6 +43,10 @@ PALETTE = {
 
     "track":        (0x12, 0x18, 0x2A),
     "thumb":        (0x4F, 0xC3, 0xD9),
+
+    # The table surface. Dyeable later; this is the undyed default.
+    "felt":         (0x1E, 0x4B, 0x33),
+    "felt_weave":   (0x18, 0x3E, 0x2A),
 }
 
 # The deck panel's right edge runs from this fraction of the width at the top to this
@@ -401,6 +405,33 @@ def symbols():
     print("wrote", path, f"({len(providers)} glyphs)")
 
 
+# ---------------------------------------------------------------------------
+# Block textures.
+# ---------------------------------------------------------------------------
+def felt(size=16):
+    """A woven felt surface.
+
+    Noise from a hash of the coordinates rather than a random number generator, so running
+    this twice produces the same file and the repository does not churn a texture every time
+    somebody regenerates the set.
+    """
+    px = blank(size, size)
+    base = PALETTE["felt"]
+    weave = PALETTE["felt_weave"]
+    for y in range(size):
+        for x in range(size):
+            h = (x * 73856093) ^ (y * 19349663)
+            h = (h ^ (h >> 13)) & 0xFFFF
+            # A faint diagonal thread, plus per-pixel grain.
+            thread = ((x + y) % 4 == 0)
+            grain = (h % 7) - 3
+            source = weave if thread else base
+            px[y][x] = tuple(max(0, min(255, c + grain)) for c in source) + (255,)
+    write_png(
+        "common/src/main/resources/assets/gathering/textures/block/table_felt.png",
+        size, size, px)
+
+
 def main():
     nine_slice("panel", PALETTE["panel"], PALETTE["panel_edge"])
     nine_slice("panel_inset", PALETTE["inset"], PALETTE["inset_edge"])
@@ -410,6 +441,7 @@ def main():
     deck_panel()
     scrollbar()
     symbols()
+    felt()
 
 
 if __name__ == "__main__":

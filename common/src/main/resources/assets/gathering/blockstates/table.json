@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "part=north_west": { "model": "gathering:block/table_corner", "y": 0 },
+    "part=north_east": { "model": "gathering:block/table_corner", "y": 90 },
+    "part=south_east": { "model": "gathering:block/table_corner", "y": 180 },
+    "part=south_west": { "model": "gathering:block/table_corner", "y": 270 }
+  }
+}

@@ -180,6 +180,27 @@ and the screen closes.
 **What should happen:** the deck's tooltip count follows every edit, and a commander you set
 this way shows on the item in gold like an imported one does.
 
+### 5. Put some tables together
+
+Craft a **Gathering Table** (three wool over planks, two legs) or take one from the creative
+tab. It is a 2x2 multiblock: the block you click becomes its north-west corner.
+
+- **Right-click an edge** to take that seat, and the same edge again to leave it. Right-click
+  the top, or an edge that is not a seat, and it tells you how big the cluster is and how many
+  of its seats are taken.
+- **Push another table against it**, edge to edge, and they become one cluster sharing one
+  surface: 2 tables seat 4, 3 seat 6, 4 seat 8. A fifth will not join — a cluster is capped at
+  four tables, and it refuses the placement rather than sitting next to the cluster pretending.
+- **Tables only merge if they line up.** A table offset by one block shares part of an edge
+  but not all of it, and stays its own cluster. That is deliberate; tell me if it feels wrong.
+- **Break any quarter** and the whole table comes up. Try it with somebody seated: it should
+  refuse, and refuse to let you extend the cluster too, because reshaping moves the seats.
+
+**What I would most like to know here** is whether the table is the right height and size, and
+whether merging feels like pushing tables together or like a puzzle. The model is deliberately
+plain — a felt top on a wooden frame — because that is a thing you will want to design rather
+than have me guess at.
+
 ## What I'd most like to know
 
 In rough order of how much it would change what I build next:
@@ -200,9 +221,9 @@ In rough order of how much it would change what I build next:
 
 ## What is deliberately not there yet
 
-- **No table, no seats, no game.** The game core — zones, the verb set, visibility, undo,
-  drag-and-drop positions — is built and tested but has no block to live in. That's the next
-  phase and it's gated on this one working.
+- **A table, seats, but no game yet.** The table block is in and the game core — zones, the
+  verb set, visibility, undo, drag-and-drop positions — is still waiting for a screen to sit
+  down into. See section 5 below for what you can try.
 - **No collection block.** Specified in the design brief, phase 3.
 - **Cards don't stack, and there's no way to get rid of one** except dropping it.
 - **No way to name a deck after the fact.** Import names one; a deck started from two cards
