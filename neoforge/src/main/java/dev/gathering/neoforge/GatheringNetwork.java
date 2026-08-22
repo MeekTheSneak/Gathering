@@ -3,6 +3,7 @@ package dev.gathering.neoforge;
 import dev.gathering.Gathering;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.CloseTablePayload;
+import dev.gathering.network.CreateTokenPayload;
 import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
@@ -75,6 +76,11 @@ public final class GatheringNetwork {
                 SideboardEditPayload.STREAM_CODEC,
                 GatheringNetwork::onSideboardEdit);
 
+        registrar.playToServer(
+                CreateTokenPayload.TYPE,
+                CreateTokenPayload.STREAM_CODEC,
+                GatheringNetwork::onCreateToken);
+
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.
         registrar.playToClient(
@@ -125,6 +131,13 @@ public final class GatheringNetwork {
     private static void onStartTable(StartTablePayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
             dev.gathering.server.TableSetup.handle(player, payload);
+        }
+    }
+
+    private static void onCreateToken(CreateTokenPayload payload, IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) {
+            CardDataService.active().ifPresent(service ->
+                    dev.gathering.server.TokenCreation.handle(player, service, payload));
         }
     }
 

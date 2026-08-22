@@ -101,6 +101,28 @@ public final class ScryfallClient {
     }
 
     /**
+     * Tokens whose name matches, most-printed first.
+     *
+     * <p>Its own lookup rather than a name search with a filter, because the named endpoint
+     * deliberately prefers real cards: asking it for "Thrull" returns the creature from Fallen
+     * Empires, not the token Tevesh Szat makes. Tokens live in their own layout on Scryfall and
+     * this asks for that layout by name.
+     *
+     * <p>A prefix search rather than an exact one. Nobody types "Thrull Token" and half the
+     * tokens anybody wants are called something like "Beast" with six different printings, so
+     * the useful answer is a short list to pick from rather than one guess.
+     */
+    public List<CardMetadata> tokensNamed(String name) throws IOException {
+        String cleaned = name == null ? "" : name.replace("\"", "").trim();
+        if (cleaned.isEmpty()) {
+            return List.of();
+        }
+        String query = "t:token " + '"' + cleaned + '"';
+        JsonObject json = getJson("/cards/search?unique=cards&order=released&dir=desc&q=" + encode(query));
+        return json == null ? List.of() : List.copyOf(ScryfallCardCodec.parseCollection(json));
+    }
+
+    /**
      * Batch resolution. Splits into requests of {@value #COLLECTION_BATCH_SIZE}, de-duplicates
      * identical queries, and reports back which queries nothing answered.
      */

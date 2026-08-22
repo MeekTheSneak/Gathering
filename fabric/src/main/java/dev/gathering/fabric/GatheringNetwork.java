@@ -2,6 +2,7 @@ package dev.gathering.fabric;
 
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.CloseTablePayload;
+import dev.gathering.network.CreateTokenPayload;
 import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.network.ImportResultPayload;
@@ -43,6 +44,8 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(StartTablePayload.TYPE, StartTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
                 SideboardEditPayload.TYPE, SideboardEditPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                CreateTokenPayload.TYPE, CreateTokenPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(TableViewPayload.TYPE, TableViewPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CloseTablePayload.TYPE, CloseTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC);
@@ -81,5 +84,9 @@ final class GatheringNetwork {
 
         ServerPlayNetworking.registerGlobalReceiver(SideboardEditPayload.TYPE, (payload, context) ->
                 dev.gathering.server.Sideboarding.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(CreateTokenPayload.TYPE, (payload, context) ->
+                CardDataService.active().ifPresent(service ->
+                        dev.gathering.server.TokenCreation.handle(context.player(), service, payload)));
     }
 }

@@ -23,6 +23,7 @@ import dev.gathering.core.ui.TableStacking;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
+import dev.gathering.network.CreateTokenPayload;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -985,6 +986,24 @@ public final class TableScreen extends Screen {
      * library is open because an event said so, so it stays open until an event says
      * otherwise - not until a screen happens to go away.
      */
+    /**
+     * Asks what token, then how many.
+     *
+     * <p>Two questions rather than one screen with two fields, because they are answered in
+     * that order and the second one is usually "one". The name goes to the server, which does
+     * the looking up - a token is a real printing from Scryfall and not something a client
+     * describes.
+     */
+    private void askForToken() {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new TextPromptScreen(
+                Component.translatable("screen.gathering.token.name"),
+                Component.translatable("screen.gathering.token.hint"),
+                CreateTokenPayload.MAX_NAME,
+                name -> net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
+                        Component.translatable("screen.gathering.amount.tokens"), 1,
+                        count -> ClientNetworking.send(new CreateTokenPayload(table, name, count))))));
+    }
+
     /** Asks how many, then does it. The screen closes itself before the answer arrives. */
     private void ask(String key, int suggested, java.util.function.IntConsumer action) {
         net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
@@ -1016,6 +1035,7 @@ public final class TableScreen extends Screen {
         }
         List<ContextMenu.Entry> entries = ContextMenu.entries();
         entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
+        entries.add(entry("make_token", this::askForToken));
         view().ifPresent(board -> {
             entries.add(entry("next_phase", () -> send(new GameEvent.PhaseSet(
                     me, board.turn().phase().next()))));

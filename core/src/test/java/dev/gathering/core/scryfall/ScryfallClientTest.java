@@ -40,6 +40,48 @@ class ScryfallClientTest {
     }
 
     @Test
+    @DisplayName("looking for a token asks for tokens, not for the card of the same name")
+    void tokenSearchAsksForTokens() throws Exception {
+        // The trap this exists to avoid: Scryfall's named endpoint prefers real cards, so
+        // asking it for "Thrull" hands back the Fallen Empires creature rather than the token
+        // Tevesh Szat makes. Tokens are their own layout and have to be asked for by it.
+        FakeHttpTransport transport = new FakeHttpTransport()
+                .reply(200, Fixtures.collectionResponse("sol_ring"));
+
+        client(transport).tokensNamed("Thrull");
+
+        String url = transport.requests().get(0).url();
+        assertThat(url).contains("/cards/search");
+        assertThat(java.net.URLDecoder.decode(url, java.nio.charset.StandardCharsets.UTF_8))
+                .contains("t:token")
+                .contains("Thrull");
+    }
+
+    @Test
+    @DisplayName("an empty token name costs no request at all")
+    void anEmptyTokenSearchAsksNothing() throws Exception {
+        FakeHttpTransport transport = new FakeHttpTransport();
+
+        assertThat(client(transport).tokensNamed("   ")).isEmpty();
+        assertThat(transport.requestCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("a token name with a quote in it cannot break out of the query")
+    void tokenNamesCannotEscapeTheQuery() throws Exception {
+        // The name reaches this from a text field somebody typed into, so it is not trusted to
+        // stay inside its own quotes.
+        FakeHttpTransport transport = new FakeHttpTransport()
+                .reply(200, Fixtures.collectionResponse("sol_ring"));
+
+        client(transport).tokensNamed("Beast\" or t:land");
+
+        String query = java.net.URLDecoder.decode(
+                transport.requests().get(0).url(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(query).doesNotContain("\" or");
+    }
+
+    @Test
     @DisplayName("a hundred-card decklist costs two requests, not a hundred")
     void batchesAtSeventyFive() throws Exception {
         FakeHttpTransport transport = new FakeHttpTransport()

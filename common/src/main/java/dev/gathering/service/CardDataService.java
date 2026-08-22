@@ -137,6 +137,11 @@ public final class CardDataService implements AutoCloseable {
         return supply(() -> client.printingsOf(cardName));
     }
 
+    /** Tokens matching a name, for the "make a token" screen. */
+    public CompletableFuture<List<CardMetadata>> tokensNamed(String name) {
+        return supply(() -> client.tokensNamed(name));
+    }
+
     /**
      * Warms the name and printing indexes from whatever is already on disk.
      *
