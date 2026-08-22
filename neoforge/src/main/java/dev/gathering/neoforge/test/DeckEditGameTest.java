@@ -67,6 +67,42 @@ public final class DeckEditGameTest {
     }
 
     @GameTest(template = "empty")
+    public static void takingTheLastCardLeavesNoDeckBehind(GameTestHelper helper) {
+        // An empty deck is a deckbox with nothing in it. Taking the last card out should hand
+        // you a card, not a card and an object to tidy away.
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        ItemStack deckStack = DeckItem.of(deck(List.of(SOL), List.of(), List.of()));
+        player.setItemInHand(InteractionHand.MAIN_HAND, deckStack);
+
+        DeckEdits.handle(player, DeckEditPayload.take(
+                InteractionHand.MAIN_HAND, DeckComponent.Section.MAINBOARD, SOL));
+
+        if (!player.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()) {
+            helper.fail("An emptied deck stayed in the player's hand: "
+                    + player.getItemInHand(InteractionHand.MAIN_HAND));
+        }
+        if (countCards(player, SOL) != 1) {
+            helper.fail("The last card did not reach the player");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void takingTheLastCommanderAlsoEmptiesTheDeck(GameTestHelper helper) {
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        ItemStack deckStack = DeckItem.of(deck(List.of(), List.of(SOL), List.of()));
+        player.setItemInHand(InteractionHand.MAIN_HAND, deckStack);
+
+        DeckEdits.handle(player, DeckEditPayload.take(
+                InteractionHand.MAIN_HAND, DeckComponent.Section.COMMANDERS, SOL));
+
+        if (!player.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()) {
+            helper.fail("A deck emptied from the command zone stayed in hand");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void takingACardTheDeckDoesNotHoldChangesNothing(GameTestHelper helper) {
         // What a click looks like when it raced somebody else's edit.
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);

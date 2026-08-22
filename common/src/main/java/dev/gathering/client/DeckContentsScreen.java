@@ -1,6 +1,8 @@
 package dev.gathering.client;
 
 import dev.gathering.Gathering;
+import dev.gathering.core.ui.DeckScreenLayout;
+import dev.gathering.core.ui.Rect;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
 import dev.gathering.item.DeckItem;
@@ -21,18 +23,21 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import org.joml.Matrix4f;
 
 /**
  * What is actually in a deck, and the place you change it.
  *
  * <p>Without this a deck is an opaque item that claims a number, which is a strange thing to
  * hand somebody after they pasted a hundred cards. The list groups by zone, collapses copies
- * into counts the way a decklist does, and reads any row on demand - so the deck is browsable
- * and editable before there is a table to play it at.
+ * into counts the way a decklist does, and shows whatever row is under the cursor as a full
+ * card beside it - so the deck is browsable and editable before there is a table to play it
+ * at.
  *
- * <p>The list sits against the left edge rather than centred, because holding the read key
- * over a row shows that card full size on the right. Centring the list would put the card on
- * top of it.
+ * <p>The shape is a decklist panel flush against the left edge with the card and its text to
+ * the right of it. Where everything actually goes is {@link DeckScreenLayout}, in the pure
+ * module, so it can be checked at every window size rather than at the one it was written
+ * at. This class draws what that says.
  *
  * <p>The screen owns no copy of the deck. It reads the stack in the player's hand every
  * frame, so an edit the server applies appears here as soon as the held item syncs, and a
@@ -46,29 +51,15 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class DeckContentsScreen extends Screen implements CardPreviewHost {
 
-    private static final int MARGIN = 16;
-    private static final int PADDING = 8;
-    private static final int GAP = 4;
     private static final int ROW_HEIGHT = 12;
-    private static final int PANEL_WIDTH = 300;
-    private static final int BUTTON_HEIGHT = 20;
-
-    /** Below this the preview would be a thumbnail, so it is not worth the space it takes. */
-    private static final int MINIMUM_PREVIEW_WIDTH = 140;
-
-    /**
-     * Above this the oracle text stops being readable.
-     *
-     * <p>A card preview that fills a 21:9 monitor is a line of text a metre wide over a
-     * postage-stamp image, because the art is bounded by the panel's height and the text is
-     * not. Capping the width and centring what is left keeps the proportions of a card.
-     */
-    private static final int MAXIMUM_PREVIEW_WIDTH = 420;
+    private static final int COUNT_COLUMN = 22;
 
     private static final int HEADING_COLOUR = 0xFFC49E4A;
     private static final int NAME_COLOUR = 0xFFE8E4DC;
     private static final int COUNT_COLOUR = 0xFF9A9690;
     private static final int PENDING_COLOUR = 0xFF6E6A66;
+    private static final int FOIL_COLOUR = 0xFF6FD3E8;
+    private static final int TITLE_COLOUR = 0xFFFFFFFF;
 
     private final InteractionHand hand;
     private final List<Row> rows = new ArrayList<>();
@@ -76,7 +67,9 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     /** What the rows were built from, so a deck the server changed rebuilds them. */
     private DeckComponent shown;
 
+    private DeckScreenLayout layout;
     private int scroll;
+    private boolean draggingThumb;
 
     public DeckContentsScreen(InteractionHand hand) {
         super(Component.empty());
@@ -85,6 +78,8 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     @Override
     protected void init() {
+        this.layout = DeckScreenLayout.of(this.width, this.height, this.font.lineHeight);
+
         DeckComponent deck = deck().orElse(null);
         if (deck == null) {
             // Nothing to lay out. tick() closes the screen on the next server tick rather
@@ -95,9 +90,9 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         rebuild(deck);
         requestNames(deck);
 
+        Rect done = layout.done();
         this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> this.onClose())
-                .bounds(panelLeft() + panelWidth() - PADDING - 80,
-                        this.height - MARGIN - PADDING - BUTTON_HEIGHT, 80, BUTTON_HEIGHT)
+                .bounds(done.x(), done.y(), done.width(), done.height())
                 .build());
     }
 
@@ -150,22 +145,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     }
 
     /**
-     * The panel goes here, not in {@link #render}.
-     *
-     * <p>{@code Screen#render} calls this itself, and this applies a full-screen blur to
-     * everything already drawn. Drawing the panel in {@code render} before calling
-     * {@code super.render} therefore blurs the panel and every hand-drawn label on it -
-     * widgets survive because they are drawn afterwards, which makes the bug look like
-     * "some of the screen is fuzzy" rather than like a render-order mistake.
-     */
-    @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        GatheringSprites.panel(graphics, panelLeft(), MARGIN, panelWidth(), this.height - MARGIN * 2);
-    }
-
-    /**
-     * The deck left the player's hand - dropped, swapped, taken by a hopper.
+     * The deck left the player's hand - dropped, swapped, taken by a hopper, or emptied.
      *
      * <p>There is then nothing here to show and nothing an edit could safely land on, so the
      * screen goes away rather than showing a deck that is no longer there.
@@ -190,6 +170,22 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         return heldStack().map(ItemStack::getHoverName).orElseGet(Component::empty);
     }
 
+    /**
+     * The panel goes here, not in {@link #render}.
+     *
+     * <p>{@code Screen#render} calls this itself, and this applies a full-screen blur to
+     * everything already drawn. Drawing the panel in {@code render} before calling
+     * {@code super.render} therefore blurs the panel and every hand-drawn label on it -
+     * widgets survive because they are drawn afterwards, which makes the bug look like
+     * "some of the screen is fuzzy" rather than like a render-order mistake.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        Rect panel = layout().panel();
+        GatheringSprites.deckPanel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         DeckComponent deck = deck().orElse(null);
@@ -204,44 +200,38 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         // Background, panel and widgets, in that order.
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        graphics.drawCenteredString(
-                this.font, getTitle(), panelLeft() + panelWidth() / 2, MARGIN + PADDING - 1, 0xFFFFFF);
-
-        GatheringSprites.inset(graphics, listLeft() - 2, listTop() - 2, listWidth() + 4, listHeight() + 4);
-        renderRows(graphics, mouseX, mouseY);
+        DeckScreenLayout current = layout();
+        Rect title = current.title();
+        GuiText.draw(graphics, this.font, getTitle(), title.x(), title.y(), title.width(), TITLE_COLOUR);
 
         int hovered = rowAt(mouseX, mouseY);
+        renderRows(graphics, hovered);
+        renderScrollbar(graphics);
         renderHint(graphics, hovered);
-        if (hovered >= 0) {
-            renderPreview(graphics, rows.get(hovered));
-        }
+        renderPreview(graphics, hovered >= 0 ? rows.get(hovered) : null);
     }
 
-    private void renderRows(GuiGraphics graphics, int mouseX, int mouseY) {
-        int left = listLeft();
-        int top = listTop();
-        int width = listWidth();
-        int bottom = top + listHeight();
-        int hovered = rowAt(mouseX, mouseY);
+    private void renderRows(GuiGraphics graphics, int hovered) {
+        Rect area = layout().rows();
+        graphics.enableScissor(area.x(), area.y(), area.right(), area.bottom());
 
-        graphics.enableScissor(left, top, left + width, bottom);
-        int y = top - scroll;
+        int y = area.y() - scroll;
         for (int index = 0; index < rows.size(); index++) {
-            if (y + ROW_HEIGHT >= top && y <= bottom) {
-                renderRow(graphics, rows.get(index), left, y, width, index == hovered);
+            if (y + ROW_HEIGHT >= area.y() && y <= area.bottom()) {
+                renderRow(graphics, rows.get(index), area, y, index == hovered);
             }
             y += ROW_HEIGHT;
         }
         graphics.disableScissor();
     }
 
-    private void renderRow(GuiGraphics graphics, Row row, int left, int y, int width, boolean hovered) {
+    private void renderRow(GuiGraphics graphics, Row row, Rect area, int y, boolean hovered) {
         if (row.card() == null) {
-            graphics.drawString(this.font, row.heading(), left + 2, y + 2, HEADING_COLOUR, false);
+            GuiText.draw(graphics, this.font, row.heading(), area.x() + 2, y + 2, area.width() - 4, HEADING_COLOUR);
             return;
         }
         if (hovered) {
-            GatheringSprites.highlight(graphics, left, y, width, ROW_HEIGHT);
+            GatheringSprites.highlight(graphics, area.x(), y, area.width(), ROW_HEIGHT);
         }
 
         Optional<CardSummary> summary = ClientCardCache.get().summary(row.card());
@@ -249,15 +239,58 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
                 .<Component>map(found -> Component.literal(found.name()))
                 .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
 
-        graphics.drawString(this.font, row.count() + "x", left + 2, y + 2, COUNT_COLOUR, false);
-        graphics.drawString(this.font, name, left + 24, y + 2,
-                summary.isPresent() ? NAME_COLOUR : PENDING_COLOUR, false);
+        Component foil = Component.translatable("tooltip." + Gathering.MOD_ID + ".foil")
+                .withStyle(ChatFormatting.AQUA);
+        int foilWidth = row.card().foil() ? this.font.width(foil) + 4 : 0;
+
+        GuiText.draw(graphics, this.font, Component.literal(row.count() + "x"),
+                area.x() + 2, y + 2, COUNT_COLUMN - 2, COUNT_COLOUR);
+        GuiText.draw(graphics, this.font, name, area.x() + COUNT_COLUMN, y + 2,
+                area.width() - COUNT_COLUMN - foilWidth - 2, summary.isPresent() ? NAME_COLOUR : PENDING_COLOUR);
         if (row.card().foil()) {
-            graphics.drawString(this.font,
-                    Component.translatable("tooltip." + Gathering.MOD_ID + ".foil")
-                            .withStyle(ChatFormatting.AQUA),
-                    left + width - 26, y + 2, 0xFF6FD3E8, false);
+            GuiText.draw(graphics, this.font, foil,
+                    area.right() - foilWidth, y + 2, foilWidth, FOIL_COLOUR);
         }
+    }
+
+    /**
+     * The scrollbar, running down the panel's tapered edge rather than beside it.
+     *
+     * <p>Drawn as an ordinary vertical bar under a shear, which is the same straight line the
+     * texture's edge was drawn along - so the two agree by construction instead of by two
+     * pieces of arithmetic that have to be kept in step. The bar comes out a parallelogram,
+     * which is what a strip lying on a diagonal edge looks like.
+     */
+    private void renderScrollbar(GuiGraphics graphics) {
+        Rect track = layout().scrollbar();
+        int maximum = maximumScroll();
+
+        graphics.pose().pushPose();
+        graphics.pose().last().pose().mul(taper());
+        GatheringSprites.scrollTrack(graphics, track.x(), track.y(), track.width(), track.height());
+
+        if (maximum > 0) {
+            int content = rows.size() * ROW_HEIGHT;
+            int thumb = Math.max(16, Math.round((float) track.height() * track.height() / content));
+            int travel = track.height() - thumb;
+            int top = track.y() + Math.round((float) travel * scroll / maximum);
+            GatheringSprites.scrollThumb(graphics, track.x(), top, track.width(), thumb);
+        }
+        graphics.pose().popPose();
+    }
+
+    /**
+     * The shear that lays a vertical bar along the panel's tapered edge.
+     *
+     * <p>{@code m10} multiplies y into x, so a point slides left as it goes down by exactly
+     * the amount the edge does.
+     */
+    private Matrix4f taper() {
+        Rect panel = layout().panel();
+        float slope = panel.height() == 0
+                ? 0f
+                : panel.width() * (DeckScreenLayout.TAPER_BOTTOM - 1f) / panel.height();
+        return new Matrix4f().m10(slope);
     }
 
     /** What a click on this row would do, said plainly under the list. */
@@ -265,31 +298,49 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         if (hovered < 0) {
             return;
         }
+        Rect hint = layout().hint();
         String key = rows.get(hovered).section() == DeckComponent.Section.COMMANDERS
                 ? "screen.gathering.deck.hint_commander"
                 : "screen.gathering.deck.hint_card";
-        graphics.drawString(this.font, Component.translatable(key),
-                listLeft(), listTop() + listHeight() + GAP, PENDING_COLOUR, false);
+        GuiText.draw(graphics, this.font, Component.translatable(key),
+                hint.x(), hint.y(), hint.width(), PENDING_COLOUR);
     }
 
     /**
-     * The hovered card, full size, in the space to the right of the list.
+     * The hovered card and what it says, in the two frames beside the list.
      *
      * <p>No key to hold. Reading down a decklist is the whole purpose of this screen, and a
      * modifier you have to keep pressed for a hundred rows is a toll on the one thing the
-     * screen exists to do. The space is already reserved, so nothing is covered by showing
-     * it.
+     * screen exists to do. The space is reserved either way, so the frames stay put and only
+     * their contents come and go - a layout that jumped as the cursor moved would be worse
+     * than one that is sometimes empty.
      */
     private void renderPreview(GuiGraphics graphics, Row row) {
-        int regionLeft = panelLeft() + panelWidth() + GAP * 2;
-        int regionWidth = this.width - MARGIN - regionLeft;
-        if (regionWidth < MINIMUM_PREVIEW_WIDTH) {
+        DeckScreenLayout current = layout();
+        Rect card = current.card();
+        Rect info = current.info();
+        if (card.isEmpty()) {
             return;
         }
-        int width = Math.min(regionWidth, MAXIMUM_PREVIEW_WIDTH);
-        int left = regionLeft + (regionWidth - width) / 2;
-        ClientCardCache.get().summary(row.card()).ifPresent(summary ->
-                CardInspectPanel.renderInto(graphics, summary, left, MARGIN, width, this.height - MARGIN * 2));
+
+        GatheringSprites.frame(graphics, card.x(), card.y(), card.width(), card.height());
+        if (!info.isEmpty()) {
+            GatheringSprites.frame(graphics, info.x(), info.y(), info.width(), info.height());
+        }
+
+        Optional<CardSummary> summary = row == null || row.card() == null
+                ? Optional.empty()
+                : ClientCardCache.get().summary(row.card());
+        if (summary.isEmpty()) {
+            return;
+        }
+
+        Rect art = card.shrink(DeckScreenLayout.FRAME);
+        CardInspectPanel.renderArt(graphics, summary.get(), art.x(), art.y(), art.width(), art.height());
+        if (!info.isEmpty()) {
+            Rect text = info.shrink(DeckScreenLayout.FRAME);
+            CardInspectPanel.renderText(graphics, summary.get(), text.x(), text.y(), text.width(), text.height());
+        }
     }
 
     /**
@@ -305,6 +356,12 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
+        if (button == 0 && onScrollbar(mouseX, mouseY)) {
+            draggingThumb = true;
+            scrollTo(mouseY);
+            return true;
+        }
+
         int index = rowAt((int) mouseX, (int) mouseY);
         if (index < 0) {
             return false;
@@ -321,15 +378,57 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         return false;
     }
 
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (draggingThumb) {
+            scrollTo(mouseY);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        draggingThumb = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    /**
+     * Whether this click landed on the scrollbar.
+     *
+     * <p>The bar is drawn sheared, so the hit test undoes the shear rather than testing the
+     * upright rectangle - otherwise the bar you can see and the bar you can grab drift
+     * further apart the further down the screen you go.
+     */
+    private boolean onScrollbar(double mouseX, double mouseY) {
+        Rect track = layout().scrollbar();
+        if (maximumScroll() <= 0) {
+            return false;
+        }
+        Rect panel = layout().panel();
+        double slope = panel.height() == 0
+                ? 0d
+                : panel.width() * (DeckScreenLayout.TAPER_BOTTOM - 1d) / panel.height();
+        double upright = mouseX - slope * mouseY;
+        return upright >= track.x() && upright < track.right() && mouseY >= track.y() && mouseY < track.bottom();
+    }
+
+    private void scrollTo(double mouseY) {
+        Rect track = layout().scrollbar();
+        if (track.height() <= 0) {
+            return;
+        }
+        double fraction = (mouseY - track.y()) / track.height();
+        scroll = (int) Math.round(Math.max(0d, Math.min(1d, fraction)) * maximumScroll());
+    }
+
     /** The card row under this point, or -1 for a heading, a gap, or somewhere else entirely. */
     private int rowAt(int mouseX, int mouseY) {
-        int left = listLeft();
-        int top = listTop();
-        int bottom = top + listHeight();
-        if (mouseX < left || mouseX >= left + listWidth() || mouseY < top || mouseY >= bottom) {
+        Rect area = layout().rows();
+        if (!area.contains(mouseX, mouseY)) {
             return -1;
         }
-        int index = (mouseY - top + scroll) / ROW_HEIGHT;
+        int index = (mouseY - area.y() + scroll) / ROW_HEIGHT;
         if (index < 0 || index >= rows.size() || rows.get(index).card() == null) {
             return -1;
         }
@@ -343,38 +442,20 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     }
 
     private int maximumScroll() {
-        return Math.max(0, rows.size() * ROW_HEIGHT - listHeight());
+        return Math.max(0, rows.size() * ROW_HEIGHT - layout().rows().height());
+    }
+
+    /** Recomputed lazily so a render before {@code init} - or after a resize - is still safe. */
+    private DeckScreenLayout layout() {
+        if (layout == null) {
+            layout = DeckScreenLayout.of(this.width, this.height, this.font.lineHeight);
+        }
+        return layout;
     }
 
     @Override
     public boolean isPauseScreen() {
         return false;
-    }
-
-    private int panelLeft() {
-        return MARGIN;
-    }
-
-    private int panelWidth() {
-        return Math.min(PANEL_WIDTH, this.width - MARGIN * 2);
-    }
-
-    private int listLeft() {
-        return panelLeft() + PADDING;
-    }
-
-    private int listWidth() {
-        return panelWidth() - PADDING * 2;
-    }
-
-    private int listTop() {
-        return MARGIN + PADDING + this.font.lineHeight + GAP;
-    }
-
-    private int listHeight() {
-        // Room under the list for the click hint, then the Done button.
-        int bottom = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP * 2 - this.font.lineHeight;
-        return Math.max(ROW_HEIGHT, bottom - listTop());
     }
 
     /** Either a section heading or a card with a count and the pile it came from. */

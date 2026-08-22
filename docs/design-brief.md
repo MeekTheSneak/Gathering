@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.17
+## Design Brief v1.18
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -146,6 +146,10 @@ Three renderers, one state:
 **The seated player view** is where you actually play: a battlefield GUI showing the table from your seat's perspective, rendered with a slight perspective tilt by default for tabletop feel, with a per-player option to switch to a flat top-down layout for maximum clarity. Your hand as a fan at the bottom, your zones in reach, opponents' public zones across the table, drag-and-drop for every card verb, radial or right-click menu for the rest. One key toggles between this and roam mode; a second, smaller **roam HUD** (hand strip, life totals, turn and phase indicator, ping alerts) keeps you in the game while you walk around. All manipulation happens in the play view; the in-world view and roam HUD are read-only.
 
 **The spectator view:** any non-seated player near a table can open a read-only GUI of the full public state, and arena tables broadcast a joinable spectate camera. Spectator clients receive exactly the public payload set defined by the visibility table, nothing more, so a spectating client is incapable of leaking a hand even if modified.
+
+**The look, and themes.** Every piece of GUI art is a real texture under `assets/gathering/textures/gui/sprites`, generated from a single palette by `tools/gui_textures.py` — so the whole set stays coherent, a resource pack can replace any of it, and a second theme is a second palette rather than a second afternoon in an image editor. A player-facing theme picker ships with the settings screen. The house style, set by the deck screen: a panel flush against the left edge of the screen with its right side tapering inward and a scrollbar running down that tapered edge, and the content it describes in heavy-bordered frames to the right of it. The taper angle is baked into the texture and repeated as one constant in the layout, so a theme replacing the texture keeps the angle the scrollbar is drawn along.
+
+**Every screen is laid out for the window it is in, not for the one it was written in.** The smallest GUI-scaled screen Minecraft produces is 320x240 and the largest is a 4K display at GUI scale 1, a factor of twelve; a layout built from constants is correct at one point in that range. So the arithmetic lives in the pure module as plain integers and is checked across the whole range, and it degrades in a stated order rather than by overlapping: the deck screen drops the rules-text frame, then the card frame, and never the decklist. Text that a player did not choose — card names above all — shrinks to fit its space and is trimmed only when shrinking further would make it unreadable.
 
 **Texture budget**, informed by the TTS Azorius project: two image tiers per card, Scryfall small (146x204) for table miniatures and normal (488x680) for the overlay and GUI. A 4-player Commander game touches perhaps 450 distinct cards; at these tiers that is well under 200 MB of VRAM worst case, managed with an LRU cap (config, default 256 normal-tier textures resident) and disk cache for everything ever fetched. Never fetch or register textures on the render thread.
 

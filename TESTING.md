@@ -129,11 +129,12 @@ side by side.
 
 ### 3. Open a deck and change it
 
-**Right-click a deck** to open its list. It sits against the left edge of the screen, grouped
-by zone with copies collapsed the way a decklist reads.
+**Right-click a deck** to open its list. The decklist is a panel against the left edge with a
+scrollbar down its tapered edge; the hovered card and its rules text sit in two frames beside
+it.
 
-- **Just hover a row** — no key to hold — and that card is drawn full size in the space to
-  the right, with its oracle text under it. Nothing covers the list, so you can run down it
+- **Just hover a row** — no key to hold — and that card fills the frame beside the list with
+  its rules text in the frame after it. Nothing covers the list, so you can run down it
   reading each card in turn.
 - **Left-click a row** to take one copy out of the deck. It goes into your inventory, or onto
   the floor if there is no room — a card is never destroyed to make space.
@@ -186,8 +187,28 @@ In rough order of how much it would change what I build next:
 - **Cards don't stack, and there's no way to get rid of one** except dropping it.
 - **No way to name a deck after the fact.** Import names one; a deck started from two cards
   cannot be renamed yet.
+- **No theme picker.** The GUI art is all real textures generated from one palette in
+  `tools/gui_textures.py`, so a second theme is a matter of a second palette and a place to
+  choose it — but there is no such place yet, and a resource pack is the only way to swap them
+  today.
 - **No deck legality check anywhere.** Setting a card as a commander asks no questions; the
   format validator exists but nothing calls it until there is a table to sit at.
+
+### 4. Squash the window
+
+Grab the window edge and make it small — as small as it goes — then try GUI scale 1 through
+4 in Video Settings, on both screens.
+
+**What should happen:** nothing overlaps, nothing runs off an edge, and nothing disappears
+that you needed. The deck screen sheds the rules-text frame first and then the card frame as
+things get tight, because the decklist is the thing that screen is for; the import screen
+gives its paste box whatever is left. Long card names shrink to fit their row rather than
+running under the foil tag, and only get cut with an ellipsis when shrinking any further
+would make them unreadable.
+
+The layout maths is checked at every size from 320x240 up to 3840x2160 by
+`DeckScreenLayoutTest`, so what I most want to know is whether it *looks* right, not whether
+it fits.
 
 ## Checking the parts you can't see
 

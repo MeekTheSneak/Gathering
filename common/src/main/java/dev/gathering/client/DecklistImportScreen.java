@@ -29,6 +29,9 @@ public final class DecklistImportScreen extends Screen {
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_WIDTH = 110;
     private static final int PANEL_WIDTH = 340;
+
+    /** The decklist box never gets smaller than this: below it, paste is unreadable. */
+    private static final int MIN_LIST_HEIGHT = 40;
     private static final int PROBLEM_COLOUR = 0xFFE08A5A;
     private static final int STATUS_COLOUR = 0xFFB8B4AC;
     private static final int LABEL_COLOUR = 0xFF9A9690;
@@ -83,21 +86,23 @@ public final class DecklistImportScreen extends Screen {
         top += FIELD_HEIGHT + GAP + this.font.lineHeight;
         int listBottom = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP - problemAreaHeight() - GAP;
         this.decklistField = new MultiLineEditBox(this.font, left, top, inner,
-                Math.max(FIELD_HEIGHT * 2, listBottom - top),
+                Math.max(MIN_LIST_HEIGHT, listBottom - top),
                 Component.translatable("screen.gathering.import.placeholder"),
                 Component.translatable("screen.gathering.import"));
         this.decklistField.setValue(previousList);
         this.addRenderableWidget(this.decklistField);
 
         int buttonTop = this.height - MARGIN - PADDING - BUTTON_HEIGHT;
+        // Two buttons side by side, narrowed rather than overlapped on a narrow panel.
+        int buttonWidth = Math.max(40, Math.min(BUTTON_WIDTH, (inner - GAP) / 2));
         this.importButton = Button.builder(
                         Component.translatable("screen.gathering.import.confirm"), button -> submit())
-                .bounds(left + inner - BUTTON_WIDTH, buttonTop, BUTTON_WIDTH, BUTTON_HEIGHT)
+                .bounds(left + inner - buttonWidth, buttonTop, buttonWidth, BUTTON_HEIGHT)
                 .build();
         this.addRenderableWidget(this.importButton);
 
         this.addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), button -> this.onClose())
-                .bounds(left, buttonTop, BUTTON_WIDTH, BUTTON_HEIGHT)
+                .bounds(left, buttonTop, buttonWidth, BUTTON_HEIGHT)
                 .build());
     }
 
@@ -141,6 +146,9 @@ public final class DecklistImportScreen extends Screen {
                     "screen.gathering.import.more_problems", result.problems().size() - MAX_VISIBLE_PROBLEMS));
         }
         this.problems = List.copyOf(lines);
+        // The problem list is only given room when there is one, so the decklist box has to
+        // be laid out again now that there is.
+        this.rebuildWidgets();
     }
 
     /**
@@ -162,32 +170,33 @@ public final class DecklistImportScreen extends Screen {
         int left = panelLeft();
         int width = panelWidth();
 
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, MARGIN + PADDING - 1, 0xFFFFFF);
+        int inner = width - PADDING * 2;
+        GuiText.drawCentred(graphics, this.font, this.title, left + width / 2, MARGIN + PADDING - 1, inner, 0xFFFFFF);
 
         // Field labels, drawn against the panel rather than as widgets, so the layout above
         // stays a simple stack of boxes.
         int labelLeft = left + PADDING;
-        graphics.drawString(this.font, Component.translatable("screen.gathering.import.name"),
-                labelLeft, this.nameField.getY() - this.font.lineHeight - 1, LABEL_COLOUR, false);
-        graphics.drawString(this.font, Component.translatable("screen.gathering.import.description"),
-                labelLeft, this.descriptionField.getY() - this.font.lineHeight - 1, LABEL_COLOUR, false);
-        graphics.drawString(this.font, Component.translatable("screen.gathering.import.decklist"),
-                labelLeft, this.decklistField.getY() - this.font.lineHeight - 1, LABEL_COLOUR, false);
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.import.name"),
+                labelLeft, this.nameField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOUR);
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.import.description"),
+                labelLeft, this.descriptionField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOUR);
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.import.decklist"),
+                labelLeft, this.decklistField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOUR);
 
-        renderStatus(graphics, labelLeft, width - PADDING * 2);
+        renderStatus(graphics, labelLeft, inner);
     }
 
     private void renderStatus(GuiGraphics graphics, int left, int width) {
-        int top = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP - problemAreaHeight();
-        if (this.status.getString().isEmpty() && this.problems.isEmpty()) {
+        if (problemAreaHeight() == 0) {
             return;
         }
+        int top = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP - problemAreaHeight();
 
         GatheringSprites.inset(graphics, left - 2, top - 3, width + 4, problemAreaHeight() + 4);
 
         int line = top;
         if (!this.status.getString().isEmpty()) {
-            graphics.drawString(this.font, this.status, left, line, STATUS_COLOUR, false);
+            GuiText.draw(graphics, this.font, this.status, left, line, width, STATUS_COLOUR);
             line += this.font.lineHeight + 1;
         }
         for (Component problem : this.problems) {
@@ -201,9 +210,24 @@ public final class DecklistImportScreen extends Screen {
         }
     }
 
+    /**
+     * How much room the status and problem list need, which is none until there is one.
+     *
+     * <p>Reserving the full eight lines unconditionally is what pushed the decklist box down
+     * into the buttons on a short window - the paste area, which is the reason the screen
+     * exists, was giving most of its height to a list that was usually empty.
+     */
     private int problemAreaHeight() {
+        if (this.status.getString().isEmpty() && this.problems.isEmpty()) {
+            return 0;
+        }
         int lineHeight = this.font == null ? 9 : this.font.lineHeight;
-        return (MAX_VISIBLE_PROBLEMS + 2) * lineHeight;
+        int wanted = (1 + Math.min(MAX_VISIBLE_PROBLEMS + 1, this.problems.size())) * lineHeight;
+
+        // Never more than the screen can spare while the decklist box keeps its minimum.
+        int spare = this.height - MARGIN * 2 - PADDING * 2 - BUTTON_HEIGHT - GAP * 2
+                - this.font.lineHeight * 4 - FIELD_HEIGHT * 2 - GAP * 2 - MIN_LIST_HEIGHT;
+        return Math.max(0, Math.min(wanted, spare));
     }
 
     @Override

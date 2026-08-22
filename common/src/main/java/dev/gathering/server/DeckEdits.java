@@ -45,7 +45,15 @@ public final class DeckEdits {
             case TAKE -> take(player, deck, edit.section(), edit.card());
             case TOGGLE_COMMANDER -> toggleCommander(deck, edit.section(), edit.card());
         };
-        updated.ifPresent(next -> stack.set(GatheringComponents.DECK.get(), next));
+        updated.ifPresent(next -> {
+            if (next.isEmpty()) {
+                // A deck with no cards is a deckbox with nothing in it. Taking the last card
+                // out should hand you a card, not a card and an empty object to tidy away.
+                player.setItemInHand(hand, ItemStack.EMPTY);
+            } else {
+                stack.set(GatheringComponents.DECK.get(), next);
+            }
+        });
     }
 
     /**

@@ -251,3 +251,27 @@ cannot be inferred from reading the code.
 - **The Scryfall credit is pinned to the bottom of a panel with its height reserved**, never
   flowed in with the oracle text. Flowed, it is the first thing a wordy card pushes off the
   end - and it is the one line that is not allowed to be optional.
+- **Screen layout arithmetic lives in `:core`, not in the screen.** `DeckScreenLayout` is
+  plain integers with no Minecraft in it, so it can be checked at every window size from
+  320x240 (the smallest GUI-scaled screen Minecraft produces) to 3840x2160 rather than at the
+  one the author happened to be running. A GUI is otherwise only ever tested at one size, and
+  everything that breaks at the others breaks silently.
+- **A slot item is drawn at depth 150 and up.** Anything drawn over a screen afterwards at
+  depth zero still comes out *behind* the items, so the item pokes through the panel. Vanilla
+  puts tooltips at 400; the inspect panel sits with them.
+- **The tapered panel edge and the scrollbar on it agree by construction, not by
+  arithmetic.** The scrollbar is an ordinary vertical bar drawn under a shear
+  (`Matrix4f#m10`, which multiplies y into x) along the same line the texture's edge was
+  drawn along. Two separate pieces of maths would drift; the hit test undoes the same shear,
+  so the bar you can see and the bar you can grab stay together.
+- **`GuiText`, never `graphics.drawString`, for anything a player did not choose.** Card
+  names are arbitrary text of arbitrary length and the font has one size, so text shrinks to
+  fit and only trims when shrinking further would stop it being readable.
+- **The GUI sprites are generated from a palette** by `tools/gui_textures.py`, so a whole
+  coherent set - and later a whole theme - comes from one block of colours rather than from
+  editing seven PNGs by hand. The PNGs are still the source of truth: repaint one and the
+  screens change, and a resource pack can replace any of them.
+- **An empty deck deletes itself.** `DeckEdits` removes it when the edit that emptied it is
+  applied, and `DeckItem#inventoryTick` is the server-side backstop for every other route.
+  A deck item carrying no component at all is left alone - that is the creative-menu deck,
+  which is blank rather than empty.

@@ -1,0 +1,74 @@
+package dev.gathering.client;
+
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+
+/**
+ * Text that fits the space it was given.
+ *
+ * <p>Minecraft's font draws at one size and runs straight off the end of whatever it does
+ * not fit in, and in a mod full of card names - which are arbitrary text a player did not
+ * choose and cannot shorten - that is not an edge case. So text shrinks to fit, and only
+ * when shrinking any further would stop it being readable does it lose its tail to an
+ * ellipsis instead.
+ *
+ * <p>Client-only.
+ */
+public final class GuiText {
+
+    /** Below this the font stops being legible, so trimming beats shrinking. */
+    private static final float MINIMUM_SCALE = 0.6f;
+
+    private static final String ELLIPSIS = "...";
+
+    private GuiText() {
+    }
+
+    /** Draws left-aligned at {@code x}, shrinking or trimming to sit inside {@code maxWidth}. */
+    public static void draw(
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int colour) {
+        drawFitted(graphics, font, text.getString(), x, y, maxWidth, colour);
+    }
+
+    /** Draws centred on {@code centreX}, shrinking or trimming to sit inside {@code maxWidth}. */
+    public static void drawCentred(
+            GuiGraphics graphics, Font font, Component text, int centreX, int y, int maxWidth, int colour) {
+        String value = text.getString();
+        int drawn = Math.min(font.width(value), maxWidth);
+        drawFitted(graphics, font, value, centreX - drawn / 2, y, maxWidth, colour);
+    }
+
+    /** How wide this text will actually be drawn, once fitted. */
+    public static int width(Font font, Component text, int maxWidth) {
+        return Math.min(font.width(text.getString()), Math.max(0, maxWidth));
+    }
+
+    private static void drawFitted(
+            GuiGraphics graphics, Font font, String text, int x, int y, int maxWidth, int colour) {
+        if (maxWidth <= 0 || text.isEmpty()) {
+            return;
+        }
+        int width = font.width(text);
+        if (width <= maxWidth) {
+            graphics.drawString(font, text, x, y, colour, false);
+            return;
+        }
+
+        float scale = Math.max(MINIMUM_SCALE, (float) maxWidth / width);
+        String shown = text;
+        if (width * scale > maxWidth) {
+            // Even at the smallest readable size it does not fit, so the tail goes.
+            int room = Math.round(maxWidth / scale) - font.width(ELLIPSIS);
+            shown = font.plainSubstrByWidth(text, Math.max(0, room)) + ELLIPSIS;
+        }
+
+        graphics.pose().pushPose();
+        // Keep the shrunken line on the same baseline the full-size one would have used,
+        // so a shrunk row does not sit visibly higher than its neighbours.
+        graphics.pose().translate(x, y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
+        graphics.pose().scale(scale, scale, 1f);
+        graphics.drawString(font, shown, 0, 0, colour, false);
+        graphics.pose().popPose();
+    }
+}

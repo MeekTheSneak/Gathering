@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.SlotAccess;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickAction;
@@ -147,6 +148,24 @@ public class DeckItem extends Item {
             updated = next.get();
         }
         deck.set(GatheringComponents.DECK.get(), updated);
+    }
+
+    /**
+     * An empty deck is not a thing you own.
+     *
+     * <p>The edit that empties one already removes it, so this is the backstop for every
+     * other way a deck can end up with nothing in it - a command, a creative click, an older
+     * save. Checked on the server only, because the client would just have it reappear on
+     * the next sync.
+     *
+     * <p>A deck item with no component at all is left alone: that is the creative-menu deck,
+     * which has never held anything and is not empty so much as blank.
+     */
+    @Override
+    public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
+        if (!level.isClientSide() && deckOf(stack).filter(DeckComponent::isEmpty).isPresent()) {
+            stack.setCount(0);
+        }
     }
 
     @Override

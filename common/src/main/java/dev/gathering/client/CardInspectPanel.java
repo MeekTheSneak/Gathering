@@ -72,6 +72,15 @@ public final class CardInspectPanel {
     private static final int CURSOR_OFFSET_Y = -12;
     private static final int SCREEN_EDGE = 6;
 
+    /**
+     * How far in front of everything else a panel drawn over a screen sits.
+     *
+     * <p>Slot items are drawn at depth 150 and above, so a panel drawn afterwards at depth
+     * zero still comes out behind them - the item pokes through the card you are trying to
+     * read. Vanilla puts tooltips at 400 for the same reason, and this sits with them.
+     */
+    private static final float OVER_ITEMS = 400f;
+
     private CardInspectPanel() {
     }
 
@@ -83,6 +92,17 @@ public final class CardInspectPanel {
      * because this panel is drawn over the vanilla tooltip and should sit where it sat.
      */
     public static void renderBeside(
+            GuiGraphics graphics, CardSummary summary, int anchorX, int anchorY, int screenWidth, int screenHeight) {
+        graphics.pose().pushPose();
+        graphics.pose().translate(0f, 0f, OVER_ITEMS);
+        try {
+            drawBeside(graphics, summary, anchorX, anchorY, screenWidth, screenHeight);
+        } finally {
+            graphics.pose().popPose();
+        }
+    }
+
+    private static void drawBeside(
             GuiGraphics graphics, CardSummary summary, int anchorX, int anchorY, int screenWidth, int screenHeight) {
         List<CardFaceSummary> faces = summary.faces();
         Font font = Minecraft.getInstance().font;
@@ -141,21 +161,25 @@ public final class CardInspectPanel {
     }
 
     /**
-     * The card filling a box a screen has set aside for it.
+     * The printed face, or both of them, filling a box a screen has set aside.
      *
-     * <p>Art across the top, oracle text beneath - a portrait layout, because a panel beside
-     * a list is tall and narrow where the full-screen read is wide.
+     * <p>The art keeps its proportions and is centred in whatever is left, so a box that is
+     * not exactly card-shaped - or a double-faced card sharing one box - letterboxes rather
+     * than stretching. A stretched card looks like a rendering bug; a centred one looks like
+     * a layout.
      */
-    public static void renderInto(
+    public static void renderArt(
             GuiGraphics graphics, CardSummary summary, int x, int y, int width, int height) {
         List<CardFaceSummary> faces = summary.faces();
         int count = Math.max(1, faces.size());
+        if (width <= 0 || height <= 0) {
+            return;
+        }
 
         int artWidth = (width - GAP * (count - 1)) / count;
         int artHeight = Math.round(artWidth / CARD_ASPECT);
-        int artCeiling = Math.round(height * BOXED_ART_FRACTION);
-        if (artHeight > artCeiling) {
-            artHeight = artCeiling;
+        if (artHeight > height) {
+            artHeight = height;
             artWidth = Math.round(artHeight * CARD_ASPECT);
         }
         if (artWidth <= 0 || artHeight <= 0) {
@@ -163,15 +187,30 @@ public final class CardInspectPanel {
         }
 
         int row = x + (width - (artWidth * count + GAP * (count - 1))) / 2;
+        int top = y + (height - artHeight) / 2;
         for (CardFaceSummary face : faces) {
-            drawFace(graphics, face, row, y, artWidth, artHeight);
+            drawFace(graphics, face, row, top, artWidth, artHeight);
             row += artWidth + GAP;
         }
+    }
 
-        int textTop = y + artHeight + GAP;
-        if (textTop < y + height) {
-            drawTextPanel(graphics, faces, x, textTop, width, y + height - textTop);
+    /**
+     * Everything the card says, filling a box a screen has set aside.
+     *
+     * <p>No background of its own: the screen has already framed the space, and a second
+     * panel inside the first is just a smaller hole.
+     */
+    public static void renderText(
+            GuiGraphics graphics, CardSummary summary, int x, int y, int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return;
         }
+        Font font = Minecraft.getInstance().font;
+        List<Line> credit = credit(font, width);
+        int creditTop = y + height - heightOf(credit);
+
+        draw(graphics, font, describe(font, summary.faces(), width), x, y, creditTop - GAP);
+        draw(graphics, font, credit, x, creditTop, y + height);
     }
 
     /**
@@ -181,6 +220,17 @@ public final class CardInspectPanel {
      * nothing on screen worth keeping legible behind it.
      */
     public static void renderFullScreen(
+            GuiGraphics graphics, CardSummary summary, int screenWidth, int screenHeight) {
+        graphics.pose().pushPose();
+        graphics.pose().translate(0f, 0f, OVER_ITEMS);
+        try {
+            drawFullScreen(graphics, summary, screenWidth, screenHeight);
+        } finally {
+            graphics.pose().popPose();
+        }
+    }
+
+    private static void drawFullScreen(
             GuiGraphics graphics, CardSummary summary, int screenWidth, int screenHeight) {
         graphics.fill(0, 0, screenWidth, screenHeight, BACKDROP);
 
