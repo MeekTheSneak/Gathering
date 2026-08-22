@@ -132,6 +132,15 @@ public final class TableScreen extends Screen {
     /** Whether the log panel is open. Off by default: the table is the thing you came for. */
     private boolean showingLog;
 
+    /**
+     * Where the cursor was last frame.
+     *
+     * <p>Key handlers are not given a mouse position, and every TTS object key acts on
+     * whatever is under the cursor - so the screen has to remember where that was.
+     */
+    private int cursorX;
+    private int cursorY;
+
     public TableScreen(BlockPos table) {
         super(Component.translatable("screen.gathering.table"));
         this.table = table;
@@ -209,6 +218,8 @@ public final class TableScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
 
         ClientHoverState.clear();
+        cursorX = mouseX;
+        cursorY = mouseY;
         renderOpponents(graphics, board);
         renderSurface(graphics, board, mouseX, mouseY);
         renderZones(graphics, board, mouseX, mouseY);
@@ -555,10 +566,11 @@ public final class TableScreen extends Screen {
                 .map(player -> player.name())
                 .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
 
+        // Whole turns. The phase marker still exists in the game and the log, but stepping
+        // through twelve of them by hand is bookkeeping nobody at a real table does out loud -
+        // people say "your turn", and that is the granularity this shows.
         Component line = Component.translatable("screen.gathering.table.turn",
-                board.turn().turnNumber(), who,
-                Component.translatable("phase.gathering." + board.turn().phase().name()
-                        .toLowerCase(Locale.ROOT)));
+                board.turn().turnNumber(), who);
         boolean mine = mySeat().map(active::equals).orElse(false);
         GuiText.draw(graphics, this.font, line, area.x() + 2, area.y() + 7,
                 area.width() / 2, mine ? ACCENT : LABEL);
@@ -1083,11 +1095,7 @@ public final class TableScreen extends Screen {
         entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
         entries.add(entry("make_token", this::askForToken));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
-        view().ifPresent(board -> {
-            entries.add(entry("next_phase", () -> send(new GameEvent.PhaseSet(
-                    me, board.turn().phase().next()))));
-            entries.add(entry("pass_turn", () -> passTurn(board, me)));
-        });
+        view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
         entries.add(entry("untap_all", () -> send(new GameEvent.SeatUntappedAll(me, me))));
         entries.add(entry("shuffle", () -> send(new GameEvent.LibraryShuffled(me, me))));
         entries.add(entry("gain_life", () -> send(new GameEvent.LifeChanged(me, me, 1))));
@@ -1261,6 +1269,17 @@ public final class TableScreen extends Screen {
         return held != null && card instanceof CardView.Visible visible && visible.id().equals(held.card());
     }
 
+    /**
+     * The keys, matched to Tabletop Simulator's defaults.
+     *
+     * <p>Anybody arriving at this table has played on that one, and a key that does something
+     * else here is a key they will press by accident all evening. So F flips, Q and E turn,
+     * G groups, R is the deck verb, Alt reads a card, and the number row draws that many -
+     * all straight from TTS.
+     *
+     * <p>Where TTS has no equivalent - passing the turn, the log, life - the key is ours and
+     * chosen not to collide with one of theirs.
+     */
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && (menu != null || !attaching.isEmpty())) {
@@ -1269,45 +1288,154 @@ public final class TableScreen extends Screen {
             return true;
         }
         SeatId me = mySeat().orElse(null);
-        if (me != null) {
-            switch (key) {
-                case org.lwjgl.glfw.GLFW.GLFW_KEY_D -> {
-                    send(new GameEvent.CardsDrawn(me, me, 1));
-                    return true;
-                }
-                case org.lwjgl.glfw.GLFW.GLFW_KEY_S -> {
-                    send(new GameEvent.LibraryShuffled(me, me));
-                    return true;
-                }
-                case org.lwjgl.glfw.GLFW.GLFW_KEY_U -> {
-                    send(new GameEvent.SeatUntappedAll(me, me));
-                    return true;
-                }
-                case org.lwjgl.glfw.GLFW.GLFW_KEY_L -> {
-                    showingLog = !showingLog;
-                    return true;
-                }
-                case org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE -> {
-                    view().ifPresent(board -> send(new GameEvent.PhaseSet(
-                            me, board.turn().phase().next())));
-                    return true;
-                }
-                case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER -> {
-                    view().ifPresent(board -> passTurn(board, me));
-                    return true;
-                }
-                case org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL -> {
-                    send(new GameEvent.LifeChanged(me, me, 1));
-                    return true;
-                }
-                case org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS -> {
-                    send(new GameEvent.LifeChanged(me, me, -1));
-                    return true;
-                }
-                default -> { }
+        if (me == null) {
+            return super.keyPressed(key, scanCode, modifiers);
+        }
+
+        // The number row draws that many cards, exactly as it does in TTS.
+        if (key >= org.lwjgl.glfw.GLFW.GLFW_KEY_1 && key <= org.lwjgl.glfw.GLFW.GLFW_KEY_9) {
+            send(new GameEvent.CardsDrawn(me, me, key - org.lwjgl.glfw.GLFW.GLFW_KEY_0));
+            return true;
+        }
+
+        switch (key) {
+            // --- TTS object keys, applied to whatever is under the cursor or selected ---
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_F -> {
+                return flipUnderCursor(me);
             }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_Q -> {
+                return turnUnderCursor(me, -NUDGE_DEGREES);
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_E -> {
+                return turnUnderCursor(me, NUDGE_DEGREES);
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_G -> {
+                // TTS groups the selection into a stack; the nearest thing here is putting the
+                // selected cards onto one another, which is what a stack of cards is.
+                return groupSelection(me);
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_R -> {
+                send(new GameEvent.LibraryShuffled(me, me));
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE -> {
+                return deleteSelection(me);
+            }
+
+            // --- ours, chosen to keep clear of theirs ---
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_U -> {
+                send(new GameEvent.SeatUntappedAll(me, me));
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_L -> {
+                showingLog = !showingLog;
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> {
+                view().ifPresent(board -> passTurn(board, me));
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL -> {
+                send(new GameEvent.LifeChanged(me, me, 1));
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS -> {
+                send(new GameEvent.LifeChanged(me, me, -1));
+                return true;
+            }
+            default -> { }
         }
         return super.keyPressed(key, scanCode, modifiers);
+    }
+
+    /**
+     * What a key press acts on: the selection if there is one, else the card under the cursor.
+     *
+     * <p>TTS's rule exactly, and the reason its keys feel immediate - you never have to click
+     * something first to act on it.
+     */
+    private List<CardInstanceId> underCursorOrSelected() {
+        if (!selected.isEmpty()) {
+            return List.copyOf(selected);
+        }
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return List.of();
+        }
+        return cardOnSurfaceAt(board, cursorX, cursorY)
+                .filter(CardView.Visible.class::isInstance)
+                .map(CardView.Visible.class::cast)
+                .map(visible -> List.of(visible.id()))
+                .orElseGet(List::of);
+    }
+
+    private boolean flipUnderCursor(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return false;
+        }
+        List<CardInstanceId> targets = underCursorOrSelected();
+        eachCard(board, targets, seen -> new GameEvent.CardFacingSet(me, seen.id(),
+                seen.facing() == Facing.FACE_UP ? Facing.FACE_DOWN : Facing.FACE_UP));
+        return !targets.isEmpty();
+    }
+
+    private boolean turnUnderCursor(SeatId me, int degrees) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return false;
+        }
+        List<CardInstanceId> targets = underCursorOrSelected();
+        eachCard(board, targets, seen ->
+                new GameEvent.CardRotated(me, seen.id(), restingAngle(seen) + degrees));
+        return !targets.isEmpty();
+    }
+
+    /**
+     * Puts every selected card onto the first one, which is what a stack is.
+     *
+     * <p>TTS's group makes a deck out of a selection. Here the equivalent is dropping them all
+     * on the same spot: the pile reads as a pile, and picking the top one off works, because
+     * the stacking code already handles exactly this.
+     */
+    private boolean groupSelection(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null || selected.size() < 2) {
+            return false;
+        }
+        List<CardView> cards = selectedOn(board);
+        TablePosition onto = cards.isEmpty()
+                ? null
+                : cards.get(0).placedAt().orElse(null);
+        if (onto == null) {
+            return false;
+        }
+        for (CardView card : cards) {
+            if (card instanceof CardView.Visible visible) {
+                send(new GameEvent.CardMoved(me, visible.id(),
+                        ZoneRef.of(focused, Zone.BATTLEFIELD), Placement.at(onto)));
+            }
+        }
+        selected.clear();
+        return true;
+    }
+
+    /**
+     * Removes what is under the cursor, for the one kind of card that can be removed.
+     *
+     * <p>Only tokens cease to exist. A real card has an owner and a deck to go back to, so
+     * deleting one would be losing somebody's card - which is why this sends the token verb
+     * and silently passes over anything else.
+     */
+    private boolean deleteSelection(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return false;
+        }
+        List<CardInstanceId> targets = underCursorOrSelected();
+        eachCard(board, targets, seen ->
+                seen.token() ? new GameEvent.TokenRemoved(me, seen.id()) : null);
+        return !targets.isEmpty();
     }
 
     /**
