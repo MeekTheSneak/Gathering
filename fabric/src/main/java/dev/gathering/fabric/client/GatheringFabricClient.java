@@ -10,6 +10,7 @@ import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientNetworking;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
+import dev.gathering.client.ZoomKeyState;
 import dev.gathering.item.GatheringContent;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.ImportResultPayload;
@@ -50,7 +51,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
 
         CardNameLookup.Binding.bind(ClientCardCache.get());
         DeckScreenHook.Binding.bind(deck -> Minecraft.getInstance().setScreen(new DeckContentsScreen(deck)));
-        CardZoomOverlay.bindKeyState(ZOOM_KEY::isDown);
+        CardZoomOverlay.bindKeyState(ZoomKeyState.of(ZOOM_KEY, () -> KeyBindingHelper.getBoundKeyOf(ZOOM_KEY)));
         ClientNetworking.bindSender(ClientPlayNetworking::send);
         ClientCardImages.get().identifyAs(
                 Gathering.MOD_NAME + " client (+https://github.com/MeekTheSneak/Gathering)");

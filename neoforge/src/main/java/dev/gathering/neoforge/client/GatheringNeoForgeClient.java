@@ -10,6 +10,7 @@ import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientNetworking;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
+import dev.gathering.client.ZoomKeyState;
 import dev.gathering.item.GatheringContent;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.ImportResultPayload;
@@ -82,7 +83,7 @@ public final class GatheringNeoForgeClient {
         event.enqueueWork(() -> {
             CardNameLookup.Binding.bind(ClientCardCache.get());
             DeckScreenHook.Binding.bind(deck -> Minecraft.getInstance().setScreen(new DeckContentsScreen(deck)));
-            CardZoomOverlay.bindKeyState(ZOOM_KEY::isDown);
+            CardZoomOverlay.bindKeyState(ZoomKeyState.of(ZOOM_KEY, ZOOM_KEY::getKey));
             ClientNetworking.bindSender(payload -> {
                 var connection = Minecraft.getInstance().getConnection();
                 if (connection != null) {

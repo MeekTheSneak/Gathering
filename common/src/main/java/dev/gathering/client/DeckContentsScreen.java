@@ -124,10 +124,10 @@ public final class DeckContentsScreen extends Screen {
 
         GatheringSprites.inset(graphics, listLeft - 2, listTop - 2, listWidth + 4, listBottom - listTop + 4);
 
+        // Sets the hovered row, which is what the zoom overlay reads. The overlay itself is
+        // drawn by each loader's after-screen hook, so calling it here as well would run the
+        // whole thing twice and darken the backdrop twice over.
         renderRows(graphics, mouseX, mouseY, listLeft, listTop, listWidth, listBottom);
-
-        // The overlay draws on top of everything, so a row under the cursor can be read.
-        CardZoomOverlay.render(graphics, this.width, this.height);
     }
 
     private void renderRows(
