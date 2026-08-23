@@ -28,11 +28,26 @@ public final class BoardGeometry implements BoardPlacement {
     private int width;
     private int height;
 
+    /**
+     * How much of the bottom of the screen something else is sitting on.
+     *
+     * <p>The hand. The felt runs under it - a table that stopped where your cards begin would
+     * have a strip you could see across and never put anything on - but framing the board has
+     * to leave it out, or the first thing a player sees is a board with its near edge behind
+     * their own hand.
+     */
+    private int coveredAtTheBottom;
+
     public BoardGeometry(List<SeatAnchor> anchors, int width, int height) {
+        this(anchors, width, height, 0);
+    }
+
+    public BoardGeometry(List<SeatAnchor> anchors, int width, int height, int coveredAtTheBottom) {
         this.surface = TableSurface.forSeats(anchors);
         this.width = Math.max(1, width);
         this.height = Math.max(1, height);
-        this.camera = TableCamera.showingAll(this.width, this.height);
+        this.coveredAtTheBottom = Math.max(0, coveredAtTheBottom);
+        showEverything();
     }
 
     /**
@@ -42,9 +57,15 @@ public final class BoardGeometry implements BoardPlacement {
      * would yank the table out from under whoever was mid-turn, so the view stays where it is.
      */
     public void reshape(List<SeatAnchor> anchors, int newWidth, int newHeight) {
+        reshape(anchors, newWidth, newHeight, coveredAtTheBottom);
+    }
+
+    public void reshape(
+            List<SeatAnchor> anchors, int newWidth, int newHeight, int newCoveredAtTheBottom) {
         this.surface = TableSurface.forSeats(anchors);
         this.width = Math.max(1, newWidth);
         this.height = Math.max(1, newHeight);
+        this.coveredAtTheBottom = Math.max(0, newCoveredAtTheBottom);
     }
 
     @Override
@@ -57,7 +78,13 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     public void showEverything() {
-        camera = TableCamera.showingAll(width, height);
+        int visible = Math.max(1, height - coveredAtTheBottom);
+        camera = TableCamera.showingAll(surface.width(), surface.height(), width, visible);
+        // Fitted to the part of the screen that is not the hand, then nudged up so it sits in
+        // the middle of that part rather than the middle of the window.
+        if (coveredAtTheBottom > 0) {
+            camera = camera.pannedBy(0, -coveredAtTheBottom / 2.0);
+        }
     }
 
     public void pan(double pixelsX, double pixelsY) {

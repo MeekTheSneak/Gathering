@@ -212,6 +212,50 @@ class BoardGeometryTest {
         }
     }
 
+    @Nested
+    @DisplayName("framing")
+    class Framing {
+
+        @Test
+        @DisplayName("the whole table fits, and above the hand rather than behind it")
+        void theBoardIsFramedClearOfTheHand() {
+            // Fitting the board to the whole window puts its near edge - the player's own
+            // mat, the one they use - underneath their own hand.
+            int handHeight = 130;
+            BoardGeometry geometry = new BoardGeometry(
+                    seatsOf(new TableCell(0, 0)), WIDTH, HEIGHT, handHeight);
+
+            for (int seat = 0; seat < 2; seat++) {
+                Rect mat = geometry.matRect(new SeatId(seat));
+                assertThat(mat.y()).describedAs("seat %s is on screen", seat).isGreaterThanOrEqualTo(0);
+                assertThat(mat.bottom())
+                        .describedAs("seat %s clears the hand", seat)
+                        .isLessThanOrEqualTo(HEIGHT - handHeight);
+            }
+        }
+
+        @Test
+        @DisplayName("a wider table is fitted by its own proportions, not squeezed into a square")
+        void aRectangularSurfaceFillsTheWindow() {
+            // Two tables pushed together are twice as wide as they are deep. Fitting that as a
+            // square left the board in a box in the middle with the window empty either side.
+            BoardGeometry wide = new BoardGeometry(TableCluster.assumedSeating(4), WIDTH, HEIGHT, 0);
+
+            int left = Integer.MAX_VALUE;
+            int right = Integer.MIN_VALUE;
+            for (int seat = 0; seat < wide.surface().seatCount(); seat++) {
+                Rect mat = wide.matRect(new SeatId(seat));
+                left = Math.min(left, mat.x());
+                right = Math.max(right, mat.right());
+                assertThat(mat.x()).isGreaterThanOrEqualTo(0);
+                assertThat(mat.right()).isLessThanOrEqualTo(WIDTH);
+            }
+            assertThat(right - left)
+                    .describedAs("a wide table uses the width it has")
+                    .isGreaterThan(WIDTH * 3 / 4);
+        }
+    }
+
     // ------------------------------------------------------------- fixtures
 
     private static BoardGeometry twoSeats() {

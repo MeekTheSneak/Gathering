@@ -267,10 +267,10 @@ public final class TableScreen extends Screen {
     protected void init() {
         layout = TableScreenLayout.of(this.width, this.height);
         if (geometry == null) {
-            geometry = new BoardGeometry(anchors(), this.width, this.height);
+            geometry = new BoardGeometry(anchors(), this.width, this.height, layout.hand().height());
             onBlock = new SurfaceBoard(anchors());
         } else {
-            geometry.reshape(anchors(), this.width, this.height);
+            geometry.reshape(anchors(), this.width, this.height, layout.hand().height());
             onBlock.reshape(anchors());
         }
     }
@@ -380,8 +380,9 @@ public final class TableScreen extends Screen {
             return;
         }
         if (geometry.surface().seatCount() != view().get().seats().size()) {
-            geometry.reshape(anchors(), this.width, this.height);
+            geometry.reshape(anchors(), this.width, this.height, layout().hand().height());
             onBlock.reshape(anchors());
+            geometry.showEverything();
         }
     }
 

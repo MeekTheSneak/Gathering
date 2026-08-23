@@ -18,8 +18,10 @@ import dev.gathering.core.game.TablePosition;
  *
  * @param centreX the table point in the middle of the screen, in {@link TablePosition} units
  * @param scale   screen pixels per table unit
+ * @param spanX   how wide the surface is, so the view cannot be panned off the end of it
+ * @param spanY   and how deep
  */
-public record TableCamera(double centreX, double centreY, double scale) {
+public record TableCamera(double centreX, double centreY, double scale, int spanX, int spanY) {
 
     /** A card's footprint, which is the surface's business rather than the camera's. */
     public static final double CARD_WIDTH_UNITS = TableSurface.CARD_WIDTH_UNITS;
@@ -31,9 +33,22 @@ public record TableCamera(double centreX, double centreY, double scale) {
     private static final double MAX_CARD_PIXELS = 260.0;
 
     public TableCamera {
-        centreX = clampToTable(centreX);
-        centreY = clampToTable(centreY);
+        spanX = Math.max(1, spanX);
+        spanY = Math.max(1, spanY);
+        centreX = Math.max(0, Math.min(spanX, centreX));
+        centreY = Math.max(0, Math.min(spanY, centreY));
         scale = clampScale(scale);
+    }
+
+    /**
+     * A camera over a single table, which is the shape most of them are.
+     *
+     * <p>The surface used to be assumed square and one table across, and the assumption was
+     * spread through the arithmetic rather than stated. It is stated now, and this is the
+     * common case rather than the only one.
+     */
+    public TableCamera(double centreX, double centreY, double scale) {
+        this(centreX, centreY, scale, TablePosition.SPAN, TablePosition.SPAN);
     }
 
     /**
@@ -44,10 +59,24 @@ public record TableCamera(double centreX, double centreY, double scale) {
      * out of.
      */
     public static TableCamera showingAll(int viewportWidth, int viewportHeight) {
+        return showingAll(TablePosition.SPAN, TablePosition.SPAN, viewportWidth, viewportHeight);
+    }
+
+    /**
+     * A camera showing the whole of a surface this size in a viewport that size.
+     *
+     * <p>The surface's own proportions, not a square: two tables pushed together are twice as
+     * wide as they are deep, and fitting that to a square left the board in a box in the
+     * middle of the screen with the rest of the window empty.
+     */
+    public static TableCamera showingAll(
+            int surfaceWidth, int surfaceHeight, int viewportWidth, int viewportHeight) {
+        int across = Math.max(1, surfaceWidth);
+        int down = Math.max(1, surfaceHeight);
         double fit = Math.min(
-                (double) Math.max(1, viewportWidth) / TablePosition.SPAN,
-                (double) Math.max(1, viewportHeight) / TablePosition.SPAN);
-        return new TableCamera(TablePosition.SPAN / 2.0, TablePosition.SPAN / 2.0, fit);
+                (double) Math.max(1, viewportWidth) / across,
+                (double) Math.max(1, viewportHeight) / down);
+        return new TableCamera(across / 2.0, down / 2.0, fit, across, down);
     }
 
     // ------------------------------------------------------------- the maths
@@ -102,7 +131,8 @@ public record TableCamera(double centreX, double centreY, double scale) {
 
     /** Drags the view by a number of screen pixels, which is what a pan gesture produces. */
     public TableCamera pannedBy(double pixelsX, double pixelsY) {
-        return new TableCamera(centreX - pixelsX / scale, centreY - pixelsY / scale, scale);
+        return new TableCamera(
+                centreX - pixelsX / scale, centreY - pixelsY / scale, scale, spanX, spanY);
     }
 
     /**
@@ -123,7 +153,7 @@ public record TableCamera(double centreX, double centreY, double scale) {
         return new TableCamera(
                 anchorX - (screenX - width / 2.0) / zoomed,
                 anchorY - (screenY - height / 2.0) / zoomed,
-                zoomed);
+                zoomed, spanX, spanY);
     }
 
     public boolean isAtClosest() {
@@ -140,13 +170,4 @@ public record TableCamera(double centreX, double centreY, double scale) {
         return Math.max(lowest, Math.min(highest, wanted));
     }
 
-    /**
-     * Keeps the view over the table.
-     *
-     * <p>Panning off the edge is the one way to get lost at a table with no landmarks, and
-     * "everything vanished" is indistinguishable from a bug.
-     */
-    private static double clampToTable(double wanted) {
-        return Math.max(0, Math.min(TablePosition.SPAN, wanted));
-    }
 }
