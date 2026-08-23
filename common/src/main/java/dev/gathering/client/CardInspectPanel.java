@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.core.ui.CardShape;
 import dev.gathering.Gathering;
 import dev.gathering.network.CardFaceSummary;
 import dev.gathering.network.CardSummary;
@@ -33,7 +34,6 @@ import net.minecraft.util.FormattedCharSequence;
 public final class CardInspectPanel {
 
     /** The printed aspect ratio, 2.5 by 3.5 inches. */
-    private static final float CARD_ASPECT = 488f / 680f;
 
     private static final int BACKDROP = 0xC0000000;
     private static final int PLACEHOLDER = 0xE0101014;
@@ -111,7 +111,7 @@ public final class CardInspectPanel {
 
         int artHeight = Mth.clamp(
                 Math.round(screenHeight * CURSOR_ART_FRACTION), CURSOR_ART_MIN, CURSOR_ART_MAX);
-        int artWidth = Math.round(artHeight * CARD_ASPECT);
+        int artWidth = CardShape.widthFor(artHeight);
         int content = Math.max(artWidth * faces.size() + GAP * (faces.size() - 1), CURSOR_TEXT_WIDTH);
 
         // A narrow screen, or a double-faced card, can want more width than there is.
@@ -119,7 +119,7 @@ public final class CardInspectPanel {
         if (content > available) {
             float scale = (float) available / content;
             artHeight = Math.max(1, Math.round(artHeight * scale));
-            artWidth = Math.round(artHeight * CARD_ASPECT);
+            artWidth = CardShape.widthFor(artHeight);
             content = available;
         }
 
@@ -132,7 +132,7 @@ public final class CardInspectPanel {
         // A wordy card takes the room out of the art rather than off the end of the text.
         if (furniture + artHeight > ceiling) {
             artHeight = Math.max(CURSOR_ART_FLOOR, ceiling - furniture);
-            artWidth = Math.round(artHeight * CARD_ASPECT);
+            artWidth = CardShape.widthFor(artHeight);
         }
         int height = Math.min(ceiling, furniture + artHeight);
         int width = content + PADDING * 2;
@@ -179,10 +179,10 @@ public final class CardInspectPanel {
         }
 
         int artWidth = (width - GAP * (count - 1)) / count;
-        int artHeight = Math.round(artWidth / CARD_ASPECT);
+        int artHeight = CardShape.heightFor(artWidth);
         if (artHeight > height) {
             artHeight = height;
-            artWidth = Math.round(artHeight * CARD_ASPECT);
+            artWidth = CardShape.widthFor(artHeight);
         }
         if (artWidth <= 0 || artHeight <= 0) {
             return;
@@ -238,7 +238,7 @@ public final class CardInspectPanel {
 
         List<CardFaceSummary> faces = summary.printedSides();
         int cardHeight = Math.round(screenHeight * FULL_SCREEN_HEIGHT_FRACTION);
-        int cardWidth = Math.round(cardHeight * CARD_ASPECT);
+        int cardWidth = CardShape.widthFor(cardHeight);
 
         int totalWidth = cardWidth * faces.size() + GAP * (faces.size() - 1) + GAP + SIDEBAR_WIDTH;
         // A very wide double-faced layout would run off a narrow screen; shrink to fit.

@@ -39,7 +39,6 @@ public final class HandFan {
      */
     private static final double FAN_SHARE_OF_WIDTH = 0.7;
 
-    private static final double CARD_ASPECT = 488.0 / 680.0;
 
     private HandFan() {
     }
@@ -58,7 +57,7 @@ public final class HandFan {
             return new Slot(Rect.NONE, 0);
         }
         int width = widthFor(area, count);
-        int height = Math.max(8, (int) Math.round(width / CARD_ASPECT));
+        int height = Math.max(8, CardShape.heightFor(width));
 
         int step = stepFor(area, count, width);
         int total = width + step * (count - 1);
@@ -122,7 +121,7 @@ public final class HandFan {
         // the strip, over the table, where nothing clips it - so no room has to be kept back
         // for it here, and a resting card can be as big as the space allows.
         int fromHeight = (int) Math.round(
-                (area.height() * (1 - ARC_RISE) - 4) * CARD_ASPECT);
+                CardShape.widthFor(area.height() * (1 - ARC_RISE) - 4));
         if (count <= 1) {
             return Math.max(6, fromHeight);
         }

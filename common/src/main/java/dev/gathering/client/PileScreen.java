@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.game.Placement;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.Zone;
@@ -49,7 +50,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /** Big enough to read the name off the art without opening the inspector. */
     private static final int CARD_HEIGHT = 84;
-    private static final float CARD_ASPECT = 488f / 680f;
 
     private final BlockPos table;
     private final SeatId owner;
@@ -73,7 +73,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     @Override
     protected void init() {
-        int cardWidth = Math.max(8, Math.round(CARD_HEIGHT * CARD_ASPECT));
+        int cardWidth = Math.max(8, CardShape.widthFor(CARD_HEIGHT));
         grid = new Rect(MARGIN, MARGIN + HEADER,
                 this.width - MARGIN * 2, this.height - MARGIN * 2 - HEADER - FOOTER);
         columns = Math.max(1, (grid.width() + GAP) / (cardWidth + GAP));
@@ -178,7 +178,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     }
 
     private Rect slotOf(int index) {
-        int cardWidth = Math.max(8, Math.round(CARD_HEIGHT * CARD_ASPECT));
+        int cardWidth = Math.max(8, CardShape.widthFor(CARD_HEIGHT));
         int column = index % columns;
         int row = index / columns;
         return new Rect(

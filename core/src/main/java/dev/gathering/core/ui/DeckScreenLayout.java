@@ -56,7 +56,6 @@ public record DeckScreenLayout(
     private static final int SCROLL_WIDTH = 6;
 
     /** The printed aspect ratio, 2.5 by 3.5 inches. */
-    private static final float CARD_ASPECT = 488f / 680f;
 
     /** The frame border a card or its text sits inside. */
     public static final int FRAME = 6;
@@ -129,11 +128,11 @@ public record DeckScreenLayout(
 
         // Fix the height to the card's own proportions, then take the width back from it, so
         // the art inside is never stretched whichever dimension ran out first.
-        int cardHeight = Math.min(tall, Math.round((wanted - FRAME * 2) / CARD_ASPECT) + FRAME * 2);
-        int cardWidth = Math.round((cardHeight - FRAME * 2) * CARD_ASPECT) + FRAME * 2;
+        int cardHeight = Math.min(tall, CardShape.heightFor(wanted - FRAME * 2) + FRAME * 2);
+        int cardWidth = CardShape.widthFor(cardHeight - FRAME * 2) + FRAME * 2;
         if (cardWidth > available) {
             cardWidth = available;
-            cardHeight = Math.round((cardWidth - FRAME * 2) / CARD_ASPECT) + FRAME * 2;
+            cardHeight = CardShape.heightFor(cardWidth - FRAME * 2) + FRAME * 2;
         }
         if (cardWidth < CARD_MIN || cardHeight < CARD_MIN || cardHeight > tall) {
             return Rect.NONE;

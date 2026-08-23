@@ -20,6 +20,7 @@ import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.BoardPlacement;
+import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.SeatColour;
@@ -37,6 +38,7 @@ import dev.gathering.network.CreateTokenPayload;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -636,6 +638,7 @@ public final class TableScreen extends Screen {
             List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
             List<TablePosition> spots = spotsIn(cards);
             List<Integer> depths = TableStacking.depths(spots);
+            Map<CardInstanceId, List<CardView>> attachments = attachmentsBy(cards);
 
             for (int index = 0; index < cards.size(); index++) {
                 CardView card = cards.get(index);
@@ -645,7 +648,10 @@ public final class TableScreen extends Screen {
                 Rect where = spotOf(seat.seat(), card, depths.get(index));
                 placed.add(new Placed(seat.seat(), card, where, angleOf(seat.seat(), card)));
 
-                List<CardView> attached = attachmentsOf(cards, card);
+                List<CardView> attached = attachmentsOf(attachments, card);
+                if (attached.isEmpty()) {
+                    continue;
+                }
                 boolean left = TableAttachments.fansLeft(where, new Rect(0, 0, this.width, this.height));
                 for (int slot = 0; slot < attached.size(); slot++) {
                     if (isHeld(attached.get(slot))) {
@@ -662,18 +668,37 @@ public final class TableScreen extends Screen {
         return placed;
     }
 
+    /**
+     * Everything on the battlefield that is sitting on something else, grouped by what it is
+     * sitting on.
+     *
+     * <p>One pass rather than one scan per card. This was a search of the whole battlefield
+     * for every permanent on it, run on every frame, which on a board with sixty permanents is
+     * three and a half thousand comparisons and sixty throwaway lists a frame to find the
+     * handful of auras anybody actually has out.
+     */
+    private static Map<CardInstanceId, List<CardView>> attachmentsBy(List<CardView> all) {
+        Map<CardInstanceId, List<CardView>> byHost = null;
+        for (CardView card : all) {
+            CardInstanceId host = card.host().orElse(null);
+            if (host == null) {
+                continue;
+            }
+            if (byHost == null) {
+                byHost = new java.util.HashMap<>();
+            }
+            byHost.computeIfAbsent(host, ignored -> new ArrayList<>()).add(card);
+        }
+        return byHost == null ? Map.of() : byHost;
+    }
+
     /** Everything currently sitting on this card, in the board's own order. */
-    private static List<CardView> attachmentsOf(List<CardView> all, CardView host) {
-        if (!(host instanceof CardView.Visible visible)) {
+    private static List<CardView> attachmentsOf(
+            Map<CardInstanceId, List<CardView>> byHost, CardView host) {
+        if (byHost.isEmpty() || !(host instanceof CardView.Visible visible)) {
             return List.of();
         }
-        List<CardView> found = new ArrayList<>();
-        for (CardView card : all) {
-            if (card.host().filter(visible.id()::equals).isPresent()) {
-                found.add(card);
-            }
-        }
-        return found;
+        return byHost.getOrDefault(visible.id(), List.of());
     }
 
     private static List<TablePosition> spotsIn(List<CardView> cards) {
@@ -1043,7 +1068,7 @@ public final class TableScreen extends Screen {
     /** A hand-sized card taken by the middle, for the view where the board is not on screen. */
     private Rect centredOnCursor(int mouseX, int mouseY) {
         int height = Math.max(24, layout().hand().height() - 8);
-        int width = Math.max(16, Math.round(height * 488f / 680f));
+        int width = Math.max(16, CardShape.widthFor(height));
         return new Rect(mouseX - width / 2, mouseY - height / 2, width, height);
     }
 

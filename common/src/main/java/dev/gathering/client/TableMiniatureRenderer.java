@@ -9,7 +9,6 @@ import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
-import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.SeatColour;
 import dev.gathering.core.ui.TableStacking;
@@ -127,8 +126,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         // cursor is over without it.
         TablePointer.capture(net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera());
 
-        TableSurface surface = TableSurface.forSeats(
-                TableCluster.assumedSeating(board.seats().size()));
+        TableSurface surface = TableSurface.forSeatCount(board.seats().size());
         float span = (float) TableTop.SPAN_BLOCKS;
 
         poseStack.pushPose();

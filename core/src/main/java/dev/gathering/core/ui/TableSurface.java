@@ -4,6 +4,7 @@ import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.Side;
 import dev.gathering.core.table.TableCell;
+import dev.gathering.core.table.TableCluster;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -92,10 +93,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      */
     public static final double CARD_WIDTH_UNITS = SPAN / 10.0;
 
-    private static final double CARD_ASPECT = 488.0 / 680.0;
 
     /** How tall a card is on that same table, in surface units. */
-    public static final double CARD_HEIGHT_UNITS = CARD_WIDTH_UNITS / CARD_ASPECT;
+    public static final double CARD_HEIGHT_UNITS = CardShape.heightFor(CARD_WIDTH_UNITS);
 
     public TableSurface {
         mats = List.copyOf(mats);
@@ -106,6 +106,26 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     public static TableSurface empty() {
         return new TableSurface(List.of(), List.of(), SPAN, SPAN);
     }
+
+    /**
+     * The layout for a table with this many seats, which is the shape everything asks for.
+     *
+     * <p>Remembered rather than rebuilt. The table in the world lays this out on every frame
+     * it is on screen, and a seat count is all it depends on - so a surface that was worked
+     * out once was being worked out sixty times a second per table, allocating a map, two
+     * arrays and a rectangle per seat each time, to arrive at the identical answer.
+     *
+     * <p>Safe to share: a {@code TableSurface} is a record of immutable lists, and the answer
+     * for a given seat count never changes. The map is concurrent because the client thread
+     * and the render thread both ask.
+     */
+    public static TableSurface forSeatCount(int seats) {
+        return BY_SEAT_COUNT.computeIfAbsent(
+                Math.max(0, seats), count -> forSeats(TableCluster.assumedSeating(count)));
+    }
+
+    private static final java.util.concurrent.ConcurrentHashMap<Integer, TableSurface>
+            BY_SEAT_COUNT = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Whether this seat's board is laid out the other way up.
