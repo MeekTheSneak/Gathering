@@ -22,6 +22,7 @@ import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.SeatColour;
 import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
 import dev.gathering.core.ui.TableScreenLayout;
@@ -77,7 +78,6 @@ public final class TableScreen extends Screen {
     /** The felt, and a mat on it. Mats are lighter so the table reads as somebody's space. */
     private static final int FELT = 0xFF1E3A2E;
     private static final int MAT = 0x30FFFFFF;
-    private static final int MAT_EDGE = 0x60FFFFFF;
     private static final int MAT_MINE = 0x406FD3E8;
 
     /**
@@ -284,7 +284,7 @@ public final class TableScreen extends Screen {
      */
     private boolean myMatIsOnTheSouthHalf() {
         return mySeat()
-                .map(seat -> onBlock.matRect(seat).centreY() > TableSurface.SPAN / 2.0)
+                .map(seat -> onBlock.matRect(seat).centreY() > onBlock.surface().height() / 2.0)
                 .orElse(false);
     }
 
@@ -491,8 +491,11 @@ public final class TableScreen extends Screen {
             }
             boolean mine = me != null && me.equals(seat.seat());
             graphics.fill(mat.x(), mat.y(), mat.right(), mat.bottom(), mine ? MAT_MINE : MAT);
+            // The seat's own colour, which is how four identical rectangles become four
+            // boards. Brighter for whoever's turn it is.
             graphics.renderOutline(mat.x(), mat.y(), mat.width(), mat.height(),
-                    seat.seat().equals(board.turn().activeSeat()) ? ACCENT : MAT_EDGE);
+                    SeatColour.at(seat.seat().index(),
+                            seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
 
             String who = seat.occupant().map(player -> player.name())
                     .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
@@ -772,7 +775,7 @@ public final class TableScreen extends Screen {
             }
             GuiText.draw(graphics, this.font, text,
                     area.x() + 4 + index * column, line, column - 8,
-                    seat.seat().equals(me) ? ACCENT : LABEL);
+                    SeatColour.at(seat.seat().index(), 0xFF));
         }
 
         String who = board.seat(active).occupant()

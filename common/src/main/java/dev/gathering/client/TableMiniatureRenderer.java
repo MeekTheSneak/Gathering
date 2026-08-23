@@ -11,6 +11,7 @@ import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.SeatColour;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableTop;
@@ -96,7 +97,14 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /** A taken seat's mat, and the darker line around it. Read from above, in a lit room. */
     private static final int MAT_COLOUR = 0x30000000;
-    private static final int MAT_EDGE_COLOUR = 0x60000000;
+
+    /**
+     * How solid a mat's border is drawn.
+     *
+     * <p>The border carries the seat's own colour, which is the whole of how four boards laid
+     * out on one surface are told apart. Everything else about them is identical.
+     */
+    private static final int MAT_EDGE_ALPHA = 0xCC;
 
     /** How thick the line around a mat is, as a fraction of the mat's shorter side. */
     private static final float MAT_EDGE_THICKNESS = 0.035f;
@@ -131,7 +139,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         // that it now has a game in it, and an empty seat's mat would say the opposite.
         for (int index = 0; index < board.seats().size(); index++) {
             if (board.seats().get(index).occupant().isPresent()) {
-                drawMat(poseStack, buffers, surface.matOf(index), span);
+                drawMat(poseStack, buffers, surface.matOf(index), span,
+                        SeatColour.at(index, MAT_EDGE_ALPHA));
             }
         }
         poseStack.popPose();
@@ -157,7 +166,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * space is a pixel width on screen and a mat you can only see the edge of from two blocks
      * away is not an edge.
      */
-    private void drawMat(PoseStack poseStack, MultiBufferSource buffers, Rect mat, float span) {
+    private void drawMat(
+            PoseStack poseStack, MultiBufferSource buffers, Rect mat, float span, int border) {
         if (mat.isEmpty()) {
             return;
         }
@@ -171,10 +181,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         Matrix4f pose = poseStack.last().pose();
 
         flat(consumer, pose, left, top, right, bottom, MAT_COLOUR);
-        flat(consumer, pose, left, top, right, top + edge, MAT_EDGE_COLOUR);
-        flat(consumer, pose, left, bottom - edge, right, bottom, MAT_EDGE_COLOUR);
-        flat(consumer, pose, left, top, left + edge, bottom, MAT_EDGE_COLOUR);
-        flat(consumer, pose, right - edge, top, right, bottom, MAT_EDGE_COLOUR);
+        flat(consumer, pose, left, top, right, top + edge, border);
+        flat(consumer, pose, left, bottom - edge, right, bottom, border);
+        flat(consumer, pose, left, top, left + edge, bottom, border);
+        flat(consumer, pose, right - edge, top, right, bottom, border);
     }
 
     /**
@@ -212,7 +222,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             ResourceLocation texture = top == null || top.isFaceDown()
                     ? CardFaceRenderer.CARD_BACK
                     : textureFor(top);
-            draw(poseStack, buffers, packedLight, texture, x, z, width, depth, 0, false, SLOT_LIFT);
+            draw(poseStack, buffers, packedLight, texture, x, z, width, depth,
+                    surface.facingDegrees(seatIndex), false, SLOT_LIFT);
         }
     }
 
@@ -289,10 +300,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 // Under the card rather than over it: a ring drawn on top would cover the art
                 // it is pointing at, and a card is a picture before it is a token.
                 drawRing(poseStack, buffers, x, z, cardWidth, cardDepth,
-                        where.rotation(), isTapped(card), lift);
+                        where.rotation() + surface.facingDegrees(seatIndex), isTapped(card), lift);
             }
+            // Turned with the board, so a card lying face up in front of its owner reads the
+            // right way up to them and upside down from the chair opposite - which is what a
+            // card on a table between two people does.
             draw(poseStack, buffers, packedLight, textureFor(card), x, z, cardWidth, cardDepth,
-                    where.rotation(), isTapped(card), lift);
+                    where.rotation() + surface.facingDegrees(seatIndex), isTapped(card), lift);
             drawn++;
         }
         return drawn;

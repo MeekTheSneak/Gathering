@@ -75,17 +75,19 @@ class TableScreenLayoutTest {
     }
 
     @Test
-    @DisplayName("the hand is deeper than a card, so one can rise out of the fan")
-    void thereIsRoomToLiftACard() {
-        // The fan draws the card under the cursor larger and higher than the rest. If the
-        // strip were only as deep as a card, that one would be clipped by the top of it -
-        // which is exactly the card the player is trying to read.
+    @DisplayName("a lifted card rises out of the strip and is still on the screen")
+    void aLiftedCardRisesOverTheTable() {
+        // It grows upward over the felt rather than inside its own strip. Keeping room for it
+        // there instead is the obvious thing and costs every resting card a third of its size
+        // for a space that is empty almost all the time - so the strip is a card deep, and the
+        // one card that grows is drawn over the table, where nothing clips it.
         TableScreenLayout layout = TableScreenLayout.of(854, 480);
-        Rect biggest = HandFan.slot(layout.hand(), 7, 3, 3).where();
+        Rect resting = HandFan.slot(layout.hand(), 7, 3, -1).where();
+        Rect lifted = HandFan.slot(layout.hand(), 7, 3, 3).where();
 
-        assertThat(biggest.y())
-                .describedAs("a lifted card starts inside the strip it belongs to")
-                .isGreaterThanOrEqualTo(layout.hand().y());
+        assertThat(lifted.y()).describedAs("rises above the strip").isLessThan(layout.hand().y());
+        assertThat(lifted.height()).isGreaterThan(resting.height());
+        assertThat(lifted.y()).describedAs("and not off the top of the screen").isGreaterThan(0);
     }
 
     @Test

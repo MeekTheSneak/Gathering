@@ -23,14 +23,21 @@ public final class HandFan {
     /** How much bigger the card under the cursor is drawn. */
     private static final double LIFTED_SCALE = 1.5;
 
-    /** How far up out of the fan it comes, as a fraction of a card's height. */
-    private static final double LIFT = 0.34;
-
     /** How far a card may overlap the one before it: at most this much of it stays showing. */
     private static final double TIGHTEST_STEP = 0.22;
 
-    /** The lowest a card in the arc sits, as a fraction of its height. */
-    private static final double ARC_DROP = 0.06;
+    /** How high the middle of the arc rides above its ends, as a fraction of a card's height. */
+    private static final double ARC_RISE = 0.07;
+
+    /**
+     * How much of the strip's width the fan is allowed to take.
+     *
+     * <p>A hand sits in the middle of the screen and stays there. Letting it spread to the
+     * full width - which is what happens if the cards are simply shared out evenly across the
+     * space - draws fifteen cards as a wall from edge to edge, which looks like a card
+     * catalogue rather than a hand somebody is holding.
+     */
+    private static final double FAN_SHARE_OF_WIDTH = 0.7;
 
     private static final double CARD_ASPECT = 488.0 / 680.0;
 
@@ -57,17 +64,19 @@ public final class HandFan {
         int total = width + step * (count - 1);
         int left = area.x() + (area.width() - total) / 2;
 
-        // The arc: the ends turn out and sit a touch lower than the middle, which is what
-        // makes a row of cards read as a hand rather than as a shelf.
+        // The arc: the ends turn out and the middle rides a little higher, which is what makes
+        // a row of cards read as a hand rather than as a shelf. The middle rises rather than
+        // the ends dropping, because the strip has a bottom and anything pushed past it is
+        // drawn off the screen.
         double fromMiddle = count <= 1 ? 0 : index - (count - 1) / 2.0;
         int spread = Math.min(MAX_STEP_DEGREES, count <= 1 ? 0 : SPREAD_DEGREES / count);
         int angle = (int) Math.round(fromMiddle * spread);
         double away = count <= 1 ? 0 : Math.abs(fromMiddle) / ((count - 1) / 2.0);
-        int drop = (int) Math.round(away * away * height * ARC_DROP);
+        int rise = (int) Math.round((1 - away * away) * height * ARC_RISE);
 
         int bottom = area.bottom() - 2;
         if (index != lifted) {
-            return new Slot(new Rect(left + index * step, bottom - height + drop, width, height), angle);
+            return new Slot(new Rect(left + index * step, bottom - height - rise, width, height), angle);
         }
 
         // The one under the cursor comes out of the fan: bigger, straight, and high enough to
@@ -109,13 +118,21 @@ public final class HandFan {
      * hand that runs off the side of the screen is worse than one drawn small.
      */
     private static int widthFor(Rect area, int count) {
-        int fromHeight = (int) Math.round((area.height() * (1 - LIFT) - 2) * CARD_ASPECT);
+        // The whole strip, less the arc and a margin. The card the cursor is on grows *above*
+        // the strip, over the table, where nothing clips it - so no room has to be kept back
+        // for it here, and a resting card can be as big as the space allows.
+        int fromHeight = (int) Math.round(
+                (area.height() * (1 - ARC_RISE) - 4) * CARD_ASPECT);
         if (count <= 1) {
             return Math.max(6, fromHeight);
         }
-        int room = Math.max(1, area.width() - 8);
-        int fromRoom = (int) (room / (1 + TIGHTEST_STEP * (count - 1)));
+        int fromRoom = (int) (room(area) / (1 + TIGHTEST_STEP * (count - 1)));
         return Math.max(6, Math.min(fromHeight, fromRoom));
+    }
+
+    /** How wide the fan itself may be, which is not how wide the strip is. */
+    private static int room(Rect area) {
+        return Math.max(1, (int) (area.width() * FAN_SHARE_OF_WIDTH));
     }
 
     /**
@@ -132,7 +149,7 @@ public final class HandFan {
         if (count <= 1) {
             return 0;
         }
-        int room = Math.max(width, area.width() - 8);
+        int room = Math.max(width, room(area));
         return Math.max(1, Math.min(width + 4, (room - width) / (count - 1)));
     }
 }

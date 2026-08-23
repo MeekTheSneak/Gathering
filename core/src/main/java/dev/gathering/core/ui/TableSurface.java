@@ -27,9 +27,17 @@ import java.util.Map;
  * depends on how many tables are currently pushed together would move when somebody built a
  * table two blocks away.
  */
-public record TableSurface(List<Rect> mats) {
+public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int height) {
 
-    /** The surface is the same square a card's position is measured in, so the maths is one step. */
+    /**
+     * How many units one table is across, both ways.
+     *
+     * <p>The same number a card's position is measured in, so the maths is one step - but the
+     * <em>surface</em> is no longer this square. Two tables pushed together are four blocks by
+     * two, and squashing that into a square stretched every mat on it into something no card
+     * was ever the right shape for. The surface is however many tables across by however many
+     * deep, in these units, and a mat comes out two by one wherever it sits.
+     */
     public static final int SPAN = TablePosition.SPAN;
 
     /**
@@ -39,7 +47,10 @@ public record TableSurface(List<Rect> mats) {
      * a block and the whole span is two blocks across: two pixels is a two-thirty-second of
      * the span, and a playmat comes out a fraction under the two-by-one it sits in.
      */
-    private static final int MAT_INSET = SPAN * 2 / 32;
+    private static final int MAT_INSET_PIXELS = 2;
+
+    /** How many pixels a table is across, at sixteen to the block. */
+    private static final int PIXELS_ACROSS_A_TABLE = TableCell.BLOCKS_PER_TABLE * 16;
 
     /**
      * The most of a mat the border is ever allowed to eat, per side.
@@ -55,15 +66,23 @@ public record TableSurface(List<Rect> mats) {
      * How many cards fit across a mat.
      *
      * <p>This is what decides how big a card is, and it is a number about playing rather than
-     * about arithmetic: a real playmat is about nine cards wide, which is a row of lands with
-     * room to spare. Deriving the size from the mat's shorter side instead - which is what it
-     * used to do - gave a two-player table cards a twentieth of its width, and a board that
+     * about arithmetic. Deriving the size from the mat's shorter side instead - which is what
+     * it used to do - gave a two-player table cards a twentieth of its width, and a board that
      * read as a mosaic from directly above it.
+     *
+     * <p>A real playmat is nearer nine across, but a real playmat is not this shape: two
+     * blocks by one is wider and shallower than the twenty-four by fourteen inches a mat comes
+     * in, and matching the width would leave only two and a half card-heights of depth. Eleven
+     * across gives three rows - lands, creatures, and the zones along the near edge - which is
+     * what a board actually needs.
      */
-    private static final int CARDS_ACROSS_A_MAT = 8;
+    private static final int CARDS_ACROSS_A_MAT = 11;
 
-    /** The gap between two piles in the row, as a fraction of a card. */
+    /** The gap between two zones in the column, as a fraction of a slot. */
     private static final double PILE_GAP = 0.12;
+
+    /** How many zones the column holds, which is what decides how big each slot can be. */
+    private static final int PILE_COLUMN = 4;
 
     /**
      * How wide a card is on a table with one mat on it, in surface units.
@@ -80,6 +99,30 @@ public record TableSurface(List<Rect> mats) {
 
     public TableSurface {
         mats = List.copyOf(mats);
+        turned = List.copyOf(turned);
+    }
+
+    /** An empty table, which is what a cluster nobody is sitting at comes to. */
+    public static TableSurface empty() {
+        return new TableSurface(List.of(), List.of(), SPAN, SPAN);
+    }
+
+    /**
+     * Whether this seat's board is laid out the other way up.
+     *
+     * <p>Two people at a table sit opposite each other, so their boards face each other: the
+     * edge of the mat nearest its own player is the north edge for one of them and the south
+     * edge for the other. Without this every board was laid out as though its player were
+     * sitting at the bottom of the table, which put one player's zones along the far side of
+     * their own mat and read, from their chair, as somebody else's board.
+     */
+    public boolean isTurned(int seat) {
+        return seat >= 0 && seat < turned.size() && turned.get(seat);
+    }
+
+    /** A half turn for the seats that are laid out the other way up, so cards face their owner. */
+    public int facingDegrees(int seat) {
+        return isTurned(seat) ? 180 : 0;
     }
 
     /**
@@ -90,7 +133,7 @@ public record TableSurface(List<Rect> mats) {
      */
     public static TableSurface forSeats(List<SeatAnchor> anchors) {
         if (anchors == null || anchors.isEmpty()) {
-            return new TableSurface(List.of());
+            return empty();
         }
         Rect[] cells = cellRects(anchors);
         Map<TableCell, List<Integer>> byCell = new LinkedHashMap<>();
@@ -114,14 +157,28 @@ public record TableSurface(List<Rect> mats) {
             }
         });
         List<Rect> inset = new ArrayList<>(mats.length);
-        for (Rect mat : mats) {
-            inset.add(mat.shrink(borderFor(mat)));
+        List<Boolean> facing = new ArrayList<>(mats.length);
+        for (int index = 0; index < mats.length; index++) {
+            inset.add(mats[index].shrink(borderFor(cells[index], mats[index])));
+            facing.add(anchors.get(index).side() == Side.NORTH);
         }
-        return new TableSurface(inset);
+        Rect bounds = boundsOf(anchors);
+        return new TableSurface(inset, facing, bounds.width(), bounds.height());
     }
 
-    private static int borderFor(Rect mat) {
-        return Math.min(MAT_INSET, Math.min(mat.width(), mat.height()) / MAT_INSET_SHARE);
+    /**
+     * How much border a mat gets, in surface units.
+     *
+     * <p>Two pixels of the <em>table</em> rather than of the whole surface. Those are the same
+     * thing on one table and nowhere near it on a cluster: with four seats the surface covers
+     * two tables, so a border measured against the surface came out twice as thick and left
+     * the four mats floating in a sea of felt with the gaps wider than the zones.
+     */
+    private static int borderFor(Rect cell, Rect mat) {
+        int pixel = Math.min(cell.width(), cell.height()) / PIXELS_ACROSS_A_TABLE;
+        return Math.max(1, Math.min(
+                pixel * MAT_INSET_PIXELS,
+                Math.min(mat.width(), mat.height()) / MAT_INSET_SHARE));
     }
 
     /**
@@ -178,18 +235,31 @@ public record TableSurface(List<Rect> mats) {
             maxX = Math.max(maxX, anchor.cell().x());
             maxZ = Math.max(maxZ, anchor.cell().z());
         }
-        int columns = maxX - minX + 1;
-        int rows = maxZ - minZ + 1;
-
         Rect[] rects = new Rect[anchors.size()];
         for (int index = 0; index < anchors.size(); index++) {
             TableCell cell = anchors.get(index).cell();
-            int width = SPAN / columns;
-            int height = SPAN / rows;
+            // One table is SPAN by SPAN, always. The surface grows with the cluster rather
+            // than the tables shrinking to fit a square, which is what kept every mat the
+            // shape of a mat.
             rects[index] = new Rect(
-                    (cell.x() - minX) * width, (cell.z() - minZ) * height, width, height);
+                    (cell.x() - minX) * SPAN, (cell.z() - minZ) * SPAN, SPAN, SPAN);
         }
         return rects;
+    }
+
+    /** How big the whole surface is, in table-sized units. */
+    private static Rect boundsOf(List<SeatAnchor> anchors) {
+        int minX = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        for (SeatAnchor anchor : anchors) {
+            minX = Math.min(minX, anchor.cell().x());
+            minZ = Math.min(minZ, anchor.cell().z());
+            maxX = Math.max(maxX, anchor.cell().x());
+            maxZ = Math.max(maxZ, anchor.cell().z());
+        }
+        return new Rect(0, 0, (maxX - minX + 1) * SPAN, (maxZ - minZ + 1) * SPAN);
     }
 
     // ------------------------------------------------------------ the maths
@@ -210,12 +280,14 @@ public record TableSurface(List<Rect> mats) {
      */
     public double surfaceX(int seat, double positionX) {
         Rect mat = matOf(seat);
-        return mat.x() + positionX * mat.width() / (double) SPAN;
+        double along = isTurned(seat) ? SPAN - positionX : positionX;
+        return mat.x() + along * mat.width() / (double) SPAN;
     }
 
     public double surfaceY(int seat, double positionY) {
         Rect mat = matOf(seat);
-        return mat.y() + positionY * mat.height() / (double) SPAN;
+        double down = isTurned(seat) ? SPAN - positionY : positionY;
+        return mat.y() + down * mat.height() / (double) SPAN;
     }
 
     /** The reverse: a point on the surface, as a position on this seat's mat. */
@@ -224,43 +296,67 @@ public record TableSurface(List<Rect> mats) {
         if (mat.isEmpty()) {
             return TablePosition.ORIGIN;
         }
-        return TablePosition.clamped(
-                (int) Math.round((surfaceX - mat.x()) * SPAN / (double) mat.width()),
-                (int) Math.round((surfaceY - mat.y()) * SPAN / (double) mat.height()));
+        int across = (int) Math.round((surfaceX - mat.x()) * SPAN / (double) mat.width());
+        int down = (int) Math.round((surfaceY - mat.y()) * SPAN / (double) mat.height());
+        return isTurned(seat)
+                ? TablePosition.clamped(SPAN - across, SPAN - down)
+                : TablePosition.clamped(across, down);
     }
 
     /**
-     * Where a seat's piles sit: a row of card-shaped slots along the near edge of their mat.
+     * Where a seat's zones sit: a column of card-shaped slots down the outer edge of their mat.
      *
-     * <p>On the table rather than in a side column, because a library is an object you reach
-     * for. Along the edge nearest the player for the same reason a real one sits there - it is
-     * the part of the mat you never put permanents on - and at the right-hand end of it,
-     * which is where a right-handed player's deck goes and where every digital client since
-     * has put it.
+     * <p>Down the side rather than across the near edge, which is where the tables people
+     * already play on put them and, once you see it, obviously right: the near edge is the
+     * part of a mat you reach across constantly, and a row of zones along it is four things to
+     * knock into every time you play a land. The outer edge is dead space on every board.
+     *
+     * <p>Outer meaning away from the middle of the table, so on a four-seat surface the two
+     * left-hand boards keep their zones on the left and the two right-hand ones on the right,
+     * and the middle of the table stays clear.
      *
      * <p><b>Card-shaped, exactly.</b> These used to be a share of the mat's width by a share
      * of its depth, which on a two-player table made each one wider than it was tall and drew
-     * a library as a letterbox. A pile is a stack of cards and has to be the shape of one, or
-     * the card sitting on top of it is stretched to fit a slot that is not card-shaped.
+     * a library as a letterbox. A zone holds a stack of cards and has to be the shape of one,
+     * or the card on top of it is stretched to fit a slot that is not card-shaped.
      *
-     * @param index which pile, left to right
-     * @param count how many piles the row holds
+     * @param index which zone, top to bottom
+     * @param count how many zones the column holds
      */
     public Rect pileSlot(int seat, int index, int count) {
         Rect mat = matOf(seat);
         if (mat.isEmpty() || count <= 0 || index < 0 || index >= count) {
             return Rect.NONE;
         }
-        int width = Math.max(1, (int) Math.round(cardWidthOn(seat)));
-        int height = Math.max(1, (int) Math.round(cardHeightOn(seat)));
-        int step = width + (int) Math.round(width * PILE_GAP);
+        // A zone is a card, unless a column of them would be taller than the mat - which it is
+        // on a two-player board, where a mat is twice as wide as it is deep. Then they shrink
+        // together, which keeps them a set rather than letting the last one fall off the edge.
+        int height = (int) Math.round(cardHeightOn(seat));
+        int roomEach = (int) (mat.height() / (count * (1 + PILE_GAP) + PILE_GAP));
+        height = Math.max(1, Math.min(height, roomEach));
+        int width = Math.max(1, (int) Math.round(height * CARD_WIDTH_UNITS / CARD_HEIGHT_UNITS));
 
-        // Right-aligned along the near edge, and pushed in by the same gap so the last pile is
-        // not flush against the mat's border.
-        int gap = step - width;
-        int right = mat.right() - gap;
-        int left = right - count * step + gap;
-        return new Rect(left + index * step, mat.bottom() - gap - height, width, height);
+        int gap = Math.max(1, (int) Math.round(height * PILE_GAP));
+        int step = height + gap;
+        int top = mat.y() + (mat.height() - (count * step - gap)) / 2;
+        // Zone nought sits nearest its own player, and the column runs away from them. Which
+        // end of the mat that is depends on which chair the board belongs to.
+        int slot = isTurned(seat) ? index : count - 1 - index;
+        int left = onTheLeft(seat, mat) ? mat.x() + gap : mat.right() - gap - width;
+        return new Rect(left, top + slot * step, width, height);
+    }
+
+    /**
+     * Whether this mat's outer edge is its left-hand one.
+     *
+     * <p>Stated against the table and not against the chair, deliberately. Turning it with the
+     * board sounds more careful and puts both zone columns in the middle of the table, facing
+     * each other across the gap - which is the one part of the surface everybody reaches over.
+     * Away from the middle is what leaves the middle clear, and it happens to put every
+     * player's zones on their own right hand, which is where a deck goes anyway.
+     */
+    private boolean onTheLeft(int seat, Rect mat) {
+        return mat.centreX() < width / 2.0;
     }
 
     /**

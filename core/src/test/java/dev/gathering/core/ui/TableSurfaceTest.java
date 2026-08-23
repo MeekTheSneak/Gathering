@@ -115,7 +115,11 @@ class TableSurfaceTest {
         assertThat(small.positionOn(0, small.surfaceX(0, position.x()), small.surfaceY(0, position.y())))
                 .isEqualTo(bigger.positionOn(
                         0, bigger.surfaceX(0, position.x()), bigger.surfaceY(0, position.y())));
-        assertThat(small.matOf(0)).isNotEqualTo(bigger.matOf(0));
+        // And a playmat is a playmat: pushing a table on makes the surface bigger rather than
+        // making everybody's mat smaller, which is what squashing the cluster into a fixed
+        // square used to do.
+        assertThat(small.matOf(0)).isEqualTo(bigger.matOf(0));
+        assertThat(bigger.width()).isGreaterThan(small.width());
     }
 
     @Test
@@ -128,7 +132,8 @@ class TableSurfaceTest {
         // Two pixels, worked out the way the border is rather than as SPAN/32 doubled - a
         // thirty-second of ten thousand is not a whole number and the rounding is worth two
         // units either way.
-        int border = TableSurface.SPAN * 2 / 32;
+        // Two pixels of the table, at sixteen pixels to the block and two blocks across.
+        int border = 2 * (TableSurface.SPAN / 32);
 
         for (int seat = 0; seat < 2; seat++) {
             Rect mat = surface.matOf(seat);
@@ -142,9 +147,9 @@ class TableSurfaceTest {
     }
 
     @Test
-    @DisplayName("a zone is the shape of the cards in it")
+    @DisplayName("a zone is the shape of the cards in it, and never bigger than one")
     void pilesAreCardShaped() {
-        // A pile is a stack of cards, so its slot has to be a card. These were a share of the
+        // A zone is a stack of cards, so its slot has to be a card. These were a share of the
         // mat's width by a share of its depth, which on a two-player table drew every library
         // as a letterbox with a stretched card in it.
         TableSurface surface = surfaceFor(new TableCell(0, 0));
@@ -152,34 +157,102 @@ class TableSurfaceTest {
         for (int index = 0; index < 4; index++) {
             Rect pile = surface.pileSlot(0, index, 4);
             assertThat(pile.width() / (double) pile.height())
-                    .describedAs("pile %s is card-shaped", index)
+                    .describedAs("zone %s is card-shaped", index)
                     .isCloseTo(488.0 / 680.0, within(0.02));
-            assertThat(pile.width()).isEqualTo((int) Math.round(surface.cardWidthOn(0)));
+            assertThat(pile.width())
+                    .describedAs("zone %s is no bigger than the cards that go in it", index)
+                    .isLessThanOrEqualTo((int) Math.round(surface.cardWidthOn(0)) + 1);
         }
     }
 
     @Test
-    @DisplayName("the zones sit in a row on the mat, not on top of each other or off the edge")
-    void pilesLieInARowOnTheMat() {
+    @DisplayName("the zones sit in a column down one edge of the mat, clear of each other")
+    void pilesLieInAColumnOnTheMat() {
+        // Down the side rather than across the near edge: the near edge is the part of a mat
+        // you reach over constantly, and four zones along it are four things to knock into
+        // every time you play a land.
         TableSurface surface = surfaceFor(new TableCell(0, 0));
         Rect mat = surface.matOf(0);
 
         Rect previous = null;
         for (int index = 0; index < 4; index++) {
             Rect pile = surface.pileSlot(0, index, 4);
-            assertThat(pile.x()).describedAs("pile %s starts on the mat", index)
+            assertThat(pile.x()).describedAs("zone %s starts on the mat", index)
                     .isGreaterThanOrEqualTo(mat.x());
-            assertThat(pile.right()).describedAs("pile %s ends on the mat", index)
+            assertThat(pile.right()).describedAs("zone %s ends on the mat", index)
                     .isLessThanOrEqualTo(mat.right());
-            assertThat(pile.bottom()).isLessThanOrEqualTo(mat.bottom());
             assertThat(pile.y()).isGreaterThanOrEqualTo(mat.y());
+            assertThat(pile.bottom()).isLessThanOrEqualTo(mat.bottom());
             if (previous != null) {
                 assertThat(pile.overlaps(previous))
-                        .describedAs("piles %s and %s overlap", index - 1, index).isFalse();
-                assertThat(pile.x()).isGreaterThan(previous.x());
+                        .describedAs("zones %s and %s overlap", index - 1, index).isFalse();
+                assertThat(pile.x())
+                        .describedAs("the column stays in one line").isEqualTo(previous.x());
             }
             previous = pile;
         }
+    }
+
+    @Test
+    @DisplayName("the first zone is the one nearest its own player, whichever way the board faces")
+    void theLibraryIsNearestItsOwnPlayer() {
+        // The column runs away from the player, so the library - the zone touched most - is
+        // the one closest to hand. Which way that is down the mat depends on which chair the
+        // board belongs to, so it cannot be stated as "the top".
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+
+        for (int seat = 0; seat < 2; seat++) {
+            Rect mat = surface.matOf(seat);
+            double nearEdge = surface.isTurned(seat) ? mat.y() : mat.bottom();
+            double first = surface.pileSlot(seat, 0, 4).centreY();
+            double last = surface.pileSlot(seat, 3, 4).centreY();
+
+            assertThat(Math.abs(first - nearEdge))
+                    .describedAs("seat %s keeps its library to hand", seat)
+                    .isLessThan(Math.abs(last - nearEdge));
+        }
+    }
+
+    @Test
+    @DisplayName("the zone column is on the edge away from the middle of the table")
+    void theZonesAreOnTheOuterEdge() {
+        // What keeps the middle of a four-player table clear: the one part of the surface
+        // everybody is reaching across is the part nothing is parked on.
+        TableSurface surface = TableSurface.forSeats(TableCluster.assumedSeating(4));
+
+        for (int seat = 0; seat < surface.seatCount(); seat++) {
+            Rect mat = surface.matOf(seat);
+            Rect zone = surface.pileSlot(seat, 0, 4);
+            boolean matOnTheLeft = mat.centreX() < surface.width() / 2.0;
+
+            assertThat(zone.centreX() < mat.centreX())
+                    .describedAs("seat %s keeps its zones away from the middle", seat)
+                    .isEqualTo(matOnTheLeft);
+        }
+    }
+
+    @Test
+    @DisplayName("two players' boards face each other rather than both facing the same way")
+    void boardsFaceTheirOwnPlayers() {
+        // The same position on each mat has to mean "in front of me" for both of them. Laying
+        // every board out as though its player sat at the bottom of the table put one player's
+        // zones along the far edge of their own mat, which from their chair is somebody else's
+        // board.
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+
+        // The bottom of a player's own board, in the coordinates their cards are stored in.
+        for (int seat = 0; seat < 2; seat++) {
+            Rect mat = surface.matOf(seat);
+            double drawnAt = surface.surfaceY(seat, TableSurface.SPAN);
+            double ownEdge = surface.isTurned(seat) ? mat.y() : mat.bottom();
+
+            assertThat(drawnAt)
+                    .describedAs("the near edge of seat %s's board is the edge it sits at", seat)
+                    .isCloseTo(ownEdge, within(1.0));
+        }
+        assertThat(surface.isTurned(0))
+                .describedAs("and the two of them do not face the same way")
+                .isNotEqualTo(surface.isTurned(1));
     }
 
     @Test
@@ -241,10 +314,9 @@ class TableSurfaceTest {
             Rect mat = surface.matOf(seat);
             assertThat(mat.x()).isGreaterThanOrEqualTo(0);
             assertThat(mat.y()).isGreaterThanOrEqualTo(0);
-            assertThat(mat.right()).isLessThanOrEqualTo(TableSurface.SPAN);
-            assertThat(mat.bottom()).isLessThanOrEqualTo(TableSurface.SPAN);
-            // A mat too small to hold a few cards is a mat nobody can play on. An eighth of
-            // the table each is the worst case, at eight seats.
+            assertThat(mat.right()).isLessThanOrEqualTo(surface.width());
+            assertThat(mat.bottom()).isLessThanOrEqualTo(surface.height());
+            // A mat too small to hold a few cards is a mat nobody can play on.
             assertThat(mat.width()).isGreaterThan(TableSurface.SPAN / 20);
             assertThat(mat.height()).isGreaterThan(TableSurface.SPAN / 20);
         }

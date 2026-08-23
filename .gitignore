@@ -38,3 +38,6 @@ common/src/generated/resources/.cache/
 # jqwik's run database, which records which properties failed so it can try them first.
 # Build state that changes on every test run, not something to carry in the history.
 .jqwik-database
+
+# The layout preview writes here.
+build/preview/
