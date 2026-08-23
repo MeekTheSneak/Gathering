@@ -10,7 +10,9 @@ import dev.gathering.block.TableBlock;
 import dev.gathering.block.TablePart;
 import dev.gathering.item.DeckItem;
 import dev.gathering.item.GatheringContent;
+import dev.gathering.block.TableSeats;
 import dev.gathering.server.DecklistImport;
+import dev.gathering.server.TableBroadcast;
 import dev.gathering.service.CardDataService;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -118,6 +120,10 @@ public final class DevScene {
             waited--;
             return;
         }
+        // Where a seat goes missing, rather than only that it has. The claim is taken when the
+        // player sits - the chat line says so - and gone by the time the board is drawn, so
+        // what matters is which step in between drops it.
+        watchTheSeat(client);
         switch (step) {
             case 0 -> {
                 // Not "wait for the title screen": a client that has never been run before
@@ -176,6 +182,7 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 5 -> {
+                reportSeats(client);
                 shoot(client, "03-seated-board");
                 if (client.screen instanceof TableScreen) {
                     // Draw a hand, so there is something in it to photograph.
@@ -242,6 +249,52 @@ public final class DevScene {
                         .value()
                         .createWorldDimensions(),
                 null);
+    }
+
+    private static String lastSeat = "?";
+
+    private static void watchTheSeat(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            return;
+        }
+        BlockPos where = table;
+        int at = step;
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (player == null) {
+                return;
+            }
+            String now = TableSeats.seatOf(server.overworld(), where, player.getUUID()).toString();
+            if (!now.equals(lastSeat)) {
+                System.out.println("[devscene] seat changed at step " + at + ": " + lastSeat + " -> " + now);
+                lastSeat = now;
+            }
+        });
+    }
+
+    /**
+     * Says what the server thinks about who is sitting where, and what the client thinks.
+     *
+     * <p>Because they disagree, and a picture of the disagreement does not say which side is
+     * wrong. The board draws the right name against seat nought while the client believes it
+     * is watching, so one of the two stores that answer "is this my seat" is not being read.
+     */
+    private static void reportSeats(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        System.out.println("[devscene] client seat: " + ClientTableState.seatAt(table));
+        if (server == null || table == null) {
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            System.out.println("[devscene] server claim: "
+                    + (player == null ? "no player" : TableSeats.seatOf(level, where, player.getUUID())));
+            System.out.println("[devscene] server sees seated: "
+                    + TableBroadcast.seatedAt(level, where).size());
+        });
     }
 
     /** Imports a real deck the way the import command does, on the server's thread. */

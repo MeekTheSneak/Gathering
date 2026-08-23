@@ -257,6 +257,17 @@ public class TableBlock extends BaseEntityBlock {
         TableCell cell = new TableCell(0, 0);
         Side side = TableClusters.sideFrom(hit.getDirection(), player.position(), tableOrigin);
 
+        // What is in your hand decides what a click means, before where you clicked does.
+        // A deck in hand and a table in front of you is one thing and only one thing, and it
+        // used to be read as "stand up": the seat toggle came first, saw the player already
+        // sitting at the edge they were standing at, and gave up their chair instead of taking
+        // their deck. Which then left them spectating their own game, with every action
+        // refused, for reasons nothing on screen explained.
+        if (DeckItem.deckOf(stack).isPresent()) {
+            commitDeck(level, tableOrigin, player, stack);
+            return ItemInteractionResult.SUCCESS;
+        }
+
         if (side != null && TableSeats.seatOf(level, tableOrigin, player.getUUID())
                 .filter(seat -> seat.cell().equals(cell) && seat.side() == side).isPresent()) {
             TableSeats.leave(level, tableOrigin, player.getUUID());
@@ -267,12 +278,6 @@ public class TableBlock extends BaseEntityBlock {
         if (side != null && TableSeats.isSeat(cluster, cell, side)) {
             TableSeats.Claim claim = TableSeats.take(level, tableOrigin, cell, side, player.getUUID());
             player.sendSystemMessage(Component.translatable(claim.messageKey()));
-            return ItemInteractionResult.SUCCESS;
-        }
-
-        // A deck in hand on a running game means you came to put your deck down.
-        if (DeckItem.deckOf(stack).isPresent()) {
-            commitDeck(level, tableOrigin, player, stack);
             return ItemInteractionResult.SUCCESS;
         }
 
