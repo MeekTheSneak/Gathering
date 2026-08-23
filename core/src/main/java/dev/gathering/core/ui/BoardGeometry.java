@@ -37,13 +37,16 @@ public final class BoardGeometry implements BoardPlacement {
     private boolean turned;
 
     /**
-     * How much of the bottom of the screen something else is sitting on.
+     * How much of the screen something else is sitting on, top and bottom.
      *
-     * <p>The hand. The felt runs under it - a table that stopped where your cards begin would
-     * have a strip you could see across and never put anything on - but framing the board has
-     * to leave it out, or the first thing a player sees is a board with its near edge behind
-     * their own hand.
+     * <p>The hand along the bottom and the life totals along the top. The felt runs under both
+     * - a table that stopped where your cards begin would have a strip you could see across
+     * and never put anything on - but framing the board has to leave them out, or the first
+     * thing a player sees is a board with its near edge behind their own hand and its far
+     * edge behind the score.
      */
+    private int coveredAtTheTop;
+
     private int coveredAtTheBottom;
 
     /**
@@ -59,9 +62,16 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     public BoardGeometry(List<SeatAnchor> anchors, int width, int height, int coveredAtTheBottom) {
+        this(anchors, width, height, 0, coveredAtTheBottom);
+    }
+
+    public BoardGeometry(
+            List<SeatAnchor> anchors, int width, int height,
+            int coveredAtTheTop, int coveredAtTheBottom) {
         this.surface = TableSurface.forSeats(anchors);
         this.width = Math.max(1, width);
         this.height = Math.max(1, height);
+        this.coveredAtTheTop = Math.max(0, coveredAtTheTop);
         this.coveredAtTheBottom = Math.max(0, coveredAtTheBottom);
         showEverything();
     }
@@ -73,14 +83,16 @@ public final class BoardGeometry implements BoardPlacement {
      * would yank the table out from under whoever was mid-turn, so the view stays where it is.
      */
     public void reshape(List<SeatAnchor> anchors, int newWidth, int newHeight) {
-        reshape(anchors, newWidth, newHeight, coveredAtTheBottom);
+        reshape(anchors, newWidth, newHeight, coveredAtTheTop, coveredAtTheBottom);
     }
 
     public void reshape(
-            List<SeatAnchor> anchors, int newWidth, int newHeight, int newCoveredAtTheBottom) {
+            List<SeatAnchor> anchors, int newWidth, int newHeight,
+            int newCoveredAtTheTop, int newCoveredAtTheBottom) {
         this.surface = TableSurface.forSeats(anchors);
         this.width = Math.max(1, newWidth);
         this.height = Math.max(1, newHeight);
+        this.coveredAtTheTop = Math.max(0, newCoveredAtTheTop);
         this.coveredAtTheBottom = Math.max(0, newCoveredAtTheBottom);
     }
 
@@ -125,9 +137,7 @@ public final class BoardGeometry implements BoardPlacement {
                 visible() / (double) Math.max(1, mat.height()));
         camera = new TableCamera(mat.centreX(), mat.centreY(), fit,
                 surface.width(), surface.height(), turned);
-        if (coveredAtTheBottom > 0) {
-            camera = camera.pannedBy(0, -coveredAtTheBottom / 2.0);
-        }
+        camera = camera.pannedBy(0, offToTheMiddleOfWhatIsVisible());
 
         // Leaned towards the middle of the table, so the board opposite comes into view as
         // soon as the window has room for it. Bounded by the room there actually is: a mat
@@ -164,20 +174,28 @@ public final class BoardGeometry implements BoardPlacement {
         return turned;
     }
 
-    /** How much of the window is not the hand, which is what the board is framed into. */
+    /** How much of the window is board rather than furniture, which is what it is framed into. */
     private int visible() {
-        return Math.max(1, height - coveredAtTheBottom);
+        return Math.max(1, height - coveredAtTheTop - coveredAtTheBottom);
+    }
+
+    /**
+     * How far to slide the view so that what is framed sits in the middle of the strip
+     * between the status row and the hand, rather than in the middle of the window.
+     *
+     * <p>In screen pixels, which is why it is a pan: the two are the same gesture, and a view
+     * that framed things one way and let the player drag them another would drift apart the
+     * first time anybody touched it.
+     */
+    private double offToTheMiddleOfWhatIsVisible() {
+        return (coveredAtTheTop - coveredAtTheBottom) / 2.0;
     }
 
     public void showEverything() {
         int visible = visible();
         camera = TableCamera.showingAll(surface.width(), surface.height(), width, visible)
-                .seenFrom(turned);
-        // Fitted to the part of the screen that is not the hand, then nudged up so it sits in
-        // the middle of that part rather than the middle of the window.
-        if (coveredAtTheBottom > 0) {
-            camera = camera.pannedBy(0, -coveredAtTheBottom / 2.0);
-        }
+                .seenFrom(turned)
+                .pannedBy(0, offToTheMiddleOfWhatIsVisible());
     }
 
     public void pan(double pixelsX, double pixelsY) {

@@ -4,6 +4,7 @@ import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.table.TableCluster;
+import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.SeatColour;
@@ -51,6 +52,9 @@ public final class BoardPreview {
         File out = new File(args.length > 0 ? args[0] : "build/preview");
         out.mkdirs();
 
+        ImageIO.write(seated(2, 0, 854, 480), "png", new File(out, "seated-2-from-seat-0.png"));
+        ImageIO.write(seated(2, 1, 854, 480), "png", new File(out, "seated-2-from-seat-1.png"));
+        ImageIO.write(seated(4, 0, 854, 480), "png", new File(out, "seated-4-from-seat-0.png"));
         ImageIO.write(table(2), "png", new File(out, "table-2-seats.png"));
         ImageIO.write(table(4), "png", new File(out, "table-4-seats.png"));
         ImageIO.write(hand(854, 480, 7), "png", new File(out, "hand-7.png"));
@@ -58,6 +62,73 @@ public final class BoardPreview {
         ImageIO.write(hand(1920, 1080, 7), "png", new File(out, "hand-7-big.png"));
         ImageIO.write(hand(320, 240, 10), "png", new File(out, "hand-10-tiny.png"));
         System.out.println("wrote previews to " + out.getAbsolutePath());
+    }
+
+    /**
+     * The seated screen, from one particular chair.
+     *
+     * <p>The one thing a single client cannot be driven through: half the players sit at the
+     * far edge of the table and see the whole surface the other way up, and until both chairs
+     * are drawn side by side nothing says whether the two agree. Their own board should be the
+     * near one in both, their own zones on their own right in both, and their own cards the
+     * right way up in both.
+     */
+    private static BufferedImage seated(int seats, int viewer, int width, int height) {
+        TableScreenLayout layout = TableScreenLayout.of(width, height);
+        BoardGeometry board = new BoardGeometry(
+                TableCluster.assumedSeating(seats), width, height,
+                layout.status().height(), layout.hand().height());
+        board.focusOn(new SeatId(viewer));
+
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = image.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(FELT);
+        g.fillRect(0, 0, width, height);
+
+        for (int seat = 0; seat < seats; seat++) {
+            SeatId id = new SeatId(seat);
+            fill(g, board.matRect(id), MAT, new Color(SeatColour.of(seat)));
+            for (int index = 0; index < Zone.PILES.size(); index++) {
+                Rect slot = board.pileRect(id, index, Zone.PILES.size());
+                fill(g, slot, SLOT, SLOT_EDGE);
+                label(g, slot, Zone.PILES.get(index).name().substring(0, 3));
+            }
+            // One land row and one creature row, so which way up a board is drawn is visible
+            // rather than deduced: a card's own angle is the seat's facing plus its rotation.
+            for (int i = 0; i < 5; i++) {
+                drawOne(g, board, id, TablePosition.of(2000 + i * 1200, 7600), 0);
+            }
+            drawOne(g, board, id, TablePosition.of(3000, 5000), 0);
+            drawOne(g, board, id, TablePosition.of(4500, 5000), TablePosition.QUARTER_TURN);
+        }
+
+        g.setColor(new Color(0x00, 0x00, 0x00, 90));
+        Rect strip = layout.hand();
+        g.fillRect(strip.x(), strip.y(), strip.width(), strip.height());
+        g.setColor(new Color(0x11, 0x11, 0x11));
+        g.fillRect(layout.status().x(), layout.status().y(),
+                layout.status().width(), layout.status().height());
+        for (int index = 0; index < 6; index++) {
+            HandFan.Slot slot = HandFan.slot(strip, 6, index, -1);
+            card(g, slot.where().x(), slot.where().y(),
+                    slot.where().width(), slot.where().height(), slot.angle(), false);
+        }
+
+        g.setColor(TEXT);
+        g.drawString(seats + " seats, seen from seat " + viewer
+                + "   own mat " + board.matRect(new SeatId(viewer))
+                + "   card " + board.cardWidth(new SeatId(viewer))
+                + "x" + board.cardHeight(new SeatId(viewer)) + "px", 10, 12);
+        g.dispose();
+        return image;
+    }
+
+    private static void drawOne(
+            Graphics2D g, BoardGeometry board, SeatId seat, TablePosition at, int rotation) {
+        Rect where = board.rectOf(seat, at);
+        card(g, where.x(), where.y(), where.width(), where.height(),
+                rotation + board.facingDegrees(seat));
     }
 
     /** The whole shared surface, as the table in the world lays it out. */

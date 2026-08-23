@@ -290,6 +290,36 @@ class BoardGeometryTest {
         }
 
         @Test
+        @DisplayName("the board is framed between the life totals and the hand, not behind them")
+        void theBoardClearsTheFurniture() {
+            // The window has a status row across the top and a hand across the bottom, and the
+            // felt runs under both. Framing against the window instead of against the strip
+            // between them put the far edge of the board behind the life totals - which on a
+            // short window is the row of zones belonging to whoever is opposite.
+            int status = 16;
+            int hand = 130;
+            BoardGeometry geometry = new BoardGeometry(
+                    seatsOf(new TableCell(0, 0)), WIDTH, HEIGHT, status, hand);
+
+            for (int seat = 0; seat < 2; seat++) {
+                SeatId me = new SeatId(seat);
+                geometry.focusOn(me);
+                Rect mine = geometry.matRect(me);
+
+                assertThat(mine.y())
+                        .describedAs("seat %s's board starts below the life totals", seat)
+                        .isGreaterThanOrEqualTo(status);
+                assertThat(mine.bottom())
+                        .describedAs("and ends above the hand", seat)
+                        .isLessThanOrEqualTo(HEIGHT - hand);
+            }
+            geometry.showEverything();
+            assertThat(geometry.matRect(new SeatId(0)).y())
+                    .describedAs("and so does the whole table")
+                    .isGreaterThanOrEqualTo(status);
+        }
+
+        @Test
         @DisplayName("your own cards are the right way up and the other player's are not")
         void cardsFaceTheChairTheyBelongTo() {
             // Turning the view turns where things are, not which way up they are drawn. Half
