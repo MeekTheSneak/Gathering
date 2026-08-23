@@ -19,11 +19,14 @@ import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.BoardGeometry;
+import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
 import dev.gathering.core.ui.TableScreenLayout;
+import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableStacking;
+import dev.gathering.core.ui.TableTop;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
@@ -119,6 +122,7 @@ public final class TableScreen extends Screen implements CardPreviewHost {
                 "screen.gathering.table.key_zoom",
                 "screen.gathering.table.key_pan",
                 "screen.gathering.table.key_frame",
+                "screen.gathering.table.key_view",
             },
             new String[] {
                 "screen.gathering.table.keys_cards",
@@ -148,10 +152,38 @@ public final class TableScreen extends Screen implements CardPreviewHost {
     /** How far one press of a pan key slides the table. */
     private static final int PAN_STEP = 60;
 
+    /**
+     * Roughly how many pixels of screen a block of table covers, for turning a drag into a
+     * slide when the table is in the world.
+     *
+     * <p>Approximate on purpose. Exact would mean the height, the field of view and the
+     * window, recomputed every frame, to decide how fast a drag scrolls - and nobody has ever
+     * noticed that a pan was five per cent fast. What people notice is the direction.
+     */
+    private static final double PIXELS_PER_BLOCK = 220.0;
+
     private final BlockPos table;
 
     private TableScreenLayout layout;
+
+    /**
+     * The two ways of looking at this board, and which one is being used.
+     *
+     * <p>Both exist at once on purpose. The seated screen is a felt drawn on the window and it
+     * works; playing on the block is the same game seen through the game's own camera, and
+     * whether it is nicer to play is not a thing that can be decided by reading it. So there
+     * is a key that swaps them, and the answer comes from playing both.
+     *
+     * <p>They cost almost nothing to keep side by side, because the only thing they disagree
+     * about is what a point means - see {@link BoardPlacement}. Everything from working out
+     * which card is under the cursor onwards is the same code either way.
+     */
     private BoardGeometry geometry;
+
+    private SurfaceBoard onBlock;
+
+    /** Whether the board being played is the one on the table in the world. */
+    private boolean playingOnTheBlock;
 
     /** The card in the air, if any, and where on it the cursor took hold. */
     private Held held;
@@ -212,6 +244,9 @@ public final class TableScreen extends Screen implements CardPreviewHost {
     private record Held(
             CardInstanceId card, SeatId from, boolean fromHand,
             int grabX, int grabY, int pressX, int pressY) {
+        // grabX/grabY are in the space the *board* is measured in - pixels on the seated
+        // screen, surface units on the block. pressX/pressY stay in pixels, because how far
+        // the hand has moved before a press becomes a drag is a question about the mouse.
 
         boolean hasMoved(int mouseX, int mouseY) {
             return Math.abs(mouseX - pressX) >= DRAG_THRESHOLD
@@ -234,9 +269,69 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         layout = TableScreenLayout.of(this.width, this.height);
         if (geometry == null) {
             geometry = new BoardGeometry(anchors(), this.width, this.height);
+            onBlock = new SurfaceBoard(anchors());
         } else {
             geometry.reshape(anchors(), this.width, this.height);
+            onBlock.reshape(anchors());
         }
+    }
+
+    /** Whichever board is being played, which is the only thing the two views differ on. */
+    private BoardPlacement board() {
+        return playingOnTheBlock ? onBlock : geometry;
+    }
+
+    /** The table's surface in the world, for turning a cursor into a place on the felt. */
+    private TableTop tableTop() {
+        return TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+    }
+
+    /**
+     * Where the cursor is, in whatever space the board being played is measured in.
+     *
+     * <p>Pixels on the seated screen. On the block it is a ray cast against the table, so it
+     * is empty whenever the pointer is not over the felt at all - which is a real answer and
+     * the reason a card let go over the floor goes back where it came from.
+     */
+    private double[] pointer(double mouseX, double mouseY) {
+        if (!playingOnTheBlock) {
+            return new double[] {mouseX, mouseY};
+        }
+        return TablePointer.at(tableTop(), mouseX, mouseY)
+                .map(spot -> new double[] {spot.x(), spot.y()})
+                .orElse(null);
+    }
+
+    /**
+     * Swaps which board is being played.
+     *
+     * <p>The camera goes over the table on the way in and back to the player on the way out.
+     * Nothing about the game moves: both views are showing the same board, so the swap is
+     * only ever a change of where it is being looked at from.
+     */
+    private void useTheBlock(boolean wanted) {
+        playingOnTheBlock = wanted;
+        held = null;
+        boxFrom = null;
+        panFrom = null;
+        if (wanted) {
+            TableCameraView.lookAt(table);
+        } else {
+            TableCameraView.release();
+            ClientTableHighlight.clear();
+        }
+    }
+
+    @Override
+    public void removed() {
+        // Both doors out. onClose is the polite one and removed is the one that catches
+        // everything else - the screen being replaced, the world going away - and the camera
+        // has to go back to the player through either. A view left looking at a table after
+        // its screen has gone is a player who cannot see where they are.
+        TableCameraView.release();
+        TablePointer.forget();
+        ClientTableHighlight.clear();
+        super.removed();
     }
 
     // ------------------------------------------------------------- the board
@@ -274,6 +369,7 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         }
         if (geometry.surface().seatCount() != view().get().seats().size()) {
             geometry.reshape(anchors(), this.width, this.height);
+            onBlock.reshape(anchors());
         }
     }
 
@@ -291,8 +387,12 @@ public final class TableScreen extends Screen implements CardPreviewHost {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // The felt, edge to edge, under everything including the buttons.
-        graphics.fill(0, 0, this.width, this.height, FELT);
+        // The felt, edge to edge, under everything including the buttons - unless the felt
+        // being played is the real one, in which case the world shows through and the only
+        // things drawn here are the ones that were never on the table anyway.
+        if (!playingOnTheBlock) {
+            graphics.fill(0, 0, this.width, this.height, FELT);
+        }
 
         GameView board = view().orElse(null);
         if (board == null) {
@@ -303,22 +403,33 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         cursorY = mouseY;
         ClientHoverState.clear();
 
-        renderMats(graphics, board);
-        renderPiles(graphics, board, mouseX, mouseY);
+        Placed hovered = null;
+        if (playingOnTheBlock) {
+            // The block draws its own board. What it needs from here is what the cursor is on,
+            // because the world renderer has no idea where anybody's mouse is.
+            hovered = frontMostAt(everythingOnTheTable(board), mouseX, mouseY);
+            ClientTableHighlight.set(idOf(hovered), List.copyOf(selected));
+        } else {
+            renderMats(graphics, board);
+            renderPiles(graphics, board, mouseX, mouseY);
 
-        List<Placed> onTable = everythingOnTheTable(board);
-        Placed hovered = frontMostAt(onTable, mouseX, mouseY);
-        for (Placed placed : onTable) {
-            drawTableCard(graphics, placed.card(), placed.where(), placed.angle(),
-                    placed == hovered || isSelected(placed.card()));
+            List<Placed> onTable = everythingOnTheTable(board);
+            hovered = frontMostAt(onTable, mouseX, mouseY);
+            for (Placed placed : onTable) {
+                drawTableCard(graphics, placed.card(), placed.where(), placed.angle(),
+                        placed == hovered || isSelected(placed.card()));
+            }
+            renderPileBadges(graphics, board, onTable);
         }
-        renderPileBadges(graphics, board, onTable);
         if (hovered != null) {
             offerToInspector(hovered.card());
         }
 
         super.render(graphics, mouseX, mouseY, partialTick);
 
+        if (playingOnTheBlock) {
+            renderSeatStrip(graphics, board);
+        }
         renderHand(graphics, board, mouseX, mouseY);
         renderActions(graphics, board);
         renderTurn(graphics, board);
@@ -345,6 +456,45 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         }
     }
 
+    /**
+     * Everybody's name, life and counts, along the top.
+     *
+     * <p>The seated screen writes these on each mat, which is where they belong when the mat
+     * is on the screen. On the block the mats are two blocks away and a life total painted on
+     * one would be unreadable at any height worth playing at - so the numbers come off the
+     * table and sit on the window, which is what a scoreboard is for.
+     */
+    private void renderSeatStrip(GuiGraphics graphics, GameView board) {
+        List<SeatView> seats = board.seats();
+        if (seats.isEmpty()) {
+            return;
+        }
+        int height = this.font.lineHeight + 6;
+        int column = Math.max(60, this.width / seats.size());
+        GatheringSprites.panel(graphics, 0, 0, this.width, height);
+
+        SeatId me = mySeat().orElse(null);
+        SeatId active = board.turn().activeSeat();
+        for (int index = 0; index < seats.size(); index++) {
+            SeatView seat = seats.get(index);
+            String who = seat.occupant().map(player -> player.name())
+                    .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
+            Component line = Component.translatable(
+                    "screen.gathering.table.mat_line", who, seat.life(),
+                    count(seat, Zone.HAND), count(seat, Zone.LIBRARY));
+            if (!seat.counters().isEmpty()) {
+                line = line.copy().append(Component.literal("  " + describeCounters(seat)));
+            }
+            int colour = seat.seat().equals(me) ? ACCENT : seat.seat().equals(active) ? ACCENT : LABEL;
+            GuiText.draw(graphics, this.font, line,
+                    index * column + 4, 4, column - 8, colour);
+        }
+    }
+
+    private static CardInstanceId idOf(Placed placed) {
+        return placed != null && placed.card() instanceof CardView.Visible visible ? visible.id() : null;
+    }
+
     /** The rectangle between two corners, whichever way round they were dragged. */
     private static Rect boxBetween(int fromX, int fromY, int toX, int toY) {
         return new Rect(
@@ -362,7 +512,7 @@ public final class TableScreen extends Screen implements CardPreviewHost {
     private void renderMats(GuiGraphics graphics, GameView board) {
         SeatId me = mySeat().orElse(null);
         for (SeatView seat : board.seats()) {
-            Rect mat = geometry.matRect(seat.seat());
+            Rect mat = board().matRect(seat.seat());
             if (mat.isEmpty()) {
                 continue;
             }
@@ -388,7 +538,7 @@ public final class TableScreen extends Screen implements CardPreviewHost {
     private void renderPiles(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         for (SeatView seat : board.seats()) {
             for (int index = 0; index < PILES.size(); index++) {
-                Rect where = geometry.pileRect(seat.seat(), index, PILES.size());
+                Rect where = board().pileRect(seat.seat(), index, PILES.size());
                 if (where.isEmpty() || where.width() < 4) {
                     continue;
                 }
@@ -515,8 +665,8 @@ public final class TableScreen extends Screen implements CardPreviewHost {
      * pixels is a pile that looks like one card.
      */
     private Rect spotOf(SeatId seat, CardView card, int depth) {
-        Rect where = geometry.screenRect(seat, card.placedAt().orElse(TablePosition.ORIGIN));
-        int lean = TableStacking.offsetFor(depth);
+        Rect where = board().rectOf(seat, card.placedAt().orElse(TablePosition.ORIGIN));
+        int lean = TableStacking.offsetFor(depth, board().cardWidth(seat));
         return lean == 0
                 ? where
                 : new Rect(where.x() + lean, where.y() + lean, where.width(), where.height());
@@ -723,19 +873,38 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         if (card == null) {
             return;
         }
-        SeatId landing = geometry.seatAt(mouseX - held.grabX(), mouseY - held.grabY());
-        if (landing != null) {
-            Rect mat = geometry.matRect(landing);
+        double[] at = pointer(mouseX, mouseY);
+        SeatId landing = at == null
+                ? null
+                : board().seatAt(at[0] - held.grabX(), at[1] - held.grabY());
+
+        // The mat it would land on, outlined, so you can see whose side you are about to put
+        // it on. Only on the seated screen: the mats on the block are measured on the table
+        // and there is nothing honest to draw them over here.
+        if (landing != null && !playingOnTheBlock) {
+            Rect mat = board().matRect(landing);
             graphics.renderOutline(mat.x(), mat.y(), mat.width(), mat.height(), ACCENT);
         }
 
-        SeatId size = landing != null ? landing : held.from();
-        Rect airborne = new Rect(mouseX - held.grabX(), mouseY - held.grabY(),
-                geometry.cardWidth(size), geometry.cardHeight(size));
+        // The card in the air is always drawn on the screen, at the size a card is on the
+        // screen. It is the one thing that is genuinely in the player's hand rather than on
+        // the table, and a card held over a table is not lying on it.
+        Rect airborne = playingOnTheBlock
+                ? centredOnCursor(mouseX, mouseY)
+                : new Rect(mouseX - held.grabX(), mouseY - held.grabY(),
+                        board().cardWidth(landing != null ? landing : held.from()),
+                        board().cardHeight(landing != null ? landing : held.from()));
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, LIFT);
         drawCard(graphics, card, airborne, false, false);
         graphics.pose().popPose();
+    }
+
+    /** A hand-sized card taken by the middle, for the view where the board is not on screen. */
+    private Rect centredOnCursor(int mouseX, int mouseY) {
+        int height = Math.max(24, layout().hand().height() - 8);
+        int width = Math.max(16, Math.round(height * 488f / 680f));
+        return new Rect(mouseX - width / 2, mouseY - height / 2, width, height);
     }
 
     // ---------------------------------------------------------------- input
@@ -838,17 +1007,38 @@ public final class TableScreen extends Screen implements CardPreviewHost {
                 // meant, not the one you forgot to clear.
                 selected.clear();
             }
-            held = new Held(visible.id(), seat, fromHand,
-                    x - where.x(), y - where.y(), x, y);
+            held = grab(visible.id(), seat, fromHand, where, x, y);
             return true;
         }
         return true;
     }
 
+    /**
+     * Picks a card up, remembering where on it the cursor took hold.
+     *
+     * <p>The offset is the whole reason a drag feels right: a card that snaps its corner to
+     * the cursor jumps out from under your finger the moment you touch it. A card coming out
+     * of the hand has no such offset to keep - its slot in the fan is not where it is going -
+     * so it takes the cursor by the middle, which is where you would expect to be holding it.
+     */
+    private Held grab(CardInstanceId card, SeatId seat, boolean fromHand, Rect where, int x, int y) {
+        if (fromHand) {
+            return new Held(card, seat, fromHand,
+                    board().cardWidth(seat) / 2, board().cardHeight(seat) / 2, x, y);
+        }
+        double[] at = pointer(x, y);
+        if (at == null) {
+            return new Held(card, seat, fromHand,
+                    board().cardWidth(seat) / 2, board().cardHeight(seat) / 2, x, y);
+        }
+        return new Held(card, seat, fromHand,
+                (int) Math.round(at[0]) - where.x(), (int) Math.round(at[1]) - where.y(), x, y);
+    }
+
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (panFrom != null && button == 2) {
-            geometry.pan(dragX, dragY);
+            pan(dragX, dragY);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -898,11 +1088,18 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         // Whose mat it landed on is where it goes. Stealing a creature is dragging it to your
         // own side of the table, and the move event falls out of that rather than out of a
         // mode somebody had to set first.
-        SeatId landing = geometry.seatAt(x - dropped.grabX(), y - dropped.grabY());
+        double[] at = pointer(x, y);
+        if (at == null) {
+            // Let go somewhere that is not the table at all. The card stays where it was.
+            return true;
+        }
+        double cornerX = at[0] - dropped.grabX();
+        double cornerY = at[1] - dropped.grabY();
+        SeatId landing = board().seatAt(cornerX, cornerY);
         if (landing == null) {
             return true;
         }
-        TablePosition where = geometry.positionOn(landing, x - dropped.grabX(), y - dropped.grabY());
+        TablePosition where = board().positionOn(landing, cornerX, cornerY);
         if (!dropped.fromHand() && selected.contains(dropped.card())) {
             dropGroup(dropped, landing, where, me);
         } else {
@@ -961,7 +1158,15 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         if (scrollY == 0) {
             return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
         }
-        geometry.zoom(scrollY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP, mouseX, mouseY);
+        double factor = scrollY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+        if (playingOnTheBlock) {
+            // Looking straight down, zoom is height. There is no cursor anchoring here: the
+            // eye comes down towards the middle of what it is already looking at, which is
+            // what moving your head towards a table does.
+            TableCameraView.zoom(factor);
+        } else {
+            geometry.zoom(factor, mouseX, mouseY);
+        }
         return true;
     }
 
@@ -975,12 +1180,21 @@ public final class TableScreen extends Screen implements CardPreviewHost {
      * table and a click there reaches whatever is underneath it.
      */
     private Placed frontMostAt(List<Placed> onTable, int x, int y) {
+        // Two spaces, and the guard belongs to the screen either way: the hand and the bar sit
+        // over the table in both views, and a click on your own hand must not also reach the
+        // felt underneath it.
         if (!layout().isOnFelt(x, y)) {
             return null;
         }
+        double[] at = pointer(x, y);
+        if (at == null) {
+            return null;
+        }
+        int pointX = (int) Math.round(at[0]);
+        int pointY = (int) Math.round(at[1]);
         for (int index = onTable.size() - 1; index >= 0; index--) {
             Placed placed = onTable.get(index);
-            if (placed.where().containsTurned(placed.angle(), x, y)) {
+            if (placed.where().containsTurned(placed.angle(), pointX, pointY)) {
                 return placed;
             }
         }
@@ -1014,25 +1228,36 @@ public final class TableScreen extends Screen implements CardPreviewHost {
 
     /** Whose pile row a point is in, or null. */
     private SeatId pileSeatAt(GameView board, int x, int y) {
-        for (SeatView seat : board.seats()) {
-            for (int index = 0; index < PILES.size(); index++) {
-                if (geometry.pileRect(seat.seat(), index, PILES.size()).contains(x, y)) {
-                    return seat.seat();
-                }
-            }
-        }
-        return null;
+        int slot = pileSlotAt(board, x, y);
+        return slot < 0 ? null : board.seats().get(slot / PILES.size()).seat();
     }
 
     private Zone pileZoneAt(GameView board, int x, int y) {
-        for (SeatView seat : board.seats()) {
+        int slot = pileSlotAt(board, x, y);
+        return slot < 0 ? Zone.LIBRARY : PILES.get(slot % PILES.size());
+    }
+
+    /**
+     * Which pile a point is on, as one number covering both which seat and which zone.
+     *
+     * <p>One walk rather than two, because the two used to walk the piles separately and
+     * could in principle stop at different ones - the seat from the first and the zone from
+     * the second, which is a click that shuffles somebody else's library.
+     */
+    private int pileSlotAt(GameView board, int x, int y) {
+        double[] at = pointer(x, y);
+        if (at == null || !layout().isOnFelt(x, y)) {
+            return -1;
+        }
+        for (int seat = 0; seat < board.seats().size(); seat++) {
             for (int index = 0; index < PILES.size(); index++) {
-                if (geometry.pileRect(seat.seat(), index, PILES.size()).contains(x, y)) {
-                    return PILES.get(index);
+                Rect pile = board().pileRect(board.seats().get(seat).seat(), index, PILES.size());
+                if (pile.contains((int) Math.round(at[0]), (int) Math.round(at[1]))) {
+                    return seat * PILES.size() + index;
                 }
             }
         }
-        return Zone.LIBRARY;
+        return -1;
     }
 
     private boolean isSelected(CardView card) {
@@ -1063,11 +1288,26 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         return found;
     }
 
-    /** Picks out every card the box touches, in place of whatever was picked before. */
+    /**
+     * Picks out every card the box touches, in place of whatever was picked before.
+     *
+     * <p>The box is dragged on the screen and the cards may not be measured there, so it is
+     * carried across corner by corner. A corner that lands off the table takes the selection
+     * with it: a box half over the floor has no honest answer, and picking whatever happened
+     * to fall inside the half that was on the felt is not one.
+     */
     private void selectWithin(GameView board, Rect box) {
         selected.clear();
+        double[] from = pointer(box.x(), box.y());
+        double[] to = pointer(box.right(), box.bottom());
+        if (from == null || to == null) {
+            return;
+        }
+        Rect within = boxBetween(
+                (int) Math.round(from[0]), (int) Math.round(from[1]),
+                (int) Math.round(to[0]), (int) Math.round(to[1]));
         for (Placed placed : everythingOnTheTable(board)) {
-            if (placed.card() instanceof CardView.Visible visible && placed.where().overlaps(box)) {
+            if (placed.card() instanceof CardView.Visible visible && placed.where().overlaps(within)) {
                 selected.add(visible.id());
             }
         }
@@ -1326,7 +1566,7 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         view().ifPresent(board -> entries.add(entry("my_counters",
                 () -> openCounters(new CountersScreen.Subject.Seat(
                         me, CountersScreen.titleForSeat(board, me))))));
-        entries.add(entry("show_everything", () -> geometry.showEverything()));
+        entries.add(entry("show_everything", this::showEverything));
         menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
     }
 
@@ -1431,24 +1671,30 @@ public final class TableScreen extends Screen implements CardPreviewHost {
             // table's, not the camera's: pressing right looks further right, so the table
             // slides left under you - the same direction dragging the felt leftwards would.
             case org.lwjgl.glfw.GLFW.GLFW_KEY_W, org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> {
-                geometry.pan(0, PAN_STEP);
+                pan(0, PAN_STEP);
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_S, org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> {
-                geometry.pan(0, -PAN_STEP);
+                pan(0, -PAN_STEP);
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_A, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT -> {
-                geometry.pan(PAN_STEP, 0);
+                pan(PAN_STEP, 0);
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_D, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT -> {
-                geometry.pan(-PAN_STEP, 0);
+                pan(-PAN_STEP, 0);
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> {
                 // The way back when you have zoomed into a corner and lost the table.
-                geometry.showEverything();
+                showEverything();
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_V -> {
+                // Between the two boards. Same game either way; only the place you are
+                // looking at it from changes.
+                useTheBlock(!playingOnTheBlock);
                 return true;
             }
 
@@ -1476,6 +1722,30 @@ public final class TableScreen extends Screen implements CardPreviewHost {
             default -> { }
         }
         return super.keyPressed(key, scanCode, modifiers);
+    }
+
+    /**
+     * Slides the view, whichever view it is.
+     *
+     * <p>Pixels on the seated screen and blocks on the table, which are not the same quantity
+     * at all - so the one that is not pixels is scaled by how far a pixel gets you at this
+     * height. Panning that moves the world by a different amount than the hand is the single
+     * most common way a drag feels wrong.
+     */
+    private void pan(double pixelsX, double pixelsY) {
+        if (playingOnTheBlock) {
+            TableCameraView.pan(-pixelsX / PIXELS_PER_BLOCK, -pixelsY / PIXELS_PER_BLOCK);
+        } else {
+            geometry.pan(pixelsX, pixelsY);
+        }
+    }
+
+    private void showEverything() {
+        if (playingOnTheBlock) {
+            TableCameraView.showEverything();
+        } else {
+            geometry.showEverything();
+        }
     }
 
     /**
@@ -1741,6 +2011,9 @@ public final class TableScreen extends Screen implements CardPreviewHost {
     @Override
     public void onClose() {
         ClientHoverState.clear();
+        TableCameraView.release();
+        TablePointer.forget();
+        ClientTableHighlight.clear();
         super.onClose();
     }
 

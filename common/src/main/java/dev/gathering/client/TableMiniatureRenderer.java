@@ -8,6 +8,7 @@ import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
+import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.TableStacking;
@@ -73,6 +74,17 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private static final float STACK_LIFT = 0.0015f;
 
+    /** The piles every seat has, in the order the seated screen lays them out. */
+    private static final List<Zone> PILES =
+            List.of(Zone.LIBRARY, Zone.GRAVEYARD, Zone.EXILE, Zone.COMMAND);
+
+    /** The halo under the card the cursor is on, and how far it sticks out past it. */
+    private static final int RING_COLOUR = 0xCC7FD4FF;
+    private static final float RING_THICKNESS = 0.09f;
+
+    /** Just under the card, so the halo shows around the edges and not through the art. */
+    private static final float RING_DROP = 0.0003f;
+
     /** A taken seat's mat, and the darker line around it. Read from above, in a lit room. */
     private static final int MAT_COLOUR = 0x30000000;
     private static final int MAT_EDGE_COLOUR = 0x60000000;
@@ -93,6 +105,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             return;
         }
 
+        // The one moment the projection the world was drawn with is still set. The seated
+        // view has no use for it; the view that plays on this block cannot work out what the
+        // cursor is over without it.
+        TablePointer.capture(net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera());
+
         TableSurface surface = TableSurface.forSeats(
                 TableCluster.assumedSeating(board.seats().size()));
         float span = (float) TableTop.SPAN_BLOCKS;
@@ -112,6 +129,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
         poseStack.pushPose();
         poseStack.translate(MARGIN, CARD_Y, MARGIN);
+        for (int index = 0; index < board.seats().size(); index++) {
+            drawPiles(poseStack, buffers, packedLight, board.seats().get(index),
+                    surface, index, span);
+        }
         int drawn = 0;
         for (int index = 0; index < board.seats().size() && drawn < MAX_CARDS; index++) {
             drawn += drawSeat(poseStack, buffers, packedLight, board.seats().get(index),
@@ -145,6 +166,37 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         flat(consumer, pose, left, bottom - edge, right, bottom, MAT_EDGE_COLOUR);
         flat(consumer, pose, left, top, left + edge, bottom, MAT_EDGE_COLOUR);
         flat(consumer, pose, right - edge, top, right, bottom, MAT_EDGE_COLOUR);
+    }
+
+    /**
+     * A seat's piles, in a row along the near edge of its own mat.
+     *
+     * <p>The same four in the same places as the seated screen puts them, because they are the
+     * same piles: a player who learns where their graveyard is in one view has learned where
+     * it is in the other. A pile shows its top card if the whole table is entitled to see it,
+     * and a sleeve if not - which for a library is always.
+     */
+    private void drawPiles(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight, SeatView seat,
+            TableSurface surface, int seatIndex, float span) {
+        for (int index = 0; index < PILES.size(); index++) {
+            Rect slot = surface.pileSlot(seatIndex, index, PILES.size());
+            if (slot.isEmpty()) {
+                continue;
+            }
+            ZoneView contents = seat.zone(PILES.get(index));
+            if (contents == null || contents.count() == 0) {
+                continue;
+            }
+            CardView top = contents.cards().isEmpty() ? null : contents.cards().get(0);
+            ResourceLocation texture = top == null || top.isFaceDown()
+                    ? CardFaceRenderer.CARD_BACK
+                    : textureFor(top);
+            draw(poseStack, buffers, packedLight, texture,
+                    onSurface(slot.x(), span), onSurface(slot.y(), span),
+                    onSurface(slot.width(), span), onSurface(slot.height(), span),
+                    0, false, 0f);
+        }
     }
 
     /**
@@ -182,14 +234,52 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // nowhere.
             TablePosition where = card.placedAt().orElse(TablePosition.ORIGIN);
 
-            draw(poseStack, buffers, packedLight, textureFor(card),
-                    onSurface(surface.surfaceX(seatIndex, where.x()), span),
-                    onSurface(surface.surfaceY(seatIndex, where.y()), span),
-                    cardWidth, cardDepth,
-                    where.rotation(), isTapped(card), depths.get(index) * STACK_LIFT);
+            // Two things at once, and both are needed. The lift keeps cards on the same spot
+            // off the same plane, because coplanar quads z-fight and a pile of four flickering
+            // in the middle of a board is worse than not drawing it. The lean is what makes a
+            // pile read as a pile from directly above, where a stack that only went upwards
+            // would be one card.
+            float lean = onSurface(
+                    TableStacking.offsetFor(depths.get(index), (int) surface.cardWidthOn(seatIndex)),
+                    span);
+            float x = onSurface(surface.surfaceX(seatIndex, where.x()), span) + lean;
+            float z = onSurface(surface.surfaceY(seatIndex, where.y()), span) + lean;
+            float lift = depths.get(index) * STACK_LIFT;
+
+            if (card instanceof CardView.Visible visible && ClientTableHighlight.isLit(visible.id())) {
+                // Under the card rather than over it: a ring drawn on top would cover the art
+                // it is pointing at, and a card is a picture before it is a token.
+                drawRing(poseStack, buffers, x, z, cardWidth, cardDepth,
+                        where.rotation(), isTapped(card), lift);
+            }
+            draw(poseStack, buffers, packedLight, textureFor(card), x, z, cardWidth, cardDepth,
+                    where.rotation(), isTapped(card), lift);
             drawn++;
         }
         return drawn;
+    }
+
+    /**
+     * A halo just larger than a card, marking the one the cursor is on.
+     *
+     * <p>Turned with the card, so an angled card gets an angled ring rather than a square one
+     * that gives away that the two are drawn by different code.
+     */
+    private void drawRing(
+            PoseStack poseStack, MultiBufferSource buffers, float x, float z,
+            float width, float depth, int angle, boolean tapped, float lift) {
+        float grow = Math.max(width, depth) * RING_THICKNESS;
+        poseStack.pushPose();
+        poseStack.translate(x + width / 2f, lift - RING_DROP, z + depth / 2f);
+        int turned = angle + (tapped ? TablePosition.QUARTER_TURN : 0);
+        if (Math.floorMod(turned, 360) != 0) {
+            poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-turned));
+        }
+        VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
+        flat(consumer, poseStack.last().pose(),
+                -width / 2f - grow, -depth / 2f - grow,
+                width / 2f + grow, depth / 2f + grow, RING_COLOUR);
+        poseStack.popPose();
     }
 
     /** A point on the shared surface, in blocks across the table's own footprint. */

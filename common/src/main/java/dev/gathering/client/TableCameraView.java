@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableTop;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
@@ -25,27 +26,34 @@ public final class TableCameraView {
     /** Straight down. The board is a plane and this is the only angle that does not lie. */
     public static final float LOOKING_DOWN = 90f;
 
-    /**
-     * Where the eye goes and which way it faces.
-     *
-     * @param height how far above the table's surface the eye sits, in blocks
-     */
+    /** Where the eye goes and which way it faces. */
     public record Placement(double x, double y, double z, float yaw, float pitch) {
     }
+
+    /** Far enough up to see the whole table, and close enough to read a card. */
+    private static final double LOWEST = 0.55;
+    private static final double HIGHEST = 4.5;
+    private static final double STARTING_HEIGHT = 2.2;
 
     /** The table being played at, or nothing at all, which is the usual answer. */
     private static BlockPos table;
 
-    /** How far above the surface the eye sits. Set by the view's own zoom. */
-    private static double height = 2.6;
+    /** How far above the surface the eye sits. */
+    private static double height = STARTING_HEIGHT;
+
+    /** How far the view has been slid off the middle of the table, in blocks. */
+    private static double offsetX;
+    private static double offsetZ;
 
     private TableCameraView() {
     }
 
-    /** Called when the seated view opens, so the camera knows there is a table to look at. */
-    public static void lookAt(BlockPos corner, double eyeHeight) {
+    /** Called when the in-world view opens, so the camera knows there is a table to look at. */
+    public static void lookAt(BlockPos corner) {
         table = corner;
-        height = eyeHeight;
+        height = STARTING_HEIGHT;
+        offsetX = 0;
+        offsetZ = 0;
     }
 
     /** Called when it closes. The camera goes back to being the player's. */
@@ -55,6 +63,38 @@ public final class TableCameraView {
 
     public static boolean isLooking() {
         return table != null;
+    }
+
+    /**
+     * Moves the eye up or down, which is what zoom is when you are looking straight down.
+     *
+     * <p>Bounded at both ends for the same reasons the seated view bounds its own: too close
+     * and the table is a card and a half, too far and it is a mosaic. A factor above one
+     * leans in, matching the wheel on the seated screen.
+     */
+    public static void zoom(double factor) {
+        if (factor > 0) {
+            height = Math.max(LOWEST, Math.min(HIGHEST, height / factor));
+        }
+    }
+
+    /**
+     * Slides the view across the table, in blocks.
+     *
+     * <p>Clamped to the table itself rather than to nothing: panning until the board is off
+     * screen is a way to lose the game you are playing.
+     */
+    public static void pan(double acrossBlocks, double downBlocks) {
+        double reach = TableTop.SPAN_BLOCKS / 2;
+        offsetX = Math.max(-reach, Math.min(reach, offsetX + acrossBlocks));
+        offsetZ = Math.max(-reach, Math.min(reach, offsetZ + downBlocks));
+    }
+
+    /** Back to the whole table, centred. */
+    public static void showEverything() {
+        height = STARTING_HEIGHT;
+        offsetX = 0;
+        offsetZ = 0;
     }
 
     /**
@@ -71,9 +111,9 @@ public final class TableCameraView {
         }
         TableTop top = TableTop.forCorner(corner.getX(), corner.getY(), corner.getZ());
         return Optional.of(new Placement(
-                top.worldX(dev.gathering.core.ui.TableSurface.SPAN / 2.0),
+                top.worldX(TableSurface.SPAN / 2.0) + offsetX,
                 top.topY() + height,
-                top.worldZ(dev.gathering.core.ui.TableSurface.SPAN / 2.0),
+                top.worldZ(TableSurface.SPAN / 2.0) + offsetZ,
                 0f,
                 LOOKING_DOWN));
     }

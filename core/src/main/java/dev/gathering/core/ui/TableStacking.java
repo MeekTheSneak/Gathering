@@ -33,8 +33,16 @@ public final class TableStacking {
      */
     public static final int TIGHT = TablePosition.SPAN / 50;
 
-    /** How far up and left each card of a stack is drawn from the one below it, in pixels. */
-    public static final int STEP = 2;
+    /**
+     * How far up and left each card of a stack is drawn from the one below it, as a fraction
+     * of the card itself.
+     *
+     * <p>A fraction rather than a number of pixels, because there are now two spaces a card
+     * can be measured in and they differ by a factor of ten thousand: two pixels is a visible
+     * lean on a screen and two units on the table is nothing at all, so a fixed step would
+     * make every pile on the block look like a single card.
+     */
+    public static final double STEP = 0.035;
 
     /** Where the stagger stops, so a forty-card pile does not walk off the table. */
     public static final int MAX_DEPTH = 5;
@@ -85,9 +93,13 @@ public final class TableStacking {
      *
      * <p>Up and left, because that is the direction a stack leans when it is lit from the top
      * left - the same direction the shadows fall.
+     *
+     * <p>Measured against the card, so the same call answers for a board drawn on a window and
+     * one drawn on a table two blocks across.
      */
-    public static int offsetFor(int depth) {
-        return -Math.min(Math.max(0, depth), MAX_DEPTH) * STEP;
+    public static int offsetFor(int depth, int cardWidth) {
+        return -(int) Math.round(
+                Math.min(Math.max(0, depth), MAX_DEPTH) * STEP * Math.max(0, cardWidth));
     }
 
     /**

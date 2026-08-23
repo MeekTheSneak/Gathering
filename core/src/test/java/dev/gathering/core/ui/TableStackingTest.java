@@ -23,6 +23,9 @@ import org.junit.jupiter.api.Test;
  */
 class TableStackingTest {
 
+    /** A card's width in whatever the caller is measuring in; pixels, for these. */
+    private static final int CARD = 60;
+
     private static final TablePosition SPOT = TablePosition.of(4000, 3000);
 
     @Nested
@@ -88,20 +91,20 @@ class TableStackingTest {
         @Test
         @DisplayName("the bottom card of a pile is drawn where it actually is")
         void theBottomCardDoesNotMove() {
-            assertThat(TableStacking.offsetFor(0)).isZero();
+            assertThat(TableStacking.offsetFor(0, CARD)).isZero();
         }
 
         @Test
         @DisplayName("each card above leans further, so the edges of the ones below show")
         void eachCardLeansFurther() {
-            assertThat(TableStacking.offsetFor(1)).isLessThan(TableStacking.offsetFor(0));
-            assertThat(TableStacking.offsetFor(2)).isLessThan(TableStacking.offsetFor(1));
+            assertThat(TableStacking.offsetFor(1, CARD)).isLessThan(TableStacking.offsetFor(0, CARD));
+            assertThat(TableStacking.offsetFor(2, CARD)).isLessThan(TableStacking.offsetFor(1, CARD));
         }
 
         @Test
         @DisplayName("a very tall pile stops leaning rather than walking off the table")
         void theStaggerRunsOut() {
-            assertThat(TableStacking.offsetFor(40)).isEqualTo(TableStacking.offsetFor(TableStacking.MAX_DEPTH));
+            assertThat(TableStacking.offsetFor(40, CARD)).isEqualTo(TableStacking.offsetFor(TableStacking.MAX_DEPTH, CARD));
         }
 
         @Test
@@ -149,9 +152,27 @@ class TableStackingTest {
         assertThat(TableStacking.depths(pile).get(count - 1)).isEqualTo(count - 1);
     }
 
+    @Property(tries = 3000)
+    void theStaggerIsTheSameShareOfTheCardWhateverTheCardIsMeasuredIn(
+            @ForAll @IntRange(min = 1, max = 5) int depth) {
+        // The two views measure a card in units that differ by a factor of thousands, and the
+        // lean has to read the same in both. A fixed step passes every other test in this
+        // class and makes every pile on the table in the world look like one card.
+        int onScreen = 60;
+        int onTheTable = 490;
+
+        double screenShare = TableStacking.offsetFor(depth, onScreen) / (double) onScreen;
+        double tableShare = TableStacking.offsetFor(depth, onTheTable) / (double) onTheTable;
+
+        assertThat(tableShare).isCloseTo(screenShare, org.assertj.core.data.Offset.offset(0.01));
+        assertThat(TableStacking.offsetFor(depth, onTheTable))
+                .describedAs("a lean you could actually see on the table")
+                .isLessThan(-1);
+    }
+
     @Property(tries = 2000)
     void thestaggerNeverExceedsItsBound(@ForAll @IntRange(min = -5, max = 500) int depth) {
-        assertThat(Math.abs(TableStacking.offsetFor(depth)))
-                .isLessThanOrEqualTo(TableStacking.MAX_DEPTH * TableStacking.STEP);
+        assertThat(Math.abs(TableStacking.offsetFor(depth, CARD)))
+                .isLessThanOrEqualTo((int) Math.ceil(TableStacking.MAX_DEPTH * TableStacking.STEP * CARD));
     }
 }

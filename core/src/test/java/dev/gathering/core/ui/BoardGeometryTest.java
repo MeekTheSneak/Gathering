@@ -48,7 +48,7 @@ class BoardGeometryTest {
             SeatId seat = new SeatId(seatIndex);
             TablePosition position = TablePosition.of(across, down);
 
-            Rect drawn = geometry.screenRect(seat, position);
+            Rect drawn = geometry.rectOf(seat, position);
             TablePosition back = geometry.positionOn(seat, drawn.x(), drawn.y());
 
             // The tolerance has to come from how many table units a pixel is worth at this
@@ -95,10 +95,10 @@ class BoardGeometryTest {
             SeatId seat = new SeatId(0);
             TablePosition position = TablePosition.of(4000, 6000);
 
-            Rect cardBefore = geometry.screenRect(seat, position);
+            Rect cardBefore = geometry.rectOf(seat, position);
             Rect matBefore = geometry.matRect(seat);
             geometry.pan(pixelsX, pixelsY);
-            Rect cardAfter = geometry.screenRect(seat, position);
+            Rect cardAfter = geometry.rectOf(seat, position);
             Rect matAfter = geometry.matRect(seat);
 
             assertThat(cardAfter.x() - matAfter.x()).isBetween(

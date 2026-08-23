@@ -21,7 +21,7 @@ import java.util.List;
  * <p>Pure: no Minecraft in here, which is what lets the round trip between a card's position
  * and its rectangle be tested directly rather than looked at.
  */
-public final class BoardGeometry {
+public final class BoardGeometry implements BoardPlacement {
 
     private TableSurface surface;
     private TableCamera camera;
@@ -47,6 +47,7 @@ public final class BoardGeometry {
         this.height = Math.max(1, newHeight);
     }
 
+    @Override
     public TableSurface surface() {
         return surface;
     }
@@ -70,7 +71,8 @@ public final class BoardGeometry {
     // ---------------------------------------------------------- card to screen
 
     /** Where a card sitting at this position on this seat's mat is drawn. */
-    public Rect screenRect(SeatId seat, TablePosition position) {
+    @Override
+    public Rect rectOf(SeatId seat, TablePosition position) {
         double surfaceX = surface.surfaceX(seat.index(), position.x());
         double surfaceY = surface.surfaceY(seat.index(), position.y());
         return new Rect(
@@ -90,10 +92,12 @@ public final class BoardGeometry {
      * <p>The rule itself lives on {@link TableSurface}, because the table in the world draws
      * this same board and two answers to how big a card is would be two different boards.
      */
+    @Override
     public int cardWidth(SeatId seat) {
         return Math.max(1, (int) Math.round(surface.cardWidthOn(seat.index()) * camera.scale()));
     }
 
+    @Override
     public int cardHeight(SeatId seat) {
         return Math.max(1, (int) Math.round(surface.cardHeightOn(seat.index()) * camera.scale()));
     }
@@ -101,6 +105,7 @@ public final class BoardGeometry {
     // ---------------------------------------------------------- screen to card
 
     /** The position a card's corner would have if dropped here on this seat's mat. */
+    @Override
     public TablePosition positionOn(SeatId seat, double screenX, double screenY) {
         return surface.positionOn(
                 seat.index(),
@@ -109,6 +114,7 @@ public final class BoardGeometry {
     }
 
     /** Whose mat is under this screen point, or null for the felt between them. */
+    @Override
     public SeatId seatAt(double screenX, double screenY) {
         int seat = surface.seatAt(
                 camera.toTableX(screenX, width), camera.toTableY(screenY, height));
@@ -116,11 +122,13 @@ public final class BoardGeometry {
     }
 
     /** A seat's mat, as a rectangle on screen. */
+    @Override
     public Rect matRect(SeatId seat) {
         return surfaceRect(surface.matOf(seat.index()));
     }
 
     /** One of a seat's piles, as a rectangle on screen. */
+    @Override
     public Rect pileRect(SeatId seat, int index, int count) {
         return surfaceRect(surface.pileSlot(seat.index(), index, count));
     }
