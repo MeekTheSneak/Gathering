@@ -571,6 +571,12 @@ public final class TableScreen extends Screen {
                     SeatColour.at(seat.seat().index(),
                             seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
 
+            // And the line marking off the row nearest its player, which is where lands go.
+            Rect divider = board().matDividerRect(seat.seat(), pileCount());
+            if (!divider.isEmpty()) {
+                graphics.fill(divider.x(), divider.y(), divider.right(), divider.bottom(),
+                        ZONE_BORDER);
+            }
         }
     }
 

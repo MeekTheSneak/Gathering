@@ -215,6 +215,35 @@ class TableSurfaceTest {
     }
 
     @Test
+    @DisplayName("a mat is marked off into a row for lands nearest its own player")
+    void aMatHasALandsRow() {
+        // A mat with nothing on it is otherwise a rectangle, and a rectangle does not tell a
+        // player where to put their first land - which is the question every game starts with.
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        int count = Zone.PILES.size();
+
+        for (int seat = 0; seat < 2; seat++) {
+            Rect mat = surface.matOf(seat);
+            Rect line = surface.matDivider(seat, count);
+            Rect column = surface.pileGroup(seat, 0, count - 1, count);
+
+            assertThat(line.isEmpty()).describedAs("seat %s has a line", seat).isFalse();
+
+            double nearEdge = surface.isTurned(seat) ? mat.y() : mat.bottom();
+            double farEdge = surface.isTurned(seat) ? mat.bottom() : mat.y();
+            assertThat(Math.abs(line.centreY() - nearEdge))
+                    .describedAs("seat %s marks the row off nearest itself", seat)
+                    .isLessThan(Math.abs(line.centreY() - farEdge));
+            assertThat(line.centreY())
+                    .describedAs("seat %s keeps the line on its own mat", seat)
+                    .isBetween((double) mat.y(), (double) mat.bottom());
+            assertThat(line.overlaps(column))
+                    .describedAs("seat %s does not draw the line through its own zones", seat)
+                    .isFalse();
+        }
+    }
+
+    @Test
     @DisplayName("the command zone stands apart at the far end of the column")
     void theCommandZoneIsSetApart() {
         // How the tables people already play on are marked out, and it says the right thing:

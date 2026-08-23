@@ -150,6 +150,16 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             if (board.seats().get(index).occupant().isPresent()) {
                 drawMat(poseStack, buffers, surface.matOf(index), span,
                         SeatColour.at(index, MAT_EDGE_ALPHA));
+                // The line marking off the row nearest its player, where lands go. On the mat
+                // rather than above it: it is a marking printed on the felt, not a thing
+                // sitting on top of the felt.
+                Rect divider = surface.matDivider(index, Zone.pilesFor(table.hasCommandZone()));
+                if (!divider.isEmpty()) {
+                    flat(buffers.getBuffer(RenderType.debugQuads()), poseStack.last().pose(),
+                            onSurface(divider.x(), span), onSurface(divider.y(), span),
+                            onSurface(divider.right(), span), onSurface(divider.bottom(), span),
+                            GROUP_EDGE_COLOUR);
+                }
             }
         }
         poseStack.popPose();

@@ -88,6 +88,11 @@ public final class SurfaceBoard implements BoardPlacement {
     }
 
     @Override
+    public Rect matDividerRect(SeatId seat, int count) {
+        return surface.matDivider(seat.index(), count);
+    }
+
+    @Override
     public int pileAt(SeatId seat, int count, double x, double y) {
         return surface.pileAt(seat.index(), count, x, y);
     }

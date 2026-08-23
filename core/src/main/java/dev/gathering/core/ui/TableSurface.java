@@ -94,6 +94,12 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      */
     private static final double PILE_GROUP_PAD = 0.8;
 
+    /** How deep the row nearest a player is, in card heights: one card and a little air. */
+    private static final double LANDS_ROW = 1.15;
+
+    /** And how heavy the line marking it is, as a share of a card's height. */
+    private static final double DIVIDER_THICKNESS = 0.012;
+
     /**
      * How wide a card is on a table with one mat on it, in surface units.
      *
@@ -401,6 +407,40 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      */
     private int breakAt(int seat, int count) {
         return isTurned(seat) ? count - 1 : 1;
+    }
+
+    /**
+     * The line across a mat that marks off the row nearest its own player.
+     *
+     * <p>Where the lands go, on every playmat ever printed. A mat with nothing on it is
+     * otherwise a rectangle, and a rectangle does not tell a player where to put their first
+     * land - which is a question every game starts with. The line is a marking, not a rule:
+     * nothing stops anybody putting anything either side of it.
+     *
+     * <p>It starts past the zone column rather than running under it, because a line through a
+     * graveyard reads as part of the graveyard.
+     *
+     * @param count how many zones the column holds, which is what sets its width
+     */
+    public Rect matDivider(int seat, int count) {
+        Rect mat = matOf(seat);
+        if (mat.isEmpty()) {
+            return Rect.NONE;
+        }
+        int band = (int) Math.round(cardHeightOn(seat) * LANDS_ROW);
+        int thickness = Math.max(1, (int) Math.round(cardHeightOn(seat) * DIVIDER_THICKNESS));
+        if (band * 2 + thickness > mat.height()) {
+            // A mat squeezed between three seats has no room for rows, and a line across the
+            // middle of one would be a line and not a marking.
+            return Rect.NONE;
+        }
+        Rect column = pileGroup(seat, 0, Math.max(0, count - 1), count);
+        int from = column.isEmpty() ? mat.x()
+                : (isTurned(seat) ? column.right() : mat.x());
+        int to = column.isEmpty() ? mat.right()
+                : (isTurned(seat) ? mat.right() : column.x());
+        int y = isTurned(seat) ? mat.y() + band : mat.bottom() - band - thickness;
+        return from >= to ? Rect.NONE : new Rect(from, y, to - from, thickness);
     }
 
     /**

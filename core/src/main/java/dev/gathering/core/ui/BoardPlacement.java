@@ -67,6 +67,9 @@ public interface BoardPlacement {
      */
     Rect pileGroupRect(SeatId seat, int fromIndex, int toIndex, int count);
 
+    /** The line across a mat marking off the row nearest its own player. */
+    Rect matDividerRect(SeatId seat, int count);
+
     /** Which of a seat's piles a point is on, or -1 - so a card can be dropped into one. */
     int pileAt(SeatId seat, int count, double x, double y);
 

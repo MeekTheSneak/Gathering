@@ -309,6 +309,11 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     @Override
+    public Rect matDividerRect(SeatId seat, int count) {
+        return surfaceRect(surface.matDivider(seat.index(), count));
+    }
+
+    @Override
     public int pileAt(SeatId seat, int count, double screenX, double screenY) {
         return surface.pileAt(seat.index(), count,
                 camera.toTableX(screenX, width), camera.toTableY(screenY, viewportDown()));
