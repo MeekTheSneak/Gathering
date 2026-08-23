@@ -277,12 +277,14 @@ public class TableBlock extends BaseEntityBlock {
                 .filter(seat -> seat.cell().equals(cell) && seat.side() == side).isPresent()) {
             TableSeats.leave(level, tableOrigin, player.getUUID());
             player.sendSystemMessage(Component.translatable("message.gathering.seat_left"));
+            tellTheTableWhoIsSittingAtIt(level, tableOrigin);
             return ItemInteractionResult.SUCCESS;
         }
 
         if (side != null && TableSeats.isSeat(cluster, cell, side)) {
             TableSeats.Claim claim = TableSeats.take(level, tableOrigin, cell, side, player.getUUID());
             player.sendSystemMessage(Component.translatable(claim.messageKey()));
+            tellTheTableWhoIsSittingAtIt(level, tableOrigin);
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -398,6 +400,25 @@ public class TableBlock extends BaseEntityBlock {
             }
         }
         commitDeck(level, tableOrigin, player, stack);
+    }
+
+    /**
+     * Sends the board out again after somebody has sat down or stood up.
+     *
+     * <p>What a client is shown depends on whether it has a seat: a seated player gets their
+     * own hand and their own library's shape, and everybody else gets the public board. So the
+     * moment somebody takes or gives up a seat, the board they are holding is the wrong one.
+     *
+     * <p>It corrected itself eventually - the ambient beat sends the public board to the room
+     * every so often - which is the worst of both: a player who sat down mid-game watched
+     * their own hand refuse to appear for a second or two, and a player who stood up went on
+     * looking at cards they were no longer entitled to until the tick came round.
+     */
+    private static void tellTheTableWhoIsSittingAtIt(Level level, BlockPos tableOrigin) {
+        if (level instanceof net.minecraft.server.level.ServerLevel server
+                && TableSessions.hasSession(level, tableOrigin)) {
+            dev.gathering.server.TableBroadcast.sendToTable(server, tableOrigin);
+        }
     }
 
     /**

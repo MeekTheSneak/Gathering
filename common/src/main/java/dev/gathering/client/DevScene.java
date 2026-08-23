@@ -19,6 +19,7 @@ import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
+import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Rect;
@@ -415,6 +416,26 @@ public final class DevScene {
             case 29 -> {
                 theBoardIsStillFramed(client, "back at the automatic scale");
                 shoot(client, "22-back-to-normal");
+                // Last, because everything above needs a seat: stand up mid-game and look at
+                // the same table as somebody who is only watching it.
+                standUp(client);
+                // Half a second, deliberately short: the table pushes the public board out on
+                // its own every two seconds, so a longer wait here would cover for a seat
+                // change that told nobody and this would pass either way.
+                advance(SETTLE / 4);
+            }
+            case 30 -> {
+                if (ClientTableState.seatAt(table).isPresent()) {
+                    fail("standing up left the client still holding a seat");
+                }
+                shoot(client, "23-watching-from-outside");
+                pokeEverything(client);
+                advance(SETTLE);
+            }
+            case 31 -> {
+                expectScreen(client, "a spectator using every gesture on the board",
+                        TableScreen.class);
+                shoot(client, "24-still-watching");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -768,6 +789,93 @@ public final class DevScene {
         java.lang.reflect.Field found = target.getClass().getDeclaredField(field);
         found.setAccessible(true);
         found.setDouble(target, value);
+    }
+
+    /**
+     * Gives up the seat, the way a player does: right-click your own edge of the table.
+     *
+     * <p>Through the block rather than through the seat register, because what is being
+     * checked is what a player can do to themselves - and because the board they are left
+     * holding afterwards is the whole point.
+     */
+    private static void standUp(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (player == null) {
+                return;
+            }
+            // The north edge, which is the one this player sat at.
+            BlockHitResult hit = new BlockHitResult(
+                    Vec3.atCenterOf(where), Direction.NORTH, where, false);
+            player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND, hit);
+            System.out.println("[devscene] stood up: seated now "
+                    + TableSeats.seatOf(level, where, player.getUUID()));
+        });
+    }
+
+    /**
+     * Every gesture the board has, aimed at somebody who has no seat.
+     *
+     * <p>Each of them is written for a player with a seat and several insist on one. Whether
+     * the ones that insist can be reached without a seat is a question about control flow, and
+     * reasoning about control flow is how an unreachable path that turns out to be reachable
+     * stays in a codebase. So: click a card, right-click a card, click every zone, drag from
+     * the hand, and press every key that does something.
+     */
+    private static void pokeEverything(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board left to poke at");
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        int[] card = cardPoint(client);
+        for (int button : new int[] {0, 1}) {
+            board.mouseClicked(card[0], card[1], button);
+            board.mouseReleased(card[0], card[1], button);
+            board.mouseClicked(width / 2, height / 2, button);
+            board.mouseReleased(width / 2, height / 2, button);
+        }
+        // Somebody else's zones, because a spectator has none of their own - and the point is
+        // what happens when a person with no seat clicks a seated player's graveyard.
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (view != null) {
+            for (SeatView seat : view.seats()) {
+                for (int index = 0; index < Zone.pilesFor(true); index++) {
+                    Rect zone = board.board().pileRect(seat.seat(), index, Zone.pilesFor(true));
+                    if (zone.isEmpty()) {
+                        continue;
+                    }
+                    for (int button : new int[] {0, 1}) {
+                        board.mouseClicked(zone.centreX(), zone.centreY(), button);
+                        board.mouseReleased(zone.centreX(), zone.centreY(), button);
+                    }
+                }
+            }
+        }
+        Rect hand = TableScreenLayout.of(width, height).hand();
+        board.mouseClicked(hand.centreX(), hand.centreY(), 0);
+        board.mouseDragged(card[0], card[1], 0, 0, 0);
+        board.mouseReleased(card[0], card[1], 0);
+        for (int key : new int[] {
+                org.lwjgl.glfw.GLFW.GLFW_KEY_7, org.lwjgl.glfw.GLFW.GLFW_KEY_F,
+                org.lwjgl.glfw.GLFW.GLFW_KEY_Q, org.lwjgl.glfw.GLFW.GLFW_KEY_E,
+                org.lwjgl.glfw.GLFW.GLFW_KEY_R, org.lwjgl.glfw.GLFW.GLFW_KEY_U,
+                org.lwjgl.glfw.GLFW.GLFW_KEY_G, org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE,
+                org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL,
+                org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS, org.lwjgl.glfw.GLFW.GLFW_KEY_HOME,
+                org.lwjgl.glfw.GLFW.GLFW_KEY_L, org.lwjgl.glfw.GLFW.GLFW_KEY_L}) {
+            if (client.screen != null) {
+                client.screen.keyPressed(key, 0, 0);
+            }
+        }
+        System.out.println("[devscene] poked every gesture with no seat");
     }
 
     /**

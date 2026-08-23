@@ -1736,8 +1736,11 @@ public final class TableScreen extends Screen {
             return true;
         }
         if (button == 0) {
+            // Somebody with no seat cannot move anything, so a drag that starts here would be
+            // a card following their cursor and snapping back when they let go. They get the
+            // click, which opens the pile - watching a graveyard is a thing a spectator does.
             CardInstanceId top = liftableFrom(board, owner, pile);
-            if (top != null) {
+            if (top != null && mySeat().isPresent()) {
                 held = grab(top, owner, false, pile, pileSlotOf(owner, pile), x, y);
                 return true;
             }
