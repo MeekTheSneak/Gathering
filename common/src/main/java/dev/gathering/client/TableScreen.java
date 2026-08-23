@@ -817,42 +817,82 @@ public final class TableScreen extends Screen {
      * this carries the rest, on the key every game uses for exactly this.
      */
     private void renderKeys(GuiGraphics graphics) {
-        Rect area = new Rect(this.width / 8, this.height / 12,
-                Math.min(this.width - this.width / 4, 420),
-                layout().hand().y() - this.height / 12 - 4);
-        if (area.width() < 80 || area.height() < 60) {
+        int line = this.font.lineHeight + 1;
+        int margin = Math.max(4, this.width / 24);
+        int top = layout().status().bottom() + 4;
+        int available = Math.max(40, layout().hand().y() - top - 6);
+        if (available < line * 4) {
             return;
         }
+
+        // Columns sized to the text rather than by dividing the panel up. Dividing it made
+        // every line that did not fit shrink to suit, so the list came out in three different
+        // sizes - which is exactly the sort of thing that reads as unfinished however correct
+        // it is. Measured, the panel is as wide as it needs to be and nothing shrinks.
+        int perColumn = Math.max(1, (available - line - 6) / line);
+        int columns = Math.max(1, (linesOfKeyHelp() + perColumn - 1) / perColumn);
+        int columnWidth = widestKeyLine() + 14;
+        int wanted = Math.min(this.width - margin * 2, columns * columnWidth + 10);
+        columnWidth = Math.max(40, (wanted - 10) / columns);
+
+        Rect area = new Rect((this.width - wanted) / 2, top - 4, wanted, available + 4);
         GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
 
-        int y = area.y() + 5;
-        int line = this.font.lineHeight + 1;
-        int inner = area.width() - 10;
+        top = area.y() + 4;
+        int bottom = area.bottom() - line - 4;
+
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.table.keys_title"),
-                area.x() + 5, y, inner, ACCENT);
-        y += line + 2;
+                area.x() + 5, top, area.width() - 10, ACCENT);
+        top += line + 2;
 
+        int column = 0;
+        int y = top;
         for (String[] section : KEY_HELP) {
-            if (y + line > area.bottom() - line - 4) {
-                break;
+            // A heading with nothing under it is worse than a heading in the next column.
+            if (y + line * 2 > bottom && column + 1 < columns) {
+                column++;
+                y = top;
             }
+            int x = area.x() + 5 + column * columnWidth;
             GuiText.draw(graphics, this.font, Component.translatable(section[0]),
-                    area.x() + 5, y, inner, ACCENT);
+                    x, y, columnWidth - 6, ACCENT);
             y += line;
             for (int index = 1; index < section.length; index++) {
-                if (y + line > area.bottom() - line - 4) {
-                    break;
+                if (y + line > bottom && column + 1 < columns) {
+                    column++;
+                    y = top;
+                    x = area.x() + 5 + column * columnWidth;
                 }
                 GuiText.draw(graphics, this.font, Component.translatable(section[index]),
-                        area.x() + 11, y, inner - 6, LABEL);
+                        x + 6, y, columnWidth - 12, LABEL);
                 y += line;
             }
             y += 2;
         }
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.table.keys_close"),
-                area.x() + 5, area.bottom() - line - 3, inner, DIM);
+                area.x() + 5, area.bottom() - line - 2, area.width() - 10, DIM);
+    }
+
+    /** How many lines the whole key list wants, headings included. */
+    private static int linesOfKeyHelp() {
+        int lines = 0;
+        for (String[] section : KEY_HELP) {
+            lines += section.length;
+        }
+        return lines;
+    }
+
+    /** The longest line in the key list, so a column can be built to hold it whole. */
+    private int widestKeyLine() {
+        int widest = 0;
+        for (String[] section : KEY_HELP) {
+            for (String key : section) {
+                widest = Math.max(widest, this.font.width(Component.translatable(key)));
+            }
+        }
+        return widest;
     }
 
     /**

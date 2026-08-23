@@ -38,6 +38,14 @@ public final class BoardGeometry implements BoardPlacement {
      */
     private int coveredAtTheBottom;
 
+    /**
+     * How far the opening view leans off your own board towards the middle of the table.
+     *
+     * <p>Enough to keep the near edge of the board opposite in view, not enough to push your
+     * own zones off the bottom. A quarter of the way is the most that holds both.
+     */
+    private static final double LEAN_TOWARDS_THE_TABLE = 0.25;
+
     public BoardGeometry(List<SeatAnchor> anchors, int width, int height) {
         this(anchors, width, height, 0);
     }
@@ -101,10 +109,29 @@ public final class BoardGeometry implements BoardPlacement {
         if (coveredAtTheBottom > 0) {
             camera = camera.pannedBy(0, -coveredAtTheBottom / 2.0);
         }
+
+        // Leaned towards the middle of the table, so the board opposite comes into view as
+        // soon as the window has room for it. Bounded by the room there actually is: a mat
+        // three hundred pixels deep in a strip three hundred and fifty deep has fifty pixels
+        // of slack, and leaning further than that pushes the near edge of your own board -
+        // your zones, the part you use most - off the top of the screen to show somebody
+        // else's. Both boards at once and a readable card are not both possible on a small
+        // window, and of the two it is your own board that has to win.
+        double slack = Math.max(0, visible() - mat.height() * camera.scale()) / 2.0;
+        double wanted = (surface.height() / 2.0 - mat.centreY()) * LEAN_TOWARDS_THE_TABLE;
+        double lean = Math.max(-slack, Math.min(slack, wanted * camera.scale())) / camera.scale();
+        camera = new TableCamera(
+                camera.centreX(), camera.centreY() + lean,
+                camera.scale(), surface.width(), surface.height());
+    }
+
+    /** How much of the window is not the hand, which is what the board is framed into. */
+    private int visible() {
+        return Math.max(1, height - coveredAtTheBottom);
     }
 
     public void showEverything() {
-        int visible = Math.max(1, height - coveredAtTheBottom);
+        int visible = visible();
         camera = TableCamera.showingAll(surface.width(), surface.height(), width, visible);
         // Fitted to the part of the screen that is not the hand, then nudged up so it sits in
         // the middle of that part rather than the middle of the window.

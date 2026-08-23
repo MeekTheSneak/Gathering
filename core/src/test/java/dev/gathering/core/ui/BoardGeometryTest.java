@@ -269,6 +269,54 @@ class BoardGeometryTest {
         }
 
         @Test
+        @DisplayName("the opening view leans towards the table without pushing your board off it")
+        void theViewLeansTowardsTheOpponent() {
+            // Both boards at once and a readable card are not both possible on a small window:
+            // two mats and the gap are the whole table, and fitting that into the strip above
+            // the hand puts a card back at twenty-odd pixels. So the opening view keeps your
+            // own board whole and leans towards the middle, which brings the other player in
+            // as soon as the window has any slack - and Home still shows everything.
+            // Two windows: the smallest one, where the board barely fits and there is nothing
+            // to lean with, and a tall one where there is real room to give away. Only the
+            // second can tell a lean from an even split, and without it this passed happily
+            // with the lean deleted.
+            for (int windowHeight : new int[] {HEIGHT, 900}) {
+                int hand = 130;
+                int visible = windowHeight - hand;
+                BoardGeometry geometry = new BoardGeometry(
+                        seatsOf(new TableCell(0, 0)), WIDTH, windowHeight, hand);
+
+                for (int seat = 0; seat < 2; seat++) {
+                    geometry.focusOn(new SeatId(seat));
+                    Rect mine = geometry.matRect(new SeatId(seat));
+
+                    assertThat(mine.y())
+                            .describedAs("seat %s's own board is whole at %s", seat, windowHeight)
+                            .isGreaterThanOrEqualTo(0);
+                    assertThat(mine.bottom()).isLessThanOrEqualTo(visible);
+
+                    // Whatever room is spare goes to the side the opponent is on rather than
+                    // being split evenly - which is what leaning towards the table means once
+                    // your own board has to stay whole.
+                    int above = mine.y();
+                    int below = visible - mine.bottom();
+                    boolean ownEdgeIsTheTop = geometry.surface().isTurned(seat);
+                    int mySide = ownEdgeIsTheTop ? above : below;
+                    int theirSide = ownEdgeIsTheTop ? below : above;
+
+                    assertThat(mySide)
+                            .describedAs("seat %s gives the spare room away at %s", seat, windowHeight)
+                            .isLessThanOrEqualTo(theirSide);
+                    if (windowHeight > HEIGHT) {
+                        assertThat(theirSide - mySide)
+                                .describedAs("and does it by a visible amount when there is room")
+                                .isGreaterThan(20);
+                    }
+                }
+            }
+        }
+
+        @Test
         @DisplayName("a wider table is fitted by its own proportions, not squeezed into a square")
         void aRectangularSurfaceFillsTheWindow() {
             // Two tables pushed together are twice as wide as they are deep. Fitting that as a

@@ -37,12 +37,21 @@ public final class ContextMenu {
     private final int width;
     private final int height;
 
-    private ContextMenu(List<Entry> entries, int x, int y, int width, int height) {
+    /** How many entries fit in one column before the menu has to start another. */
+    private final int perColumn;
+
+    private final int columnWidth;
+
+    private ContextMenu(
+            List<Entry> entries, int x, int y, int width, int height,
+            int perColumn, int columnWidth) {
         this.entries = List.copyOf(entries);
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
+        this.perColumn = Math.max(1, perColumn);
+        this.columnWidth = Math.max(1, columnWidth);
     }
 
     /**
@@ -53,11 +62,26 @@ public final class ContextMenu {
      */
     public static ContextMenu at(
             Font font, int pointX, int pointY, int screenWidth, int screenHeight, List<Entry> entries) {
-        int width = MIN_WIDTH;
+        int columnWidth = MIN_WIDTH;
         for (Entry entry : entries) {
-            width = Math.max(width, font.width(entry.label()) + PADDING * 2);
+            columnWidth = Math.max(columnWidth, font.width(entry.label()) + PADDING * 2);
         }
-        int height = entries.size() * ROW_HEIGHT + PADDING * 2;
+
+        // A menu taller than the screen has nowhere to go: flipping it up runs off the top
+        // instead of the bottom, and clamping it hides the rows that fall off the end. A card
+        // has a lot of things you can do to it, and at a GUI scale of two on a small window
+        // the list is taller than the window. So it wraps into columns, which is what a long
+        // menu does everywhere else and never costs an entry.
+        int room = Math.max(1, screenHeight - SCREEN_EDGE * 2 - PADDING * 2);
+        int perColumn = Math.max(1, room / ROW_HEIGHT);
+        int columns = Math.max(1, (entries.size() + perColumn - 1) / perColumn);
+        if (columns > 1) {
+            // Spread evenly rather than filling the first column and leaving a stub.
+            perColumn = (entries.size() + columns - 1) / columns;
+        }
+
+        int width = columnWidth * columns;
+        int height = Math.min(entries.size(), perColumn) * ROW_HEIGHT + PADDING * 2;
 
         int left = pointX;
         if (left + width > screenWidth - SCREEN_EDGE) {
@@ -68,25 +92,47 @@ public final class ContextMenu {
             top = pointY - height;
         }
         return new ContextMenu(entries,
-                Math.max(SCREEN_EDGE, left), Math.max(SCREEN_EDGE, top), width, height);
+                Math.max(SCREEN_EDGE, Math.min(left, screenWidth - SCREEN_EDGE - width)),
+                Math.max(SCREEN_EDGE, Math.min(top, screenHeight - SCREEN_EDGE - height)),
+                width, height, perColumn, columnWidth);
     }
 
     public void render(GuiGraphics graphics, Font font, int mouseX, int mouseY) {
         GatheringSprites.panel(graphics, x, y, width, height);
 
-        int row = y + PADDING;
-        for (Entry entry : entries) {
-            boolean hovered = entry.enabled()
-                    && mouseX >= x && mouseX < x + width && mouseY >= row && mouseY < row + ROW_HEIGHT;
+        for (int index = 0; index < entries.size(); index++) {
+            Entry entry = entries.get(index);
+            int left = x + (index / perColumn) * columnWidth;
+            int row = y + PADDING + (index % perColumn) * ROW_HEIGHT;
+            boolean hovered = entry.enabled() && index == indexAt(mouseX, mouseY);
             if (hovered) {
-                GatheringSprites.highlight(graphics, x + 2, row, width - 4, ROW_HEIGHT);
+                GatheringSprites.highlight(graphics, left + 2, row, columnWidth - 4, ROW_HEIGHT);
             }
             // The row under the cursor brightens as well as lighting up, so a menu read at a
             // glance still says which line a click would take.
             int colour = entry.enabled() ? (hovered ? HOVERED : TEXT) : DISABLED;
-            GuiText.draw(graphics, font, entry.label(), x + PADDING, row + 2, width - PADDING * 2, colour);
-            row += ROW_HEIGHT;
+            GuiText.draw(graphics, font, entry.label(),
+                    left + PADDING, row + 2, columnWidth - PADDING * 2, colour);
         }
+    }
+
+    /**
+     * Which entry a point is on, or -1.
+     *
+     * <p>One answer shared by the drawing and the clicking, so a row cannot light up under the
+     * cursor and then run a different entry when it is clicked.
+     */
+    private int indexAt(int pointX, int pointY) {
+        if (pointX < x || pointX >= x + width || pointY < y + PADDING) {
+            return -1;
+        }
+        int column = (pointX - x) / columnWidth;
+        int row = (pointY - y - PADDING) / ROW_HEIGHT;
+        if (row < 0 || row >= perColumn) {
+            return -1;
+        }
+        int index = column * perColumn + row;
+        return index < entries.size() ? index : -1;
     }
 
     /**
@@ -100,8 +146,8 @@ public final class ContextMenu {
         if (mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height) {
             return false;
         }
-        int index = (mouseY - y - PADDING) / ROW_HEIGHT;
-        if (index >= 0 && index < entries.size()) {
+        int index = indexAt(mouseX, mouseY);
+        if (index >= 0) {
             Entry entry = entries.get(index);
             if (entry.enabled()) {
                 // The same click a button makes. Without it there is no way to tell a menu
