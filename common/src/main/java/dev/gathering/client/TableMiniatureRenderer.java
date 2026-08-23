@@ -248,16 +248,44 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             drawSlot(poseStack, buffers, x, z, width, depth, aimed);
 
             ZoneView contents = seat.zone(Zone.PILES.get(index));
-            if (contents == null || contents.count() == 0) {
+            if (contents == null || showing(contents) == 0) {
                 continue;
             }
-            CardView top = contents.cards().isEmpty() ? null : contents.cards().get(0);
+            CardView top = topOf(contents);
             ResourceLocation texture = top == null || top.isFaceDown()
                     ? CardFaceRenderer.CARD_BACK
                     : textureFor(top);
             draw(poseStack, buffers, packedLight, texture, x, z, width, depth,
                     surface.facingDegrees(seatIndex), false, SLOT_LIFT);
         }
+    }
+
+    /**
+     * The card showing on top of a pile: the first one not currently following somebody's
+     * cursor, or nothing when the client was sent no cards for this pile at all.
+     *
+     * <p>Nothing is not the same as empty. A library's cards are sent to nobody, so an empty
+     * list there means a face-down stack - which is why the caller counts separately.
+     */
+    private static CardView topOf(ZoneView contents) {
+        for (CardView card : contents.cards()) {
+            if (!(card instanceof CardView.Visible visible)
+                    || !ClientTableHighlight.isInTheAir(visible.id())) {
+                return card;
+            }
+        }
+        return null;
+    }
+
+    /** How many cards a pile has that are not in the air, which is what a viewer counts. */
+    private static int showing(ZoneView contents) {
+        for (CardView card : contents.cards()) {
+            if (card instanceof CardView.Visible visible
+                    && ClientTableHighlight.isInTheAir(visible.id())) {
+                return contents.count() - 1;
+            }
+        }
+        return contents.count();
     }
 
     /**
@@ -337,6 +365,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         int drawn = 0;
         for (int index = 0; index < cards.size() && drawn < budget; index++) {
             CardView card = cards.get(index);
+            if (card instanceof CardView.Visible inHand
+                    && ClientTableHighlight.isInTheAir(inHand.id())) {
+                // Following somebody's cursor. It has not moved yet - the server has not been
+                // told - so the board still lists it here, and drawing it would leave a copy
+                // lying on the felt while its twin follows the cursor.
+                continue;
+            }
             // A card with no position of its own is one the game has not put down yet; it is
             // still somebody's permanent, so it goes at the corner of the mat rather than
             // nowhere.

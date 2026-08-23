@@ -233,6 +233,7 @@
   "screen.gathering.table.key_turn": "Q and E - untap and tap",
   "screen.gathering.table.key_untap": "U - untap everything",
   "screen.gathering.table.key_view": "V - play on the table itself",
+  "screen.gathering.table.key_zones": "Drag a zone - take the top card off it",
   "screen.gathering.table.key_zoom": "Wheel - zoom",
   "screen.gathering.table.keys_camera": "Camera",
   "screen.gathering.table.keys_cards": "Cards",

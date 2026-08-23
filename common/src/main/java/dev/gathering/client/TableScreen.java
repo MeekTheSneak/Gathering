@@ -132,6 +132,7 @@ public final class TableScreen extends Screen {
             new String[] {
                 "screen.gathering.table.keys_cards",
                 "screen.gathering.table.key_pick",
+                "screen.gathering.table.key_zones",
                 "screen.gathering.table.key_tap",
                 "screen.gathering.table.key_menu",
                 "screen.gathering.table.key_flip",
@@ -268,11 +269,16 @@ public final class TableScreen extends Screen {
      * right.
      */
     private record Held(
-            CardInstanceId card, SeatId from, boolean fromHand,
+            CardInstanceId card, SeatId from, boolean fromHand, Zone fromPile,
             int grabX, int grabY, int pressX, int pressY) {
         // grabX/grabY are in the space the *board* is measured in - pixels on the seated
         // screen, surface units on the block. pressX/pressY stay in pixels, because how far
         // the hand has moved before a press becomes a drag is a question about the mouse.
+        //
+        // fromPile is the zone the card was lifted off, or null. A press on a pile cannot
+        // know yet whether it is a click or the start of a drag, so it becomes a drag either
+        // way and the release decides: moved, and the card goes where it was dropped; not
+        // moved, and it was a click on the pile after all.
 
         boolean hasMoved(int mouseX, int mouseY) {
             return Math.abs(mouseX - pressX) >= DRAG_THRESHOLD
@@ -493,7 +499,8 @@ public final class TableScreen extends Screen {
             // The block draws its own board. What it needs from here is what the cursor is on,
             // because the world renderer has no idea where anybody's mouse is.
             hovered = frontMostAt(everythingOnTheTable(board), mouseX, mouseY);
-            ClientTableHighlight.set(idOf(hovered), List.copyOf(selected));
+            ClientTableHighlight.set(idOf(hovered), List.copyOf(selected),
+                    held == null ? null : held.card());
         } else {
             renderMats(graphics, board);
             renderPiles(graphics, board, mouseX, mouseY);
@@ -639,6 +646,10 @@ public final class TableScreen extends Screen {
     private void drawPile(GuiGraphics graphics, SeatView view, Zone zone, Rect pile, boolean hovered) {
         ZoneView contents = view.zone(zone);
         int count = contents == null ? 0 : contents.count();
+        if (held != null && held.fromPile() == zone && held.from().equals(view.seat())) {
+            // The one in the air is out of the pile as far as anybody looking is concerned.
+            count = Math.max(0, count - 1);
+        }
 
         // The slot itself, and then whatever is sitting in it. No frame round the card: an
         // empty zone is a recess and a full one is the card, the same as everywhere else.
@@ -671,11 +682,24 @@ public final class TableScreen extends Screen {
         }
     }
 
-    private static Optional<CardView> topOf(ZoneView zone) {
-        if (zone == null || zone.cards().isEmpty()) {
+    /**
+     * The card showing on top of a pile, which is not the one currently in the air.
+     *
+     * <p>A card lifted off a graveyard has not moved yet - the server has not been told, and
+     * will not be until it lands - so the pile still lists it. Drawing it anyway leaves a copy
+     * of the card sitting in the zone while its twin follows the cursor, which reads as the
+     * drag having failed.
+     */
+    private Optional<CardView> topOf(ZoneView zone) {
+        if (zone == null) {
             return Optional.empty();
         }
-        return Optional.of(zone.cards().get(0));
+        for (CardView card : zone.cards()) {
+            if (!isHeld(card)) {
+                return Optional.of(card);
+            }
+        }
+        return Optional.empty();
     }
 
     /**
@@ -1184,7 +1208,7 @@ public final class TableScreen extends Screen {
 
         SeatId pileSeat = pileSeatAt(board, x, y);
         if (pileSeat != null) {
-            return clickPile(pileSeat, pileZoneAt(board, x, y), x, y, button);
+            return pressPile(board, pileSeat, pileZoneAt(board, x, y), x, y, button);
         }
 
         if (layout().isOnFelt(x, y)) {
@@ -1241,13 +1265,19 @@ public final class TableScreen extends Screen {
      * so it takes the cursor by the middle, which is where you would expect to be holding it.
      */
     private Held grab(CardInstanceId card, SeatId seat, boolean fromHand, Rect where, int x, int y) {
+        return grab(card, seat, fromHand, null, where, x, y);
+    }
+
+    private Held grab(
+            CardInstanceId card, SeatId seat, boolean fromHand, Zone fromPile,
+            Rect where, int x, int y) {
         double[] at = fromHand ? null : pointer(x, y);
         if (at == null) {
             // Straight from the hand, or from somewhere the table cannot answer for: the card
             // takes the cursor by the middle, which is where you would expect to be holding it.
-            return new Held(card, seat, fromHand, 0, 0, x, y);
+            return new Held(card, seat, fromHand, fromPile, 0, 0, x, y);
         }
-        return new Held(card, seat, fromHand,
+        return new Held(card, seat, fromHand, fromPile,
                 (int) Math.round(at[0] - where.centreX()),
                 (int) Math.round(at[1] - where.centreY()), x, y);
     }
@@ -1294,9 +1324,16 @@ public final class TableScreen extends Screen {
             return true;
         }
 
+        // A press on a pile that never moved was a click on the pile after all.
+        if (dropped.fromPile() != null && !dropped.hasMoved(x, y)) {
+            GatheringButtons.clickSound();
+            clickPile(dropped.from(), dropped.fromPile(), x, y);
+            return true;
+        }
+
         // A press that never moved is a click, and a click on a card already on the table taps
         // it - the most common thing anyone does, and the one gesture worth the plain left click.
-        if (!dropped.fromHand() && !dropped.hasMoved(x, y)) {
+        if (!dropped.fromHand() && dropped.fromPile() == null && !dropped.hasMoved(x, y)) {
             findCard(view().orElse(null), dropped.card())
                     .ifPresent(card -> send(new GameEvent.CardTapSet(me, dropped.card(), !card.tapped())));
             return true;
@@ -1332,7 +1369,7 @@ public final class TableScreen extends Screen {
 
         TablePosition where = board().positionOn(
                 landing, at[0] - dropped.grabX(), at[1] - dropped.grabY());
-        if (!dropped.fromHand() && selected.contains(dropped.card())) {
+        if (!dropped.fromHand() && dropped.fromPile() == null && selected.contains(dropped.card())) {
             dropGroup(dropped, landing, where, me);
         } else {
             send(new GameEvent.CardMoved(
@@ -1672,32 +1709,81 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * Clicking one of your own piles.
+     * Pressing one of the piles.
      *
-     * <p>Left-click does the obvious thing and right-click offers the rest, which is the same
-     * bargain as everywhere else on this screen. The obvious thing for a library is to draw a
-     * card, because that is what a library is for; for every other pile it is to open it,
-     * because a pile you cannot look through is a number.
+     * <p>Left does the obvious thing and right offers the rest, which is the same bargain as
+     * everywhere else on this screen. The obvious thing for a library is to draw a card,
+     * because that is what a library is for; for every other pile it is to open it, because a
+     * pile you cannot look through is a number.
+     *
+     * <p>But a left press might also be the start of a drag. A zone that only ever swallowed
+     * cards was half a zone: putting something in the graveyard was a drag and getting it back
+     * out was a screen and two clicks, for a thing that on a real table is picking it up. So a
+     * press on a pile whose top card this player can see picks that card up, and the release
+     * decides which gesture it was.
      */
-    private boolean clickPile(SeatId owner, Zone pile, int x, int y, int button) {
+    private boolean pressPile(GameView board, SeatId owner, Zone pile, int x, int y, int button) {
         SeatId me = mySeat().orElse(null);
         if (me == null) {
             return true;
         }
-        GatheringButtons.clickSound();
         // Anybody may open anybody's graveyard - it is public - but the verbs that only make
         // sense on your own library are offered only there, because the mod refuses a search
         // of somebody else's anyway and a menu full of refusals is worse than a short one.
         if (button == 1 && owner.equals(me)) {
+            GatheringButtons.clickSound();
             openPileMenu(me, pile, x, y);
             return true;
+        }
+        if (button == 0) {
+            CardInstanceId top = liftableFrom(board, owner, pile);
+            if (top != null) {
+                held = grab(top, owner, false, pile, pileSlotOf(owner, pile), x, y);
+                return true;
+            }
+        }
+        GatheringButtons.clickSound();
+        clickPile(owner, pile, x, y);
+        return true;
+    }
+
+    /** What a press on a pile does when it turns out to have been a click. */
+    private void clickPile(SeatId owner, Zone pile, int x, int y) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return;
         }
         if (pile == Zone.LIBRARY && owner.equals(me)) {
             send(new GameEvent.CardsDrawn(me, me, 1));
         } else if (pile != Zone.LIBRARY) {
             openPile(owner, pile, false);
         }
-        return true;
+    }
+
+    /**
+     * The card a press on this pile would pick up, or null.
+     *
+     * <p>Only a card this client has actually been sent. The top of a library is face down and
+     * has no identity here - which is the visibility rule doing its job, and the reason a
+     * library stays a click that draws rather than a card you can lift off.
+     */
+    private CardInstanceId liftableFrom(GameView board, SeatId owner, Zone pile) {
+        ZoneView contents = board.seat(owner).zone(pile);
+        if (contents == null) {
+            return null;
+        }
+        for (CardView card : contents.cards()) {
+            if (card instanceof CardView.Visible visible && !isHeld(card)) {
+                return visible.id();
+            }
+        }
+        return null;
+    }
+
+    /** Where a pile is on screen, for a card being lifted off it to know where it started. */
+    private Rect pileSlotOf(SeatId owner, Zone pile) {
+        int index = Zone.PILES.indexOf(pile);
+        return index < 0 ? Rect.NONE : board().pileRect(owner, index, pileCount());
     }
 
     private void openPileMenu(SeatId me, Zone pile, int x, int y) {

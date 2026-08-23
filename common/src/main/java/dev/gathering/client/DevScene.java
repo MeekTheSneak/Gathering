@@ -19,6 +19,7 @@ import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
+import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.SurfaceBoard;
@@ -105,6 +106,9 @@ public final class DevScene {
 
     /** Everything the run expected and did not get. Empty is the only passing answer. */
     private static final List<String> FAILURES = new ArrayList<>();
+
+    /** How full the graveyard was before a card was dragged back out of it. */
+    private static int inTheGraveyard;
 
     private DevScene() {
     }
@@ -309,6 +313,10 @@ public final class DevScene {
             }
             case 18 -> {
                 shoot(client, "13-into-the-graveyard");
+                inTheGraveyard = countIn(Zone.GRAVEYARD);
+                // And back out again. A zone that only swallows cards is half a zone: on a
+                // real table, getting something back is picking it up.
+                dragOutOfAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
                 // A crowded hand. Eighteen cards is a real Windfall turn and the size at which
                 // a fan either overlaps sensibly or turns into a wall.
                 if (client.screen != null) {
@@ -318,31 +326,40 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 19 -> {
-                shoot(client, "14-crowded-hand");
+                int now = countIn(Zone.GRAVEYARD);
+                if (now >= inTheGraveyard) {
+                    fail("dragging a card out of the graveyard left " + now
+                            + " in it, from " + inTheGraveyard);
+                }
+                shoot(client, "14-out-of-the-graveyard");
+                advance(SETTLE / 2);
+            }
+            case 20 -> {
+                shoot(client, "15-crowded-hand");
                 // The graveyard has a card in it by now, and left-clicking a pile that is not
                 // a library opens it. Anything else here is a dead end the player would find.
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 20 -> {
+            case 21 -> {
                 expectScreen(client, "left-clicking the graveyard", PileScreen.class);
-                shoot(client, "15-graveyard-open");
+                shoot(client, "16-graveyard-open");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                 }
                 advance(SETTLE);
             }
-            case 21 -> {
+            case 22 -> {
                 expectScreen(client, "closing the graveyard", TableScreen.class);
                 // Right-click on the library, which is where every verb a library has lives.
                 clickAZone(client, Zone.PILES.indexOf(Zone.LIBRARY), 1);
                 advance(SETTLE / 2);
             }
-            case 22 -> {
+            case 23 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking the library opened no menu");
                 }
-                shoot(client, "16-library-menu");
+                shoot(client, "17-library-menu");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                     // Back onto the block, now that there is a played card, a full graveyard
@@ -355,49 +372,49 @@ public final class DevScene {
                 hover(client, new int[] {2, 2});
                 advance(SETTLE);
             }
-            case 23 -> {
+            case 24 -> {
                 if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
                     fail("a cursor off the board still had a card under it");
                 }
-                shoot(client, "17-on-the-table-in-play");
+                shoot(client, "18-on-the-table-in-play");
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 24 -> {
+            case 25 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
                 if (!ClientTableHighlight.isLitAtAll()) {
                     fail("the table in the world was not told what the cursor was on");
                 }
-                shoot(client, "18-on-the-table-hovering");
+                shoot(client, "19-on-the-table-hovering");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 25 -> {
+            case 26 -> {
                 // A window somebody has resized, which is the one path that re-runs a screen's
                 // init on an instance that is already holding a game. Two sizes: one where
                 // everything gets bigger and the felt gets smaller, and one the other way.
                 setGuiScale(client, 3);
                 advance(SETTLE / 2);
             }
-            case 26 -> {
+            case 27 -> {
                 theBoardIsStillFramed(client, "at gui scale three");
-                shoot(client, "19-a-bigger-interface");
+                shoot(client, "20-a-bigger-interface");
                 setGuiScale(client, 1);
                 advance(SETTLE / 2);
             }
-            case 27 -> {
+            case 28 -> {
                 theBoardIsStillFramed(client, "at gui scale one");
-                shoot(client, "20-a-smaller-interface");
+                shoot(client, "21-a-smaller-interface");
                 setGuiScale(client, 0);
                 advance(SETTLE / 2);
             }
-            case 28 -> {
+            case 29 -> {
                 theBoardIsStillFramed(client, "back at the automatic scale");
-                shoot(client, "21-back-to-normal");
+                shoot(client, "22-back-to-normal");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -640,6 +657,38 @@ public final class DevScene {
                 zone.centreX() - from.centreX(), zone.centreY() - from.centreY());
         board.mouseReleased(zone.centreX(), zone.centreY(), 0);
         System.out.println("[devscene] dropped a card into zone " + index);
+    }
+
+    /**
+     * Drags the top card off a zone and onto the middle of the mat.
+     *
+     * <p>The other half of the gesture: a zone that only ever swallowed cards was half a
+     * zone, and a scripted run that only ever put cards in never noticed.
+     */
+    private static void dragOutOfAZone(Minecraft client, int index) {
+        Rect zone = zoneRect(client, index);
+        if (zone.isEmpty() || !(client.screen instanceof TableScreen board)) {
+            fail("no zone " + index + " to drag out of");
+            return;
+        }
+        int[] onto = {client.getWindow().getGuiScaledWidth() / 2,
+                client.getWindow().getGuiScaledHeight() / 3};
+        board.mouseClicked(zone.centreX(), zone.centreY(), 0);
+        board.mouseDragged(onto[0], onto[1], 0,
+                onto[0] - zone.centreX(), onto[1] - zone.centreY());
+        board.mouseReleased(onto[0], onto[1], 0);
+        System.out.println("[devscene] dragged a card out of zone " + index);
+    }
+
+    /** How many cards are sitting in one of this player's zones, as the client sees it. */
+    private static int countIn(Zone zone) {
+        SeatId seat = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (seat == null || view == null) {
+            return -1;
+        }
+        ZoneView contents = view.seat(seat).zone(zone);
+        return contents == null ? 0 : contents.count();
     }
 
     /** Clicks a zone with the given button, which should open what is in it. */

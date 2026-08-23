@@ -22,6 +22,17 @@ public final class ClientTableHighlight {
     private static CardInstanceId hovered;
     private static List<CardInstanceId> selected = List.of();
 
+    /**
+     * The card currently following the cursor, which is drawn on the screen and not on the
+     * table.
+     *
+     * <p>A card being dragged has not moved yet - the server has not been told, and will not
+     * be until it lands - so the board still lists it wherever it came from. Drawing it there
+     * as well leaves a copy lying on the felt while its twin follows the cursor, which reads
+     * as the drag having failed.
+     */
+    private static CardInstanceId inTheAir;
+
     /** The zone a card is currently being held over, so it can light up as a target. */
     private static SeatId aimedSeat;
     private static int aimedPile = -1;
@@ -29,9 +40,15 @@ public final class ClientTableHighlight {
     private ClientTableHighlight() {
     }
 
-    public static void set(CardInstanceId under, List<CardInstanceId> picked) {
+    public static void set(CardInstanceId under, List<CardInstanceId> picked, CardInstanceId held) {
         hovered = under;
         selected = List.copyOf(picked);
+        inTheAir = held;
+    }
+
+    /** Whether this card is the one in the player's hand rather than on the table. */
+    public static boolean isInTheAir(CardInstanceId card) {
+        return card != null && card.equals(inTheAir);
     }
 
     /** Which zone a dragged card would go into, so the table can say so before it is let go. */
@@ -44,6 +61,7 @@ public final class ClientTableHighlight {
     public static void clear() {
         hovered = null;
         selected = List.of();
+        inTheAir = null;
         aimedSeat = null;
         aimedPile = -1;
     }
