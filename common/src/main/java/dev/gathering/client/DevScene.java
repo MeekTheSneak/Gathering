@@ -8,13 +8,22 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TablePart;
+import dev.gathering.item.DeckItem;
 import dev.gathering.item.GatheringContent;
+import dev.gathering.server.DecklistImport;
+import dev.gathering.service.CardDataService;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.Difficulty;
@@ -51,6 +60,23 @@ public final class DevScene {
 
     private static final String LEVEL = "GatheringDevScene";
 
+    /**
+     * A deck small enough to import quickly and varied enough to look at.
+     *
+     * <p>Real cards, fetched from Scryfall like any other deck, because the whole point of
+     * photographing the client is to see what a player sees - and a board of grey rectangles
+     * would prove only that grey rectangles are laid out correctly.
+     */
+    private static final String DECK = String.join("\n",
+            "4 Llanowar Elves",
+            "4 Grizzly Bears",
+            "4 Giant Growth",
+            "4 Lightning Bolt",
+            "4 Counterspell",
+            "4 Forest",
+            "4 Mountain",
+            "4 Island");
+
     /** Ticks to wait between steps, so the game has settled before it is photographed. */
     private static final int SETTLE = 40;
 
@@ -58,6 +84,8 @@ public final class DevScene {
     private static final int GIVE_UP_TICKS = 20 * 60 * 2;
 
     private static BlockPos table;
+    private static boolean asked;
+    private static boolean committed;
     private static int ticks;
     private static int step;
     private static int waited;
@@ -123,29 +151,47 @@ public final class DevScene {
                         + (client.screen == null ? "none" : client.screen.getClass().getSimpleName())
                         + " board=" + (table != null && ClientTableState.viewOf(table).isPresent()));
                 shoot(client, "02-sat-down");
-                if (table != null && ClientTableState.viewOf(table).isPresent()) {
-                    client.setScreen(new TableScreen(table));
-                } else {
-                    press(client, "Start");
-                }
-                advance(SETTLE * 3);
+                press(client, "Start");
+                advance(SETTLE * 2);
             }
             case 4 -> {
-                if (table != null && ClientTableState.viewOf(table).isPresent()
-                        && !(client.screen instanceof TableScreen)) {
-                    client.setScreen(new TableScreen(table));
-                    advance(SETTLE);
+                // A real deck, imported and put down the way a player would - after sitting
+                // down and starting, which is the order the table expects and the order the
+                // first run got wrong.
+                if (!asked) {
+                    asked = true;
+                    importADeck(client);
+                    waited = SETTLE * 8;
                     return;
                 }
-                shoot(client, "02-seated-screen");
-                // The key that swaps to playing on the block itself.
+                if (!committed) {
+                    committed = true;
+                    putTheDeckDown(client);
+                    waited = SETTLE * 4;
+                    return;
+                }
+                if (table != null && ClientTableState.viewOf(table).isPresent()) {
+                    client.setScreen(new TableScreen(table));
+                }
+                advance(SETTLE);
+            }
+            case 5 -> {
+                shoot(client, "03-seated-board");
+                if (client.screen instanceof TableScreen) {
+                    // Draw a hand, so there is something in it to photograph.
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_7, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 6 -> {
+                shoot(client, "04-with-a-hand");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
                 advance(SETTLE);
             }
-            case 5 -> {
-                shoot(client, "03-on-the-table");
+            case 7 -> {
+                shoot(client, "05-on-the-table");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -196,6 +242,60 @@ public final class DevScene {
                         .value()
                         .createWorldDimensions(),
                 null);
+    }
+
+    /** Imports a real deck the way the import command does, on the server's thread. */
+    private static void importADeck(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null) {
+            return;
+        }
+        server.execute(() -> {
+            CardDataService service = CardDataService.active().orElse(null);
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (service == null || player == null) {
+                System.out.println("[devscene] no card pipeline; the board will be empty");
+                return;
+            }
+            DecklistImport.importFor(player, service, DECK);
+            System.out.println("[devscene] importing a deck");
+        });
+    }
+
+    /**
+     * Right-clicks the table with the deck, exactly as a player would.
+     *
+     * <p>Through the real interaction rather than by calling whatever the table does with a
+     * deck: a harness that reaches past the path players take stops testing that path, and the
+     * path players take is the one that breaks.
+     */
+    private static void putTheDeckDown(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (player == null) {
+                return;
+            }
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                ItemStack stack = player.getInventory().getItem(slot);
+                if (DeckItem.deckOf(stack).isEmpty()) {
+                    continue;
+                }
+                player.getInventory().selected = Math.min(slot, 8);
+                player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+                BlockHitResult hit = new BlockHitResult(
+                        Vec3.atCenterOf(where.above()), Direction.UP, where, false);
+                player.gameMode.useItemOn(player, level, stack, InteractionHand.MAIN_HAND, hit);
+                System.out.println("[devscene] put a deck down");
+                return;
+            }
+            System.out.println("[devscene] no deck arrived to put down");
+        });
     }
 
     /**
