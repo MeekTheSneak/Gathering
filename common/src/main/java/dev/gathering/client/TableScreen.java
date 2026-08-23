@@ -821,12 +821,15 @@ public final class TableScreen extends Screen {
 
         for (int index = 0; index < seats.size(); index++) {
             SeatView seat = seats.get(index);
-            String who = seat.occupant().map(player -> player.name())
-                    .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
-            Component text = Component.translatable(
-                    "screen.gathering.table.mat_line", who, seat.life(),
-                    count(seat, Zone.HAND), count(seat, Zone.LIBRARY));
-            if (!seat.counters().isEmpty()) {
+            // A chair nobody is in says so and stops. Forty life, no cards and no deck are
+            // all true of a player who does not exist, and printing them makes an empty seat
+            // look like somebody who is losing badly.
+            Component text = seat.occupant()
+                    .<Component>map(player -> Component.translatable(
+                            "screen.gathering.table.mat_line", player.name(), seat.life(),
+                            count(seat, Zone.HAND), count(seat, Zone.LIBRARY)))
+                    .orElseGet(() -> Component.translatable("screen.gathering.table.free_seat"));
+            if (seat.occupant().isPresent() && !seat.counters().isEmpty()) {
                 text = text.copy().append(Component.literal("  " + describeCounters(seat)));
             }
             GuiText.draw(graphics, this.font, text,

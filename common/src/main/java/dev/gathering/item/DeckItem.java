@@ -197,6 +197,10 @@ public class DeckItem extends Item {
                                 "tooltip." + Gathering.MOD_ID + ".sideboard_size", deck.sideboard().size())
                         .withStyle(ChatFormatting.DARK_GRAY));
             }
+            // What it is for, then how to look inside it. A deck whose tooltip only offers to
+            // open itself does not say that carrying it to a table is the whole game.
+            tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".deck_play")
+                    .withStyle(ChatFormatting.GRAY));
             tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".open_deck")
                     .withStyle(ChatFormatting.DARK_GRAY));
         });

@@ -105,7 +105,9 @@ public final class GameLogGameTest {
 
         GameView board = VisibilityRules.viewFor(session.state(), Viewer.seat(BOB), session.log());
         String moved = board.log().stream()
-                .filter(entry -> entry.key().equals("log.gathering.card_moved"))
+                // Any of the three: which end of a pile a card went to picks the wording, and
+                // this one goes to the bottom of a library.
+                .filter(entry -> entry.key().startsWith("log.gathering.card_moved"))
                 .map(entry -> dev.gathering.client.GameLogText.render(board, entry).getString())
                 .findFirst()
                 .orElse("");

@@ -1,7 +1,14 @@
 package dev.gathering.block;
 
+import dev.gathering.Gathering;
+import java.util.List;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -36,5 +43,25 @@ public class TableBlockItem extends BlockItem {
                     Block.UPDATE_ALL);
         }
         return true;
+    }
+
+    /**
+     * How to use it, on the thing you are holding.
+     *
+     * <p>Two gestures and neither of them is guessable: a table you right-click with a deck
+     * sits you down and starts a game, and one you crouch at asks what kind of game first.
+     * Somebody who has just crafted this has no way to find either out, and a mod whose first
+     * minute is spent clicking a block that does nothing is a mod that gets uninstalled in its
+     * second minute.
+     */
+    @Override
+    public void appendHoverText(
+            ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_play")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_format")
+                .withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.translatable("tooltip." + Gathering.MOD_ID + ".table_size")
+                .withStyle(ChatFormatting.DARK_GRAY));
     }
 }

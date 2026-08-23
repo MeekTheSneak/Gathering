@@ -168,6 +168,22 @@ public final class DevScene {
                 }
             }
             case 3 -> {
+                // Crouching at a bare table is the other way in: it asks what kind of game
+                // this is going to be, which is the deliberate gesture for a table that wants
+                // to be something other than the usual.
+                askForAGame(client);
+                advance(SETTLE * 2);
+            }
+            case 4 -> {
+                expectScreen(client, "crouching at a bare table", TableSetupScreen.class);
+                shoot(client, "02-what-kind-of-game");
+                if (client.screen != null) {
+                    press(client, "Modern");
+                    press(client, "Best of 3");
+                }
+                advance(SETTLE / 2);
+            }
+            case 5 -> {
                 // What a player does now: get a deck, walk up to the table, right-click it.
                 // No sitting, no crouching, no format screen. If that stops being enough the
                 // pictures will show a table with nothing on it.
@@ -188,7 +204,7 @@ public final class DevScene {
                 }
                 boolean playing = table != null && ClientTableState.viewOf(table).isPresent();
                 System.out.println("[devscene] one right-click later: board=" + playing);
-                shoot(client, "02-one-click-in");
+                shoot(client, "03-one-click-in");
                 if (playing) {
                     client.setScreen(new TableScreen(table));
                 } else {
@@ -196,25 +212,25 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 4 -> advance(0);
-            case 5 -> {
+            case 6 -> advance(0);
+            case 7 -> {
                 reportSeats(client);
-                shoot(client, "03-seated-board");
+                shoot(client, "04-seated-board");
                 if (client.screen instanceof TableScreen) {
                     // Draw a hand, so there is something in it to photograph.
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_7, 0, 0);
                 }
                 advance(SETTLE);
             }
-            case 6 -> {
-                shoot(client, "04-with-a-hand");
+            case 8 -> {
+                shoot(client, "05-with-a-hand");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
                 advance(SETTLE);
             }
-            case 7 -> {
-                shoot(client, "05-on-the-table");
+            case 9 -> {
+                shoot(client, "06-on-the-table");
                 // Back to the seated screen for the rest, which is where the gestures are
                 // easiest to aim without a camera in the way.
                 if (client.screen != null) {
@@ -222,63 +238,63 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 8 -> {
+            case 10 -> {
                 // Play a card: take the first one in hand and drop it on the near mat. The one
                 // gesture the whole table is built around, and the one nothing has yet checked
                 // end to end.
                 playACard(client);
                 advance(SETTLE);
             }
-            case 9 -> {
-                shoot(client, "06-card-played");
+            case 11 -> {
+                shoot(client, "07-card-played");
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 10 -> {
+            case 12 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering the played card lit nothing; cursor at "
                             + client.mouseHandler.xpos() + "," + client.mouseHandler.ypos());
                 }
-                shoot(client, "07-hovering-a-card");
+                shoot(client, "08-hovering-a-card");
                 if (client.screen != null) {
                     int[] at = cardPoint(client);
                     client.screen.mouseClicked(at[0], at[1], 1);
                 }
                 advance(SETTLE / 2);
             }
-            case 11 -> {
+            case 13 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking a card on the table opened no menu");
                 }
-                shoot(client, "08-card-menu");
+                shoot(client, "09-card-menu");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 12 -> {
-                shoot(client, "09-log");
+            case 14 -> {
+                shoot(client, "10-log");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 13 -> {
-                shoot(client, "10-key-list");
+            case 15 -> {
+                shoot(client, "11-key-list");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 14 -> {
+            case 16 -> {
                 // Into the graveyard: the drop that has to land on a zone rather than on felt.
                 dropIntoAZone(client, 1);
                 advance(SETTLE);
             }
-            case 15 -> {
-                shoot(client, "11-into-the-graveyard");
+            case 17 -> {
+                shoot(client, "12-into-the-graveyard");
                 // A crowded hand. Eighteen cards is a real Windfall turn and the size at which
                 // a fan either overlaps sensibly or turns into a wall.
                 if (client.screen != null) {
@@ -287,32 +303,32 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 16 -> {
-                shoot(client, "12-crowded-hand");
+            case 18 -> {
+                shoot(client, "13-crowded-hand");
                 // The graveyard has a card in it by now, and left-clicking a pile that is not
                 // a library opens it. Anything else here is a dead end the player would find.
                 clickAZone(client, 1, 0);
                 advance(SETTLE);
             }
-            case 17 -> {
+            case 19 -> {
                 expectScreen(client, "left-clicking the graveyard", PileScreen.class);
-                shoot(client, "13-graveyard-open");
+                shoot(client, "14-graveyard-open");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                 }
                 advance(SETTLE);
             }
-            case 18 -> {
+            case 20 -> {
                 expectScreen(client, "closing the graveyard", TableScreen.class);
                 // Right-click on the library, which is where every verb a library has lives.
                 clickAZone(client, 0, 1);
                 advance(SETTLE / 2);
             }
-            case 19 -> {
+            case 21 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking the library opened no menu");
                 }
-                shoot(client, "14-library-menu");
+                shoot(client, "15-library-menu");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                     // Back onto the block, now that there is a played card, a full graveyard
@@ -325,22 +341,22 @@ public final class DevScene {
                 hover(client, new int[] {2, 2});
                 advance(SETTLE);
             }
-            case 20 -> {
+            case 22 -> {
                 if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
                     fail("a cursor off the board still had a card under it");
                 }
-                shoot(client, "15-on-the-table-in-play");
+                shoot(client, "16-on-the-table-in-play");
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 21 -> {
+            case 23 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
                 if (!ClientTableHighlight.isLitAtAll()) {
                     fail("the table in the world was not told what the cursor was on");
                 }
-                shoot(client, "16-on-the-table-hovering");
+                shoot(client, "17-on-the-table-hovering");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
@@ -395,6 +411,27 @@ public final class DevScene {
                         .value()
                         .createWorldDimensions(),
                 null);
+    }
+
+    /**
+     * Crouches at the table, which is the gesture that asks what kind of game this is.
+     *
+     * <p>Through the block rather than by opening the screen directly: the screen arrives as a
+     * packet, and a harness that skipped the packet would go on passing after the day somebody
+     * broke the way it is asked for.
+     */
+    private static void askForAGame(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (player != null) {
+                TableBlock.startGameFor(server.overworld(), where, player);
+            }
+        });
     }
 
     private static String lastSeat = "?";
@@ -708,7 +745,7 @@ public final class DevScene {
                 return;
             }
         }
-        System.out.println("[devscene] no button labelled " + label + " on "
+        fail("no button labelled " + label + " on "
                 + client.screen.getClass().getSimpleName());
     }
 
