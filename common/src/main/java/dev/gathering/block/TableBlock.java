@@ -3,6 +3,8 @@ package dev.gathering.block;
 import com.mojang.serialization.MapCodec;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.game.GameSession;
+import dev.gathering.core.format.FormatPresets;
+import dev.gathering.core.match.MatchRules;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.event.GameEvent;
@@ -264,7 +266,7 @@ public class TableBlock extends BaseEntityBlock {
         // their deck. Which then left them spectating their own game, with every action
         // refused, for reasons nothing on screen explained.
         if (DeckItem.deckOf(stack).isPresent()) {
-            commitDeck(level, tableOrigin, player, stack);
+            sitDownAndPlay(level, tableOrigin, player, stack);
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -357,6 +359,35 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
+     * Everything between holding a deck and playing with it, in one gesture.
+     *
+     * <p>It used to be four: sit at an edge, crouch to ask for a game, pick a format from a
+     * screen, then click again with the deck. Every one of them is a thing to get wrong in
+     * order, and getting them wrong in order is most of what "it doesn't work" means to
+     * somebody trying a mod for the first time. Walking up to a table holding a deck says what
+     * you want as clearly as anybody ever says anything.
+     *
+     * <p>The format prompt has not gone anywhere - crouching still asks, which is the
+     * deliberate gesture for a table that wants to be something other than the usual. It is
+     * just no longer in the way of the usual.
+     */
+    private static void sitDownAndPlay(
+            Level level, BlockPos tableOrigin, Player player, ItemStack stack) {
+        if (!sitDownIfNeeded(level, tableOrigin, player)) {
+            return;
+        }
+        if (!TableSessions.hasSession(level, tableOrigin)) {
+            TableSessions.Outcome outcome = TableSessions.start(
+                    level, tableOrigin, MatchRules.single(FormatPresets.COMMANDER));
+            if (outcome != TableSessions.Outcome.STARTED) {
+                player.sendSystemMessage(Component.translatable(outcome.messageKey()));
+                return;
+            }
+        }
+        commitDeck(level, tableOrigin, player, stack);
+    }
+
+    /**
      * Puts the player in a seat if they are not already in one.
      *
      * <p>Somebody crouching on a table to start a game has said what they want clearly enough.
@@ -427,6 +458,14 @@ public class TableBlock extends BaseEntityBlock {
         stack.shrink(1);
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.deck_committed", deck.deckSize()));
+
+        // And show them the game they have just joined. Committing a deck used to leave the
+        // board unsent - the format screen happened to broadcast afterwards, so nobody noticed
+        // until the format screen stopped being on the way - and a player who had done
+        // everything right was left standing in a field with nothing to show for it.
+        if (player instanceof net.minecraft.server.level.ServerPlayer joined) {
+            dev.gathering.server.TableActions.openFor(joined, tableOrigin);
+        }
     }
 
     /** What is going on here, said to whoever asked and filtered to what they may know. */

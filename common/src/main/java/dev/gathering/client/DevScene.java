@@ -150,22 +150,14 @@ public final class DevScene {
                 }
             }
             case 3 -> {
-                // Photograph whatever the table actually did, rather than waiting for what it
-                // was assumed to do. A script that hangs until its timer runs out tells you
-                // nothing; a picture of the screen that came up tells you everything.
-                System.out.println("[devscene] after sitting down: screen="
-                        + (client.screen == null ? "none" : client.screen.getClass().getSimpleName())
-                        + " board=" + (table != null && ClientTableState.viewOf(table).isPresent()));
-                shoot(client, "02-sat-down");
-                press(client, "Start");
-                advance(SETTLE * 2);
-            }
-            case 4 -> {
-                // A real deck, imported and put down the way a player would - after sitting
-                // down and starting, which is the order the table expects and the order the
-                // first run got wrong.
+                // What a player does now: get a deck, walk up to the table, right-click it.
+                // No sitting, no crouching, no format screen. If that stops being enough the
+                // pictures will show a table with nothing on it.
                 if (!asked) {
                     asked = true;
+                    if (client.screen != null) {
+                        client.setScreen(null);
+                    }
                     importADeck(client);
                     waited = SETTLE * 8;
                     return;
@@ -176,11 +168,15 @@ public final class DevScene {
                     waited = SETTLE * 4;
                     return;
                 }
+                System.out.println("[devscene] one right-click later: board="
+                        + (table != null && ClientTableState.viewOf(table).isPresent()));
+                shoot(client, "02-one-click-in");
                 if (table != null && ClientTableState.viewOf(table).isPresent()) {
                     client.setScreen(new TableScreen(table));
                 }
                 advance(SETTLE);
             }
+            case 4 -> advance(0);
             case 5 -> {
                 reportSeats(client);
                 shoot(client, "03-seated-board");
@@ -230,8 +226,9 @@ public final class DevScene {
             for (TablePart part : TablePart.values()) {
                 level.setBlock(part.offsetFrom(where), state.setValue(TableBlock.PART, part), 3);
             }
-            server.getPlayerList().getPlayers().stream().findFirst()
-                    .ifPresent(player -> TableBlock.startGameFor(level, where, player));
+            // Deliberately not seated or started here. The whole point is that walking up
+            // holding a deck is enough, so the scene has to actually walk up holding a deck.
+            System.out.println("[devscene] table placed, nobody seated");
         });
     }
 
