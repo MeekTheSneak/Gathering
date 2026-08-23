@@ -77,6 +77,32 @@ public final class BoardGeometry implements BoardPlacement {
         return camera;
     }
 
+    /**
+     * The view a player starts at: their own board, as large as the window allows.
+     *
+     * <p>Not the whole table. Fitting everything in sounds like the friendly default and plays
+     * terribly - a two-seat table squeezed into a short window draws a card twenty-seven pixels
+     * wide, which is a coloured smudge, while the same card in the player's hand is ninety. You
+     * cannot play on a board you cannot read, and the board you need to read is your own.
+     *
+     * <p>So: fitted across the width, which is the dimension a widescreen window has to spare,
+     * and centred on this seat's own mat. The opponent's board is still there, just above or
+     * below - and Home still steps back to show all of it.
+     */
+    public void focusOn(SeatId seat) {
+        Rect mat = surface.matOf(seat.index());
+        if (mat.isEmpty()) {
+            showEverything();
+            return;
+        }
+        double fit = width / (double) Math.max(1, surface.width());
+        camera = new TableCamera(mat.centreX(), mat.centreY(), fit,
+                surface.width(), surface.height());
+        if (coveredAtTheBottom > 0) {
+            camera = camera.pannedBy(0, -coveredAtTheBottom / 2.0);
+        }
+    }
+
     public void showEverything() {
         int visible = Math.max(1, height - coveredAtTheBottom);
         camera = TableCamera.showingAll(surface.width(), surface.height(), width, visible);

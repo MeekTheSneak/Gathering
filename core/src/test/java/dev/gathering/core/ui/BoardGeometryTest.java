@@ -235,6 +235,40 @@ class BoardGeometryTest {
         }
 
         @Test
+        @DisplayName("the view a player opens on draws a card big enough to read")
+        void openingOnYourOwnBoardIsPlayable() {
+            // Fitting the whole table in sounds friendly and plays terribly: a two-seat table
+            // squeezed into a short window drew a card twenty-seven pixels wide while the same
+            // card in hand was ninety. A board you cannot read is a board you cannot play on.
+            BoardGeometry geometry = new BoardGeometry(
+                    seatsOf(new TableCell(0, 0)), WIDTH, HEIGHT, 130);
+
+            geometry.focusOn(new SeatId(0));
+
+            assertThat(geometry.cardWidth(new SeatId(0)))
+                    .describedAs("a card on your own board, in pixels")
+                    .isGreaterThan(45);
+        }
+
+        @Test
+        @DisplayName("opening on your own board puts your own board in front of you")
+        void openingOnYourOwnBoardCentresIt() {
+            BoardGeometry geometry = new BoardGeometry(
+                    seatsOf(new TableCell(0, 0)), WIDTH, HEIGHT, 130);
+
+            for (int seat = 0; seat < 2; seat++) {
+                geometry.focusOn(new SeatId(seat));
+                Rect mat = geometry.matRect(new SeatId(seat));
+                assertThat(mat.centreX())
+                        .describedAs("seat %s is centred across", seat)
+                        .isCloseTo(WIDTH / 2.0, org.assertj.core.data.Offset.offset(4.0));
+                assertThat(mat.centreY())
+                        .describedAs("seat %s is in the visible part, not behind the hand", seat)
+                        .isBetween(0.0, (double) (HEIGHT - 130));
+            }
+        }
+
+        @Test
         @DisplayName("a wider table is fitted by its own proportions, not squeezed into a square")
         void aRectangularSurfaceFillsTheWindow() {
             // Two tables pushed together are twice as wide as they are deep. Fitting that as a

@@ -14,6 +14,8 @@ import dev.gathering.block.TableSeats;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.server.TableBroadcast;
 import dev.gathering.service.CardDataService;
+import dev.gathering.core.ui.HandFan;
+import dev.gathering.core.ui.TableScreenLayout;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -195,6 +197,51 @@ public final class DevScene {
             }
             case 7 -> {
                 shoot(client, "05-on-the-table");
+                // Back to the seated screen for the rest, which is where the gestures are
+                // easiest to aim without a camera in the way.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 8 -> {
+                // Play a card: take the first one in hand and drop it on the near mat. The one
+                // gesture the whole table is built around, and the one nothing has yet checked
+                // end to end.
+                playACard(client);
+                advance(SETTLE);
+            }
+            case 9 -> {
+                shoot(client, "06-card-played");
+                hover(client, cardPoint(client));
+                advance(SETTLE / 2);
+            }
+            case 10 -> {
+                shoot(client, "07-hovering-a-card");
+                if (client.screen != null) {
+                    int[] at = cardPoint(client);
+                    client.screen.mouseClicked(at[0], at[1], 1);
+                }
+                advance(SETTLE / 2);
+            }
+            case 11 -> {
+                shoot(client, "08-card-menu");
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
+                }
+                advance(SETTLE / 2);
+            }
+            case 12 -> {
+                shoot(client, "09-log");
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
+                }
+                advance(SETTLE / 2);
+            }
+            case 13 -> {
+                shoot(client, "10-key-list");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -268,6 +315,43 @@ public final class DevScene {
                 lastSeat = now;
             }
         });
+    }
+
+    /**
+     * Where on the screen the played card should have landed.
+     *
+     * <p>The near mat's middle. Aimed at the layout rather than at a remembered pixel, so it
+     * keeps pointing at the card when the layout changes - which it has, twice.
+     */
+    private static int[] cardPoint(Minecraft client) {
+        return new int[] {client.getWindow().getGuiScaledWidth() / 2,
+                client.getWindow().getGuiScaledHeight() / 4};
+    }
+
+    /** Drags the first card in hand onto the near mat, press and release, like a player. */
+    private static void playACard(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            System.out.println("[devscene] no board to play onto");
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        TableScreenLayout layout = TableScreenLayout.of(width, height);
+        HandFan.Slot first = HandFan.slot(layout.hand(), 7, 0, -1);
+        int[] onto = cardPoint(client);
+
+        board.mouseClicked(first.where().centreX(), first.where().centreY(), 0);
+        board.mouseDragged(onto[0], onto[1], 0,
+                onto[0] - first.where().centreX(), onto[1] - first.where().centreY());
+        board.mouseReleased(onto[0], onto[1], 0);
+        System.out.println("[devscene] dragged a card from the hand onto the table");
+    }
+
+    /** Puts the cursor somewhere without clicking, so a frame is drawn with it hovered. */
+    private static void hover(Minecraft client, int[] at) {
+        if (client.screen != null) {
+            client.screen.mouseMoved(at[0], at[1]);
+        }
     }
 
     /**

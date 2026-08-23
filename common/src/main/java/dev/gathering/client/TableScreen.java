@@ -269,6 +269,8 @@ public final class TableScreen extends Screen {
         if (geometry == null) {
             geometry = new BoardGeometry(anchors(), this.width, this.height, layout.hand().height());
             onBlock = new SurfaceBoard(anchors());
+            // Opened on your own board rather than on the whole table: see focusOn.
+            mySeat().ifPresent(geometry::focusOn);
         } else {
             geometry.reshape(anchors(), this.width, this.height, layout.hand().height());
             onBlock.reshape(anchors());
