@@ -420,6 +420,75 @@ public final class TableGameTest {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void twoPlayersGetOppositeEdgesAndCannotReadEachOther(GameTestHelper helper) {
+        // The game this mod is for. One person at a table is the easy case and the one every
+        // other test here happens to exercise; two people facing each other is where the seats
+        // have to end up on opposite edges, where the boards have to face each other, and
+        // where hidden information has to actually be hidden.
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID north = new UUID(0L, 11L);
+        UUID south = new UUID(0L, 22L);
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, north);
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.SOUTH, south);
+
+        SeatAnchor mine = TableSeats.seatOf(helper.getLevel(), origin, north).orElse(null);
+        SeatAnchor theirs = TableSeats.seatOf(helper.getLevel(), origin, south).orElse(null);
+        if (mine == null || theirs == null) {
+            helper.fail("Two players could not both sit at one table");
+            return;
+        }
+        if (mine.side() == theirs.side()) {
+            helper.fail("Both players ended up at the same edge: " + mine.side());
+            return;
+        }
+
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        SeatId first = new SeatId(0);
+        SeatId second = new SeatId(1);
+        for (SeatId seat : List.of(first, second)) {
+            session.submit(new GameEvent.DeckLoaded(seat, library(), List.of()));
+            session.submit(new GameEvent.LibraryShuffled(seat, seat));
+            session.submit(new GameEvent.CardsDrawn(seat, seat, 7));
+        }
+
+        // Each of them holds seven cards and can read their own; neither can read the other's.
+        dev.gathering.core.game.visibility.GameView asFirst =
+                dev.gathering.core.game.visibility.VisibilityRules.viewFor(
+                        session.state(),
+                        dev.gathering.core.game.visibility.Viewer.seat(first),
+                        session.log());
+        long readable = asFirst.seat(first).zone(dev.gathering.core.game.Zone.HAND).cards().stream()
+                .filter(card -> card instanceof dev.gathering.core.game.visibility.CardView.Visible)
+                .count();
+        long theirsReadable = asFirst.seat(second).zone(dev.gathering.core.game.Zone.HAND).cards().stream()
+                .filter(card -> card instanceof dev.gathering.core.game.visibility.CardView.Visible)
+                .count();
+        if (readable != 7) {
+            helper.fail("A player could read " + readable + " of their own seven cards");
+            return;
+        }
+        if (theirsReadable != 0) {
+            helper.fail("A player could read " + theirsReadable + " cards in the other hand");
+            return;
+        }
+        if (asFirst.seat(second).zone(dev.gathering.core.game.Zone.HAND).count() != 7) {
+            helper.fail("A player could not see how many cards the other one was holding");
+            return;
+        }
+
+        // And the two mats face each other rather than both facing the same way, which is what
+        // makes the near edge of the board the near edge for both of them.
+        dev.gathering.core.ui.TableSurface surface =
+                dev.gathering.core.ui.TableSurface.forSeatCount(session.state().seats().size());
+        if (surface.isTurned(0) == surface.isTurned(1)) {
+            helper.fail("Both boards were laid out the same way up");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static List<dev.gathering.core.card.CardIdentity> library() {
         List<dev.gathering.core.card.CardIdentity> cards = new java.util.ArrayList<>();
         for (int index = 0; index < 20; index++) {
