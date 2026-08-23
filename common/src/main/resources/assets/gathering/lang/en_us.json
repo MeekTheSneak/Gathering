@@ -179,6 +179,7 @@
   "screen.gathering.amount.tokens": "How many?",
   "screen.gathering.counters": "Counters",
   "screen.gathering.counters.add": "Add",
+  "screen.gathering.counters.commander_damage": "Commander damage taken",
   "screen.gathering.counters.custom": "Counter name",
   "screen.gathering.counters.none": "No counters yet.",
   "screen.gathering.counters.several": "%s cards",

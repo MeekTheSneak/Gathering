@@ -14,7 +14,12 @@ import dev.gathering.block.TableSeats;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.server.TableBroadcast;
 import dev.gathering.service.CardDataService;
+import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.PlayerRef;
 import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.block.TableSessions;
 import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
@@ -110,6 +115,9 @@ public final class DevScene {
 
     /** How full the graveyard was before a card was dragged back out of it. */
     private static int inTheGraveyard;
+
+    /** And how much commander damage had been taken before the button was pressed. */
+    private static int tookCommanderDamage;
 
     private DevScene() {
     }
@@ -402,28 +410,57 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 27 -> {
-                shoot(client, "20-the-whole-table");
+                // Somebody sits down opposite. Every picture so far has been of a table with
+                // one player at it, which is not the game this is for.
+                seatARival(client);
+                advance(SETTLE);
+            }
+            case 28 -> {
+                shoot(client, "20-two-players");
+                openMyCounters(client);
+                advance(SETTLE / 2);
+            }
+            case 29 -> {
+                expectScreen(client, "asking for my own counters", CountersScreen.class);
+                shoot(client, "21-commander-damage");
+                tookCommanderDamage = damageTaken(client);
+                press(client, "+");
+                advance(SETTLE);
+            }
+            case 30 -> {
+                int now = damageTaken(client);
+                if (now <= tookCommanderDamage) {
+                    fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
+                }
+                shoot(client, "22-damage-recorded");
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                }
+                advance(SETTLE / 2);
+            }
+            case 31 -> {
+                shoot(client, "23-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
                 // init on an instance that is already holding a game. Two sizes: one where
                 // everything gets bigger and the felt gets smaller, and one the other way.
                 setGuiScale(client, 3);
                 advance(SETTLE / 2);
             }
-            case 28 -> {
+            case 32 -> {
                 theBoardIsStillFramed(client, "at gui scale three");
-                shoot(client, "21-a-bigger-interface");
+                shoot(client, "24-a-bigger-interface");
                 setGuiScale(client, 1);
                 advance(SETTLE / 2);
             }
-            case 29 -> {
+            case 33 -> {
                 theBoardIsStillFramed(client, "at gui scale one");
-                shoot(client, "22-a-smaller-interface");
+                shoot(client, "25-a-smaller-interface");
                 setGuiScale(client, 0);
                 advance(SETTLE / 2);
             }
-            case 30 -> {
+            case 34 -> {
                 theBoardIsStillFramed(client, "back at the automatic scale");
-                shoot(client, "23-back-to-normal");
+                shoot(client, "26-back-to-normal");
                 // Last, because everything above needs a seat: stand up mid-game and look at
                 // the same table as somebody who is only watching it.
                 standUp(client);
@@ -432,18 +469,18 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 31 -> {
+            case 35 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
-                shoot(client, "24-watching-from-outside");
+                shoot(client, "27-watching-from-outside");
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 32 -> {
+            case 36 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
-                shoot(client, "25-still-watching");
+                shoot(client, "28-still-watching");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -797,6 +834,61 @@ public final class DevScene {
         java.lang.reflect.Field found = target.getClass().getDeclaredField(field);
         found.setAccessible(true);
         found.setDouble(target, value);
+    }
+
+    /**
+     * Sits somebody down opposite, with a deck, so the table is a game rather than a solo.
+     *
+     * <p>Through the session rather than through the world, because what is wanted is a second
+     * occupied seat and not a second Minecraft client - and every board rule worth checking
+     * here is about what the seats say, not about who is holding the mouse.
+     */
+    private static void seatARival(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            GameSession session = TableSessions.sessionAt(server.overworld(), where).orElse(null);
+            if (session == null) {
+                return;
+            }
+            SeatId theirs = new SeatId(1);
+            session.submit(new GameEvent.SeatTaken(theirs,
+                    new PlayerRef(new java.util.UUID(0L, 4242L), "Rival")));
+            List<CardIdentity> library = new ArrayList<>();
+            for (int index = 0; index < 12; index++) {
+                library.add(CardIdentity.ofPrinting(new java.util.UUID(0L, 500 + index), false));
+            }
+            session.submit(new GameEvent.DeckLoaded(theirs, library, List.of()));
+            session.submit(new GameEvent.CardsDrawn(theirs, theirs, 3));
+            TableBroadcast.sendToTable(server.overworld(), where);
+            System.out.println("[devscene] a rival sat down opposite");
+        });
+    }
+
+    /** Opens this player's own counters, which is where commander damage is written down. */
+    private static void openMyCounters(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || board == null) {
+            fail("there was no seat to open the counters of");
+            return;
+        }
+        client.setScreen(new CountersScreen(table,
+                new CountersScreen.Subject.Seat(me, CountersScreen.titleForSeat(board, me)),
+                client.screen));
+    }
+
+    /** How much commander damage this player has taken from the seat opposite. */
+    private static int damageTaken(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || board == null) {
+            return -1;
+        }
+        return board.seat(me).commanderDamage().getOrDefault(new SeatId(1), 0);
     }
 
     /**

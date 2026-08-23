@@ -7,6 +7,7 @@ import dev.gathering.core.game.SeatState;
 import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
+import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.ui.Rect;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -58,6 +59,17 @@ public final class CountersScreen extends ChildScreen {
     /** A counter name long enough for anything real and short enough not to be a payload. */
     private static final int MAX_NAME = 24;
 
+    /**
+     * The number at which one commander's damage has killed somebody.
+     *
+     * <p>Shown, never enforced. The mod does not end games and does not intend to; what it
+     * does is what a life pad does, which is stop you counting to twenty-one in your head
+     * three times a turn.
+     */
+    private static final int LETHAL_COMMANDER_DAMAGE = 21;
+
+    private static final int LETHAL = 0xFFE06C6C;
+
     private final BlockPos table;
     private final Subject subject;
 
@@ -66,6 +78,9 @@ public final class CountersScreen extends ChildScreen {
 
     /** Which rows were drawn last frame, so the screen knows when it needs rebuilding. */
     private List<String> rowsShown = List.of();
+
+    /** And which opponents there were to take commander damage from, for the same reason. */
+    private List<SeatId> opponentsShown = List.of();
 
     /**
      * What the counters are on.
@@ -117,10 +132,12 @@ public final class CountersScreen extends ChildScreen {
         List<String> present = new ArrayList<>(current().keySet());
         int rows = Math.min(MAX_ROWS, present.size());
         int commonRows = (common().size() + 2) / 3;
+        List<SeatId> opponents = commanderDamageFrom();
 
         int height = MARGIN * 2 + ROW * 2
                 + rows * (ROW + GAP)
                 + commonRows * (ROW + GAP)
+                + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP))
                 + ROW + GAP * 3;
         panel = new Rect(
                 (this.width - PANEL_WIDTH) / 2,
@@ -154,7 +171,23 @@ public final class CountersScreen extends ChildScreen {
                     Component.literal(shortLabel(name)), () -> change(name, 1)));
         }
 
-        int customTop = commonTop + commonRows * (ROW + GAP) + GAP;
+        // Commander damage, one row per opponent, on a table that has commanders. A grid on
+        // paper, which is what everybody uses because twenty-one from each of three people is
+        // three numbers nobody can hold in their head for an hour.
+        int damageTop = commonTop + commonRows * (ROW + GAP) + GAP;
+        for (int index = 0; index < opponents.size(); index++) {
+            SeatId from = opponents.get(index);
+            int rowY = damageTop + ROW + index * (ROW + GAP);
+            addRenderableWidget(GatheringButtons.of(
+                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP, rowY, STEP_WIDTH, ROW,
+                    Component.literal("-"), () -> hitBy(from, -1)));
+            addRenderableWidget(GatheringButtons.of(
+                    panel.right() - MARGIN - STEP_WIDTH, rowY, STEP_WIDTH, ROW,
+                    Component.literal("+"), () -> hitBy(from, 1)));
+        }
+
+        int customTop = damageTop
+                + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP));
         customName = new EditBox(this.font,
                 panel.x() + MARGIN, customTop, panel.width() - MARGIN * 2 - 44 - GAP, ROW,
                 Component.translatable("screen.gathering.counters.custom"));
@@ -164,6 +197,22 @@ public final class CountersScreen extends ChildScreen {
         addRenderableWidget(GatheringButtons.of(
                 panel.right() - MARGIN - 44, customTop, 44, ROW,
                 Component.translatable("screen.gathering.counters.add"), this::addCustom));
+    }
+
+    /**
+     * Records commander damage this seat has taken from one opponent.
+     *
+     * <p>Signed by whoever is pressing it, like every other move: the table lets anybody
+     * adjust anybody's numbers, because on a real table the person who notices says so and
+     * whoever is nearest the pad writes it down.
+     */
+    private void hitBy(SeatId from, int delta) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null || !(subject instanceof Subject.Seat mine)) {
+            return;
+        }
+        ClientTableActions.send(table,
+                new GameEvent.CommanderDamageChanged(me, mine.seat(), from, delta));
     }
 
     private void addCustom() {
@@ -196,6 +245,53 @@ public final class CountersScreen extends ChildScreen {
                     ClientTableActions.send(table,
                             new GameEvent.SeatCounterChanged(me, seat.seat(), name, delta));
         }
+    }
+
+    /**
+     * The other seats, in seat order, when this screen is about a seat at a table with a
+     * command zone - and nothing otherwise.
+     *
+     * <p>Commander damage is per opponent and only exists where there are commanders, so a
+     * table playing Modern gets no grid rather than a grid of zeroes nobody can use.
+     */
+    private List<SeatId> commanderDamageFrom() {
+        if (!(subject instanceof Subject.Seat mine) || !tableHasACommandZone()) {
+            return List.of();
+        }
+        GameView board = ClientTableState.viewOf(table).orElse(null);
+        if (board == null) {
+            return List.of();
+        }
+        List<SeatId> others = new ArrayList<>();
+        for (SeatView seat : board.seats()) {
+            if (!seat.seat().equals(mine.seat()) && seat.occupant().isPresent()) {
+                others.add(seat.seat());
+            }
+        }
+        return others;
+    }
+
+    /** Asked of the block, which is where the table keeps what kind of game it is running. */
+    private boolean tableHasACommandZone() {
+        return net.minecraft.client.Minecraft.getInstance().level != null
+                && net.minecraft.client.Minecraft.getInstance().level
+                        .getBlockEntity(table) instanceof dev.gathering.block.TableBlockEntity entity
+                && entity.hasCommandZone();
+    }
+
+    /** How much commander damage this seat has taken from that one. */
+    private int damageFrom(SeatId from) {
+        GameView board = ClientTableState.viewOf(table).orElse(null);
+        if (board == null || !(subject instanceof Subject.Seat mine)) {
+            return 0;
+        }
+        return board.seat(mine.seat()).commanderDamage().getOrDefault(from, 0);
+    }
+
+    /** Whose damage it is, for a row that has to say who is killing you. */
+    private Component nameOf(SeatId seat) {
+        GameView board = ClientTableState.viewOf(table).orElse(null);
+        return board == null ? Component.empty() : titleForSeat(board, seat);
     }
 
     /**
@@ -240,8 +336,10 @@ public final class CountersScreen extends ChildScreen {
             return;
         }
         // A counter that has just come into existence needs a row, and one that has just gone
-        // needs to stop having one.
-        if (!new ArrayList<>(current().keySet()).equals(rowsShown)) {
+        // needs to stop having one. So does an opponent: somebody sitting down opposite adds
+        // a commander to take damage from, and this screen is open for the length of a turn.
+        if (!new ArrayList<>(current().keySet()).equals(rowsShown)
+                || !commanderDamageFrom().equals(opponentsShown)) {
             rebuildWidgets();
         }
     }
@@ -279,6 +377,29 @@ public final class CountersScreen extends ChildScreen {
             GuiText.drawCentred(graphics, this.font,
                     Component.translatable("screen.gathering.counters.none"),
                     panel.x() + panel.width() / 2, y + 5, panel.width() - MARGIN * 2, DIM);
+        }
+
+        List<SeatId> opponents = commanderDamageFrom();
+        opponentsShown = opponents;
+        if (opponents.isEmpty()) {
+            return;
+        }
+        int commonRows = (common().size() + 2) / 3;
+        int damageTop = y + Math.min(MAX_ROWS, counters.size()) * (ROW + GAP) + ROW
+                + commonRows * (ROW + GAP) + GAP;
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.counters.commander_damage"),
+                panel.x() + MARGIN, damageTop + 5, panel.width() - MARGIN * 2, DIM);
+        for (int row = 0; row < opponents.size(); row++) {
+            SeatId from = opponents.get(row);
+            int taken = damageFrom(from);
+            int rowY = damageTop + ROW + row * (ROW + GAP);
+            GuiText.draw(graphics, this.font, nameOf(from),
+                    panel.x() + MARGIN, rowY + 5, panel.width() - MARGIN * 2 - 60, LABEL);
+            // Twenty-one is a fact about the number, not a thing the mod does about it.
+            GuiText.draw(graphics, this.font, Component.literal(Integer.toString(taken)),
+                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP - 24, rowY + 5, 22,
+                    taken >= LETHAL_COMMANDER_DAMAGE ? LETHAL : VALUE);
         }
     }
 
