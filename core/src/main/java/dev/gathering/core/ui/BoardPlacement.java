@@ -59,6 +59,14 @@ public interface BoardPlacement {
 
     Rect pileRect(SeatId seat, int index, int count);
 
+    /**
+     * The box drawn round a run of the column, from one zone to another inclusive.
+     *
+     * <p>Two of them on every mat: one round the zones a hand lives in and one round the
+     * command zone, standing on its own.
+     */
+    Rect pileGroupRect(SeatId seat, int fromIndex, int toIndex, int count);
+
     /** Which of a seat's piles a point is on, or -1 - so a card can be dropped into one. */
     int pileAt(SeatId seat, int count, double x, double y);
 

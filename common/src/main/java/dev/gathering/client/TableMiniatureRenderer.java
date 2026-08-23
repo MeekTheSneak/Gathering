@@ -75,6 +75,17 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private static final float STACK_LIFT = 0.0015f;
 
 
+    /** The line round a group of zones, and how thick it is drawn. */
+    private static final int GROUP_EDGE_COLOUR = 0x66FFFFFF;
+    /**
+     * As a share of the box's narrow side, which is a zone's width and not its height.
+     *
+     * <p>Taken from the wrong side first: two per cent of a box half a block deep is a line
+     * three pixels wide, and two per cent of one an eighth of a block across is a line most
+     * of a pixel wide, which rounds to nothing on most rows and to one on the rest.
+     */
+    private static final float GROUP_EDGE_THICKNESS = 0.08f;
+
     /** An empty zone, and the line round it. Dark, because it is a recess in the mat. */
     private static final int SLOT_COLOUR = 0x55000000;
     private static final int SLOT_EDGE_COLOUR = 0x99000000;
@@ -151,7 +162,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // reads as a fault rather than as a free chair.
             if (board.seats().get(index).occupant().isPresent()) {
                 drawPiles(poseStack, buffers, packedLight, board.seats().get(index),
-                        surface, index, span);
+                        surface, index, span, Zone.pilesFor(table.hasCommandZone()));
             }
         }
         int drawn = 0;
@@ -191,18 +202,27 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     }
 
     /**
-     * A seat's piles, in a row along the near edge of its own mat.
+     * A seat's zones, in a column down the outer edge of its own mat.
      *
-     * <p>The same four in the same places as the seated screen puts them, because they are the
-     * same piles: a player who learns where their graveyard is in one view has learned where
+     * <p>The same ones in the same places as the seated screen puts them, because they are the
+     * same zones: a player who learns where their graveyard is in one view has learned where
      * it is in the other. A pile shows its top card if the whole table is entitled to see it,
      * and a sleeve if not - which for a library is always.
+     *
+     * <p>Two boxes: the three a hand is in and out of all game, and the command zone past a
+     * gap. A format with no commanders draws three and no second box.
      */
     private void drawPiles(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, SeatView seat,
-            TableSurface surface, int seatIndex, float span) {
-        for (int index = 0; index < Zone.PILES.size(); index++) {
-            Rect slot = surface.pileSlot(seatIndex, index, Zone.PILES.size());
+            TableSurface surface, int seatIndex, float span, int count) {
+        drawGroup(poseStack, buffers,
+                surface.pileGroup(seatIndex, 0, Zone.PILES_WITHOUT_A_COMMAND_ZONE - 1, count), span);
+        if (count > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
+            drawGroup(poseStack, buffers,
+                    surface.pileGroup(seatIndex, count - 1, count - 1, count), span);
+        }
+        for (int index = 0; index < count; index++) {
+            Rect slot = surface.pileSlot(seatIndex, index, count);
             if (slot.isEmpty()) {
                 continue;
             }
@@ -228,6 +248,31 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             draw(poseStack, buffers, packedLight, texture, x, z, width, depth,
                     surface.facingDegrees(seatIndex), false, SLOT_LIFT);
         }
+    }
+
+    /**
+     * The line round a group of zones: a marking on the mat, drawn as four thin quads.
+     *
+     * <p>Empty in the middle. The slots inside it draw their own recesses, and a filled box
+     * behind them would put a second shade of dark under every zone.
+     */
+    private void drawGroup(
+            PoseStack poseStack, MultiBufferSource buffers, Rect group, float span) {
+        if (group.isEmpty()) {
+            return;
+        }
+        float left = onSurface(group.x(), span);
+        float top = onSurface(group.y(), span);
+        float right = onSurface(group.right(), span);
+        float bottom = onSurface(group.bottom(), span);
+        float edge = Math.min(right - left, bottom - top) * GROUP_EDGE_THICKNESS;
+
+        VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
+        Matrix4f pose = poseStack.last().pose();
+        flat(consumer, pose, left, top, right, top + edge, GROUP_EDGE_COLOUR);
+        flat(consumer, pose, left, bottom - edge, right, bottom, GROUP_EDGE_COLOUR);
+        flat(consumer, pose, left, top, left + edge, bottom, GROUP_EDGE_COLOUR);
+        flat(consumer, pose, right - edge, top, right, bottom, GROUP_EDGE_COLOUR);
     }
 
     /**

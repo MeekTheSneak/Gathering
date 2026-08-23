@@ -1,6 +1,7 @@
 package dev.gathering.core.ui;
 
 import dev.gathering.core.game.TablePosition;
+import dev.gathering.core.game.Zone;
 import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.Side;
 import dev.gathering.core.table.TableCell;
@@ -82,8 +83,16 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /** The gap between two zones in the column, as a fraction of a slot. */
     private static final double PILE_GAP = 0.12;
 
-    /** How many zones the column holds, which is what decides how big each slot can be. */
-    private static final int PILE_COLUMN = 4;
+    /** And the wider one that sets the command zone apart from the other three. */
+    private static final double PILE_GROUP_GAP = 0.45;
+
+    /**
+     * How far the box round a group sits outside the zones in it, as a share of the gap.
+     *
+     * <p>Not the whole gap: the column already sits one gap in from the edge of the mat, so a
+     * box a full gap wider than its zones would have its line exactly on the mat's own border.
+     */
+    private static final double PILE_GROUP_PAD = 0.8;
 
     /**
      * How wide a card is on a table with one mat on it, in surface units.
@@ -342,8 +351,14 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      * a library as a letterbox. A zone holds a stack of cards and has to be the shape of one,
      * or the card on top of it is stretched to fit a slot that is not card-shaped.
      *
-     * @param index which zone, top to bottom
-     * @param count how many zones the column holds
+     * <p><b>The command zone stands apart.</b> It is the last of the four and the furthest
+     * from its player, with a gap between it and the other three - which is how the tables
+     * people already play on lay it out, and it says the right thing: three zones a hand is in
+     * and out of all game, and one it touches twice. A format with no commanders passes a
+     * count of three and the box is simply not there.
+     *
+     * @param index which zone, nearest its own player first
+     * @param count how many zones the column holds - four with a command zone, three without
      */
     public Rect pileSlot(int seat, int index, int count) {
         Rect mat = matOf(seat);
@@ -353,19 +368,58 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         // A zone is a card, unless a column of them would be taller than the mat - which it is
         // on a two-player board, where a mat is twice as wide as it is deep. Then they shrink
         // together, which keeps them a set rather than letting the last one fall off the edge.
-        int height = (int) Math.round(cardHeightOn(seat));
-        int roomEach = (int) (mat.height() / (count * (1 + PILE_GAP) + PILE_GAP));
-        height = Math.max(1, Math.min(height, roomEach));
-        int width = Math.max(1, (int) Math.round(height * CARD_WIDTH_UNITS / CARD_HEIGHT_UNITS));
+        boolean separated = count > Zone.PILES_WITHOUT_A_COMMAND_ZONE;
+        double worth = count * (1 + PILE_GAP) + PILE_GAP + (separated ? PILE_GROUP_GAP : 0);
+        int height = Math.min(
+                (int) Math.round(cardHeightOn(seat)), (int) (mat.height() / worth));
+        height = Math.max(1, height);
+        int width = Math.max(1, CardShape.widthFor(height));
 
         int gap = Math.max(1, (int) Math.round(height * PILE_GAP));
+        int apart = separated ? Math.max(1, (int) Math.round(height * PILE_GROUP_GAP)) : 0;
         int step = height + gap;
-        int top = mat.y() + (mat.height() - (count * step - gap)) / 2;
+        int total = count * step - gap + apart;
+        int top = mat.y() + (mat.height() - total) / 2;
         // Zone nought sits nearest its own player, and the column runs away from them. Which
         // end of the mat that is depends on which chair the board belongs to.
         int slot = isTurned(seat) ? index : count - 1 - index;
-        int left = isTurned(seat) ? mat.x() + gap : mat.right() - gap - width;
-        return new Rect(left, top + slot * step, width, height);
+        // Two gaps in from the edge rather than one, because the column is drawn inside a
+        // box now and a box a gap wide round a column a gap from the edge puts its line on the
+        // mat's own border.
+        int inset = gap * 2;
+        int left = isTurned(seat) ? mat.x() + inset : mat.right() - inset - width;
+        return new Rect(left, top + slot * step + (slot >= breakAt(seat, count) ? apart : 0),
+                width, height);
+    }
+
+    /**
+     * Which slot down the surface the gap sits in front of.
+     *
+     * <p>The command zone is the far end of the column from its own player, and which end of
+     * the <em>mat</em> that is depends on the chair - so for one player the gap is before the
+     * last slot and for the one opposite it is after the first.
+     */
+    private int breakAt(int seat, int count) {
+        return isTurned(seat) ? count - 1 : 1;
+    }
+
+    /**
+     * The box drawn round a run of the column, from one zone to another inclusive.
+     *
+     * <p>Two of these: one round the three zones a hand lives in and one round the command
+     * zone on its own. Asked of the same arithmetic that places the slots, so a border can
+     * never end up round the wrong ones.
+     */
+    public Rect pileGroup(int seat, int fromIndex, int toIndex, int count) {
+        Rect first = pileSlot(seat, fromIndex, count);
+        Rect last = pileSlot(seat, toIndex, count);
+        if (first.isEmpty() || last.isEmpty()) {
+            return Rect.NONE;
+        }
+        int pad = Math.max(1, (int) Math.round(first.height() * PILE_GAP * PILE_GROUP_PAD));
+        int top = Math.min(first.y(), last.y()) - pad;
+        int bottom = Math.max(first.bottom(), last.bottom()) + pad;
+        return new Rect(first.x() - pad, top, first.width() + pad * 2, bottom - top);
     }
 
     /**

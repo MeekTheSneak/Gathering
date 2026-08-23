@@ -50,6 +50,7 @@ public class TableBlockEntity extends BlockEntity {
     public static final String ID = "table";
 
     private static final String FELT_KEY = "felt";
+    private static final String COMMAND_ZONE_KEY = "command_zone";
     private static final String SEATS_KEY = "seats";
     private static final String SESSION_OPEN_KEY = "session_open";
     private static final String SESSION_SEALED_KEY = "session_sealed";
@@ -145,6 +146,25 @@ public class TableBlockEntity extends BlockEntity {
         return Optional.ofNullable(match);
     }
 
+    /**
+     * Whether the game on this table has a command zone, which decides whether one is drawn.
+     *
+     * <p>Presentation, not a rule: nothing during play consults the format, and this does not
+     * either - it asks the match what kind of game was started and stops. The server has the
+     * match and works it out; a client is never sent one, so it is told the answer instead.
+     */
+    public boolean hasCommandZone() {
+        return match != null ? match.rules().format().hasCommandZone() : commandZone;
+    }
+
+    /**
+     * What a client was told about the above, because a client has no match to ask.
+     *
+     * <p>Only ever read when {@code match} is absent, which on a server is only before a game
+     * has started - and then it is false either way.
+     */
+    private boolean commandZone;
+
     public void beginSession(GameSession newSession, int life, MatchState newMatch) {
         this.session = newSession;
         this.startingLife = life;
@@ -152,6 +172,19 @@ public class TableBlockEntity extends BlockEntity {
         this.stored = null;
         this.restoreFailed = false;
         setChanged();
+        tellClients();
+    }
+
+    /**
+     * Pushes what a client is told about this table out again.
+     *
+     * <p>The block entity's own data, not the game's: whether the felt is dyed and whether the
+     * game has a command zone. A blockstate never changes for either, so nothing else would.
+     */
+    private void tellClients() {
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+        }
     }
 
     /** Takes a seat's deck into the table's keeping for the rest of the match. */
@@ -197,6 +230,7 @@ public class TableBlockEntity extends BlockEntity {
         this.restoreFailed = false;
         this.decks.clear();
         setChanged();
+        tellClients();
     }
 
     /** Ends the current game but keeps the match and the decks, for the next game of a set. */
@@ -305,6 +339,9 @@ public class TableBlockEntity extends BlockEntity {
         if (felt != null) {
             tag.putString(FELT_KEY, felt.getSerializedName());
         }
+        // And whether this game has a command zone, which is a fact about the format and not
+        // about anybody's cards - the client needs it to know whether to draw the box.
+        tag.putBoolean(COMMAND_ZONE_KEY, hasCommandZone());
         return tag;
     }
 
@@ -318,6 +355,7 @@ public class TableBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         felt = tag.contains(FELT_KEY) ? DyeColor.byName(tag.getString(FELT_KEY), null) : null;
+        commandZone = tag.getBoolean(COMMAND_ZONE_KEY);
 
         session = null;
         restoreFailed = false;

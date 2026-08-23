@@ -83,6 +83,11 @@ public final class SurfaceBoard implements BoardPlacement {
     }
 
     @Override
+    public Rect pileGroupRect(SeatId seat, int fromIndex, int toIndex, int count) {
+        return surface.pileGroup(seat.index(), fromIndex, toIndex, count);
+    }
+
+    @Override
     public int pileAt(SeatId seat, int count, double x, double y) {
         return surface.pileAt(seat.index(), count, x, y);
     }

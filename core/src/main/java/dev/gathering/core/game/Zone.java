@@ -93,14 +93,33 @@ public enum Zone {
     }
 
     /**
-     * The zones that sit on the table as a stack of cards, in the order they are laid out.
+     * The zones that sit on the table as a stack of cards, nearest their own player first.
      *
-     * <p>One list, because two things draw this row and a third decides what a card dropped on
-     * it lands in. When they were written out separately, the one that drew the zones and the
-     * one that worked out which zone a point was over could in principle disagree - and a drop
-     * that puts a card in the wrong zone is the kind of thing nobody reports, they just stop
-     * dropping cards there.
+     * <p>One list, because two things draw this column and a third decides what a card dropped
+     * on it lands in. When they were written out separately, the one that drew the zones and
+     * the one that worked out which zone a point was over could in principle disagree - and a
+     * drop that puts a card in the wrong zone is the kind of thing nobody reports, they just
+     * stop dropping cards there.
+     *
+     * <p>Graveyard nearest, then library, then exile, then the command zone furthest away and
+     * set apart from the other three. That is the order the tables people already play on use,
+     * and it is the right order for the reason it is theirs: the graveyard is the zone a hand
+     * reaches for most often and the command zone is the one it touches twice a game.
      */
     public static final java.util.List<Zone> PILES =
-            java.util.List.of(LIBRARY, GRAVEYARD, EXILE, COMMAND);
+            java.util.List.of(GRAVEYARD, LIBRARY, EXILE, COMMAND);
+
+    /**
+     * How many of those a table without a command zone lays out.
+     *
+     * <p>The command zone is last precisely so that a format with no commanders can leave it
+     * off by drawing one fewer. An empty box labelled with a zone the format does not have is
+     * a question every player asks once and nobody asks twice.
+     */
+    public static final int PILES_WITHOUT_A_COMMAND_ZONE = PILES.size() - 1;
+
+    /** How many zones a table's column holds, which is the one place that decides. */
+    public static int pilesFor(boolean commandZone) {
+        return commandZone ? PILES.size() : PILES_WITHOUT_A_COMMAND_ZONE;
+    }
 }

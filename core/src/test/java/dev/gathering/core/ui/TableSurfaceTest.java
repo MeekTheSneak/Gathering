@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 import dev.gathering.core.game.TablePosition;
+import dev.gathering.core.game.Zone;
 import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.TableCell;
 import dev.gathering.core.table.TableCluster;
@@ -211,6 +212,67 @@ class TableSurfaceTest {
                     .describedAs("seat %s keeps its library to hand", seat)
                     .isLessThan(Math.abs(last - nearEdge));
         }
+    }
+
+    @Test
+    @DisplayName("the command zone stands apart at the far end of the column")
+    void theCommandZoneIsSetApart() {
+        // How the tables people already play on are marked out, and it says the right thing:
+        // three zones a hand is in and out of all game, and one it touches twice. The gap is
+        // what makes them read as two groups rather than four in a row.
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        int count = Zone.PILES.size();
+
+        for (int seat = 0; seat < 2; seat++) {
+            int graveyard = Zone.PILES.indexOf(Zone.GRAVEYARD);
+            int library = Zone.PILES.indexOf(Zone.LIBRARY);
+            int exile = Zone.PILES.indexOf(Zone.EXILE);
+            int command = Zone.PILES.indexOf(Zone.COMMAND);
+
+            double toLibrary = gapBetween(surface, seat, graveyard, library, count);
+            double toExile = gapBetween(surface, seat, library, exile, count);
+            double toCommand = gapBetween(surface, seat, exile, command, count);
+
+            assertThat(toCommand)
+                    .describedAs("seat %s sets its command zone apart", seat)
+                    .isGreaterThan(toLibrary * 2);
+            assertThat(toLibrary)
+                    .describedAs("seat %s spaces the other three evenly", seat)
+                    .isCloseTo(toExile, within(2.0));
+
+            // And the graveyard is the one nearest its own player, which is the end of the
+            // column the command zone is furthest from.
+            double nearEdge = surface.isTurned(seat)
+                    ? surface.matOf(seat).y() : surface.matOf(seat).bottom();
+            assertThat(Math.abs(surface.pileSlot(seat, graveyard, count).centreY() - nearEdge))
+                    .describedAs("seat %s keeps its graveyard to hand", seat)
+                    .isLessThan(Math.abs(surface.pileSlot(seat, command, count).centreY() - nearEdge));
+        }
+    }
+
+    @Test
+    @DisplayName("a format with no commanders draws three zones and no gap")
+    void withoutACommandZoneTheColumnIsThree() {
+        // An empty box labelled with a zone the format does not have is a question every
+        // player asks once and nobody asks twice.
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        int three = Zone.PILES_WITHOUT_A_COMMAND_ZONE;
+
+        assertThat(surface.pileSlot(0, three, three))
+                .describedAs("there is no fourth zone to draw")
+                .isEqualTo(Rect.NONE);
+
+        double first = gapBetween(surface, 0, 0, 1, three);
+        double second = gapBetween(surface, 0, 1, 2, three);
+        assertThat(first)
+                .describedAs("and the three that are left are evenly spaced")
+                .isCloseTo(second, within(2.0));
+    }
+
+    private static double gapBetween(TableSurface surface, int seat, int one, int other, int count) {
+        Rect first = surface.pileSlot(seat, one, count);
+        Rect second = surface.pileSlot(seat, other, count);
+        return Math.abs(second.centreY() - first.centreY()) - first.height();
     }
 
     @Test

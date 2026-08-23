@@ -2,6 +2,7 @@ package dev.gathering.client;
 
 import com.mojang.math.Axis;
 import dev.gathering.core.game.CardInstance;
+import dev.gathering.block.TableBlockEntity;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.Placement;
@@ -80,6 +81,9 @@ public final class TableScreen extends Screen {
     /** The felt, and a mat on it. Mats are lighter so the table reads as somebody's space. */
     private static final int FELT = 0xFF1E3A2E;
     private static final int MAT = 0x30FFFFFF;
+
+    /** The line round a group of zones: a marking on the mat rather than a piece of interface. */
+    private static final int ZONE_BORDER = 0x66FFFFFF;
     private static final int MAT_MINE = 0x406FD3E8;
 
     /**
@@ -213,6 +217,9 @@ public final class TableScreen extends Screen {
     private List<CardInstanceId> attaching = List.of();
 
     private ContextMenu menu;
+
+    /** How many zones the column holds, refreshed each tick - see pileCount. */
+    private int piles = Zone.PILES.size();
 
     /** Whether the last frame had a card under the cursor. Read by the scripted harness. */
     private boolean hoveringSomething;
@@ -425,6 +432,11 @@ public final class TableScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        piles = Zone.pilesFor(
+                net.minecraft.client.Minecraft.getInstance().level != null
+                        && net.minecraft.client.Minecraft.getInstance().level
+                                .getBlockEntity(table) instanceof TableBlockEntity entity
+                        && entity.hasCommandZone());
         // The game ended, or this client stopped being told about it.
         if (view().isEmpty()) {
             this.onClose();
@@ -562,18 +574,53 @@ public final class TableScreen extends Screen {
         }
     }
 
-    /** Everybody's piles, in a row along the near edge of their own mat. */
+    /**
+     * Everybody's zones, in a column down the outer edge of their own mat.
+     *
+     * <p>Two boxes rather than four loose slots: the three a hand is in and out of all game
+     * grouped together, and the command zone on its own past a gap. That is how the tables
+     * people already play on are marked out, and it is what makes a glance at somebody's
+     * board answer "where is their graveyard" without counting.
+     */
     private void renderPiles(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
+        int count = pileCount();
         for (SeatView seat : board.seats()) {
-            for (int index = 0; index < Zone.PILES.size(); index++) {
-                Rect where = board().pileRect(seat.seat(), index, Zone.PILES.size());
+            drawPileGroup(graphics, board().pileGroupRect(seat.seat(), 0, IN_HAND_REACH, count));
+            if (count > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
+                drawPileGroup(graphics,
+                        board().pileGroupRect(seat.seat(), count - 1, count - 1, count));
+            }
+            for (int index = 0; index < count; index++) {
+                Rect where = board().pileRect(seat.seat(), index, count);
                 if (where.isEmpty() || where.width() < 4) {
                     continue;
                 }
-                drawPile(graphics, seat, Zone.PILES.get(index), where.shrink(1),
+                drawPile(graphics, seat, Zone.PILES.get(index), where,
                         where.contains(mouseX, mouseY));
             }
         }
+    }
+
+    /** The last zone in the group a hand actually reaches for: exile. */
+    private static final int IN_HAND_REACH = Zone.PILES_WITHOUT_A_COMMAND_ZONE - 1;
+
+    /** The line round a group of zones. Nothing inside it - the slots draw themselves. */
+    private void drawPileGroup(GuiGraphics graphics, Rect group) {
+        if (group.isEmpty() || group.width() < 6) {
+            return;
+        }
+        graphics.renderOutline(group.x(), group.y(), group.width(), group.height(), ZONE_BORDER);
+    }
+
+    /**
+     * How many zones this table's column holds.
+     *
+     * <p>Three, or four where the format has a command zone. Read once a tick rather than per
+     * call: it comes off the block entity, every loop over the column asks, and the answer
+     * changes twice a match.
+     */
+    private int pileCount() {
+        return piles;
     }
 
     /**
@@ -1035,7 +1082,7 @@ public final class TableScreen extends Screen {
         SeatId landing = at == null ? null : board().seatAt(at[0], at[1]);
 
         if (landing != null && at != null) {
-            ClientTableHighlight.aimAt(landing, board().pileAt(landing, Zone.PILES.size(), at[0], at[1]));
+            ClientTableHighlight.aimAt(landing, board().pileAt(landing, pileCount(), at[0], at[1]));
         } else {
             ClientTableHighlight.aimAt(null, -1);
         }
@@ -1269,7 +1316,7 @@ public final class TableScreen extends Screen {
 
         // A zone catches the card before the felt does, so putting something in the graveyard
         // is dropping it on the graveyard.
-        int zone = board().pileAt(landing, Zone.PILES.size(), at[0], at[1]);
+        int zone = board().pileAt(landing, pileCount(), at[0], at[1]);
         if (zone >= 0) {
             send(new GameEvent.CardMoved(me, dropped.card(),
                     ZoneRef.of(landing, Zone.PILES.get(zone)), Placement.TOP));
@@ -1405,12 +1452,12 @@ public final class TableScreen extends Screen {
     /** Whose pile row a point is in, or null. */
     private SeatId pileSeatAt(GameView board, int x, int y) {
         int slot = pileSlotAt(board, x, y);
-        return slot < 0 ? null : board.seats().get(slot / Zone.PILES.size()).seat();
+        return slot < 0 ? null : board.seats().get(slot / pileCount()).seat();
     }
 
     private Zone pileZoneAt(GameView board, int x, int y) {
         int slot = pileSlotAt(board, x, y);
-        return slot < 0 ? Zone.LIBRARY : Zone.PILES.get(slot % Zone.PILES.size());
+        return slot < 0 ? Zone.LIBRARY : Zone.PILES.get(slot % pileCount());
     }
 
     /**
@@ -1426,10 +1473,10 @@ public final class TableScreen extends Screen {
             return -1;
         }
         for (int seat = 0; seat < board.seats().size(); seat++) {
-            for (int index = 0; index < Zone.PILES.size(); index++) {
-                Rect pile = board().pileRect(board.seats().get(seat).seat(), index, Zone.PILES.size());
+            for (int index = 0; index < pileCount(); index++) {
+                Rect pile = board().pileRect(board.seats().get(seat).seat(), index, pileCount());
                 if (pile.contains((int) Math.round(at[0]), (int) Math.round(at[1]))) {
-                    return seat * Zone.PILES.size() + index;
+                    return seat * pileCount() + index;
                 }
             }
         }

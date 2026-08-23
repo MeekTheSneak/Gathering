@@ -263,6 +263,39 @@ public final class TableGameTest {
     }
 
     @GameTest(template = "empty")
+    public static void whetherThereIsACommandZoneIsToldToClients(GameTestHelper helper) {
+        // A client never receives the match, so it cannot work out whether this game has a
+        // command zone - and it has to know, because it draws the box. An empty box labelled
+        // with a zone the format does not have is a question every player asks once.
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        if (table.hasCommandZone()) {
+            helper.fail("A table with no game on it claimed to have a command zone");
+        }
+
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH,
+                new UUID(0L, 91L));
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(
+                        dev.gathering.core.format.FormatPresets.COMMANDER));
+        if (!table.hasCommandZone()) {
+            helper.fail("A game of Commander did not have a command zone");
+        }
+        if (!table.getUpdateTag(helper.getLevel().registryAccess()).getBoolean("command_zone")) {
+            helper.fail("A joining client is not told the table has a command zone");
+        }
+
+        TableSessions.end(helper.getLevel(), origin, new SeatId(0), "test");
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(
+                        dev.gathering.core.format.FormatPresets.MODERN));
+        if (table.hasCommandZone()) {
+            helper.fail("A game of Modern was given a command zone");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void aGameNeedsSomebodySittingAtTheTable(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
 

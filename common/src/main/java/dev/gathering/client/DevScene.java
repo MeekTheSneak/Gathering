@@ -304,7 +304,7 @@ public final class DevScene {
             }
             case 17 -> {
                 // Into the graveyard: the drop that has to land on a zone rather than on felt.
-                dropIntoAZone(client, 1);
+                dropIntoAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
                 advance(SETTLE);
             }
             case 18 -> {
@@ -321,7 +321,7 @@ public final class DevScene {
                 shoot(client, "14-crowded-hand");
                 // The graveyard has a card in it by now, and left-clicking a pile that is not
                 // a library opens it. Anything else here is a dead end the player would find.
-                clickAZone(client, 1, 0);
+                clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
             case 20 -> {
@@ -335,7 +335,7 @@ public final class DevScene {
             case 21 -> {
                 expectScreen(client, "closing the graveyard", TableScreen.class);
                 // Right-click on the library, which is where every verb a library has lives.
-                clickAZone(client, 0, 1);
+                clickAZone(client, Zone.PILES.indexOf(Zone.LIBRARY), 1);
                 advance(SETTLE / 2);
             }
             case 22 -> {
@@ -619,7 +619,8 @@ public final class DevScene {
             return Rect.NONE;
         }
         return ClientTableState.seatAt(table)
-                .map(seat -> board.board().pileRect(seat, index, Zone.PILES.size()))
+                // The scene plays Commander, so the column is the full four.
+                .map(seat -> board.board().pileRect(seat, index, Zone.pilesFor(true)))
                 .orElse(Rect.NONE);
     }
 

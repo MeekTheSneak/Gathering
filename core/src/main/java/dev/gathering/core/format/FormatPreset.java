@@ -52,4 +52,16 @@ public record FormatPreset(
     public boolean checksColourIdentity() {
         return commanderRules.inUse();
     }
+
+    /**
+     * Whether a board in this format has a command zone on it.
+     *
+     * <p>The same question as the one above and a different reason for asking: that one is
+     * about what a decklist is allowed to contain and this one is about whether a box gets
+     * drawn on the mat. Named separately so the drawing does not read as a rules check, which
+     * is a thing this mod is careful never to do during play.
+     */
+    public boolean hasCommandZone() {
+        return commanderRules.inUse();
+    }
 }
