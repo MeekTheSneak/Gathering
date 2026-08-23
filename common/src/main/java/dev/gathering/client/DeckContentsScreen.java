@@ -330,9 +330,10 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
             return;
         }
 
-        GatheringSprites.frame(graphics, card.x(), card.y(), card.width(), card.height());
+        // The text beside a card keeps its panel - it is a panel. The card does not: it is a
+        // picture with its own border printed on it.
         if (!info.isEmpty()) {
-            GatheringSprites.frame(graphics, info.x(), info.y(), info.width(), info.height());
+            GatheringSprites.inset(graphics, info.x(), info.y(), info.width(), info.height());
         }
 
         Optional<CardSummary> summary = row == null || row.card() == null

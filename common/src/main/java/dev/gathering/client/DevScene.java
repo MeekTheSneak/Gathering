@@ -376,7 +376,69 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
+            case 25 -> {
+                // A window somebody has resized, which is the one path that re-runs a screen's
+                // init on an instance that is already holding a game. Two sizes: one where
+                // everything gets bigger and the felt gets smaller, and one the other way.
+                setGuiScale(client, 3);
+                advance(SETTLE / 2);
+            }
+            case 26 -> {
+                theBoardIsStillFramed(client, "at gui scale three");
+                shoot(client, "19-a-bigger-interface");
+                setGuiScale(client, 1);
+                advance(SETTLE / 2);
+            }
+            case 27 -> {
+                theBoardIsStillFramed(client, "at gui scale one");
+                shoot(client, "20-a-smaller-interface");
+                setGuiScale(client, 0);
+                advance(SETTLE / 2);
+            }
+            case 28 -> {
+                theBoardIsStillFramed(client, "back at the automatic scale");
+                shoot(client, "21-back-to-normal");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
+        }
+    }
+
+    /**
+     * Changes the interface scale and lets the game deal with it.
+     *
+     * <p>Which is a resize as far as every screen is concerned - {@code init} runs again on the
+     * instance that is already open, holding a game, a camera and whatever the player was
+     * dragging. Zero is the automatic setting.
+     */
+    private static void setGuiScale(Minecraft client, int scale) {
+        client.options.guiScale().set(scale);
+        client.resizeDisplay();
+    }
+
+    /** After a resize the player's own board still has to be somewhere they can see it. */
+    private static void theBoardIsStillFramed(Minecraft client, String when) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("the table screen did not survive being resized " + when);
+            return;
+        }
+        SeatId seat = ClientTableState.seatAt(table).orElse(null);
+        if (seat == null) {
+            fail("the seat was lost by resizing " + when);
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        TableScreenLayout layout = TableScreenLayout.of(width, height);
+        Rect mat = board.board().matRect(seat);
+        if (mat.isEmpty()) {
+            fail("the player's own mat vanished " + when);
+            return;
+        }
+        if (mat.right() <= 0 || mat.x() >= width
+                || mat.bottom() <= layout.status().bottom() || mat.y() >= layout.hand().y()) {
+            fail("the player's own mat was off screen " + when + ": " + mat
+                    + " in " + width + "x" + height);
         }
     }
 

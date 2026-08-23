@@ -489,8 +489,8 @@ public final class TableScreen extends Screen {
             List<Placed> onTable = everythingOnTheTable(board);
             hovered = frontMostAt(onTable, mouseX, mouseY);
             for (Placed placed : onTable) {
-                drawTableCard(graphics, placed.card(), placed.where(), placed.angle(),
-                        placed == hovered || isSelected(placed.card()));
+                drawCard(graphics, placed.card(), placed.where(), placed.angle(),
+                        placed == hovered || isSelected(placed.card()), true);
             }
             renderPileBadges(graphics, board, onTable);
         }
@@ -587,8 +587,9 @@ public final class TableScreen extends Screen {
         ZoneView contents = view.zone(zone);
         int count = contents == null ? 0 : contents.count();
 
-        GatheringSprites.frame(graphics, pile.x(), pile.y(), pile.width(), pile.height());
-        Rect art = pile.shrink(1);
+        // The slot itself, and then whatever is sitting in it. No frame round the card: an
+        // empty zone is a recess and a full one is the card, the same as everywhere else.
+        Rect art = pile;
         Optional<CardView> top = topOf(contents);
 
         if (count == 0) {
@@ -805,7 +806,7 @@ public final class TableScreen extends Screen {
                     continue;
                 }
                 HandFan.Slot slot = HandFan.slot(area, hand.size(), index, lifted);
-                drawBareCard(graphics, hand.get(index), slot.where(), slot.angle());
+                drawCard(graphics, hand.get(index), slot.where(), slot.angle(), false, false);
             }
         }
         if (lifted >= 0 && lifted < hand.size()) {
@@ -1057,7 +1058,7 @@ public final class TableScreen extends Screen {
                         board().cardWidth(sizedFor), board().cardHeight(sizedFor));
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, LIFT);
-        drawCard(graphics, card, airborne, false, false);
+        drawCard(graphics, card, airborne, 0, false, false);
         graphics.pose().popPose();
     }
 
@@ -2055,16 +2056,24 @@ public final class TableScreen extends Screen {
 
     // --------------------------------------------------------------- drawing
 
-    /** A card on the table: at its own spot, turned to its own angle, counters and all. */
     /**
-     * A card as just its picture, turned, with nothing drawn round it.
+     * A card: its picture, turned to its own angle, and nothing drawn round it.
      *
-     * <p>What the hand uses. The framed version earns its border on the table, where a card
-     * has to be told apart from the felt and from the cards under it; in a fan every card is
-     * against another card and the borders become a row of lines with slivers of art between
-     * them. A card is a picture before it is a token.
+     * <p>No border, anywhere. A card is a picture before it is a token, and a frame drawn
+     * round every one of them turns a hand into a row of lines with slivers of art between,
+     * and a pile into a stack of boxes. The art has its own black border printed on it - it
+     * is a card - so a second one is somebody else's idea of a card drawn over the real one.
+     *
+     * <p>What is left is feedback rather than decoration: a shadow under a card lying on the
+     * felt, so a stack reads as a stack; a tint on a tapped one; a ring on the one under the
+     * cursor.
+     *
+     * @param onTheFelt whether this is a card lying on the table, which is what earns it a
+     *     shadow and a tapped tint - a card in a hand or in a list has neither
      */
-    private void drawBareCard(GuiGraphics graphics, CardView card, Rect where, int angle) {
+    private void drawCard(
+            GuiGraphics graphics, CardView card, Rect where, int angle,
+            boolean hovered, boolean onTheFelt) {
         if (where.isEmpty()) {
             return;
         }
@@ -2075,7 +2084,14 @@ public final class TableScreen extends Screen {
             graphics.pose().mulPose(Axis.ZP.rotationDegrees(angle));
             graphics.pose().translate((float) -where.centreX(), (float) -where.centreY(), 0f);
         }
+        if (onTheFelt) {
+            // Cast first, under everything, so the card above reads as being above.
+            graphics.fill(where.x() + SHADOW_OFFSET, where.y() + SHADOW_OFFSET,
+                    where.right() + SHADOW_OFFSET, where.bottom() + SHADOW_OFFSET, SHADOW);
+        }
         if (card.isFaceDown()) {
+            // Even to the player who knows what it is. Their board has to look to them the
+            // way it looks to everyone else, or they cannot tell what they have given away.
             graphics.blit(CardFaceRenderer.CARD_BACK, where.x(), where.y(), 0f, 0f,
                     where.width(), where.height(), where.width(), where.height());
         } else {
@@ -2085,55 +2101,17 @@ public final class TableScreen extends Screen {
                     () -> GatheringSprites.inset(
                             graphics, where.x(), where.y(), where.width(), where.height()));
         }
-        drawCounters(graphics, card, where);
-        if (turned) {
-            graphics.pose().popPose();
-        }
-    }
-
-    private void drawTableCard(GuiGraphics graphics, CardView card, Rect where, int angle, boolean hovered) {
-        if (angle == 0) {
-            drawCard(graphics, card, where, hovered, card.tapped());
-            return;
-        }
-        graphics.pose().pushPose();
-        graphics.pose().translate((float) where.centreX(), (float) where.centreY(), 0f);
-        graphics.pose().mulPose(Axis.ZP.rotationDegrees(angle));
-        graphics.pose().translate((float) -where.centreX(), (float) -where.centreY(), 0f);
-        drawCard(graphics, card, where, hovered, card.tapped());
-        graphics.pose().popPose();
-    }
-
-    private void drawCard(GuiGraphics graphics, CardView card, Rect where, boolean hovered, boolean dimmed) {
-        if (where.isEmpty()) {
-            return;
-        }
-        // Cast first, under everything, so the card above reads as being above.
-        graphics.fill(where.x() + SHADOW_OFFSET, where.y() + SHADOW_OFFSET,
-                where.right() + SHADOW_OFFSET, where.bottom() + SHADOW_OFFSET, SHADOW);
-        GatheringSprites.frame(graphics, where.x(), where.y(), where.width(), where.height());
-        Rect art = where.shrink(2);
-
-        if (card.isFaceDown()) {
-            // Even to the player who knows what it is. Their board has to look to them the
-            // way it looks to everyone else, or they cannot tell what they have given away.
-            graphics.blit(CardFaceRenderer.CARD_BACK, art.x(), art.y(), 0f, 0f,
-                    art.width(), art.height(), art.width(), art.height());
-        } else {
-            summaryOf(card).ifPresentOrElse(
-                    summary -> CardInspectPanel.renderArt(
-                            graphics, summary, art.x(), art.y(), art.width(), art.height()),
-                    () -> GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height()));
-        }
-
-        if (dimmed) {
+        if (onTheFelt && card.tapped()) {
             // A tapped card is already lying sideways; the tint is what tells it apart from
             // one somebody turned by hand, without a word of text over the art.
-            graphics.fill(art.x(), art.y(), art.right(), art.bottom(), TAPPED_TINT);
+            graphics.fill(where.x(), where.y(), where.right(), where.bottom(), TAPPED_TINT);
         }
-        drawCounters(graphics, card, art);
+        drawCounters(graphics, card, where);
         if (hovered) {
             graphics.renderOutline(where.x(), where.y(), where.width(), where.height(), ACCENT);
+        }
+        if (turned) {
+            graphics.pose().popPose();
         }
     }
 

@@ -29,9 +29,6 @@ public final class GatheringSprites {
     public static final ResourceLocation ROW_HIGHLIGHT =
             ResourceLocation.fromNamespaceAndPath(Gathering.MOD_ID, "row_highlight");
 
-    /** The heavy border a card or its text sits inside. */
-    public static final ResourceLocation FRAME = ResourceLocation.fromNamespaceAndPath(Gathering.MOD_ID, "frame");
-
     /**
      * The decklist backdrop: flush to the left edge, tapering on the right.
      *
@@ -61,10 +58,6 @@ public final class GatheringSprites {
 
     public static void highlight(GuiGraphics graphics, int x, int y, int width, int height) {
         graphics.blitSprite(ROW_HIGHLIGHT, x, y, width, height);
-    }
-
-    public static void frame(GuiGraphics graphics, int x, int y, int width, int height) {
-        graphics.blitSprite(FRAME, x, y, width, height);
     }
 
     public static void deckPanel(GuiGraphics graphics, int x, int y, int width, int height) {

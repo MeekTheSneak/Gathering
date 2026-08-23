@@ -159,9 +159,9 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         }
     }
 
+    /** The card, and a ring if the cursor is on it. Nothing drawn round it - see TableScreen. */
     private void drawCard(GuiGraphics graphics, CardView card, Rect where, boolean hovered) {
-        GatheringSprites.frame(graphics, where.x(), where.y(), where.width(), where.height());
-        Rect art = where.shrink(2);
+        Rect art = where;
 
         if (card.isFaceDown()) {
             graphics.blit(CardFaceRenderer.CARD_BACK, art.x(), art.y(), 0f, 0f,

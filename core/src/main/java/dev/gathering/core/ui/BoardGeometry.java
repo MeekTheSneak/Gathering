@@ -89,11 +89,25 @@ public final class BoardGeometry implements BoardPlacement {
     public void reshape(
             List<SeatAnchor> anchors, int newWidth, int newHeight,
             int newCoveredAtTheTop, int newCoveredAtTheBottom) {
+        int wasVisible = visible();
         this.surface = TableSurface.forSeats(anchors);
         this.width = Math.max(1, newWidth);
         this.height = Math.max(1, newHeight);
         this.coveredAtTheTop = Math.max(0, newCoveredAtTheTop);
         this.coveredAtTheBottom = Math.max(0, newCoveredAtTheBottom);
+
+        // A window that changed size keeps showing the same amount of table rather than the
+        // same number of pixels of it: a player who had their own mat filling the screen and
+        // then turned their interface scale down should have a bigger mat, not the same mat
+        // adrift in a bigger window with somebody else's board coming into view above it.
+        // The point the view is centred on does not move, so nothing slides out from under
+        // whoever is mid-turn - which is the thing this method exists not to do.
+        if (visible() != wasVisible) {
+            camera = new TableCamera(
+                    camera.centreX(), camera.centreY(),
+                    camera.scale() * visible() / (double) wasVisible,
+                    surface.width(), surface.height(), turned);
+        }
     }
 
     @Override
@@ -137,7 +151,6 @@ public final class BoardGeometry implements BoardPlacement {
                 visible() / (double) Math.max(1, mat.height()));
         camera = new TableCamera(mat.centreX(), mat.centreY(), fit,
                 surface.width(), surface.height(), turned);
-        camera = camera.pannedBy(0, offToTheMiddleOfWhatIsVisible());
 
         // Leaned towards the middle of the table, so the board opposite comes into view as
         // soon as the window has room for it. Bounded by the room there actually is: a mat
@@ -180,22 +193,26 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     /**
-     * How far to slide the view so that what is framed sits in the middle of the strip
-     * between the status row and the hand, rather than in the middle of the window.
+     * The viewport the camera is told about vertically, which is not the window.
      *
-     * <p>In screen pixels, which is why it is a pan: the two are the same gesture, and a view
-     * that framed things one way and let the player drag them another would drift apart the
-     * first time anybody touched it.
+     * <p>A camera puts what it is centred on in the middle of the viewport it is handed. The
+     * middle of the <em>window</em> is the wrong place: there is a status row across the top
+     * and a hand across the bottom, and the middle of what is left is lower than the middle of
+     * the window by half the difference. Handing over a viewport whose midpoint is the strip's
+     * midpoint puts it in the right place with no arithmetic anywhere else.
+     *
+     * <p>Done here rather than baked into the camera as a pan, which is what it used to be.
+     * A pan is a number of pixels at a scale, so a window that changed size afterwards kept
+     * the old offset and the board drifted off the middle of the new strip - which is exactly
+     * what a player sees the first time they change their interface scale mid-game.
      */
-    private double offToTheMiddleOfWhatIsVisible() {
-        return (coveredAtTheTop - coveredAtTheBottom) / 2.0;
+    private int viewportDown() {
+        return Math.max(1, coveredAtTheTop + height - coveredAtTheBottom);
     }
 
     public void showEverything() {
-        int visible = visible();
-        camera = TableCamera.showingAll(surface.width(), surface.height(), width, visible)
-                .seenFrom(turned)
-                .pannedBy(0, offToTheMiddleOfWhatIsVisible());
+        camera = TableCamera.showingAll(surface.width(), surface.height(), width, visible())
+                .seenFrom(turned);
     }
 
     public void pan(double pixelsX, double pixelsY) {
@@ -203,7 +220,7 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     public void zoom(double factor, double atX, double atY) {
-        camera = camera.zoomedAt(factor, atX, atY, width, height);
+        camera = camera.zoomedAt(factor, atX, atY, width, viewportDown());
     }
 
     // ---------------------------------------------------------- card to screen
@@ -218,7 +235,7 @@ public final class BoardGeometry implements BoardPlacement {
         // Measured from the middle - see BoardPlacement.
         return new Rect(
                 (int) Math.round(camera.toScreenX(surfaceX, width)) - cardWidth / 2,
-                (int) Math.round(camera.toScreenY(surfaceY, height)) - cardHeight / 2,
+                (int) Math.round(camera.toScreenY(surfaceY, viewportDown())) - cardHeight / 2,
                 cardWidth,
                 cardHeight);
     }
@@ -263,14 +280,14 @@ public final class BoardGeometry implements BoardPlacement {
         return surface.positionOn(
                 seat.index(),
                 camera.toTableX(screenX, width),
-                camera.toTableY(screenY, height));
+                camera.toTableY(screenY, viewportDown()));
     }
 
     /** Whose mat is under this screen point, or null for the felt between them. */
     @Override
     public SeatId seatAt(double screenX, double screenY) {
         int seat = surface.seatAt(
-                camera.toTableX(screenX, width), camera.toTableY(screenY, height));
+                camera.toTableX(screenX, width), camera.toTableY(screenY, viewportDown()));
         return seat < 0 ? null : new SeatId(seat);
     }
 
@@ -289,7 +306,7 @@ public final class BoardGeometry implements BoardPlacement {
     @Override
     public int pileAt(SeatId seat, int count, double screenX, double screenY) {
         return surface.pileAt(seat.index(), count,
-                camera.toTableX(screenX, width), camera.toTableY(screenY, height));
+                camera.toTableX(screenX, width), camera.toTableY(screenY, viewportDown()));
     }
 
     /**
@@ -305,9 +322,9 @@ public final class BoardGeometry implements BoardPlacement {
             return Rect.NONE;
         }
         int oneX = (int) Math.round(camera.toScreenX(onSurface.x(), width));
-        int oneY = (int) Math.round(camera.toScreenY(onSurface.y(), height));
+        int oneY = (int) Math.round(camera.toScreenY(onSurface.y(), viewportDown()));
         int otherX = (int) Math.round(camera.toScreenX(onSurface.right(), width));
-        int otherY = (int) Math.round(camera.toScreenY(onSurface.bottom(), height));
+        int otherY = (int) Math.round(camera.toScreenY(onSurface.bottom(), viewportDown()));
         return new Rect(
                 Math.min(oneX, otherX), Math.min(oneY, otherY),
                 Math.abs(otherX - oneX), Math.abs(otherY - oneY));

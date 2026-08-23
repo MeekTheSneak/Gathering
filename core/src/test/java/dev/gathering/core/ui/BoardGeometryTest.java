@@ -290,6 +290,39 @@ class BoardGeometryTest {
         }
 
         @Test
+        @DisplayName("a window that changes size keeps the board filling it")
+        void resizingRefitsTheBoard() {
+            // Changing the interface scale mid-game is a resize as far as every screen is
+            // concerned. The old arithmetic baked the offset that lifts the board clear of the
+            // hand into the camera as a number of pixels, so a window that then changed size
+            // kept the old offset: the mat came out adrift in the middle of a bigger window
+            // with the other player's board coming into view above it.
+            int status = 16;
+            int hand = 130;
+            SeatId me = new SeatId(0);
+            BoardGeometry geometry = new BoardGeometry(
+                    seatsOf(new TableCell(0, 0)), WIDTH, HEIGHT, status, hand);
+            geometry.focusOn(me);
+            Rect before = geometry.matRect(me);
+
+            // Twice the window, and twice the furniture with it, which is what halving the
+            // interface scale does.
+            geometry.reshape(seatsOf(new TableCell(0, 0)), WIDTH * 2, HEIGHT * 2,
+                    status * 2, hand * 2);
+            Rect after = geometry.matRect(me);
+
+            assertThat(after.width())
+                    .describedAs("the mat grew with the window")
+                    .isCloseTo(before.width() * 2, org.assertj.core.data.Offset.offset(6));
+            assertThat(after.y())
+                    .describedAs("and still starts below the life totals")
+                    .isGreaterThanOrEqualTo(status * 2);
+            assertThat(after.bottom())
+                    .describedAs("and still ends above the hand")
+                    .isLessThanOrEqualTo(HEIGHT * 2 - hand * 2);
+        }
+
+        @Test
         @DisplayName("the board is framed between the life totals and the hand, not behind them")
         void theBoardClearsTheFurniture() {
             // The window has a status row across the top and a hand across the bottom, and the
