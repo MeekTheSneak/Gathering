@@ -256,45 +256,59 @@ public final class DevScene {
                             + client.mouseHandler.xpos() + "," + client.mouseHandler.ypos());
                 }
                 shoot(client, "08-hovering-a-card");
+                // Holding the read key. Not by pressing it: the overlay asks the window for
+                // the physical key, and a window under a headless X server has no focus and
+                // so no key state - which is the whole reason the overlay takes its answer
+                // from a supplier rather than reading the mapping itself.
+                CardZoomOverlay.bindKeyState(() -> true);
+                hover(client, cardPoint(client));
+                advance(SETTLE / 2);
+            }
+            case 13 -> {
+                if (!CardZoomOverlay.isActive()) {
+                    fail("the read-a-card overlay did not come up");
+                }
+                shoot(client, "09-reading-a-card");
+                CardZoomOverlay.bindKeyState(() -> false);
                 if (client.screen != null) {
                     int[] at = cardPoint(client);
                     client.screen.mouseClicked(at[0], at[1], 1);
                 }
                 advance(SETTLE / 2);
             }
-            case 13 -> {
+            case 14 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking a card on the table opened no menu");
                 }
-                shoot(client, "09-card-menu");
+                shoot(client, "10-card-menu");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 14 -> {
-                shoot(client, "10-log");
+            case 15 -> {
+                shoot(client, "11-log");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 15 -> {
-                shoot(client, "11-key-list");
+            case 16 -> {
+                shoot(client, "12-key-list");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 16 -> {
+            case 17 -> {
                 // Into the graveyard: the drop that has to land on a zone rather than on felt.
                 dropIntoAZone(client, 1);
                 advance(SETTLE);
             }
-            case 17 -> {
-                shoot(client, "12-into-the-graveyard");
+            case 18 -> {
+                shoot(client, "13-into-the-graveyard");
                 // A crowded hand. Eighteen cards is a real Windfall turn and the size at which
                 // a fan either overlaps sensibly or turns into a wall.
                 if (client.screen != null) {
@@ -303,32 +317,32 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 18 -> {
-                shoot(client, "13-crowded-hand");
+            case 19 -> {
+                shoot(client, "14-crowded-hand");
                 // The graveyard has a card in it by now, and left-clicking a pile that is not
                 // a library opens it. Anything else here is a dead end the player would find.
                 clickAZone(client, 1, 0);
                 advance(SETTLE);
             }
-            case 19 -> {
+            case 20 -> {
                 expectScreen(client, "left-clicking the graveyard", PileScreen.class);
-                shoot(client, "14-graveyard-open");
+                shoot(client, "15-graveyard-open");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                 }
                 advance(SETTLE);
             }
-            case 20 -> {
+            case 21 -> {
                 expectScreen(client, "closing the graveyard", TableScreen.class);
                 // Right-click on the library, which is where every verb a library has lives.
                 clickAZone(client, 0, 1);
                 advance(SETTLE / 2);
             }
-            case 21 -> {
+            case 22 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking the library opened no menu");
                 }
-                shoot(client, "15-library-menu");
+                shoot(client, "16-library-menu");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                     // Back onto the block, now that there is a played card, a full graveyard
@@ -341,22 +355,22 @@ public final class DevScene {
                 hover(client, new int[] {2, 2});
                 advance(SETTLE);
             }
-            case 22 -> {
+            case 23 -> {
                 if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
                     fail("a cursor off the board still had a card under it");
                 }
-                shoot(client, "16-on-the-table-in-play");
+                shoot(client, "17-on-the-table-in-play");
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 23 -> {
+            case 24 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
                 if (!ClientTableHighlight.isLitAtAll()) {
                     fail("the table in the world was not told what the cursor was on");
                 }
-                shoot(client, "17-on-the-table-hovering");
+                shoot(client, "18-on-the-table-hovering");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
