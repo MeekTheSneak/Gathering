@@ -363,10 +363,13 @@ public final class DevScene {
      */
     private static void reportSeats(Minecraft client) {
         MinecraftServer server = client.getSingleplayerServer();
-        System.out.println("[devscene] client seat: " + ClientTableState.seatAt(table));
         if (server == null || table == null) {
             return;
         }
+        // The guard comes first: ClientTableState keys a ConcurrentHashMap by the table, and
+        // that throws on a null key rather than answering empty - so a run where the table was
+        // never placed used to fall out of the tick with a bare NPE instead of a report.
+        System.out.println("[devscene] client seat: " + ClientTableState.seatAt(table));
         BlockPos where = table;
         server.execute(() -> {
             ServerLevel level = server.overworld();

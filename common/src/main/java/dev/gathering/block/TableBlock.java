@@ -266,7 +266,7 @@ public class TableBlock extends BaseEntityBlock {
         // their deck. Which then left them spectating their own game, with every action
         // refused, for reasons nothing on screen explained.
         if (DeckItem.deckOf(stack).isPresent()) {
-            sitDownAndPlay(level, tableOrigin, player, stack);
+            sitDownAndPlay(level, tableOrigin, player, stack, side);
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -372,11 +372,21 @@ public class TableBlock extends BaseEntityBlock {
      * just no longer in the way of the usual.
      */
     private static void sitDownAndPlay(
-            Level level, BlockPos tableOrigin, Player player, ItemStack stack) {
-        if (!sitDownIfNeeded(level, tableOrigin, player)) {
+            Level level, BlockPos tableOrigin, Player player, ItemStack stack, Side side) {
+        if (!sitDownIfNeeded(level, tableOrigin, player, side)) {
             return;
         }
         if (!TableSessions.hasSession(level, tableOrigin)) {
+            // Between games of a set is not the same as no game here. Treating them alike
+            // started a fresh Commander game on top of a best-of-three, which threw away the
+            // score, the format the table had been playing and the sideboard step, and dealt
+            // everybody's held deck back out as though the match had never happened.
+            if (level instanceof net.minecraft.server.level.ServerLevel server
+                    && player instanceof net.minecraft.server.level.ServerPlayer asking
+                    && dev.gathering.server.TableMatch.isBetweenGames(server, tableOrigin)) {
+                dev.gathering.server.TableMatch.startNextGame(server, tableOrigin, asking);
+                return;
+            }
             TableSessions.Outcome outcome = TableSessions.start(
                     level, tableOrigin, MatchRules.single(FormatPresets.COMMANDER));
             if (outcome != TableSessions.Outcome.STARTED) {
@@ -400,10 +410,27 @@ public class TableBlock extends BaseEntityBlock {
      * @return whether they now have a seat
      */
     private static boolean sitDownIfNeeded(Level level, BlockPos tableOrigin, Player player) {
+        return sitDownIfNeeded(level, tableOrigin, player, null);
+    }
+
+    /**
+     * @param preferred the edge the player was actually at, tried before anything else - so
+     *     walking up to one side of a four-seat pod and putting a deck down sits you at that
+     *     side rather than at whichever chair happens to come first in cluster order
+     */
+    private static boolean sitDownIfNeeded(
+            Level level, BlockPos tableOrigin, Player player, Side preferred) {
         if (TableSeats.seatOf(level, tableOrigin, player.getUUID()).isPresent()) {
             return true;
         }
-        for (SeatAnchor anchor : TableClusters.at(level, tableOrigin).seats()) {
+        List<SeatAnchor> anchors = new java.util.ArrayList<>(
+                TableClusters.at(level, tableOrigin).seats());
+        if (preferred != null) {
+            TableCell here = new TableCell(0, 0);
+            anchors.sort(java.util.Comparator.comparingInt(
+                    anchor -> anchor.side() == preferred && anchor.cell().equals(here) ? 0 : 1));
+        }
+        for (SeatAnchor anchor : anchors) {
             TableSeats.Claim claim = TableSeats.take(
                     level, tableOrigin, anchor.cell(), anchor.side(), player.getUUID());
             if (claim == TableSeats.Claim.TAKEN) {
@@ -459,10 +486,13 @@ public class TableBlock extends BaseEntityBlock {
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.deck_committed", deck.deckSize()));
 
-        // And show them the game they have just joined. Committing a deck used to leave the
-        // board unsent - the format screen happened to broadcast afterwards, so nobody noticed
-        // until the format screen stopped being on the way - and a player who had done
-        // everything right was left standing in a field with nothing to show for it.
+        // Everyone at the table, then the board for whoever just joined. Only opening it for
+        // the player who clicked left every other seat - and the miniature on the table top,
+        // which is what anybody walking past sees - still showing the game as it was before a
+        // deck went down.
+        if (level instanceof net.minecraft.server.level.ServerLevel server) {
+            dev.gathering.server.TableBroadcast.sendToTable(server, tableOrigin);
+        }
         if (player instanceof net.minecraft.server.level.ServerPlayer joined) {
             dev.gathering.server.TableActions.openFor(joined, tableOrigin);
         }

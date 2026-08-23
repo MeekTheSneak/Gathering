@@ -251,6 +251,27 @@ class BoardGeometryTest {
         }
 
         @Test
+        @DisplayName("a card is the same size however many people are at the table")
+        void aBiggerPodDoesNotShrinkYourOwnBoard() {
+            // Scaling to the whole surface instead of your own mat made a card's size depend
+            // on how many people had sat down: a four-seat pod is two tables wide, so it
+            // opened at half size, and eight seats at a quarter. A playmat is a playmat
+            // whoever else is there.
+            int alone = cardWidthWhenOpened(TableCluster.assumedSeating(2));
+            int pod = cardWidthWhenOpened(TableCluster.assumedSeating(4));
+
+            assertThat(pod).describedAs("a four-seat pod draws the same card as a two-seat table")
+                    .isEqualTo(alone);
+            assertThat(pod).isGreaterThan(45);
+        }
+
+        private int cardWidthWhenOpened(java.util.List<SeatAnchor> anchors) {
+            BoardGeometry geometry = new BoardGeometry(anchors, WIDTH, HEIGHT, 130);
+            geometry.focusOn(new SeatId(0));
+            return geometry.cardWidth(new SeatId(0));
+        }
+
+        @Test
         @DisplayName("opening on your own board puts your own board in front of you")
         void openingOnYourOwnBoardCentresIt() {
             BoardGeometry geometry = new BoardGeometry(

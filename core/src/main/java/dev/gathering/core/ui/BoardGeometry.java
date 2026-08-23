@@ -103,7 +103,17 @@ public final class BoardGeometry implements BoardPlacement {
             showEverything();
             return;
         }
-        double fit = width / (double) Math.max(1, surface.width());
+        // Scaled so the seat's own mat fills the width, not the whole surface. Fitting the
+        // surface makes a card's size depend on how many people are at the table: a four-seat
+        // pod is two tables wide, so it opened at half the size, and an eight-seat cluster at
+        // a quarter - which is exactly the unreadable board this method exists to avoid. A
+        // playmat is a playmat whoever else is sitting down.
+        // Whichever way round is binding. A mat is twice as wide as it is deep and a window
+        // is not, so filling the width alone made it taller than the strip above the hand and
+        // pushed its own near edge off the screen - which is the thing this is for keeping on.
+        double fit = Math.min(
+                width / (double) Math.max(1, mat.width()),
+                visible() / (double) Math.max(1, mat.height()));
         camera = new TableCamera(mat.centreX(), mat.centreY(), fit,
                 surface.width(), surface.height());
         if (coveredAtTheBottom > 0) {

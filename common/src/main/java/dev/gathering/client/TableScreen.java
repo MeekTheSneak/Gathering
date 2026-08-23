@@ -820,7 +820,11 @@ public final class TableScreen extends Screen {
         int line = this.font.lineHeight + 1;
         int margin = Math.max(4, this.width / 24);
         int top = layout().status().bottom() + 4;
-        int available = Math.max(40, layout().hand().y() - top - 6);
+        int available = layout().hand().y() - top - 6;
+        // Room for a heading, two lines under it and the close hint, or there is no point.
+        // This used to floor `available` at forty and then test it against four lines, which
+        // with the vanilla font is exactly forty - so the guard could never fire and a
+        // forty-pixel panel drew twenty-two lines of help across the board.
         if (available < line * 4) {
             return;
         }
@@ -829,7 +833,13 @@ public final class TableScreen extends Screen {
         // every line that did not fit shrink to suit, so the list came out in three different
         // sizes - which is exactly the sort of thing that reads as unfinished however correct
         // it is. Measured, the panel is as wide as it needs to be and nothing shrinks.
-        int perColumn = Math.max(1, (available - line - 6) / line);
+        // How many lines a column really holds, measured the same way the draw loop stops:
+        // from the first line to `bottom`. Estimating it from the panel height instead
+        // over-counted, and the last column went on drawing past the close hint and out of
+        // the panel.
+        int firstLine = top + line + 2;
+        int lastLine = top + available - line - 6;
+        int perColumn = Math.max(1, (lastLine - firstLine) / line + 1);
         int columns = Math.max(1, (linesOfKeyHelp() + perColumn - 1) / perColumn);
         int columnWidth = widestKeyLine() + 14;
         int wanted = Math.min(this.width - margin * 2, columns * columnWidth + 10);
