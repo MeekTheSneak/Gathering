@@ -2,6 +2,9 @@ package dev.gathering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.format.FormatPreset;
+import dev.gathering.core.format.ValidationIssue;
+import dev.gathering.core.format.ValidationResult;
 import dev.gathering.core.game.GameSession;
 import dev.gathering.core.format.FormatPresets;
 import dev.gathering.core.match.MatchRules;
@@ -468,6 +471,9 @@ public class TableBlock extends BaseEntityBlock {
         }
 
         DeckComponent deck = DeckItem.deckOf(stack).orElseThrow();
+        if (!deckMayGoDown(level, tableOrigin, deck, player)) {
+            return;
+        }
         List<CardIdentity> library = deck.entries().stream().map(CardComponent::toIdentity).toList();
         List<CardIdentity> commanders = deck.commanders().stream().map(CardComponent::toIdentity).toList();
 
@@ -497,6 +503,68 @@ public class TableBlock extends BaseEntityBlock {
             dev.gathering.server.TableActions.openFor(joined, tableOrigin);
         }
     }
+
+    /**
+     * The deck check, and what a player is told when their deck does not pass it.
+     *
+     * <p>Before anything happens to the deck: it stays in their hand, the seat stays theirs,
+     * and the table stays where it was. A refusal that also ate the deck would be a refusal
+     * nobody could act on.
+     *
+     * <p>Only errors stop a game, and only on a table somebody chose a format for. A deck
+     * check is a tournament deck check, and a tournament deck check happens because somebody
+     * entered a tournament: walking up to a bare table holding a deck says "let me play", not
+     * "hold me to Commander". The table has to start with some rules and it starts with
+     * Commander, so a deck that fails there is told what is wrong and dealt out anyway. Pick
+     * a format off the setup screen and the same failure is a refusal.
+     *
+     * <p>A warning is never either of those - it is the check noticing something odd, like
+     * commanders listed for a format with no command zone - and nothing stops for odd.
+     *
+     * <p>Named and public so a test can ask the question a right-click asks, rather than
+     * reaching past it to the validator and leaving the two lines that actually consult it
+     * untested - which is how the validator came to be wired to nothing in the first place.
+     *
+     * @return whether the deck may go down
+     */
+    public static boolean deckMayGoDown(
+            Level level, BlockPos tableOrigin, DeckComponent deck, Player player) {
+        TableBlockEntity table = TableSessions.anchorOf(level, tableOrigin)
+                .flatMap(anchor -> entityAt(level, anchor))
+                .orElse(null);
+        FormatPreset format = table == null ? null : table.match()
+                .map(match -> match.rules().format())
+                .orElse(null);
+        ValidationResult result = dev.gathering.server.DeckCheck.of(deck, format).orElse(null);
+        if (result == null || result.isLegal()) {
+            return true;
+        }
+        boolean refusing = table != null && table.formatWasChosen();
+        player.sendSystemMessage(Component.translatable(
+                refusing ? "message.gathering.deck_illegal" : "message.gathering.deck_odd",
+                format.displayName()));
+        List<ValidationIssue> errors = result.errors();
+        for (int index = 0; index < Math.min(errors.size(), MOST_PROBLEMS_WORTH_LISTING); index++) {
+            player.sendSystemMessage(Component.literal("  " + errors.get(index).message()));
+        }
+        if (errors.size() > MOST_PROBLEMS_WORTH_LISTING) {
+            player.sendSystemMessage(Component.translatable("message.gathering.deck_illegal_more",
+                    errors.size() - MOST_PROBLEMS_WORTH_LISTING));
+        }
+        if (refusing) {
+            player.sendSystemMessage(Component.translatable("message.gathering.deck_illegal_hint"));
+        }
+        return !refusing;
+    }
+
+    /**
+     * How much of a bad deck to read out.
+     *
+     * <p>A sixty-card deck built for the wrong format produces sixty problems, and sixty lines
+     * of chat is not a message - it is a wall that pushes everything else off the screen. Five
+     * is enough to see what kind of wrong it is.
+     */
+    private static final int MOST_PROBLEMS_WORTH_LISTING = 5;
 
     /** What is going on here, said to whoever asked and filtered to what they may know. */
     private static void report(Level level, BlockPos tableOrigin, TableCluster cluster, Player player) {

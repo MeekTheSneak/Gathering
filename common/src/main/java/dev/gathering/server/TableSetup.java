@@ -64,6 +64,11 @@ public final class TableSetup {
         TableSessions.Outcome outcome = TableSessions.start(level, origin, rules);
         player.sendSystemMessage(Component.translatable(outcome.messageKey()));
         if (outcome == TableSessions.Outcome.STARTED) {
+            // Named, not assumed - which is what turns the deck check from a note into a
+            // refusal. Somebody who picked Modern off this screen asked to be held to it.
+            TableSessions.anchorOf(level, origin)
+                    .flatMap(anchor -> dev.gathering.block.TableBlock.entityAt(level, anchor))
+                    .ifPresent(table -> table.formatWasChosen(true));
             TableBroadcast.sendToTable(level, origin);
         }
     }

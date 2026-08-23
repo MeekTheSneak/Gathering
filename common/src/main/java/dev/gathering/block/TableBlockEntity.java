@@ -51,6 +51,7 @@ public class TableBlockEntity extends BlockEntity {
 
     private static final String FELT_KEY = "felt";
     private static final String COMMAND_ZONE_KEY = "command_zone";
+    private static final String FORMAT_CHOSEN_KEY = "format_chosen";
     private static final String SEATS_KEY = "seats";
     private static final String SESSION_OPEN_KEY = "session_open";
     private static final String SESSION_SEALED_KEY = "session_sealed";
@@ -147,6 +148,30 @@ public class TableBlockEntity extends BlockEntity {
     }
 
     /**
+     * Whether somebody actually asked for the format this table is playing.
+     *
+     * <p>The deck check is a tournament deck check, and a tournament deck check happens
+     * because somebody entered a tournament. Walking up to a bare table holding a deck and
+     * right-clicking it says "let me play", not "hold me to Commander" - the table has to
+     * pick some rules to start with and it picks Commander, but the player never named it. So
+     * a deck that fails there is told what is wrong and dealt out anyway, and only a table
+     * somebody chose a format for turns that into a refusal.
+     *
+     * <p>Server-side only: no client draws anything from it, so it is not in the update tag.
+     */
+    public boolean formatWasChosen() {
+        return formatChosen;
+    }
+
+    /** Said by the setup screen, which is the only place a format is named. */
+    public void formatWasChosen(boolean chosen) {
+        this.formatChosen = chosen;
+        setChanged();
+    }
+
+    private boolean formatChosen;
+
+    /**
      * Whether the game on this table has a command zone, which decides whether one is drawn.
      *
      * <p>Presentation, not a rule: nothing during play consults the format, and this does not
@@ -228,6 +253,7 @@ public class TableBlockEntity extends BlockEntity {
         this.stored = null;
         this.match = null;
         this.restoreFailed = false;
+        this.formatChosen = false;
         this.decks.clear();
         setChanged();
         tellClients();
@@ -356,6 +382,7 @@ public class TableBlockEntity extends BlockEntity {
         super.loadAdditional(tag, registries);
         felt = tag.contains(FELT_KEY) ? DyeColor.byName(tag.getString(FELT_KEY), null) : null;
         commandZone = tag.getBoolean(COMMAND_ZONE_KEY);
+        formatChosen = tag.getBoolean(FORMAT_CHOSEN_KEY);
 
         session = null;
         restoreFailed = false;
@@ -453,6 +480,7 @@ public class TableBlockEntity extends BlockEntity {
         tag.putByteArray(SESSION_OPEN_KEY, toWrite.openPart());
         tag.putByteArray(SESSION_SEALED_KEY, toWrite.sealedPart());
         tag.putInt(STARTING_LIFE_KEY, startingLife);
+        tag.putBoolean(FORMAT_CHOSEN_KEY, formatChosen);
     }
 
     /**
