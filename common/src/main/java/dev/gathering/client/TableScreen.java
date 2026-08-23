@@ -497,16 +497,6 @@ public final class TableScreen extends Screen {
                     SeatColour.at(seat.seat().index(),
                             seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
 
-            String who = seat.occupant().map(player -> player.name())
-                    .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
-            Component line = Component.translatable(
-                    "screen.gathering.table.mat_line", who, seat.life(),
-                    count(seat, Zone.HAND), count(seat, Zone.LIBRARY));
-            if (!seat.counters().isEmpty()) {
-                line = line.copy().append(Component.literal("  " + describeCounters(seat)));
-            }
-            GuiText.draw(graphics, this.font, line,
-                    mat.x() + 3, mat.y() + 2, mat.width() - 6, mine ? ACCENT : LABEL);
         }
     }
 

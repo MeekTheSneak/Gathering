@@ -41,3 +41,4 @@ common/src/generated/resources/.cache/
 
 # The layout preview writes here.
 build/preview/
+neoforge/run/screenshots/

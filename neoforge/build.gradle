@@ -23,6 +23,11 @@ neoForge {
         client {
             client()
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            // Armed only when asked for: -Pdevscene drives the client through a scripted
+            // session and photographs it. See DevScene.
+            if (project.hasProperty('devscene')) {
+                systemProperty 'gathering.devscene', '1'
+            }
         }
         server {
             server()
