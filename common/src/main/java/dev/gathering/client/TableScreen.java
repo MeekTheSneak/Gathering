@@ -848,24 +848,42 @@ public final class TableScreen extends Screen {
      * every turn to answer a question asked twice a game.
      */
     private void renderLog(GuiGraphics graphics, GameView board) {
-        Rect area = new Rect(this.width / 3, 0, this.width - this.width / 3, layout().hand().y());
+        int line = this.font.lineHeight + 1;
+        int margin = Math.max(4, this.width / 24);
+        int top = layout().status().bottom() + 4;
+        // Below the life totals and inside the margin, the same as the key list. It used to
+        // start at the top of the window, which covered the one row telling you how much life
+        // everybody has with a record of how they got there.
+        Rect area = new Rect(this.width / 3, top,
+                this.width - this.width / 3 - margin, layout().hand().y() - top - 6);
+        if (area.height() < line * 3) {
+            return;
+        }
         GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
 
-        int lines = Math.max(1, (area.height() - 8) / (this.font.lineHeight + 1));
-        List<LogEntry> log = board.log();
-        int from = Math.max(0, log.size() - lines);
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.table.log_title"),
+                area.x() + 5, area.y() + 4, area.width() - 10, ACCENT);
+        int first = area.y() + 4 + line + 2;
+        int last = area.bottom() - line - 4;
 
-        int y = area.y() + 4;
+        List<LogEntry> log = board.log();
+        int lines = Math.max(1, (last - first) / line + 1);
+        int from = Math.max(0, log.size() - lines);
+        int y = first;
         for (int index = from; index < log.size(); index++) {
             GuiText.draw(graphics, this.font, GameLogText.render(board, log.get(index)),
-                    area.x() + 4, y, area.width() - 8, LABEL);
-            y += this.font.lineHeight + 1;
+                    area.x() + 5, y, area.width() - 10, LABEL);
+            y += line;
         }
         if (log.isEmpty()) {
             GuiText.drawCentred(graphics, this.font,
                     Component.translatable("screen.gathering.table.log_empty"),
-                    area.x() + area.width() / 2, area.y() + area.height() / 2, area.width() - 8, DIM);
+                    area.x() + area.width() / 2, (first + last) / 2, area.width() - 10, DIM);
         }
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.table.log_close"),
+                area.x() + 5, area.bottom() - line - 2, area.width() - 10, DIM);
     }
 
     /**

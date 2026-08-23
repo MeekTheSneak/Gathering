@@ -43,6 +43,9 @@ EXPECTED_UNREFERENCED.update(
     )
 )
 
+# The suffix GameLogText looks for when a line is about the actor's own board.
+OWN = ".own"
+
 # A translation key as it appears in source: dotted, lower case, and about this mod.
 KEY = re.compile(r'"((?:[a-zA-Z]+\.)+gathering(?:\.[a-z0-9_]+)*\.?)"')
 
@@ -78,6 +81,11 @@ def main() -> int:
     used = set(whole)
     for prefix in prefixes:
         used.update(key for key in entries if key.startswith(prefix))
+    # A line the log rewords when its actor and its subject are the same player lives under
+    # the same key with ".own" on the end. GameLogText builds that name rather than writing
+    # it, so the source never mentions it - but a "%s did it to %s's" wording with nothing
+    # opposite it is still worth reporting, so it is derived rather than allowlisted.
+    used.update(key + OWN for key in list(used) if key + OWN in entries)
     unused = sorted(
         key for key in entries
         if key not in used and key not in EXPECTED_UNREFERENCED)

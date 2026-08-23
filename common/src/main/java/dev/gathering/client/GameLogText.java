@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.ChatFormatting;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
@@ -46,10 +47,46 @@ public final class GameLogText {
         for (LogArg arg : entry.args()) {
             resolved.add(resolve(board, arg));
         }
-        MutableComponent line = Component.translatable(entry.key(), resolved.toArray());
+        MutableComponent line = Component.translatable(keyFor(entry), resolved.toArray());
         return entry.undone()
                 ? line.withStyle(ChatFormatting.STRIKETHROUGH, ChatFormatting.DARK_GRAY)
                 : line;
+    }
+
+    /**
+     * The line to read, which is a different sentence when it is about the player's own board.
+     *
+     * <p>Almost everything anybody does in a two-player game is done to their own side of the
+     * table, and every line is written with an actor and a subject - so the log read "Dev drew
+     * 7 cards for Dev", "Dev shuffled Dev's library", over and over. A line that names the
+     * same player twice is a line nobody wrote by hand.
+     *
+     * <p>So a key whose actor and subject are the same seat looks for a second wording under
+     * the same key with {@code .own} on the end, and uses it if the language file has one.
+     * Opting a line in is adding a string; nothing here has to know which lines have one.
+     */
+    private static String keyFor(LogEntry entry) {
+        if (!aboutTheirOwn(entry)) {
+            return entry.key();
+        }
+        String own = entry.key() + ".own";
+        return Language.getInstance().has(own) ? own : entry.key();
+    }
+
+    /** Whether the first seat named in the line is also named again later. */
+    private static boolean aboutTheirOwn(LogEntry entry) {
+        SeatId actor = null;
+        for (LogArg arg : entry.args()) {
+            if (!(arg instanceof LogArg.Seat seat)) {
+                continue;
+            }
+            if (actor == null) {
+                actor = seat.seat();
+            } else if (actor.equals(seat.seat())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Component resolve(GameView board, LogArg arg) {
@@ -57,8 +94,11 @@ public final class GameLogText {
             case LogArg.Seat seat -> nameOfSeat(board, seat.seat());
             case LogArg.Amount amount -> Component.literal(Integer.toString(amount.value()));
             case LogArg.Text text -> Component.literal(text.text());
+            // A zone's own key is its title - it heads the screen that spreads the pile out -
+            // and a title dropped into the middle of a sentence reads as a proper noun: "moved
+            // Island to their Battlefield". The log has its own, lower case.
             case LogArg.Where where -> Component.translatable(
-                    "zone.gathering." + where.zone().name().toLowerCase(Locale.ROOT));
+                    "log.gathering.zone." + where.zone().name().toLowerCase(Locale.ROOT));
             case LogArg.Card card -> nameOfCard(board, card.card());
         };
     }

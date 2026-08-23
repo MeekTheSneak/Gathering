@@ -56,12 +56,19 @@ public sealed interface Placement {
         return this instanceof At at ? java.util.Optional.of(at.position()) : java.util.Optional.empty();
     }
 
-    /** A short label for the event log: "top", "bottom", or the spot. */
-    default String label() {
+    /**
+     * Which wording the log uses for a card moved this way.
+     *
+     * <p>The end of a pile goes in the verb: "put X on top of their library" is a sentence,
+     * and "moved X to their library (top)" is a note somebody left in a sentence. A spot on a
+     * battlefield gets no wording at all - it is a pair of coordinates that meant nothing to
+     * anybody reading, and the card is sitting there in plain sight regardless.
+     */
+    default String logKey() {
         return switch (this) {
-            case Top ignored -> "top";
-            case Bottom ignored -> "bottom";
-            case At at -> at.position().toString();
+            case Top ignored -> "log.gathering.card_moved_top";
+            case Bottom ignored -> "log.gathering.card_moved_bottom";
+            case At ignored -> "log.gathering.card_moved";
         };
     }
 }

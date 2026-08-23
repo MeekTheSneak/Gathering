@@ -140,8 +140,11 @@ public sealed interface GameEvent {
                         .<CardRef>map(CardRef.ByMarker::new)
                         .orElseGet(() -> new CardRef.ById(card));
             }
-            return LogLine.of(
-                    "log.gathering.card_moved", actor, reference, to.seat(), to.zone(), placement.label());
+            // Which end of a pile a card went to is worth reading - somebody putting a card
+            // back on top of their library is a thing that happens to you next turn - so it
+            // is in the verb rather than in a trailing note. The spot on a battlefield is not:
+            // it is a pair of coordinates, and it is visible on the table anyway.
+            return LogLine.of(placement.logKey(), actor, reference, to.seat(), to.zone());
         }
 
         @Override
