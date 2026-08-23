@@ -31,6 +31,9 @@ public final class ContextMenu {
     private static final int HOVERED = 0xFFFFFFFF;
     private static final int DISABLED = 0xFF6E6A66;
 
+    /** The line between two groups of entries. Dimmer than the dimmest text on it. */
+    private static final int RULE = 0xFF4A4642;
+
     private final List<Entry> entries;
     private final int x;
     private final int y;
@@ -64,7 +67,9 @@ public final class ContextMenu {
             Font font, int pointX, int pointY, int screenWidth, int screenHeight, List<Entry> entries) {
         int columnWidth = MIN_WIDTH;
         for (Entry entry : entries) {
-            columnWidth = Math.max(columnWidth, font.width(entry.label()) + PADDING * 2);
+            if (!entry.isRule()) {
+                columnWidth = Math.max(columnWidth, font.width(entry.label()) + PADDING * 2);
+            }
         }
 
         // A menu taller than the screen has nowhere to go: flipping it up runs off the top
@@ -104,6 +109,11 @@ public final class ContextMenu {
             Entry entry = entries.get(index);
             int left = x + (index / perColumn) * columnWidth;
             int row = y + PADDING + (index % perColumn) * ROW_HEIGHT;
+            if (entry.isRule()) {
+                graphics.fill(left + PADDING, row + ROW_HEIGHT / 2,
+                        left + columnWidth - PADDING, row + ROW_HEIGHT / 2 + 1, RULE);
+                continue;
+            }
             boolean hovered = entry.enabled() && index == indexAt(mouseX, mouseY);
             if (hovered) {
                 GatheringSprites.highlight(graphics, left + 2, row, columnWidth - 4, ROW_HEIGHT);
@@ -169,6 +179,26 @@ public final class ContextMenu {
         /** Shown but not selectable, so the option's absence is visible rather than mysterious. */
         public static Entry disabled(Component label) {
             return new Entry(label, false, () -> { });
+        }
+
+        /**
+         * A rule between two groups of entries.
+         *
+         * <p>A menu of fourteen verbs in one column is fourteen things to read before finding
+         * the one you meant. The verbs fall into groups on their own - things you do to a card
+         * where it lies, and places you send it - and a line between them is the whole of what
+         * it takes to see that without reading.
+         *
+         * <p>An entry rather than a separate list, so it takes part in the column wrapping and
+         * the row arithmetic like everything else. It is never selectable and a click on it is
+         * still a click on the menu, which is what stops a rule from being a hole.
+         */
+        public static Entry rule() {
+            return new Entry(Component.empty(), false, () -> { });
+        }
+
+        boolean isRule() {
+            return !enabled && label.getString().isEmpty();
         }
     }
 

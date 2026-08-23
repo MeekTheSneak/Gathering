@@ -25,7 +25,10 @@ import java.util.UUID;
  * <p><b>Out of the cache and never off the network.</b> This is on the server thread with a
  * player waiting, and a deck check that fetched a hundred cards from Scryfall would hang the
  * server for as long as that took. Every card in a deck somebody built through this mod is in
- * the cache already, because that is where it came from.
+ * the cache already, because that is where it came from, and the cache's index is warmed on
+ * server start - so in practice this is a hundred map lookups. A deck committed in the first
+ * seconds of a server, before the warm finishes, falls through to the cache files instead;
+ * that is a hundred small reads and it happens once.
  *
  * <p>A card that is <em>not</em> cached is a card this check cannot judge, and an unjudgeable
  * card makes the whole answer unjudgeable rather than making the deck illegal. Refusing a deck

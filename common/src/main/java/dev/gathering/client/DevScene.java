@@ -395,27 +395,35 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 26 -> {
+                // The whole table, which is the one framing that shows the chair nobody is in.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
+                }
+                advance(SETTLE / 2);
+            }
+            case 27 -> {
+                shoot(client, "20-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
                 // init on an instance that is already holding a game. Two sizes: one where
                 // everything gets bigger and the felt gets smaller, and one the other way.
                 setGuiScale(client, 3);
                 advance(SETTLE / 2);
             }
-            case 27 -> {
+            case 28 -> {
                 theBoardIsStillFramed(client, "at gui scale three");
-                shoot(client, "20-a-bigger-interface");
+                shoot(client, "21-a-bigger-interface");
                 setGuiScale(client, 1);
                 advance(SETTLE / 2);
             }
-            case 28 -> {
+            case 29 -> {
                 theBoardIsStillFramed(client, "at gui scale one");
-                shoot(client, "21-a-smaller-interface");
+                shoot(client, "22-a-smaller-interface");
                 setGuiScale(client, 0);
                 advance(SETTLE / 2);
             }
-            case 29 -> {
+            case 30 -> {
                 theBoardIsStillFramed(client, "back at the automatic scale");
-                shoot(client, "22-back-to-normal");
+                shoot(client, "23-back-to-normal");
                 // Last, because everything above needs a seat: stand up mid-game and look at
                 // the same table as somebody who is only watching it.
                 standUp(client);
@@ -424,18 +432,18 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 30 -> {
+            case 31 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
-                shoot(client, "23-watching-from-outside");
+                shoot(client, "24-watching-from-outside");
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 31 -> {
+            case 32 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
-                shoot(client, "24-still-watching");
+                shoot(client, "25-still-watching");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");

@@ -84,6 +84,9 @@ public final class TableScreen extends Screen {
 
     /** The line round a group of zones: a marking on the mat rather than a piece of interface. */
     private static final int ZONE_BORDER = 0x66FFFFFF;
+
+    /** How solid a free chair's outline is: there, and clearly not a board in play. */
+    private static final int FREE_SEAT_EDGE = 0x44;
     private static final int MAT_MINE = 0x406FD3E8;
 
     /**
@@ -570,13 +573,23 @@ public final class TableScreen extends Screen {
             if (mat.isEmpty()) {
                 continue;
             }
-            boolean mine = me != null && me.equals(seat.seat());
-            graphics.fill(mat.x(), mat.y(), mat.right(), mat.bottom(), mine ? MAT_MINE : MAT);
+            boolean taken = seat.occupant().isPresent();
+            // A free chair keeps its outline and loses everything else. Drawing nothing at all
+            // for it leaves a hole in the felt that reads as a fault; drawing it as though
+            // somebody were there says a game is going on that is not. An outline says what is
+            // true: a board goes here, and nobody has put one down yet.
+            if (taken) {
+                boolean mine = me != null && me.equals(seat.seat());
+                graphics.fill(mat.x(), mat.y(), mat.right(), mat.bottom(), mine ? MAT_MINE : MAT);
+            }
             // The seat's own colour, which is how four identical rectangles become four
-            // boards. Brighter for whoever's turn it is.
+            // boards. Brighter for whoever's turn it is, faint for a chair nobody is in.
             graphics.renderOutline(mat.x(), mat.y(), mat.width(), mat.height(),
-                    SeatColour.at(seat.seat().index(),
-                            seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
+                    SeatColour.at(seat.seat().index(), !taken ? FREE_SEAT_EDGE
+                            : seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
+            if (!taken) {
+                continue;
+            }
 
             // And the line marking off the row nearest its player, which is where lands go.
             Rect divider = board().matDividerRect(seat.seat(), pileCount());
@@ -598,6 +611,9 @@ public final class TableScreen extends Screen {
     private void renderPiles(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         int count = pileCount();
         for (SeatView seat : board.seats()) {
+            if (seat.occupant().isEmpty()) {
+                continue;
+            }
             drawPileGroup(graphics, board().pileGroupRect(seat.seat(), 0, IN_HAND_REACH, count));
             if (count > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
                 drawPileGroup(graphics,
@@ -1650,6 +1666,9 @@ public final class TableScreen extends Screen {
                 entries.add(entry("remove_token", () -> eachCard(board, targets, seen ->
                         seen.token() ? new GameEvent.TokenRemoved(me, seen.id()) : null)));
             }
+            // Everything above happens to the card where it lies; everything below sends it
+            // somewhere else. Two groups a player can see without reading either of them.
+            entries.add(ContextMenu.Entry.rule());
             entries.add(entry("to_hand", () -> eachCard(board, targets, seen ->
                     new GameEvent.CardMoved(
                             me, seen.id(), ZoneRef.of(seen.owner(), Zone.HAND), Placement.BOTTOM))));
@@ -1666,6 +1685,7 @@ public final class TableScreen extends Screen {
         entries.add(entry("to_library_bottom", () -> eachCard(board, targets, seen ->
                 new GameEvent.CardMoved(
                         me, seen.id(), ZoneRef.of(seen.owner(), Zone.LIBRARY), Placement.BOTTOM))));
+        entries.add(ContextMenu.Entry.rule());
         entries.add(entry("ping", () -> send(new GameEvent.CardPinged(me, id))));
 
         menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);

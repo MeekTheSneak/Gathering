@@ -116,6 +116,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private static final int MAT_EDGE_ALPHA = 0xCC;
 
+    /** And how solid a free chair's is: there, and clearly not a board in play. */
+    private static final int FREE_SEAT_ALPHA = 0x44;
+
     /** How thick the line around a mat is, as a fraction of the mat's shorter side. */
     private static final float MAT_EDGE_THICKNESS = 0.035f;
 
@@ -147,9 +150,12 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         // actually taken: a playmat appearing when a player sits down is how a table shows
         // that it now has a game in it, and an empty seat's mat would say the opposite.
         for (int index = 0; index < board.seats().size(); index++) {
-            if (board.seats().get(index).occupant().isPresent()) {
-                drawMat(poseStack, buffers, surface.matOf(index), span,
-                        SeatColour.at(index, MAT_EDGE_ALPHA));
+            boolean taken = board.seats().get(index).occupant().isPresent();
+            // A free chair keeps its outline and loses everything else - the same answer the
+            // seated screen gives, because the two are the same board.
+            drawMat(poseStack, buffers, surface.matOf(index), span,
+                    SeatColour.at(index, taken ? MAT_EDGE_ALPHA : FREE_SEAT_ALPHA), taken);
+            if (taken) {
                 // The line marking off the row nearest its player, where lands go. On the mat
                 // rather than above it: it is a marking printed on the felt, not a thing
                 // sitting on top of the felt.
@@ -166,13 +172,14 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
         poseStack.pushPose();
         poseStack.translate(MARGIN, CARD_Y, MARGIN);
+        int piles = Zone.pilesFor(table.hasCommandZone());
         for (int index = 0; index < board.seats().size(); index++) {
             // Same rule as the mats: a seat nobody has taken shows nothing at all. Drawing
             // its zones but not its mat left four empty boxes floating on bare felt, which
             // reads as a fault rather than as a free chair.
             if (board.seats().get(index).occupant().isPresent()) {
                 drawPiles(poseStack, buffers, packedLight, board.seats().get(index),
-                        surface, index, span, Zone.pilesFor(table.hasCommandZone()));
+                        surface, index, span, piles);
             }
         }
         int drawn = 0;
@@ -191,7 +198,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * away is not an edge.
      */
     private void drawMat(
-            PoseStack poseStack, MultiBufferSource buffers, Rect mat, float span, int border) {
+            PoseStack poseStack, MultiBufferSource buffers, Rect mat, float span, int border,
+            boolean filled) {
         if (mat.isEmpty()) {
             return;
         }
@@ -204,7 +212,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
         Matrix4f pose = poseStack.last().pose();
 
-        flat(consumer, pose, left, top, right, bottom, MAT_COLOUR);
+        if (filled) {
+            flat(consumer, pose, left, top, right, bottom, MAT_COLOUR);
+        }
         flat(consumer, pose, left, top, right, top + edge, border);
         flat(consumer, pose, left, bottom - edge, right, bottom, border);
         flat(consumer, pose, left, top, left + edge, bottom, border);
@@ -277,12 +287,20 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         return null;
     }
 
-    /** How many cards a pile has that are not in the air, which is what a viewer counts. */
+    /**
+     * How many cards a pile has that are not in the air, which is what a viewer counts.
+     *
+     * <p>Stops at the first card anybody could have picked up. Only the top card of a pile can
+     * be lifted off it, so once the first one this client was sent has been looked at there is
+     * nothing further down that could be following a cursor - and scanning a fifty-card
+     * graveyard every frame to find that out is a scan for an answer already known.
+     */
     private static int showing(ZoneView contents) {
         for (CardView card : contents.cards()) {
-            if (card instanceof CardView.Visible visible
-                    && ClientTableHighlight.isInTheAir(visible.id())) {
-                return contents.count() - 1;
+            if (card instanceof CardView.Visible visible) {
+                return ClientTableHighlight.isInTheAir(visible.id())
+                        ? contents.count() - 1
+                        : contents.count();
             }
         }
         return contents.count();
