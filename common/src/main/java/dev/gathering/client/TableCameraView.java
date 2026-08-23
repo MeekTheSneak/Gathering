@@ -114,20 +114,21 @@ public final class TableCameraView {
         if (ownMat.isEmpty()) {
             return;
         }
+        // Surface units run north to south whichever way the viewer is facing, and so does
+        // world z, so the same offset finds the same mat for both players; the camera's own
+        // facing is what turns the picture round afterwards.
         offsetX = (ownMat.centreX() - TableSurface.SPAN / 2.0) / TableSurface.SPAN
                 * TableTop.SPAN_BLOCKS;
         offsetZ = (ownMat.centreY() - TableSurface.SPAN / 2.0) / TableSurface.SPAN
                 * TableTop.SPAN_BLOCKS;
-        // Surface units run north to south whichever way the viewer is facing, and so does
-        // world z, so the same offset points at the same mat for both players.
         height = heightThatFrames(
                 ownMat.width() / (double) TableSurface.SPAN * TableTop.SPAN_BLOCKS,
                 ownMat.height() / (double) TableSurface.SPAN * TableTop.SPAN_BLOCKS);
     }
 
     /**
-     * How high the eye has to be for something that size to fit in the part of the window the
-     * hand is not covering.
+     * How high the eye has to be for something that size to fit in the strip of window that
+     * is neither the status row nor the hand.
      *
      * <p>Both ways round: a mat is wider than it is deep and a narrow window runs out of width
      * long before it runs out of depth, so whichever side needs more air decides.
@@ -157,7 +158,7 @@ public final class TableCameraView {
     }
 
     /** Tells the camera how much of the window, top and bottom, it cannot use. */
-    public static void covering(double top, double bottom) {
+    private static void covering(double top, double bottom) {
         coveredAtTheTop = Math.max(0, Math.min(0.4, top));
         coveredAtTheBottom = Math.max(0, Math.min(0.6, bottom));
     }

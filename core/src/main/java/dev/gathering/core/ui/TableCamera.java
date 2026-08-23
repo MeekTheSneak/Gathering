@@ -25,10 +25,16 @@ import dev.gathering.core.game.TablePosition;
 public record TableCamera(
         double centreX, double centreY, double scale, int spanX, int spanY, boolean turned) {
 
-    /** A card's footprint, which is the surface's business rather than the camera's. */
-    public static final double CARD_WIDTH_UNITS = TableSurface.CARD_WIDTH_UNITS;
-
-    public static final double CARD_HEIGHT_UNITS = TableSurface.CARD_HEIGHT_UNITS;
+    /**
+     * A card on a table with one mat on it, which is what the zoom limits are stated against.
+     *
+     * <p>Not the size anything is drawn at. A card is a share of its own mat and a mat is a
+     * share of the table, so how big a card really is depends on whose board it is on -
+     * {@link TableSurface#cardWidthOn} is the only answer to that, and it is the one both
+     * views use. This is a reference length, so that "zoomed out far enough that a card is
+     * twenty pixels" means something without naming a seat.
+     */
+    private static final double REFERENCE_CARD_HEIGHT = TableSurface.CARD_HEIGHT_UNITS;
 
     /** A card at the size it stops being identifiable, and at the size it stops being useful. */
     private static final double MIN_CARD_PIXELS = 24.0;
@@ -123,34 +129,14 @@ public record TableCamera(
         return centreY + (screenY - viewportHeight / 2.0) / scale * sense();
     }
 
-    /** Where a card at this position is drawn, as a rectangle on screen. */
-    public Rect cardAt(TablePosition position, int viewportWidth, int viewportHeight) {
-        return new Rect(
-                (int) Math.round(toScreenX(position.x(), viewportWidth)),
-                (int) Math.round(toScreenY(position.y(), viewportHeight)),
-                cardWidthPixels(),
-                cardHeightPixels());
-    }
-
-    public int cardWidthPixels() {
-        return Math.max(1, (int) Math.round(CARD_WIDTH_UNITS * scale));
-    }
-
-    public int cardHeightPixels() {
-        return Math.max(1, (int) Math.round(CARD_HEIGHT_UNITS * scale));
-    }
-
     /**
-     * The position a card's top-left corner would have if dropped at this screen point.
+     * How tall a reference card is at this zoom, which is how far in or out the view is.
      *
-     * <p>Clamped, not refused. The cursor spends plenty of time off the table - over the
-     * surround, past an edge mid-drag - and a position that threw there would crash the client
-     * for dragging a card a little too far.
+     * <p>A readout of {@link #scale} in the units the limits are written in, not the size of
+     * anything on the board - see {@link #REFERENCE_CARD_HEIGHT}.
      */
-    public TablePosition positionAt(double screenX, double screenY, int viewportWidth, int viewportHeight) {
-        return TablePosition.clamped(
-                (int) Math.round(toTableX(screenX, viewportWidth)),
-                (int) Math.round(toTableY(screenY, viewportHeight)));
+    public int referenceCardPixels() {
+        return Math.max(1, (int) Math.round(REFERENCE_CARD_HEIGHT * scale));
     }
 
     // ------------------------------------------------------------- moving it
@@ -184,16 +170,16 @@ public record TableCamera(
     }
 
     public boolean isAtClosest() {
-        return scale >= MAX_CARD_PIXELS / CARD_HEIGHT_UNITS;
+        return scale >= MAX_CARD_PIXELS / REFERENCE_CARD_HEIGHT;
     }
 
     public boolean isAtFurthest() {
-        return scale <= MIN_CARD_PIXELS / CARD_HEIGHT_UNITS;
+        return scale <= MIN_CARD_PIXELS / REFERENCE_CARD_HEIGHT;
     }
 
     private static double clampScale(double wanted) {
-        double lowest = MIN_CARD_PIXELS / CARD_HEIGHT_UNITS;
-        double highest = MAX_CARD_PIXELS / CARD_HEIGHT_UNITS;
+        double lowest = MIN_CARD_PIXELS / REFERENCE_CARD_HEIGHT;
+        double highest = MAX_CARD_PIXELS / REFERENCE_CARD_HEIGHT;
         return Math.max(lowest, Math.min(highest, wanted));
     }
 

@@ -52,14 +52,18 @@ class TableCameraTest {
         }
 
         @Test
-        @DisplayName("a card is card-shaped at every zoom")
-        void cardsKeepTheirProportions() {
+        @DisplayName("a square on the table is a square on the screen at every zoom")
+        void bothAxesScaleTogether() {
+            // The camera has one scale for both directions, and it is the reason a card drawn
+            // through it keeps its shape - the shape itself is the surface's business, and
+            // TableSurfaceTest holds it. What can go wrong here is the two axes drifting.
             TableCamera camera = TableCamera.showingAll(WIDTH, HEIGHT);
             for (int step = 0; step < 12; step++) {
-                double ratio = (double) camera.cardWidthPixels() / camera.cardHeightPixels();
-                assertThat(ratio)
-                        .describedAs("aspect at zoom step %s", step)
-                        .isCloseTo(488.0 / 680.0, within(0.06));
+                double across = camera.toScreenX(6000, WIDTH) - camera.toScreenX(5000, WIDTH);
+                double down = camera.toScreenY(6000, HEIGHT) - camera.toScreenY(5000, HEIGHT);
+                assertThat(Math.abs(across))
+                        .describedAs("a thousand units, both ways, at zoom step %s", step)
+                        .isCloseTo(Math.abs(down), within(0.001));
                 camera = camera.zoomedAt(1.3, WIDTH / 2.0, HEIGHT / 2.0, WIDTH, HEIGHT);
             }
         }
@@ -94,13 +98,13 @@ class TableCameraTest {
                 camera = camera.zoomedAt(1.5, WIDTH / 2.0, HEIGHT / 2.0, WIDTH, HEIGHT);
             }
             assertThat(camera.isAtClosest()).isTrue();
-            assertThat(camera.cardHeightPixels()).isLessThanOrEqualTo(300);
+            assertThat(camera.referenceCardPixels()).isLessThanOrEqualTo(300);
 
             for (int step = 0; step < 120; step++) {
                 camera = camera.zoomedAt(0.6, WIDTH / 2.0, HEIGHT / 2.0, WIDTH, HEIGHT);
             }
             assertThat(camera.isAtFurthest()).isTrue();
-            assertThat(camera.cardHeightPixels()).isGreaterThanOrEqualTo(20);
+            assertThat(camera.referenceCardPixels()).isGreaterThanOrEqualTo(20);
         }
     }
 
@@ -160,8 +164,11 @@ class TableCameraTest {
         TableCamera camera = new TableCamera(5000, 5000, scale);
         TablePosition position = TablePosition.of(across, down);
 
-        Rect drawn = camera.cardAt(position, width, height);
-        TablePosition found = camera.positionAt(drawn.x(), drawn.y(), width, height);
+        double screenX = camera.toScreenX(position.x(), width);
+        double screenY = camera.toScreenY(position.y(), height);
+        TablePosition found = TablePosition.clamped(
+                (int) Math.round(camera.toTableX(screenX, width)),
+                (int) Math.round(camera.toTableY(screenY, height)));
 
         // Within a pixel and a half's worth of table units. Both directions round to a whole
         // number, so the error is bounded by the pixel - and the tolerance has to be worked out
@@ -191,6 +198,6 @@ class TableCameraTest {
         TableCamera panned = camera.pannedBy(pixelsX, pixelsY);
 
         assertThat(panned.scale()).isEqualTo(camera.scale());
-        assertThat(panned.cardHeightPixels()).isEqualTo(camera.cardHeightPixels());
+        assertThat(panned.referenceCardPixels()).isEqualTo(camera.referenceCardPixels());
     }
 }
