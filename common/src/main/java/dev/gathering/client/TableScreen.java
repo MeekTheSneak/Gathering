@@ -212,6 +212,9 @@ public final class TableScreen extends Screen {
 
     private ContextMenu menu;
 
+    /** Whether the last frame had a card under the cursor. Read by the scripted harness. */
+    private boolean hoveringSomething;
+
     /** Whether the log panel is open. Off by default: the table is the thing you came for. */
     private boolean showingLog;
 
@@ -230,6 +233,21 @@ public final class TableScreen extends Screen {
     public TableScreen(BlockPos table) {
         super(Component.translatable("screen.gathering.table"));
         this.table = table;
+    }
+
+    /** Whether this screen is showing that table, for anything deciding where to go back to. */
+    public boolean isAbout(BlockPos which) {
+        return table.equals(which);
+    }
+
+    /** Whether a context menu is up. For the scripted harness, which cannot see one. */
+    boolean menuIsOpen() {
+        return menu != null;
+    }
+
+    /** Whether the last frame drawn had a card under the cursor. For the harness, as above. */
+    boolean isHoveringSomething() {
+        return hoveringSomething;
     }
 
     /**
@@ -275,6 +293,13 @@ public final class TableScreen extends Screen {
             geometry.reshape(anchors(), this.width, this.height, layout.hand().height());
             onBlock.reshape(anchors());
         }
+        // A screen this one opened - a graveyard, a counters panel - took the camera back to
+        // the player on its way in. Coming back to the same instance has to take it over the
+        // table again, or the player is left holding a board they cannot see.
+        if (playingOnTheBlock) {
+            TableCameraView.resume(table, myMatIsOnTheSouthHalf(),
+                    coveredByTheStatus(), coveredByTheHand());
+        }
     }
 
     /**
@@ -284,6 +309,21 @@ public final class TableScreen extends Screen {
      * and a seat that ended up on a different half than its side suggested would turn the
      * camera the wrong way round without anything else noticing.
      */
+    /** This player's own mat on the real table, in surface units, for the camera to frame. */
+    private Rect myMatOnTheBlock() {
+        return mySeat().map(seat -> onBlock.matRect(seat)).orElse(Rect.NONE);
+    }
+
+    /** How much of the bottom of the window the hand is sitting over. */
+    private double coveredByTheHand() {
+        return this.height <= 0 ? 0 : layout.hand().height() / (double) this.height;
+    }
+
+    /** And how much of the top the life totals are. */
+    private double coveredByTheStatus() {
+        return this.height <= 0 ? 0 : layout.status().height() / (double) this.height;
+    }
+
     private boolean myMatIsOnTheSouthHalf() {
         return mySeat()
                 .map(seat -> onBlock.matRect(seat).centreY() > onBlock.surface().height() / 2.0)
@@ -291,7 +331,11 @@ public final class TableScreen extends Screen {
     }
 
     /** Whichever board is being played, which is the only thing the two views differ on. */
-    private BoardPlacement board() {
+    // Package-private rather than private so the scripted client harness can aim at the same
+    // rectangles the screen draws. Replicating the geometry in the harness instead would be a
+    // second copy of the layout rules, free to drift from this one - which is the failure this
+    // whole project keeps having.
+    BoardPlacement board() {
         return playingOnTheBlock ? onBlock : geometry;
     }
 
@@ -329,7 +373,8 @@ public final class TableScreen extends Screen {
         boxFrom = null;
         panFrom = null;
         if (wanted) {
-            TableCameraView.lookAt(table, myMatIsOnTheSouthHalf());
+            TableCameraView.focusOn(table, myMatIsOnTheSouthHalf(), myMatOnTheBlock(),
+                    coveredByTheStatus(), coveredByTheHand());
         } else {
             TableCameraView.release();
             ClientTableHighlight.clear();
@@ -386,6 +431,14 @@ public final class TableScreen extends Screen {
             onBlock.reshape(anchors());
             geometry.showEverything();
         }
+        // The board can arrive before this client knows which chair it is in - a spectator who
+        // sits down gets the seat a moment after the view. Framing it then rather than only at
+        // open is what stops a player who joined mid-hand looking at the table upside down.
+        mySeat().ifPresent(seat -> {
+            if (geometry.isTurned() != geometry.surface().isTurned(seat.index())) {
+                geometry.focusOn(seat);
+            }
+        });
     }
 
     // ------------------------------------------------------------- rendering
@@ -436,6 +489,7 @@ public final class TableScreen extends Screen {
             }
             renderPileBadges(graphics, board, onTable);
         }
+        hoveringSomething = hovered != null;
         if (hovered != null) {
             offerToInspector(hovered.card());
         }
@@ -586,7 +640,7 @@ public final class TableScreen extends Screen {
                     continue;
                 }
                 Rect where = spotOf(seat.seat(), card, depths.get(index));
-                placed.add(new Placed(seat.seat(), card, where, angleOf(card)));
+                placed.add(new Placed(seat.seat(), card, where, angleOf(seat.seat(), card)));
 
                 List<CardView> attached = attachmentsOf(cards, card);
                 boolean left = TableAttachments.fansLeft(where, new Rect(0, 0, this.width, this.height));
@@ -597,7 +651,8 @@ public final class TableScreen extends Screen {
                     Rect at = left
                             ? TableAttachments.slot(where, slot)
                             : TableAttachments.slotOnTheRight(where, slot);
-                    placed.add(new Placed(seat.seat(), attached.get(slot), at, angleOf(attached.get(slot))));
+                    placed.add(new Placed(seat.seat(), attached.get(slot), at,
+                            angleOf(seat.seat(), attached.get(slot))));
                 }
             }
         }
@@ -685,9 +740,14 @@ public final class TableScreen extends Screen {
      * makes the two independent - a card you angled thirty degrees taps to a hundred and
      * twenty and untaps back to thirty, rather than forgetting you ever touched it.
      */
-    private static int angleOf(CardView card) {
+    private int angleOf(SeatId seat, CardView card) {
         int resting = card.placedAt().map(TablePosition::rotation).orElse(0);
-        return card.tapped() ? resting + TablePosition.QUARTER_TURN : resting;
+        int tapped = card.tapped() ? resting + TablePosition.QUARTER_TURN : resting;
+        // Turned with the board, exactly as the table in the world turns it: a card lying in
+        // front of its owner reads the right way up to them and upside down from the chair
+        // opposite, which is what a card on a table between two people does. The view itself
+        // is turned for the player at the far edge, so their own cards come back upright.
+        return tapped + board().facingDegrees(seat);
     }
 
     /**
@@ -1588,13 +1648,15 @@ public final class TableScreen extends Screen {
                 CreateTokenPayload.MAX_NAME,
                 name -> net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
                         Component.translatable("screen.gathering.amount.tokens"), 1,
-                        count -> ClientNetworking.send(new CreateTokenPayload(table, name, count))))));
+                        count -> ClientNetworking.send(new CreateTokenPayload(table, name, count)),
+                        this)),
+                this));
     }
 
-    /** Asks how many, then does it. The screen closes itself before the answer arrives. */
+    /** Asks how many, then does it. The answer arrives after the table is back. */
     private void ask(String key, int suggested, java.util.function.IntConsumer action) {
         net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
-                Component.translatable("screen.gathering.amount." + key), suggested, action));
+                Component.translatable("screen.gathering.amount." + key), suggested, action, this));
     }
 
     /** How much of my own library is currently face up to the table. */
@@ -1611,7 +1673,7 @@ public final class TableScreen extends Screen {
 
     private void openPile(SeatId owner, Zone pile, boolean opensALibrary) {
         net.minecraft.client.Minecraft.getInstance()
-                .setScreen(new PileScreen(table, owner, pile, opensALibrary));
+                .setScreen(new PileScreen(table, owner, pile, opensALibrary, this));
     }
 
     /** The menu for the table itself, for the verbs that are about a seat rather than a card. */
@@ -1654,7 +1716,7 @@ public final class TableScreen extends Screen {
 
     private void openCounters(CountersScreen.Subject subject) {
         net.minecraft.client.Minecraft.getInstance()
-                .setScreen(new CountersScreen(table, subject));
+                .setScreen(new CountersScreen(table, subject, this));
     }
 
     /** What to call a card on a screen that has to name what it is about to change. */

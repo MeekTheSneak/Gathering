@@ -148,8 +148,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         poseStack.pushPose();
         poseStack.translate(MARGIN, CARD_Y, MARGIN);
         for (int index = 0; index < board.seats().size(); index++) {
-            drawPiles(poseStack, buffers, packedLight, board.seats().get(index),
-                    surface, index, span);
+            // Same rule as the mats: a seat nobody has taken shows nothing at all. Drawing
+            // its zones but not its mat left four empty boxes floating on bare felt, which
+            // reads as a fault rather than as a free chair.
+            if (board.seats().get(index).occupant().isPresent()) {
+                drawPiles(poseStack, buffers, packedLight, board.seats().get(index),
+                        surface, index, span);
+            }
         }
         int drawn = 0;
         for (int index = 0; index < board.seats().size() && drawn < MAX_CARDS; index++) {

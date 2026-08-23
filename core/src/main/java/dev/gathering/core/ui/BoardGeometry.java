@@ -29,6 +29,14 @@ public final class BoardGeometry implements BoardPlacement {
     private int height;
 
     /**
+     * Whether the viewer is one of the players sitting at the far side of the surface.
+     *
+     * <p>Held here so that every camera this class builds carries it: a view that forgot which
+     * chair it was for would be right until the first pan and wrong afterwards.
+     */
+    private boolean turned;
+
+    /**
      * How much of the bottom of the screen something else is sitting on.
      *
      * <p>The hand. The felt runs under it - a table that stopped where your cards begin would
@@ -98,6 +106,7 @@ public final class BoardGeometry implements BoardPlacement {
      * below - and Home still steps back to show all of it.
      */
     public void focusOn(SeatId seat) {
+        seenFrom(seat);
         Rect mat = surface.matOf(seat.index());
         if (mat.isEmpty()) {
             showEverything();
@@ -115,7 +124,7 @@ public final class BoardGeometry implements BoardPlacement {
                 width / (double) Math.max(1, mat.width()),
                 visible() / (double) Math.max(1, mat.height()));
         camera = new TableCamera(mat.centreX(), mat.centreY(), fit,
-                surface.width(), surface.height());
+                surface.width(), surface.height(), turned);
         if (coveredAtTheBottom > 0) {
             camera = camera.pannedBy(0, -coveredAtTheBottom / 2.0);
         }
@@ -132,7 +141,27 @@ public final class BoardGeometry implements BoardPlacement {
         double lean = Math.max(-slack, Math.min(slack, wanted * camera.scale())) / camera.scale();
         camera = new TableCamera(
                 camera.centreX(), camera.centreY() + lean,
-                camera.scale(), surface.width(), surface.height());
+                camera.scale(), surface.width(), surface.height(), turned);
+    }
+
+    /**
+     * Which chair this view belongs to.
+     *
+     * <p>Called before anything is framed, because turning the surface around changes what
+     * "up" means and every rectangle after it. A spectator is not sitting anywhere, so they
+     * get the table the way it is laid out, which is also what an empty seat gets.
+     */
+    public void seenFrom(SeatId seat) {
+        boolean farSide = seat != null && surface.isTurned(seat.index());
+        if (farSide != turned) {
+            turned = farSide;
+            camera = camera.seenFrom(farSide);
+        }
+    }
+
+    /** Whether this view is being drawn from the far side of the table. */
+    public boolean isTurned() {
+        return turned;
     }
 
     /** How much of the window is not the hand, which is what the board is framed into. */
@@ -142,7 +171,8 @@ public final class BoardGeometry implements BoardPlacement {
 
     public void showEverything() {
         int visible = visible();
-        camera = TableCamera.showingAll(surface.width(), surface.height(), width, visible);
+        camera = TableCamera.showingAll(surface.width(), surface.height(), width, visible)
+                .seenFrom(turned);
         // Fitted to the part of the screen that is not the hand, then nudged up so it sits in
         // the middle of that part rather than the middle of the window.
         if (coveredAtTheBottom > 0) {
@@ -195,6 +225,18 @@ public final class BoardGeometry implements BoardPlacement {
         return Math.max(1, (int) Math.round(surface.cardHeightOn(seat.index()) * camera.scale()));
     }
 
+    /**
+     * Turning the coordinates turns where things are, not which way up they are drawn.
+     *
+     * <p>So the viewer's own half turn goes on top of the seat's: a card on your own mat is
+     * laid out facing you and then drawn from your chair, which is two half turns and no turn
+     * at all, and one on the mat opposite is laid out facing away and comes out upside down.
+     */
+    @Override
+    public int facingDegrees(SeatId seat) {
+        return (surface.facingDegrees(seat.index()) + (turned ? 180 : 0)) % 360;
+    }
+
     // ---------------------------------------------------------- screen to card
 
     /** The position a card's corner would have if dropped here on this seat's mat. */
@@ -232,14 +274,24 @@ public final class BoardGeometry implements BoardPlacement {
                 camera.toTableX(screenX, width), camera.toTableY(screenY, height));
     }
 
+    /**
+     * A rectangle on the surface, as a rectangle on the screen.
+     *
+     * <p>Both corners are mapped and then sorted, because a view seen from the far side of the
+     * table maps the low corner to the high one: taking the first as the origin and
+     * subtracting gave a rectangle with negative width, which draws as nothing and contains no
+     * point - a mat that was simply not there for half the players.
+     */
     private Rect surfaceRect(Rect onSurface) {
         if (onSurface.isEmpty()) {
             return Rect.NONE;
         }
-        int left = (int) Math.round(camera.toScreenX(onSurface.x(), width));
-        int top = (int) Math.round(camera.toScreenY(onSurface.y(), height));
-        int right = (int) Math.round(camera.toScreenX(onSurface.right(), width));
-        int bottom = (int) Math.round(camera.toScreenY(onSurface.bottom(), height));
-        return new Rect(left, top, right - left, bottom - top);
+        int oneX = (int) Math.round(camera.toScreenX(onSurface.x(), width));
+        int oneY = (int) Math.round(camera.toScreenY(onSurface.y(), height));
+        int otherX = (int) Math.round(camera.toScreenX(onSurface.right(), width));
+        int otherY = (int) Math.round(camera.toScreenY(onSurface.bottom(), height));
+        return new Rect(
+                Math.min(oneX, otherX), Math.min(oneY, otherY),
+                Math.abs(otherX - oneX), Math.abs(otherY - oneY));
     }
 }

@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -33,7 +34,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Client-only.
  */
-public final class SideboardScreen extends Screen implements CardPreviewHost {
+public final class SideboardScreen extends ChildScreen implements CardPreviewHost {
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
@@ -62,8 +63,32 @@ public final class SideboardScreen extends Screen implements CardPreviewHost {
     private int sideScroll;
     private CardComponent hovered;
 
-    public SideboardScreen(BlockPos table, DeckComponent deck, int gameNumber, int bestOf) {
-        super(Component.translatable("screen.gathering.sideboard"));
+    /**
+     * Opens the sideboard, or refreshes the one already open.
+     *
+     * <p>Refreshing rather than reopening matters: every swap sends the deck back, and a
+     * screen that was rebuilt each time would lose its scroll position after every single
+     * card - which is most of the interaction.
+     *
+     * <p>Both loaders come through here rather than each keeping their own copy of that rule,
+     * and both get the same answer about where closing goes: back to the table if the player
+     * was at it, which between games they were.
+     */
+    public static void open(BlockPos table, DeckComponent deck, int gameNumber, int bestOf) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.screen instanceof SideboardScreen already) {
+            already.update(deck, gameNumber, bestOf);
+            return;
+        }
+        Screen back = client.screen instanceof TableScreen board && board.isAbout(table)
+                ? client.screen
+                : null;
+        client.setScreen(new SideboardScreen(table, deck, gameNumber, bestOf, back));
+    }
+
+    private SideboardScreen(BlockPos table, DeckComponent deck, int gameNumber, int bestOf,
+            Screen back) {
+        super(Component.translatable("screen.gathering.sideboard"), back);
         this.table = table;
         this.deck = deck;
         this.gameNumber = gameNumber;
@@ -71,7 +96,7 @@ public final class SideboardScreen extends Screen implements CardPreviewHost {
     }
 
     /** A fresh copy of the deck from the server, after an edit landed. */
-    public void update(DeckComponent updated, int game, int length) {
+    private void update(DeckComponent updated, int game, int length) {
         this.deck = updated;
         this.gameNumber = game;
         this.bestOf = length;
@@ -239,16 +264,6 @@ public final class SideboardScreen extends Screen implements CardPreviewHost {
         return card == null ? Optional.empty() : ClientCardCache.get().summary(card);
     }
 
-    @Override
-    public void onClose() {
-        ClientHoverState.clear();
-        super.onClose();
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
 
     private record Entry(CardComponent card, int count) {
     }

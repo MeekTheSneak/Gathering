@@ -55,6 +55,12 @@ public final class SurfaceBoard implements BoardPlacement {
         return Math.max(1, (int) Math.round(surface.cardHeightOn(seat.index())));
     }
 
+    /** The surface's own answer: the camera looking at it does the viewer's half of the turn. */
+    @Override
+    public int facingDegrees(SeatId seat) {
+        return surface.facingDegrees(seat.index());
+    }
+
     @Override
     public TablePosition positionOn(SeatId seat, double x, double y) {
         return surface.positionOn(seat.index(), x, y);

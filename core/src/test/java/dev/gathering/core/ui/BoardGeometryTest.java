@@ -290,6 +290,61 @@ class BoardGeometryTest {
         }
 
         @Test
+        @DisplayName("your own cards are the right way up and the other player's are not")
+        void cardsFaceTheChairTheyBelongTo() {
+            // Turning the view turns where things are, not which way up they are drawn. Half
+            // the players get their own board laid out facing them and then looked at from the
+            // other side, which is two half turns and no turn at all - so leaving the viewer's
+            // own turn out of this drew their own cards upside down on their own mat.
+            BoardGeometry geometry = new BoardGeometry(
+                    seatsOf(new TableCell(0, 0)), WIDTH, HEIGHT, 130);
+
+            for (int seat = 0; seat < 2; seat++) {
+                SeatId me = new SeatId(seat);
+                geometry.focusOn(me);
+
+                assertThat(geometry.facingDegrees(me))
+                        .describedAs("seat %s reads its own cards the right way up", seat)
+                        .isZero();
+                assertThat(geometry.facingDegrees(new SeatId(1 - seat)))
+                        .describedAs("and the other player's upside down", seat)
+                        .isEqualTo(180);
+            }
+        }
+
+        @Test
+        @DisplayName("both players see their own board nearest them, the other one across the table")
+        void everySeatLooksFromItsOwnChair() {
+            // The one thing that makes this a table rather than a diagram: your own board is
+            // the near one, your own zones are on your own right, and your library is the zone
+            // closest to your hand. All three are true for the player at the north edge only
+            // if the whole view turns for them - turning the cards alone leaves them reading
+            // somebody else's side of the table.
+            BoardGeometry geometry = new BoardGeometry(
+                    seatsOf(new TableCell(0, 0)), WIDTH, HEIGHT, 130);
+
+            for (int seat = 0; seat < 2; seat++) {
+                SeatId me = new SeatId(seat);
+                SeatId them = new SeatId(1 - seat);
+                geometry.focusOn(me);
+                Rect mine = geometry.matRect(me);
+                Rect theirs = geometry.matRect(them);
+                Rect library = geometry.pileRect(me, 0, 4);
+                Rect furthest = geometry.pileRect(me, 3, 4);
+
+                assertThat(theirs.centreY())
+                        .describedAs("seat %s's opponent is across the table, not behind them", seat)
+                        .isLessThan(mine.centreY());
+                assertThat(library.centreX())
+                        .describedAs("seat %s's zones are on their own right", seat)
+                        .isGreaterThan(mine.centreX());
+                assertThat(library.centreY())
+                        .describedAs("seat %s's library is the zone nearest their hand", seat)
+                        .isGreaterThan(furthest.centreY());
+            }
+        }
+
+        @Test
         @DisplayName("the opening view leans towards the table without pushing your board off it")
         void theViewLeansTowardsTheOpponent() {
             // Both boards at once and a readable card are not both possible on a small window:
@@ -319,11 +374,13 @@ class BoardGeometryTest {
                     // Whatever room is spare goes to the side the opponent is on rather than
                     // being split evenly - which is what leaning towards the table means once
                     // your own board has to stay whole.
-                    int above = mine.y();
-                    int below = visible - mine.bottom();
-                    boolean ownEdgeIsTheTop = geometry.surface().isTurned(seat);
-                    int mySide = ownEdgeIsTheTop ? above : below;
-                    int theirSide = ownEdgeIsTheTop ? below : above;
+                    //
+                    // The opponent is always up the screen, for both players. The view itself
+                    // is turned for whoever sits at the far edge, so the near edge of the
+                    // board is the bottom of the window from either chair - which is the whole
+                    // point of turning it, and would not be true if only the cards turned.
+                    int mySide = visible - mine.bottom();
+                    int theirSide = mine.y();
 
                     assertThat(mySide)
                             .describedAs("seat %s gives the spare room away at %s", seat, windowHeight)

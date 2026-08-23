@@ -37,6 +37,18 @@ public interface BoardPlacement {
 
     int cardHeight(SeatId seat);
 
+    /**
+     * How far round a card lying on this seat's mat is drawn, from the viewer's own chair.
+     *
+     * <p>A card faces its owner, so from the chair opposite it is upside down - which is what
+     * a card on a table between two people does. The two views arrive at that differently: the
+     * board in the world is looked at by a camera that faces the other way for half the
+     * players, so the turn happens to the whole world at once, while the seated screen turns
+     * its coordinates and has to turn each card itself. Asking the board rather than the
+     * surface is what keeps the answer the same on both.
+     */
+    int facingDegrees(SeatId seat);
+
     /** The position a card's corner would have if dropped at this point. */
     TablePosition positionOn(SeatId seat, double x, double y);
 

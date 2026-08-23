@@ -14,8 +14,16 @@ import dev.gathering.block.TableSeats;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.server.TableBroadcast;
 import dev.gathering.service.CardDataService;
+import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.TablePosition;
+import dev.gathering.core.game.Zone;
+import dev.gathering.core.game.visibility.CardView;
+import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.ui.HandFan;
+import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableScreenLayout;
+import dev.gathering.core.ui.TableTop;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -95,6 +103,9 @@ public final class DevScene {
     private static int waited;
     private static final List<String> TAKEN = new ArrayList<>();
 
+    /** Everything the run expected and did not get. Empty is the only passing answer. */
+    private static final List<String> FAILURES = new ArrayList<>();
+
     private DevScene() {
     }
 
@@ -115,6 +126,7 @@ public final class DevScene {
             return;
         }
         if (++ticks > GIVE_UP_TICKS) {
+            fail("gave up waiting at step " + step);
             finish(client, "gave up waiting at step " + step);
             return;
         }
@@ -126,6 +138,10 @@ public final class DevScene {
         // player sits - the chat line says so - and gone by the time the board is drawn, so
         // what matters is which step in between drops it.
         watchTheSeat(client);
+        // Vanilla's "move with WASD" toast lands over the top-right corner of every picture
+        // taken in the first two minutes of a fresh world, which is exactly where the zone
+        // column is. Nothing to do with the mod, and it hides the thing being photographed.
+        client.getToasts().clear();
         switch (step) {
             case 0 -> {
                 // Not "wait for the title screen": a client that has never been run before
@@ -170,11 +186,13 @@ public final class DevScene {
                     waited = SETTLE * 4;
                     return;
                 }
-                System.out.println("[devscene] one right-click later: board="
-                        + (table != null && ClientTableState.viewOf(table).isPresent()));
+                boolean playing = table != null && ClientTableState.viewOf(table).isPresent();
+                System.out.println("[devscene] one right-click later: board=" + playing);
                 shoot(client, "02-one-click-in");
-                if (table != null && ClientTableState.viewOf(table).isPresent()) {
+                if (playing) {
                     client.setScreen(new TableScreen(table));
+                } else {
+                    fail("one right-click with a deck did not start a game");
                 }
                 advance(SETTLE);
             }
@@ -217,6 +235,10 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 10 -> {
+                if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
+                    fail("hovering the played card lit nothing; cursor at "
+                            + client.mouseHandler.xpos() + "," + client.mouseHandler.ypos());
+                }
                 shoot(client, "07-hovering-a-card");
                 if (client.screen != null) {
                     int[] at = cardPoint(client);
@@ -225,6 +247,9 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 11 -> {
+                if (!menuIsOpen(client)) {
+                    fail("right-clicking a card on the table opened no menu");
+                }
                 shoot(client, "08-card-menu");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
@@ -242,6 +267,83 @@ public final class DevScene {
             }
             case 13 -> {
                 shoot(client, "10-key-list");
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
+                }
+                advance(SETTLE / 2);
+            }
+            case 14 -> {
+                // Into the graveyard: the drop that has to land on a zone rather than on felt.
+                dropIntoAZone(client, 1);
+                advance(SETTLE);
+            }
+            case 15 -> {
+                shoot(client, "11-into-the-graveyard");
+                // A crowded hand. Eighteen cards is a real Windfall turn and the size at which
+                // a fan either overlaps sensibly or turns into a wall.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_9, 0, 0);
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_9, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 16 -> {
+                shoot(client, "12-crowded-hand");
+                // The graveyard has a card in it by now, and left-clicking a pile that is not
+                // a library opens it. Anything else here is a dead end the player would find.
+                clickAZone(client, 1, 0);
+                advance(SETTLE);
+            }
+            case 17 -> {
+                expectScreen(client, "left-clicking the graveyard", PileScreen.class);
+                shoot(client, "13-graveyard-open");
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 18 -> {
+                expectScreen(client, "closing the graveyard", TableScreen.class);
+                // Right-click on the library, which is where every verb a library has lives.
+                clickAZone(client, 0, 1);
+                advance(SETTLE / 2);
+            }
+            case 19 -> {
+                if (!menuIsOpen(client)) {
+                    fail("right-clicking the library opened no menu");
+                }
+                shoot(client, "14-library-menu");
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                    // Back onto the block, now that there is a played card, a full graveyard
+                    // and a crowded hand to look at rather than an empty table.
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                }
+                // Cursor off the board first, so the picture before the hover is a picture of
+                // nothing being hovered. Two frames that both had the ring in them compared
+                // equal, which read as the ring never being drawn at all.
+                hover(client, new int[] {2, 2});
+                advance(SETTLE);
+            }
+            case 20 -> {
+                if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
+                    fail("a cursor off the board still had a card under it");
+                }
+                shoot(client, "15-on-the-table-in-play");
+                hover(client, cardPoint(client));
+                advance(SETTLE / 2);
+            }
+            case 21 -> {
+                if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
+                    fail("hovering a card on the real table lit nothing");
+                }
+                if (!ClientTableHighlight.isLitAtAll()) {
+                    fail("the table in the world was not told what the cursor was on");
+                }
+                shoot(client, "16-on-the-table-hovering");
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                }
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -324,8 +426,59 @@ public final class DevScene {
      * keeps pointing at the card when the layout changes - which it has, twice.
      */
     private static int[] cardPoint(Minecraft client) {
-        return new int[] {client.getWindow().getGuiScaledWidth() / 2,
-                client.getWindow().getGuiScaledHeight() / 4};
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        int[] middleOfTheMat = {width / 2, height / 4};
+        if (!(client.screen instanceof TableScreen board)
+                || !(board.board() instanceof SurfaceBoard)) {
+            return middleOfTheMat;
+        }
+        // On the block there is no screen rectangle to aim at: the board is drawn by the world
+        // and the only way back from a card to a pixel is the way the pointer goes forwards.
+        // So sweep the window, ask the pointer what each point is over, and keep the one that
+        // lands nearest the card. Two thousand rays once a run, which is nothing, and it
+        // exercises the same pick the player's cursor uses rather than a copy of it.
+        double[] wanted = playedCardSpot(client);
+        if (wanted == null || table == null) {
+            return middleOfTheMat;
+        }
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        int[] best = middleOfTheMat;
+        double nearest = Double.MAX_VALUE;
+        for (int y = 0; y < height; y += 4) {
+            for (int x = 0; x < width; x += 4) {
+                TableTop.Spot spot = TablePointer.at(top, x, y).orElse(null);
+                if (spot == null) {
+                    continue;
+                }
+                double away = Math.hypot(spot.x() - wanted[0], spot.y() - wanted[1]);
+                if (away < nearest) {
+                    nearest = away;
+                    best = new int[] {x, y};
+                }
+            }
+        }
+        return best;
+    }
+
+    /** Where the first card on this player's own mat is, in surface units, or null. */
+    private static double[] playedCardSpot(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            return null;
+        }
+        SeatId seat = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (seat == null || view == null) {
+            return null;
+        }
+        for (CardView card : view.seat(seat).zone(Zone.BATTLEFIELD).cards()) {
+            TablePosition at = card.placedAt().orElse(null);
+            if (at != null) {
+                Rect where = board.board().rectOf(seat, at);
+                return new double[] {where.centreX(), where.centreY()};
+            }
+        }
+        return null;
     }
 
     /** Drags the first card in hand onto the near mat, press and release, like a player. */
@@ -347,11 +500,111 @@ public final class DevScene {
         System.out.println("[devscene] dragged a card from the hand onto the table");
     }
 
-    /** Puts the cursor somewhere without clicking, so a frame is drawn with it hovered. */
+    /** Where one of this player's zones is on screen, asked of the screen that drew it. */
+    private static Rect zoneRect(Minecraft client, int index) {
+        if (!(client.screen instanceof TableScreen board)) {
+            return Rect.NONE;
+        }
+        return ClientTableState.seatAt(table)
+                .map(seat -> board.board().pileRect(seat, index, Zone.PILES.size()))
+                .orElse(Rect.NONE);
+    }
+
+    /** Drags the first card in hand onto one of the zones, which is how cards go there now. */
+    private static void dropIntoAZone(Minecraft client, int index) {
+        Rect zone = zoneRect(client, index);
+        if (zone.isEmpty() || !(client.screen instanceof TableScreen board)) {
+            System.out.println("[devscene] no zone " + index + " to drop into");
+            return;
+        }
+        Rect from = HandFan.slot(
+                TableScreenLayout.of(client.getWindow().getGuiScaledWidth(),
+                        client.getWindow().getGuiScaledHeight()).hand(),
+                6, 0, -1).where();
+        board.mouseClicked(from.centreX(), from.centreY(), 0);
+        board.mouseDragged(zone.centreX(), zone.centreY(), 0,
+                zone.centreX() - from.centreX(), zone.centreY() - from.centreY());
+        board.mouseReleased(zone.centreX(), zone.centreY(), 0);
+        System.out.println("[devscene] dropped a card into zone " + index);
+    }
+
+    /** Clicks a zone with the given button, which should open what is in it. */
+    private static void clickAZone(Minecraft client, int index, int button) {
+        Rect zone = zoneRect(client, index);
+        if (zone.isEmpty() || client.screen == null) {
+            System.out.println("[devscene] no zone " + index + " to click");
+            return;
+        }
+        client.screen.mouseClicked(zone.centreX(), zone.centreY(), button);
+        client.screen.mouseReleased(zone.centreX(), zone.centreY(), button);
+    }
+
+    /**
+     * What screen the last gesture left us on, and whether that is where it should have gone.
+     *
+     * <p>A scripted run that only narrates is a run somebody has to read. Saying what was
+     * expected turns each step into something that can fail on its own, so a flow that stops
+     * working stops the build rather than quietly producing one duller picture.
+     */
+    private static void expectScreen(Minecraft client, String what, Class<?> wanted) {
+        String got = client.screen == null ? "none" : client.screen.getClass().getSimpleName();
+        String want = wanted == null ? "none" : wanted.getSimpleName();
+        if (got.equals(want)) {
+            System.out.println("[devscene] after " + what + ": " + got);
+        } else {
+            fail("after " + what + ": expected " + want + " but got " + got);
+        }
+    }
+
+    /** Something the run was supposed to prove and did not. Collected, not thrown. */
+    private static void fail(String what) {
+        FAILURES.add(what);
+        System.out.println("[devscene] FAIL " + what);
+    }
+
+    /** Whether the table has a context menu up, which is how a right-click shows it worked. */
+    private static boolean menuIsOpen(Minecraft client) {
+        return client.screen instanceof TableScreen board && board.menuIsOpen();
+    }
+
+    /**
+     * Puts the cursor somewhere without clicking, so a frame is drawn with it hovered.
+     *
+     * <p>The real cursor, not just a call to {@code mouseMoved}. Every frame a screen draws is
+     * handed the pointer's actual position, and the board on the block works out what is
+     * under it from that, so a harness that only tells the screen it moved photographs a
+     * board with the cursor still parked in the middle of the window.
+     *
+     * <p>Moving it takes two goes. {@code glfwSetCursorPos} is documented to do nothing for a
+     * window without input focus, and a window under a headless X server never has any - so
+     * the ask goes in first, for the case where this is being watched on a real desktop, and
+     * then the position is written where the game reads it from. Reflection into Minecraft,
+     * in a class that only ever runs behind {@code -Dgathering.devscene=1}: nothing ships
+     * that depends on it, and the alternative is production code carrying a way to lie about
+     * where the mouse is.
+     */
     private static void hover(Minecraft client, int[] at) {
+        double x = at[0] * client.getWindow().getScreenWidth()
+                / (double) Math.max(1, client.getWindow().getGuiScaledWidth());
+        double y = at[1] * client.getWindow().getScreenHeight()
+                / (double) Math.max(1, client.getWindow().getGuiScaledHeight());
+        org.lwjgl.glfw.GLFW.glfwSetCursorPos(client.getWindow().getWindow(), x, y);
+        try {
+            set(client.mouseHandler, "xpos", x);
+            set(client.mouseHandler, "ypos", y);
+        } catch (ReflectiveOperationException e) {
+            fail("could not move the cursor: " + e);
+        }
         if (client.screen != null) {
             client.screen.mouseMoved(at[0], at[1]);
         }
+    }
+
+    private static void set(Object target, String field, double value)
+            throws ReflectiveOperationException {
+        java.lang.reflect.Field found = target.getClass().getDeclaredField(field);
+        found.setAccessible(true);
+        found.setDouble(target, value);
     }
 
     /**
@@ -467,6 +720,10 @@ public final class DevScene {
 
     private static void finish(Minecraft client, String why) {
         System.out.println("[devscene] " + why + "; took " + TAKEN);
+        for (String failure : FAILURES) {
+            System.out.println("[devscene] FAIL " + failure);
+        }
+        System.out.println("[devscene] failures: " + FAILURES.size());
         new File(client.gameDirectory, "screenshots").mkdirs();
         client.stop();
     }

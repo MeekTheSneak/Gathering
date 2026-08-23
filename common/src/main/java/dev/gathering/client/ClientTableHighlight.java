@@ -52,6 +52,11 @@ public final class ClientTableHighlight {
         return card != null && (card.equals(hovered) || selected.contains(card));
     }
 
+    /** Whether anything at all is lit. For the scripted harness, which cannot see a ring. */
+    static boolean isLitAtAll() {
+        return hovered != null;
+    }
+
     public static boolean isAimedAt(SeatId seat, int pile) {
         return aimedPile >= 0 && aimedPile == pile && seat != null && seat.equals(aimedSeat);
     }

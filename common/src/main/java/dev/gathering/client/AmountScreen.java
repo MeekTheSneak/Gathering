@@ -20,7 +20,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Client-only.
  */
-public final class AmountScreen extends Screen {
+public final class AmountScreen extends ChildScreen {
 
     private static final int LABEL = 0xFFE8E4DC;
 
@@ -42,8 +42,8 @@ public final class AmountScreen extends Screen {
     private Rect panel = Rect.NONE;
     private EditBox amount;
 
-    public AmountScreen(Component question, int suggested, IntConsumer answer) {
-        super(question);
+    public AmountScreen(Component question, int suggested, IntConsumer answer, Screen back) {
+        super(question, back);
         this.question = question;
         this.suggested = Math.max(1, suggested);
         this.answer = answer;
@@ -148,8 +148,4 @@ public final class AmountScreen extends Screen {
                 panel.x() + panel.width() / 2, panel.y() + 5, panel.width() - MARGIN * 2, LABEL);
     }
 
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
 }

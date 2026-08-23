@@ -20,8 +20,10 @@ import dev.gathering.core.game.TablePosition;
  * @param scale   screen pixels per table unit
  * @param spanX   how wide the surface is, so the view cannot be panned off the end of it
  * @param spanY   and how deep
+ * @param turned  whether the viewer is sitting at the far side of it - see below
  */
-public record TableCamera(double centreX, double centreY, double scale, int spanX, int spanY) {
+public record TableCamera(
+        double centreX, double centreY, double scale, int spanX, int spanY, boolean turned) {
 
     /** A card's footprint, which is the surface's business rather than the camera's. */
     public static final double CARD_WIDTH_UNITS = TableSurface.CARD_WIDTH_UNITS;
@@ -32,6 +34,20 @@ public record TableCamera(double centreX, double centreY, double scale, int span
     private static final double MIN_CARD_PIXELS = 24.0;
     private static final double MAX_CARD_PIXELS = 260.0;
 
+    /**
+     * <b>Turned</b> is the difference between watching a game and playing in one.
+     *
+     * <p>A surface is laid out once, against the table: north is north for everybody. Half the
+     * players are sitting at the north edge, and from that chair the table is the other way
+     * up - their own mat is the near one, their own right hand is the table's west. Drawing
+     * the surface the same way for both of them gives one player somebody else's view of their
+     * own board: their zones along the far edge, their opponent behind them.
+     *
+     * <p>So the whole mapping between the surface and the screen turns half of the time, and
+     * it turns <em>here</em> - once, where drawing and pointing both go through it - rather
+     * than in each thing that draws. The board in the world does the same thing with a camera
+     * that faces the other way, which is the same rotation by another means.
+     */
     public TableCamera {
         spanX = Math.max(1, spanX);
         spanY = Math.max(1, spanY);
@@ -48,7 +64,17 @@ public record TableCamera(double centreX, double centreY, double scale, int span
      * common case rather than the only one.
      */
     public TableCamera(double centreX, double centreY, double scale) {
-        this(centreX, centreY, scale, TablePosition.SPAN, TablePosition.SPAN);
+        this(centreX, centreY, scale, TablePosition.SPAN, TablePosition.SPAN, false);
+    }
+
+    /** The same view, seen from the chair on the other side of the table. */
+    public TableCamera seenFrom(boolean farSide) {
+        return turned == farSide ? this : new TableCamera(centreX, centreY, scale, spanX, spanY, farSide);
+    }
+
+    /** Which way the surface runs against the screen: forwards, or turned around. */
+    private double sense() {
+        return turned ? -1 : 1;
     }
 
     /**
@@ -76,25 +102,25 @@ public record TableCamera(double centreX, double centreY, double scale, int span
         double fit = Math.min(
                 (double) Math.max(1, viewportWidth) / across,
                 (double) Math.max(1, viewportHeight) / down);
-        return new TableCamera(across / 2.0, down / 2.0, fit, across, down);
+        return new TableCamera(across / 2.0, down / 2.0, fit, across, down, false);
     }
 
     // ------------------------------------------------------------- the maths
 
     public double toScreenX(double tableX, int viewportWidth) {
-        return viewportWidth / 2.0 + (tableX - centreX) * scale;
+        return viewportWidth / 2.0 + (tableX - centreX) * scale * sense();
     }
 
     public double toScreenY(double tableY, int viewportHeight) {
-        return viewportHeight / 2.0 + (tableY - centreY) * scale;
+        return viewportHeight / 2.0 + (tableY - centreY) * scale * sense();
     }
 
     public double toTableX(double screenX, int viewportWidth) {
-        return centreX + (screenX - viewportWidth / 2.0) / scale;
+        return centreX + (screenX - viewportWidth / 2.0) / scale * sense();
     }
 
     public double toTableY(double screenY, int viewportHeight) {
-        return centreY + (screenY - viewportHeight / 2.0) / scale;
+        return centreY + (screenY - viewportHeight / 2.0) / scale * sense();
     }
 
     /** Where a card at this position is drawn, as a rectangle on screen. */
@@ -132,7 +158,8 @@ public record TableCamera(double centreX, double centreY, double scale, int span
     /** Drags the view by a number of screen pixels, which is what a pan gesture produces. */
     public TableCamera pannedBy(double pixelsX, double pixelsY) {
         return new TableCamera(
-                centreX - pixelsX / scale, centreY - pixelsY / scale, scale, spanX, spanY);
+                centreX - pixelsX / scale * sense(), centreY - pixelsY / scale * sense(),
+                scale, spanX, spanY, turned);
     }
 
     /**
@@ -151,9 +178,9 @@ public record TableCamera(double centreX, double centreY, double scale, int span
         }
         // Solve for the centre that keeps the anchor under the same pixel at the new scale.
         return new TableCamera(
-                anchorX - (screenX - width / 2.0) / zoomed,
-                anchorY - (screenY - height / 2.0) / zoomed,
-                zoomed, spanX, spanY);
+                anchorX - (screenX - width / 2.0) / zoomed * sense(),
+                anchorY - (screenY - height / 2.0) / zoomed * sense(),
+                zoomed, spanX, spanY, turned);
     }
 
     public boolean isAtClosest() {

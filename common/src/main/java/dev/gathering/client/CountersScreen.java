@@ -40,7 +40,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Client-only.
  */
-public final class CountersScreen extends Screen {
+public final class CountersScreen extends ChildScreen {
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
@@ -90,8 +90,8 @@ public final class CountersScreen extends Screen {
         }
     }
 
-    public CountersScreen(BlockPos table, Subject subject) {
-        super(Component.translatable("screen.gathering.counters"));
+    public CountersScreen(BlockPos table, Subject subject, Screen back) {
+        super(Component.translatable("screen.gathering.counters"), back);
         this.table = table;
         this.subject = subject;
     }
@@ -306,8 +306,4 @@ public final class CountersScreen extends Screen {
                 .orElseGet(() -> Component.translatable("message.gathering.seat_empty"));
     }
 
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
 }

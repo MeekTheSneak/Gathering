@@ -19,7 +19,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Client-only.
  */
-public final class TextPromptScreen extends Screen {
+public final class TextPromptScreen extends ChildScreen {
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
@@ -37,8 +37,9 @@ public final class TextPromptScreen extends Screen {
     private Rect panel = Rect.NONE;
     private EditBox field;
 
-    public TextPromptScreen(Component question, Component hint, int maxLength, Consumer<String> answer) {
-        super(question);
+    public TextPromptScreen(Component question, Component hint, int maxLength,
+            Consumer<String> answer, Screen back) {
+        super(question, back);
         this.question = question;
         this.hint = hint;
         this.maxLength = maxLength;
@@ -100,8 +101,4 @@ public final class TextPromptScreen extends Screen {
                 panel.x() + panel.width() / 2, panel.bottom() - 11, panel.width() - MARGIN * 2, DIM);
     }
 
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
 }

@@ -36,7 +36,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Client-only.
  */
-public final class PileScreen extends Screen implements CardPreviewHost {
+public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
@@ -63,8 +63,8 @@ public final class PileScreen extends Screen implements CardPreviewHost {
     private int scroll;
     private ContextMenu menu;
 
-    public PileScreen(BlockPos table, SeatId owner, Zone zone, boolean opensALibrary) {
-        super(Component.translatable("zone.gathering." + zone.name().toLowerCase(Locale.ROOT)));
+    public PileScreen(BlockPos table, SeatId owner, Zone zone, boolean opensALibrary, Screen back) {
+        super(Component.translatable("zone.gathering." + zone.name().toLowerCase(Locale.ROOT)), back);
         this.table = table;
         this.owner = owner;
         this.zone = zone;
@@ -275,12 +275,6 @@ public final class PileScreen extends Screen implements CardPreviewHost {
         if (opensALibrary) {
             mySeat().ifPresent(me -> ClientTableActions.send(table, new GameEvent.LibraryClosed(me)));
         }
-        ClientHoverState.clear();
         super.onClose();
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
     }
 }

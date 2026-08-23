@@ -311,9 +311,11 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      * part of a mat you reach across constantly, and a row of zones along it is four things to
      * knock into every time you play a land. The outer edge is dead space on every board.
      *
-     * <p>Outer meaning away from the middle of the table, so on a four-seat surface the two
-     * left-hand boards keep their zones on the left and the two right-hand ones on the right,
-     * and the middle of the table stays clear.
+     * <p>Outer meaning the player's own right hand, which is where a deck goes on every table
+     * anybody has ever played at. Two players facing each other reach for their own libraries
+     * in mirror image, so the column is at the east edge of the surface for one of them and
+     * the west edge for the other - stating it against the table instead put both columns on
+     * the same side, which is one player's right hand and the other player's left.
      *
      * <p><b>Card-shaped, exactly.</b> These used to be a share of the mat's width by a share
      * of its depth, which on a two-player table made each one wider than it was tall and drew
@@ -342,21 +344,8 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         // Zone nought sits nearest its own player, and the column runs away from them. Which
         // end of the mat that is depends on which chair the board belongs to.
         int slot = isTurned(seat) ? index : count - 1 - index;
-        int left = onTheLeft(seat, mat) ? mat.x() + gap : mat.right() - gap - width;
+        int left = isTurned(seat) ? mat.x() + gap : mat.right() - gap - width;
         return new Rect(left, top + slot * step, width, height);
-    }
-
-    /**
-     * Whether this mat's outer edge is its left-hand one.
-     *
-     * <p>Stated against the table and not against the chair, deliberately. Turning it with the
-     * board sounds more careful and puts both zone columns in the middle of the table, facing
-     * each other across the gap - which is the one part of the surface everybody reaches over.
-     * Away from the middle is what leaves the middle clear, and it happens to put every
-     * player's zones on their own right hand, which is where a deck goes anyway.
-     */
-    private boolean onTheLeft(int seat, Rect mat) {
-        return mat.centreX() < width / 2.0;
     }
 
     /**

@@ -20,16 +20,25 @@ if ! command -v xvfb-run >/dev/null 2>&1; then
     echo "needs xvfb-run"; exit 1
 fi
 
-timeout "${SHOT_SECONDS:-420}" xvfb-run -a -s "-screen 0 1280x800x24" \
+timeout "${SHOT_SECONDS:-720}" xvfb-run -a -s "-screen 0 1280x800x24" \
     env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
     ./gradlew :neoforge:runClient -Pdevscene > /tmp/gathering-shots.log 2>&1
 
 grep -E '^\[devscene\]' /tmp/gathering-shots.log
 
-if [ -d "$OUT" ] && [ -n "$(ls -A "$OUT" 2>/dev/null)" ]; then
-    echo
-    ls -1 "$OUT"
-else
+if [ ! -d "$OUT" ] || [ -z "$(ls -A "$OUT" 2>/dev/null)" ]; then
     echo "no pictures taken; see /tmp/gathering-shots.log"
+    exit 1
+fi
+
+echo
+ls -1 "$OUT"
+
+# The run says what it expected at each step. Anything it did not get is a flow that has
+# stopped working, and a script that only leaves a duller picture behind is one nobody reads.
+if grep -q '^\[devscene\] FAIL' /tmp/gathering-shots.log; then
+    echo
+    echo "the scripted run did not get what it expected:"
+    grep '^\[devscene\] FAIL' /tmp/gathering-shots.log | sort -u
     exit 1
 fi

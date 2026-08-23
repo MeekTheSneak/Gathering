@@ -214,20 +214,23 @@ class TableSurfaceTest {
     }
 
     @Test
-    @DisplayName("the zone column is on the edge away from the middle of the table")
-    void theZonesAreOnTheOuterEdge() {
-        // What keeps the middle of a four-player table clear: the one part of the surface
-        // everybody is reaching across is the part nothing is parked on.
+    @DisplayName("the zone column is on its own player's right hand, whichever chair that is")
+    void theZonesAreOnTheirOwnPlayersRight() {
+        // Two players facing each other reach for their own libraries in mirror image, so the
+        // column is at the east edge of the surface for one of them and the west edge for the
+        // other. Stating it against the table instead - "the outer edge" - put both columns on
+        // the same side, which is one player's right hand and the other player's left.
         TableSurface surface = TableSurface.forSeats(TableCluster.assumedSeating(4));
 
         for (int seat = 0; seat < surface.seatCount(); seat++) {
             Rect mat = surface.matOf(seat);
             Rect zone = surface.pileSlot(seat, 0, 4);
-            boolean matOnTheLeft = mat.centreX() < surface.width() / 2.0;
 
+            // A turned seat is the one at the north edge, looking south, whose right hand is
+            // the table's west - so its column is on the low-x side of its own mat.
             assertThat(zone.centreX() < mat.centreX())
-                    .describedAs("seat %s keeps its zones away from the middle", seat)
-                    .isEqualTo(matOnTheLeft);
+                    .describedAs("seat %s keeps its zones on its own right", seat)
+                    .isEqualTo(surface.isTurned(seat));
         }
     }
 

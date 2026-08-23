@@ -47,24 +47,14 @@ public final class GatheringFabricClient implements ClientModInitializer {
             GLFW.GLFW_KEY_LEFT_ALT,
             "key.categories." + Gathering.MOD_ID);
 
-    /** Takes a board off the wire and, if asked, sits the player down at it. */
-    /**
-     * Opens the sideboard, or refreshes the one already open.
-     *
-     * <p>Refreshing rather than reopening matters: every swap sends the deck back, and a
-     * screen rebuilt each time would lose its scroll position after every single card - which
-     * is most of the interaction.
-     */
+    /** Hands the payload to the screen, which decides whether to open or refresh. */
     private static void acceptSideboard(
             net.minecraft.client.Minecraft client, dev.gathering.network.OpenSideboardPayload payload) {
-        if (client.screen instanceof dev.gathering.client.SideboardScreen open) {
-            open.update(payload.deck(), payload.gameNumber(), payload.bestOf());
-            return;
-        }
-        client.setScreen(new dev.gathering.client.SideboardScreen(
-                payload.table(), payload.deck(), payload.gameNumber(), payload.bestOf()));
+        dev.gathering.client.SideboardScreen.open(
+                payload.table(), payload.deck(), payload.gameNumber(), payload.bestOf());
     }
 
+    /** Takes a board off the wire and, if asked, sits the player down at it. */
     private static void acceptTableView(dev.gathering.network.TableViewPayload payload) {
         try {
             dev.gathering.core.game.visibility.GameView board =
