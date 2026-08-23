@@ -118,6 +118,106 @@ class TableSurfaceTest {
         assertThat(small.matOf(0)).isNotEqualTo(bigger.matOf(0));
     }
 
+    @Test
+    @DisplayName("a playmat is the two-by-one it sits in, less two pixels of border")
+    void aMatIsTwoBlocksByOne() {
+        // The surface is the table's whole top, two blocks across, so a pixel is a
+        // thirty-second of the span. Two players get half the depth each, and the border takes
+        // two pixels off every side of that.
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        // Two pixels, worked out the way the border is rather than as SPAN/32 doubled - a
+        // thirty-second of ten thousand is not a whole number and the rounding is worth two
+        // units either way.
+        int border = TableSurface.SPAN * 2 / 32;
+
+        for (int seat = 0; seat < 2; seat++) {
+            Rect mat = surface.matOf(seat);
+            assertThat(mat.width())
+                    .describedAs("two blocks wide less two pixels each side")
+                    .isEqualTo(TableSurface.SPAN - 2 * border);
+            assertThat(mat.height())
+                    .describedAs("one block deep less two pixels each side")
+                    .isEqualTo(TableSurface.SPAN / 2 - 2 * border);
+        }
+    }
+
+    @Test
+    @DisplayName("a zone is the shape of the cards in it")
+    void pilesAreCardShaped() {
+        // A pile is a stack of cards, so its slot has to be a card. These were a share of the
+        // mat's width by a share of its depth, which on a two-player table drew every library
+        // as a letterbox with a stretched card in it.
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+
+        for (int index = 0; index < 4; index++) {
+            Rect pile = surface.pileSlot(0, index, 4);
+            assertThat(pile.width() / (double) pile.height())
+                    .describedAs("pile %s is card-shaped", index)
+                    .isCloseTo(488.0 / 680.0, within(0.02));
+            assertThat(pile.width()).isEqualTo((int) Math.round(surface.cardWidthOn(0)));
+        }
+    }
+
+    @Test
+    @DisplayName("the zones sit in a row on the mat, not on top of each other or off the edge")
+    void pilesLieInARowOnTheMat() {
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        Rect mat = surface.matOf(0);
+
+        Rect previous = null;
+        for (int index = 0; index < 4; index++) {
+            Rect pile = surface.pileSlot(0, index, 4);
+            assertThat(pile.x()).describedAs("pile %s starts on the mat", index)
+                    .isGreaterThanOrEqualTo(mat.x());
+            assertThat(pile.right()).describedAs("pile %s ends on the mat", index)
+                    .isLessThanOrEqualTo(mat.right());
+            assertThat(pile.bottom()).isLessThanOrEqualTo(mat.bottom());
+            assertThat(pile.y()).isGreaterThanOrEqualTo(mat.y());
+            if (previous != null) {
+                assertThat(pile.overlaps(previous))
+                        .describedAs("piles %s and %s overlap", index - 1, index).isFalse();
+                assertThat(pile.x()).isGreaterThan(previous.x());
+            }
+            previous = pile;
+        }
+    }
+
+    @Test
+    @DisplayName("a point on a zone finds that zone, and the rest of the mat finds none")
+    void pilesCanBeDroppedInto() {
+        // Dropping a card into the graveyard is aiming at it, so the answer to "which zone is
+        // this point on" has to be the same one the drawing used.
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+
+        for (int index = 0; index < 4; index++) {
+            Rect pile = surface.pileSlot(0, index, 4);
+            assertThat(surface.pileAt(0, 4, pile.centreX(), pile.centreY()))
+                    .describedAs("the middle of pile %s", index)
+                    .isEqualTo(index);
+        }
+        Rect mat = surface.matOf(0);
+        assertThat(surface.pileAt(0, 4, mat.x() + 10, mat.y() + 10))
+                .describedAs("the far corner of the mat is not a zone")
+                .isEqualTo(-1);
+    }
+
+    @Test
+    @DisplayName("cards are big enough to read on the mat they are on")
+    void cardsAreABigEnoughShareOfTheMat() {
+        // The size used to come off the mat's shorter side, which on a two-player table - full
+        // width, half depth - made a card a twentieth of the mat's width and the board a
+        // mosaic from directly above it.
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        Rect mat = surface.matOf(0);
+
+        double across = mat.width() / surface.cardWidthOn(0);
+        assertThat(across)
+                .describedAs("cards across a playmat")
+                .isBetween(6.0, 11.0);
+        assertThat(surface.cardWidthOn(0) / surface.cardHeightOn(0))
+                .isCloseTo(488.0 / 680.0, within(0.01));
+    }
+
     @Property(tries = 500)
     void noTwoMatsEverOverlap(@ForAll("clusters") Set<TableCell> cells) {
         // The property that makes a shared surface a table rather than a pile. Two mats on top

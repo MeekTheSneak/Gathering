@@ -255,7 +255,7 @@ public class TableBlock extends BaseEntityBlock {
         // clicked is the edge meant.
         TableCluster cluster = TableClusters.at(level, tableOrigin);
         TableCell cell = new TableCell(0, 0);
-        Side side = TableClusters.sideFacing(hit.getDirection());
+        Side side = TableClusters.sideFrom(hit.getDirection(), player.position(), tableOrigin);
 
         if (side != null && TableSeats.seatOf(level, tableOrigin, player.getUUID())
                 .filter(seat -> seat.cell().equals(cell) && seat.side() == side).isPresent()) {

@@ -20,12 +20,14 @@ import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.BoardPlacement;
+import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
 import dev.gathering.core.ui.TableScreenLayout;
 import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableStacking;
+import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableTop;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
@@ -63,7 +65,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Client-only.
  */
-public final class TableScreen extends Screen implements CardPreviewHost {
+public final class TableScreen extends Screen {
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
@@ -94,9 +96,6 @@ public final class TableScreen extends Screen implements CardPreviewHost {
     /** The rubber band drawn while picking out several cards at once. */
     private static final int BOX_FILL = 0x206FD3E8;
 
-    /** The piles on every mat, left to right, in the order a player reaches for them. */
-    private static final List<Zone> PILES =
-            List.of(Zone.LIBRARY, Zone.GRAVEYARD, Zone.EXILE, Zone.COMMAND);
 
     /** How far a card is turned by one nudge. Small enough to be a gesture, not a mode. */
     private static final int NUDGE_DEGREES = 15;
@@ -276,6 +275,19 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         }
     }
 
+    /**
+     * Whether this player's own mat is the far half of the table from the block's corner.
+     *
+     * <p>Asked of the mats rather than of the seat's side, because the mats are what is drawn
+     * and a seat that ended up on a different half than its side suggested would turn the
+     * camera the wrong way round without anything else noticing.
+     */
+    private boolean myMatIsOnTheSouthHalf() {
+        return mySeat()
+                .map(seat -> onBlock.matRect(seat).centreY() > TableSurface.SPAN / 2.0)
+                .orElse(false);
+    }
+
     /** Whichever board is being played, which is the only thing the two views differ on. */
     private BoardPlacement board() {
         return playingOnTheBlock ? onBlock : geometry;
@@ -315,7 +327,7 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         boxFrom = null;
         panFrom = null;
         if (wanted) {
-            TableCameraView.lookAt(table);
+            TableCameraView.lookAt(table, myMatIsOnTheSouthHalf());
         } else {
             TableCameraView.release();
             ClientTableHighlight.clear();
@@ -427,12 +439,8 @@ public final class TableScreen extends Screen implements CardPreviewHost {
 
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        if (playingOnTheBlock) {
-            renderSeatStrip(graphics, board);
-        }
+        renderStatus(graphics, board);
         renderHand(graphics, board, mouseX, mouseY);
-        renderActions(graphics, board);
-        renderTurn(graphics, board);
         renderHeldCard(graphics, board, mouseX, mouseY);
 
         if (!attaching.isEmpty()) {
@@ -453,41 +461,6 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         }
         if (menu != null) {
             menu.render(graphics, this.font, mouseX, mouseY);
-        }
-    }
-
-    /**
-     * Everybody's name, life and counts, along the top.
-     *
-     * <p>The seated screen writes these on each mat, which is where they belong when the mat
-     * is on the screen. On the block the mats are two blocks away and a life total painted on
-     * one would be unreadable at any height worth playing at - so the numbers come off the
-     * table and sit on the window, which is what a scoreboard is for.
-     */
-    private void renderSeatStrip(GuiGraphics graphics, GameView board) {
-        List<SeatView> seats = board.seats();
-        if (seats.isEmpty()) {
-            return;
-        }
-        int height = this.font.lineHeight + 6;
-        int column = Math.max(60, this.width / seats.size());
-        GatheringSprites.panel(graphics, 0, 0, this.width, height);
-
-        SeatId me = mySeat().orElse(null);
-        SeatId active = board.turn().activeSeat();
-        for (int index = 0; index < seats.size(); index++) {
-            SeatView seat = seats.get(index);
-            String who = seat.occupant().map(player -> player.name())
-                    .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
-            Component line = Component.translatable(
-                    "screen.gathering.table.mat_line", who, seat.life(),
-                    count(seat, Zone.HAND), count(seat, Zone.LIBRARY));
-            if (!seat.counters().isEmpty()) {
-                line = line.copy().append(Component.literal("  " + describeCounters(seat)));
-            }
-            int colour = seat.seat().equals(me) ? ACCENT : seat.seat().equals(active) ? ACCENT : LABEL;
-            GuiText.draw(graphics, this.font, line,
-                    index * column + 4, 4, column - 8, colour);
         }
     }
 
@@ -537,12 +510,12 @@ public final class TableScreen extends Screen implements CardPreviewHost {
     /** Everybody's piles, in a row along the near edge of their own mat. */
     private void renderPiles(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         for (SeatView seat : board.seats()) {
-            for (int index = 0; index < PILES.size(); index++) {
-                Rect where = board().pileRect(seat.seat(), index, PILES.size());
+            for (int index = 0; index < Zone.PILES.size(); index++) {
+                Rect where = board().pileRect(seat.seat(), index, Zone.PILES.size());
                 if (where.isEmpty() || where.width() < 4) {
                     continue;
                 }
-                drawPile(graphics, seat, PILES.get(index), where.shrink(1),
+                drawPile(graphics, seat, Zone.PILES.get(index), where.shrink(1),
                         where.contains(mouseX, mouseY));
             }
         }
@@ -721,66 +694,94 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         return card.tapped() ? resting + TablePosition.QUARTER_TURN : resting;
     }
 
+    /**
+     * Your hand, fanned along the bottom, with the card under the cursor risen out of it.
+     *
+     * <p>No panel behind it and no frame around each card. Both were clutter over the only
+     * part of the screen that is nothing but pictures: a hand is read by looking at the art,
+     * and a border on every card in a fan is a row of borders.
+     */
     private void renderHand(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         Rect area = layout().hand();
-        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
         SeatId seat = mySeat().orElse(null);
         if (seat == null) {
             GuiText.drawCentred(graphics, this.font,
                     Component.translatable("screen.gathering.table.spectating"),
-                    area.x() + area.width() / 2, area.y() + area.height() / 2 - 4, area.width(), DIM);
+                    area.x() + area.width() / 2, area.bottom() - 14, area.width(), DIM);
             return;
         }
 
         List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
-        for (int index = 0; index < hand.size(); index++) {
-            if (isHeld(hand.get(index))) {
-                continue;
+        int lifted = handIndexAt(board, mouseX, mouseY);
+
+        // The lifted one last, so it is drawn over the cards it has risen in front of.
+        for (int pass = 0; pass < 2; pass++) {
+            for (int index = 0; index < hand.size(); index++) {
+                if (isHeld(hand.get(index)) || (index == lifted) != (pass == 1)) {
+                    continue;
+                }
+                HandFan.Slot slot = HandFan.slot(area, hand.size(), index, lifted);
+                drawBareCard(graphics, hand.get(index), slot.where(), slot.angle());
             }
-            Rect slot = handSlot(area, hand.size(), index);
-            boolean hovered = slot.contains(mouseX, mouseY);
-            drawCard(graphics, hand.get(index), slot, hovered, false);
-            if (hovered) {
-                offerToInspector(hand.get(index));
-            }
+        }
+        if (lifted >= 0 && lifted < hand.size()) {
+            offerToInspector(hand.get(lifted));
         }
     }
 
-    /**
-     * Where the nth card of a hand sits.
-     *
-     * <p>Cards overlap when there are more of them than there is room for, the way a hand of
-     * cards does, rather than shrinking until none of them can be told apart.
-     */
-    private Rect handSlot(Rect area, int handSize, int index) {
-        int height = area.height() - 8;
-        int width = Math.max(8, Math.round(height * 488f / 680f));
-        int room = area.width() - 8;
-        int step = handSize <= 1 ? 0 : Math.min(width + 3, (room - width) / Math.max(1, handSize - 1));
-        int total = width + step * Math.max(0, handSize - 1);
-        int left = area.x() + Math.max(4, (area.width() - total) / 2);
-        return new Rect(left + index * step, area.y() + 4, width, height);
+    /** Which card of the hand the cursor is on, or -1. */
+    private int handIndexAt(GameView board, int x, int y) {
+        SeatId seat = mySeat().orElse(null);
+        if (seat == null || !layout().hand().contains(x, y)) {
+            return -1;
+        }
+        return HandFan.at(layout().hand(),
+                board.seat(seat).zone(Zone.HAND).cards().size(), x, y);
     }
 
-    /** Whose turn it is, on the bar. Whole turns; the mat outline says the same thing. */
-    private void renderTurn(GuiGraphics graphics, GameView board) {
-        Rect area = layout().actions();
+    /**
+     * The strip along the top: everybody's name and life, and whose turn it is.
+     *
+     * <p>In both views now. On the block the mats are two blocks away and a life total painted
+     * on one would be unreadable at any height worth playing at; on the screen it frees the
+     * mats to be nothing but board, which is what they are for.
+     */
+    private void renderStatus(GuiGraphics graphics, GameView board) {
+        Rect area = layout().status();
+        if (area.isEmpty()) {
+            return;
+        }
+        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
+
+        List<SeatView> seats = board.seats();
+        SeatId me = mySeat().orElse(null);
         SeatId active = board.turn().activeSeat();
+        int turnWidth = Math.min(area.width() / 4, 120);
+        int column = seats.isEmpty() ? area.width() : (area.width() - turnWidth) / seats.size();
+        int line = area.y() + (area.height() - this.font.lineHeight) / 2;
+
+        for (int index = 0; index < seats.size(); index++) {
+            SeatView seat = seats.get(index);
+            String who = seat.occupant().map(player -> player.name())
+                    .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
+            Component text = Component.translatable(
+                    "screen.gathering.table.mat_line", who, seat.life(),
+                    count(seat, Zone.HAND), count(seat, Zone.LIBRARY));
+            if (!seat.counters().isEmpty()) {
+                text = text.copy().append(Component.literal("  " + describeCounters(seat)));
+            }
+            GuiText.draw(graphics, this.font, text,
+                    area.x() + 4 + index * column, line, column - 8,
+                    seat.seat().equals(me) ? ACCENT : LABEL);
+        }
+
         String who = board.seat(active).occupant()
                 .map(player -> player.name())
                 .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
-        boolean mine = mySeat().map(active::equals).orElse(false);
+        boolean mine = me != null && me.equals(active);
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.table.turn", board.turn().turnNumber(), who),
-                area.x() + 4, area.y() + 7, area.width() / 3, mine ? ACCENT : LABEL);
-    }
-
-    private void renderActions(GuiGraphics graphics, GameView board) {
-        Rect area = layout().actions();
-        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
-        GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.table.actions"),
-                area.x() + area.width() / 3, area.y() + 7, area.width() * 2 / 3 - 6, DIM);
+                area.right() - turnWidth, line, turnWidth - 4, mine ? ACCENT : DIM);
     }
 
     /**
@@ -867,6 +868,7 @@ public final class TableScreen extends Screen implements CardPreviewHost {
      */
     private void renderHeldCard(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         if (held == null) {
+            ClientTableHighlight.aimAt(null, -1);
             return;
         }
         CardView card = findCard(board, held.card()).orElse(null);
@@ -874,9 +876,13 @@ public final class TableScreen extends Screen implements CardPreviewHost {
             return;
         }
         double[] at = pointer(mouseX, mouseY);
-        SeatId landing = at == null
-                ? null
-                : board().seatAt(at[0] - held.grabX(), at[1] - held.grabY());
+        SeatId landing = at == null ? null : board().seatAt(at[0], at[1]);
+
+        if (landing != null && at != null) {
+            ClientTableHighlight.aimAt(landing, board().pileAt(landing, Zone.PILES.size(), at[0], at[1]));
+        } else {
+            ClientTableHighlight.aimAt(null, -1);
+        }
 
         // The mat it would land on, outlined, so you can see whose side you are about to put
         // it on. Only on the seated screen: the mats on the block are measured on the table
@@ -889,15 +895,19 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         // The card in the air is always drawn on the screen, at the size a card is on the
         // screen. It is the one thing that is genuinely in the player's hand rather than on
         // the table, and a card held over a table is not lying on it.
+        SeatId sizedFor = landing != null ? landing : held.from();
         Rect airborne = playingOnTheBlock
                 ? centredOnCursor(mouseX, mouseY)
-                : new Rect(mouseX - held.grabX(), mouseY - held.grabY(),
-                        board().cardWidth(landing != null ? landing : held.from()),
-                        board().cardHeight(landing != null ? landing : held.from()));
+                : centred(mouseX - held.grabX(), mouseY - held.grabY(),
+                        board().cardWidth(sizedFor), board().cardHeight(sizedFor));
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, LIFT);
         drawCard(graphics, card, airborne, false, false);
         graphics.pose().popPose();
+    }
+
+    private static Rect centred(int middleX, int middleY, int width, int height) {
+        return new Rect(middleX - width / 2, middleY - height / 2, width, height);
     }
 
     /** A hand-sized card taken by the middle, for the view where the board is not on screen. */
@@ -1022,17 +1032,15 @@ public final class TableScreen extends Screen implements CardPreviewHost {
      * so it takes the cursor by the middle, which is where you would expect to be holding it.
      */
     private Held grab(CardInstanceId card, SeatId seat, boolean fromHand, Rect where, int x, int y) {
-        if (fromHand) {
-            return new Held(card, seat, fromHand,
-                    board().cardWidth(seat) / 2, board().cardHeight(seat) / 2, x, y);
-        }
-        double[] at = pointer(x, y);
+        double[] at = fromHand ? null : pointer(x, y);
         if (at == null) {
-            return new Held(card, seat, fromHand,
-                    board().cardWidth(seat) / 2, board().cardHeight(seat) / 2, x, y);
+            // Straight from the hand, or from somewhere the table cannot answer for: the card
+            // takes the cursor by the middle, which is where you would expect to be holding it.
+            return new Held(card, seat, fromHand, 0, 0, x, y);
         }
         return new Held(card, seat, fromHand,
-                (int) Math.round(at[0]) - where.x(), (int) Math.round(at[1]) - where.y(), x, y);
+                (int) Math.round(at[0] - where.centreX()),
+                (int) Math.round(at[1] - where.centreY()), x, y);
     }
 
     @Override
@@ -1093,13 +1101,28 @@ public final class TableScreen extends Screen implements CardPreviewHost {
             // Let go somewhere that is not the table at all. The card stays where it was.
             return true;
         }
-        double cornerX = at[0] - dropped.grabX();
-        double cornerY = at[1] - dropped.grabY();
-        SeatId landing = board().seatAt(cornerX, cornerY);
+
+        // Whose mat it landed on is decided by where the cursor is, not by where the card's
+        // middle would end up. Asking about the card meant a drop near an edge - where the
+        // card overhangs and its middle is off the mat - was silently refused, which reads as
+        // the table ignoring you.
+        SeatId landing = board().seatAt(at[0], at[1]);
         if (landing == null) {
             return true;
         }
-        TablePosition where = board().positionOn(landing, cornerX, cornerY);
+
+        // A zone catches the card before the felt does, so putting something in the graveyard
+        // is dropping it on the graveyard.
+        int zone = board().pileAt(landing, Zone.PILES.size(), at[0], at[1]);
+        if (zone >= 0) {
+            send(new GameEvent.CardMoved(me, dropped.card(),
+                    ZoneRef.of(landing, Zone.PILES.get(zone)), Placement.TOP));
+            selected.clear();
+            return true;
+        }
+
+        TablePosition where = board().positionOn(
+                landing, at[0] - dropped.grabX(), at[1] - dropped.grabY());
         if (!dropped.fromHand() && selected.contains(dropped.card())) {
             dropGroup(dropped, landing, where, me);
         } else {
@@ -1203,17 +1226,12 @@ public final class TableScreen extends Screen implements CardPreviewHost {
 
     private Optional<CardView> cardInHandAt(GameView board, int x, int y) {
         SeatId seat = mySeat().orElse(null);
-        if (seat == null || !layout().hand().contains(x, y)) {
+        int index = handIndexAt(board, x, y);
+        if (seat == null || index < 0) {
             return Optional.empty();
         }
-        Rect area = layout().hand();
-        List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
-        for (int index = hand.size() - 1; index >= 0; index--) {
-            if (!isHeld(hand.get(index)) && handSlot(area, hand.size(), index).contains(x, y)) {
-                return Optional.of(hand.get(index));
-            }
-        }
-        return Optional.empty();
+        CardView card = board.seat(seat).zone(Zone.HAND).cards().get(index);
+        return isHeld(card) ? Optional.empty() : Optional.of(card);
     }
 
     private Rect handSlotOf(GameView board, CardView card) {
@@ -1223,18 +1241,20 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         }
         List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
         int index = hand.indexOf(card);
-        return index < 0 ? Rect.NONE : handSlot(layout().hand(), hand.size(), index);
+        return index < 0
+                ? Rect.NONE
+                : HandFan.slot(layout().hand(), hand.size(), index, index).where();
     }
 
     /** Whose pile row a point is in, or null. */
     private SeatId pileSeatAt(GameView board, int x, int y) {
         int slot = pileSlotAt(board, x, y);
-        return slot < 0 ? null : board.seats().get(slot / PILES.size()).seat();
+        return slot < 0 ? null : board.seats().get(slot / Zone.PILES.size()).seat();
     }
 
     private Zone pileZoneAt(GameView board, int x, int y) {
         int slot = pileSlotAt(board, x, y);
-        return slot < 0 ? Zone.LIBRARY : PILES.get(slot % PILES.size());
+        return slot < 0 ? Zone.LIBRARY : Zone.PILES.get(slot % Zone.PILES.size());
     }
 
     /**
@@ -1250,10 +1270,10 @@ public final class TableScreen extends Screen implements CardPreviewHost {
             return -1;
         }
         for (int seat = 0; seat < board.seats().size(); seat++) {
-            for (int index = 0; index < PILES.size(); index++) {
-                Rect pile = board().pileRect(board.seats().get(seat).seat(), index, PILES.size());
+            for (int index = 0; index < Zone.PILES.size(); index++) {
+                Rect pile = board().pileRect(board.seats().get(seat).seat(), index, Zone.PILES.size());
                 if (pile.contains((int) Math.round(at[0]), (int) Math.round(at[1]))) {
-                    return seat * PILES.size() + index;
+                    return seat * Zone.PILES.size() + index;
                 }
             }
         }
@@ -1647,10 +1667,10 @@ public final class TableScreen extends Screen implements CardPreviewHost {
                 return flipUnderCursor(me);
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_Q -> {
-                return turnUnderCursor(me, -NUDGE_DEGREES);
+                return setTapUnderCursor(me, false);
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_E -> {
-                return turnUnderCursor(me, NUDGE_DEGREES);
+                return setTapUnderCursor(me, true);
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_G -> {
                 // TTS groups the selection into a stack; the nearest thing here is putting the
@@ -1779,14 +1799,24 @@ public final class TableScreen extends Screen implements CardPreviewHost {
         return !targets.isEmpty();
     }
 
-    private boolean turnUnderCursor(SeatId me, int degrees) {
+    /**
+     * Taps or untaps whatever the keys are pointing at, which is a quarter turn on screen.
+     *
+     * <p>These used to nudge the resting angle instead, which drew the same picture and meant
+     * something else entirely: a card turned that way looks tapped, is not tapped, and does
+     * not come back when the player untaps everything. Tapping is a state the whole table can
+     * see and reason about; an angle is decoration. Free rotation is still on the card's own
+     * menu, where a thing nobody does twice a turn belongs.
+     */
+    private boolean setTapUnderCursor(SeatId me, boolean tapped) {
         GameView board = view().orElse(null);
         if (board == null) {
             return false;
         }
         List<CardInstanceId> targets = underCursorOrSelected();
-        eachCard(board, targets, seen ->
-                new GameEvent.CardRotated(me, seen.id(), restingAngle(seen) + degrees));
+        eachCard(board, targets, seen -> seen.tapped() == tapped
+                ? null
+                : new GameEvent.CardTapSet(me, seen.id(), tapped));
         return !targets.isEmpty();
     }
 
@@ -1869,6 +1899,41 @@ public final class TableScreen extends Screen implements CardPreviewHost {
     // --------------------------------------------------------------- drawing
 
     /** A card on the table: at its own spot, turned to its own angle, counters and all. */
+    /**
+     * A card as just its picture, turned, with nothing drawn round it.
+     *
+     * <p>What the hand uses. The framed version earns its border on the table, where a card
+     * has to be told apart from the felt and from the cards under it; in a fan every card is
+     * against another card and the borders become a row of lines with slivers of art between
+     * them. A card is a picture before it is a token.
+     */
+    private void drawBareCard(GuiGraphics graphics, CardView card, Rect where, int angle) {
+        if (where.isEmpty()) {
+            return;
+        }
+        boolean turned = Math.floorMod(angle, 360) != 0;
+        if (turned) {
+            graphics.pose().pushPose();
+            graphics.pose().translate((float) where.centreX(), (float) where.centreY(), 0f);
+            graphics.pose().mulPose(Axis.ZP.rotationDegrees(angle));
+            graphics.pose().translate((float) -where.centreX(), (float) -where.centreY(), 0f);
+        }
+        if (card.isFaceDown()) {
+            graphics.blit(CardFaceRenderer.CARD_BACK, where.x(), where.y(), 0f, 0f,
+                    where.width(), where.height(), where.width(), where.height());
+        } else {
+            summaryOf(card).ifPresentOrElse(
+                    summary -> CardInspectPanel.renderArt(
+                            graphics, summary, where.x(), where.y(), where.width(), where.height()),
+                    () -> GatheringSprites.inset(
+                            graphics, where.x(), where.y(), where.width(), where.height()));
+        }
+        drawCounters(graphics, card, where);
+        if (turned) {
+            graphics.pose().popPose();
+        }
+    }
+
     private void drawTableCard(GuiGraphics graphics, CardView card, Rect where, int angle, boolean hovered) {
         if (angle == 0) {
             drawCard(graphics, card, where, hovered, card.tapped());

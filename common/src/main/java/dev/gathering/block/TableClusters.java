@@ -8,6 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The bridge between tables in a world and the cluster arithmetic in the pure core.
@@ -73,6 +74,30 @@ public final class TableClusters {
             case WEST -> Side.WEST;
             default -> null;
         };
+    }
+
+    /**
+     * Which edge of a table somebody is at, from the face they clicked or else from where they
+     * are standing.
+     *
+     * <p>The face alone is not enough, and the case it misses is the ordinary one: a table is
+     * waist height, so the thing in front of you when you walk up to one and right-click is
+     * its top. That gave no side at all, and sitting down meant crouching to find a vertical
+     * face - which nobody would ever guess at. Clicking the top means the edge you are
+     * standing at, worked out from where you are against the middle of the table.
+     */
+    public static Side sideFrom(Direction face, Vec3 standing, BlockPos tableOrigin) {
+        Side fromFace = sideFacing(face);
+        if (fromFace != null) {
+            return fromFace;
+        }
+        double middle = TableCell.BLOCKS_PER_TABLE / 2.0;
+        double across = standing.x - (tableOrigin.getX() + middle);
+        double down = standing.z - (tableOrigin.getZ() + middle);
+        if (Math.abs(across) > Math.abs(down)) {
+            return across < 0 ? Side.WEST : Side.EAST;
+        }
+        return down < 0 ? Side.NORTH : Side.SOUTH;
     }
 
     /** Which cell of a cluster a given table is, given where the cluster's own origin is. */

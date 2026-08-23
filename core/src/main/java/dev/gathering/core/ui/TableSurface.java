@@ -32,14 +32,38 @@ public record TableSurface(List<Rect> mats) {
     /** The surface is the same square a card's position is measured in, so the maths is one step. */
     public static final int SPAN = TablePosition.SPAN;
 
-    /** A gap around each mat, so two mats read as two rather than as one big felt. */
-    private static final int MAT_INSET = SPAN / 120;
+    /**
+     * A gap around each mat, so two mats read as two rather than as one big felt.
+     *
+     * <p>Two pixels. The surface is the table's whole footprint, so a pixel is a sixteenth of
+     * a block and the whole span is two blocks across: two pixels is a two-thirty-second of
+     * the span, and a playmat comes out a fraction under the two-by-one it sits in.
+     */
+    private static final int MAT_INSET = SPAN * 2 / 32;
 
-    /** How much of a mat's depth the pile row takes along its near edge. */
-    private static final double PILE_ROW_DEPTH = 0.26;
+    /**
+     * The most of a mat the border is ever allowed to eat, per side.
+     *
+     * <p>Two pixels is right on a table somebody is actually playing at, and wrong on a mat
+     * that has been squeezed - a cell seating three cuts one into thirds, and two pixels off
+     * every side of that took a mat down to a sliver a card would not fit on. So the border
+     * is two pixels or an eighth of the mat, whichever is less.
+     */
+    private static final int MAT_INSET_SHARE = 8;
 
-    /** The row is divided into at least this many slots, so four piles never fill a whole mat. */
-    private static final int PILE_ROW_SLOTS = 6;
+    /**
+     * How many cards fit across a mat.
+     *
+     * <p>This is what decides how big a card is, and it is a number about playing rather than
+     * about arithmetic: a real playmat is about nine cards wide, which is a row of lands with
+     * room to spare. Deriving the size from the mat's shorter side instead - which is what it
+     * used to do - gave a two-player table cards a twentieth of its width, and a board that
+     * read as a mosaic from directly above it.
+     */
+    private static final int CARDS_ACROSS_A_MAT = 8;
+
+    /** The gap between two piles in the row, as a fraction of a card. */
+    private static final double PILE_GAP = 0.12;
 
     /**
      * How wide a card is on a table with one mat on it, in surface units.
@@ -91,9 +115,13 @@ public record TableSurface(List<Rect> mats) {
         });
         List<Rect> inset = new ArrayList<>(mats.length);
         for (Rect mat : mats) {
-            inset.add(mat.shrink(MAT_INSET));
+            inset.add(mat.shrink(borderFor(mat)));
         }
         return new TableSurface(inset);
+    }
+
+    private static int borderFor(Rect mat) {
+        return Math.min(MAT_INSET, Math.min(mat.width(), mat.height()) / MAT_INSET_SHARE);
     }
 
     /**
@@ -202,27 +230,54 @@ public record TableSurface(List<Rect> mats) {
     }
 
     /**
-     * Where a seat's piles sit: a row along the near edge of their own mat.
+     * Where a seat's piles sit: a row of card-shaped slots along the near edge of their mat.
      *
      * <p>On the table rather than in a side column, because a library is an object you reach
      * for. Along the edge nearest the player for the same reason a real one sits there - it is
-     * the part of the mat you never put permanents on.
+     * the part of the mat you never put permanents on - and at the right-hand end of it,
+     * which is where a right-handed player's deck goes and where every digital client since
+     * has put it.
+     *
+     * <p><b>Card-shaped, exactly.</b> These used to be a share of the mat's width by a share
+     * of its depth, which on a two-player table made each one wider than it was tall and drew
+     * a library as a letterbox. A pile is a stack of cards and has to be the shape of one, or
+     * the card sitting on top of it is stretched to fit a slot that is not card-shaped.
      *
      * @param index which pile, left to right
      * @param count how many piles the row holds
      */
     public Rect pileSlot(int seat, int index, int count) {
         Rect mat = matOf(seat);
-        if (mat.isEmpty() || count <= 0) {
+        if (mat.isEmpty() || count <= 0 || index < 0 || index >= count) {
             return Rect.NONE;
         }
-        int height = Math.max(1, (int) (mat.height() * PILE_ROW_DEPTH));
-        int width = Math.max(1, mat.width() / Math.max(count, PILE_ROW_SLOTS));
-        return new Rect(
-                mat.x() + Math.max(0, Math.min(count - 1, index)) * width,
-                mat.bottom() - height,
-                width,
-                height);
+        int width = Math.max(1, (int) Math.round(cardWidthOn(seat)));
+        int height = Math.max(1, (int) Math.round(cardHeightOn(seat)));
+        int step = width + (int) Math.round(width * PILE_GAP);
+
+        // Right-aligned along the near edge, and pushed in by the same gap so the last pile is
+        // not flush against the mat's border.
+        int gap = step - width;
+        int right = mat.right() - gap;
+        int left = right - count * step + gap;
+        return new Rect(left + index * step, mat.bottom() - gap - height, width, height);
+    }
+
+    /**
+     * Which of this seat's piles a surface point is on, or -1.
+     *
+     * <p>Here rather than in whatever is drawing, because dropping a card into a zone and
+     * drawing that zone have to agree about where it is - and a drop that lands a pixel off
+     * the graveyard it looks like it is over is the kind of thing nobody reports as a bug,
+     * they just stop using it.
+     */
+    public int pileAt(int seat, int count, double surfaceX, double surfaceY) {
+        for (int index = 0; index < count; index++) {
+            if (pileSlot(seat, index, count).contains((int) Math.round(surfaceX), (int) Math.round(surfaceY))) {
+                return index;
+            }
+        }
+        return -1;
     }
 
     /** Whose mat a surface point is on, or -1 for the felt between them. */
@@ -256,17 +311,17 @@ public record TableSurface(List<Rect> mats) {
      * different boards.
      */
     public double cardScale(int seat) {
-        Rect mat = matOf(seat);
-        return Math.min(mat.width(), mat.height()) / (double) SPAN;
+        return cardWidthOn(seat) / CARD_WIDTH_UNITS;
     }
 
     /** A card's width on this seat's mat, in surface units. */
     public double cardWidthOn(int seat) {
-        return CARD_WIDTH_UNITS * cardScale(seat);
+        Rect mat = matOf(seat);
+        return mat.isEmpty() ? 0 : mat.width() / (double) CARDS_ACROSS_A_MAT;
     }
 
     /** A card's height on this seat's mat, in surface units. */
     public double cardHeightOn(int seat) {
-        return CARD_HEIGHT_UNITS * cardScale(seat);
+        return cardWidthOn(seat) * CARD_HEIGHT_UNITS / CARD_WIDTH_UNITS;
     }
 }

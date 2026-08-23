@@ -75,11 +75,14 @@ public final class BoardGeometry implements BoardPlacement {
     public Rect rectOf(SeatId seat, TablePosition position) {
         double surfaceX = surface.surfaceX(seat.index(), position.x());
         double surfaceY = surface.surfaceY(seat.index(), position.y());
+        int cardWidth = cardWidth(seat);
+        int cardHeight = cardHeight(seat);
+        // Measured from the middle - see BoardPlacement.
         return new Rect(
-                (int) Math.round(camera.toScreenX(surfaceX, width)),
-                (int) Math.round(camera.toScreenY(surfaceY, height)),
-                cardWidth(seat),
-                cardHeight(seat));
+                (int) Math.round(camera.toScreenX(surfaceX, width)) - cardWidth / 2,
+                (int) Math.round(camera.toScreenY(surfaceY, height)) - cardHeight / 2,
+                cardWidth,
+                cardHeight);
     }
 
     /**
@@ -131,6 +134,12 @@ public final class BoardGeometry implements BoardPlacement {
     @Override
     public Rect pileRect(SeatId seat, int index, int count) {
         return surfaceRect(surface.pileSlot(seat.index(), index, count));
+    }
+
+    @Override
+    public int pileAt(SeatId seat, int count, double screenX, double screenY) {
+        return surface.pileAt(seat.index(), count,
+                camera.toTableX(screenX, width), camera.toTableY(screenY, height));
     }
 
     private Rect surfaceRect(Rect onSurface) {

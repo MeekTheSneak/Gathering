@@ -74,9 +74,18 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private static final float STACK_LIFT = 0.0015f;
 
-    /** The piles every seat has, in the order the seated screen lays them out. */
-    private static final List<Zone> PILES =
-            List.of(Zone.LIBRARY, Zone.GRAVEYARD, Zone.EXILE, Zone.COMMAND);
+
+    /** An empty zone, and the line round it. Dark, because it is a recess in the mat. */
+    private static final int SLOT_COLOUR = 0x55000000;
+    private static final int SLOT_EDGE_COLOUR = 0x99000000;
+
+    /** And the same zone with a card being held over it, waiting to be let go. */
+    private static final int SLOT_AIMED = 0x664FA4CF;
+
+    private static final float SLOT_EDGE_THICKNESS = 0.07f;
+
+    /** The card on a zone sits just above the slot it is in, so the two do not z-fight. */
+    private static final float SLOT_LIFT = 0.0006f;
 
     /** The halo under the card the cursor is on, and how far it sticks out past it. */
     private static final int RING_COLOUR = 0xCC7FD4FF;
@@ -179,12 +188,23 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private void drawPiles(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, SeatView seat,
             TableSurface surface, int seatIndex, float span) {
-        for (int index = 0; index < PILES.size(); index++) {
-            Rect slot = surface.pileSlot(seatIndex, index, PILES.size());
+        for (int index = 0; index < Zone.PILES.size(); index++) {
+            Rect slot = surface.pileSlot(seatIndex, index, Zone.PILES.size());
             if (slot.isEmpty()) {
                 continue;
             }
-            ZoneView contents = seat.zone(PILES.get(index));
+            float x = onSurface(slot.x(), span);
+            float z = onSurface(slot.y(), span);
+            float width = onSurface(slot.width(), span);
+            float depth = onSurface(slot.height(), span);
+
+            // The slot is drawn whether or not there is anything in it. A zone you can only
+            // see once it has cards in it is a zone nobody can aim at, and aiming at it is now
+            // how cards get put there.
+            boolean aimed = ClientTableHighlight.isAimedAt(seat.seat(), index);
+            drawSlot(poseStack, buffers, x, z, width, depth, aimed);
+
+            ZoneView contents = seat.zone(Zone.PILES.get(index));
             if (contents == null || contents.count() == 0) {
                 continue;
             }
@@ -192,11 +212,30 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             ResourceLocation texture = top == null || top.isFaceDown()
                     ? CardFaceRenderer.CARD_BACK
                     : textureFor(top);
-            draw(poseStack, buffers, packedLight, texture,
-                    onSurface(slot.x(), span), onSurface(slot.y(), span),
-                    onSurface(slot.width(), span), onSurface(slot.height(), span),
-                    0, false, 0f);
+            draw(poseStack, buffers, packedLight, texture, x, z, width, depth, 0, false, SLOT_LIFT);
         }
+    }
+
+    /**
+     * An empty zone: a recess in the mat with a border, the shape of the card that goes in it.
+     *
+     * <p>Four quads for the border rather than an outline draw, for the same reason the mats
+     * use them - a line width in world space is a pixel width on screen, and a zone you can
+     * only make out with your face against the table is not marked.
+     */
+    private void drawSlot(
+            PoseStack poseStack, MultiBufferSource buffers,
+            float x, float z, float width, float depth, boolean aimed) {
+        float edge = Math.min(width, depth) * SLOT_EDGE_THICKNESS;
+        VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
+        Matrix4f pose = poseStack.last().pose();
+        int border = aimed ? RING_COLOUR : SLOT_EDGE_COLOUR;
+
+        flat(consumer, pose, x, z, x + width, z + depth, aimed ? SLOT_AIMED : SLOT_COLOUR);
+        flat(consumer, pose, x, z, x + width, z + edge, border);
+        flat(consumer, pose, x, z + depth - edge, x + width, z + depth, border);
+        flat(consumer, pose, x, z, x + edge, z + depth, border);
+        flat(consumer, pose, x + width - edge, z, x + width, z + depth, border);
     }
 
     /**

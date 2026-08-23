@@ -36,11 +36,13 @@ public final class SurfaceBoard implements BoardPlacement {
 
     @Override
     public Rect rectOf(SeatId seat, TablePosition position) {
+        int width = cardWidth(seat);
+        int height = cardHeight(seat);
         return new Rect(
-                (int) Math.round(surface.surfaceX(seat.index(), position.x())),
-                (int) Math.round(surface.surfaceY(seat.index(), position.y())),
-                cardWidth(seat),
-                cardHeight(seat));
+                (int) Math.round(surface.surfaceX(seat.index(), position.x())) - width / 2,
+                (int) Math.round(surface.surfaceY(seat.index(), position.y())) - height / 2,
+                width,
+                height);
     }
 
     @Override
@@ -72,5 +74,10 @@ public final class SurfaceBoard implements BoardPlacement {
     @Override
     public Rect pileRect(SeatId seat, int index, int count) {
         return surface.pileSlot(seat.index(), index, count);
+    }
+
+    @Override
+    public int pileAt(SeatId seat, int count, double x, double y) {
+        return surface.pileAt(seat.index(), count, x, y);
     }
 }

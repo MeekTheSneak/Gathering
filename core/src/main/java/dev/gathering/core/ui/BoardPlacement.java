@@ -22,7 +22,15 @@ import dev.gathering.core.game.TablePosition;
  */
 public interface BoardPlacement {
 
-    /** Where a card sitting at this position on this seat's mat is drawn. */
+    /**
+     * Where a card sitting at this position on this seat's mat is drawn.
+     *
+     * <p>A position is the card's <b>middle</b>, not its corner. Corners look simpler and are
+     * worse at the one place it matters: a card dropped near an edge could only ever hang off
+     * two of the four sides, so half the border of every mat quietly shoved cards inwards
+     * while the other half let them go. Measured from the middle, a card hangs off any edge
+     * by the same amount, which is what a card on a real table does.
+     */
     Rect rectOf(SeatId seat, TablePosition position);
 
     int cardWidth(SeatId seat);
@@ -38,6 +46,9 @@ public interface BoardPlacement {
     Rect matRect(SeatId seat);
 
     Rect pileRect(SeatId seat, int index, int count);
+
+    /** Which of a seat's piles a point is on, or -1 - so a card can be dropped into one. */
+    int pileAt(SeatId seat, int count, double x, double y);
 
     /** The table this is a placement for, so callers can ask it how many seats there are. */
     TableSurface surface();

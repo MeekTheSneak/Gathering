@@ -26,6 +26,19 @@ public final class TableCameraView {
     /** Straight down. The board is a plane and this is the only angle that does not lie. */
     public static final float LOOKING_DOWN = 90f;
 
+    /**
+     * Which way up the table is drawn, for a player whose own mat is on the north half.
+     *
+     * <p>Looking straight down, the camera's up vector is whichever way it was facing: at yaw
+     * zero {@code Camera.setRotation} leaves it pointing south, so a larger world z is drawn
+     * higher up the screen and the north half of the table is at the bottom. Which is right
+     * for the player sitting at the north edge, and exactly backwards for the one opposite -
+     * they got their own board across the top of the screen with their zones along the far
+     * edge, reading upside down, which is what a table looks like from the wrong chair.
+     */
+    private static final float FACING_FROM_NORTH = 0f;
+    private static final float FACING_FROM_SOUTH = 180f;
+
     /** Where the eye goes and which way it faces. */
     public record Placement(double x, double y, double z, float yaw, float pitch) {
     }
@@ -38,6 +51,9 @@ public final class TableCameraView {
     /** The table being played at, or nothing at all, which is the usual answer. */
     private static BlockPos table;
 
+    /** Which way round to draw it, so the player's own mat is the near one. */
+    private static float facing = FACING_FROM_NORTH;
+
     /** How far above the surface the eye sits. */
     private static double height = STARTING_HEIGHT;
 
@@ -48,9 +64,16 @@ public final class TableCameraView {
     private TableCameraView() {
     }
 
-    /** Called when the in-world view opens, so the camera knows there is a table to look at. */
-    public static void lookAt(BlockPos corner) {
+    /**
+     * Called when the in-world view opens, so the camera knows there is a table to look at.
+     *
+     * @param southHalf whether the viewer's own mat is on the far side of the table from the
+     *     block's north-west corner - in which case the whole board is turned around, so that
+     *     their own zones are the ones nearest them
+     */
+    public static void lookAt(BlockPos corner, boolean southHalf) {
         table = corner;
+        facing = southHalf ? FACING_FROM_SOUTH : FACING_FROM_NORTH;
         height = STARTING_HEIGHT;
         offsetX = 0;
         offsetZ = 0;
@@ -85,9 +108,12 @@ public final class TableCameraView {
      * screen is a way to lose the game you are playing.
      */
     public static void pan(double acrossBlocks, double downBlocks) {
+        // Turned with the view. Dragging right has to move the table right on the screen, and
+        // for the player sitting opposite, screen-right is world-west.
+        double sense = facing == FACING_FROM_SOUTH ? -1 : 1;
         double reach = TableTop.SPAN_BLOCKS / 2;
-        offsetX = Math.max(-reach, Math.min(reach, offsetX + acrossBlocks));
-        offsetZ = Math.max(-reach, Math.min(reach, offsetZ + downBlocks));
+        offsetX = Math.max(-reach, Math.min(reach, offsetX + acrossBlocks * sense));
+        offsetZ = Math.max(-reach, Math.min(reach, offsetZ + downBlocks * sense));
     }
 
     /** Back to the whole table, centred. */
@@ -114,7 +140,7 @@ public final class TableCameraView {
                 top.worldX(TableSurface.SPAN / 2.0) + offsetX,
                 top.topY() + height,
                 top.worldZ(TableSurface.SPAN / 2.0) + offsetZ,
-                0f,
+                facing,
                 LOOKING_DOWN));
     }
 }

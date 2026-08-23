@@ -1,6 +1,7 @@
 package dev.gathering.client;
 
 import dev.gathering.core.game.CardInstanceId;
+import dev.gathering.core.game.SeatId;
 import java.util.List;
 
 /**
@@ -21,6 +22,10 @@ public final class ClientTableHighlight {
     private static CardInstanceId hovered;
     private static List<CardInstanceId> selected = List.of();
 
+    /** The zone a card is currently being held over, so it can light up as a target. */
+    private static SeatId aimedSeat;
+    private static int aimedPile = -1;
+
     private ClientTableHighlight() {
     }
 
@@ -29,13 +34,25 @@ public final class ClientTableHighlight {
         selected = List.copyOf(picked);
     }
 
+    /** Which zone a dragged card would go into, so the table can say so before it is let go. */
+    public static void aimAt(SeatId seat, int pile) {
+        aimedSeat = pile < 0 ? null : seat;
+        aimedPile = pile;
+    }
+
     /** Cleared when the in-world view closes, so a ring never outlives the cursor that made it. */
     public static void clear() {
         hovered = null;
         selected = List.of();
+        aimedSeat = null;
+        aimedPile = -1;
     }
 
     public static boolean isLit(CardInstanceId card) {
         return card != null && (card.equals(hovered) || selected.contains(card));
+    }
+
+    public static boolean isAimedAt(SeatId seat, int pile) {
+        return aimedPile >= 0 && aimedPile == pile && seat != null && seat.equals(aimedSeat);
     }
 }

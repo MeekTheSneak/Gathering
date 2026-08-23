@@ -91,4 +91,16 @@ public enum Zone {
     public boolean isOpenToAllSeats() {
         return !hidden;
     }
+
+    /**
+     * The zones that sit on the table as a stack of cards, in the order they are laid out.
+     *
+     * <p>One list, because two things draw this row and a third decides what a card dropped on
+     * it lands in. When they were written out separately, the one that drew the zones and the
+     * one that worked out which zone a point was over could in principle disagree - and a drop
+     * that puts a card in the wrong zone is the kind of thing nobody reports, they just stop
+     * dropping cards there.
+     */
+    public static final java.util.List<Zone> PILES =
+            java.util.List.of(LIBRARY, GRAVEYARD, EXILE, COMMAND);
 }

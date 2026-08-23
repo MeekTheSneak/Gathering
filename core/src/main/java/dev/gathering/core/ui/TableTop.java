@@ -26,10 +26,12 @@ public record TableTop(double westX, double topY, double northZ, double span) {
     /**
      * How far in from the block's edge the playing surface starts.
      *
-     * <p>The table never grows in world footprint, so the board is inset rather than run to
-     * the edge - a card half over the lip would be a card you cannot see the bottom of.
+     * <p>None: the surface is the table's whole top. The inset that keeps a playmat off the
+     * lip belongs to the mat, where it is measured in pixels and comes out the same on every
+     * table - see {@code TableSurface}. Taking a slice off here as well made the playing area
+     * an awkward one-and-three-quarter blocks that nothing else in the game is measured in.
      */
-    public static final double MARGIN = 0.12;
+    public static final double MARGIN = 0.0;
 
     /** Just above the felt, so what is on the table is on it rather than in it. */
     public static final double SURFACE_HEIGHT = 15.02 / 16.0;
