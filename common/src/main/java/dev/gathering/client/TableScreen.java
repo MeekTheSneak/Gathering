@@ -283,6 +283,11 @@ public final class TableScreen extends Screen {
         return pileCount();
     }
 
+    /** Whether a menu is up offering this entry. For the harness, as above. */
+    boolean hasMenuEntry(String label) {
+        return menu != null && menu.has(label);
+    }
+
     /** Takes the menu entry with this label, if a menu is up and has one. As above. */
     boolean pressMenuEntry(String label) {
         return menu != null && menu.press(label);
@@ -489,7 +494,11 @@ public final class TableScreen extends Screen {
             geometry.reshape(anchors(), this.width, this.height,
                     layout().status().height(), layout().hand().height());
             onBlock.reshape(anchors());
-            geometry.showEverything();
+            // Framed the same way opening it frames it: on your own mat if you have one. It
+            // used to show the whole table, so somebody else sitting down pulled your camera
+            // off your own board and out to a view of everybody's - in the middle of your
+            // turn, without you touching anything.
+            frameTheBoard(mySeat().orElse(null));
         }
         // The board can arrive before this client knows which chair it is in - a spectator who
         // sits down gets the seat a moment after the view - and a player can stop having a
@@ -726,9 +735,8 @@ public final class TableScreen extends Screen {
         // they come in, and the order is the one thing a player coming from a physical table
         // has no reason to know.
         Rect named = board().pileLabelRect(view.seat(), Zone.PILES.indexOf(zone), pileCount());
-        Component zoneName = ZoneText.name(zone);
-        if (!named.isEmpty() && GuiText.fits(this.font, zoneName, named.width())) {
-            GuiText.drawCentred(graphics, this.font, zoneName,
+        if (!named.isEmpty() && everyZoneNameFits(named.width())) {
+            GuiText.drawCentred(graphics, this.font, ZoneText.name(zone),
                     (int) named.centreX(),
                     (int) named.centreY() - this.font.lineHeight / 2,
                     named.width(), ZONE_LABEL);
@@ -745,6 +753,23 @@ public final class TableScreen extends Screen {
             graphics.renderOutline(pile.x(), pile.y(), pile.width(), pile.height(), ACCENT);
             top.filter(card -> !card.isFaceDown()).ifPresent(this::offerToInspector);
         }
+    }
+
+    /**
+     * Whether there is room for the name of every zone in the column, not just this one.
+     *
+     * <p>Asked of the whole column because the answer is about the column. "Exile" is four
+     * letters shorter than "Graveyard", so asking each name for itself named exactly one zone
+     * in four on a board drawn small - which reads as that zone being special rather than as
+     * a board too small to write on.
+     */
+    private boolean everyZoneNameFits(int room) {
+        for (Zone zone : Zone.PILES) {
+            if (!GuiText.fits(this.font, ZoneText.name(zone), room)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -1942,6 +1967,20 @@ public final class TableScreen extends Screen {
                 this));
     }
 
+    /**
+     * Asks before doing something that cannot be taken back, then does it.
+     *
+     * <p>The question, what it means and the word on the button all come off one key, so a
+     * verb that needs asking about cannot end up asking half a question.
+     */
+    private void confirm(String key, Runnable action) {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ConfirmScreen(
+                Component.translatable("confirm.gathering." + key),
+                Component.translatable("confirm.gathering." + key + ".detail"),
+                Component.translatable("confirm.gathering." + key + ".yes"),
+                action, this));
+    }
+
     /** Asks how many, then does it. The answer arrives after the table is back. */
     private void ask(String key, int suggested, java.util.function.IntConsumer action) {
         net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
@@ -1996,6 +2035,12 @@ public final class TableScreen extends Screen {
                         me, CountersScreen.titleForSeat(board, me))))));
         entries.add(entry("show_everything", this::showEverything));
         entries.add(ContextMenu.Entry.rule());
+        // The one verb that ends a game. Everything else the table does is a move somebody can
+        // make again; this one settles the match, records the score and takes the board away,
+        // so it asks first. Without it a game could be started and never finished.
+        entries.add(entry("concede", () -> confirm(
+                "concede",
+                () -> send(new GameEvent.Conceded(me)))));
         // Standing up lives here rather than on the table block. Clicking your own edge of
         // the table is how a seated player opens their board, so it cannot also be how they
         // give up their chair - and a verb about your seat belongs with the other verbs about

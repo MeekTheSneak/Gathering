@@ -176,6 +176,16 @@ public final class ContextMenu {
      * than calling what the entry would have called - which would pass just as happily with
      * the entry missing from the menu.
      */
+    /** Whether the menu has an entry with this label. For the scripted run, as below. */
+    boolean has(String label) {
+        for (Entry entry : entries) {
+            if (!entry.isRule() && entry.label().getString().equalsIgnoreCase(label)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     boolean press(String label) {
         for (Entry entry : entries) {
             if (!entry.isRule() && entry.enabled()

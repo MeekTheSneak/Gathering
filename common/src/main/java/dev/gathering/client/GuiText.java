@@ -46,6 +46,26 @@ public final class GuiText {
     }
 
     /**
+     * How many lines this text needs at this width, so a panel can be built to hold it.
+     *
+     * <p>Asked of the same wrapping {@link #drawWrapped} does, so a panel is never a line
+     * short of the words it is about to be given.
+     */
+    public static int linesNeeded(Font font, Component text, int maxWidth) {
+        return Math.max(1, font.split(text, Math.max(1, maxWidth)).size());
+    }
+
+    /** Draws text over as many lines as it needs, breaking on words. */
+    public static void drawWrapped(
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int colour) {
+        int line = y;
+        for (FormattedCharSequence row : font.split(text, Math.max(1, maxWidth))) {
+            graphics.drawString(font, row, x, line, colour, false);
+            line += font.lineHeight + 1;
+        }
+    }
+
+    /**
      * Whether this text would be drawn whole in {@code maxWidth}, rather than losing its tail.
      *
      * <p>For the callers whose answer to "it does not fit" is to leave it out altogether. A

@@ -78,9 +78,16 @@ public final class AmountScreen extends ChildScreen {
                     Component.literal(Integer.toString(value)), () -> confirm(value)));
         }
 
+        // Two buttons, not one. Ok commits, so a player who has changed their mind had no
+        // way out of this panel but a key nobody told them about - which is exactly what
+        // "the menus make you press escape" means.
+        int decideTop = quickTop + quickRows * (ROW + GAP) + GAP;
+        int half = (panel.width() - MARGIN * 2 - GAP) / 2;
         addRenderableWidget(GatheringButtons.of(
-                panel.x() + MARGIN, quickTop + quickRows * (ROW + GAP) + GAP,
-                panel.width() - MARGIN * 2, ROW,
+                panel.x() + MARGIN, decideTop, half, ROW,
+                Component.translatable("gui.cancel"), this::onClose));
+        addRenderableWidget(GatheringButtons.of(
+                panel.right() - MARGIN - half, decideTop, half, ROW,
                 Component.translatable("gui.ok"), this::confirmTyped));
     }
 

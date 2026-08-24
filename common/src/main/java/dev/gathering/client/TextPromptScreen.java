@@ -63,8 +63,15 @@ public final class TextPromptScreen extends ChildScreen {
         addRenderableWidget(field);
         setInitialFocus(field);
 
+        // Ok commits, so cancelling needed a button of its own rather than a key the player
+        // has to already know about.
+        int decideTop = top + ROW + GAP;
+        int half = (panel.width() - MARGIN * 2 - GAP) / 2;
         addRenderableWidget(GatheringButtons.of(
-                panel.x() + MARGIN, top + ROW + GAP, panel.width() - MARGIN * 2, ROW,
+                panel.x() + MARGIN, decideTop, half, ROW,
+                Component.translatable("gui.cancel"), this::onClose));
+        addRenderableWidget(GatheringButtons.of(
+                panel.right() - MARGIN - half, decideTop, half, ROW,
                 Component.translatable("gui.ok"), this::confirm));
     }
 

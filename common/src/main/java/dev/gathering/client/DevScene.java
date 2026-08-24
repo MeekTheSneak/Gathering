@@ -5,6 +5,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Screenshot;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TablePart;
@@ -523,6 +524,11 @@ public final class DevScene {
             case 38 -> {
                 theBoardIsStillFramed(client, "back at the automatic scale");
                 shoot(client, "29-back-to-normal");
+                // A game has to be finishable. Taken as far as the question and then backed
+                // out of, because going through with it would end the game this run is still
+                // using - but the wiring from menu entry to question is the part that was
+                // missing entirely, and it is the part this proves.
+                aGameCanBeConceded(client);
                 // Last, because everything above needs a seat: stand up mid-game and look at
                 // the same table as somebody who is only watching it.
                 standUp(client);
@@ -988,6 +994,66 @@ public final class DevScene {
      * checked is what a player can do to themselves - and because the board they are left
      * holding afterwards is the whole point.
      */
+    /**
+     * Checks a player can reach the end of a game, and then does not end it.
+     *
+     * <p>Conceding is the only verb at this table that finishes a game. The machinery behind
+     * it was complete and tested on the server and reachable from nothing at all, so a game
+     * could be started and never finished.
+     */
+    private static void aGameCanBeConceded(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to concede from");
+            return;
+        }
+        Screen before = client.screen;
+        if (!openTheTableMenu(client, board)) {
+            fail("no felt on the board offered a table menu to concede from");
+            return;
+        }
+        if (!board.pressMenuEntry("Concede")) {
+            fail("the table menu offers no way to concede");
+            return;
+        }
+        if (!(client.screen instanceof ConfirmScreen)) {
+            fail("conceding did not ask first: "
+                    + (client.screen == null ? "none" : client.screen.getClass().getSimpleName()));
+            return;
+        }
+        // No picture: a screen only opened this instant has not been drawn yet, and the
+        // frame this would grab is the board that was up before it.
+        System.out.println("[devscene] conceding asks before it ends the game");
+        client.screen.onClose();
+        if (client.screen != before) {
+            fail("backing out of conceding did not come back to the board");
+        }
+    }
+
+    /**
+     * Right-clicks bare felt until the table's own menu is up.
+     *
+     * <p>Not the middle of the board: by this point there are cards there, and a right-click
+     * on a card opens that card's menu instead.
+     */
+    private static boolean openTheTableMenu(Minecraft client, TableScreen board) {
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        int[][] places = {
+            {width / 2, height / 2}, {width / 6, height / 3},
+            {width / 2, height / 6}, {width * 5 / 6, height / 3},
+            {width / 6, height * 2 / 3},
+        };
+        for (int[] at : places) {
+            board.mouseClicked(at[0], at[1], 1);
+            board.mouseReleased(at[0], at[1], 1);
+            if (board.menuIsOpen() && board.hasMenuEntry("Concede")) {
+                return true;
+            }
+            board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        }
+        return false;
+    }
+
     /**
      * Leaves the table the way a player leaves it: off the board's own menu.
      *

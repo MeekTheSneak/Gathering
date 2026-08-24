@@ -1,5 +1,8 @@
 {
   "block.gathering.table": "Gathering Table",
+  "confirm.gathering.concede": "Concede this game?",
+  "confirm.gathering.concede.detail": "You are out of this game. If nobody else is left it ends and the score is recorded.",
+  "confirm.gathering.concede.yes": "Concede",
   "item.gathering.card": "Card",
   "item.gathering.deck": "Deck",
   "itemGroup.gathering.main": "Gathering",
@@ -75,6 +78,7 @@
   "menu.gathering.move_to_sideboard": "Move to sideboard",
   "menu.gathering.table.add_counter": "Add +1/+1 counter",
   "menu.gathering.table.attach": "Attach to...",
+  "menu.gathering.table.concede": "Concede",
   "menu.gathering.table.copy": "Make a token copy",
   "menu.gathering.table.counters": "Counters...",
   "menu.gathering.table.detach": "Take it off",
