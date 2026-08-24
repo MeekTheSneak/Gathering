@@ -396,8 +396,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         drawGroup(poseStack, buffers,
                 surface.pileGroup(seatIndex, 0, Zone.PILES_WITHOUT_A_COMMAND_ZONE - 1, count), span);
         if (count > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
-            drawGroup(poseStack, buffers,
-                    surface.pileGroup(seatIndex, count - 1, count - 1, count), span);
+            drawGroup(poseStack, buffers, surface.pileGroup(
+                    seatIndex, Zone.PILES_WITHOUT_A_COMMAND_ZONE, count - 1, count), span);
         }
         for (int index = 0; index < count; index++) {
             Rect slot = surface.pileSlot(seatIndex, index, count);

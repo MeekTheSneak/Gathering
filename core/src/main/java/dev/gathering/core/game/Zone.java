@@ -37,7 +37,20 @@ public enum Zone {
     EXILE(Hidden.NO, Ordered.NO),
 
     /** Public, and where commanders start, which is why they are naturally exempt from ante. */
-    COMMAND(Hidden.NO, Ordered.NO);
+    COMMAND(Hidden.NO, Ordered.NO),
+
+    /**
+     * The second command slot, for the deck that has two commanders.
+     *
+     * <p>Partners, backgrounds and a Doctor's companion are all one deck with two cards that
+     * start in the command zone, and each of them is cast and re-cast on its own tax. One
+     * pile holding both made those two cards a stack of two with a single number under it,
+     * which is the one thing about a command zone a player actually has to read.
+     *
+     * <p>Drawn whether or not it is used, like every other zone: a slot that only appears
+     * once something is in it is a slot nobody can drop a card on.
+     */
+    COMMAND_TWO(Hidden.NO, Ordered.NO);
 
     /** Named rather than boolean, because two bare booleans at a call site say nothing. */
     private enum Hidden { YES, NO }
@@ -101,22 +114,31 @@ public enum Zone {
      * drop that puts a card in the wrong zone is the kind of thing nobody reports, they just
      * stop dropping cards there.
      *
-     * <p>Graveyard nearest, then library, then exile, then the command zone furthest away and
-     * set apart from the other three. That is the order the tables people already play on use,
-     * and it is the right order for the reason it is theirs: the graveyard is the zone a hand
-     * reaches for most often and the command zone is the one it touches twice a game.
+     * <p>Graveyard nearest, then library, then exile, then the two command slots furthest
+     * away and set apart from the other three. That is the order the tables people already
+     * play on use, and it is the right order for the reason it is theirs: the graveyard is
+     * the zone a hand reaches for most often and a command slot is one it touches twice a
+     * game.
      */
     public static final java.util.List<Zone> PILES =
-            java.util.List.of(GRAVEYARD, LIBRARY, EXILE, COMMAND);
+            java.util.List.of(GRAVEYARD, LIBRARY, EXILE, COMMAND, COMMAND_TWO);
+
+    /** The command slots, in the order a deck's commanders are dealt into them. */
+    public static final java.util.List<Zone> COMMAND_SLOTS = java.util.List.of(COMMAND, COMMAND_TWO);
+
+    /** Whether this zone is one of the command slots, which several rules ask together. */
+    public boolean isCommandSlot() {
+        return this == COMMAND || this == COMMAND_TWO;
+    }
 
     /**
      * How many of those a table without a command zone lays out.
      *
-     * <p>The command zone is last precisely so that a format with no commanders can leave it
-     * off by drawing one fewer. An empty box labelled with a zone the format does not have is
-     * a question every player asks once and nobody asks twice.
+     * <p>The command slots are last precisely so that a format with no commanders can leave
+     * them off by drawing fewer. An empty box labelled with a zone the format does not have
+     * is a question every player asks once and nobody asks twice.
      */
-    public static final int PILES_WITHOUT_A_COMMAND_ZONE = PILES.size() - 1;
+    public static final int PILES_WITHOUT_A_COMMAND_ZONE = PILES.size() - COMMAND_SLOTS.size();
 
     /** How many zones a table's column holds, which is the one place that decides. */
     public static int pilesFor(boolean commandZone) {

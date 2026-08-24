@@ -45,7 +45,8 @@ One seat's playmat, read off a top-down screenshot of a four-player table.
    the buttons are square and a card wide, so each one added shrinks the rest, and at seven
    there is no room to write a word inside one. Scry, mill and reveal stay on the number row,
    where the reference puts them too. This file goes away once the two below are settled.
-2. Decide whether the command zone becomes two counted slots rather than one pile.
-   **Needs the user**: it changes the game model, not just the drawing.
+2. ~~Decide whether the command zone becomes two counted slots rather than one pile.~~
+   **Done** - two slots, so a deck with partners, a background or a Doctor's companion has a
+   commander in each with its own tax. Recorded in the design brief.
 3. Decide whether life becomes a token on the felt rather than a line of status text.
    **Needs the user**: it is a design call about what the middle of the table is for.

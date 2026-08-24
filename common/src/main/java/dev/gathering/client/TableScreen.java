@@ -763,8 +763,8 @@ public final class TableScreen extends Screen {
             }
             drawPileGroup(graphics, board().pileGroupRect(seat.seat(), 0, IN_HAND_REACH, count));
             if (count > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
-                drawPileGroup(graphics,
-                        board().pileGroupRect(seat.seat(), count - 1, count - 1, count));
+                drawPileGroup(graphics, board().pileGroupRect(
+                        seat.seat(), Zone.PILES_WITHOUT_A_COMMAND_ZONE, count - 1, count));
             }
             for (int index = 0; index < count; index++) {
                 Rect where = board().pileRect(seat.seat(), index, count);

@@ -328,6 +328,11 @@ public final class CountersScreen extends ChildScreen {
      * There is no permanent mark on a card saying it is a commander; where it started is all
      * the game knows, and this asks the two questions that follow from that.
      */
+    /** How many commander taxes this screen is offering. For the scripted harness. */
+    int taxRowsShowing() {
+        return taxedCommanders().size();
+    }
+
     private List<CardInstanceId> taxedCommanders() {
         if (!(subject instanceof Subject.Cards chosen) || !tableHasACommandZone()) {
             return List.of();
@@ -351,13 +356,17 @@ public final class CountersScreen extends ChildScreen {
             if (seat.commanderTax().containsKey(card)) {
                 return seat.seat();
             }
-            ZoneView command = seat.zone(Zone.COMMAND);
-            if (command == null) {
-                continue;
-            }
-            for (CardView held : command.cards()) {
-                if (held instanceof CardView.Visible visible && visible.id().equals(card)) {
-                    return seat.seat();
+            // Both slots. A deck with partners has a commander in each, and asking only the
+            // first would leave the second one's tax with nowhere to be written down.
+            for (Zone slot : Zone.COMMAND_SLOTS) {
+                ZoneView command = seat.zone(slot);
+                if (command == null) {
+                    continue;
+                }
+                for (CardView held : command.cards()) {
+                    if (held instanceof CardView.Visible visible && visible.id().equals(card)) {
+                        return seat.seat();
+                    }
                 }
             }
         }

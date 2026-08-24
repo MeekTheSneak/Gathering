@@ -92,11 +92,15 @@ public final class DevScene {
      * would prove only that grey rectangles are laid out correctly.
      */
     private static final String DECK = String.join("\n",
-            // A commander, because the table's one-click path starts a game of Commander and a
-            // run whose command zone is empty photographs a format nobody is playing - and
-            // never touches anything that only exists once somebody has a commander.
+            // Two commanders, because the table's one-click path starts a game of Commander
+            // and a run whose command zone is empty photographs a format nobody is playing -
+            // and never touches anything that only exists once somebody has a commander.
+            // Two rather than one so both command slots are exercised: a partner pair is the
+            // whole reason there are two, and a run that only ever fills the first would
+            // leave the second drawn, empty and untested in every picture.
             "Commander",
             "1 Sakura-Tribe Elder",
+            "1 Llanowar Elves",
             "",
             "Deck",
             "4 Llanowar Elves",
@@ -731,6 +735,11 @@ public final class DevScene {
             }
             case 53 -> {
                 expectScreen(client, "asking for a commander's counters", CountersScreen.class);
+                if (client.screen instanceof CountersScreen counters
+                        && counters.taxRowsShowing() != Zone.COMMAND_SLOTS.size()) {
+                    fail("the counters screen offered " + counters.taxRowsShowing()
+                            + " commander taxes, not " + Zone.COMMAND_SLOTS.size());
+                }
                 shoot(client, "25a-commander-tax");
                 press(client, "+");
                 advance(SETTLE);
@@ -1546,16 +1555,24 @@ public final class DevScene {
         if (me == null || board == null) {
             return null;
         }
-        ZoneView command = board.seat(me).zone(Zone.COMMAND);
-        if (command == null) {
-            return null;
-        }
-        for (CardView held : command.cards()) {
-            if (held instanceof CardView.Visible visible) {
-                return visible.id();
+        return myCommanders(board, me).stream().findFirst().orElse(null);
+    }
+
+    /** Every commander this player has, one per command slot. */
+    private static java.util.List<CardInstanceId> myCommanders(GameView board, SeatId me) {
+        java.util.List<CardInstanceId> found = new java.util.ArrayList<>();
+        for (Zone slot : Zone.COMMAND_SLOTS) {
+            ZoneView command = board.seat(me).zone(slot);
+            if (command == null) {
+                continue;
+            }
+            for (CardView held : command.cards()) {
+                if (held instanceof CardView.Visible visible) {
+                    found.add(visible.id());
+                }
             }
         }
-        return null;
+        return found;
     }
 
     /** How many times this player has cast their commander out of the command zone. */
@@ -1571,15 +1588,24 @@ public final class DevScene {
 
     /** Opens the counters panel for this player's commander, which is where its tax lives. */
     private static void openCommanderCounters(Minecraft client) {
-        CardInstanceId commander = myCommander(client);
-        if (commander == null) {
-            fail("there was no commander in the command zone to tax");
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || board == null) {
+            fail("there was no seat to open a commander's counters from");
+            return;
+        }
+        // Both of them. A deck with partners has a commander in each slot and each is cast on
+        // its own tax, so the screen has to offer two numbers rather than one - and a run
+        // that opened only the first would never notice if it did not.
+        java.util.List<CardInstanceId> commanders = myCommanders(board, me);
+        if (commanders.size() < Zone.COMMAND_SLOTS.size()) {
+            fail("the command slots held " + commanders.size() + " commanders, not "
+                    + Zone.COMMAND_SLOTS.size());
             return;
         }
         client.setScreen(new CountersScreen(table,
-                new CountersScreen.Subject.Cards(
-                        java.util.List.of(commander),
-                        net.minecraft.network.chat.Component.literal("Commander")),
+                new CountersScreen.Subject.Cards(commanders,
+                        net.minecraft.network.chat.Component.literal("Commanders")),
                 client.screen));
     }
 

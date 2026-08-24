@@ -132,9 +132,19 @@ public final class GameFold {
             CardInstance card = CardInstance.faceUp(CardInstanceId.of(nextId++), identity, seat);
             updated = updated.addCard(card, ZoneRef.of(seat, Zone.LIBRARY), Placement.BOTTOM);
         }
-        for (CardIdentity identity : loaded.commanders()) {
-            CardInstance card = CardInstance.faceUp(CardInstanceId.of(nextId++), identity, seat);
-            updated = updated.addCard(card, ZoneRef.of(seat, Zone.COMMAND), Placement.BOTTOM);
+        // One commander to a slot, in the order the deck named them. A deck with partners, a
+        // background or a Doctor's companion has two cards that each start in the command
+        // zone and are each cast on their own tax, and a single pile holding both made them a
+        // stack of two under one number - which is the one thing about a command zone
+        // anybody actually reads. Anything past the slots joins the last one rather than
+        // being dropped: a deck that names three commanders is a deck somebody built wrong,
+        // and losing a card is a worse answer than showing it.
+        List<Zone> slots = Zone.COMMAND_SLOTS;
+        for (int index = 0; index < loaded.commanders().size(); index++) {
+            CardInstance card = CardInstance.faceUp(
+                    CardInstanceId.of(nextId++), loaded.commanders().get(index), seat);
+            Zone slot = slots.get(Math.min(index, slots.size() - 1));
+            updated = updated.addCard(card, ZoneRef.of(seat, slot), Placement.BOTTOM);
         }
         return updated.withNextCardId(nextId);
     }

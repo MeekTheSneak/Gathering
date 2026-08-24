@@ -606,4 +606,50 @@ class TableSurfaceTest {
             }
         }
     }
+
+    /**
+     * The two command slots sit together, and the gap is in front of both of them.
+     *
+     * <p>A deck with partners has a commander in each and casts each on its own tax, so they
+     * are two slots rather than one pile of two - and two slots that read as one group are
+     * two slots somebody understands without being told. The gap that sets them apart from
+     * the three a hand is in and out of all game has to be in front of the pair, not in the
+     * middle of it, and which end of the mat that is depends on the chair.
+     */
+    @Test
+    @DisplayName("the two command slots are one group, set apart from the other three")
+    void bothCommandSlotsSitTogether() {
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        int count = Zone.PILES.size();
+        int exile = Zone.PILES.indexOf(Zone.EXILE);
+        int first = Zone.PILES.indexOf(Zone.COMMAND);
+        int second = Zone.PILES.indexOf(Zone.COMMAND_TWO);
+
+        for (int seat = 0; seat < 2; seat++) {
+            double withinTheThree = gapBetween(surface, seat, 0, 1, count);
+            double intoTheCommandSlots = gapBetween(surface, seat, exile, first, count);
+            double betweenTheCommandSlots = gapBetween(surface, seat, first, second, count);
+
+            assertThat(intoTheCommandSlots)
+                    .describedAs("seat %s sets both command slots apart", seat)
+                    .isGreaterThan(withinTheThree * 2);
+            assertThat(betweenTheCommandSlots)
+                    .describedAs("seat %s keeps the two command slots together", seat)
+                    .isCloseTo(withinTheThree, within(2.0));
+        }
+    }
+
+    /** Both command slots are drawn, whether or not a deck has a second commander. */
+    @Test
+    void aTableWithACommandZoneDrawsBothOfItsSlots() {
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        int count = Zone.pilesFor(true);
+
+        assertThat(count).isEqualTo(Zone.PILES.size());
+        for (Zone slot : Zone.COMMAND_SLOTS) {
+            assertThat(surface.pileSlot(0, Zone.PILES.indexOf(slot), count))
+                    .describedAs("%s has a slot to drop a card on", slot)
+                    .isNotEqualTo(Rect.NONE);
+        }
+    }
 }

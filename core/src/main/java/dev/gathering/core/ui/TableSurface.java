@@ -410,12 +410,16 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /**
      * Which slot down the surface the gap sits in front of.
      *
-     * <p>The command zone is the far end of the column from its own player, and which end of
-     * the <em>mat</em> that is depends on the chair - so for one player the gap is before the
-     * last slot and for the one opposite it is after the first.
+     * <p>The command slots are the far end of the column from their own player, and which end
+     * of the <em>mat</em> that is depends on the chair - so for one player the gap is before
+     * them and for the one opposite it is after them.
      */
     private int breakAt(int seat, int count) {
-        return isTurned(seat) ? count - 1 : 1;
+        // However many command slots this table is drawing, which is however many the column
+        // has beyond the three a hand reaches for. Written from the count rather than fixed
+        // at one, because a table with two of them sets both apart, not just the last.
+        int commandSlots = Math.max(0, count - Zone.PILES_WITHOUT_A_COMMAND_ZONE);
+        return isTurned(seat) ? count - commandSlots : commandSlots;
     }
 
     /**

@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.28
+## Design Brief v1.29
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -95,7 +95,7 @@ The centerpiece. One table is a 2x2 multiblock at table height, seating **2 play
 
 ## 6. Zones and visibility
 
-Commander-first zone set per seat: library, hand, battlefield, graveyard, exile, command zone. Plus one shared stack-free "reveal" area for showing cards to the table.
+Commander-first zone set per seat: library, hand, battlefield, graveyard, exile, and **two command slots**. Plus one shared stack-free "reveal" area for showing cards to the table.
 
 Visibility rules, enforced server-side at the packet level:
 
@@ -159,6 +159,8 @@ Turns pass whole - Enter or 0 ends yours - and the phase marker of section 7 sit
 **Every zone is a card-shaped slot on the mat, drawn whether or not there is anything in it,** in a row along the edge nearest its player. Drawn when empty because aiming at a zone is how cards get put in one - a card is dropped on the graveyard rather than routed there through a menu - and a zone you can only see once it has cards in it is a zone nobody can aim at. A playmat is a flat two blocks by one with two pixels of border, and a card is an eighth of a mat's width, which is about what a real one holds in a row.
 
 **Undo is reachable, one action at a time, from the table's own menu.** The client asks and the session decides: whether a rewind is allowed - your own action, this table's undo mode, and never across something that let somebody see a card - is settled again on arrival whatever the client believes, so a client can ask for anything and gets what the table allows with a reason when it does not. Rewinds needing everybody's agreement are refused with their reason rather than silently, because collecting three other players' consent is a conversation the table cannot have yet.
+
+**The command zone is two slots, not one pile.** Partners, backgrounds and a Doctor's companion are all one deck with two cards that start in the command zone, and each of them is cast and re-cast on its own tax - so a single pile holding both made them a stack of two under one number, which is the one thing about a command zone a player actually has to read. Both slots are drawn whether or not a deck fills them, like every other zone: a slot that only appears once something is in it is a slot nobody can drop a card on. They sit together at the far end of the column, behind the same gap that already set the command zone apart from the three a hand is in and out of all game, so two slots read as one group.
 
 **Commander tax is kept on the commander itself.** Counted in casts, because that is what the rule counts, and shown in mana, because that is what the player is about to pay - two more for every cast that came before. A card is treated as a commander while it sits in a command zone and goes on being one once it has a tax recorded, which is exactly when its owner wants to see the number: after it has been cast and is out on the battlefield. There is no permanent mark on a card saying it is a commander; where it started is all the game knows.
 
