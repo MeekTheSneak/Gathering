@@ -199,10 +199,15 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         // cards in it that still reads "click a card to move it   scroll for more" is three
         // instructions for things that cannot be done here, which is how a screen teaches
         // somebody that its own writing is not worth reading.
+        // And "scroll for more" goes when there is no more: a pile of one card that still
+        // offers a scroll is the same kind of small lie as a pile of none offering a click.
         Component hint = decision != null
                 ? Component.translatable("screen.gathering.pile.deciding",
                         Component.translatable(decision.away), sendingAway.size())
-                : cards.isEmpty() ? null : Component.translatable("screen.gathering.pile.hint");
+                : cards.isEmpty() ? null
+                : Component.translatable(hiddenBelow() > 0
+                        ? "screen.gathering.pile.hint_scrolling"
+                        : "screen.gathering.pile.hint");
         if (hint != null) {
             GuiText.draw(graphics, this.font, hint,
                     MARGIN, this.height - MARGIN - FOOTER + 3, this.width - MARGIN * 2, DIM);
@@ -363,10 +368,14 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int rows = (cards().size() + columns - 1) / columns;
-        int content = Math.max(0, rows * (CARD_HEIGHT + GAP) - GAP - grid.height());
-        scroll = Math.max(0, Math.min(content, scroll - (int) scrollY * (CARD_HEIGHT / 3)));
+        scroll = Math.max(0, Math.min(hiddenBelow(), scroll - (int) scrollY * (CARD_HEIGHT / 3)));
         return true;
+    }
+
+    /** How much of the grid is off the bottom, which is how far a scroll can get. */
+    private int hiddenBelow() {
+        int rows = (cards().size() + columns - 1) / columns;
+        return Math.max(0, rows * (CARD_HEIGHT + GAP) - GAP - grid.height());
     }
 
     private Optional<CardSummary> summaryOf(CardView card) {
