@@ -91,6 +91,21 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     private final java.util.Set<CardInstanceId> sendingAway = new java.util.LinkedHashSet<>();
 
     /**
+     * The revealed cards in the order the player has put them.
+     *
+     * <p>Only a decision screen has one. Reordering the cards you keep is half of what a
+     * scry is - the whole point of looking at three is deciding which of them you draw
+     * first - and until this existed they went back in the order they came off, which is a
+     * legal choice but never the player's.
+     */
+    private final List<CardInstanceId> order = new java.util.ArrayList<>();
+
+    /** The card a press landed on, and whether the press has become a drag. */
+    private int pressed = -1;
+    private int pressedX;
+    private boolean dragged;
+
+    /**
      * How much of the window a pile may take at its very largest.
      *
      * <p>It is a box holding cards, so it is the size of the cards it holds - a graveyard
@@ -214,6 +229,70 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     }
 
     /**
+     * Brings the player's order in line with what is actually revealed.
+     *
+     * <p>Cards already in it keep where the player put them; anything new goes on the end in
+     * the order the library gave it. A scry's cards arrive after the screen opens, so this is
+     * how they get here at all.
+     */
+    private void syncOrder() {
+        List<CardInstanceId> revealed = new java.util.ArrayList<>();
+        for (CardView card : cards()) {
+            if (card instanceof CardView.Visible visible) {
+                revealed.add(visible.id());
+            }
+        }
+        order.retainAll(revealed);
+        for (CardInstanceId id : revealed) {
+            if (!order.contains(id)) {
+                order.add(id);
+            }
+        }
+    }
+
+    /** The revealed cards, in the order the player has put them. */
+    private List<CardView> inOrder() {
+        List<CardView> cards = cards();
+        if (decision == null) {
+            return cards;
+        }
+        syncOrder();
+        List<CardView> sorted = new java.util.ArrayList<>(cards.size());
+        for (CardInstanceId id : order) {
+            for (CardView card : cards) {
+                if (card instanceof CardView.Visible visible && visible.id().equals(id)) {
+                    sorted.add(card);
+                    break;
+                }
+            }
+        }
+        // Anything face down to this client has no id to order by, so it keeps its place.
+        for (CardView card : cards) {
+            if (!(card instanceof CardView.Visible) && !sorted.contains(card)) {
+                sorted.add(card);
+            }
+        }
+        return sorted;
+    }
+
+    /** Where in the pile going back on top this card will be, or 0 if it is not going there. */
+    private int placeOnTop(CardView card) {
+        if (decision == null || isSentAway(card)) {
+            return 0;
+        }
+        int place = 0;
+        for (CardView other : inOrder()) {
+            if (!isSentAway(other)) {
+                place++;
+            }
+            if (other == card) {
+                return place;
+            }
+        }
+        return 0;
+    }
+
+    /**
      * What this box is called.
      *
      * <p>While a decision is being made only the revealed cards are on screen, so naming the
@@ -260,7 +339,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        List<CardView> cards = cards();
+        List<CardView> cards = inOrder();
         GuiText.draw(graphics, this.font, heading(),
                 panel.x() + MARGIN, panel.y() + MARGIN,
                 panel.width() - MARGIN * 2 - DONE_WIDTH, LABEL);
@@ -282,6 +361,18 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             }
             boolean hovered = slot.contains(mouseX, mouseY);
             drawCard(graphics, cards.get(index), slot, hovered);
+            // The order they will be drawn in, written on them. A row of cards that go back
+            // in the order they are lying in only says so if it says so: without a number,
+            // dragging one to a new place looks like it did nothing.
+            int place = placeOnTop(cards.get(index));
+            if (place > 0) {
+                Component said = Component.literal(Integer.toString(place));
+                int badge = this.font.width(said) + 4;
+                graphics.fill(slot.x() + 2, slot.y() + 2,
+                        slot.x() + 2 + badge, slot.y() + 2 + this.font.lineHeight + 1, SENT_AWAY);
+                GuiText.drawCentred(graphics, this.font, said,
+                        slot.x() + 2 + badge / 2, slot.y() + 3, badge, LABEL);
+            }
             if (hovered && cards.get(index) instanceof CardView.Visible visible) {
                 ClientHoverState.setHovered(CardItem.of(CardComponent.of(visible.identity())));
             }
@@ -302,10 +393,9 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     /**
      * Sends the decision and closes.
      *
-     * <p>The cards staying on top keep the order they were revealed in, which is what "leave
-     * them" means; the rest go where this kind of decision sends them. Reordering the ones you
-     * keep is a real part of a scry and is not here yet - the event carries an order, so it is
-     * a gesture on this screen and not a change to anything underneath it.
+     * <p>The cards staying on top go back in the order the player put them in - dragged into
+     * place on this screen, numbered as they will be drawn - and the rest go where this kind
+     * of decision sends them.
      *
      * <p>Deciding is also the end of looking, which the fold takes care of: the peek is
      * dropped by the same event, so this screen must not also close the library behind it.
@@ -318,7 +408,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         }
         List<CardInstanceId> onTop = new java.util.ArrayList<>();
         List<CardInstanceId> away = new java.util.ArrayList<>();
-        for (CardView card : cards()) {
+        for (CardView card : inOrder()) {
             if (card instanceof CardView.Visible visible) {
                 (sendingAway.contains(visible.id()) ? away : onTop).add(visible.id());
             }
@@ -375,15 +465,37 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     }
 
     /**
-     * Whether every card this box holds is actually in it. For the scripted harness.
+     * Hooks for the scripted harness.
      *
-     * <p>Worth asking because the box is built to the number of cards it had when it opened,
-     * and a scry's cards arrive after it opens - so this is exactly the thing that goes wrong
-     * when the box forgets to grow.
+     * <p>Worth asking about because the box is built to the number of cards it had when it
+     * opened, and a scry's cards arrive after it opens - so that is exactly the thing that
+     * goes wrong when the box forgets to grow.
      */
     /** Where a card in this box is, so the harness can click the card and not a pixel. */
     Rect slotOfCard(int index) {
         return index < 0 || index >= cards().size() ? Rect.NONE : slotOf(index);
+    }
+
+    /**
+     * The cards going back on top, in the order they will go, by id. For the harness.
+     *
+     * <p>Ids rather than names, because a name is looked up and a run without a network has
+     * none - and what is being checked is an ordering, which ids carry perfectly well.
+     */
+    List<CardInstanceId> orderOnTop() {
+        List<CardInstanceId> kept = new java.util.ArrayList<>();
+        for (CardView card : inOrder()) {
+            if (!isSentAway(card) && card instanceof CardView.Visible visible) {
+                kept.add(visible.id());
+            }
+        }
+        return kept;
+    }
+
+    /** What the line under the cards says right now. For the harness, as above. */
+    String footerSays() {
+        Component said = footer(hiddenBelow() > 0);
+        return said == null ? "" : said.getString();
     }
 
     /** How many cards have been marked to send away. For the harness, as above. */
@@ -391,6 +503,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         return sendingAway.size();
     }
 
+    /** Whether every card this box holds is actually in it. For the harness, as above. */
     boolean everyCardIsOnScreen() {
         int held = cards().size();
         if (held == 0) {
@@ -414,20 +527,20 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             }
         }
 
-        List<CardView> cards = cards();
+        List<CardView> cards = inOrder();
         for (int index = 0; index < cards.size(); index++) {
             if (!slotOf(index).contains(x, y)) {
                 continue;
             }
             if (cards.get(index) instanceof CardView.Visible visible) {
-                GatheringButtons.clickSound();
                 if (decision != null) {
-                    // Deciding, not moving: a click says which side of the decision this card
-                    // is on, and clicking it again changes your mind.
-                    if (!sendingAway.remove(visible.id())) {
-                        sendingAway.add(visible.id());
-                    }
+                    // Held rather than acted on, because this press might be the start of a
+                    // drag. Which of the two it was is not known until the button comes up.
+                    pressed = index;
+                    pressedX = x;
+                    dragged = false;
                 } else {
+                    GatheringButtons.clickSound();
                     openMenu(visible, x, y);
                 }
             }
@@ -442,6 +555,62 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /**
+     * A press that has moved far enough sideways is a drag, and drags reorder.
+     *
+     * <p>Far enough, rather than at all, because a click made with a mouse in somebody's hand
+     * moves a pixel or two - and a scry where every click also shuffled the row would be
+     * unusable.
+     */
+    @Override
+    public boolean mouseDragged(
+            double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (pressed >= 0 && Math.abs(mouseX - pressedX) > A_REAL_DRAG) {
+            dragged = true;
+        }
+        return pressed >= 0 || super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (pressed < 0) {
+            return super.mouseReleased(mouseX, mouseY, button);
+        }
+        int from = pressed;
+        boolean moved = dragged;
+        pressed = -1;
+        dragged = false;
+
+        List<CardView> cards = inOrder();
+        if (from >= cards.size() || !(cards.get(from) instanceof CardView.Visible visible)) {
+            return true;
+        }
+        GatheringButtons.clickSound();
+        if (!moved) {
+            // A click says which side of the decision this card is on, and clicking it again
+            // changes your mind.
+            if (!sendingAway.remove(visible.id())) {
+                sendingAway.add(visible.id());
+            }
+            return true;
+        }
+        int to = Math.max(0, Math.min(cards.size() - 1, slotUnder((int) mouseX, (int) mouseY)));
+        order.remove(visible.id());
+        order.add(Math.min(to, order.size()), visible.id());
+        return true;
+    }
+
+    /** How far a press has to travel sideways before it counts as a drag. */
+    private static final int A_REAL_DRAG = 4;
+
+    /** Which slot of the grid a point is over, whether or not a card is in it. */
+    private int slotUnder(int x, int y) {
+        int cardWidth = Math.max(8, CardShape.widthFor(CARD_HEIGHT));
+        int column = Math.max(0, Math.min(columns - 1, (x - grid.x()) / (cardWidth + GAP)));
+        int row = Math.max(0, (y + scroll - grid.y()) / (CARD_HEIGHT + GAP));
+        return row * columns + column;
     }
 
     /**

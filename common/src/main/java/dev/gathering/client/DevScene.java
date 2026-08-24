@@ -476,7 +476,7 @@ public final class DevScene {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                 }
                 // Look at the top three, which is the half of a scry that already worked.
-                lookAtTheTopOfTheLibrary(client, 3);
+                lookAtTheTopOfTheLibrary(client, 3, PileScreen.Decision.SCRY);
                 advance(SETTLE);
             }
             case 31 -> {
@@ -494,6 +494,11 @@ public final class DevScene {
                     // exist. Aimed at where the card actually is: this used to be a pair of
                     // numbers that were right for a box filling the whole window, and a box
                     // that no longer does would have gone on passing without clicking a card.
+                    // Reordering first, while all three are still being kept: drag the last
+                    // one to the front and check it really goes first. Putting the cards you
+                    // keep in the order you want to draw them is half of what a scry is, and
+                    // for a while they simply went back the way they came off.
+                    theKeptCardsCanBeReordered(client, pile);
                     Rect first = pile.slotOfCard(0);
                     if (first.isEmpty()) {
                         fail("the scry box showed no first card to click");
@@ -525,6 +530,43 @@ public final class DevScene {
                     fail("the scry never reached the game");
                 }
                 shoot(client, "20-scry-decided");
+                // The other half of the same screen. A surveil bins what a scry buries, and
+                // nothing had ever opened one - so the word "graveyard" on it was a string
+                // nobody had read and the move it names was never once made.
+                inTheGraveyard = countIn(Zone.GRAVEYARD);
+                lookAtTheTopOfTheLibrary(client, 2, PileScreen.Decision.SURVEIL);
+                advance(SETTLE);
+            }
+            case 34 -> {
+                expectScreen(client, "surveilling two", PileScreen.class);
+                shoot(client, "20a-surveilling");
+                if (client.screen instanceof PileScreen pile) {
+                    theBinIsTheGraveyard(pile);
+                    Rect first = pile.slotOfCard(0);
+                    if (first.isEmpty()) {
+                        fail("the surveil box showed no card to bin");
+                    } else {
+                        pile.mouseClicked(first.centreX(), first.centreY(), 0);
+                        pile.mouseReleased(first.centreX(), first.centreY(), 0);
+                    }
+                }
+                advance(SETTLE / 4);
+            }
+            case 35 -> {
+                shoot(client, "20b-one-going-to-the-graveyard");
+                press(client, "Done");
+                advance(SETTLE);
+            }
+            case 36 -> {
+                expectScreen(client, "deciding a surveil", TableScreen.class);
+                int now = countIn(Zone.GRAVEYARD);
+                if (now != inTheGraveyard + 1) {
+                    fail("surveilling a card into the graveyard put " + (now - inTheGraveyard)
+                            + " there, not one");
+                }
+                if (!theLogMentions("log.gathering.surveilled")) {
+                    fail("the surveil never reached the game");
+                }
                 if (client.screen != null) {
                     // Back onto the block, now that there is a played card, a full graveyard
                     // and a crowded hand to look at rather than an empty table.
@@ -536,7 +578,7 @@ public final class DevScene {
                 hover(client, new int[] {2, 2});
                 advance(SETTLE);
             }
-            case 34 -> {
+            case 37 -> {
                 if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
                     fail("a cursor off the board still had a card under it");
                 }
@@ -544,7 +586,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 35 -> {
+            case 38 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
@@ -560,7 +602,7 @@ public final class DevScene {
                 liftACardOnTheBlock(client);
                 advance(SETTLE / 2);
             }
-            case 36 -> {
+            case 39 -> {
                 shoot(client, "22a-carrying-a-card-on-the-table");
                 if (client.screen instanceof TableScreen board) {
                     int[] to = cardPoint(client);
@@ -575,12 +617,12 @@ public final class DevScene {
                 hoverAVerbButton(client, TableVerb.DRAW);
                 advance(SETTLE / 2);
             }
-            case 37 -> {
+            case 40 -> {
                 aButtonSaysWhatItDoes(client, TableVerb.DRAW, "2");
                 pressAVerbButton(client, TableVerb.DRAW);
                 advance(SETTLE);
             }
-            case 38 -> {
+            case 41 -> {
                 int now = countIn(Zone.HAND);
                 if (now <= inTheHand) {
                     fail("the draw button on the block drew nothing: "
@@ -591,32 +633,32 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 39 -> {
+            case 42 -> {
                 // The whole table, which is the one framing that shows the chair nobody is in.
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 40 -> {
+            case 43 -> {
                 // Somebody sits down opposite. Every picture so far has been of a table with
                 // one player at it, which is not the game this is for.
                 seatARival(client);
                 advance(SETTLE);
             }
-            case 41 -> {
+            case 44 -> {
                 shoot(client, "23-two-players");
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
-            case 42 -> {
+            case 45 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 43 -> {
+            case 46 -> {
                 int now = damageTaken(client);
                 if (now <= tookCommanderDamage) {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
@@ -628,20 +670,20 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 44 -> {
+            case 47 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 // The other number a game of Commander asks a player to keep for an hour.
                 taxPaid = commanderTax(client);
                 openCommanderCounters(client);
                 advance(SETTLE / 2);
             }
-            case 45 -> {
+            case 48 -> {
                 expectScreen(client, "asking for a commander's counters", CountersScreen.class);
                 shoot(client, "25a-commander-tax");
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 46 -> {
+            case 49 -> {
                 int now = commanderTax(client);
                 if (now <= taxPaid) {
                     fail("commander tax did not go up: " + taxPaid + " to " + now);
@@ -649,7 +691,7 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 47 -> {
+            case 50 -> {
                 expectScreen(client, "leaving a commander's counters", TableScreen.class);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
@@ -658,27 +700,27 @@ public final class DevScene {
                 resizeTo(client, 1, "a smaller interface");
                 advance(SETTLE / 2);
             }
-            case 48 -> {
+            case 51 -> {
                 theBoardIsStillFramed(client, "at the smallest interface");
                 shoot(client, "27-a-smaller-interface");
                 resizeTo(client, 0, "the automatic interface again");
                 advance(SETTLE / 2);
             }
-            case 49 -> {
+            case 52 -> {
                 // The two questions a token asks. Nothing else in this run opens either of
                 // them, and both are screens somebody can get stuck on: the first one is the
                 // only place in the mod that takes a line of typing from a player.
                 openTheTokenQuestion(client);
                 advance(SETTLE / 2);
             }
-            case 50 -> {
+            case 53 -> {
                 expectScreen(client, "asking for a token", TextPromptScreen.class);
                 shoot(client, "28a-what-token");
                 typeInto(client, "Treasure");
                 press(client, "OK");
                 advance(SETTLE / 2);
             }
-            case 51 -> {
+            case 54 -> {
                 expectScreen(client, "naming a token", AmountScreen.class);
                 shoot(client, "28b-how-many");
                 // Backed out rather than answered: a token wants a real printing off
@@ -689,7 +731,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 52 -> {
+            case 55 -> {
                 expectScreen(client, "backing out of a token", TableScreen.class);
                 theBoardIsStillFramed(client, "back at the automatic interface");
                 shoot(client, "28-back-to-normal");
@@ -706,7 +748,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 53 -> {
+            case 56 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -719,7 +761,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 54 -> {
+            case 57 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
@@ -1116,6 +1158,43 @@ public final class DevScene {
         }
     }
 
+    /**
+     * Drags the last card of a scry to the front and checks the order followed it.
+     *
+     * <p>A press that has not moved is a click and toggles the card instead, so the drag is
+     * made the way a hand makes one: press, move, release somewhere else. Checking the order
+     * rather than the picture, because a row that looks rearranged and sends the old order to
+     * the server is the failure worth catching.
+     */
+    private static void theKeptCardsCanBeReordered(Minecraft client, PileScreen pile) {
+        java.util.List<CardInstanceId> before = pile.orderOnTop();
+        if (before.size() < 2) {
+            fail("a scry of three offered fewer than two cards to order: " + before.size());
+            return;
+        }
+        Rect last = pile.slotOfCard(before.size() - 1);
+        Rect first = pile.slotOfCard(0);
+        if (last.isEmpty() || first.isEmpty()) {
+            fail("the scry box had nowhere to drag a card from or to");
+            return;
+        }
+        pile.mouseClicked(last.centreX(), last.centreY(), 0);
+        pile.mouseDragged(first.centreX(), first.centreY(), 0, 0, 0);
+        pile.mouseReleased(first.centreX(), first.centreY(), 0);
+
+        java.util.List<CardInstanceId> after = pile.orderOnTop();
+        if (after.size() != before.size()) {
+            fail("dragging a scried card changed how many are being kept: "
+                    + before.size() + " to " + after.size());
+            return;
+        }
+        if (!after.get(0).equals(before.get(before.size() - 1))) {
+            fail("dragging the last scried card to the front did not put it first");
+            return;
+        }
+        System.out.println("[devscene] the kept cards can be put in an order");
+    }
+
     /** Rests the cursor on a zone, so the next step can read what it says about itself. */
     private static void hoverAZone(Minecraft client, int index) {
         Rect zone = zoneRect(client, index);
@@ -1228,15 +1307,35 @@ public final class DevScene {
      * no widget to press, and what is worth checking is that a decision reaches the game - the
      * menu entry that opens this is one line.
      */
-    private static void lookAtTheTopOfTheLibrary(Minecraft client, int howMany) {
+    private static void lookAtTheTopOfTheLibrary(
+            Minecraft client, int howMany, PileScreen.Decision decision) {
         SeatId me = ClientTableState.seatAt(table).orElse(null);
         if (me == null) {
-            fail("no seat to scry with");
+            fail("no seat to look at a library with");
             return;
         }
         ClientTableActions.send(table, new GameEvent.LibraryLooked(me, me, howMany));
         client.setScreen(new PileScreen(
-                table, me, Zone.LIBRARY, true, PileScreen.Decision.SCRY, client.screen));
+                table, me, Zone.LIBRARY, true, decision, client.screen));
+    }
+
+    /**
+     * Checks a surveil says where the cards it bins are going, and says the graveyard.
+     *
+     * <p>The two decisions this screen makes differ in exactly one word, and that word is the
+     * whole difference between the two verbs. Read off the screen rather than off the enum,
+     * because a screen that carries the right decision and writes the other one's wording is
+     * the failure worth catching.
+     */
+    private static void theBinIsTheGraveyard(PileScreen pile) {
+        String said = pile.footerSays();
+        String graveyard = net.minecraft.network.chat.Component
+                .translatable("screen.gathering.pile.to_graveyard").getString();
+        if (!said.contains(graveyard)) {
+            fail("a surveil does not say its cards go " + graveyard + ": \"" + said + "\"");
+            return;
+        }
+        System.out.println("[devscene] a surveil says: " + said);
     }
 
     /**
