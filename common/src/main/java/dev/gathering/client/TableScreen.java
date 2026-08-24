@@ -1390,26 +1390,43 @@ public final class TableScreen extends Screen {
         // Below the life totals and inside the margin, the same as the key list. It used to
         // start at the top of the window, which covered the one row telling you how much life
         // everybody has with a record of how they got there.
-        Rect area = new Rect(this.width / 3, top,
-                this.width - this.width / 3 - margin, layout().hand().y() - top - 6);
-        if (area.height() < line * 3) {
+        int roomDown = floorOfTheFelt() - top - 6;
+        if (roomDown < line * 3) {
             return;
         }
-        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
 
-        GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.table.log_title"),
+        // Sized to what it has to say, not to a fraction of the window. This panel is read
+        // against the board - "who did that, and to what" is a question about the board - and
+        // two thirds of the window laid over it to show four lines of text answered the
+        // question by hiding the thing it was about.
+        Component title = Component.translatable("screen.gathering.table.log_title");
+        Component close = Component.translatable("screen.gathering.table.log_close");
+        List<LogEntry> log = board.log();
+        int room = Math.max(1, (roomDown - 4 - line - 2 - line - 4) / line + 1);
+        int from = Math.max(0, log.size() - room);
+        Component[] said = new Component[log.size() - from];
+        int widest = Math.max(this.font.width(title), this.font.width(close));
+        for (int index = from; index < log.size(); index++) {
+            said[index - from] = GameLogText.render(board, log.get(index));
+            widest = Math.max(widest, this.font.width(said[index - from]));
+        }
+        if (log.isEmpty()) {
+            widest = Math.max(widest, this.font.width(
+                    Component.translatable("screen.gathering.table.log_empty")));
+        }
+
+        int width = Math.min(this.width - margin * 2, widest + 10);
+        int height = 4 + line + 2 + Math.max(1, said.length) * line + line + 4;
+        Rect area = new Rect(this.width - margin - width, top, width, Math.min(height, roomDown));
+
+        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
+        GuiText.draw(graphics, this.font, title,
                 area.x() + 5, area.y() + 4, area.width() - 10, ACCENT);
         int first = area.y() + 4 + line + 2;
         int last = area.bottom() - line - 4;
-
-        List<LogEntry> log = board.log();
-        int lines = Math.max(1, (last - first) / line + 1);
-        int from = Math.max(0, log.size() - lines);
         int y = first;
-        for (int index = from; index < log.size(); index++) {
-            GuiText.draw(graphics, this.font, GameLogText.render(board, log.get(index)),
-                    area.x() + 5, y, area.width() - 10, LABEL);
+        for (Component entry : said) {
+            GuiText.draw(graphics, this.font, entry, area.x() + 5, y, area.width() - 10, LABEL);
             y += line;
         }
         if (log.isEmpty()) {
@@ -1417,9 +1434,33 @@ public final class TableScreen extends Screen {
                     Component.translatable("screen.gathering.table.log_empty"),
                     area.x() + area.width() / 2, (first + last) / 2, area.width() - 10, DIM);
         }
-        GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.table.log_close"),
+        GuiText.draw(graphics, this.font, close,
                 area.x() + 5, area.bottom() - line - 2, area.width() - 10, DIM);
+    }
+
+    /**
+     * How far down the window the felt goes before something else starts.
+     *
+     * <p>The hand, when there is one. A watcher holds no cards and the strip is not reserved
+     * for them, and a panel that measured itself against a hand that is not there came out
+     * with no height at all - so the one person at the table who most wants to read the log
+     * could not open it.
+     */
+    /**
+     * Whether there is room to open the log at all. For the scripted harness.
+     *
+     * <p>Which is a real question rather than a formality: the panel used to measure itself
+     * against the hand strip, and a watcher has no hand, so for them the height came out
+     * negative and the log silently refused to open.
+     */
+    boolean theLogHasRoom() {
+        return floorOfTheFelt() - (layout().status().bottom() + 4) - 6
+                >= (this.font.lineHeight + 1) * 3;
+    }
+
+    private int floorOfTheFelt() {
+        Rect hand = layout().hand();
+        return hand.isEmpty() ? this.height : hand.y();
     }
 
     /**

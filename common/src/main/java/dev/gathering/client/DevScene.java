@@ -686,6 +686,9 @@ public final class DevScene {
                 }
                 shoot(client, "29-watching-from-outside");
                 theFeltRunsToTheBottomForAWatcher(client);
+                if (client.screen instanceof TableScreen board && !board.theLogHasRoom()) {
+                    fail("a watcher has nowhere to open the game log");
+                }
                 aSpectatorReadsAGraveyard(client);
                 pokeEverything(client);
                 advance(SETTLE);
