@@ -166,6 +166,10 @@ public final class TableScreen extends Screen {
                 "screen.gathering.table.key_shuffle",
                 "screen.gathering.table.key_life",
                 "screen.gathering.table.key_log",
+                // Last, because it is the one that takes you out. Escape closing a screen is
+                // the convention and this screen is the table, so escape leaves the table -
+                // which is only a surprise if nothing ever said so, and nothing did.
+                "screen.gathering.table.key_leave",
             });
 
     /** How much one wheel notch zooms. A shallow step, because zoom is used constantly. */

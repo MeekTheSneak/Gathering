@@ -256,6 +256,7 @@
   "screen.gathering.table.key_flip": "F - face up or face down",
   "screen.gathering.table.key_frame": "Home - show whole table",
   "screen.gathering.table.key_group": "G - stack the selection",
+  "screen.gathering.table.key_leave": "Esc - leave the table",
   "screen.gathering.table.key_life": "+ and - - gain or lose a life",
   "screen.gathering.table.key_log": "L - game log",
   "screen.gathering.table.key_menu": "Right-click - card menu",
