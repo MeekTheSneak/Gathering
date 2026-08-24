@@ -76,6 +76,7 @@ public interface BoardPlacement {
     /** Where a zone's name is written on the felt beside its slot, or nothing if it will not fit. */
     Rect pileLabelRect(SeatId seat, int index, int count);
 
+
     /** The line across a mat marking off the row nearest its own player. */
     Rect matDividerRect(SeatId seat, int count);
 

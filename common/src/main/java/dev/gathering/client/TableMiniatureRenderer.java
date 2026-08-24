@@ -3,6 +3,8 @@ package dev.gathering.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.gathering.block.TableBlockEntity;
+import dev.gathering.core.game.CardInstanceId;
+import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
@@ -441,12 +443,36 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // number a player reads most often - how much library they have left - the
             // smallest thing on the board.
             float lineHeight = onSurface(surface.pileCountHeight(seatIndex, index, count), span);
-            // The count sits in the slot's own corner, over whatever card is showing there,
-            // so it is written on a dark patch rather than straight onto the art - a white
-            // number over a pale card is a number nobody can read.
-            writing(poseStack, buffers, packedLight, Component.literal(Integer.toString(held)),
-                    x + width / 2f, z + lineHeight * 0.6f,
-                    lineHeight, width * WRITING_ROOM, angle, held > 0 ? COUNT_BACKING : 0);
+            // A command slot holds one commander, so a number counting cards there says "1"
+            // all game. It says that commander's tax instead - the number a Commander deck
+            // actually reads off that box - written in the band a press on it lands in, so
+            // the two views agree about where the number is as well as what it says.
+            Rect taxBand = CommandSlots.commanderIn(seat, Zone.PILES.get(index)) == null
+                    ? Rect.NONE
+                    : TableSurface.taxBand(slot);
+            if (taxBand.isEmpty()) {
+                // The count sits over whatever card is showing there, so it is written on a
+                // dark patch rather than straight onto the art - a white number over a pale
+                // card is a number nobody can read.
+                writing(poseStack, buffers, packedLight,
+                        Component.literal(Integer.toString(held)),
+                        x + width / 2f, z + lineHeight * 0.6f,
+                        lineHeight, width * WRITING_ROOM, angle, held > 0 ? COUNT_BACKING : 0);
+            } else {
+                CardInstanceId commander =
+                        CommandSlots.commanderIn(seat, Zone.PILES.get(index));
+                int tax = CommandSlots.taxFor(seat.commanderTax().getOrDefault(commander, 0));
+                // Mirrored on the way out. The block lays the surface down with its y axis
+                // running the other way from the screen's, which is why a count written a
+                // line below the top of a slot in surface units comes out along the foot of
+                // it here - and why a band measured against the surface's bottom edge came
+                // out across the top of the card. Measured from the far edge instead, the
+                // tax lands at the same end of the slot as every count beside it.
+                float bandZ = z + onSurface(slot.bottom() - taxBand.centreY(), span);
+                writing(poseStack, buffers, packedLight, Component.literal("+" + tax),
+                        x + width / 2f, bandZ, lineHeight, width * WRITING_ROOM, angle,
+                        COUNT_BACKING);
+            }
             // The name goes on the felt beside it, in the space the seated board writes it
             // in, so the two views read the same.
             if (!named.isEmpty()) {

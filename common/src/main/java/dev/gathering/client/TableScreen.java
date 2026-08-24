@@ -83,6 +83,12 @@ public final class TableScreen extends Screen {
     private static final int ACCENT = 0xFF6FD3E8;
     private static final int TAPPED_TINT = 0x60000000;
     private static final int GHOST_TINT = 0x50000000;
+
+    /** What a tax band is written on, which is card art rather than the empty felt. */
+    private static final int TAX_BACKING = 0xB0000000;
+
+    /** The tax band under the cursor: darker still, so a button looks like one. */
+    private static final int TAX_LIT = 0xD0000000;
     private static final int COUNTER_TEXT = 0xFFFFE9A8;
 
     /** The felt, and a mat on it. Mats are lighter so the table reads as somebody's space. */
@@ -642,8 +648,10 @@ public final class TableScreen extends Screen {
             } else if (hovered == null) {
                 int pile = pileSlotAt(board, mouseX, mouseY);
                 if (pile >= 0) {
-                    tooltip = tipForPile(board.seats().get(pile / pileCount()).seat(),
-                            Zone.PILES.get(pile % pileCount()));
+                    SeatId owner = board.seats().get(pile / pileCount()).seat();
+                    Zone zone = Zone.PILES.get(pile % pileCount());
+                    List<Component> tax = tipForTax(board, owner, zone, mouseX, mouseY);
+                    tooltip = tax == null ? tipForPile(owner, zone) : tax;
                 }
             }
         } else {
@@ -775,9 +783,10 @@ public final class TableScreen extends Screen {
                 Zone zone = Zone.PILES.get(index);
                 boolean over = where.contains(mouseX, mouseY);
                 if (over) {
-                    tooltip = tipForPile(seat.seat(), zone);
+                    List<Component> tax = tipForTax(board, seat.seat(), zone, mouseX, mouseY);
+                    tooltip = tax == null ? tipForPile(seat.seat(), zone) : tax;
                 }
-                drawPile(graphics, seat, zone, where, over);
+                drawPile(graphics, seat, zone, where, over, mouseX, mouseY);
             }
         }
     }
@@ -807,6 +816,37 @@ public final class TableScreen extends Screen {
                 ? List.of(name, said, Component.translatable("screen.gathering.table.pile.hint_more")
                         .withStyle(ChatFormatting.DARK_GRAY))
                 : List.of(name, said);
+    }
+
+    /**
+     * What resting on the tax under a commander says, or null when that is not where the
+     * cursor is.
+     *
+     * <p>One place asks the question for both views, so the board on the block and the board
+     * on the screen cannot end up offering different presses on the same box.
+     */
+    private List<Component> tipForTax(GameView board, SeatId owner, Zone zone, int x, int y) {
+        if (!zone.isCommandSlot() || mySeat().isEmpty()) {
+            return null;
+        }
+        SeatView seat = board.seat(owner);
+        CardInstanceId commander = CommandSlots.commanderIn(seat, zone);
+        if (commander == null) {
+            return null;
+        }
+        Rect band = taxBandFor(owner, zone);
+        double[] at = pointer(x, y);
+        if (band.isEmpty() || at == null
+                || !band.contains((int) Math.round(at[0]), (int) Math.round(at[1]))) {
+            return null;
+        }
+        int casts = seat.commanderTax().getOrDefault(commander, 0);
+        return List.of(
+                Component.translatable("screen.gathering.table.tax", CommandSlots.taxFor(casts)),
+                Component.translatable("screen.gathering.table.tax.casts", casts)
+                        .withStyle(ChatFormatting.DARK_GRAY),
+                Component.translatable("screen.gathering.table.tax.hint")
+                        .withStyle(ChatFormatting.DARK_GRAY));
     }
 
     /** The last zone in the group a hand actually reaches for: exile. */
@@ -980,7 +1020,8 @@ public final class TableScreen extends Screen {
      * readable from across the table - "he has a Bolt on top of his yard" is information the
      * rules already give everyone, and hiding it behind a number just makes people click.
      */
-    private void drawPile(GuiGraphics graphics, SeatView view, Zone zone, Rect pile, boolean hovered) {
+    private void drawPile(GuiGraphics graphics, SeatView view, Zone zone, Rect pile,
+            boolean hovered, int mouseX, int mouseY) {
         pile = shakenIfStirred(view.seat(), zone, pile);
         ZoneView contents = view.zone(zone);
         int count = contents == null ? 0 : contents.count();
@@ -1027,18 +1068,104 @@ public final class TableScreen extends Screen {
                         named.x(), baseline, scale, ZONE_LABEL);
             }
         }
-        if (art.height() > this.font.lineHeight + 2) {
-            Component label = Component.literal(Integer.toString(count));
-            int labelWidth = this.font.width(label) + 4;
-            graphics.fill(art.right() - labelWidth, art.bottom() - this.font.lineHeight - 1,
-                    art.right(), art.bottom(), GHOST_TINT);
-            GuiText.draw(graphics, this.font, label, art.right() - labelWidth + 2,
-                    art.bottom() - this.font.lineHeight, labelWidth, LABEL);
+        // A command slot holds one commander, so a number counting cards there says "1" all
+        // game. It says what that commander's next cast costs instead, which is the number a
+        // Commander deck actually reads off that box.
+        Rect taxBand = taxBandOf(view, zone, art);
+        boolean overTax = !taxBand.isEmpty() && taxBand.contains(mouseX, mouseY);
+        if (taxBand.isEmpty()) {
+            if (art.height() > this.font.lineHeight + 2) {
+                Component label = Component.literal(Integer.toString(count));
+                int labelWidth = this.font.width(label) + 4;
+                graphics.fill(art.right() - labelWidth, art.bottom() - this.font.lineHeight - 1,
+                        art.right(), art.bottom(), GHOST_TINT);
+                GuiText.draw(graphics, this.font, label, art.right() - labelWidth + 2,
+                        art.bottom() - this.font.lineHeight, labelWidth, LABEL);
+            }
+        } else {
+            drawTaxBand(graphics, taxBand, taxOn(view, zone), overTax);
         }
         if (hovered) {
             graphics.renderOutline(pile.x(), pile.y(), pile.width(), pile.height(), ACCENT);
             top.filter(card -> !card.isFaceDown()).ifPresent(this::offerToInspector);
         }
+    }
+
+    /**
+     * The band a command slot writes its tax in, once there is a commander to tax.
+     *
+     * <p>Empty for every other zone, and for a slot standing empty - a tax on nothing is a
+     * button that does nothing, and the board has none of those.
+     *
+     * <p>Taken from the geometry rather than measured off the card drawn here, because the
+     * band is also the thing a player presses, and a press that lands a pixel outside the
+     * number is a tax nobody trusts.
+     */
+    private Rect taxBandOf(SeatView view, Zone zone, Rect art) {
+        if (!zone.isCommandSlot() || CommandSlots.commanderIn(view, zone) == null) {
+            return Rect.NONE;
+        }
+        // Measured off the rectangle this pile is actually being drawn in, so a slot mid-shake
+        // carries its number along instead of leaving it behind on the felt - and so the band
+        // is the foot of the box as the player sees it rather than the foot of a rectangle in
+        // surface units, which the seated camera turns upside down on its way to the screen.
+        return taxIsWritten(art) ? TableSurface.taxBand(art) : Rect.NONE;
+    }
+
+    /**
+     * The band a press would land on for this seat's slot, or empty when there is none.
+     *
+     * <p>Package-private for the scripted harness, which has to aim at the box this screen
+     * would actually accept a press on rather than at one worked out a second time - a run
+     * that owns its own copy of a rule is a run that goes on passing after the rule moves.
+     */
+    Rect taxBandFor(SeatId owner, Zone zone) {
+        Rect slot = pileSlotOf(owner, zone);
+        return taxIsWritten(slot) ? TableSurface.taxBand(slot) : Rect.NONE;
+    }
+
+    /**
+     * Whether a slot this size has its tax written on it, which is also whether it may be
+     * pressed.
+     *
+     * <p>One rule for both, because a button nobody can see is worse than no button: a board
+     * zoomed out far enough that the number will not fit is a board where clicking a command
+     * slot should pick the commander up, the same as clicking anywhere else on it.
+     *
+     * <p>The board on the block writes its numbers at whatever size the slot is, scaling the
+     * letters down with it, so there the answer is always yes.
+     */
+    private boolean taxIsWritten(Rect slot) {
+        return !slot.isEmpty()
+                && (playingOnTheBlock || slot.height() > this.font.lineHeight + 2);
+    }
+
+    /** What this seat's commander in this slot costs on top of its printed cost. */
+    private int taxOn(SeatView view, Zone zone) {
+        CardInstanceId commander = CommandSlots.commanderIn(view, zone);
+        return commander == null
+                ? 0
+                : CommandSlots.taxFor(view.commanderTax().getOrDefault(commander, 0));
+    }
+
+    /**
+     * The tax written across the foot of a command slot.
+     *
+     * <p>On a backing rather than straight onto the art, the same as a pile's count: a pale
+     * commander with a white number over it is a number nobody can read. Lit when the cursor
+     * is on it, because it is a button and a button that looks like a label is a button
+     * nobody presses.
+     */
+    private void drawTaxBand(GuiGraphics graphics, Rect band, int tax, boolean lit) {
+        // Darker than a pile's count sits on, because this one is written over card art
+        // rather than over an empty slot, and a commander with a pale text box under a white
+        // number is a number nobody can read.
+        graphics.fill(band.x(), band.y(), band.right(), band.bottom(),
+                lit ? TAX_LIT : TAX_BACKING);
+        Component label = Component.literal("+" + tax);
+        int baseline = (int) band.centreY() - this.font.lineHeight / 2;
+        GuiText.drawCentred(graphics, this.font, label, (int) band.centreX(), baseline,
+                band.width() - 2, lit ? ACCENT : LABEL);
     }
 
     /**
@@ -2330,6 +2457,11 @@ public final class TableScreen extends Screen {
      */
     private boolean pressPile(GameView board, SeatId owner, Zone pile, int x, int y, int button) {
         SeatId me = mySeat().orElse(null);
+        // The tax band sits on top of the slot, so it answers first or it never answers at
+        // all - the slot underneath it picks a commander up on the same press.
+        if (pressTax(board, owner, pile, x, y, button)) {
+            return true;
+        }
         // Anybody may open anybody's graveyard - it is public - but the verbs that only make
         // sense on your own library are offered only there, because the mod refuses a search
         // of somebody else's anyway and a menu full of refusals is worse than a short one.
@@ -2396,6 +2528,45 @@ public final class TableScreen extends Screen {
             }
         }
         return null;
+    }
+
+    /**
+     * A press on the tax written under a commander: one more cast, or one fewer.
+     *
+     * <p>Counted in casts and shown in mana, the same as the counters screen does it, because
+     * casts are what the rule counts and mana is what the player is about to pay. Left adds a
+     * cast, right takes one back - the mistake has to be as cheap to undo as it was to make,
+     * and a number that only goes up is a number somebody has to restart a game over.
+     *
+     * <p>Anybody seated may press it, like everything else in a public zone. Who did it is in
+     * the log, which is how this mod answers that question everywhere.
+     */
+    private boolean pressTax(GameView board, SeatId owner, Zone pile, int x, int y, int button) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null || !pile.isCommandSlot() || (button != 0 && button != 1)) {
+            return false;
+        }
+        SeatView seat = board.seat(owner);
+        CardInstanceId commander = CommandSlots.commanderIn(seat, pile);
+        if (commander == null) {
+            return false;
+        }
+        Rect band = taxBandFor(owner, pile);
+        double[] at = pointer(x, y);
+        if (band.isEmpty() || at == null
+                || !band.contains((int) Math.round(at[0]), (int) Math.round(at[1]))) {
+            return false;
+        }
+        int casts = seat.commanderTax().getOrDefault(commander, 0);
+        int delta = button == 0 ? 1 : -1;
+        if (casts + delta < 0) {
+            // Already nothing. Swallowed rather than sent, so the log does not fill up with
+            // lines saying a tax of nought was reduced to a tax of nought.
+            return true;
+        }
+        GatheringButtons.clickSound();
+        send(new GameEvent.CommanderTaxChanged(me, owner, commander, delta));
+        return true;
     }
 
     /** Where a pile is on screen, for a card being lifted off it to know where it started. */

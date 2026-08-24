@@ -145,7 +145,7 @@ markers regenerated on every flip. Shuffles derive from a session seed that is n
 never sent, and never printed. This is the one security property of the mod and it has its
 own test suite, which must never regress.
 
-## Three rules the interface is built around
+## Four rules the interface is built around
 
 **A word on the felt is written whole or not at all.** A label shrunk to fit stops being a
 word before it stops being drawn, and where that happens is not a fraction of its natural
@@ -159,6 +159,11 @@ preference is: write it on the felt, then a tooltip, then a popup the size of it
 then a panel, and only then the whole window - and nothing has earned the whole window. Every
 screen the table opens draws the board behind it, because most of what is decided on them is
 decided by looking at the board.
+
+**A number a player keeps is kept where they look for it.** Commander tax lives under the
+commander it belongs to - written across the foot of its command slot, where pressing it
+records another cast and right-clicking takes one back. No panel, no menu, and no second
+number counting the one card everyone can already see is in there.
 
 **Nothing teleports.** A card that changes zones crosses the felt to get there, and everybody
 watching sees it cross - worked out by comparing two boards rather than by being told, so the

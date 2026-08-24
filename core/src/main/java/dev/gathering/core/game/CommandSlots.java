@@ -23,6 +23,42 @@ public final class CommandSlots {
     }
 
     /**
+     * What each cast already made adds to a commander's next cost.
+     *
+     * <p>The game records casts, because casts are what the rule counts; a player reads mana,
+     * because mana is what they are about to pay. One number turns one into the other, and it
+     * lives here so the screen that lists taxes and the slot that shows one cannot disagree
+     * about what a cast is worth.
+     */
+    public static final int MANA_PER_CAST = 2;
+
+    /** What a commander cast this many times costs on top of its printed cost. */
+    public static int taxFor(int casts) {
+        return Math.max(0, casts) * MANA_PER_CAST;
+    }
+
+    /**
+     * The commander sitting in one of a seat's command slots, or null.
+     *
+     * <p>The top card, and only if it is one this viewer may see - a face-down card in a
+     * command slot has no name to tax. Null rather than empty for the two cases that are the
+     * same to a caller: no such slot, and a slot with nothing in it.
+     */
+    public static CardInstanceId commanderIn(SeatView seat, Zone slot) {
+        if (seat == null || slot == null || !slot.isCommandSlot()) {
+            return null;
+        }
+        ZoneView held = seat.zones().get(slot);
+        if (held == null || held.cards().isEmpty()) {
+            return null;
+        }
+        return held.cards().get(held.cards().size() - 1)
+                instanceof dev.gathering.core.game.visibility.CardView.Visible visible
+                ? visible.id()
+                : null;
+    }
+
+    /**
      * The slot a card should go home to, given what this seat's slots already hold.
      *
      * <p>The first empty one, or the first slot when they are all full - a card has to land

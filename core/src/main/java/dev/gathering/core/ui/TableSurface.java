@@ -94,6 +94,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      */
     private static final double PILE_GROUP_PAD = 0.8;
 
+    /** How much of a command slot the tax band across its foot takes up. */
+    private static final double TAX_BAND = 0.26;
+
     /** How deep the row nearest a player is, in card heights: one card and a little air. */
     private static final double LANDS_ROW = 1.15;
 
@@ -493,6 +496,15 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         if (slot.isEmpty()) {
             return Rect.NONE;
         }
+        // The command slots are one zone drawn as two boxes, so they are named once. Written
+        // beside each of them the mat said "Command" twice down the same column, which reads
+        // as two zones that somebody forgot to give different names rather than as one zone
+        // with room for a partner. A printed playmat labels the region, not each slot.
+        int firstCommand = Zone.PILES_WITHOUT_A_COMMAND_ZONE;
+        boolean commandSlot = count > firstCommand && index >= firstCommand;
+        if (commandSlot && index > firstCommand) {
+            return Rect.NONE;
+        }
         Rect mat = matOf(seat);
         // Clear of the line drawn round the group of slots, not just of the slot itself. The
         // name is written flush against the column, so a gap measured to the slot put the
@@ -501,7 +513,13 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         int gap = Math.max(2, (int) Math.round(slot.height() * PILE_GAP * (1 + PILE_GROUP_PAD)));
         int width = Math.max(1, (int) Math.round(slot.width() * PILE_LABEL_WIDTHS));
         int height = Math.max(1, (int) Math.round(slot.height() * PILE_LABEL_HEIGHT));
-        int top = slot.y() + (slot.height() - height) / 2;
+        // Centred on whatever the name names: its own slot, or the run of command slots. The
+        // span is measured off the same pileSlot arithmetic that placed them, so the one name
+        // cannot drift away from the pair it belongs to.
+        Rect last = commandSlot ? pileSlot(seat, count - 1, count) : slot;
+        int spanTop = Math.min(slot.y(), last.y());
+        int spanBottom = Math.max(slot.bottom(), last.bottom());
+        int top = spanTop + (spanBottom - spanTop - height) / 2;
         int left = isTurned(seat) ? slot.right() + gap : slot.x() - gap - width;
         Rect label = new Rect(left, top, width, height);
         // A mat with three seats round it is narrow enough that the word would start off the
@@ -529,6 +547,36 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
             return 0;
         }
         return Math.max(1, (int) Math.round(slot.height() * PILE_LABEL_HEIGHT));
+    }
+
+    /**
+     * The band across the foot of a slot where a commander's tax is written.
+     *
+     * <p>A command slot holds one commander, so a number under it counting cards says "1" for
+     * the whole game - the one number in the column that tells a player nothing. It says the
+     * tax instead, which is the number a Commander deck actually reads off that box, and
+     * pressing it records another cast.
+     *
+     * <p>Across the whole slot rather than in its corner like a count, for two reasons that
+     * point the same way: a number you press has to be big enough to press, and a number
+     * shaped differently from every count on the board does not get read as one.
+     *
+     * <p>Taken from the slot it is handed rather than worked out from the seat, because the
+     * two views measure a slot in different spaces - pixels on the screen, surface units on
+     * the block - and the seated camera turns the felt round so that the player's own mat is
+     * nearest them. Written in surface units the band came out at the top of the slot on
+     * screen, which is what a y axis that has been flipped does to a rectangle that was
+     * measured against the wrong end of it.
+     *
+     * @param slot the slot, in whatever space its view measures rectangles in
+     * @return the band, or {@link Rect#NONE} for a slot too small to write a number on
+     */
+    public static Rect taxBand(Rect slot) {
+        if (slot.isEmpty()) {
+            return Rect.NONE;
+        }
+        int height = Math.max(1, (int) Math.round(slot.height() * TAX_BAND));
+        return new Rect(slot.x(), slot.bottom() - height, slot.width(), height);
     }
 
     public Rect matDivider(int seat, int count) {

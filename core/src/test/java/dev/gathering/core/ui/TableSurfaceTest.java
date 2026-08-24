@@ -639,6 +639,71 @@ class TableSurfaceTest {
         }
     }
 
+    /**
+     * One name for the command zone, however many slots it is drawn as.
+     *
+     * <p>Naming each slot wrote "Command" twice down the same column, which reads as two
+     * zones somebody forgot to tell apart rather than as one zone with room for a partner.
+     * The one name is centred against the pair, so it points at both.
+     */
+    @Test
+    @DisplayName("the command zone is named once, between its two slots")
+    void theCommandZoneIsNamedOnce() {
+        for (int seats : new int[] {1, 2, 4}) {
+            TableSurface surface = TableSurface.forSeatCount(seats);
+            int count = Zone.PILES.size();
+            int first = Zone.PILES.indexOf(Zone.COMMAND);
+            int second = Zone.PILES.indexOf(Zone.COMMAND_TWO);
+            for (int seat = 0; seat < seats; seat++) {
+                Rect named = surface.pileLabel(seat, first, count);
+                assertThat(surface.pileLabel(seat, second, count))
+                        .describedAs("%s seats: seat %s names the second command slot too",
+                                seats, seat)
+                        .isEqualTo(Rect.NONE);
+                if (named.isEmpty()) {
+                    continue;
+                }
+                Rect top = surface.pileSlot(seat, first, count);
+                Rect bottom = surface.pileSlot(seat, second, count);
+                double middle = (Math.min(top.y(), bottom.y())
+                        + Math.max(top.bottom(), bottom.bottom())) / 2.0;
+                assertThat(named.centreY())
+                        .describedAs("%s seats: seat %s centres the name on both slots",
+                                seats, seat)
+                        .isCloseTo(middle, within(1.0));
+            }
+        }
+    }
+
+    /**
+     * The number a command slot shows is a button, so it has a box of its own.
+     *
+     * <p>Across the foot of whatever rectangle the slot is being drawn in, and never outside
+     * it - a band that reached past its slot would be a press that lands on the zone above.
+     *
+     * <p>Measured off the rectangle rather than off the seat, because the two views measure a
+     * slot in different spaces and the seated camera turns the felt round on its way to the
+     * screen. Read out of absolute surface units the band came out at the top of the slot on
+     * screen, which is a rectangle placed against the wrong end of a flipped axis.
+     */
+    @Test
+    @DisplayName("a tax band is the foot of the slot it is given, whatever space that is in")
+    void theTaxBandIsTheFootOfItsSlot() {
+        for (Rect slot : new Rect[] {
+                new Rect(10, 20, 30, 40), new Rect(0, 0, 7, 9),
+                new Rect(-50, -80, 120, 170)}) {
+            Rect band = TableSurface.taxBand(slot);
+            assertThat(band.x()).isEqualTo(slot.x());
+            assertThat(band.width()).isEqualTo(slot.width());
+            assertThat(band.bottom()).isEqualTo(slot.bottom());
+            assertThat((double) band.y())
+                    .describedAs("the band on %s is in the lower half of its slot", slot)
+                    .isGreaterThan(slot.centreY());
+            assertThat(band.height()).isGreaterThan(0);
+        }
+        assertThat(TableSurface.taxBand(Rect.NONE)).isEqualTo(Rect.NONE);
+    }
+
     /** Both command slots are drawn, whether or not a deck has a second commander. */
     @Test
     void aTableWithACommandZoneDrawsBothOfItsSlots() {
