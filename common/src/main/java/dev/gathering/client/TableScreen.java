@@ -1178,7 +1178,12 @@ public final class TableScreen extends Screen {
         int line = this.font.lineHeight + 1;
         int margin = Math.max(4, this.width / 24);
         int top = layout().status().bottom() + 4;
-        int available = layout().hand().y() - top - 6;
+        // Down to the bottom of the window, over the hand. The list used to stop where the
+        // hand starts, which on a short window left room for so few rows that it wrapped into
+        // three columns, and three columns of that width are narrower than half the lines in
+        // it - so the list that exists to teach the keys could not show what three of them
+        // do. Covering a hand nobody is playing while they read the help is the cheaper loss.
+        int available = this.height - top - margin;
         // Room for a heading, two lines under it and the close hint, or there is no point.
         // This used to floor `available` at forty and then test it against four lines, which
         // with the vanilla font is exactly forty - so the guard could never fire and a
