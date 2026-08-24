@@ -87,6 +87,9 @@ public final class TableScreen extends Screen {
     /** What a tax band is written on, which is card art rather than the empty felt. */
     private static final int TAX_BACKING = 0xB0000000;
 
+    /** What a life total is written on, so it reads against the table rather than into it. */
+    private static final int LIFE_BACKING = 0xA0101418;
+
     /** The tax band under the cursor: darker still, so a button looks like one. */
     private static final int TAX_LIT = 0xD0000000;
     private static final int COUNTER_TEXT = 0xFFFFE9A8;
@@ -646,6 +649,10 @@ public final class TableScreen extends Screen {
             if (verb >= 0) {
                 tooltip = tipFor(VERB_NAMES[verb], VERB_KEY_NAMES[verb]);
             } else if (hovered == null) {
+                List<Component> life = tipForLife(board, mouseX, mouseY);
+                if (life != null) {
+                    tooltip = life;
+                }
                 int pile = pileSlotAt(board, mouseX, mouseY);
                 if (pile >= 0) {
                     SeatId owner = board.seats().get(pile / pileCount()).seat();
@@ -667,6 +674,12 @@ public final class TableScreen extends Screen {
             }
             renderPileBadges(graphics, board, onTable);
             renderFlights(graphics, board);
+            if (hovered == null && tooltip.isEmpty()) {
+                List<Component> life = tipForLife(board, mouseX, mouseY);
+                if (life != null) {
+                    tooltip = life;
+                }
+            }
         }
         hoveringSomething = hovered != null;
         if (hovered != null) {
@@ -753,7 +766,55 @@ public final class TableScreen extends Screen {
                 graphics.fill(divider.x(), divider.y(), divider.right(), divider.bottom(),
                         ZONE_BORDER);
             }
+            drawLife(graphics, seat);
         }
+    }
+
+    /**
+     * A seat's life total, on the table just past the far edge of its own board.
+     *
+     * <p>The number a game of Magic is played to, and until now it was a word in a strip
+     * along the top of the window - the one place on the screen that is not the table. Here
+     * it is on the table, where a player looks to read somebody else's, and it is a pair of
+     * buttons: press the left of it to take one off and the right of it to put one on.
+     *
+     * <p>The two halves are marked, faintly until the cursor is on one and brightly when it
+     * is, because a number nobody has told you is a button is a number.
+     */
+    private void drawLife(GuiGraphics graphics, SeatView seat) {
+        Rect box = board().lifeRect(seat.seat());
+        if (box.isEmpty() || box.height() < this.font.lineHeight) {
+            return;
+        }
+        int half = mySeat().isEmpty() ? 0 : lifeHalfUnder(seat.seat(), cursorX, cursorY);
+        graphics.fill(box.x(), box.y(), box.right(), box.bottom(), LIFE_BACKING);
+        graphics.renderOutline(box.x(), box.y(), box.width(), box.height(),
+                half == 0 ? ZONE_BORDER : ACCENT);
+        Component total = Component.literal(Integer.toString(seat.life()));
+        GuiText.drawCentred(graphics, this.font, total, (int) box.centreX(),
+                (int) box.centreY() - this.font.lineHeight / 2, box.width() / 2, LABEL);
+        // A minus over the end that takes one off and a plus over the end that puts one on,
+        // read off the same arithmetic the press is, so the two cannot end up disagreeing.
+        drawLifeHalf(graphics, box, -1, half);
+        drawLifeHalf(graphics, box, 1, half);
+    }
+
+    private void drawLifeHalf(GuiGraphics graphics, Rect box, int side, int lit) {
+        Component sign = Component.literal(side < 0 ? "-" : "+");
+        int room = Math.max(1, box.width() / 4);
+        int x = side < 0 ? box.x() + room / 2 : box.right() - room - room / 2;
+        GuiText.drawCentred(graphics, this.font, sign, x + room / 2,
+                (int) box.centreY() - this.font.lineHeight / 2, room,
+                lit == side ? ACCENT : ZONE_LABEL);
+    }
+
+    /** Which half of a seat's life counter this screen point is on: -1, 1, or 0 for neither. */
+    private int lifeHalfUnder(SeatId seat, int x, int y) {
+        double[] at = pointer(x, y);
+        // The board's own rectangle and the board's own pointer, so the answer is in one
+        // space. Asked of absolute surface units it would name the wrong end of the counter
+        // on the seated board, whose camera turns the felt round on its way to the screen.
+        return at == null ? 0 : TableSurface.lifeHalfIn(board().lifeRect(seat), at[0], at[1]);
     }
 
     /**
@@ -1090,6 +1151,72 @@ public final class TableScreen extends Screen {
             graphics.renderOutline(pile.x(), pile.y(), pile.width(), pile.height(), ACCENT);
             top.filter(card -> !card.isFaceDown()).ifPresent(this::offerToInspector);
         }
+    }
+
+    /**
+     * What resting on a life total says: whose it is, what it is, and that it is a button.
+     *
+     * <p>Named, because a number floating on the table between two boards belongs to one of
+     * them and which one is the whole question a four-seat table asks.
+     */
+    private List<Component> tipForLife(GameView board, int x, int y) {
+        if (mySeat().isEmpty()) {
+            return null;
+        }
+        for (SeatView seat : board.seats()) {
+            if (seat.occupant().isEmpty() || lifeHalfUnder(seat.seat(), x, y) == 0) {
+                continue;
+            }
+            return List.of(
+                    Component.translatable("screen.gathering.table.life",
+                            CountersScreen.titleForSeat(board, seat.seat()), seat.life()),
+                    Component.translatable("screen.gathering.table.life.hint")
+                            .withStyle(ChatFormatting.DARK_GRAY),
+                    Component.translatable("screen.gathering.table.life.hint_more")
+                            .withStyle(ChatFormatting.DARK_GRAY));
+        }
+        return null;
+    }
+
+    /**
+     * A press on somebody's life total: one off the left half, one on the right, or a typed
+     * amount on a right-click.
+     *
+     * <p>Anybody seated may change anybody's, like everything else public at this table. Who
+     * did it is in the log, which is how the mod answers that question everywhere rather than
+     * by refusing.
+     */
+    private boolean pressLife(GameView board, int x, int y, int button) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null || (button != 0 && button != 1)) {
+            return false;
+        }
+        for (SeatView seat : board.seats()) {
+            if (seat.occupant().isEmpty()) {
+                continue;
+            }
+            int half = lifeHalfUnder(seat.seat(), x, y);
+            if (half == 0) {
+                continue;
+            }
+            SeatId whose = seat.seat();
+            if (button == 1) {
+                // Typed rather than clicked eleven times. A Commander game that opens on
+                // forty life and takes eleven off in one swing is the case a counter you can
+                // only tick has no answer to. Which half was right-clicked says which way,
+                // so the amount asked for is a plain number and the two halves mean the same
+                // thing under either button - rather than a typed minus sign, which is a
+                // second way to say something the button already said.
+                int way = half;
+                ask(way < 0 ? "life_lose" : "life_gain", 1,
+                        amount -> send(new GameEvent.LifeChanged(me, whose, way * amount)));
+            } else {
+                send(new GameEvent.LifeChanged(me, whose, half));
+            }
+            GatheringButtons.clickSound();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -1931,6 +2058,12 @@ public final class TableScreen extends Screen {
         // and anything that answered first would swallow it.
         SeatId mine = mySeat().orElse(null);
         if (button == 0 && mine != null && pressVerb(mine, x, y)) {
+            return true;
+        }
+        // The life counters sit off the mats entirely, so nothing else is competing for the
+        // point - but they are still asked before the felt, which would otherwise read a
+        // press on one as the start of a box selection.
+        if (mine != null && pressLife(board, x, y, button)) {
             return true;
         }
 

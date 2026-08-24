@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.32
+## Design Brief v1.33
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -176,6 +176,23 @@ none of those is up, the player is looking at the table and Escape is how they g
 Two of those were missing and both were dead ends worth having - the log is as open as a menu
 is and was left by the key that closes every other panel in the game, and pressing Escape while
 carrying a card put the player outside the table still holding it.
+
+**Life is a number on the table, not a line of status text.** It sits on the felt just past
+the far edge of each player's own board - off the mat, because the mat is where cards go and a
+number printed in the play area is a number somebody puts a land on top of, and past the far
+edge because that is the strip of table between the boards: where the counters go on a real
+table, and where a player looks up to read somebody else's. Which edge is "far" depends on the
+chair, like everything else on a mat, so both players find their own number between their board
+and the middle.
+
+It is a pair of buttons as well as a number. Press the left of it to take one off and the
+right to put one on; right-click an end to type an amount and have it go that way, which is the
+answer to a swing for eleven that a counter you can only tick has none. The two halves are
+marked with a minus and a plus read off the same arithmetic the press is, so the board cannot
+end up drawing a plus on the end that takes a life away. Anybody seated may change anybody's,
+like everything else public at this table, and the log names who did it. The seat's opening
+view is framed on the mat *and* its counter, because a number the game is played to is not a
+number to leave off the top of the window.
 
 **A word on the felt is written whole or not at all.** A label shrunk to fit stops being a word before it stops being drawn, and the point where it does is not a fraction of its natural size: it is where the font's own pixels stop getting a screen pixel each. The same three-quarter-size word is crisp on an interface drawn at two screen pixels per interface pixel and mush on one drawn at one. So the rule is one screen pixel per font pixel, with a floor at half size, and a set of labels - a column of zone names, a run of mat buttons - is measured from its longest and written all at one size or not at all. A column reading "Exile" and nothing else says that zone is special rather than that the board is too small to write on. Card names are the exception and always were: a card name has to appear somehow, so it shrinks past that and loses its tail.
 

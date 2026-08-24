@@ -805,6 +805,78 @@ class TableSurfaceTest {
         }
     }
 
+    /**
+     * A seat's life total sits off its own board, on the far side from its player.
+     *
+     * <p>Off the mat because the mat is where cards go, and a number printed in the play area
+     * is a number somebody puts a land on top of. On the far side because that is the strip
+     * of table between the boards - where the counters go on a real table, and where a player
+     * looks up to read somebody else's.
+     */
+    @Test
+    @DisplayName("a life total sits on the table past the far edge of its own mat")
+    void aLifeTotalSitsOffItsOwnMat() {
+        for (int seats : new int[] {1, 2, 3, 4}) {
+            TableSurface surface = TableSurface.forSeatCount(seats);
+            for (int seat = 0; seat < seats; seat++) {
+                Rect life = surface.lifeBox(seat);
+                Rect mat = surface.matOf(seat);
+                assertThat(life.isEmpty())
+                        .describedAs("%s seats: seat %s has nowhere to write its life",
+                                seats, seat)
+                        .isFalse();
+                assertThat(life.overlaps(mat))
+                        .describedAs("%s seats: seat %s writes its life on its own board",
+                                seats, seat)
+                        .isFalse();
+                // Past the edge the player is not sitting at, so both find their own number
+                // between their board and the middle of the table.
+                assertThat(surface.isTurned(seat) ? life.y() >= mat.bottom() : life.bottom() <= mat.y())
+                        .describedAs("%s seats: seat %s writes its life on its far side",
+                                seats, seat)
+                        .isTrue();
+                assertThat(life.centreX()).isCloseTo(mat.centreX(), within(1.0));
+                for (int other = 0; other < seats; other++) {
+                    if (other != seat) {
+                        assertThat(life.overlaps(surface.lifeBox(other)))
+                                .describedAs("%s seats: seat %s and seat %s share a life box",
+                                        seats, seat, other)
+                                .isFalse();
+                        assertThat(life.overlaps(surface.matOf(other)))
+                                .describedAs("%s seats: seat %s writes its life on seat %s's mat",
+                                        seats, seat, other)
+                                .isFalse();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * The two halves of a life counter, which are a button each.
+     *
+     * <p>Left takes one off and right puts one on, and the halves are asked for here so that
+     * the board drawing a minus over one end and the click deciding which way to go cannot
+     * end up disagreeing - a plus on the side that takes a life off is worse than no button.
+     */
+    @Test
+    @DisplayName("the left half of a life counter takes one off and the right puts one on")
+    void aLifeCounterHasTwoHalves() {
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        for (int seat = 0; seat < 2; seat++) {
+            Rect life = surface.lifeBox(seat);
+            assertThat(TableSurface.lifeHalfIn(life, life.x() + 1, life.centreY())).isEqualTo(-1);
+            assertThat(TableSurface.lifeHalfIn(life, life.right() - 1, life.centreY())).isEqualTo(1);
+            assertThat(TableSurface.lifeHalfIn(life, life.x() - 5, life.centreY())).isZero();
+            assertThat(TableSurface.lifeHalfIn(life, life.centreX(), life.y() - 5)).isZero();
+            // Whatever space the box is handed in - a view that has moved and scaled it still
+            // gets the same answer about which end of it a point is on.
+            Rect moved = new Rect(40, 80, 120, 30);
+            assertThat(TableSurface.lifeHalfIn(moved, 45, 90)).isEqualTo(-1);
+            assertThat(TableSurface.lifeHalfIn(moved, 155, 90)).isEqualTo(1);
+        }
+    }
+
     /** Both command slots are drawn, whether or not a deck has a second commander. */
     @Test
     void aTableWithACommandZoneDrawsBothOfItsSlots() {

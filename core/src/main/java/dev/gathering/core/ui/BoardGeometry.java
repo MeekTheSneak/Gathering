@@ -146,10 +146,15 @@ public final class BoardGeometry implements BoardPlacement {
         // Whichever way round is binding. A mat is twice as wide as it is deep and a window
         // is not, so filling the width alone made it taller than the strip above the hand and
         // pushed its own near edge off the screen - which is the thing this is for keeping on.
+        // The mat and the life total printed off its far edge, which is part of a player's
+        // own board even though it is not on the mat. Framed on the mat alone it sat just
+        // past the top of the window: the one number the game is played to, off screen at
+        // the framing a player spends the whole game in.
+        Rect own = withLife(mat, seat);
         double fit = Math.min(
-                width / (double) Math.max(1, mat.width()),
-                visible() / (double) Math.max(1, mat.height()));
-        camera = new TableCamera(mat.centreX(), mat.centreY(), fit,
+                width / (double) Math.max(1, own.width()),
+                visible() / (double) Math.max(1, own.height()));
+        camera = new TableCamera(own.centreX(), own.centreY(), fit,
                 surface.width(), surface.height(), turned);
 
         // Leaned towards the middle of the table, so the board opposite comes into view as
@@ -159,12 +164,31 @@ public final class BoardGeometry implements BoardPlacement {
         // your zones, the part you use most - off the top of the screen to show somebody
         // else's. Both boards at once and a readable card are not both possible on a small
         // window, and of the two it is your own board that has to win.
-        double slack = Math.max(0, visible() - mat.height() * camera.scale()) / 2.0;
-        double wanted = (surface.height() / 2.0 - mat.centreY()) * LEAN_TOWARDS_THE_TABLE;
+        double slack = Math.max(0, visible() - own.height() * camera.scale()) / 2.0;
+        double wanted = (surface.height() / 2.0 - own.centreY()) * LEAN_TOWARDS_THE_TABLE;
         double lean = Math.max(-slack, Math.min(slack, wanted * camera.scale())) / camera.scale();
         camera = new TableCamera(
                 camera.centreX(), camera.centreY() + lean,
                 camera.scale(), surface.width(), surface.height(), turned);
+    }
+
+    /**
+     * A seat's mat together with the life total printed off its far edge.
+     *
+     * <p>What "your own board" means to a camera. The counter is deliberately not on the mat
+     * - a number in the play area is a number somebody puts a land on - but it is still
+     * yours, and framing that left it out put it off the top of the window.
+     */
+    private Rect withLife(Rect mat, SeatId seat) {
+        Rect life = surface.lifeBox(seat.index());
+        if (life.isEmpty()) {
+            return mat;
+        }
+        int top = Math.min(mat.y(), life.y());
+        int bottom = Math.max(mat.bottom(), life.bottom());
+        int left = Math.min(mat.x(), life.x());
+        int right = Math.max(mat.right(), life.right());
+        return new Rect(left, top, right - left, bottom - top);
     }
 
     /**
@@ -321,6 +345,11 @@ public final class BoardGeometry implements BoardPlacement {
     @Override
     public Rect pileLabelRect(SeatId seat, int index, int count) {
         return surfaceRect(surface.pileLabel(seat.index(), index, count));
+    }
+
+    @Override
+    public Rect lifeRect(SeatId seat) {
+        return surfaceRect(surface.lifeBox(seat.index()));
     }
 
     @Override

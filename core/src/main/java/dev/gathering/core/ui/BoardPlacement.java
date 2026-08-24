@@ -76,6 +76,14 @@ public interface BoardPlacement {
     /** Where a zone's name is written on the felt beside its slot, or nothing if it will not fit. */
     Rect pileLabelRect(SeatId seat, int index, int count);
 
+    /**
+     * Where this seat's life total is written, on the table past the far edge of its mat.
+     *
+     * <p>Empty when the table has no room for it. Both views ask: both draw the number and
+     * both let a player press its halves.
+     */
+    Rect lifeRect(SeatId seat);
+
 
     /** The line across a mat marking off the row nearest its own player. */
     Rect matDividerRect(SeatId seat, int count);

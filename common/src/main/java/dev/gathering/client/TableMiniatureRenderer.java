@@ -236,6 +236,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             if (board.seats().get(index).occupant().isPresent()) {
                 drawPiles(poseStack, buffers, packedLight, board.seats().get(index),
                         surface, pos, index, span, piles);
+                drawLife(poseStack, buffers, packedLight, board.seats().get(index),
+                        surface, index, span);
             }
         }
         int drawn = 0;
@@ -615,6 +617,41 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * <p>Empty in the middle. The slots inside it draw their own recesses, and a filled box
      * behind them would put a second shade of dark under every zone.
      */
+    /**
+     * A seat's life total, on the table past the far edge of its own board.
+     *
+     * <p>The same box the seated screen draws, in the same place, because it is the same
+     * table - and pressed through the same screen, which casts its ray at this board and
+     * finds the box by the arithmetic that put it here.
+     */
+    private void drawLife(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            SeatView seat, TableSurface surface, int seatIndex, float span) {
+        Rect box = surface.lifeBox(seatIndex);
+        if (box.isEmpty()) {
+            return;
+        }
+        float left = onSurface(box.x(), span);
+        float top = onSurface(box.y(), span);
+        float right = onSurface(box.right(), span);
+        float bottom = onSurface(box.bottom(), span);
+        flat(buffers.getBuffer(RenderType.debugQuads()), poseStack.last().pose(),
+                left, top, right, bottom, LIFE_BACKING);
+        drawGroup(poseStack, buffers, box, span);
+        // Turned to face its own player, like everything else printed for one seat, so both
+        // players read their own total the right way up.
+        writing(poseStack, buffers, packedLight,
+                Component.literal(Integer.toString(seat.life())),
+                (left + right) / 2f, (top + bottom) / 2f, (bottom - top) * LIFE_WRITING,
+                (right - left) / 2f, surface.facingDegrees(seatIndex), 0);
+    }
+
+    /** What a life total is written on, so it reads against the table rather than into it. */
+    private static final int LIFE_BACKING = 0xC0101418;
+
+    /** How much of its box a life total is written at, leaving room for the two ends. */
+    private static final float LIFE_WRITING = 0.7f;
+
     private void drawGroup(
             PoseStack poseStack, MultiBufferSource buffers, Rect group, float span) {
         if (group.isEmpty()) {

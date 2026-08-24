@@ -121,6 +121,15 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      */
     private static final double EDGE_MARGIN = 0.23;
 
+    /** How tall a seat's life counter is, as a share of a card. */
+    private static final double LIFE_HEIGHT = 0.42;
+
+    /** And how wide, as a share of its own height - room for three figures and two halves. */
+    private static final double LIFE_WIDTH = 2.4;
+
+    /** How far the counter stands off the edge of its own mat, as a share of its height. */
+    private static final double LIFE_STANDOFF = 0.22;
+
     /** How many slot widths of felt a zone's name is given to be written across. */
     private static final double PILE_LABEL_WIDTHS = 2.4;
 
@@ -498,6 +507,68 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         int inset = edgeMargin(seat);
         int left = isTurned(seat) ? mat.right() - inset - width : mat.x() + inset;
         return new Rect(left, top + slot * step, width, height);
+    }
+
+    /**
+     * Where a seat's life total is written, on the table just past the far edge of its mat.
+     *
+     * <p>Not on the mat. A life total is a thing about a player rather than a thing on their
+     * board, and the board is where cards go - a number printed in the middle of the play
+     * area is a number somebody will put a land on top of. Past the far edge it sits in the
+     * strip of table between the mats, which is where the counters go on a real table and
+     * where a player facing their own board looks up to read somebody else's.
+     *
+     * <p>Which edge is "far" depends on the chair, the same way everything else on a mat
+     * does, so both players find their own number between their board and the middle.
+     *
+     * <p>Empty when there is not room for it off the end of the mat - a table drawn with the
+     * seats crammed together has no strip to put it in, and a number half under a mat is
+     * worse than a number in the status row alone.
+     */
+    public Rect lifeBox(int seat) {
+        Rect mat = matOf(seat);
+        if (mat.isEmpty()) {
+            return Rect.NONE;
+        }
+        int height = Math.max(1, (int) Math.round(cardHeightOn(seat) * LIFE_HEIGHT));
+        int width = Math.max(1, (int) Math.round(height * LIFE_WIDTH));
+        int standoff = Math.max(1, (int) Math.round(height * LIFE_STANDOFF));
+        // The far edge from this seat's own player, which is the one facing the middle of the
+        // table. A turned mat is drawn upside down, so its far edge is the near one on screen.
+        int top = isTurned(seat) ? mat.bottom() + standoff : mat.y() - standoff - height;
+        int left = mat.x() + (mat.width() - width) / 2;
+        Rect box = new Rect(left, top, width, height);
+        // Room on the table for the whole of it, and not overlapping anybody else's mat -
+        // which is what a seat with somebody sitting directly opposite and close up means.
+        if (box.y() < 0 || box.bottom() > height() || box.x() < 0 || box.right() > width()) {
+            return Rect.NONE;
+        }
+        for (int other = 0; other < mats.size(); other++) {
+            if (other != seat && box.overlaps(matOf(other))) {
+                return Rect.NONE;
+            }
+        }
+        return box;
+    }
+
+    /**
+     * Which half of a seat's life counter a point is on: -1 for the left, 1 for the right, 0
+     * for neither.
+     *
+     * <p>Here rather than in whichever view took the click, because the halves are drawn as
+     * well as pressed - the number has a minus over one end and a plus over the other - and a
+     * board that draws the plus on the side that takes one off is worse than no button.
+     *
+     * <p>Given the box rather than the seat, because the two views measure one in different
+     * spaces: pixels on the window, units of felt on the block. Read out of absolute surface
+     * units it would answer about the wrong end of the counter on the seated board, whose
+     * camera turns the felt round on its way to the screen.
+     */
+    public static int lifeHalfIn(Rect box, double x, double y) {
+        if (box.isEmpty() || !box.contains((int) Math.round(x), (int) Math.round(y))) {
+            return 0;
+        }
+        return x < box.centreX() ? -1 : 1;
     }
 
     /**

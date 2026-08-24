@@ -113,6 +113,11 @@ public final class SurfaceBoard implements BoardPlacement {
     }
 
     @Override
+    public Rect lifeRect(SeatId seat) {
+        return surface.lifeBox(seat.index());
+    }
+
+    @Override
     public int pileAt(SeatId seat, int count, double x, double y) {
         return surface.pileAt(seat.index(), count, x, y);
     }
