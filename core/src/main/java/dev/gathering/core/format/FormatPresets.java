@@ -59,11 +59,19 @@ public final class FormatPresets {
         return new FormatPreset(id, displayName, id, 60, -1, 4, 20, CommanderRules.NONE, 15);
     }
 
+    /**
+     * The presets by id, in the order they are written above.
+     *
+     * <p>Not {@code Map.copyOf}, whose iteration order is unspecified and in practice comes
+     * out of a hash salted once per launch - so the format buttons came up in a different
+     * order every time the game started, and nobody could ever learn where Commander was.
+     * The order here is a decision: the ones most tables play, first.
+     */
     private static Map<String, FormatPreset> index(FormatPreset... presets) {
         Map<String, FormatPreset> byId = new LinkedHashMap<>();
         for (FormatPreset preset : presets) {
             byId.put(preset.id(), preset);
         }
-        return Map.copyOf(byId);
+        return java.util.Collections.unmodifiableMap(byId);
     }
 }

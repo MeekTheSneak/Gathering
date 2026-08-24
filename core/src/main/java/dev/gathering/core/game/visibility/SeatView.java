@@ -22,7 +22,11 @@ public record SeatView(
     public SeatView {
         commanderDamage = commanderDamage == null ? Map.of() : Map.copyOf(commanderDamage);
         commanderTax = commanderTax == null ? Map.of() : Map.copyOf(commanderTax);
-        counters = counters == null ? Map.of() : Map.copyOf(counters);
+        // Kept in the order they arrived rather than in a hash order, because a screen draws
+        // them as rows and rows that reorder themselves are rows nobody can point at.
+        counters = counters == null
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(counters));
         zones = zones == null ? Map.of() : Map.copyOf(new EnumMap<>(zones));
     }
 

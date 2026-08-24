@@ -95,9 +95,16 @@ public final class TableSetupScreen extends Screen {
                     () -> bestOf = length));
         }
 
+        // Two buttons, because starting is the thing this screen does and there has to be a
+        // way to arrive here and change your mind that is not a key nobody was told about.
+        // Every other panel the table opens offers one.
+        int decideTop = lengthsTop + ROW_HEIGHT + GAP * 2;
+        int half = (panel.width() - MARGIN * 2 - GAP) / 2;
         addRenderableWidget(GatheringButtons.of(
-                panel.x() + MARGIN, lengthsTop + ROW_HEIGHT + GAP * 2,
-                panel.width() - MARGIN * 2, ROW_HEIGHT,
+                panel.x() + MARGIN, decideTop, half, ROW_HEIGHT,
+                Component.translatable("gui.cancel"), this::onClose));
+        addRenderableWidget(GatheringButtons.of(
+                panel.right() - MARGIN - half, decideTop, half, ROW_HEIGHT,
                 Component.translatable("screen.gathering.setup.start"), this::start));
     }
 

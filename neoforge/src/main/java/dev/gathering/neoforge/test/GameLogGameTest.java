@@ -77,8 +77,14 @@ public final class GameLogGameTest {
             // that catches a string reading its arguments in the wrong order: "Chris drew
             // Chris cards for 3" fills every placeholder and drops nothing, so only asking
             // whether the counts survived finds it.
+            //
+            // One is the exception, and only one: a line about a single card is allowed to say
+            // "a card" rather than "1 card", which is the same fact in better English and the
+            // reason those lines have a key of their own. Every other count has to be there,
+            // because "milled some cards" really would be losing something.
             for (var arg : entry.args()) {
                 if (arg instanceof dev.gathering.core.game.event.LogArg.Amount amount
+                        && amount.value() != 1
                         && !text.contains(Integer.toString(amount.value()))) {
                     helper.fail("Log line " + entry.key() + " lost the number " + amount.value()
                             + ": \"" + text + "\"");

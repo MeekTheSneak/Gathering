@@ -229,7 +229,8 @@ public sealed interface GameEvent {
     record CardsDrawn(SeatId actor, SeatId seat, int count) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
-            return LogLine.of("log.gathering.cards_drawn", actor, seat, count);
+            return LogLine.of(oneOrMany("log.gathering.card_drawn", "log.gathering.cards_drawn",
+                    count), actor, seat, count);
         }
 
         @Override
@@ -315,7 +316,8 @@ public sealed interface GameEvent {
     record LibraryMilled(SeatId actor, SeatId seat, int count) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
-            return LogLine.of("log.gathering.library_milled", actor, seat, count);
+            return LogLine.of(oneOrMany("log.gathering.library_milled_one",
+                    "log.gathering.library_milled", count), actor, seat, count);
         }
 
         @Override
@@ -339,7 +341,8 @@ public sealed interface GameEvent {
         @Override
         public LogLine describe(GameState before) {
             return count > 0
-                    ? LogLine.of("log.gathering.library_revealed", actor, seat, count)
+                    ? LogLine.of(oneOrMany("log.gathering.library_revealed_one",
+                            "log.gathering.library_revealed", count), actor, seat, count)
                     : LogLine.of("log.gathering.library_unrevealed", actor, seat);
         }
 
@@ -353,7 +356,8 @@ public sealed interface GameEvent {
     record LibraryLooked(SeatId actor, SeatId seat, int count) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
-            return LogLine.of("log.gathering.library_looked", actor, seat, count);
+            return LogLine.of(oneOrMany("log.gathering.library_looked_one",
+                    "log.gathering.library_looked", count), actor, seat, count);
         }
 
         @Override
@@ -490,6 +494,18 @@ public sealed interface GameEvent {
         public LogLine describe(GameState before) {
             return LogLine.of("log.gathering.commander_tax", actor, seat, CardRef.publicRefFor(before, commander), delta);
         }
+    }
+
+    /**
+     * Which of two keys to write a line under, by how many of a thing it is about.
+     *
+     * <p>"Drew 1 cards" is the most common line a game of this produces, because drawing one
+     * card is the most common thing anybody does, and it is wrong every time. Minecraft's
+     * translations have no plural rule, so the line picks its own key and each language writes
+     * both - which is also the only way this works for languages whose plural is not English's.
+     */
+    static String oneOrMany(String one, String many, int count) {
+        return count == 1 ? one : many;
     }
 
     /** Conceding is a player's own decision and the only thing close to a game result here. */
