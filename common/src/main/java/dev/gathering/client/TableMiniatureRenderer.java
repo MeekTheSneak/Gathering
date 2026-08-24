@@ -469,9 +469,14 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 // out across the top of the card. Measured from the far edge instead, the
                 // tax lands at the same end of the slot as every count beside it.
                 float bandZ = z + onSurface(slot.bottom() - taxBand.centreY(), span);
+                // Written to the band rather than to a count's line, because that is what it
+                // has: a count is a badge in a corner and gets a corner's worth of room, and
+                // a tax is a band across the whole slot. Given the count's height it came out
+                // half the height of its own backing, which on a table seen from across the
+                // room is the difference between a number and a smudge.
                 writing(poseStack, buffers, packedLight, Component.literal("+" + tax),
-                        x + width / 2f, bandZ, lineHeight, width * WRITING_ROOM, angle,
-                        COUNT_BACKING);
+                        x + width / 2f, bandZ, onSurface(taxBand.height(), span),
+                        onSurface(taxBand.width(), span) * WRITING_ROOM, angle, COUNT_BACKING);
             }
             // The name goes on the felt beside it, in the space the seated board writes it
             // in, so the two views read the same.
