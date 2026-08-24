@@ -1,5 +1,6 @@
 package dev.gathering.core.game.persistence;
 
+import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.SessionRecord;
 import dev.gathering.core.game.event.GameEvent;
 import java.io.ByteArrayInputStream;
@@ -34,7 +35,7 @@ import java.util.Map;
 public final class SessionCodec {
 
     /** Bumped when the format changes in a way an older reader cannot handle. */
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     /**
      * A ceiling on any length read from a stream, checked before it sizes anything.
@@ -43,6 +44,12 @@ public final class SessionCodec {
      * a corrupt or hostile file cannot ask for an arbitrary allocation.
      */
     public static final int MAX_LIST = 100_000;
+
+    /** A thing that happened. */
+    private static final byte HAPPENING = 0;
+
+    /** Somebody taking things back. Never secret: it names no card. */
+    private static final byte REWIND = 1;
 
     private SessionCodec() {
     }
@@ -63,9 +70,23 @@ public final class SessionCodec {
 
             int secrets = 0;
             for (SessionRecord record : records) {
+                // Which kind of record this is, because a log has two and used to be written
+                // as though it had one. A rewind puts an UndoRecord in the log and the writer
+                // refused it, so the first time anybody took a move back the table could no
+                // longer be saved at all - and the session, on being told it could not be
+                // written, went away with the game in it.
+                if (record instanceof SessionRecord.UndoRecord rewind) {
+                    open.writeByte(REWIND);
+                    open.writeLong(rewind.sequence());
+                    open.writeInt(rewind.requester().index());
+                    open.writeInt(rewind.actionCount());
+                    open.writeBoolean(rewind.unanimous());
+                    continue;
+                }
                 if (!(record instanceof SessionRecord.EventRecord event)) {
                     throw new IOException("Cannot store a " + record.getClass().getSimpleName());
                 }
+                open.writeByte(HAPPENING);
                 open.writeLong(event.sequence());
                 open.writeBoolean(event.undone());
 
@@ -104,6 +125,16 @@ public final class SessionCodec {
 
             List<SessionRecord> records = new ArrayList<>(Math.min(count, 1024));
             for (int index = 0; index < count; index++) {
+                byte kind = open.readByte();
+                if (kind == REWIND) {
+                    records.add(new SessionRecord.UndoRecord(
+                            open.readLong(), new SeatId(open.readInt()),
+                            open.readInt(), open.readBoolean()));
+                    continue;
+                }
+                if (kind != HAPPENING) {
+                    throw new IOException("Session log has a record of kind " + kind);
+                }
                 long sequence = open.readLong();
                 boolean undone = open.readBoolean();
                 boolean secret = open.readBoolean();

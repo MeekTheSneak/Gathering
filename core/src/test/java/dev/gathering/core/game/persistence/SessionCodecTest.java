@@ -141,6 +141,25 @@ class SessionCodecTest {
         assertThat(((GameEvent.CardAttached) back).host()).isNull();
     }
 
+    @Test
+    @DisplayName("a log that has had something taken back can still be written and read")
+    void aRewindSurvivesBeingStored() throws Exception {
+        // A rewind puts an UndoRecord in the log, and the writer used to refuse anything that
+        // was not an event - so the first time anybody took a move back, the table could not
+        // be saved at all and the game went away with it. Nothing caught it because nothing
+        // could reach undo.
+        SeatId a = new SeatId(0);
+        List<SessionRecord> log = List.of(
+                new SessionRecord.EventRecord(0, new GameEvent.CardTapSet(a, new CardInstanceId(7), true), true),
+                new SessionRecord.UndoRecord(1, a, 1, false),
+                new SessionRecord.EventRecord(2, new GameEvent.SeatUntappedAll(a, a), false));
+
+        SessionCodec.Streams streams = SessionCodec.write(log);
+        List<SessionRecord> back = SessionCodec.read(streams.publicLog(), streams.secretLog());
+
+        assertThat(back).isEqualTo(log);
+    }
+
     private static List<GameEvent> everyKind() {
         SeatId a = new SeatId(0);
         SeatId b = new SeatId(1);

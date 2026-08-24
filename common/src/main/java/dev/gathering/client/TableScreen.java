@@ -37,6 +37,7 @@ import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
 import dev.gathering.network.CreateTokenPayload;
+import dev.gathering.network.UndoPayload;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -292,9 +293,20 @@ public final class TableScreen extends Screen {
         return menu != null && menu.has(label);
     }
 
-    /** Takes the menu entry with this label, if a menu is up and has one. As above. */
+    /**
+     * Takes the menu entry with this label, if a menu is up and has one. As above.
+     *
+     * <p>The menu goes away first, exactly as it does when a real click takes an entry - the
+     * click path clears it before dispatching so an entry that opens a screen does not leave
+     * a menu behind on the board underneath.
+     */
     boolean pressMenuEntry(String label) {
-        return menu != null && menu.press(label);
+        ContextMenu open = menu;
+        if (open == null || !open.has(label)) {
+            return false;
+        }
+        menu = null;
+        return open.press(label);
     }
 
     /** Whether the last frame drawn had a card under the cursor. For the harness, as above. */
@@ -2128,6 +2140,10 @@ public final class TableScreen extends Screen {
         view().ifPresent(board -> entries.add(entry("my_counters",
                 () -> openCounters(new CountersScreen.Subject.Seat(
                         me, CountersScreen.titleForSeat(board, me))))));
+        // Taking back a misclick. Asked for rather than done: this client does not decide
+        // whether a rewind is allowed, and saying so in the interface would only be a second
+        // opinion the table is free to disagree with.
+        entries.add(entry("undo", this::undoMyLastAction));
         entries.add(entry("show_everything", this::showEverything));
         entries.add(ContextMenu.Entry.rule());
         // The one verb that ends a game. Everything else the table does is a move somebody can
@@ -2174,6 +2190,18 @@ public final class TableScreen extends Screen {
                 .map(summary -> Component.literal(summary.name()))
                 .map(Component.class::cast)
                 .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
+    }
+
+    /**
+     * Asks the table to take back this player's most recent action.
+     *
+     * <p>One at a time, because that is what a misclick is. Whether it happens is the
+     * session's decision - your own action, this table's undo mode, and never across
+     * something that let somebody see a card - and the answer comes back as a message when
+     * it is no.
+     */
+    private void undoMyLastAction() {
+        ClientNetworking.send(new UndoPayload(table, 1));
     }
 
     /** What a phase is called, built once each because the status line asks every frame. */

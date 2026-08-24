@@ -13,6 +13,7 @@ import dev.gathering.network.RequestCardMetadataPayload;
 import dev.gathering.network.SideboardEditPayload;
 import dev.gathering.network.StartTablePayload;
 import dev.gathering.network.TableActionPayload;
+import dev.gathering.network.UndoPayload;
 import dev.gathering.network.TableViewPayload;
 import dev.gathering.server.CardMetadataRequests;
 import dev.gathering.server.DeckEdits;
@@ -41,6 +42,7 @@ final class GatheringNetwork {
                 RequestCardMetadataPayload.TYPE, RequestCardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(DeckEditPayload.TYPE, DeckEditPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(TableActionPayload.TYPE, TableActionPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(UndoPayload.TYPE, UndoPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(StartTablePayload.TYPE, StartTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
                 SideboardEditPayload.TYPE, SideboardEditPayload.STREAM_CODEC);
@@ -78,6 +80,9 @@ final class GatheringNetwork {
 
         ServerPlayNetworking.registerGlobalReceiver(TableActionPayload.TYPE, (payload, context) ->
                 TableActions.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(UndoPayload.TYPE, (payload, context) ->
+                TableActions.handleUndo(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(StartTablePayload.TYPE, (payload, context) ->
                 dev.gathering.server.TableSetup.handle(context.player(), payload));

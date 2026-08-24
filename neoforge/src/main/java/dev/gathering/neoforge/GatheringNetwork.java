@@ -14,6 +14,7 @@ import dev.gathering.network.RequestCardMetadataPayload;
 import dev.gathering.network.SideboardEditPayload;
 import dev.gathering.network.StartTablePayload;
 import dev.gathering.network.TableActionPayload;
+import dev.gathering.network.UndoPayload;
 import dev.gathering.network.TableViewPayload;
 import dev.gathering.server.CardMetadataRequests;
 import dev.gathering.server.DeckEdits;
@@ -65,6 +66,11 @@ public final class GatheringNetwork {
                 TableActionPayload.TYPE,
                 TableActionPayload.STREAM_CODEC,
                 GatheringNetwork::onTableAction);
+
+        registrar.playToServer(
+                UndoPayload.TYPE,
+                UndoPayload.STREAM_CODEC,
+                GatheringNetwork::onUndo);
 
         registrar.playToServer(
                 StartTablePayload.TYPE,
@@ -145,6 +151,14 @@ public final class GatheringNetwork {
         if (context.player() instanceof ServerPlayer player) {
             dev.gathering.server.Sideboarding.handle(player, payload);
         }
+    }
+
+    private static void onUndo(UndoPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+                dev.gathering.server.TableActions.handleUndo(player, payload);
+            }
+        });
     }
 
     private static void onTableAction(TableActionPayload payload, IPayloadContext context) {

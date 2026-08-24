@@ -9,6 +9,7 @@ import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.core.game.persistence.EventCodec;
 import dev.gathering.network.TableActionPayload;
+import dev.gathering.network.UndoPayload;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -116,6 +117,49 @@ public final class TableActions {
         // may move any public card" safe: the log says who did it. A client that could sign a
         // move with somebody else's name would take that away and leave the permissiveness.
         return event.actor().equals(seat) ? Optional.of(event) : Optional.empty();
+    }
+
+    /**
+     * Takes back a player's own most recent actions, if this table lets them.
+     *
+     * <p>Every judgement is the session's and is made here rather than trusted from the
+     * packet: who is asking comes from the player it arrived from, and whether the rewind is
+     * allowed - their own actions, this table's undo mode, and the hard rule that a rewind
+     * never crosses an action that let somebody see something - is decided by the same code
+     * that decides it for the interface. A client can ask for anything; it gets what the
+     * table allows and a reason when it does not.
+     */
+    public static void handleUndo(ServerPlayer player, UndoPayload payload) {
+        ServerLevel level = player.serverLevel();
+        BlockPos clicked = payload.table();
+        if (player.distanceToSqr(clicked.getX() + 0.5, clicked.getY() + 0.5, clicked.getZ() + 0.5)
+                > REACH * REACH) {
+            return;
+        }
+        BlockState state = level.getBlockState(clicked);
+        if (!(state.getBlock() instanceof TableBlock)) {
+            return;
+        }
+        BlockPos origin = TableBlock.originOf(state, clicked);
+        GameSession session = TableSessions.sessionAt(level, origin).orElse(null);
+        SeatId seat = TableSessions.seatIdOf(level, origin, player.getUUID()).orElse(null);
+        if (session == null || seat == null) {
+            return;
+        }
+        int actions = Math.max(1, Math.min(UndoPayload.MOST_AT_ONCE, payload.actions()));
+
+        // No consents, so anything needing them is refused with its reason. Collecting three
+        // other players' agreement is a conversation this table cannot have yet, and asking
+        // for it silently would be worse than saying so.
+        GameSession.Result result = session.undo(seat, actions, java.util.List.of());
+        if (result instanceof GameSession.Result.Rejected rejected) {
+            player.sendSystemMessage(Component.literal(rejected.reason()));
+            return;
+        }
+        TableSessions.anchorOf(level, origin)
+                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
+                .ifPresent(TableBlockEntity::setChanged);
+        TableBroadcast.sendToTable(level, origin);
     }
 
     /** Opens the board for a player who has just sat down at a running game. */
