@@ -552,6 +552,28 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
+     * A seat's mat together with the life total printed off its far edge.
+     *
+     * <p>What "your own board" means to a camera. The counter is deliberately not on the mat
+     * - a number in the play area is a number somebody puts a land on - but it is still part
+     * of a player's own board, and both views framed the mat alone at first. On the seated
+     * board that put the number the game is played to just past the top of the window; on the
+     * board drawn in the world it put it under the status row. One rule, asked by both.
+     */
+    public Rect ownBoard(int seat) {
+        Rect mat = matOf(seat);
+        Rect life = lifeBox(seat);
+        if (mat.isEmpty() || life.isEmpty()) {
+            return mat;
+        }
+        int left = Math.min(mat.x(), life.x());
+        int top = Math.min(mat.y(), life.y());
+        int right = Math.max(mat.right(), life.right());
+        int bottom = Math.max(mat.bottom(), life.bottom());
+        return new Rect(left, top, right - left, bottom - top);
+    }
+
+    /**
      * Which half of a seat's life counter a point is on: -1 for the left, 1 for the right, 0
      * for neither.
      *

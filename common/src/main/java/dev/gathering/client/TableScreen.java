@@ -423,7 +423,10 @@ public final class TableScreen extends Screen {
      */
     /** This player's own mat on the real table, in surface units, for the camera to frame. */
     private Rect myMatOnTheBlock() {
-        return mySeat().map(seat -> onBlock.matRect(seat)).orElse(Rect.NONE);
+        // The mat and the life total printed off its far edge. Framed on the mat alone, the
+        // counter came out under the status row - the same fault the seated view had, from
+        // the same cause, so both ask the surface the same question.
+        return mySeat().map(seat -> onBlock.surface().ownBoard(seat.index())).orElse(Rect.NONE);
     }
 
     /** How much of the bottom of the window the hand is sitting over. */

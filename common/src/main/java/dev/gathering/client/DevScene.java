@@ -746,6 +746,10 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 49 -> {
+                // The counter has to be inside the window in this view as well. Framed on
+                // the mat alone it came out under the status row here, the same way it came
+                // out past the top of the window on the seated board.
+                theLifeCounterIsOnScreen(client);
                 // The same tax, pressed on the board drawn in the world. Worth pressing twice
                 // over because the two views hand the press its rectangle in different spaces
                 // - pixels on the window, units of felt on the block - and a button that only
@@ -2062,15 +2066,36 @@ public final class DevScene {
             return;
         }
         Rect box = board.board().lifeRect(me);
-        int wide = client.getWindow().getGuiScaledWidth();
-        int high = client.getWindow().getGuiScaledHeight();
-        if (box.isEmpty() || box.x() < 0 || box.y() < 0 || box.right() > wide
-                || box.bottom() > high) {
-            fail("this player's own life counter is not on screen: " + box
-                    + " in " + wide + " by " + high);
+        if (box.isEmpty()) {
+            fail("this player's own board has nowhere to write a life total");
             return;
         }
-        System.out.println("[devscene] the life counter is on screen at " + box);
+        int wide = client.getWindow().getGuiScaledWidth();
+        int high = client.getWindow().getGuiScaledHeight();
+        // On the block the rectangle is in units of felt, so it has to be put through the
+        // camera before it can be compared with a window. Asked in pixels either way, the
+        // check passed on the seated board and compared a number in the thousands against a
+        // window four hundred wide on the other - which is a check that cannot fail for the
+        // right reason.
+        boolean onTheBlock = board.board() instanceof SurfaceBoard;
+        int[][] corners = new int[4][];
+        double[][] wanted = {
+                {box.x(), box.y()}, {box.right(), box.y()},
+                {box.x(), box.bottom()}, {box.right(), box.bottom()}};
+        for (int index = 0; index < wanted.length; index++) {
+            corners[index] = onTheBlock
+                    ? screenPointFor(client, wanted[index], null)
+                    : new int[] {(int) wanted[index][0], (int) wanted[index][1]};
+            int[] at = corners[index];
+            if (at == null || at[0] < 0 || at[1] < 0 || at[0] > wide || at[1] > high) {
+                fail("this player's own life counter is not on screen: corner "
+                        + java.util.Arrays.toString(wanted[index]) + " came out at "
+                        + java.util.Arrays.toString(at) + " in " + wide + " by " + high);
+                return;
+            }
+        }
+        System.out.println("[devscene] the life counter is on screen, "
+                + (onTheBlock ? "on the block" : "on the seated board"));
     }
 
     /** This player's own life, as the board they are looking at reports it. */

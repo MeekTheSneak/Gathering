@@ -150,7 +150,7 @@ public final class BoardGeometry implements BoardPlacement {
         // own board even though it is not on the mat. Framed on the mat alone it sat just
         // past the top of the window: the one number the game is played to, off screen at
         // the framing a player spends the whole game in.
-        Rect own = withLife(mat, seat);
+        Rect own = surface.ownBoard(seat.index());
         double fit = Math.min(
                 width / (double) Math.max(1, own.width()),
                 visible() / (double) Math.max(1, own.height()));
@@ -170,25 +170,6 @@ public final class BoardGeometry implements BoardPlacement {
         camera = new TableCamera(
                 camera.centreX(), camera.centreY() + lean,
                 camera.scale(), surface.width(), surface.height(), turned);
-    }
-
-    /**
-     * A seat's mat together with the life total printed off its far edge.
-     *
-     * <p>What "your own board" means to a camera. The counter is deliberately not on the mat
-     * - a number in the play area is a number somebody puts a land on - but it is still
-     * yours, and framing that left it out put it off the top of the window.
-     */
-    private Rect withLife(Rect mat, SeatId seat) {
-        Rect life = surface.lifeBox(seat.index());
-        if (life.isEmpty()) {
-            return mat;
-        }
-        int top = Math.min(mat.y(), life.y());
-        int bottom = Math.max(mat.bottom(), life.bottom());
-        int left = Math.min(mat.x(), life.x());
-        int right = Math.max(mat.right(), life.right());
-        return new Rect(left, top, right - left, bottom - top);
     }
 
     /**
