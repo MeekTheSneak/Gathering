@@ -85,6 +85,9 @@ public final class TableScreen extends Screen {
     /** The line round a group of zones: a marking on the mat rather than a piece of interface. */
     private static final int ZONE_BORDER = 0x66FFFFFF;
 
+    /** Zone names printed on the felt: quieter than a card, loud enough to read. */
+    private static final int ZONE_LABEL = 0xFFB9C4C0;
+
     /** How solid a free chair's outline is: there, and clearly not a board in play. */
     private static final int FREE_SEAT_EDGE = 0x44;
     private static final int MAT_MINE = 0x406FD3E8;
@@ -684,6 +687,18 @@ public final class TableScreen extends Screen {
                     art.width(), art.height(), art.width(), art.height());
         }
 
+        // Name on the felt beside the slot, count in the slot's own corner. Four unlabelled
+        // boxes stacked in a column are only readable by somebody who already knows the order
+        // they come in, and the order is the one thing a player coming from a physical table
+        // has no reason to know.
+        Rect named = board().pileLabelRect(view.seat(), Zone.PILES.indexOf(zone), pileCount());
+        Component zoneName = ZoneText.name(zone);
+        if (!named.isEmpty() && GuiText.fits(this.font, zoneName, named.width())) {
+            GuiText.drawCentred(graphics, this.font, zoneName,
+                    (int) named.centreX(),
+                    (int) named.centreY() - this.font.lineHeight / 2,
+                    named.width(), ZONE_LABEL);
+        }
         if (art.height() > this.font.lineHeight + 2) {
             Component label = Component.literal(Integer.toString(count));
             int labelWidth = this.font.width(label) + 4;
@@ -1342,8 +1357,9 @@ public final class TableScreen extends Screen {
 
         // A press on a pile that never moved was a click on the pile after all.
         if (dropped.fromPile() != null && !dropped.hasMoved(x, y)) {
-            GatheringButtons.clickSound();
-            clickPile(dropped.from(), dropped.fromPile(), x, y);
+            if (clickPile(me, dropped.from(), dropped.fromPile())) {
+                GatheringButtons.clickSound();
+            }
             return true;
         }
 
@@ -1744,9 +1760,6 @@ public final class TableScreen extends Screen {
      */
     private boolean pressPile(GameView board, SeatId owner, Zone pile, int x, int y, int button) {
         SeatId me = mySeat().orElse(null);
-        if (me == null) {
-            return true;
-        }
         // Anybody may open anybody's graveyard - it is public - but the verbs that only make
         // sense on your own library are offered only there, because the mod refuses a search
         // of somebody else's anyway and a menu full of refusals is worse than a short one.
@@ -1755,32 +1768,44 @@ public final class TableScreen extends Screen {
             openPileMenu(me, pile, x, y);
             return true;
         }
-        if (button == 0) {
+        if (button == 0 && me != null) {
             // Somebody with no seat cannot move anything, so a drag that starts here would be
             // a card following their cursor and snapping back when they let go. They get the
             // click, which opens the pile - watching a graveyard is a thing a spectator does.
             CardInstanceId top = liftableFrom(board, owner, pile);
-            if (top != null && mySeat().isPresent()) {
+            if (top != null) {
                 held = grab(top, owner, false, pile, pileSlotOf(owner, pile), x, y);
                 return true;
             }
         }
-        GatheringButtons.clickSound();
-        clickPile(owner, pile, x, y);
+        // The sound is the answer to "did that do anything", so it is only made when the
+        // answer is yes. Clicking a face-down library belonging to somebody else has nothing
+        // it could mean, and a click that sounds like it worked is worse than a quiet one.
+        if (clickPile(me, owner, pile)) {
+            GatheringButtons.clickSound();
+        }
         return true;
     }
 
-    /** What a press on a pile does when it turns out to have been a click. */
-    private void clickPile(SeatId owner, Zone pile, int x, int y) {
-        SeatId me = mySeat().orElse(null);
-        if (me == null) {
-            return;
-        }
-        if (pile == Zone.LIBRARY && owner.equals(me)) {
-            send(new GameEvent.CardsDrawn(me, me, 1));
-        } else if (pile != Zone.LIBRARY) {
+    /**
+     * What a press on a pile does when it turns out to have been a click, and whether that
+     * was anything at all.
+     *
+     * <p>Opening a public pile asks nothing of the viewer's seat: a graveyard is public
+     * information, and somebody watching a game is exactly the person who wants to read one.
+     * What is actually in it is still the server's decision - the screen shows what this
+     * client was sent and says so when that is nothing.
+     */
+    private boolean clickPile(SeatId me, SeatId owner, Zone pile) {
+        if (pile != Zone.LIBRARY) {
             openPile(owner, pile, false);
+            return true;
         }
+        if (owner.equals(me)) {
+            send(new GameEvent.CardsDrawn(me, me, 1));
+            return true;
+        }
+        return false;
     }
 
     /**

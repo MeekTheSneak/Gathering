@@ -15,7 +15,6 @@ import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -103,7 +102,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     public PileScreen(
             BlockPos table, SeatId owner, Zone zone, boolean opensALibrary,
             Decision decision, Screen back) {
-        super(Component.translatable("zone.gathering." + zone.name().toLowerCase(Locale.ROOT)), back);
+        super(ZoneText.name(zone), back);
         this.table = table;
         this.owner = owner;
         this.zone = zone;
@@ -196,12 +195,18 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             }
         }
 
-        Component hint = decision == null
-                ? Component.translatable("screen.gathering.pile.hint")
-                : Component.translatable("screen.gathering.pile.deciding",
-                        Component.translatable(decision.away), sendingAway.size());
-        GuiText.draw(graphics, this.font, hint,
-                MARGIN, this.height - MARGIN - FOOTER + 3, this.width - MARGIN * 2, DIM);
+        // Nothing to click and nothing to scroll, so the footer says neither. A pile with no
+        // cards in it that still reads "click a card to move it   scroll for more" is three
+        // instructions for things that cannot be done here, which is how a screen teaches
+        // somebody that its own writing is not worth reading.
+        Component hint = decision != null
+                ? Component.translatable("screen.gathering.pile.deciding",
+                        Component.translatable(decision.away), sendingAway.size())
+                : cards.isEmpty() ? null : Component.translatable("screen.gathering.pile.hint");
+        if (hint != null) {
+            GuiText.draw(graphics, this.font, hint,
+                    MARGIN, this.height - MARGIN - FOOTER + 3, this.width - MARGIN * 2, DIM);
+        }
 
         if (menu != null) {
             menu.render(graphics, this.font, mouseX, mouseY);

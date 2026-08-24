@@ -138,7 +138,9 @@ public final class CountersScreen extends ChildScreen {
                 + rows * (ROW + GAP)
                 + commonRows * (ROW + GAP)
                 + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP))
-                + ROW + GAP * 3;
+                + ROW + GAP * 3
+                // Room for the way out.
+                + ROW + GAP;
         panel = new Rect(
                 (this.width - PANEL_WIDTH) / 2,
                 Math.max(MARGIN, (this.height - height) / 2),
@@ -197,6 +199,13 @@ public final class CountersScreen extends ChildScreen {
         addRenderableWidget(GatheringButtons.of(
                 panel.right() - MARGIN - 44, customTop, 44, ROW,
                 Component.translatable("screen.gathering.counters.add"), this::addCustom));
+
+        // Every change here has already been sent by the time it is drawn, so this closes
+        // rather than confirms - but a panel whose only exit is a key nobody was told about
+        // is a dead end, and the sibling screens all offer the same button.
+        addRenderableWidget(GatheringButtons.of(
+                panel.x() + MARGIN, customTop + ROW + GAP, panel.width() - MARGIN * 2, ROW,
+                Component.translatable("gui.done"), this::onClose));
     }
 
     /**

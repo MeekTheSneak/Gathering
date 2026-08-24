@@ -47,7 +47,17 @@ boot() {
     local code=$?
 
     if [ "$code" != 124 ]; then
-        echo "FAILED (exited $code before the timer; see $log)"
+        # Two ways to exit early that are this machine and not this mod. Named, because
+        # "exited 0 before the timer" on a server that could not open its port reads as the
+        # mod failing to boot, and that is a wrong diagnosis rather than a vague one.
+        if grep -q "FAILED TO BIND TO PORT" "$log" 2>/dev/null; then
+            echo "FAILED (port 25565 was already in use - another server, or two runs at" \
+                 "once; see $log)"
+        elif grep -q "No space left on device" "$log" 2>/dev/null; then
+            echo "FAILED (out of disk; see $log)"
+        else
+            echo "FAILED (exited $code before the timer; see $log)"
+        fi
         FAILED=1
         return
     fi

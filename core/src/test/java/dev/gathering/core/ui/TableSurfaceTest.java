@@ -326,6 +326,94 @@ class TableSurfaceTest {
     }
 
     @Test
+    @DisplayName("a zone's name is written on the felt beside its slot, never across it")
+    void zoneNamesSitBesideTheirSlots() {
+        // A slot is one card wide because that is what it holds, and no zone name fits across
+        // a card at the size a whole board is drawn at. So the name is given felt of its own,
+        // on the mat side of the column - clear of the slot, and still on the mat.
+        for (int seats : new int[] {2, 4}) {
+            TableSurface surface = TableSurface.forSeats(TableCluster.assumedSeating(seats));
+            for (int seat = 0; seat < surface.seatCount(); seat++) {
+                Rect mat = surface.matOf(seat);
+                for (int index = 0; index < 4; index++) {
+                    Rect slot = surface.pileSlot(seat, index, 4);
+                    Rect named = surface.pileLabel(seat, index, 4);
+                    if (named.isEmpty()) {
+                        continue;
+                    }
+                    assertThat(named.right() <= slot.x() || named.x() >= slot.right())
+                            .describedAs("%s seats: seat %s zone %s is not written over its slot",
+                                    seats, seat, index)
+                            .isTrue();
+                    assertThat(named.width()).isGreaterThan(slot.width());
+                    assertThat(mat.contains(named.x(), named.y())).isTrue();
+                    assertThat(mat.contains(named.right(), named.bottom())).isTrue();
+                    // Inward, so the writing runs across the table rather than off the edge.
+                    assertThat(named.centreX() < slot.centreX())
+                            .describedAs("%s seats: seat %s zone %s is named towards the mat",
+                                    seats, seat, index)
+                            .isEqualTo(!surface.isTurned(seat));
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("every zone in a column is written in the same space as its neighbours")
+    void zoneNamesShareOneColumnOfFelt() {
+        // Whether there is room to write a name is a question about the column, not about one
+        // zone in it. Asking it of each label's own height meant rounding a different y for
+        // each: on a real board one zone in four came out a pixel shorter than its
+        // neighbours, failed the "is this legible" test on its own, and was the only zone left
+        // unnamed - which reads as that zone being special rather than as a rounding error.
+        for (int seats : new int[] {2, 4}) {
+            TableSurface surface = TableSurface.forSeats(TableCluster.assumedSeating(seats));
+            for (int seat = 0; seat < surface.seatCount(); seat++) {
+                Rect first = surface.pileLabel(seat, 0, 4);
+                for (int index = 1; index < 4; index++) {
+                    Rect named = surface.pileLabel(seat, index, 4);
+                    assertThat(named.isEmpty())
+                            .describedAs("%s seats: seat %s names zone %s if it names any",
+                                    seats, seat, index)
+                            .isEqualTo(first.isEmpty());
+                    if (first.isEmpty()) {
+                        continue;
+                    }
+                    assertThat(named.x()).isEqualTo(first.x());
+                    assertThat(named.width()).isEqualTo(first.width());
+                    assertThat(named.height()).isEqualTo(first.height());
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("the lands-row line stops short of the zone names rather than crossing one out")
+    void theLandsRowDoesNotStrikeThroughAZoneName() {
+        for (int seats : new int[] {2, 4}) {
+            TableSurface surface = TableSurface.forSeats(TableCluster.assumedSeating(seats));
+            for (int seat = 0; seat < surface.seatCount(); seat++) {
+                Rect line = surface.matDivider(seat, 4);
+                if (line.isEmpty()) {
+                    continue;
+                }
+                for (int index = 0; index < 4; index++) {
+                    Rect named = surface.pileLabel(seat, index, 4);
+                    if (named.isEmpty()) {
+                        continue;
+                    }
+                    boolean clear = line.right() <= named.x() || line.x() >= named.right()
+                            || line.bottom() <= named.y() || line.y() >= named.bottom();
+                    assertThat(clear)
+                            .describedAs("%s seats: seat %s line does not cross zone %s's name",
+                                    seats, seat, index)
+                            .isTrue();
+                }
+            }
+        }
+    }
+
+    @Test
     @DisplayName("two players' boards face each other rather than both facing the same way")
     void boardsFaceTheirOwnPlayers() {
         // The same position on each mat has to mean "in front of me" for both of them. Laying

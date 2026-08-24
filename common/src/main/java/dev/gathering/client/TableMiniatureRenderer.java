@@ -18,12 +18,14 @@ import dev.gathering.item.CardComponent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
 
@@ -97,6 +99,23 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /** The card on a zone sits just above the slot it is in, so the two do not z-fight. */
     private static final float SLOT_LIFT = 0.0006f;
+
+    /** Zone names and counts, just clear of the sleeve drawn in the slot. */
+    private static final float WRITING_LIFT = 0.0012f;
+
+    /**
+     * How tall a line of writing is, in surface units, so it scales with the mat.
+     *
+     * <p>Surface units run to {@link TableSurface#SPAN} across the whole table and a card is
+     * a tenth of that, so this is about an eighth of a card's width - the same relation a
+     * zone name has to a card on a printed playmat.
+     */
+    private static final double WRITING_HEIGHT = TableSurface.CARD_WIDTH_UNITS / 8.0;
+
+    private static final int WRITING_COLOUR = 0xFFE8E4DC;
+
+    /** How much of a slot's width a line of writing may take up. */
+    private static final float WRITING_ROOM = 0.86f;
 
     /** The halo under the card the cursor is on, and how far it sticks out past it. */
     private static final int RING_COLOUR = 0xCC7FD4FF;
@@ -258,16 +277,71 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             drawSlot(poseStack, buffers, x, z, width, depth, aimed);
 
             ZoneView contents = seat.zone(Zone.PILES.get(index));
-            if (contents == null || showing(contents) == 0) {
-                continue;
+            int held = contents == null ? 0 : showing(contents);
+            int angle = surface.facingDegrees(seatIndex);
+            if (held > 0) {
+                CardView top = topOf(contents);
+                ResourceLocation texture = top == null || top.isFaceDown()
+                        ? CardFaceRenderer.CARD_BACK
+                        : textureFor(top);
+                draw(poseStack, buffers, packedLight, texture, x, z, width, depth,
+                        angle, false, SLOT_LIFT);
             }
-            CardView top = topOf(contents);
-            ResourceLocation texture = top == null || top.isFaceDown()
-                    ? CardFaceRenderer.CARD_BACK
-                    : textureFor(top);
-            draw(poseStack, buffers, packedLight, texture, x, z, width, depth,
-                    surface.facingDegrees(seatIndex), false, SLOT_LIFT);
+
+            // The board played on the block said nothing about which box was which or how
+            // much was in any of them, so the one view meant for playing was the one view a
+            // player could not read their own deck size off. Written on the felt rather than
+            // floated over it: it is a marking on the mat, like the line the lands sit behind.
+            float lineHeight = onSurface(WRITING_HEIGHT, span);
+            // The count sits in the slot's own corner; the name goes on the felt beside it,
+            // in the space the seated board writes it in, so the two views read the same.
+            writing(poseStack, buffers, packedLight, Component.literal(Integer.toString(held)),
+                    x + width / 2f, z + lineHeight * 0.6f,
+                    lineHeight, width * WRITING_ROOM, angle);
+            Rect named = surface.pileLabel(seatIndex, index, count);
+            if (!named.isEmpty()) {
+                writing(poseStack, buffers, packedLight, ZoneText.name(Zone.PILES.get(index)),
+                        onSurface(named.centreX(), span), onSurface(named.centreY(), span),
+                        onSurface(named.height(), span), onSurface(named.width(), span), angle);
+            }
         }
+    }
+
+    /**
+     * A line of writing lying flat on the surface, centred on a point and turned to face the
+     * seat it belongs to.
+     *
+     * <p>The font draws into the XY plane facing the camera, so it is tipped a quarter turn
+     * about X to lie down with its face to the sky, and scaled from font pixels into surface
+     * units so a label keeps its size against the mat rather than against the screen.
+     */
+    private void writing(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            Component text, float centreX, float centreZ, float lineHeight, float maxWidth,
+            int angle) {
+        if (lineHeight <= 0f) {
+            return;
+        }
+        Font font = net.minecraft.client.Minecraft.getInstance().font;
+        int drawn = font.width(text);
+        if (drawn <= 0) {
+            return;
+        }
+        // A zone name is longer than a zone is wide, so the line shrinks rather than running
+        // out over the felt and off the edge of the mat. It shrinks as far as it has to,
+        // unlike the seated board, which drops a name it cannot write whole: this writing is
+        // in the world, so a player who cannot read it can walk towards it.
+        float scale = Math.min(lineHeight / font.lineHeight, maxWidth / drawn);
+        poseStack.pushPose();
+        poseStack.translate(centreX, WRITING_LIFT, centreZ);
+        if (Math.floorMod(angle, 360) != 0) {
+            poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-angle));
+        }
+        poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(90f));
+        poseStack.scale(scale, scale, scale);
+        font.drawInBatch(text, -drawn / 2f, -font.lineHeight / 2f, WRITING_COLOUR,
+                false, poseStack.last().pose(), buffers, Font.DisplayMode.NORMAL, 0, packedLight);
+        poseStack.popPose();
     }
 
     /**

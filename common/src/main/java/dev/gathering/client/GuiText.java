@@ -46,6 +46,18 @@ public final class GuiText {
     }
 
     /**
+     * Whether this text would be drawn whole in {@code maxWidth}, rather than losing its tail.
+     *
+     * <p>For the callers whose answer to "it does not fit" is to leave it out altogether. A
+     * card name has to appear somehow, so it is shrunk and trimmed; a label on the felt naming
+     * a zone does not, and half a zone's name reads worse than none of it.
+     */
+    public static boolean fits(Font font, Component text, int maxWidth) {
+        int width = font.width(text);
+        return width == 0 || width * MINIMUM_SCALE <= maxWidth;
+    }
+
+    /**
      * Works in {@link FormattedText} rather than in plain strings, so a bold or coloured
      * component still arrives bold or coloured after being shrunk or trimmed - flattening to
      * a string here would quietly drop the styling a caller went to the trouble of adding.

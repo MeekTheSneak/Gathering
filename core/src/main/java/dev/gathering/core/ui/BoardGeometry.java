@@ -309,6 +309,11 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     @Override
+    public Rect pileLabelRect(SeatId seat, int index, int count) {
+        return surfaceRect(surface.pileLabel(seat.index(), index, count));
+    }
+
+    @Override
     public Rect matDividerRect(SeatId seat, int count) {
         return surfaceRect(surface.matDivider(seat.index(), count));
     }

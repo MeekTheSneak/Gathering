@@ -100,6 +100,12 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /** And how heavy the line marking it is, as a share of a card's height. */
     private static final double DIVIDER_THICKNESS = 0.012;
 
+    /** How many slot widths of felt a zone's name is given to be written across. */
+    private static final double PILE_LABEL_WIDTHS = 2.4;
+
+    /** How tall that writing is, as a share of the slot it names. */
+    private static final double PILE_LABEL_HEIGHT = 0.17;
+
     /**
      * How wide a card is on a table with one mat on it, in surface units.
      *
@@ -422,6 +428,36 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      *
      * @param count how many zones the column holds, which is what sets its width
      */
+    /**
+     * Where a zone's name is printed on the mat, beside its slot.
+     *
+     * <p>Not inside the slot. A slot is exactly one card wide, because that is what it holds,
+     * and no word longer than "Exile" fits across a card at the size a whole two-player board
+     * is drawn at - so a name written in the slot arrives as "Grav...". Beside it there is
+     * bare felt and room for the word, which is also where a printed playmat puts it.
+     *
+     * <p>On the mat side of the column, so the writing runs into the table rather than off
+     * the edge of it, whichever chair the mat belongs to.
+     */
+    public Rect pileLabel(int seat, int index, int count) {
+        Rect slot = pileSlot(seat, index, count);
+        if (slot.isEmpty()) {
+            return Rect.NONE;
+        }
+        Rect mat = matOf(seat);
+        int gap = Math.max(1, (int) Math.round(slot.height() * PILE_GAP));
+        int width = Math.max(1, (int) Math.round(slot.width() * PILE_LABEL_WIDTHS));
+        int height = Math.max(1, (int) Math.round(slot.height() * PILE_LABEL_HEIGHT));
+        int top = slot.y() + (slot.height() - height) / 2;
+        int left = isTurned(seat) ? slot.right() + gap : slot.x() - gap - width;
+        Rect label = new Rect(left, top, width, height);
+        // A mat with three seats round it is narrow enough that the word would start off the
+        // side of it, and a name half on the felt is worse than no name.
+        return mat.contains(label.x(), label.y()) && mat.contains(label.right(), label.bottom())
+                ? label
+                : Rect.NONE;
+    }
+
     public Rect matDivider(int seat, int count) {
         Rect mat = matOf(seat);
         if (mat.isEmpty()) {
@@ -434,11 +470,18 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
             // middle of one would be a line and not a marking.
             return Rect.NONE;
         }
+        // The line stops short of the zone column and of the names written beside it. Ending
+        // it at the column alone drew it straight through whichever name it happened to be
+        // level with, which reads as a zone crossed out rather than as a row marked off.
         Rect column = pileGroup(seat, 0, Math.max(0, count - 1), count);
+        Rect named = pileLabel(seat, 0, count);
+        int margin = Math.max(1, (int) Math.round(cardHeightOn(seat) * PILE_GAP));
+        int columnStart = named.isEmpty() ? column.x() : Math.min(column.x(), named.x());
+        int columnEnd = named.isEmpty() ? column.right() : Math.max(column.right(), named.right());
         int from = column.isEmpty() ? mat.x()
-                : (isTurned(seat) ? column.right() : mat.x());
+                : (isTurned(seat) ? columnEnd + margin : mat.x());
         int to = column.isEmpty() ? mat.right()
-                : (isTurned(seat) ? mat.right() : column.x());
+                : (isTurned(seat) ? mat.right() : columnStart - margin);
         int y = isTurned(seat) ? mat.y() + band : mat.bottom() - band - thickness;
         return from >= to ? Rect.NONE : new Rect(from, y, to - from, thickness);
     }

@@ -470,12 +470,14 @@ public final class DevScene {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
                 }
                 shoot(client, "25-damage-recorded");
-                if (client.screen != null) {
-                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
-                }
+                // Out by the button rather than by the escape key. Every panel needs a way out
+                // somebody can see, and a run that always leaves by a key nobody was told
+                // about would pass just as happily with no way out at all.
+                press(client, "Done");
                 advance(SETTLE / 2);
             }
             case 34 -> {
+                expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
                 // init on an instance that is already holding a game. Two sizes: one where
@@ -511,13 +513,14 @@ public final class DevScene {
                     fail("standing up left the client still holding a seat");
                 }
                 shoot(client, "30-watching-from-outside");
+                aSpectatorReadsAGraveyard(client);
                 pokeEverything(client);
                 advance(SETTLE);
             }
             case 39 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
-                shoot(client, "31-still-watching");
+                shoot(client, "32-still-watching");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -992,6 +995,47 @@ public final class DevScene {
      * stays in a codebase. So: click a card, right-click a card, click every zone, drag from
      * the hand, and press every key that does something.
      */
+    /**
+     * A graveyard is public, so somebody who is only watching the game may read one.
+     *
+     * <p>Guards a click that used to be swallowed: the board asked for the viewer's own seat
+     * before it would open anybody's pile, so a spectator clicking a graveyard got nothing at
+     * all - no screen, no message, and a click sound saying it had worked.
+     */
+    private static void aSpectatorReadsAGraveyard(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board for a spectator to read a graveyard from");
+            return;
+        }
+        if (ClientTableState.seatAt(table).isPresent()) {
+            fail("the spectator check ran with a seat still held");
+            return;
+        }
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        SeatView seated = view == null ? null : view.seats().stream()
+                .filter(seat -> seat.occupant().isPresent())
+                .findFirst().orElse(null);
+        if (seated == null) {
+            fail("no seated player for a spectator to read a graveyard from");
+            return;
+        }
+        int index = Zone.PILES.indexOf(Zone.GRAVEYARD);
+        Rect zone = board.board().pileRect(seated.seat(), index, Zone.pilesFor(true));
+        if (zone.isEmpty()) {
+            fail("the seated player's graveyard had nowhere to be clicked");
+            return;
+        }
+        board.mouseClicked(zone.centreX(), zone.centreY(), 0);
+        board.mouseReleased(zone.centreX(), zone.centreY(), 0);
+        if (client.screen instanceof PileScreen) {
+            System.out.println("[devscene] a spectator opened a seated player's graveyard");
+            shoot(client, "31-a-spectator-reads-a-graveyard");
+            client.screen.onClose();
+        } else {
+            fail("a spectator could not open a seated player's graveyard");
+        }
+    }
+
     private static void pokeEverything(Minecraft client) {
         if (!(client.screen instanceof TableScreen board)) {
             fail("there was no board left to poke at");
@@ -1038,6 +1082,19 @@ public final class DevScene {
             if (client.screen != null) {
                 client.screen.keyPressed(key, 0, 0);
             }
+        }
+        // Anything those gestures opened has to close again. A spectator may now read a
+        // graveyard, so poking every zone legitimately leaves a pile screen up; what would be
+        // a fault is one that will not go back to the board.
+        for (int escape = 0; escape < 8 && !(client.screen instanceof TableScreen); escape++) {
+            if (client.screen == null) {
+                fail("a gesture with no seat closed the table out of the game");
+                return;
+            }
+            client.screen.onClose();
+        }
+        if (!(client.screen instanceof TableScreen)) {
+            fail("a gesture with no seat opened something that would not close back to the board");
         }
         System.out.println("[devscene] poked every gesture with no seat");
     }
