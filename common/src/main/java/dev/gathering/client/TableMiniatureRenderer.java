@@ -11,9 +11,11 @@ import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.SeatColour;
+import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableTop;
+import dev.gathering.core.table.TableCluster;
 import dev.gathering.item.CardComponent;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +51,23 @@ import org.joml.Matrix4f;
  * <p>Client-only.
  */
 public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEntity> {
+
+    /**
+     * Where a card sits on a mat, in surface units, asked of the same rule the seated board
+     * asks - so the two views cannot come to different answers about the same card.
+     *
+     * <p>Kept rather than built per frame, and rebuilt only when the table changes shape.
+     */
+    private SurfaceBoard onBlock;
+    private int onBlockSeats = -1;
+
+    private SurfaceBoard placementFor(int seats) {
+        if (onBlock == null || onBlockSeats != seats) {
+            onBlock = new SurfaceBoard(TableCluster.assumedSeating(seats));
+            onBlockSeats = seats;
+        }
+        return onBlock;
+    }
 
     /**
      * Where the surface is, taken from {@link TableTop} rather than restated here.
@@ -160,6 +179,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         TablePointer.capture(net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera());
 
         TableSurface surface = TableSurface.forSeatCount(board.seats().size());
+        SurfaceBoard placement = placementFor(board.seats().size());
         float span = (float) TableTop.SPAN_BLOCKS;
 
         poseStack.pushPose();
@@ -204,7 +224,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         int drawn = 0;
         for (int index = 0; index < board.seats().size() && drawn < MAX_CARDS; index++) {
             drawn += drawSeat(poseStack, buffers, packedLight, board.seats().get(index),
-                    surface, index, span, MAX_CARDS - drawn);
+                    surface, placement, index, span, MAX_CARDS - drawn);
         }
         poseStack.popPose();
     }
@@ -437,7 +457,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private int drawSeat(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, SeatView seat,
-            TableSurface surface, int seatIndex, float span, int budget) {
+            TableSurface surface, SurfaceBoard placement, int seatIndex, float span, int budget) {
         List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
         if (cards.isEmpty()) {
             return 0;
@@ -477,8 +497,14 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             float lean = onSurface(
                     TableStacking.offsetFor(depths.get(index), (int) surface.cardWidthOn(seatIndex)),
                     span);
-            float x = onSurface(surface.surfaceX(seatIndex, where.x()), span) + lean;
-            float z = onSurface(surface.surfaceY(seatIndex, where.y()), span) + lean;
+            // A position is the card's middle, not its corner - see BoardPlacement - and
+            // draw() is given a corner. Adding half a card without taking half a card off
+            // first put every card on this board half a card down and right of where the
+            // seated board draws the same card, so a permanent sitting on the edge of a mat
+            // in one view was off the mat in the other.
+            Rect placed = placement.rectOf(seat.seat(), where);
+            float x = onSurface(placed.x(), span) + lean;
+            float z = onSurface(placed.y(), span) + lean;
             float lift = depths.get(index) * STACK_LIFT;
 
             if (card instanceof CardView.Visible visible && ClientTableHighlight.isLit(visible.id())) {

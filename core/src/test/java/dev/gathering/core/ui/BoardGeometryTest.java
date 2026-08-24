@@ -1,6 +1,7 @@
 package dev.gathering.core.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.TablePosition;
@@ -491,5 +492,35 @@ class BoardGeometryTest {
 
     private static List<SeatAnchor> seatsOf(TableCell... cells) {
         return TableCluster.of(Set.of(cells)).seats();
+    }
+
+    @Test
+    @DisplayName("a position is the card's middle, whichever board is asked")
+    void everyBoardMeasuresACardFromItsMiddle() {
+        // The contract BoardPlacement states, and the one thing both views have to agree on.
+        // The board drawn on the block used to take the same number as the card's corner and
+        // then add half a card to centre it, which put every card there half a card down and
+        // right of where the seated board drew the same card - so a permanent on the edge of
+        // a mat in one view was off the mat in the other.
+        for (int seats : new int[] {2, 4}) {
+            List<SeatAnchor> anchors = TableCluster.assumedSeating(seats);
+            SurfaceBoard board = new SurfaceBoard(anchors);
+            TableSurface surface = TableSurface.forSeats(anchors);
+            for (int index = 0; index < seats; index++) {
+                SeatId seat = new SeatId(index);
+                for (TablePosition where : List.of(
+                        TablePosition.ORIGIN,
+                        TablePosition.of(TablePosition.SPAN / 4, TablePosition.SPAN / 3),
+                        TablePosition.of(TablePosition.SPAN, TablePosition.SPAN))) {
+                    Rect card = board.rectOf(seat, where);
+                    assertThat(card.centreX())
+                            .describedAs("%s seats: seat %s centres %s across", seats, index, where)
+                            .isCloseTo(surface.surfaceX(index, where.x()), within(1.0));
+                    assertThat(card.centreY())
+                            .describedAs("%s seats: seat %s centres %s down", seats, index, where)
+                            .isCloseTo(surface.surfaceY(index, where.y()), within(1.0));
+                }
+            }
+        }
     }
 }
