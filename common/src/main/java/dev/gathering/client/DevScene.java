@@ -1028,7 +1028,7 @@ public final class DevScene {
             return;
         }
         Screen before = client.screen;
-        if (!openTheTableMenu(client, board)) {
+        if (!openTheTableMenu(client, board, "Concede")) {
             fail("no felt on the board offered a table menu to concede from");
             return;
         }
@@ -1056,7 +1056,7 @@ public final class DevScene {
      * <p>Not the middle of the board: by this point there are cards there, and a right-click
      * on a card opens that card's menu instead.
      */
-    private static boolean openTheTableMenu(Minecraft client, TableScreen board) {
+    private static boolean openTheTableMenu(Minecraft client, TableScreen board, String wanted) {
         int width = client.getWindow().getGuiScaledWidth();
         int height = client.getWindow().getGuiScaledHeight();
         int[][] places = {
@@ -1067,7 +1067,7 @@ public final class DevScene {
         for (int[] at : places) {
             board.mouseClicked(at[0], at[1], 1);
             board.mouseReleased(at[0], at[1], 1);
-            if (board.menuIsOpen() && board.hasMenuEntry("Concede")) {
+            if (board.menuIsOpen() && board.hasMenuEntry(wanted)) {
                 return true;
             }
             board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
@@ -1089,30 +1089,16 @@ public final class DevScene {
             fail("there was no board to leave the table from");
             return;
         }
-        int width = client.getWindow().getGuiScaledWidth();
-        int height = client.getWindow().getGuiScaledHeight();
-        // Bare felt, which by this point in the run is not the middle of the board - there
-        // are cards there. A right-click on a card opens that card's menu instead, so this
-        // tries a few places and takes the first that offers the table's own.
-        int[][] places = {
-            {width / 2, height / 2}, {width / 6, height / 3},
-            {width / 2, height / 6}, {width * 5 / 6, height / 3},
-            {width / 6, height * 2 / 3},
-        };
-        for (int[] at : places) {
-            board.mouseClicked(at[0], at[1], 1);
-            board.mouseReleased(at[0], at[1], 1);
-            if (board.menuIsOpen() && board.pressMenuEntry("Leave the table")) {
-                System.out.println("[devscene] left the table from its own menu");
-                // Leaving puts the board away, which is what standing up and walking off
-                // means. The run wants to go on watching the same table without a seat, so it
-                // opens it again the way anybody with no seat opens it.
-                client.setScreen(new TableScreen(table));
-                return;
-            }
-            board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        if (!openTheTableMenu(client, board, "Leave the table")) {
+            fail("no felt on the board offered a table menu with a way to leave the table");
+            return;
         }
-        fail("no felt on the board offered a table menu with a way to leave the table");
+        board.pressMenuEntry("Leave the table");
+        System.out.println("[devscene] left the table from its own menu");
+        // Leaving puts the board away, which is what standing up and walking off means. The
+        // run wants to go on watching the same table without a seat, so it opens it again the
+        // way anybody with no seat opens it.
+        client.setScreen(new TableScreen(table));
     }
 
     /**

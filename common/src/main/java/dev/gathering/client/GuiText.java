@@ -73,8 +73,12 @@ public final class GuiText {
      * a zone does not, and half a zone's name reads worse than none of it.
      */
     public static boolean fits(Font font, Component text, int maxWidth) {
-        int width = font.width(text);
-        return width == 0 || width * MINIMUM_SCALE <= maxWidth;
+        return maxWidth >= roomFor(font, text);
+    }
+
+    /** The narrowest space this text can be drawn whole in. */
+    public static int roomFor(Font font, Component text) {
+        return (int) Math.ceil(font.width(text) * MINIMUM_SCALE);
     }
 
     /**

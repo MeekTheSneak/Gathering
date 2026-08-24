@@ -27,9 +27,16 @@ public enum TableVerb {
     /** A new opening hand, one smaller. Only ever wanted at the start, but wanted badly. */
     MULLIGAN;
 
-    /** The key its name is written under. */
+    private final String key = "verb.gathering." + name().toLowerCase(Locale.ROOT);
+
+    /**
+     * The key its name is written under.
+     *
+     * <p>Built once. Every button on every mat asks for this every frame, and lowercasing a
+     * constant sixty times a second is sixty allocations to arrive at the same string.
+     */
     public String key() {
-        return "verb.gathering." + name().toLowerCase(Locale.ROOT);
+        return key;
     }
 
     /** How many buttons a mat carries. */

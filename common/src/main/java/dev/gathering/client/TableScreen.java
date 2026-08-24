@@ -265,6 +265,9 @@ public final class TableScreen extends Screen {
     /** The seat the camera is currently framed for, or null for the whole table. */
     private SeatId framedFor;
 
+    /** Measured once per screen: how much felt the longest zone name needs. Nought is unasked. */
+    private int longestZoneName;
+
     /** Frames the board on this seat's own mat, or on the whole table when there is no seat. */
     private void frameTheBoard(SeatId seat) {
         if (seat == null) {
@@ -824,12 +827,25 @@ public final class TableScreen extends Screen {
      * a board too small to write on.
      */
     private boolean everyZoneNameFits(int room) {
-        for (Zone zone : Zone.PILES) {
-            if (!GuiText.fits(this.font, ZoneText.name(zone), room)) {
-                return false;
+        return room >= roomForTheLongestZoneName();
+    }
+
+    /**
+     * How much felt the longest zone name needs, measured once.
+     *
+     * <p>It was measured per zone per seat per frame - four translations and four font
+     * measurements each, sixty-four a frame on a four-player table - to answer a question
+     * whose answer only depends on the font and the language. Neither changes without the
+     * screen being built again, which is where this is cleared.
+     */
+    private int roomForTheLongestZoneName() {
+        if (longestZoneName == 0) {
+            for (Zone zone : Zone.PILES) {
+                longestZoneName = Math.max(longestZoneName,
+                        GuiText.roomFor(this.font, ZoneText.name(zone)));
             }
         }
-        return true;
+        return longestZoneName;
     }
 
     /**
