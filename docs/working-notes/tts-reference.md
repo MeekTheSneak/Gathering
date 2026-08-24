@@ -40,8 +40,10 @@ One seat's playmat, read off a top-down screenshot of a four-player table.
 
 ## What that means for us
 
-1. Build the on-mat button group (task #47). Confirmed by the reference, and it is the
-   biggest discoverability gap left.
-2. Decide whether the command zone becomes two counted slots rather than one pile
-   (**needs the user** - it changes the game model, not just the drawing).
-3. Consider life as a token on the felt rather than only a line of status text.
+1. ~~Build the on-mat button group.~~ **Done** - four verbs down each player's own left hand,
+   in both views, and recorded in the design brief. This file goes away once the two below
+   are settled.
+2. Decide whether the command zone becomes two counted slots rather than one pile.
+   **Needs the user**: it changes the game model, not just the drawing.
+3. Decide whether life becomes a token on the felt rather than a line of status text.
+   **Needs the user**: it is a design call about what the middle of the table is for.

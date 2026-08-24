@@ -15,6 +15,7 @@ import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableTop;
+import dev.gathering.core.ui.TableVerb;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.item.CardComponent;
 import java.util.ArrayList;
@@ -199,6 +200,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                     SeatColour.at(index, taken ? MAT_EDGE_ALPHA : FREE_SEAT_ALPHA), taken,
                     taken && ClientTableHighlight.isLandingOn(board.seats().get(index).seat()));
             if (taken) {
+                // The same buttons the seated board prints, in the same places, because they
+                // are the same mat. A player who learns where their untap button is in one
+                // view has learned where it is in the other.
+                drawVerbs(poseStack, buffers, packedLight, surface, index, span);
                 // The line marking off the row nearest its player, where lands go. On the mat
                 // rather than above it: it is a marking printed on the felt, not a thing
                 // sitting on top of the felt.
@@ -268,6 +273,36 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         flat(consumer, pose, left, bottom - edge, right, bottom, border);
         flat(consumer, pose, left, top, left + edge, bottom, border);
         flat(consumer, pose, right - edge, top, right, bottom, border);
+    }
+
+    /**
+     * The run of verb buttons printed down a seat's own mat.
+     *
+     * <p>Drawn, not clickable here: the board on the block is pointed at with a ray and the
+     * screen that owns that ray is the one that listens. What this has to do is make sure the
+     * player can see there is something to point at.
+     */
+    private void drawVerbs(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            TableSurface surface, int seatIndex, float span) {
+        int count = TableVerb.count();
+        drawGroup(poseStack, buffers, surface.verbGroup(seatIndex, count), span);
+        float lineHeight = onSurface(WRITING_HEIGHT, span);
+        for (int index = 0; index < count; index++) {
+            Rect slot = surface.verbSlot(seatIndex, index, count);
+            if (slot.isEmpty()) {
+                continue;
+            }
+            float x = onSurface(slot.x(), span);
+            float z = onSurface(slot.y(), span);
+            float width = onSurface(slot.width(), span);
+            float depth = onSurface(slot.height(), span);
+            drawSlot(poseStack, buffers, x, z, width, depth, false);
+            writing(poseStack, buffers, packedLight,
+                    Component.translatable(TableVerb.values()[index].key()),
+                    x + width / 2f, z + depth / 2f, lineHeight, width * WRITING_ROOM,
+                    surface.facingDegrees(seatIndex));
+        }
     }
 
     /**

@@ -67,6 +67,12 @@ public interface BoardPlacement {
      */
     Rect pileGroupRect(SeatId seat, int fromIndex, int toIndex, int count);
 
+    /** One of the verb buttons printed on a seat's own mat. */
+    Rect verbRect(SeatId seat, int index, int count);
+
+    /** The panel round the whole run of verb buttons. */
+    Rect verbGroupRect(SeatId seat, int count);
+
     /** Where a zone's name is written on the felt beside its slot, or nothing if it will not fit. */
     Rect pileLabelRect(SeatId seat, int index, int count);
 

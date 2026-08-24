@@ -399,18 +399,30 @@ class TableSurfaceTest {
                 }
                 for (int index = 0; index < 4; index++) {
                     Rect named = surface.pileLabel(seat, index, 4);
-                    if (named.isEmpty()) {
-                        continue;
+                    if (!named.isEmpty()) {
+                        assertThat(clearOf(line, named))
+                                .describedAs("%s seats: seat %s line clears zone %s's name",
+                                        seats, seat, index)
+                                .isTrue();
                     }
-                    boolean clear = line.right() <= named.x() || line.x() >= named.right()
-                            || line.bottom() <= named.y() || line.y() >= named.bottom();
-                    assertThat(clear)
-                            .describedAs("%s seats: seat %s line does not cross zone %s's name",
-                                    seats, seat, index)
-                            .isTrue();
+                }
+                for (int index = 0; index < TableVerb.count(); index++) {
+                    Rect verb = surface.verbSlot(seat, index, TableVerb.count());
+                    if (!verb.isEmpty()) {
+                        assertThat(clearOf(line, verb))
+                                .describedAs("%s seats: seat %s line clears verb button %s",
+                                        seats, seat, index)
+                                .isTrue();
+                    }
                 }
             }
         }
+    }
+
+    /** Whether these two do not overlap at all. */
+    private static boolean clearOf(Rect one, Rect other) {
+        return one.right() <= other.x() || one.x() >= other.right()
+                || one.bottom() <= other.y() || one.y() >= other.bottom();
     }
 
     @Test

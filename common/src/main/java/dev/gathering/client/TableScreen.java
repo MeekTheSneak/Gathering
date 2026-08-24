@@ -31,6 +31,7 @@ import dev.gathering.core.ui.TableScreenLayout;
 import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
+import dev.gathering.core.ui.TableVerb;
 import dev.gathering.core.ui.TableTop;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
@@ -552,6 +553,7 @@ public final class TableScreen extends Screen {
                     held == null ? null : held.card());
         } else {
             renderMats(graphics, board);
+            renderVerbs(graphics, mouseX, mouseY);
             renderPiles(graphics, board, mouseX, mouseY);
 
             List<Placed> onTable = everythingOnTheTable(board);
@@ -678,6 +680,64 @@ public final class TableScreen extends Screen {
 
     /** The last zone in the group a hand actually reaches for: exile. */
     private static final int IN_HAND_REACH = Zone.PILES_WITHOUT_A_COMMAND_ZONE - 1;
+
+    /**
+     * The buttons printed on each seated player's own mat.
+     *
+     * <p>Only on their own mat: pressing somebody else's untap button is not a thing anybody
+     * does at a table, and drawing four boxes on every mat that only work on one of them
+     * would be four lies per opponent.
+     */
+    private void renderVerbs(GuiGraphics graphics, int mouseX, int mouseY) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return;
+        }
+        int count = TableVerb.count();
+        Rect group = board().verbGroupRect(me, count);
+        if (group.isEmpty() || group.width() < 6) {
+            return;
+        }
+        graphics.renderOutline(group.x(), group.y(), group.width(), group.height(), ZONE_BORDER);
+        for (int index = 0; index < count; index++) {
+            Rect where = board().verbRect(me, index, count);
+            if (where.isEmpty() || where.width() < 8) {
+                continue;
+            }
+            TableVerb verb = TableVerb.values()[index];
+            boolean hovered = where.contains(mouseX, mouseY);
+            GatheringSprites.inset(graphics, where.x(), where.y(), where.width(), where.height());
+            if (hovered) {
+                GatheringSprites.highlight(
+                        graphics, where.x(), where.y(), where.width(), where.height());
+                graphics.renderOutline(
+                        where.x(), where.y(), where.width(), where.height(), ACCENT);
+            }
+            GuiText.drawCentred(graphics, this.font, Component.translatable(verb.key()),
+                    (int) where.centreX(), (int) where.centreY() - this.font.lineHeight / 2,
+                    where.width() - 2, hovered ? LABEL : ZONE_LABEL);
+        }
+    }
+
+    /** Runs the verb whose button is under this point, if one is. */
+    private boolean pressVerb(SeatId me, int x, int y) {
+        int count = TableVerb.count();
+        for (int index = 0; index < count; index++) {
+            Rect where = board().verbRect(me, index, count);
+            if (where.isEmpty() || !where.contains(x, y)) {
+                continue;
+            }
+            GatheringButtons.clickSound();
+            switch (TableVerb.values()[index]) {
+                case UNTAP -> send(new GameEvent.SeatUntappedAll(me, me));
+                case DRAW -> send(new GameEvent.CardsDrawn(me, me, 1));
+                case SHUFFLE -> send(new GameEvent.LibraryShuffled(me, me));
+                case MULLIGAN -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND));
+            }
+            return true;
+        }
+        return false;
+    }
 
     /** The line round a group of zones. Nothing inside it - the slots draw themselves. */
     private void drawPileGroup(GuiGraphics graphics, Rect group) {
@@ -1308,6 +1368,13 @@ public final class TableScreen extends Screen {
         if (inHand.isPresent()) {
             return pressCard(board, inHand.get(), mySeat().orElseThrow(),
                     handSlotOf(board, inHand.get()), true, x, y, button);
+        }
+
+        // Before the piles and before the felt: a button is a small target on top of a mat,
+        // and anything that answered first would swallow it.
+        SeatId mine = mySeat().orElse(null);
+        if (button == 0 && mine != null && !playingOnTheBlock && pressVerb(mine, x, y)) {
+            return true;
         }
 
         SeatId pileSeat = pileSeatAt(board, x, y);

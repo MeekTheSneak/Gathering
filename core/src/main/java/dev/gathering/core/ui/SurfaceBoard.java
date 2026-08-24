@@ -93,6 +93,16 @@ public final class SurfaceBoard implements BoardPlacement {
     }
 
     @Override
+    public Rect verbRect(SeatId seat, int index, int count) {
+        return surface.verbSlot(seat.index(), index, count);
+    }
+
+    @Override
+    public Rect verbGroupRect(SeatId seat, int count) {
+        return surface.verbGroup(seat.index(), count);
+    }
+
+    @Override
     public Rect pileLabelRect(SeatId seat, int index, int count) {
         return surface.pileLabel(seat.index(), index, count);
     }

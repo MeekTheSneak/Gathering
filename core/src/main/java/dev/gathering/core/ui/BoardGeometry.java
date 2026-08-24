@@ -309,6 +309,16 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     @Override
+    public Rect verbRect(SeatId seat, int index, int count) {
+        return surfaceRect(surface.verbSlot(seat.index(), index, count));
+    }
+
+    @Override
+    public Rect verbGroupRect(SeatId seat, int count) {
+        return surfaceRect(surface.verbGroup(seat.index(), count));
+    }
+
+    @Override
     public Rect pileLabelRect(SeatId seat, int index, int count) {
         return surfaceRect(surface.pileLabel(seat.index(), index, count));
     }

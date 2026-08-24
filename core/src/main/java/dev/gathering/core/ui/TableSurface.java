@@ -100,6 +100,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /** And how heavy the line marking it is, as a share of a card's height. */
     private static final double DIVIDER_THICKNESS = 0.012;
 
+    /** The gap between verb buttons, as a share of one button. */
+    private static final double VERB_GAP = 0.16;
+
     /** How many slot widths of felt a zone's name is given to be written across. */
     private static final double PILE_LABEL_WIDTHS = 2.4;
 
@@ -429,6 +432,48 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      * @param count how many zones the column holds, which is what sets its width
      */
     /**
+     * One of the buttons printed on a mat for the verbs a player uses every turn.
+     *
+     * <p>On the player's own left, mirroring the zone column on their right, because a real
+     * playmat has both and because a board with no affordances on it at all is a rectangle of
+     * felt that a new player has no reason to think they can click. Square rather than
+     * card-shaped: they are buttons, not places a card goes, and looking like a card slot is
+     * exactly the wrong promise.
+     *
+     * <p>Index nought sits nearest its own player, the same way the zone column runs.
+     */
+    public Rect verbSlot(int seat, int index, int count) {
+        Rect mat = matOf(seat);
+        if (mat.isEmpty() || count <= 0 || index < 0 || index >= count) {
+            return Rect.NONE;
+        }
+        double worth = count * (1 + VERB_GAP) + VERB_GAP;
+        int side = Math.max(1, Math.min(
+                (int) Math.round(cardWidthOn(seat)), (int) (mat.height() / worth)));
+        int gap = Math.max(1, (int) Math.round(side * VERB_GAP));
+        int step = side + gap;
+        int total = count * step - gap;
+        int top = mat.y() + (mat.height() - total) / 2;
+        int slot = isTurned(seat) ? index : count - 1 - index;
+        int inset = gap * 2;
+        int left = isTurned(seat) ? mat.right() - inset - side : mat.x() + inset;
+        return new Rect(left, top + slot * step, side, side);
+    }
+
+    /** The line round the whole run of verb buttons, drawn as one panel on the felt. */
+    public Rect verbGroup(int seat, int count) {
+        Rect first = verbSlot(seat, 0, count);
+        Rect last = verbSlot(seat, count - 1, count);
+        if (first.isEmpty() || last.isEmpty()) {
+            return Rect.NONE;
+        }
+        int gap = Math.max(1, (int) Math.round(first.height() * VERB_GAP));
+        int top = Math.min(first.y(), last.y()) - gap;
+        int bottom = Math.max(first.bottom(), last.bottom()) + gap;
+        return new Rect(first.x() - gap, top, first.width() + gap * 2, bottom - top);
+    }
+
+    /**
      * Where a zone's name is printed on the mat, beside its slot.
      *
      * <p>Not inside the slot. A slot is exactly one card wide, because that is what it holds,
@@ -470,11 +515,14 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
             // middle of one would be a line and not a marking.
             return Rect.NONE;
         }
-        // The line stops short of the zone column and of the names written beside it. Ending
-        // it at the column alone drew it straight through whichever name it happened to be
-        // level with, which reads as a zone crossed out rather than as a row marked off.
+        // The line stops short of everything printed down the sides of the mat: the zone
+        // column, the names beside it, and the run of verb buttons opposite. Ending it at the
+        // zone column alone drew it straight through whichever name it was level with and
+        // then, once there were buttons too, through those - which reads as a zone or a
+        // button crossed out rather than as a row marked off.
         Rect column = pileGroup(seat, 0, Math.max(0, count - 1), count);
         Rect named = pileLabel(seat, 0, count);
+        Rect verbs = verbGroup(seat, TableVerb.count());
         int margin = Math.max(1, (int) Math.round(cardHeightOn(seat) * PILE_GAP));
         int columnStart = named.isEmpty() ? column.x() : Math.min(column.x(), named.x());
         int columnEnd = named.isEmpty() ? column.right() : Math.max(column.right(), named.right());
@@ -482,6 +530,12 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
                 : (isTurned(seat) ? columnEnd + margin : mat.x());
         int to = column.isEmpty() ? mat.right()
                 : (isTurned(seat) ? mat.right() : columnStart - margin);
+        if (!verbs.isEmpty()) {
+            // The buttons sit on the player's other hand, so they bound the line from the
+            // opposite end to the zones.
+            from = Math.max(from, isTurned(seat) ? from : verbs.right() + margin);
+            to = Math.min(to, isTurned(seat) ? verbs.x() - margin : to);
+        }
         int y = isTurned(seat) ? mat.y() + band : mat.bottom() - band - thickness;
         return from >= to ? Rect.NONE : new Rect(from, y, to - from, thickness);
     }
