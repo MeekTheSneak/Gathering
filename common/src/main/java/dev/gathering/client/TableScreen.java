@@ -25,6 +25,7 @@ import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Legibility;
 import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.Shaking;
 import dev.gathering.core.ui.SeatColour;
 import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
@@ -924,6 +925,34 @@ public final class TableScreen extends Screen {
         return true;
     }
 
+    /**
+     * A pile somebody has just shuffled, rattling where it stands.
+     *
+     * <p>A shuffle changes nothing anybody may look at - not a count, not a zone, and the
+     * order it changes is the order nobody is entitled to know - so it is the one thing a
+     * player can do that the board cannot show. A stack of cards briefly rattling is what it
+     * looks like at a real table, and it is enough.
+     *
+     * <p>The seat and the zone are the seed, so two libraries shuffled at once are two hands
+     * shuffling rather than one board vibrating.
+     */
+    private Rect shakenIfStirred(SeatId seat, Zone zone, Rect slot) {
+        long shaking = ClientTableNews.shakingFor(
+                table, seat, zone, System.currentTimeMillis());
+        if (shaking < 0 || slot.isEmpty()) {
+            return slot;
+        }
+        int reach = Math.max(1, slot.width() / SHAKE_OF_A_SLOT);
+        int seed = seat.index() * Zone.values().length + zone.ordinal();
+        return new Rect(
+                slot.x() + Shaking.wobble(seed, shaking, reach),
+                slot.y() + Shaking.wobble(seed + 7, shaking, reach),
+                slot.width(), slot.height());
+    }
+
+    /** How far a shuffled pile rattles, as a fraction of its own width. */
+    private static final int SHAKE_OF_A_SLOT = 8;
+
     /** The line round a group of zones. Nothing inside it - the slots draw themselves. */
     private void drawPileGroup(GuiGraphics graphics, Rect group) {
         if (group.isEmpty() || group.width() < 6) {
@@ -951,6 +980,7 @@ public final class TableScreen extends Screen {
      * rules already give everyone, and hiding it behind a number just makes people click.
      */
     private void drawPile(GuiGraphics graphics, SeatView view, Zone zone, Rect pile, boolean hovered) {
+        pile = shakenIfStirred(view.seat(), zone, pile);
         ZoneView contents = view.zone(zone);
         int count = contents == null ? 0 : contents.count();
         if (held != null && held.fromPile() == zone && held.from().equals(view.seat())) {

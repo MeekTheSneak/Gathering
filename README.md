@@ -57,45 +57,76 @@ build fails early with instructions if you forget. Everything else is pinned in
 ./gradlew :neoforge:runClient  # play it
 ```
 
-`verify` is the bar. Every stage of it has been confirmed capable of failing, because a
-gate that cannot fail manufactures confidence rather than providing it.
+`verify` is the bar. Every stage of it has been confirmed capable of failing, because a gate
+that cannot fail manufactures confidence rather than providing it.
+
+Four more checks sit beside it, and each exists because something got through the others:
+
+```bash
+python3 tools/langcheck.py     # every translation key written out exists, and none is stale
+tools/smoke.sh                 # boot all four targets: both loaders, client and server
+tools/shots.sh                 # drive a real client through a scripted game, photograph it
+tools/preview                  # render the pure layout arithmetic straight to PNG
+```
+
+`langcheck.py` reads the source and `sounds.json` rather than a list somebody maintains.
+`smoke.sh` exists because a loader can serve every class without its assets: it compiles,
+builds, passes every test, boots, registers everything, logs happily, and then draws missing
+textures and raw translation keys. Fabric shipped exactly that until somebody read the
+resource pack list on startup - so a loader is not working until it has been booted.
+
+`shots.sh` drives a real client through a whole game - sit down, deal, play a card, open a
+graveyard, scry, surveil, resize the window, stand up and watch - asserting at each step and
+leaving a numbered set of pictures behind. A step that stops working fails the run rather
+than quietly producing a duller picture. It is the only check that can see whether a thing
+looks like anything, and most of the interface faults in this repository were found by
+looking at its output rather than by reading code.
 
 ## Status
 
-**Phase 0 — the pipeline.** In progress.
+**Phase 0 - the pipeline.** Done.
 
 - [x] Multiloader scaffold with enforced layer fences
 - [x] Card identity (`{scryfall_id, foil, custom_id?}`) and card metadata
-- [x] Decklist parser — Moxfield, Archidekt, Arena, MTGO, deckstats, plain
+- [x] Decklist parser - Moxfield, Archidekt, Arena, MTGO, deckstats, plain
 - [x] Scryfall client: batched collection resolution, rate limiting, retry, disk cache
-- [x] Deck import: pasted text to a resolved deck
+- [x] Deck import from pasted text or a deck-site link
 - [x] Card and deck items carrying the data component, on both loaders
 - [x] Verification gate: JUnit + jqwik, data generation, headless game tests
-- [x] Networking: import request, import result, card metadata, all round-trip tested
+- [x] Networking: import, metadata, table actions, all round-trip tested
 - [x] In-game decklist import screen, reached with `/gathering import`
 - [x] Zoom overlay: hold a key over a card to read it at full resolution
 
-### Trying it
-
-```
-/gathering import
-```
-
-opens a box. Paste a decklist, press Import, and a deck lands in your inventory. Hold
-**Left Alt** over any card - in a slot, or in your hand - to read it full size with its
-oracle text.
-
-**Phase 1 — the solo table.** Pure core done; the table itself is not started.
+**Phase 1 - the solo table.** Playable.
 
 - [x] `GameSession` as an event-sourced state machine - the board is the fold of the log
 - [x] Zones, the full v1 verb set, seeded deterministic shuffles
 - [x] Visibility rules, with the invariant suite by example and by property
-- [x] Data-driven format validator (8 presets), pre-game only
-- [ ] Table multiblock and seats
-- [ ] Seated GUI and in-world miniature rendering
+- [x] Data-driven format validator (8 presets), run before a formatted game and never during
+- [x] Table multiblock, seats, and a one-click path from walking up to dealt
+- [x] Two views of one board: the felt on the window, and the real table seen from above
+- [x] Free placement at any angle, drag between zones, box select, attachments, tokens
+- [x] Tabletop Simulator's controls, plus the nine verbs its Magic table binds to the number row
+- [x] Mat buttons, named zones, counters, commander damage and tax, turn and phase marker
+- [x] Undo, concede, session persistence across a restart, spectators
+- [x] Cards that travel between zones rather than teleporting, and audible tables
 
-Phases 2–4 (the real game, collection and draft, arenas) are described in the design brief,
-section 14.
+**Phase 2 - the real game.** Under way: multiplayer sessions, per-player visibility sync and
+spectator rendering are in; the group playtest that gates the rest is not.
+
+Phases 3-4 (collection and draft, arenas) are described in the design brief, section 14.
+
+### Playing it
+
+Craft a table, place it, and it builds itself into a two-by-two multiblock. Import a deck
+with `/gathering import` - paste a decklist or a Moxfield-style link - then walk up to the
+table holding the deck and right-click it. That deals: you are sat down, shuffled, and
+holding seven. Crouch and right-click instead to choose a format first, or free play if you
+would rather nobody's deck be checked.
+
+Hold **Left Alt** over any card, anywhere, to read it full size with its oracle text. Press
+**F1** at the table for every key. Press **V** to swap between playing on the window and
+playing on the table itself.
 
 ## Two rules the code is built around
 
@@ -111,6 +142,27 @@ is not entitled to it, so a modified client learns nothing. Face-down cards trav
 markers regenerated on every flip. Shuffles derive from a session seed that is never logged,
 never sent, and never printed. This is the one security property of the mod and it has its
 own test suite, which must never regress.
+
+## Three rules the interface is built around
+
+**A word on the felt is written whole or not at all.** A label shrunk to fit stops being a
+word before it stops being drawn, and where that happens is not a fraction of its natural
+size - it is where the font's own pixels stop getting a screen pixel each. So a set of
+labels is measured from its longest and written all at one size or not at all, and anything
+with no room for its name says what it is when the cursor rests on it instead.
+
+**A screen takes as little of the window as its job needs.** The table is the thing being
+played, and anything drawn over it is in the way for as long as it is up. The order of
+preference is: write it on the felt, then a tooltip, then a popup the size of its contents,
+then a panel, and only then the whole window - and nothing has earned the whole window. Every
+screen the table opens draws the board behind it, because most of what is decided on them is
+decided by looking at the board.
+
+**Nothing teleports.** A card that changes zones crosses the felt to get there, and everybody
+watching sees it cross - worked out by comparing two boards rather than by being told, so the
+movement is public while the card's identity stays exactly as private as it was. A shuffle,
+which moves nothing anybody may look at, shakes the pile instead. Both views draw it, and the
+table makes the noise as well.
 
 ## How a card reaches your screen
 

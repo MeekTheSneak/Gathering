@@ -22,6 +22,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LANG = ROOT / "common/src/main/resources/assets/gathering/lang/en_us.json"
+SOUNDS = ROOT / "common/src/main/resources/assets/gathering/sounds.json"
 
 # Entries nothing in the source asks for by name, on purpose. Listing them here rather than
 # letting them show up as unused every run is the difference between a check people read and a
@@ -92,10 +93,28 @@ def strayShortcuts(entries):
             if MENU_PREFIX + key not in entries}
 
 
+def subtitles():
+    """
+    The subtitle keys the sound definitions ask for.
+
+    Read rather than allowlisted, because a sound whose subtitle is missing is a subtitle
+    nobody sees and an allowlist would hide exactly that. sounds.json is source too; it just
+    is not Java.
+    """
+    if not SOUNDS.exists():
+        return {}
+    named = {}
+    for name, sound in json.loads(SOUNDS.read_text(encoding="utf-8")).items():
+        subtitle = sound.get("subtitle")
+        if subtitle:
+            named[subtitle] = f"sounds.json ({name})"
+    return named
+
+
 def main() -> int:
     entries = json.loads(LANG.read_text(encoding="utf-8"))
 
-    whole = {}
+    whole = dict(subtitles())
     prefixes = {}
     for source in sources():
         where = source.relative_to(ROOT).as_posix()

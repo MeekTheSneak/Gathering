@@ -1,0 +1,20 @@
+{
+  "draw_card": {
+    "subtitle": "subtitles.gathering.draw_card",
+    "sounds": [
+      "gathering:draw_card"
+    ]
+  },
+  "shuffle": {
+    "subtitle": "subtitles.gathering.shuffle",
+    "sounds": [
+      "gathering:shuffle"
+    ]
+  },
+  "scry": {
+    "subtitle": "subtitles.gathering.scry",
+    "sounds": [
+      "gathering:scry"
+    ]
+  }
+}

@@ -11,6 +11,7 @@ import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.Shaking;
 import dev.gathering.core.ui.SeatColour;
 import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableStacking;
@@ -232,7 +233,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // reads as a fault rather than as a free chair.
             if (board.seats().get(index).occupant().isPresent()) {
                 drawPiles(poseStack, buffers, packedLight, board.seats().get(index),
-                        surface, index, span, piles);
+                        surface, pos, index, span, piles);
             }
         }
         int drawn = 0;
@@ -385,7 +386,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private void drawPiles(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, SeatView seat,
-            TableSurface surface, int seatIndex, float span, int count) {
+            TableSurface surface, BlockPos table, int seatIndex, float span, int count) {
         drawGroup(poseStack, buffers,
                 surface.pileGroup(seatIndex, 0, Zone.PILES_WITHOUT_A_COMMAND_ZONE - 1, count), span);
         if (count > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
@@ -397,6 +398,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             if (slot.isEmpty()) {
                 continue;
             }
+            // A pile somebody has just shuffled rattles where it stands. Nothing about a
+            // shuffle shows on the board - see ClientTableNews - so this is the only account
+            // of it anybody watching the table itself gets.
+            slot = shakenIfStirred(table, seat.seat(), Zone.PILES.get(index), slot);
             float x = onSurface(slot.x(), span);
             float z = onSurface(slot.y(), span);
             float width = onSurface(slot.width(), span);
@@ -454,6 +459,28 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             }
         }
     }
+
+    /**
+     * A pile rattling because it has just been shuffled, in surface units.
+     *
+     * <p>The same shake the seated board draws, from the same clock, so the two views agree
+     * about which library is being shuffled and for how long.
+     */
+    private Rect shakenIfStirred(BlockPos table, SeatId seat, Zone zone, Rect slot) {
+        long shaking = ClientTableNews.shakingFor(table, seat, zone, System.currentTimeMillis());
+        if (shaking < 0) {
+            return slot;
+        }
+        int reach = Math.max(1, slot.width() / SHAKE_OF_A_SLOT);
+        int seed = seat.index() * Zone.values().length + zone.ordinal();
+        return new Rect(
+                slot.x() + Shaking.wobble(seed, shaking, reach),
+                slot.y() + Shaking.wobble(seed + 7, shaking, reach),
+                slot.width(), slot.height());
+    }
+
+    /** How far a shuffled pile rattles, as a fraction of its own width. */
+    private static final int SHAKE_OF_A_SLOT = 8;
 
     /**
      * How far a line of writing shrinks to fit the room it has.

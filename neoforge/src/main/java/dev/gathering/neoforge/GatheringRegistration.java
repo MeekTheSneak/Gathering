@@ -40,6 +40,9 @@ final class GatheringRegistration {
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, Gathering.MOD_ID);
 
+    private static final DeferredRegister<net.minecraft.sounds.SoundEvent> SOUNDS =
+            DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, Gathering.MOD_ID);
+
     private static final Supplier<Item> CARD =
             ITEMS.register(GatheringContent.CARD_ID, GatheringContent::createCard);
     private static final Supplier<Item> DECK =
@@ -80,10 +83,18 @@ final class GatheringRegistration {
     static void bootstrap(IEventBus modBus) {
         // Blocks before items: the table's item names its block when it is created.
         BLOCKS.register(modBus);
+        SOUNDS.register(modBus);
         BLOCK_ENTITIES.register(modBus);
         ITEMS.register(modBus);
         DATA_COMPONENTS.register(modBus);
         CREATIVE_TABS.register(modBus);
+
+        // One list, walked, rather than three named registrations - see GatheringSounds.
+        for (dev.gathering.registry.Registered<net.minecraft.sounds.SoundEvent> sound
+                : dev.gathering.sound.GatheringSounds.all()) {
+            String id = sound.entryName();
+            sound.bind(SOUNDS.register(id, () -> dev.gathering.sound.GatheringSounds.create(id)));
+        }
 
         // Bound as suppliers, so this runs safely here in the constructor rather than
         // waiting on a lifecycle event: nothing is resolved until something asks.

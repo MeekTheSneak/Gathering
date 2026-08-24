@@ -44,11 +44,16 @@ public final class ClientTableState {
             BOARDS.keySet().stream().findFirst().ifPresent(forgotten -> {
                 BOARDS.remove(forgotten);
                 ClientCardFlights.forget(forgotten);
+                ClientTableNews.forget(forgotten);
             });
         }
         // Before the board is put down, because what is wanted is the difference between the
         // one that was here and the one that has arrived - which is every card that moved.
-        ClientCardFlights.arrived(table, board, System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        ClientCardFlights.arrived(table, board, now);
+        // And the one move that leaves no trace on the board at all: a shuffle changes no
+        // zone and no count, so it has to be read off the log or it is not seen.
+        ClientTableNews.arrived(table, board, now);
         BOARDS.put(table.immutable(), board);
         if (seated) {
             seatedAt = table.immutable();
@@ -87,6 +92,7 @@ public final class ClientTableState {
     public static void forget(BlockPos table) {
         BOARDS.remove(table);
         ClientCardFlights.forget(table);
+        ClientTableNews.forget(table);
         if (table.equals(seatedAt)) {
             seatedAt = null;
         }
@@ -101,6 +107,7 @@ public final class ClientTableState {
     public static void clear() {
         BOARDS.clear();
         ClientCardFlights.clear();
+        ClientTableNews.clear();
         seatedAt = null;
     }
 }

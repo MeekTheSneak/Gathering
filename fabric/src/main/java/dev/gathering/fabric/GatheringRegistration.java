@@ -23,6 +23,16 @@ final class GatheringRegistration {
     }
 
     static void bootstrap() {
+        // One list, walked, rather than three named registrations - see GatheringSounds. The
+        // two loaders read the same list, which is what keeps them from ending up with
+        // different sets of sounds under the same names.
+        for (dev.gathering.registry.Registered<net.minecraft.sounds.SoundEvent> sound
+                : dev.gathering.sound.GatheringSounds.all()) {
+            String id = sound.entryName();
+            sound.bindValue(Registry.register(BuiltInRegistries.SOUND_EVENT,
+                    Gathering.id(id), dev.gathering.sound.GatheringSounds.create(id)));
+        }
+
         // The block first: the table's item names its block when it is created.
         net.minecraft.world.level.block.Block table = Registry.register(
                 BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.TABLE_ID), GatheringContent.createTable());
