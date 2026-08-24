@@ -29,6 +29,7 @@ import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableVerb;
 import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableScreenLayout;
@@ -465,6 +466,7 @@ public final class DevScene {
                     fail("the table in the world was not told what the cursor was on");
                 }
                 shoot(client, "22-on-the-table-hovering");
+                theCursorPicksWhereItPoints(client);
                 // A card lifted and still in the air over the board on the block: the size it
                 // is drawn at and whether anything says where it is about to land are both
                 // only visible mid-drag.
@@ -1209,6 +1211,62 @@ public final class DevScene {
         board.mouseClicked(where.centreX(), where.centreY(), 0);
         board.mouseReleased(where.centreX(), where.centreY(), 0);
         System.out.println("[devscene] pressed the " + verb + " button on the mat");
+    }
+
+    /**
+     * Checks the board's own picker against the game's, at the one point they both answer for.
+     *
+     * <p>Everything else in this run that asks where the cursor is asks {@link TablePointer},
+     * including the helper that finds a card to hover - so a picker that is off by a constant
+     * would place the cursor by its own wrong answer and then agree with itself. Minecraft's
+     * crosshair ray is worked out from the camera by the game, and at the exact centre of the
+     * screen the two are answering the same question about the same pixel. They have to agree.
+     */
+    private static void theCursorPicksWhereItPoints(Minecraft client) {
+        if (table == null || !(client.screen instanceof TableScreen board)) {
+            fail("there was no board on the block to check the picker against");
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        hover(client, new int[] {width / 2, height / 2});
+
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        TableTop.Spot ours = TablePointer.at(top, width / 2.0, height / 2.0).orElse(null);
+        if (ours == null) {
+            System.out.println("[devscene] the crosshair was not over the felt; picker unchecked");
+            return;
+        }
+        // The camera's own forward axis, dropped onto the felt by hand. The exact centre of
+        // the screen is where a camera is looking, whatever its projection says, so this
+        // answers the same question using only where the camera is and which way it faces -
+        // no matrices, no viewport, none of the arithmetic being checked.
+        var camera = client.gameRenderer.getMainCamera();
+        var eye = camera.getPosition();
+        var look = camera.getLookVector();
+        if (look.y() >= -1.0e-4f) {
+            System.out.println("[devscene] the camera was not looking down; picker unchecked");
+            return;
+        }
+        double toTheFelt = (top.topY() - eye.y) / look.y();
+        TableTop.Spot theirs = top.at(
+                eye.x + look.x() * toTheFelt, eye.z + look.z() * toTheFelt).orElse(null);
+        if (theirs == null) {
+            System.out.println("[devscene] the camera's own ray missed the felt; unchecked");
+            return;
+        }
+        // A tenth of a card. Anything smaller is rounding and the one frame between the
+        // camera being set up and the cursor being read; anything larger is a cursor
+        // pointing at one thing and picking another.
+        double slack = TableSurface.CARD_WIDTH_UNITS / 10.0;
+        double across = Math.abs(ours.x() - theirs.x());
+        double down = Math.abs(ours.y() - theirs.y());
+        if (across > slack || down > slack) {
+            fail("the board picks " + Math.round(across) + " by " + Math.round(down)
+                    + " surface units from where the camera is actually looking");
+        } else {
+            System.out.println("[devscene] the picker agrees with the game's own ray");
+        }
     }
 
     private static void pokeEverything(Minecraft client) {
