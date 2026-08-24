@@ -1771,8 +1771,8 @@ public final class TableScreen extends Screen {
         // Below the life totals and inside the margin, the same as the key list. It used to
         // start at the top of the window, which covered the one row telling you how much life
         // everybody has with a record of how they got there.
-        int roomDown = floorOfTheFelt() - top - 6;
-        if (roomDown < line * 3) {
+        int roomDown = roomForTheLog();
+        if (!theLogHasRoom()) {
             return;
         }
 
@@ -1819,6 +1819,32 @@ public final class TableScreen extends Screen {
                 area.x() + 5, area.bottom() - line - 2, area.width() - 10, DIM);
     }
 
+    /** Whether the game log is open, for the scripted harness. */
+    boolean theLogIsShowing() {
+        return showingLog;
+    }
+
+    /**
+     * Whether there is room to open the log at all.
+     *
+     * <p>A real question rather than a formality: the panel used to measure itself against
+     * the hand strip, and a watcher has no hand, so for them the height came out negative
+     * and the log silently refused to open.
+     *
+     * <p>Asked by the panel itself before it draws and by the scripted harness afterwards,
+     * from here rather than from two copies of the arithmetic - a harness holding its own
+     * copy of a rule goes on saying yes after the rule has moved, which is the shape of every
+     * check in this run that has ever been green over a live fault.
+     */
+    boolean theLogHasRoom() {
+        return roomForTheLog() >= (this.font.lineHeight + 1) * 3;
+    }
+
+    /** How much window the log has to draw itself in, top to bottom. */
+    private int roomForTheLog() {
+        return floorOfTheFelt() - (layout().status().bottom() + 4) - 6;
+    }
+
     /**
      * How far down the window the felt goes before something else starts.
      *
@@ -1827,23 +1853,6 @@ public final class TableScreen extends Screen {
      * with no height at all - so the one person at the table who most wants to read the log
      * could not open it.
      */
-    /**
-     * Whether there is room to open the log at all. For the scripted harness.
-     *
-     * <p>Which is a real question rather than a formality: the panel used to measure itself
-     * against the hand strip, and a watcher has no hand, so for them the height came out
-     * negative and the log silently refused to open.
-     */
-    /** Whether the game log is open, for the scripted harness. */
-    boolean theLogIsShowing() {
-        return showingLog;
-    }
-
-    boolean theLogHasRoom() {
-        return floorOfTheFelt() - (layout().status().bottom() + 4) - 6
-                >= (this.font.lineHeight + 1) * 3;
-    }
-
     private int floorOfTheFelt() {
         Rect hand = layout().hand();
         return hand.isEmpty() ? this.height : hand.y();

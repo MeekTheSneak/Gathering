@@ -329,10 +329,19 @@ public final class CountersScreen extends ChildScreen {
      * There is no permanent mark on a card saying it is a commander; where it started is all
      * the game knows, and this asks the two questions that follow from that.
      */
-    /** How many commander taxes this screen is offering. For the scripted harness. */
+    /**
+     * How many commander taxes this screen drew last frame. For the scripted harness.
+     *
+     * <p>Counted while drawing rather than worked out again. Asked of the same list the
+     * drawing walks it would answer for a panel that had decided not to draw at all - which
+     * is the shape of check that stays green over a live fault, and this run has had three.
+     */
     int taxRowsShowing() {
-        return taxedCommanders().size();
+        return taxRowsDrawn;
     }
+
+    /** Set by {@link #renderCommanderTax}, so the hook above reports rather than predicts. */
+    private int taxRowsDrawn;
 
     private List<CardInstanceId> taxedCommanders() {
         if (!(subject instanceof Subject.Cards chosen) || !tableHasACommandZone()) {
@@ -525,6 +534,7 @@ public final class CountersScreen extends ChildScreen {
      */
     private void renderCommanderTax(GuiGraphics graphics, int y) {
         List<CardInstanceId> commanders = taxedCommanders();
+        taxRowsDrawn = 0;
         if (commanders.isEmpty()) {
             return;
         }
@@ -546,6 +556,7 @@ public final class CountersScreen extends ChildScreen {
                     Component.translatable("screen.gathering.counters.extra_mana",
                             CommandSlots.taxFor(casts)),
                     panel.right() - MARGIN - STEP_WIDTH * 2 - GAP - 34, rowY + 5, 32, VALUE);
+            taxRowsDrawn++;
         }
     }
 
