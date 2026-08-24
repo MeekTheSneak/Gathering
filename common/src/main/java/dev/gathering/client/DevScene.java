@@ -16,6 +16,8 @@ import dev.gathering.server.DecklistImport;
 import dev.gathering.server.TableBroadcast;
 import dev.gathering.service.CardDataService;
 import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.game.Placement;
+import dev.gathering.core.game.ZoneRef;
 import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.PlayerRef;
@@ -156,6 +158,11 @@ public final class DevScene {
 
     /** Casts recorded on this player's commander before the button was pressed. */
     private static int lifeWas;
+
+    private static int drawnBack;
+
+    /** The cards taken out of the hand, so exactly those can go back. */
+    private static java.util.List<CardInstanceId> emptied;
     private static int taxPaid;
 
     /** Where in the turn the table was before the marker was stepped on. */
@@ -598,20 +605,51 @@ public final class DevScene {
                             + beforeTheKey + " to " + afterTheKey);
                 }
                 shoot(client, "15-crowded-hand");
+                advance(SETTLE / 2);
+            }
+            case 38 -> {
+                // The other end of the same question. Eighteen cards is the fan at its
+                // widest; none at all is the fan a run had never drawn, and the fan is laid
+                // out from the number of cards in it.
+                emptyMyHand(client);
+                advance(SETTLE);
+            }
+            case 39 -> {
+                anEmptyHandIsStillABoard(client);
+                shoot(client, "15a-an-empty-hand");
+                // Back to the hand it had, so the rest of the run plays the board it always
+                // did. The same cards rather than fresh ones: drawing spends library, and
+                // three steps later the scry has nothing to order.
+                drawnBack = emptied == null ? 0 : emptied.size();
+                fillMyHandBack(client);
+                advance(SETTLE);
+            }
+            case 40 -> {
+                int held = countIn(Zone.HAND);
+                if (held != drawnBack) {
+                    fail("drawing back up from an empty hand gave " + held + ", not "
+                            + drawnBack);
+                    return;
+                }
+                if (held == 0) {
+                    fail("there was nothing left to draw back into an empty hand");
+                    return;
+                }
+                System.out.println("[devscene] an emptied hand fills again");
                 // A pile has to say what it is and what pressing it would do, for the same
                 // reason a mat button does: its name is not printed on it once the board is
                 // drawn small, and its count alone does not say it can be opened.
                 hoverAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
                 advance(SETTLE / 2);
             }
-            case 38 -> {
+            case 41 -> {
                 aPileSaysWhatItDoes(client, Zone.GRAVEYARD);
                 // The graveyard has a card in it by now, and left-clicking a pile that is not
                 // a library opens it. Anything else here is a dead end the player would find.
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 39 -> {
+            case 42 -> {
                 expectScreen(client, "left-clicking the graveyard", PileScreen.class);
                 shoot(client, "16-graveyard-open");
                 if (client.screen != null) {
@@ -619,13 +657,13 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 40 -> {
+            case 43 -> {
                 expectScreen(client, "closing the graveyard", TableScreen.class);
                 // Right-click on the library, which is where every verb a library has lives.
                 clickAZone(client, Zone.PILES.indexOf(Zone.LIBRARY), 1);
                 advance(SETTLE / 2);
             }
-            case 41 -> {
+            case 44 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking the library opened no menu");
                 }
@@ -637,7 +675,7 @@ public final class DevScene {
                 lookAtTheTopOfTheLibrary(client, 3, PileScreen.Decision.SCRY);
                 advance(SETTLE);
             }
-            case 42 -> {
+            case 45 -> {
                 expectScreen(client, "scrying three", PileScreen.class);
                 onTopBefore = countIn(Zone.LIBRARY);
                 shoot(client, "18-scrying");
@@ -671,12 +709,12 @@ public final class DevScene {
                 }
                 advance(SETTLE / 4);
             }
-            case 43 -> {
+            case 46 -> {
                 shoot(client, "19-one-going-to-the-bottom");
                 press(client, "Done");
                 advance(SETTLE);
             }
-            case 44 -> {
+            case 47 -> {
                 expectScreen(client, "deciding a scry", TableScreen.class);
                 if (countIn(Zone.LIBRARY) != onTopBefore) {
                     fail("a scry changed how many cards were in the library: "
@@ -695,7 +733,7 @@ public final class DevScene {
                 lookAtTheTopOfTheLibrary(client, 2, PileScreen.Decision.SURVEIL);
                 advance(SETTLE);
             }
-            case 45 -> {
+            case 48 -> {
                 expectScreen(client, "surveilling two", PileScreen.class);
                 shoot(client, "20a-surveilling");
                 if (client.screen instanceof PileScreen pile) {
@@ -710,12 +748,12 @@ public final class DevScene {
                 }
                 advance(SETTLE / 4);
             }
-            case 46 -> {
+            case 49 -> {
                 shoot(client, "20b-one-going-to-the-graveyard");
                 press(client, "Done");
                 advance(SETTLE);
             }
-            case 47 -> {
+            case 50 -> {
                 expectScreen(client, "deciding a surveil", TableScreen.class);
                 int now = countIn(Zone.GRAVEYARD);
                 if (now != inTheGraveyard + 1) {
@@ -736,7 +774,7 @@ public final class DevScene {
                 hover(client, new int[] {2, 2});
                 advance(SETTLE);
             }
-            case 48 -> {
+            case 51 -> {
                 if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
                     fail("a cursor off the board still had a card under it");
                 }
@@ -744,7 +782,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 49 -> {
+            case 52 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
@@ -760,7 +798,7 @@ public final class DevScene {
                 liftACardOnTheBlock(client);
                 advance(SETTLE / 2);
             }
-            case 50 -> {
+            case 53 -> {
                 shoot(client, "22a-carrying-a-card-on-the-table");
                 if (client.screen instanceof TableScreen board) {
                     int[] to = cardPoint(client);
@@ -775,19 +813,19 @@ public final class DevScene {
                 hoverAVerbButton(client, TableVerb.DRAW);
                 advance(SETTLE / 2);
             }
-            case 51 -> {
+            case 54 -> {
                 aButtonSaysWhatItDoes(client, TableVerb.DRAW, "2");
                 pressAVerbButton(client, TableVerb.DRAW);
                 advance(A_MOMENT);
             }
-            case 52 -> {
+            case 55 -> {
                 // The same crossing, drawn by the world rather than by the window. Everyone
                 // at the table sees a card move, and most of them are not sitting at it.
                 aCardIsInTheAir(client, "drawing one on the block");
                 shoot(client, "22b-a-card-in-the-air-on-the-table");
                 advance(SETTLE);
             }
-            case 53 -> {
+            case 56 -> {
                 // The counter has to be inside the window in this view as well. Framed on
                 // the mat alone it came out under the status row here, the same way it came
                 // out past the top of the window on the seated board.
@@ -800,7 +838,7 @@ public final class DevScene {
                 pressMyLife(client, 1);
                 advance(A_MOMENT);
             }
-            case 54 -> {
+            case 57 -> {
                 int now = myLife(client);
                 if (now != lifeWas + 1) {
                     fail("pressing the end marked plus on the block moved life by "
@@ -810,7 +848,7 @@ public final class DevScene {
                 pressMyLife(client, -1);
                 advance(A_MOMENT);
             }
-            case 55 -> {
+            case 58 -> {
                 int now = myLife(client);
                 if (now != lifeWas) {
                     fail("the ends of the life counter on the block do not undo each other: "
@@ -820,7 +858,7 @@ public final class DevScene {
                 System.out.println("[devscene] the life counter presses on the block too");
                 advance(A_MOMENT);
             }
-            case 56 -> {
+            case 59 -> {
                 // The same tax, pressed on the board drawn in the world. Worth pressing twice
                 // over because the two views hand the press its rectangle in different spaces
                 // - pixels on the window, units of felt on the block - and a button that only
@@ -830,7 +868,7 @@ public final class DevScene {
                 pressTheTaxUnderMyCommander(client, 0);
                 advance(SETTLE);
             }
-            case 57 -> {
+            case 60 -> {
                 int paid = commanderTax(client);
                 if (paid != taxPaid + 1) {
                     fail("pressing the tax on the block recorded " + (paid - taxPaid)
@@ -841,7 +879,7 @@ public final class DevScene {
                 pressTheTaxUnderMyCommander(client, 1);
                 advance(SETTLE);
             }
-            case 58 -> {
+            case 61 -> {
                 int backTo = commanderTax(client);
                 if (backTo != taxPaid) {
                     fail("right-clicking the tax on the block left it at " + backTo
@@ -859,20 +897,20 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 59 -> {
+            case 62 -> {
                 // The whole table, which is the one framing that shows the chair nobody is in.
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 60 -> {
+            case 63 -> {
                 // Somebody sits down opposite. Every picture so far has been of a table with
                 // one player at it, which is not the game this is for.
                 seatARival(client);
                 advance(SETTLE);
             }
-            case 61 -> {
+            case 64 -> {
                 shoot(client, "23-two-players");
                 // Both seats now, which is the only moment this run can check the far one.
                 everyLifeCounterHasItsEnds(client);
@@ -882,23 +920,23 @@ public final class DevScene {
                 theRivalSlidesACardAcrossTheirMat(client);
                 advance(A_MOMENT);
             }
-            case 62 -> {
+            case 65 -> {
                 aCardIsInTheAir(client, "a rival sliding a card across their mat");
                 shoot(client, "23a-a-rivals-card-on-the-move");
                 advance(SETTLE);
             }
-            case 63 -> {
+            case 66 -> {
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
-            case 64 -> {
+            case 67 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 65 -> {
+            case 68 -> {
                 int now = damageTaken(client);
                 if (now <= tookCommanderDamage) {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
@@ -910,22 +948,22 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 66 -> {
+            case 69 -> {
                 aCommanderLeavesItsSlot(client);
                 advance(SETTLE);
             }
-            case 67 -> {
+            case 70 -> {
                 theCommanderGoesHomeToItsOwnSlot(client);
                 advance(SETTLE);
             }
-            case 68 -> {
+            case 71 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 // The other number a game of Commander asks a player to keep for an hour.
                 taxPaid = commanderTax(client);
                 openCommanderCounters(client);
                 advance(SETTLE / 2);
             }
-            case 69 -> {
+            case 72 -> {
                 expectScreen(client, "asking for a commander's counters", CountersScreen.class);
                 if (client.screen instanceof CountersScreen counters
                         && counters.taxRowsShowing() != Zone.COMMAND_SLOTS.size()) {
@@ -936,7 +974,7 @@ public final class DevScene {
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 70 -> {
+            case 73 -> {
                 int now = commanderTax(client);
                 if (now <= taxPaid) {
                     fail("commander tax did not go up: " + taxPaid + " to " + now);
@@ -944,7 +982,7 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 71 -> {
+            case 74 -> {
                 expectScreen(client, "leaving a commander's counters", TableScreen.class);
                 // Framed on the whole table again. It was framed that way eleven steps ago
                 // and then somebody sat down opposite, which re-frames the camera onto your
@@ -955,7 +993,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 72 -> {
+            case 75 -> {
                 theWholeTableIsOnScreen(client);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
@@ -964,27 +1002,27 @@ public final class DevScene {
                 resizeTo(client, 1, "a smaller interface");
                 advance(SETTLE / 2);
             }
-            case 73 -> {
+            case 76 -> {
                 theBoardIsStillFramed(client, "at the smallest interface");
                 shoot(client, "27-a-smaller-interface");
                 resizeTo(client, 0, "the automatic interface again");
                 advance(SETTLE / 2);
             }
-            case 74 -> {
+            case 77 -> {
                 // The two questions a token asks. Nothing else in this run opens either of
                 // them, and both are screens somebody can get stuck on: the first one is the
                 // only place in the mod that takes a line of typing from a player.
                 openTheTokenQuestion(client);
                 advance(SETTLE / 2);
             }
-            case 75 -> {
+            case 78 -> {
                 expectScreen(client, "asking for a token", TextPromptScreen.class);
                 shoot(client, "28a-what-token");
                 typeInto(client, "Treasure");
                 press(client, "OK");
                 advance(SETTLE / 2);
             }
-            case 76 -> {
+            case 79 -> {
                 expectScreen(client, "naming a token", AmountScreen.class);
                 shoot(client, "28b-how-many");
                 // Backed out rather than answered: a token wants a real printing off
@@ -995,7 +1033,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 77 -> {
+            case 80 -> {
                 expectScreen(client, "backing out of a token", TableScreen.class);
                 theBoardIsStillFramed(client, "back at the automatic interface");
                 shoot(client, "28-back-to-normal");
@@ -1012,7 +1050,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 78 -> {
+            case 81 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -1024,7 +1062,7 @@ public final class DevScene {
                 aSpectatorReadsAGraveyard(client);
                 advance(SETTLE / 2);
             }
-            case 79 -> {
+            case 82 -> {
                 expectScreen(client, "a spectator opening a graveyard", PileScreen.class);
                 shoot(client, "30-a-spectator-reads-a-graveyard");
                 if (client.screen != null) {
@@ -1033,7 +1071,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 80 -> {
+            case 83 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
@@ -2254,6 +2292,87 @@ public final class DevScene {
             return;
         }
         System.out.println("[devscene] the life counter says: " + said);
+    }
+
+    /**
+     * Empties this player's hand onto the battlefield, a card at a time.
+     *
+     * <p>An empty hand is a real state, and not a rare one: it is the last turn of every
+     * aggressive game and the first turn of a mulligan to nothing. The board still has to lay
+     * out a fan of no cards, decide that no card is under the cursor, and leave the strip
+     * along the bottom looking like an empty hand rather than like a fault.
+     */
+    private static void emptyMyHand(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            fail("there was no hand to empty");
+            return;
+        }
+        emptied = new java.util.ArrayList<>();
+        for (CardView card : view.seat(me).zones().get(Zone.HAND).cards()) {
+            if (card instanceof CardView.Visible visible) {
+                emptied.add(visible.id());
+                ClientTableActions.send(table, new GameEvent.CardMoved(me, visible.id(),
+                        ZoneRef.of(me, Zone.GRAVEYARD), Placement.TOP));
+            }
+        }
+    }
+
+    /**
+     * Puts back exactly the cards the hand was emptied of.
+     *
+     * <p>Not a fresh draw. Drawing spends library, and by this point in the run the deck is
+     * down to single figures - so refilling by drawing left the scry with nothing to order
+     * and the draw button on the block with nothing to draw, three steps later and with no
+     * hint that emptying a hand was what did it.
+     */
+    private static void fillMyHandBack(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null || emptied == null) {
+            fail("there was no hand to put back");
+            return;
+        }
+        for (CardInstanceId card : emptied) {
+            ClientTableActions.send(table, new GameEvent.CardMoved(me, card,
+                    ZoneRef.of(me, Zone.HAND), Placement.TOP));
+        }
+    }
+
+    /**
+     * A board with nothing in hand still draws, still answers the mouse, and still says so.
+     *
+     * <p>The fan is laid out from the number of cards in it, and a run that never emptied a
+     * hand would never have divided by that number.
+     */
+    private static void anEmptyHandIsStillABoard(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to check an empty hand on");
+            return;
+        }
+        int held = countIn(Zone.HAND);
+        if (held != 0) {
+            fail("the hand did not empty: " + held + " left in it");
+            return;
+        }
+        // The strip is still the player's own, not a watcher's: they have a hand, it is
+        // simply empty, so the felt above it must not run down over where it sits.
+        int nearTheBottom = client.getWindow().getGuiScaledHeight() - 8;
+        if (board.feltReachesDownTo(nearTheBottom)) {
+            fail("an empty hand gave its strip away to the felt");
+            return;
+        }
+        // And nothing in it is under the cursor, wherever the cursor is.
+        int middle = client.getWindow().getGuiScaledWidth() / 2;
+        hover(client, new int[] {middle, nearTheBottom});
+        // And it says so. An empty strip is indistinguishable from a broken one, and a
+        // spectator has been told why theirs is empty since the day they had one.
+        String said = board.handStripSaid();
+        if (said.isEmpty()) {
+            fail("an empty hand drew nothing at all in its strip");
+            return;
+        }
+        System.out.println("[devscene] an empty hand says: " + said);
     }
 
     /** Puts the cursor on this player's own life counter, a frame before it is read. */

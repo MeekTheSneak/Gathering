@@ -90,6 +90,9 @@ public final class TableScreen extends Screen {
     /** What a life total is written on, so it reads against the table rather than into it. */
     private static final int LIFE_BACKING = 0xA0101418;
 
+    /** What the hand strip wrote in itself last frame, when it wrote instead of dealing. */
+    private String handSaid = "";
+
     /** The tax band under the cursor: darker still, so a button looks like one. */
     private static final int TAX_LIT = 0xD0000000;
     private static final int COUNTER_TEXT = 0xFFFFE9A8;
@@ -306,6 +309,18 @@ public final class TableScreen extends Screen {
     }
 
     /** Whether the felt reaches this far down the window. For the harness, as below. */
+    /**
+     * What the hand strip wrote in itself last frame, or empty when it drew cards.
+     *
+     * <p>For the scripted harness, and recorded rather than worked out again: a strip with
+     * nothing drawn in it and a strip with a line in it are the same to anything counting
+     * cards, which is exactly why nobody noticed there was no line. Asked of the board state
+     * this would answer "the hand is empty" whether or not a word had been drawn.
+     */
+    String handStripSaid() {
+        return handSaid;
+    }
+
     boolean feltReachesDownTo(int y) {
         return layout().isOnFelt(this.width / 2, y);
     }
@@ -634,6 +649,7 @@ public final class TableScreen extends Screen {
         cursorY = mouseY;
         ClientHoverState.clear();
         tooltip = List.of();
+        handSaid = "";
         forgetThePointer();
 
         Placed hovered = null;
@@ -1638,6 +1654,7 @@ public final class TableScreen extends Screen {
         Rect area = layout().hand();
         SeatId seat = mySeat().orElse(null);
         if (seat == null) {
+            handSaid = Component.translatable("screen.gathering.table.spectating").getString();
             GuiText.drawCentred(graphics, this.font,
                     Component.translatable("screen.gathering.table.spectating"),
                     area.x() + area.width() / 2, area.bottom() - 14, area.width(), DIM);
@@ -1645,6 +1662,17 @@ public final class TableScreen extends Screen {
         }
 
         List<CardView> hand = board.seat(seat).zone(Zone.HAND).cards();
+        if (hand.isEmpty()) {
+            handSaid = Component.translatable("screen.gathering.table.hand_empty").getString();
+            // A hand with nothing in it said nothing at all, which reads as a strip of the
+            // window that has failed rather than as a hand you have played out. A spectator
+            // has been told why their strip is empty since the day they had one; a player who
+            // has just emptied theirs deserves the same sentence.
+            GuiText.drawCentred(graphics, this.font,
+                    Component.translatable("screen.gathering.table.hand_empty"),
+                    area.x() + area.width() / 2, area.bottom() - 14, area.width(), DIM);
+            return;
+        }
         int lifted = handIndexAt(board, mouseX, mouseY);
 
         // The lifted one last, so it is drawn over the cards it has risen in front of.
