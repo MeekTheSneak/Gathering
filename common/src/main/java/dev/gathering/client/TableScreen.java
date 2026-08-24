@@ -584,6 +584,21 @@ public final class TableScreen extends Screen {
             hovered = frontMostAt(everythingOnTheTable(board), mouseX, mouseY);
             ClientTableHighlight.set(idOf(hovered), List.copyOf(selected),
                     held == null ? null : held.card());
+            // The mats on the block carry the same buttons and the same piles as the seated
+            // board, and until the cursor could light them and name them they were boxes
+            // painted on a table - pressable, but only by somebody who already knew.
+            SeatId mine = mySeat().orElse(null);
+            int verb = hovered == null ? verbSlotAt(mine, mouseX, mouseY) : -1;
+            ClientTableHighlight.pointAtVerb(mine, verb);
+            if (verb >= 0) {
+                tooltip = tipFor(VERB_NAMES[verb], VERB_KEYS[verb]);
+            } else if (hovered == null) {
+                int pile = pileSlotAt(board, mouseX, mouseY);
+                if (pile >= 0) {
+                    tooltip = tipForPile(board.seats().get(pile / pileCount()).seat(),
+                            Zone.PILES.get(pile % pileCount()));
+                }
+            }
         } else {
             renderMats(graphics, board);
             renderVerbs(graphics, mouseX, mouseY);
@@ -767,13 +782,14 @@ public final class TableScreen extends Screen {
             return;
         }
         graphics.renderOutline(group.x(), group.y(), group.width(), group.height(), ZONE_BORDER);
+        int pointed = verbSlotAt(me, mouseX, mouseY);
         for (int index = 0; index < count; index++) {
             Rect where = board().verbRect(me, index, count);
             if (where.isEmpty() || where.width() < 8) {
                 continue;
             }
             TableVerb verb = TableVerb.values()[index];
-            boolean hovered = where.contains(mouseX, mouseY);
+            boolean hovered = index == pointed;
             GatheringSprites.inset(graphics, where.x(), where.y(), where.width(), where.height());
             if (hovered) {
                 GatheringSprites.highlight(
@@ -795,13 +811,37 @@ public final class TableScreen extends Screen {
     }
 
     /** Runs the verb whose button is under this point, if one is. */
-    private boolean pressVerb(SeatId me, int x, int y) {
+    /**
+     * Which of this seat's mat buttons a point is on, or -1.
+     *
+     * <p>Asked through the pointer rather than of the raw cursor, so it answers in whichever
+     * space the board being played is measured in - pixels on the seated screen and units on
+     * the felt when the board is the real one. The buttons are drawn on the block as well as
+     * on the screen, and for a while only the screen's could be pressed: four boxes printed
+     * on the table that did nothing when clicked, in the one view meant for playing in.
+     */
+    private int verbSlotAt(SeatId me, int x, int y) {
+        if (me == null) {
+            return -1;
+        }
+        double[] at = pointer(x, y);
+        if (at == null || !layout().isOnFelt(x, y)) {
+            return -1;
+        }
         int count = TableVerb.count();
         for (int index = 0; index < count; index++) {
             Rect where = board().verbRect(me, index, count);
-            if (where.isEmpty() || !where.contains(x, y)) {
-                continue;
+            if (!where.isEmpty()
+                    && where.contains((int) Math.round(at[0]), (int) Math.round(at[1]))) {
+                return index;
             }
+        }
+        return -1;
+    }
+
+    private boolean pressVerb(SeatId me, int x, int y) {
+        int index = verbSlotAt(me, x, y);
+        if (index >= 0) {
             GatheringButtons.clickSound();
             switch (TableVerb.values()[index]) {
                 case UNTAP -> send(new GameEvent.SeatUntappedAll(me, me));
@@ -1521,7 +1561,7 @@ public final class TableScreen extends Screen {
         // Before the piles and before the felt: a button is a small target on top of a mat,
         // and anything that answered first would swallow it.
         SeatId mine = mySeat().orElse(null);
-        if (button == 0 && mine != null && !playingOnTheBlock && pressVerb(mine, x, y)) {
+        if (button == 0 && mine != null && pressVerb(mine, x, y)) {
             return true;
         }
 

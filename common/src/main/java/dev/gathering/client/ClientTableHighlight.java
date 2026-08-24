@@ -40,6 +40,10 @@ public final class ClientTableHighlight {
     /** Whose mat a card in the air would land on, zone or no zone. */
     private static SeatId landing;
 
+    /** Which button on which mat the cursor is resting on, so it can light up on the block. */
+    private static SeatId pointedSeat;
+    private static int pointedVerb = -1;
+
     private ClientTableHighlight() {
     }
 
@@ -72,6 +76,22 @@ public final class ClientTableHighlight {
         landing = seat;
     }
 
+    /**
+     * Which mat button the cursor is on, so the board on the block can light it.
+     *
+     * <p>The seated board works this out again while it draws, from the same cursor - it has
+     * the cursor to hand and the world renderer does not, which is the only reason this is
+     * kept rather than asked for.
+     */
+    public static void pointAtVerb(SeatId seat, int verb) {
+        pointedSeat = verb < 0 ? null : seat;
+        pointedVerb = verb;
+    }
+
+    public static boolean isPointedAtVerb(SeatId seat, int verb) {
+        return pointedVerb >= 0 && pointedVerb == verb && seat != null && seat.equals(pointedSeat);
+    }
+
     public static boolean isLandingOn(SeatId seat) {
         return seat != null && seat.equals(landing);
     }
@@ -84,6 +104,8 @@ public final class ClientTableHighlight {
         aimedSeat = null;
         aimedPile = -1;
         landing = null;
+        pointedSeat = null;
+        pointedVerb = -1;
     }
 
     public static boolean isLit(CardInstanceId card) {

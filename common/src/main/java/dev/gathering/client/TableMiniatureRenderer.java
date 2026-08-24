@@ -3,6 +3,7 @@ package dev.gathering.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.gathering.block.TableBlockEntity;
+import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
@@ -206,7 +207,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 // The same buttons the seated board prints, in the same places, because they
                 // are the same mat. A player who learns where their untap button is in one
                 // view has learned where it is in the other.
-                drawVerbs(poseStack, buffers, packedLight, surface, index, span);
+                drawVerbs(poseStack, buffers, packedLight, surface,
+                        board.seats().get(index).seat(), index, span);
                 // The line marking off the row nearest its player, where lands go. On the mat
                 // rather than above it: it is a marking printed on the felt, not a thing
                 // sitting on top of the felt.
@@ -287,7 +289,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private void drawVerbs(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
-            TableSurface surface, int seatIndex, float span) {
+            TableSurface surface, SeatId seat, int seatIndex, float span) {
         int count = TableVerb.count();
         drawGroup(poseStack, buffers, surface.verbGroup(seatIndex, count), span);
         float lineHeight = onSurface(WRITING_HEIGHT, span);
@@ -300,7 +302,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             float z = onSurface(slot.y(), span);
             float width = onSurface(slot.width(), span);
             float depth = onSurface(slot.height(), span);
-            drawSlot(poseStack, buffers, x, z, width, depth, false);
+            drawSlot(poseStack, buffers, x, z, width, depth,
+                    ClientTableHighlight.isPointedAtVerb(seat, index));
             writing(poseStack, buffers, packedLight,
                     Component.translatable(TableVerb.values()[index].key()),
                     x + width / 2f, z + depth / 2f, lineHeight, width * WRITING_ROOM,

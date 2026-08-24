@@ -543,37 +543,57 @@ public final class DevScene {
                     int[] to = cardPoint(client);
                     board.mouseReleased(to[0], to[1], 0);
                 }
+                // The mats on the block carry the same four buttons the seated board does,
+                // and for a while pressing one there did nothing at all: the press was told
+                // to look for the button in screen pixels while the board was measured in
+                // units of felt. Four boxes painted on a table that ignore the mouse are a
+                // dead end in the one view meant for playing in.
+                inTheHand = countIn(Zone.HAND);
+                hoverAVerbButton(client, TableVerb.DRAW);
+                advance(SETTLE / 2);
+            }
+            case 37 -> {
+                aButtonSaysWhatItDoes(client, TableVerb.DRAW, "2");
+                pressAVerbButton(client, TableVerb.DRAW);
+                advance(SETTLE);
+            }
+            case 38 -> {
+                int now = countIn(Zone.HAND);
+                if (now <= inTheHand) {
+                    fail("the draw button on the block drew nothing: "
+                            + inTheHand + " to " + now);
+                }
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 37 -> {
+            case 39 -> {
                 // The whole table, which is the one framing that shows the chair nobody is in.
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 38 -> {
+            case 40 -> {
                 // Somebody sits down opposite. Every picture so far has been of a table with
                 // one player at it, which is not the game this is for.
                 seatARival(client);
                 advance(SETTLE);
             }
-            case 39 -> {
+            case 41 -> {
                 shoot(client, "23-two-players");
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
-            case 40 -> {
+            case 42 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 41 -> {
+            case 43 -> {
                 int now = damageTaken(client);
                 if (now <= tookCommanderDamage) {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
@@ -585,20 +605,20 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 42 -> {
+            case 44 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 // The other number a game of Commander asks a player to keep for an hour.
                 taxPaid = commanderTax(client);
                 openCommanderCounters(client);
                 advance(SETTLE / 2);
             }
-            case 43 -> {
+            case 45 -> {
                 expectScreen(client, "asking for a commander's counters", CountersScreen.class);
                 shoot(client, "25a-commander-tax");
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 44 -> {
+            case 46 -> {
                 int now = commanderTax(client);
                 if (now <= taxPaid) {
                     fail("commander tax did not go up: " + taxPaid + " to " + now);
@@ -606,7 +626,7 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 45 -> {
+            case 47 -> {
                 expectScreen(client, "leaving a commander's counters", TableScreen.class);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
@@ -615,13 +635,13 @@ public final class DevScene {
                 resizeTo(client, 1, "a smaller interface");
                 advance(SETTLE / 2);
             }
-            case 46 -> {
+            case 48 -> {
                 theBoardIsStillFramed(client, "at the smallest interface");
                 shoot(client, "27-a-smaller-interface");
                 resizeTo(client, 0, "the automatic interface again");
                 advance(SETTLE / 2);
             }
-            case 47 -> {
+            case 49 -> {
                 theBoardIsStillFramed(client, "back at the automatic interface");
                 shoot(client, "28-back-to-normal");
                 // A game has to be finishable. Taken as far as the question and then backed
@@ -637,7 +657,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 48 -> {
+            case 50 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -646,7 +666,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 49 -> {
+            case 51 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
@@ -824,11 +844,26 @@ public final class DevScene {
         // lands nearest the card. Two thousand rays once a run, which is nothing, and it
         // exercises the same pick the player's cursor uses rather than a copy of it.
         double[] wanted = playedCardSpot(client);
-        if (wanted == null || table == null) {
-            return middleOfTheMat;
+        return wanted == null ? middleOfTheMat : screenPointFor(client, wanted, middleOfTheMat);
+    }
+
+    /**
+     * The pixel that points at a given spot on the felt, found by sweeping the window.
+     *
+     * <p>There is no screen rectangle to aim at once the board is the real table: the only
+     * way back from a place on the felt to a pixel is the way the pointer goes forwards. So
+     * every fourth pixel is asked what it is over and the nearest answer wins - two thousand
+     * rays once a run, which is nothing, and it exercises the same pick the player's cursor
+     * uses rather than a copy of it.
+     */
+    private static int[] screenPointFor(Minecraft client, double[] wanted, int[] fallback) {
+        if (table == null) {
+            return fallback;
         }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
         TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
-        int[] best = middleOfTheMat;
+        int[] best = fallback;
         double nearest = Double.MAX_VALUE;
         for (int y = 0; y < height; y += 4) {
             for (int x = 0; x < width; x += 4) {
@@ -1381,6 +1416,10 @@ public final class DevScene {
             fail("the mat has nowhere for the " + verb + " button");
             return null;
         }
+        if (board.board() instanceof SurfaceBoard) {
+            // On the block the rectangle is in surface units, and the cursor is in pixels.
+            return screenPointFor(client, new double[] {where.centreX(), where.centreY()}, null);
+        }
         return new int[] {(int) where.centreX(), (int) where.centreY()};
     }
 
@@ -1428,20 +1467,18 @@ public final class DevScene {
             fail("there was no board to press a mat button on");
             return;
         }
-        SeatId me = ClientTableState.seatAt(table).orElse(null);
-        if (me == null) {
-            fail("no seat to press a mat button for");
+        // The same lookup the hover uses. It was two lookups once, and the copy that pressed
+        // went on aiming at the seated board's pixels after the other had learnt that the
+        // board on the block is measured in units of felt - so the press landed off the
+        // window and reported success.
+        int[] at = verbButtonAt(client, verb);
+        if (at == null) {
             return;
         }
-        int index = java.util.Arrays.asList(TableVerb.values()).indexOf(verb);
-        Rect where = board.board().verbRect(me, index, TableVerb.count());
-        if (where.isEmpty()) {
-            fail("the mat has nowhere for the " + verb + " button");
-            return;
-        }
-        board.mouseClicked(where.centreX(), where.centreY(), 0);
-        board.mouseReleased(where.centreX(), where.centreY(), 0);
-        System.out.println("[devscene] pressed the " + verb + " button on the mat");
+        board.mouseClicked(at[0], at[1], 0);
+        board.mouseReleased(at[0], at[1], 0);
+        System.out.println("[devscene] pressed the " + verb + " button at "
+                + at[0] + "," + at[1]);
     }
 
     /**
