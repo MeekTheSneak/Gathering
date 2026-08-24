@@ -23,6 +23,7 @@ import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.HandFan;
+import dev.gathering.core.ui.Legibility;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.SeatColour;
 import dev.gathering.core.ui.TableAttachments;
@@ -45,6 +46,8 @@ import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -266,9 +269,17 @@ public final class TableScreen extends Screen {
     /** The seat the camera is currently framed for, or null for the whole table. */
     private SeatId framedFor;
 
+    /**
+     * What the cursor is resting on, if it is something that can say what it is.
+     *
+     * <p>Collected while the felt is drawn and written out at the very end, because a
+     * tooltip drawn where it is discovered would be painted over by the cards on top of it.
+     */
+    private List<Component> tooltip = List.of();
+
     /** Measured once per screen: how much room the longest of each set needs. Nought is unasked. */
-    private int longestZoneName;
-    private int longestVerbName;
+    private int longestZoneNameWidth;
+    private int longestVerbNameWidth;
 
     /** Frames the board on this seat's own mat, or on the whole table when there is no seat. */
     private void frameTheBoard(SeatId seat) {
@@ -282,6 +293,11 @@ public final class TableScreen extends Screen {
     /** Whether a context menu is up. For the scripted harness, which cannot see one. */
     boolean menuIsOpen() {
         return menu != null;
+    }
+
+    /** What the last frame's cursor position had to say for itself. For the harness. */
+    List<Component> tooltipShowing() {
+        return tooltip;
     }
 
     /** How many zones this board is drawing per seat. For the harness, as above. */
@@ -559,6 +575,7 @@ public final class TableScreen extends Screen {
         cursorX = mouseX;
         cursorY = mouseY;
         ClientHoverState.clear();
+        tooltip = List.of();
 
         Placed hovered = null;
         if (playingOnTheBlock) {
@@ -609,6 +626,10 @@ public final class TableScreen extends Screen {
         }
         if (menu != null) {
             menu.render(graphics, this.font, mouseX, mouseY);
+            return;
+        }
+        if (!tooltip.isEmpty() && !showingLog && !showingKeys) {
+            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
         }
     }
 
@@ -688,10 +709,41 @@ public final class TableScreen extends Screen {
                 if (where.isEmpty() || where.width() < 4) {
                     continue;
                 }
-                drawPile(graphics, seat, Zone.PILES.get(index), where,
-                        where.contains(mouseX, mouseY));
+                Zone zone = Zone.PILES.get(index);
+                boolean over = where.contains(mouseX, mouseY);
+                if (over) {
+                    tooltip = tipForPile(seat.seat(), zone);
+                }
+                drawPile(graphics, seat, zone, where, over);
             }
         }
+    }
+
+    /**
+     * What resting on a pile says: its name, and what a press on it would do.
+     *
+     * <p>Worked out from the same two facts the press itself is - whose pile it is and which
+     * one - so that the tooltip cannot promise a draw where a press would open a screen. Your
+     * own library draws; every other pile opens; somebody else's library does nothing at all
+     * and says nothing rather than offering a click that would be ignored.
+     */
+    private List<Component> tipForPile(SeatId owner, Zone zone) {
+        Component name = ZoneText.name(zone);
+        SeatId me = mySeat().orElse(null);
+        boolean mine = owner.equals(me);
+        String hint;
+        if (zone != Zone.LIBRARY) {
+            hint = "screen.gathering.table.pile.hint_look";
+        } else if (mine) {
+            hint = "screen.gathering.table.pile.hint_draw";
+        } else {
+            return List.of(name);
+        }
+        Component said = Component.translatable(hint).withStyle(ChatFormatting.DARK_GRAY);
+        return mine
+                ? List.of(name, said, Component.translatable("screen.gathering.table.pile.hint_more")
+                        .withStyle(ChatFormatting.DARK_GRAY))
+                : List.of(name, said);
     }
 
     /** The last zone in the group a hand actually reaches for: exile. */
@@ -729,10 +781,15 @@ public final class TableScreen extends Screen {
                 graphics.renderOutline(
                         where.x(), where.y(), where.width(), where.height(), ACCENT);
             }
+            if (hovered) {
+                tooltip = tipFor(VERB_NAMES[index], VERB_KEYS[index]);
+            }
             if (everyVerbNameFits(where.width() - 2)) {
-                GuiText.drawCentred(graphics, this.font, VERB_NAMES[index],
+                GuiText.drawCentredAt(graphics, this.font, VERB_NAMES[index],
                         (int) where.centreX(), (int) where.centreY() - this.font.lineHeight / 2,
-                        where.width() - 2, hovered ? LABEL : ZONE_LABEL);
+                        GuiText.scaleForTheSet(
+                                this.font, longestOf(VERB_NAMES), where.width() - 2),
+                        hovered ? LABEL : ZONE_LABEL);
             }
         }
     }
@@ -814,10 +871,11 @@ public final class TableScreen extends Screen {
         // has no reason to know.
         Rect named = board().pileLabelRect(view.seat(), Zone.PILES.indexOf(zone), pileCount());
         if (!named.isEmpty() && everyZoneNameFits(named.width())) {
-            GuiText.drawCentred(graphics, this.font, ZoneText.name(zone),
+            GuiText.drawCentredAt(graphics, this.font, ZoneText.name(zone),
                     (int) named.centreX(),
                     (int) named.centreY() - this.font.lineHeight / 2,
-                    named.width(), ZONE_LABEL);
+                    GuiText.scaleForTheSet(this.font, longestOf(ZONE_NAMES), named.width()),
+                    ZONE_LABEL);
         }
         if (art.height() > this.font.lineHeight + 2) {
             Component label = Component.literal(Integer.toString(count));
@@ -842,41 +900,70 @@ public final class TableScreen extends Screen {
      * a board too small to write on.
      */
     private boolean everyZoneNameFits(int room) {
-        if (longestZoneName == 0) {
-            longestZoneName = roomForTheLongestOf(ZONE_NAMES);
+        if (longestZoneNameWidth == 0) {
+            longestZoneNameWidth = this.font.width(longestOf(ZONE_NAMES));
         }
-        return room >= longestZoneName;
+        return room >= Legibility.roomToWrite(longestZoneNameWidth, guiScale());
     }
 
     private boolean everyVerbNameFits(int room) {
-        if (longestVerbName == 0) {
-            longestVerbName = roomForTheLongestOf(VERB_NAMES);
+        if (longestVerbNameWidth == 0) {
+            longestVerbNameWidth = this.font.width(longestOf(VERB_NAMES));
         }
-        return room >= longestVerbName;
+        return room >= Legibility.roomToWrite(longestVerbNameWidth, guiScale());
     }
 
     /**
-     * How much room the longest of these names needs.
-     *
-     * <p>Asked of the whole set because the answer is about the set: writing the ones that fit
-     * and shortening the ones that do not gives a column reading "Exile" and nothing else, or
-     * a run of buttons reading "Mu...", "Sh...", "Dr...", which is worse than leaving all of
-     * them blank - the boxes are still there to be pressed either way, and half a word is a
-     * word somebody has to decode.
-     *
-     * <p>Measured once and kept, because it depends only on the font and the language and
-     * neither changes without this screen being built again.
+     * Screen pixels per interface pixel, which decides how far a label may be shrunk before
+     * it stops being a word. Asked of the window each time rather than kept, because the
+     * player can change it from the options screen without this screen being built again.
      */
-    private int roomForTheLongestOf(Component[] names) {
-        int widest = 0;
+    private double guiScale() {
+        Minecraft client = this.minecraft;
+        return client == null ? 1.0 : client.getWindow().getGuiScale();
+    }
+
+    /**
+     * A name, and under it in grey the key that does the same thing.
+     *
+     * <p>The key is on the tooltip rather than only in the key list because the moment a
+     * player wants to know it is the moment they are already pointing at the button, and a
+     * list they have to open and read is a step this saves them for good: they press the
+     * button twice more and then stop needing it.
+     */
+    private static List<Component> tipFor(Component name, Component key) {
+        return key == null
+                ? List.of(name)
+                : List.of(name, key.copy().withStyle(ChatFormatting.DARK_GRAY));
+    }
+
+    /** The longest of a set of names, so the whole set can be drawn at one size. */
+    private Component longestOf(Component[] names) {
+        Component longest = names[0];
         for (Component name : names) {
-            widest = Math.max(widest, GuiText.roomFor(this.font, name));
+            if (this.font.width(name) > this.font.width(longest)) {
+                longest = name;
+            }
         }
-        return widest;
+        return longest;
     }
 
     private static final Component[] ZONE_NAMES =
             Zone.PILES.stream().map(ZoneText::name).toArray(Component[]::new);
+
+    /**
+     * The key that does the same thing as each mat button, in the order of the buttons.
+     *
+     * <p>Null where there is no key. Mulligan has none on purpose: it is wanted once a game
+     * and putting it on the number row would cost a key that a verb wanted every turn could
+     * have had.
+     */
+    private static final Component[] VERB_KEYS = {
+        Component.literal("1"),
+        Component.literal("2"),
+        Component.literal("R"),
+        null,
+    };
 
     private static final Component[] VERB_NAMES =
             java.util.Arrays.stream(TableVerb.values())

@@ -66,19 +66,33 @@ public final class GuiText {
     }
 
     /**
-     * Whether this text would be drawn whole in {@code maxWidth}, rather than losing its tail.
+     * The one size a whole set of labels should be drawn at, given the longest of them.
      *
-     * <p>For the callers whose answer to "it does not fit" is to leave it out altogether. A
-     * card name has to appear somehow, so it is shrunk and trimmed; a label on the felt naming
-     * a zone does not, and half a zone's name reads worse than none of it.
+     * <p>Fitting each label to the space on its own gives a set in as many sizes as it has
+     * lengths - "Draw" full size beside a squashed "Mulligan" - which reads as unfinished
+     * however correct each one is. The set is measured from its longest and every member is
+     * drawn at that.
      */
-    public static boolean fits(Font font, Component text, int maxWidth) {
-        return maxWidth >= roomFor(font, text);
+    public static float scaleForTheSet(Font font, Component longest, int room) {
+        int width = font.width(longest);
+        if (width <= 0 || room <= 0 || width <= room) {
+            return 1f;
+        }
+        return Math.max(MINIMUM_SCALE, (float) room / width);
     }
 
-    /** The narrowest space this text can be drawn whole in. */
-    public static int roomFor(Font font, Component text) {
-        return (int) Math.ceil(font.width(text) * MINIMUM_SCALE);
+    /** Draws centred on {@code centreX} at exactly this scale, whatever the text's own width. */
+    public static void drawCentredAt(
+            GuiGraphics graphics, Font font, Component text, int centreX, int y,
+            float scale, int colour) {
+        FormattedCharSequence sequence = Language.getInstance().getVisualOrder(text);
+        graphics.pose().pushPose();
+        graphics.pose().translate(
+                centreX - font.width(text) * scale / 2f,
+                y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
+        graphics.pose().scale(scale, scale, 1f);
+        graphics.drawString(font, sequence, 0, 0, colour, false);
+        graphics.pose().popPose();
     }
 
     /**

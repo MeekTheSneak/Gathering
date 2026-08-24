@@ -277,11 +277,19 @@ public final class DevScene {
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
+                // Rest the cursor on a mat button, so the next step can read what it says.
+                hoverAVerbButton(client, TableVerb.DRAW);
                 advance(SETTLE);
             }
             case 10 -> {
-                // The buttons printed on the mat. Drawn boxes that do nothing when pressed
-                // would be worse than no boxes at all, so one of them is pressed for real.
+                // A button has to say what it is. The word printed on it goes when the board
+                // is drawn too small to write on, and a box that says nothing at all in that
+                // case is a box nobody can learn, so the tooltip is the thing that must
+                // always be there.
+                aButtonSaysWhatItDoes(client, TableVerb.DRAW, "2");
+                shoot(client, "06a-a-button-says-what-it-does");
+                // Drawn boxes that do nothing when pressed would be worse than no boxes at
+                // all, so one of them is pressed for real.
                 inTheHand = countIn(Zone.HAND);
                 pressAVerbButton(client, TableVerb.DRAW);
                 advance(SETTLE);
@@ -427,12 +435,20 @@ public final class DevScene {
                             + beforeTheKey + " to " + afterTheKey);
                 }
                 shoot(client, "15-crowded-hand");
+                // A pile has to say what it is and what pressing it would do, for the same
+                // reason a mat button does: its name is not printed on it once the board is
+                // drawn small, and its count alone does not say it can be opened.
+                hoverAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
+                advance(SETTLE / 2);
+            }
+            case 27 -> {
+                aPileSaysWhatItDoes(client, Zone.GRAVEYARD);
                 // The graveyard has a card in it by now, and left-clicking a pile that is not
                 // a library opens it. Anything else here is a dead end the player would find.
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 27 -> {
+            case 28 -> {
                 expectScreen(client, "left-clicking the graveyard", PileScreen.class);
                 shoot(client, "16-graveyard-open");
                 if (client.screen != null) {
@@ -440,13 +456,13 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 28 -> {
+            case 29 -> {
                 expectScreen(client, "closing the graveyard", TableScreen.class);
                 // Right-click on the library, which is where every verb a library has lives.
                 clickAZone(client, Zone.PILES.indexOf(Zone.LIBRARY), 1);
                 advance(SETTLE / 2);
             }
-            case 29 -> {
+            case 30 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking the library opened no menu");
                 }
@@ -458,7 +474,7 @@ public final class DevScene {
                 lookAtTheTopOfTheLibrary(client, 3);
                 advance(SETTLE);
             }
-            case 30 -> {
+            case 31 -> {
                 expectScreen(client, "scrying three", PileScreen.class);
                 onTopBefore = countIn(Zone.LIBRARY);
                 shoot(client, "18-scrying");
@@ -469,12 +485,12 @@ public final class DevScene {
                 }
                 advance(SETTLE / 4);
             }
-            case 31 -> {
+            case 32 -> {
                 shoot(client, "19-one-going-to-the-bottom");
                 press(client, "Done");
                 advance(SETTLE);
             }
-            case 32 -> {
+            case 33 -> {
                 expectScreen(client, "deciding a scry", TableScreen.class);
                 if (countIn(Zone.LIBRARY) != onTopBefore) {
                     fail("a scry changed how many cards were in the library: "
@@ -497,7 +513,7 @@ public final class DevScene {
                 hover(client, new int[] {2, 2});
                 advance(SETTLE);
             }
-            case 33 -> {
+            case 34 -> {
                 if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
                     fail("a cursor off the board still had a card under it");
                 }
@@ -505,7 +521,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 34 -> {
+            case 35 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
@@ -521,7 +537,7 @@ public final class DevScene {
                 liftACardOnTheBlock(client);
                 advance(SETTLE / 2);
             }
-            case 35 -> {
+            case 36 -> {
                 shoot(client, "22a-carrying-a-card-on-the-table");
                 if (client.screen instanceof TableScreen board) {
                     int[] to = cardPoint(client);
@@ -532,32 +548,32 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 36 -> {
+            case 37 -> {
                 // The whole table, which is the one framing that shows the chair nobody is in.
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 37 -> {
+            case 38 -> {
                 // Somebody sits down opposite. Every picture so far has been of a table with
                 // one player at it, which is not the game this is for.
                 seatARival(client);
                 advance(SETTLE);
             }
-            case 38 -> {
+            case 39 -> {
                 shoot(client, "23-two-players");
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
-            case 39 -> {
+            case 40 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 40 -> {
+            case 41 -> {
                 int now = damageTaken(client);
                 if (now <= tookCommanderDamage) {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
@@ -569,20 +585,20 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 41 -> {
+            case 42 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 // The other number a game of Commander asks a player to keep for an hour.
                 taxPaid = commanderTax(client);
                 openCommanderCounters(client);
                 advance(SETTLE / 2);
             }
-            case 42 -> {
+            case 43 -> {
                 expectScreen(client, "asking for a commander's counters", CountersScreen.class);
                 shoot(client, "25a-commander-tax");
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 43 -> {
+            case 44 -> {
                 int now = commanderTax(client);
                 if (now <= taxPaid) {
                     fail("commander tax did not go up: " + taxPaid + " to " + now);
@@ -590,30 +606,24 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 44 -> {
+            case 45 -> {
                 expectScreen(client, "leaving a commander's counters", TableScreen.class);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
                 // init on an instance that is already holding a game. Two sizes: one where
                 // everything gets bigger and the felt gets smaller, and one the other way.
-                setGuiScale(client, 3);
-                advance(SETTLE / 2);
-            }
-            case 45 -> {
-                theBoardIsStillFramed(client, "at gui scale three");
-                shoot(client, "27-a-bigger-interface");
-                setGuiScale(client, 1);
+                resizeTo(client, 1, "a smaller interface");
                 advance(SETTLE / 2);
             }
             case 46 -> {
-                theBoardIsStillFramed(client, "at gui scale one");
-                shoot(client, "28-a-smaller-interface");
-                setGuiScale(client, 0);
+                theBoardIsStillFramed(client, "at the smallest interface");
+                shoot(client, "27-a-smaller-interface");
+                resizeTo(client, 0, "the automatic interface again");
                 advance(SETTLE / 2);
             }
             case 47 -> {
-                theBoardIsStillFramed(client, "back at the automatic scale");
-                shoot(client, "29-back-to-normal");
+                theBoardIsStillFramed(client, "back at the automatic interface");
+                shoot(client, "28-back-to-normal");
                 // A game has to be finishable. Taken as far as the question and then backed
                 // out of, because going through with it would end the game this run is still
                 // using - but the wiring from menu entry to question is the part that was
@@ -631,7 +641,7 @@ public final class DevScene {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
-                shoot(client, "30-watching-from-outside");
+                shoot(client, "29-watching-from-outside");
                 aSpectatorReadsAGraveyard(client);
                 pokeEverything(client);
                 advance(SETTLE);
@@ -639,7 +649,7 @@ public final class DevScene {
             case 49 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
-                shoot(client, "32-still-watching");
+                shoot(client, "31-still-watching");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -653,9 +663,29 @@ public final class DevScene {
      * instance that is already open, holding a game, a camera and whatever the player was
      * dragging. Zero is the automatic setting.
      */
-    private static void setGuiScale(Minecraft client, int scale) {
+    /**
+     * Changes the interface size, and says so only if it actually changed.
+     *
+     * <p>Minecraft clamps the scale to what the window can show - at the size this runs at,
+     * anything above two is two - so asking for three did nothing at all, and the run went on
+     * to photograph the same frame under the name "a bigger interface" and to check the board
+     * was still framed after a resize that never happened. A step that cannot fail is worse
+     * than no step: it reads, in the log and in the pictures, exactly like one that passed.
+     */
+    private static void resizeTo(Minecraft client, int scale, String what) {
+        int wasWide = client.getWindow().getGuiScaledWidth();
+        int wasHigh = client.getWindow().getGuiScaledHeight();
         client.options.guiScale().set(scale);
         client.resizeDisplay();
+        int nowWide = client.getWindow().getGuiScaledWidth();
+        int nowHigh = client.getWindow().getGuiScaledHeight();
+        if (nowWide == wasWide && nowHigh == wasHigh) {
+            fail("asking for " + what + " left the interface at " + wasWide + " by " + wasHigh
+                    + ", so nothing about a resize was tested");
+            return;
+        }
+        System.out.println("[devscene] " + what + ": " + wasWide + "x" + wasHigh
+                + " became " + nowWide + "x" + nowHigh);
     }
 
     /** After a resize the player's own board still has to be somewhere they can see it. */
@@ -935,6 +965,43 @@ public final class DevScene {
         }
         client.screen.mouseClicked(zone.centreX(), zone.centreY(), button);
         client.screen.mouseReleased(zone.centreX(), zone.centreY(), button);
+    }
+
+    /** Rests the cursor on a zone, so the next step can read what it says about itself. */
+    private static void hoverAZone(Minecraft client, int index) {
+        Rect zone = zoneRect(client, index);
+        if (zone.isEmpty()) {
+            fail("no zone " + index + " to rest on");
+            return;
+        }
+        hover(client, new int[] {(int) zone.centreX(), (int) zone.centreY()});
+    }
+
+    /**
+     * Checks that resting on a pile names it and says what a press would do.
+     *
+     * <p>A pile is a black box with a number on it. The word beside it goes when the board is
+     * drawn small, and even when it is there it does not say that the box can be opened - so
+     * without this a player's only route to a graveyard is trying things.
+     */
+    private static void aPileSaysWhatItDoes(Minecraft client, Zone zone) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to read a pile's tooltip on");
+            return;
+        }
+        String all = board.tooltipShowing().stream()
+                .map(net.minecraft.network.chat.Component::getString)
+                .collect(java.util.stream.Collectors.joining(" / "));
+        String name = ZoneText.name(zone).getString();
+        if (!all.contains(name)) {
+            fail("resting on the " + zone + " did not name it: \"" + all + "\"");
+            return;
+        }
+        if (all.equals(name)) {
+            fail("resting on the " + zone + " named it but did not say what a press would do");
+            return;
+        }
+        System.out.println("[devscene] the " + zone + " says: " + all);
     }
 
     /**
@@ -1265,7 +1332,7 @@ public final class DevScene {
         board.mouseReleased(zone.centreX(), zone.centreY(), 0);
         if (client.screen instanceof PileScreen) {
             System.out.println("[devscene] a spectator opened a seated player's graveyard");
-            shoot(client, "31-a-spectator-reads-a-graveyard");
+            shoot(client, "30-a-spectator-reads-a-graveyard");
             client.screen.onClose();
         } else {
             fail("a spectator could not open a seated player's graveyard");
@@ -1297,6 +1364,65 @@ public final class DevScene {
      * calls: a box drawn where nothing listens for a click is exactly the fault worth
      * catching, and calling the action directly would pass with no box drawn at all.
      */
+    /** Where the button for this verb is on the seated player's own mat, or null. */
+    private static int[] verbButtonAt(Minecraft client, TableVerb verb) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to find a mat button on");
+            return null;
+        }
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null) {
+            fail("no seat to find a mat button for");
+            return null;
+        }
+        int index = java.util.Arrays.asList(TableVerb.values()).indexOf(verb);
+        Rect where = board.board().verbRect(me, index, TableVerb.count());
+        if (where.isEmpty()) {
+            fail("the mat has nowhere for the " + verb + " button");
+            return null;
+        }
+        return new int[] {(int) where.centreX(), (int) where.centreY()};
+    }
+
+    private static void hoverAVerbButton(Minecraft client, TableVerb verb) {
+        int[] at = verbButtonAt(client, verb);
+        if (at != null) {
+            hover(client, at);
+        }
+    }
+
+    /**
+     * Checks that resting on a button produces its name and the key that does the same.
+     *
+     * <p>Both halves matter. The name is the only thing a player has when the board is drawn
+     * too small for the word to be printed on the button itself, and the key is what turns
+     * somebody who is clicking buttons into somebody who is playing at speed.
+     */
+    private static void aButtonSaysWhatItDoes(Minecraft client, TableVerb verb, String key) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to read a tooltip on");
+            return;
+        }
+        List<net.minecraft.network.chat.Component> said = board.tooltipShowing();
+        if (said.isEmpty()) {
+            fail("resting on the " + verb + " button said nothing at all");
+            return;
+        }
+        String name = net.minecraft.network.chat.Component.translatable(verb.key()).getString();
+        String all = said.stream()
+                .map(net.minecraft.network.chat.Component::getString)
+                .collect(java.util.stream.Collectors.joining(" / "));
+        if (!all.contains(name)) {
+            fail("the " + verb + " button's tooltip does not name it: " + all);
+            return;
+        }
+        if (!all.contains(key)) {
+            fail("the " + verb + " button's tooltip does not give its key " + key + ": " + all);
+            return;
+        }
+        System.out.println("[devscene] the " + verb + " button says: " + all);
+    }
+
     private static void pressAVerbButton(Minecraft client, TableVerb verb) {
         if (!(client.screen instanceof TableScreen board)) {
             fail("there was no board to press a mat button on");
