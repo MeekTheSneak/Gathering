@@ -153,6 +153,7 @@
   "message.gathering.next_game_ready": "Crouch and right-click the table to start the next game.",
   "message.gathering.pipeline_unavailable": "The card pipeline is not running on this server.",
   "message.gathering.seat_already_seated": "You already have a seat at this table.",
+  "message.gathering.seat_number": "Seat %s",
   "message.gathering.seat_empty": "(empty)",
   "message.gathering.seat_left": "You have left your seat.",
   "message.gathering.seat_not_a_seat": "There is no seat on that edge.",

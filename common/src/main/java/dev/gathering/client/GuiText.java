@@ -85,11 +85,37 @@ public final class GuiText {
     public static void drawCentredAt(
             GuiGraphics graphics, Font font, Component text, int centreX, int y,
             float scale, int colour) {
+        drawAt(graphics, font, text, centreX - font.width(text) * scale / 2f, y, scale, colour);
+    }
+
+    /**
+     * Draws with its right-hand end at {@code rightX}, at exactly this scale.
+     *
+     * <p>For a column of labels that belongs to something to one side of it. Centring each
+     * one in its own box gives a column with a ragged edge against the thing it names, and
+     * the shorter the word the further it sits from what it is labelling - which reads as
+     * the words having been dropped in rather than laid out.
+     */
+    public static void drawFlushRight(
+            GuiGraphics graphics, Font font, Component text, int rightX, int y,
+            float scale, int colour) {
+        drawAt(graphics, font, text, rightX - font.width(text) * scale, y, scale, colour);
+    }
+
+    /** Draws with its left-hand end at {@code leftX}, at exactly this scale. */
+    public static void drawFlushLeft(
+            GuiGraphics graphics, Font font, Component text, int leftX, int y,
+            float scale, int colour) {
+        drawAt(graphics, font, text, leftX, y, scale, colour);
+    }
+
+    private static void drawAt(
+            GuiGraphics graphics, Font font, Component text, float x, int y,
+            float scale, int colour) {
         FormattedCharSequence sequence = Language.getInstance().getVisualOrder(text);
         graphics.pose().pushPose();
         graphics.pose().translate(
-                centreX - font.width(text) * scale / 2f,
-                y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
+                x, y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
         graphics.pose().scale(scale, scale, 1f);
         graphics.drawString(font, sequence, 0, 0, colour, false);
         graphics.pose().popPose();

@@ -290,6 +290,11 @@ public final class TableScreen extends Screen {
         }
     }
 
+    /** Whether the felt reaches this far down the window. For the harness, as below. */
+    boolean feltReachesDownTo(int y) {
+        return layout().isOnFelt(this.width / 2, y);
+    }
+
     /** Whether a context menu is up. For the scripted harness, which cannot see one. */
     boolean menuIsOpen() {
         return menu != null;
@@ -369,7 +374,7 @@ public final class TableScreen extends Screen {
 
     @Override
     protected void init() {
-        layout = TableScreenLayout.of(this.width, this.height);
+        layout = TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
         if (geometry == null) {
             geometry = new BoardGeometry(anchors(), this.width, this.height,
                     layout.status().height(), layout.hand().height());
@@ -571,6 +576,12 @@ public final class TableScreen extends Screen {
         SeatId sitting = mySeat().orElse(null);
         if (!java.util.Objects.equals(sitting, framedFor)) {
             framedFor = sitting;
+            // The strip along the bottom belongs to a hand, and somebody who has just stood
+            // up no longer has one. Laid out again before the camera is framed, because the
+            // camera is fitted to what is left of the window after the strip is taken out.
+            layout = TableScreenLayout.of(this.width, this.height, sitting != null);
+            geometry.reshape(anchors(), this.width, this.height,
+                    layout.status().height(), layout.hand().height());
             frameTheBoard(sitting);
         }
     }
@@ -936,11 +947,20 @@ public final class TableScreen extends Screen {
         // has no reason to know.
         Rect named = board().pileLabelRect(view.seat(), Zone.PILES.indexOf(zone), pileCount());
         if (!named.isEmpty() && everyZoneNameFits(named.width())) {
-            GuiText.drawCentredAt(graphics, this.font, ZoneText.name(zone),
-                    (int) named.centreX(),
-                    (int) named.centreY() - this.font.lineHeight / 2,
-                    GuiText.scaleForTheSet(this.font, longestOf(ZONE_NAMES), named.width()),
-                    ZONE_LABEL);
+            // Flush against the slot column rather than centred in its own box, so the
+            // names line up with each other and with the boxes they name. Which side the
+            // column is on is read off the two rectangles: a mat is mirrored for the player
+            // opposite, and asking the mat again here would be a second copy of that rule.
+            float scale = GuiText.scaleForTheSet(
+                    this.font, longestOf(ZONE_NAMES), named.width());
+            int baseline = (int) named.centreY() - this.font.lineHeight / 2;
+            if (named.x() < art.x()) {
+                GuiText.drawFlushRight(graphics, this.font, ZoneText.name(zone),
+                        named.right(), baseline, scale, ZONE_LABEL);
+            } else {
+                GuiText.drawFlushLeft(graphics, this.font, ZoneText.name(zone),
+                        named.x(), baseline, scale, ZONE_LABEL);
+            }
         }
         if (art.height() > this.font.lineHeight + 2) {
             Component label = Component.literal(Integer.toString(count));
@@ -1338,9 +1358,13 @@ public final class TableScreen extends Screen {
                     SeatColour.at(seat.seat().index(), 0xFF));
         }
 
+        // A chair nobody is in is named by its number rather than called "(empty)". The
+        // columns above can say a chair is free, because that is what they are for; in a
+        // sentence about whose turn it is, "(empty)" reads as something having gone wrong.
         String who = board.seat(active).occupant()
                 .map(player -> player.name())
-                .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
+                .orElseGet(() -> Component.translatable(
+                        "message.gathering.seat_number", active.index() + 1).getString());
         boolean mine = me != null && me.equals(active);
         // Whose turn it is and where in it everyone is. The phase is a marker and nothing
         // more - the mod never advances it, never checks an action suits it and never stops
@@ -2984,7 +3008,7 @@ public final class TableScreen extends Screen {
 
     private TableScreenLayout layout() {
         if (layout == null) {
-            layout = TableScreenLayout.of(this.width, this.height);
+            layout = TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
         }
         return layout;
     }

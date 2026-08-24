@@ -378,11 +378,40 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // The name goes on the felt beside it, in the space the seated board writes it
             // in, so the two views read the same.
             if (!named.isEmpty()) {
-                writing(poseStack, buffers, packedLight, ZoneText.name(Zone.PILES.get(index)),
-                        onSurface(named.centreX(), span), onSurface(named.centreY(), span),
-                        onSurface(named.height(), span), onSurface(named.width(), span), angle, 0);
+                // Flush against the slot column, the same way the seated board writes them,
+                // so a name sits the same distance from the box it names however short the
+                // word is. Which side the column is on is read off the two rectangles.
+                Component zoneName = ZoneText.name(Zone.PILES.get(index));
+                float nameHeight = onSurface(named.height(), span);
+                float room = onSurface(named.width(), span);
+                float half = writtenWidth(zoneName, nameHeight, room) / 2f;
+                float middle = named.x() < slot.x()
+                        ? onSurface(named.right(), span) - half
+                        : onSurface(named.x(), span) + half;
+                writing(poseStack, buffers, packedLight, zoneName,
+                        middle, onSurface(named.centreY(), span), nameHeight, room, angle, 0);
             }
         }
+    }
+
+    /**
+     * How far a line of writing shrinks to fit the room it has.
+     *
+     * <p>A zone name is longer than a zone is wide, so the line shrinks rather than running
+     * out over the felt and off the edge of the mat. It shrinks as far as it has to, unlike
+     * the seated board, which drops a name it cannot write whole: this writing is in the
+     * world, so a player who cannot read it can walk towards it.
+     */
+    private static float writingScale(Component text, float lineHeight, float maxWidth) {
+        Font font = net.minecraft.client.Minecraft.getInstance().font;
+        int drawn = font.width(text);
+        return drawn <= 0 ? 0f : Math.min(lineHeight / font.lineHeight, maxWidth / drawn);
+    }
+
+    /** How wide that line comes out, in surface units, so a caller can put an end of it. */
+    private static float writtenWidth(Component text, float lineHeight, float maxWidth) {
+        Font font = net.minecraft.client.Minecraft.getInstance().font;
+        return font.width(text) * writingScale(text, lineHeight, maxWidth);
     }
 
     /**
@@ -405,11 +434,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         if (drawn <= 0) {
             return;
         }
-        // A zone name is longer than a zone is wide, so the line shrinks rather than running
-        // out over the felt and off the edge of the mat. It shrinks as far as it has to,
-        // unlike the seated board, which drops a name it cannot write whole: this writing is
-        // in the world, so a player who cannot read it can walk towards it.
-        float scale = Math.min(lineHeight / font.lineHeight, maxWidth / drawn);
+        float scale = writingScale(text, lineHeight, maxWidth);
         poseStack.pushPose();
         poseStack.translate(centreX, WRITING_LIFT, centreZ);
         if (Math.floorMod(angle, 360) != 0) {

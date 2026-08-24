@@ -490,7 +490,11 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
             return Rect.NONE;
         }
         Rect mat = matOf(seat);
-        int gap = Math.max(1, (int) Math.round(slot.height() * PILE_GAP));
+        // Clear of the line drawn round the group of slots, not just of the slot itself. The
+        // name is written flush against the column, so a gap measured to the slot put the
+        // last letter of the longest name underneath that line - which on the board drawn in
+        // the world is a letter with its right-hand half missing.
+        int gap = Math.max(2, (int) Math.round(slot.height() * PILE_GAP * (1 + PILE_GROUP_PAD)));
         int width = Math.max(1, (int) Math.round(slot.width() * PILE_LABEL_WIDTHS));
         int height = Math.max(1, (int) Math.round(slot.height() * PILE_LABEL_HEIGHT));
         int top = slot.y() + (slot.height() - height) / 2;

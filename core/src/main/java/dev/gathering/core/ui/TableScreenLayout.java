@@ -31,20 +31,38 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
     private static final int HAND_HEIGHT_MAX = 168;
     private static final float HAND_HEIGHT_FRACTION = 0.28f;
 
+    /** The layout for somebody with a hand to hold, which is anybody in a chair. */
     public static TableScreenLayout of(int screenWidth, int screenHeight) {
+        return of(screenWidth, screenHeight, true);
+    }
+
+    /**
+     * The layout, with or without a strip along the bottom for a hand.
+     *
+     * <p>A spectator has no hand and never will while they are watching, and a strip reserved
+     * for one costs them twice: the board is fitted into a shorter window and pushed up into
+     * the status row, and the fifth of the felt under the strip stops answering the mouse -
+     * so a graveyard that happens to lie there cannot be opened by the one person at the
+     * table whose whole job is reading it.
+     *
+     * <p>Asked of the seat rather than of the cards in it. Somebody who has played their last
+     * card still has a hand; it is empty, and the strip is where the next one arrives.
+     */
+    public static TableScreenLayout of(int screenWidth, int screenHeight, boolean holdingAHand) {
         int width = Math.max(1, screenWidth);
         int height = Math.max(1, screenHeight);
 
-        int handHeight = clamp(Math.round(height * HAND_HEIGHT_FRACTION),
-                HAND_HEIGHT_MIN, HAND_HEIGHT_MAX);
-        handHeight = Math.min(handHeight, height / 2);
+        int handHeight = holdingAHand
+                ? Math.min(clamp(Math.round(height * HAND_HEIGHT_FRACTION),
+                        HAND_HEIGHT_MIN, HAND_HEIGHT_MAX), height / 2)
+                : 0;
 
         // The felt goes under the hand rather than stopping at it. A table that ended where
         // your cards begin would have a strip you could see across but never put anything on,
         // and panning would keep sliding cards under a lip.
         return new TableScreenLayout(
                 new Rect(0, 0, width, height),
-                new Rect(0, height - handHeight, width, handHeight),
+                handHeight <= 0 ? Rect.NONE : new Rect(0, height - handHeight, width, handHeight),
                 new Rect(0, 0, width, Math.min(STATUS_HEIGHT, height / 4)));
     }
 

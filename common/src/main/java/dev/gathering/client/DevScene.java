@@ -662,6 +662,7 @@ public final class DevScene {
                     fail("standing up left the client still holding a seat");
                 }
                 shoot(client, "29-watching-from-outside");
+                theFeltRunsToTheBottomForAWatcher(client);
                 aSpectatorReadsAGraveyard(client);
                 pokeEverything(client);
                 advance(SETTLE);
@@ -1000,6 +1001,33 @@ public final class DevScene {
         }
         client.screen.mouseClicked(zone.centreX(), zone.centreY(), button);
         client.screen.mouseReleased(zone.centreX(), zone.centreY(), button);
+    }
+
+    /**
+     * A watcher's board runs to the bottom of the window, because they have no hand.
+     *
+     * <p>The strip along the bottom belongs to a hand, and reserving it for somebody who has
+     * none costs them twice: the board is fitted into a shorter window and pushed up under
+     * the status row, and the fifth of the felt beneath the strip stops answering the mouse -
+     * so a graveyard that happens to lie there cannot be opened by the one person at the
+     * table whose whole reason for being there is reading it.
+     */
+    private static void theFeltRunsToTheBottomForAWatcher(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to measure a watcher's felt on");
+            return;
+        }
+        if (ClientTableState.seatAt(table).isPresent()) {
+            fail("this check is about somebody with no seat, and this client has one");
+            return;
+        }
+        int nearTheBottom = client.getWindow().getGuiScaledHeight() - 8;
+        if (!board.feltReachesDownTo(nearTheBottom)) {
+            fail("a watcher's board stops short of the bottom, leaving a strip for a hand "
+                    + "they do not have");
+            return;
+        }
+        System.out.println("[devscene] the watcher's felt reaches the bottom of the window");
     }
 
     /** Rests the cursor on a zone, so the next step can read what it says about itself. */
