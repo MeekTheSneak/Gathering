@@ -23,6 +23,7 @@ import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.CardInstanceId;
+import dev.gathering.core.game.Phase;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
@@ -132,6 +133,9 @@ public final class DevScene {
 
     /** Casts recorded on this player's commander before the button was pressed. */
     private static int taxPaid;
+
+    /** Where in the turn the table was before the marker was stepped on. */
+    private static Phase wasInPhase;
 
     /** What the graveyard held before the verb key was pressed at a card. */
     private static int beforeTheKey;
@@ -288,18 +292,32 @@ public final class DevScene {
                 advance(0);
             }
             case 12 -> {
+                // The shared turn marker. Nothing enforces it, which is exactly why it has to
+                // be movable: a marker stuck on "untap" all game is worse than none.
+                wasInPhase = phaseNow();
+                stepThePhase(client);
+                advance(SETTLE);
+            }
+            case 13 -> {
+                Phase now = phaseNow();
+                if (now == null || now == wasInPhase) {
+                    fail("the turn marker did not move on: still " + wasInPhase);
+                }
+                advance(0);
+            }
+            case 14 -> {
                 // Play a card: take the first one in hand and drop it on the near mat. The one
                 // gesture the whole table is built around, and the one nothing has yet checked
                 // end to end.
                 playACard(client);
                 advance(SETTLE);
             }
-            case 13 -> {
+            case 15 -> {
                 shoot(client, "07-card-played");
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 14 -> {
+            case 16 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering the played card lit nothing; cursor at "
                             + client.mouseHandler.xpos() + "," + client.mouseHandler.ypos());
@@ -313,7 +331,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 15 -> {
+            case 17 -> {
                 if (!CardZoomOverlay.isActive()) {
                     fail("the read-a-card overlay did not come up");
                 }
@@ -325,7 +343,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 16 -> {
+            case 18 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking a card on the table opened no menu");
                 }
@@ -336,7 +354,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 17 -> {
+            case 19 -> {
                 shoot(client, "11-log");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
@@ -344,19 +362,19 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 18 -> {
+            case 20 -> {
                 shoot(client, "12-key-list");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 19 -> {
+            case 21 -> {
                 // Into the graveyard: the drop that has to land on a zone rather than on felt.
                 dropIntoAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
                 advance(SETTLE);
             }
-            case 20 -> {
+            case 22 -> {
                 shoot(client, "13-into-the-graveyard");
                 inTheGraveyard = countIn(Zone.GRAVEYARD);
                 // And back out again. A zone that only swallows cards is half a zone: on a
@@ -367,7 +385,7 @@ public final class DevScene {
                 drawCards(client, 18);
                 advance(SETTLE);
             }
-            case 21 -> {
+            case 23 -> {
                 int now = countIn(Zone.GRAVEYARD);
                 if (now >= inTheGraveyard) {
                     fail("dragging a card out of the graveyard left " + now
@@ -384,7 +402,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 22 -> {
+            case 24 -> {
                 int afterTheKey = countIn(Zone.GRAVEYARD);
                 if (afterTheKey <= beforeTheKey) {
                     fail("the graveyard key put nothing in the graveyard: "
@@ -396,7 +414,7 @@ public final class DevScene {
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 23 -> {
+            case 25 -> {
                 expectScreen(client, "left-clicking the graveyard", PileScreen.class);
                 shoot(client, "16-graveyard-open");
                 if (client.screen != null) {
@@ -404,13 +422,13 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 24 -> {
+            case 26 -> {
                 expectScreen(client, "closing the graveyard", TableScreen.class);
                 // Right-click on the library, which is where every verb a library has lives.
                 clickAZone(client, Zone.PILES.indexOf(Zone.LIBRARY), 1);
                 advance(SETTLE / 2);
             }
-            case 25 -> {
+            case 27 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking the library opened no menu");
                 }
@@ -422,7 +440,7 @@ public final class DevScene {
                 lookAtTheTopOfTheLibrary(client, 3);
                 advance(SETTLE);
             }
-            case 26 -> {
+            case 28 -> {
                 expectScreen(client, "scrying three", PileScreen.class);
                 onTopBefore = countIn(Zone.LIBRARY);
                 shoot(client, "18-scrying");
@@ -433,12 +451,12 @@ public final class DevScene {
                 }
                 advance(SETTLE / 4);
             }
-            case 27 -> {
+            case 29 -> {
                 shoot(client, "19-one-going-to-the-bottom");
                 press(client, "Done");
                 advance(SETTLE);
             }
-            case 28 -> {
+            case 30 -> {
                 expectScreen(client, "deciding a scry", TableScreen.class);
                 if (countIn(Zone.LIBRARY) != onTopBefore) {
                     fail("a scry changed how many cards were in the library: "
@@ -461,7 +479,7 @@ public final class DevScene {
                 hover(client, new int[] {2, 2});
                 advance(SETTLE);
             }
-            case 29 -> {
+            case 31 -> {
                 if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
                     fail("a cursor off the board still had a card under it");
                 }
@@ -469,7 +487,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 30 -> {
+            case 32 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
@@ -485,7 +503,7 @@ public final class DevScene {
                 liftACardOnTheBlock(client);
                 advance(SETTLE / 2);
             }
-            case 31 -> {
+            case 33 -> {
                 shoot(client, "22a-carrying-a-card-on-the-table");
                 if (client.screen instanceof TableScreen board) {
                     int[] to = cardPoint(client);
@@ -496,32 +514,32 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 32 -> {
+            case 34 -> {
                 // The whole table, which is the one framing that shows the chair nobody is in.
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 33 -> {
+            case 35 -> {
                 // Somebody sits down opposite. Every picture so far has been of a table with
                 // one player at it, which is not the game this is for.
                 seatARival(client);
                 advance(SETTLE);
             }
-            case 34 -> {
+            case 36 -> {
                 shoot(client, "23-two-players");
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
-            case 35 -> {
+            case 37 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 36 -> {
+            case 38 -> {
                 int now = damageTaken(client);
                 if (now <= tookCommanderDamage) {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
@@ -533,20 +551,20 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 37 -> {
+            case 39 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 // The other number a game of Commander asks a player to keep for an hour.
                 taxPaid = commanderTax(client);
                 openCommanderCounters(client);
                 advance(SETTLE / 2);
             }
-            case 38 -> {
+            case 40 -> {
                 expectScreen(client, "asking for a commander's counters", CountersScreen.class);
                 shoot(client, "25a-commander-tax");
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 39 -> {
+            case 41 -> {
                 int now = commanderTax(client);
                 if (now <= taxPaid) {
                     fail("commander tax did not go up: " + taxPaid + " to " + now);
@@ -554,7 +572,7 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 40 -> {
+            case 42 -> {
                 expectScreen(client, "leaving a commander's counters", TableScreen.class);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
@@ -563,19 +581,19 @@ public final class DevScene {
                 setGuiScale(client, 3);
                 advance(SETTLE / 2);
             }
-            case 41 -> {
+            case 43 -> {
                 theBoardIsStillFramed(client, "at gui scale three");
                 shoot(client, "27-a-bigger-interface");
                 setGuiScale(client, 1);
                 advance(SETTLE / 2);
             }
-            case 42 -> {
+            case 44 -> {
                 theBoardIsStillFramed(client, "at gui scale one");
                 shoot(client, "28-a-smaller-interface");
                 setGuiScale(client, 0);
                 advance(SETTLE / 2);
             }
-            case 43 -> {
+            case 45 -> {
                 theBoardIsStillFramed(client, "back at the automatic scale");
                 shoot(client, "29-back-to-normal");
                 // A game has to be finishable. Taken as far as the question and then backed
@@ -591,7 +609,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 44 -> {
+            case 46 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -600,7 +618,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 45 -> {
+            case 47 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "32-still-watching");
@@ -1407,6 +1425,31 @@ public final class DevScene {
             System.out.println("[devscene] the picker agrees at " + checked
                     + " places across the screen");
         }
+    }
+
+    /** Where in the turn the table thinks everybody is. */
+    private static Phase phaseNow() {
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        return board == null ? null : board.turn().phase();
+    }
+
+    /**
+     * Steps the shared turn marker on, off the table's own menu.
+     *
+     * <p>A marker nobody can move is a marker that says "untap" for the whole game, which is
+     * worse than no marker: it is wrong for all but a moment of every turn and everybody
+     * learns to stop reading it.
+     */
+    private static void stepThePhase(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to step the phase on");
+            return;
+        }
+        if (!openTheTableMenu(client, board, "Next phase")) {
+            fail("the table menu offers no way to move the turn marker on");
+            return;
+        }
+        board.pressMenuEntry("Next phase");
     }
 
     private static void pokeEverything(Minecraft client) {

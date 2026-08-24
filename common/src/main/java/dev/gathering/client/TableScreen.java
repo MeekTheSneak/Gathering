@@ -1084,7 +1084,7 @@ public final class TableScreen extends Screen {
         List<SeatView> seats = board.seats();
         SeatId me = mySeat().orElse(null);
         SeatId active = board.turn().activeSeat();
-        int turnWidth = Math.min(area.width() / 4, 120);
+        int turnWidth = Math.min(area.width() / 3, 190);
         int column = seats.isEmpty() ? area.width() : (area.width() - turnWidth) / seats.size();
         int line = area.y() + (area.height() - this.font.lineHeight) / 2;
 
@@ -1110,8 +1110,13 @@ public final class TableScreen extends Screen {
                 .map(player -> player.name())
                 .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
         boolean mine = me != null && me.equals(active);
+        // Whose turn it is and where in it everyone is. The phase is a marker and nothing
+        // more - the mod never advances it, never checks an action suits it and never stops
+        // anybody doing anything in any phase - but four people agreeing on where they are
+        // without saying it out loud every thirty seconds is most of what it is for.
         GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.table.turn", board.turn().turnNumber(), who),
+                Component.translatable("screen.gathering.table.turn",
+                        board.turn().turnNumber(), who, phaseName(board.turn().phase())),
                 area.right() - turnWidth, line, turnWidth - 4, mine ? ACCENT : DIM);
     }
 
@@ -2108,6 +2113,8 @@ public final class TableScreen extends Screen {
         entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
         entries.add(entry("make_token", this::askForToken));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
+        view().ifPresent(board -> entries.add(entry("next_phase",
+                () -> send(new GameEvent.PhaseSet(me, board.turn().phase().next())))));
         view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
         entries.add(entry("untap_all", () -> send(new GameEvent.SeatUntappedAll(me, me))));
         entries.add(entry("shuffle", () -> send(new GameEvent.LibraryShuffled(me, me))));
@@ -2163,6 +2170,17 @@ public final class TableScreen extends Screen {
                 .map(Component.class::cast)
                 .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
     }
+
+    /** What a phase is called, built once each because the status line asks every frame. */
+    private static Component phaseName(dev.gathering.core.game.Phase phase) {
+        return PHASE_NAMES[phase.ordinal()];
+    }
+
+    private static final Component[] PHASE_NAMES =
+            java.util.Arrays.stream(dev.gathering.core.game.Phase.values())
+                    .map(phase -> (Component) Component.translatable(
+                            "phase.gathering." + phase.name().toLowerCase(java.util.Locale.ROOT)))
+                    .toArray(Component[]::new);
 
     private static ContextMenu.Entry entry(String key, Runnable action) {
         Component shortcut = SHORTCUTS.get(key);
