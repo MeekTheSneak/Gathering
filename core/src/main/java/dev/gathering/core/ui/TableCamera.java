@@ -90,6 +90,14 @@ public record TableCamera(
      * everything happens to be, rather than a close-up of a corner they have to find their way
      * out of.
      */
+    /**
+     * How much of the view a framed table leaves clear, at each edge.
+     *
+     * <p>Small: enough to see that the border is there, not enough to make the board smaller
+     * in any way somebody would notice.
+     */
+    private static final double EDGE = 0.02;
+
     public static TableCamera showingAll(int viewportWidth, int viewportHeight) {
         return showingAll(TablePosition.SPAN, TablePosition.SPAN, viewportWidth, viewportHeight);
     }
@@ -105,9 +113,13 @@ public record TableCamera(
             int surfaceWidth, int surfaceHeight, int viewportWidth, int viewportHeight) {
         int across = Math.max(1, surfaceWidth);
         int down = Math.max(1, surfaceHeight);
+        // Inside the viewport rather than exactly filling it. A table fitted edge to edge is
+        // a table whose far border is drawn on the same row of pixels as whatever bounds the
+        // view - so "show the whole table" produced a far mat with no visible top edge,
+        // which reads as a crop rather than as the whole thing.
         double fit = Math.min(
-                (double) Math.max(1, viewportWidth) / across,
-                (double) Math.max(1, viewportHeight) / down);
+                Math.max(1, viewportWidth) * (1 - EDGE * 2) / across,
+                Math.max(1, viewportHeight) * (1 - EDGE * 2) / down);
         return new TableCamera(across / 2.0, down / 2.0, fit, across, down, false);
     }
 

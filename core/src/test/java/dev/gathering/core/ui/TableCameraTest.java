@@ -52,6 +52,21 @@ class TableCameraTest {
         }
 
         @Test
+        @DisplayName("the whole table is inside the view, not flush against it")
+        void showingAllLeavesTheEdgesVisible() {
+            // Flush is not the same as whole. A far border drawn on the same row of pixels as
+            // the thing that bounds the view is a border nobody can see, and a board with no
+            // visible top edge reads as a crop - which is the one thing this framing exists
+            // to avoid.
+            TableCamera camera = TableCamera.showingAll(WIDTH, HEIGHT);
+
+            assertThat(camera.toScreenX(0, WIDTH)).isGreaterThan(0);
+            assertThat(camera.toScreenY(0, HEIGHT)).isGreaterThan(0);
+            assertThat(camera.toScreenX(TablePosition.SPAN, WIDTH)).isLessThan(WIDTH);
+            assertThat(camera.toScreenY(TablePosition.SPAN, HEIGHT)).isLessThan(HEIGHT);
+        }
+
+        @Test
         @DisplayName("a square on the table is a square on the screen at every zoom")
         void bothAxesScaleTogether() {
             // The camera has one scale for both directions, and it is the reason a card drawn

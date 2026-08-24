@@ -762,6 +762,17 @@ public final class DevScene {
             }
             case 57 -> {
                 expectScreen(client, "leaving a commander's counters", TableScreen.class);
+                // Framed on the whole table again. It was framed that way eleven steps ago
+                // and then somebody sat down opposite, which re-frames the camera onto your
+                // own board - so the picture named "the whole table" had been a picture of
+                // one mat since the day a rival was added to the run.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
+                }
+                advance(SETTLE / 2);
+            }
+            case 58 -> {
+                theWholeTableIsOnScreen(client);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
                 // init on an instance that is already holding a game. Two sizes: one where
@@ -769,27 +780,27 @@ public final class DevScene {
                 resizeTo(client, 1, "a smaller interface");
                 advance(SETTLE / 2);
             }
-            case 58 -> {
+            case 59 -> {
                 theBoardIsStillFramed(client, "at the smallest interface");
                 shoot(client, "27-a-smaller-interface");
                 resizeTo(client, 0, "the automatic interface again");
                 advance(SETTLE / 2);
             }
-            case 59 -> {
+            case 60 -> {
                 // The two questions a token asks. Nothing else in this run opens either of
                 // them, and both are screens somebody can get stuck on: the first one is the
                 // only place in the mod that takes a line of typing from a player.
                 openTheTokenQuestion(client);
                 advance(SETTLE / 2);
             }
-            case 60 -> {
+            case 61 -> {
                 expectScreen(client, "asking for a token", TextPromptScreen.class);
                 shoot(client, "28a-what-token");
                 typeInto(client, "Treasure");
                 press(client, "OK");
                 advance(SETTLE / 2);
             }
-            case 61 -> {
+            case 62 -> {
                 expectScreen(client, "naming a token", AmountScreen.class);
                 shoot(client, "28b-how-many");
                 // Backed out rather than answered: a token wants a real printing off
@@ -800,7 +811,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 62 -> {
+            case 63 -> {
                 expectScreen(client, "backing out of a token", TableScreen.class);
                 theBoardIsStillFramed(client, "back at the automatic interface");
                 shoot(client, "28-back-to-normal");
@@ -817,7 +828,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 63 -> {
+            case 64 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -829,7 +840,7 @@ public final class DevScene {
                 aSpectatorReadsAGraveyard(client);
                 advance(SETTLE / 2);
             }
-            case 64 -> {
+            case 65 -> {
                 expectScreen(client, "a spectator opening a graveyard", PileScreen.class);
                 shoot(client, "30-a-spectator-reads-a-graveyard");
                 if (client.screen != null) {
@@ -838,7 +849,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 65 -> {
+            case 66 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
@@ -1323,6 +1334,42 @@ public final class DevScene {
         }
         System.out.println("[devscene] a shuffled library has been shaking for "
                 + shaking + "ms");
+    }
+
+    /**
+     * Checks that framing the whole table shows the whole table.
+     *
+     * <p>Every mat, whole, with its borders inside the view - which is the claim the framing
+     * makes and the one thing that makes it worth having a key for. A mat fitted flush
+     * against the edge of the view has a border drawn on the same row of pixels as whatever
+     * bounds it, so it has no visible edge at all and reads as a crop.
+     */
+    private static void theWholeTableIsOnScreen(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to frame");
+            return;
+        }
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (view == null || view.seats().isEmpty()) {
+            fail("there was no table to frame");
+            return;
+        }
+        int wide = client.getWindow().getGuiScaledWidth();
+        int high = client.getWindow().getGuiScaledHeight();
+        for (SeatView seat : view.seats()) {
+            Rect mat = board.board().matRect(seat.seat());
+            if (mat.isEmpty()) {
+                fail("seat " + seat.seat().index() + " had no mat to frame");
+                return;
+            }
+            if (mat.x() <= 0 || mat.y() <= 0 || mat.right() >= wide || mat.bottom() >= high) {
+                fail("framing the whole table left seat " + seat.seat().index()
+                        + "'s mat against the edge of the view: " + mat
+                        + " in " + wide + " by " + high);
+                return;
+            }
+        }
+        System.out.println("[devscene] the whole table is framed, every mat whole");
     }
 
     /** Rests the cursor on a zone, so the next step can read what it says about itself. */
