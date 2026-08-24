@@ -579,4 +579,31 @@ class TableSurfaceTest {
         }
         return present;
     }
+    /**
+     * A pile's count and a pile's name are one label, so they are one size.
+     *
+     * <p>They were two sizes for as long as the board on the block existed, because the count
+     * took its height from a constant in the renderer and the name took its from the slot.
+     * The count came out about half the size, which is the wrong way round: the name is a
+     * word you read once and the count is a number you read every turn.
+     */
+    @Test
+    void aPileCountIsWrittenAsLargeAsItsName() {
+        for (int seats : new int[] {1, 2, 3, 4}) {
+            TableSurface surface = TableSurface.forSeatCount(seats);
+            for (int seat = 0; seat < seats; seat++) {
+                for (int index = 0; index < Zone.PILES.size(); index++) {
+                    Rect named = surface.pileLabel(seat, index, Zone.PILES.size());
+                    int count = surface.pileCountHeight(seat, index, Zone.PILES.size());
+                    assertThat(count)
+                            .describedAs("count height on seat %d pile %d of %d seats",
+                                    seat, index, seats)
+                            .isGreaterThan(0);
+                    if (!named.isEmpty()) {
+                        assertThat(count).isEqualTo(named.height());
+                    }
+                }
+            }
+        }
+    }
 }

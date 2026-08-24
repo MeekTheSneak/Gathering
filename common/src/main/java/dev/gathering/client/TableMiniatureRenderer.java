@@ -132,6 +132,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private static final double WRITING_HEIGHT = TableSurface.CARD_WIDTH_UNITS / 8.0;
 
+    /** The patch a count is written on, so it reads over a card's art rather than into it. */
+    private static final int COUNT_BACKING = 0xC0000000;
+
     private static final int WRITING_COLOUR = 0xFFE8E4DC;
 
     /** How much of a slot's width a line of writing may take up. */
@@ -301,7 +304,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             writing(poseStack, buffers, packedLight,
                     Component.translatable(TableVerb.values()[index].key()),
                     x + width / 2f, z + depth / 2f, lineHeight, width * WRITING_ROOM,
-                    surface.facingDegrees(seatIndex));
+                    surface.facingDegrees(seatIndex), 0);
         }
     }
 
@@ -357,17 +360,24 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // much was in any of them, so the one view meant for playing was the one view a
             // player could not read their own deck size off. Written on the felt rather than
             // floated over it: it is a marking on the mat, like the line the lands sit behind.
-            float lineHeight = onSurface(WRITING_HEIGHT, span);
-            // The count sits in the slot's own corner; the name goes on the felt beside it,
-            // in the space the seated board writes it in, so the two views read the same.
+            Rect named = surface.pileLabel(seatIndex, index, count);
+            // The count is written at the same size as the name beside it. It used to take
+            // its size from a constant that came out about half as tall, which made the one
+            // number a player reads most often - how much library they have left - the
+            // smallest thing on the board.
+            float lineHeight = onSurface(surface.pileCountHeight(seatIndex, index, count), span);
+            // The count sits in the slot's own corner, over whatever card is showing there,
+            // so it is written on a dark patch rather than straight onto the art - a white
+            // number over a pale card is a number nobody can read.
             writing(poseStack, buffers, packedLight, Component.literal(Integer.toString(held)),
                     x + width / 2f, z + lineHeight * 0.6f,
-                    lineHeight, width * WRITING_ROOM, angle);
-            Rect named = surface.pileLabel(seatIndex, index, count);
+                    lineHeight, width * WRITING_ROOM, angle, held > 0 ? COUNT_BACKING : 0);
+            // The name goes on the felt beside it, in the space the seated board writes it
+            // in, so the two views read the same.
             if (!named.isEmpty()) {
                 writing(poseStack, buffers, packedLight, ZoneText.name(Zone.PILES.get(index)),
                         onSurface(named.centreX(), span), onSurface(named.centreY(), span),
-                        onSurface(named.height(), span), onSurface(named.width(), span), angle);
+                        onSurface(named.height(), span), onSurface(named.width(), span), angle, 0);
             }
         }
     }
@@ -383,7 +393,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private void writing(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
             Component text, float centreX, float centreZ, float lineHeight, float maxWidth,
-            int angle) {
+            int angle, int backing) {
         if (lineHeight <= 0f) {
             return;
         }
@@ -405,7 +415,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(90f));
         poseStack.scale(scale, scale, scale);
         font.drawInBatch(text, -drawn / 2f, -font.lineHeight / 2f, WRITING_COLOUR,
-                false, poseStack.last().pose(), buffers, Font.DisplayMode.NORMAL, 0, packedLight);
+                false, poseStack.last().pose(), buffers, Font.DisplayMode.NORMAL,
+                backing, packedLight);
         poseStack.popPose();
     }
 

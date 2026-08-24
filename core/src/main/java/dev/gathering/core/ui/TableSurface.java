@@ -503,6 +503,26 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
                 : Rect.NONE;
     }
 
+    /**
+     * How tall a pile's count is written, in surface units.
+     *
+     * <p>Exactly as tall as the pile's own name, so the two read as one label rather than as
+     * a word and a footnote. The count used to take its height from a separate constant that
+     * came out about half the size, which made the number a player reads most often - how
+     * much library is left - the smallest thing written anywhere on the board.
+     *
+     * <p>Falls back to the name's height as it would have been, for the narrow mats where
+     * there is no room beside the slot to write a name at all: the count is written on the
+     * slot itself and does not need the room the name could not find.
+     */
+    public int pileCountHeight(int seat, int index, int count) {
+        Rect slot = pileSlot(seat, index, count);
+        if (slot.isEmpty()) {
+            return 0;
+        }
+        return Math.max(1, (int) Math.round(slot.height() * PILE_LABEL_HEIGHT));
+    }
+
     public Rect matDivider(int seat, int count) {
         Rect mat = matOf(seat);
         if (mat.isEmpty()) {
