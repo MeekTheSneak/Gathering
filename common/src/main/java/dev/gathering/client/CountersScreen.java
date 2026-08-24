@@ -2,6 +2,7 @@ package dev.gathering.client;
 
 import dev.gathering.core.game.CardInstance;
 import dev.gathering.core.game.CardInstanceId;
+import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.SeatState;
 import dev.gathering.core.game.event.GameEvent;
@@ -543,13 +544,10 @@ public final class CountersScreen extends ChildScreen {
                     panel.x() + MARGIN, rowY + 5, panel.width() - MARGIN * 2 - 60, LABEL);
             GuiText.draw(graphics, this.font,
                     Component.translatable("screen.gathering.counters.extra_mana",
-                            casts * MANA_PER_CAST),
+                            CommandSlots.taxFor(casts)),
                     panel.right() - MARGIN - STEP_WIDTH * 2 - GAP - 34, rowY + 5, 32, VALUE);
         }
     }
-
-    /** What each previous cast adds to a commander's cost. */
-    private static final int MANA_PER_CAST = 2;
 
     /**
      * What to call a card on a row, which is its name once this client knows it.

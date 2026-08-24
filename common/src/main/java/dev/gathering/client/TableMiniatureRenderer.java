@@ -299,7 +299,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             GameView board, dev.gathering.core.game.CardInstanceId id) {
         for (SeatView seat : board.seats()) {
             for (Zone zone : Zone.values()) {
-                ZoneView contents = seat.zone(zone);
+                ZoneView contents = seat.zones().get(zone);
                 if (contents == null) {
                     continue;
                 }
@@ -421,7 +421,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             boolean aimed = ClientTableHighlight.isAimedAt(seat.seat(), index);
             drawSlot(poseStack, buffers, x, z, width, depth, aimed);
 
-            ZoneView contents = seat.zone(Zone.PILES.get(index));
+            ZoneView contents = seat.zones().get(Zone.PILES.get(index));
             int held = contents == null ? 0 : showing(contents);
             int angle = surface.facingDegrees(seatIndex);
             if (held > 0) {

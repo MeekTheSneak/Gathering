@@ -30,6 +30,31 @@ import org.junit.jupiter.api.Test;
  */
 class VisibilityInvariantTest {
 
+    /**
+     * Every zone reaches every viewer, even the ones they may only count.
+     *
+     * <p>Three screens ask a seat view for a zone by name and take the game down if it is not
+     * there - which is fine while every zone is always built, and is the assumption this
+     * checks. It is also what makes adding a zone additive: the fold lays out one of each per
+     * seat from the enum, and the visibility rules walk the enum too, so a constant added
+     * tomorrow arrives at every client without anybody remembering to list it.
+     */
+    @Test
+    @DisplayName("a seat view has one of every zone, for its owner and for everyone else")
+    void everyZoneReachesEveryViewer() {
+        GameSession session = GameFixtures.twoPlayerTable(40);
+        for (Viewer viewer : List.of(
+                Viewer.seat(GameFixtures.ALICE), Viewer.seat(GameFixtures.BOB),
+                Viewer.SPECTATOR)) {
+            GameView view = VisibilityRules.viewFor(session.state(), viewer);
+            for (SeatView seat : view.seats()) {
+                assertThat(seat.zones().keySet())
+                        .describedAs("%s sees every zone of seat %s", viewer, seat.seat())
+                        .containsExactlyInAnyOrder(Zone.values());
+            }
+        }
+    }
+
     @Nested
     @DisplayName("section 6's table, line by line")
     class TheTable {

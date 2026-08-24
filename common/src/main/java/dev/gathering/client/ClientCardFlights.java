@@ -186,7 +186,7 @@ public final class ClientCardFlights {
         Map<CardTravel.Place, CardTravel.Held> shape = new LinkedHashMap<>();
         for (SeatView seat : board.seats()) {
             for (Zone zone : Zone.values()) {
-                ZoneView contents = seat.zone(zone);
+                ZoneView contents = seat.zones().get(zone);
                 if (contents == null) {
                     continue;
                 }

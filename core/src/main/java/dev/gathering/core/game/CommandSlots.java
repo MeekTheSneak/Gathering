@@ -1,5 +1,6 @@
 package dev.gathering.core.game;
 
+import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
 
@@ -52,8 +53,7 @@ public final class CommandSlots {
         if (held == null || held.cards().isEmpty()) {
             return null;
         }
-        return held.cards().get(held.cards().size() - 1)
-                instanceof dev.gathering.core.game.visibility.CardView.Visible visible
+        return held.cards().get(held.cards().size() - 1) instanceof CardView.Visible visible
                 ? visible.id()
                 : null;
     }
