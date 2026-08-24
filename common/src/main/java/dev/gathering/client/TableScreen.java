@@ -261,9 +261,31 @@ public final class TableScreen extends Screen {
         return table.equals(which);
     }
 
+    /** The seat the camera is currently framed for, or null for the whole table. */
+    private SeatId framedFor;
+
+    /** Frames the board on this seat's own mat, or on the whole table when there is no seat. */
+    private void frameTheBoard(SeatId seat) {
+        if (seat == null) {
+            geometry.showEverything();
+        } else {
+            geometry.focusOn(seat);
+        }
+    }
+
     /** Whether a context menu is up. For the scripted harness, which cannot see one. */
     boolean menuIsOpen() {
         return menu != null;
+    }
+
+    /** How many zones this board is drawing per seat. For the harness, as above. */
+    int pilesShowing() {
+        return pileCount();
+    }
+
+    /** Takes the menu entry with this label, if a menu is up and has one. As above. */
+    boolean pressMenuEntry(String label) {
+        return menu != null && menu.press(label);
     }
 
     /** Whether the last frame drawn had a card under the cursor. For the harness, as above. */
@@ -314,8 +336,12 @@ public final class TableScreen extends Screen {
             geometry = new BoardGeometry(anchors(), this.width, this.height,
                     layout.status().height(), layout.hand().height());
             onBlock = new SurfaceBoard(anchors());
-            // Opened on your own board rather than on the whole table: see focusOn.
-            mySeat().ifPresent(geometry::focusOn);
+            // Opened on your own board rather than on the whole table: see focusOn. Somebody
+            // with no seat has no own board to open on, and used to get whatever the camera
+            // happened to be constructed with - which put the far player's zones off the top
+            // of the window. Watching a game you are not in shows the whole table.
+            framedFor = mySeat().orElse(null);
+            frameTheBoard(framedFor);
         } else {
             geometry.reshape(anchors(), this.width, this.height,
                     layout.status().height(), layout.hand().height());
@@ -466,13 +492,16 @@ public final class TableScreen extends Screen {
             geometry.showEverything();
         }
         // The board can arrive before this client knows which chair it is in - a spectator who
-        // sits down gets the seat a moment after the view. Framing it then rather than only at
-        // open is what stops a player who joined mid-hand looking at the table upside down.
-        mySeat().ifPresent(seat -> {
-            if (geometry.isTurned() != geometry.surface().isTurned(seat.index())) {
-                geometry.focusOn(seat);
-            }
-        });
+        // sits down gets the seat a moment after the view - and a player can stop having a
+        // chair while still looking at the board. Either way the camera has to follow, and it
+        // used to follow in one direction only: framing on your own mat when a seat appeared,
+        // and then staying framed on a mat that was no longer yours when it went away, with
+        // the far player's zones off the top of the window and no way back but Home.
+        SeatId sitting = mySeat().orElse(null);
+        if (!java.util.Objects.equals(sitting, framedFor)) {
+            framedFor = sitting;
+            frameTheBoard(sitting);
+        }
     }
 
     // ------------------------------------------------------------- rendering
@@ -1952,6 +1981,15 @@ public final class TableScreen extends Screen {
                 () -> openCounters(new CountersScreen.Subject.Seat(
                         me, CountersScreen.titleForSeat(board, me))))));
         entries.add(entry("show_everything", this::showEverything));
+        entries.add(ContextMenu.Entry.rule());
+        // Standing up lives here rather than on the table block. Clicking your own edge of
+        // the table is how a seated player opens their board, so it cannot also be how they
+        // give up their chair - and a verb about your seat belongs with the other verbs about
+        // your seat, where somebody can find it without being told.
+        entries.add(entry("leave_table", () -> {
+            send(new GameEvent.SeatReleased(me));
+            onClose();
+        }));
         menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
     }
 

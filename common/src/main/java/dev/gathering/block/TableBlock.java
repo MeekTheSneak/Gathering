@@ -273,15 +273,17 @@ public class TableBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
 
-        if (side != null && TableSeats.seatOf(level, tableOrigin, player.getUUID())
-                .filter(seat -> seat.cell().equals(cell) && seat.side() == side).isPresent()) {
-            TableSeats.leave(level, tableOrigin, player.getUUID());
-            player.sendSystemMessage(Component.translatable("message.gathering.seat_left"));
-            tellTheTableWhoIsSittingAtIt(level, tableOrigin);
-            return ItemInteractionResult.SUCCESS;
-        }
+        // Clicking the edge you are already sitting at used to give up your chair, which
+        // swallowed the one click a seated player most wants to make. Their own side of the
+        // table is where they stand, so opening the board was reachable only by walking round
+        // to somebody else's chair first. Standing up is on the board's own menu now, where
+        // the rest of the seat verbs live, and this click falls through to opening it.
+        boolean alreadySeatedHere = side != null
+                && TableSeats.seatOf(level, tableOrigin, player.getUUID())
+                        .filter(seat -> seat.cell().equals(cell) && seat.side() == side)
+                        .isPresent();
 
-        if (side != null && TableSeats.isSeat(cluster, cell, side)) {
+        if (!alreadySeatedHere && side != null && TableSeats.isSeat(cluster, cell, side)) {
             TableSeats.Claim claim = TableSeats.take(level, tableOrigin, cell, side, player.getUUID());
             player.sendSystemMessage(Component.translatable(claim.messageKey()));
             tellTheTableWhoIsSittingAtIt(level, tableOrigin);

@@ -169,6 +169,24 @@ public final class ContextMenu {
         return true;
     }
 
+    /**
+     * Runs the entry with this label, or says there was none.
+     *
+     * <p>For the scripted run, so it can take a menu entry the way a player takes it rather
+     * than calling what the entry would have called - which would pass just as happily with
+     * the entry missing from the menu.
+     */
+    boolean press(String label) {
+        for (Entry entry : entries) {
+            if (!entry.isRule() && entry.enabled()
+                    && entry.label().getString().equalsIgnoreCase(label)) {
+                entry.action().run();
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** One line of the menu. */
     public record Entry(Component label, boolean enabled, Runnable action) {
 

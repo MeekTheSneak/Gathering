@@ -976,25 +976,44 @@ public final class DevScene {
      * checked is what a player can do to themselves - and because the board they are left
      * holding afterwards is the whole point.
      */
+    /**
+     * Leaves the table the way a player leaves it: off the board's own menu.
+     *
+     * <p>It used to click the edge the player was sitting at, because that gave up the chair.
+     * That click opens the board now - it is the one click a seated player standing at their
+     * own side of the table most wants to make - so standing up moved to the table menu, and
+     * this takes it from there. Pressing the entry rather than sending the event proves the
+     * entry is on the menu at all.
+     */
     private static void standUp(Minecraft client) {
-        MinecraftServer server = client.getSingleplayerServer();
-        if (server == null || table == null) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to leave the table from");
             return;
         }
-        BlockPos where = table;
-        server.execute(() -> {
-            ServerLevel level = server.overworld();
-            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
-            if (player == null) {
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        // Bare felt, which by this point in the run is not the middle of the board - there
+        // are cards there. A right-click on a card opens that card's menu instead, so this
+        // tries a few places and takes the first that offers the table's own.
+        int[][] places = {
+            {width / 2, height / 2}, {width / 6, height / 3},
+            {width / 2, height / 6}, {width * 5 / 6, height / 3},
+            {width / 6, height * 2 / 3},
+        };
+        for (int[] at : places) {
+            board.mouseClicked(at[0], at[1], 1);
+            board.mouseReleased(at[0], at[1], 1);
+            if (board.menuIsOpen() && board.pressMenuEntry("Leave the table")) {
+                System.out.println("[devscene] left the table from its own menu");
+                // Leaving puts the board away, which is what standing up and walking off
+                // means. The run wants to go on watching the same table without a seat, so it
+                // opens it again the way anybody with no seat opens it.
+                client.setScreen(new TableScreen(table));
                 return;
             }
-            // The north edge, which is the one this player sat at.
-            BlockHitResult hit = new BlockHitResult(
-                    Vec3.atCenterOf(where), Direction.NORTH, where, false);
-            player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND, hit);
-            System.out.println("[devscene] stood up: seated now "
-                    + TableSeats.seatOf(level, where, player.getUUID()));
-        });
+            board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        }
+        fail("no felt on the board offered a table menu with a way to leave the table");
     }
 
     /**
@@ -1030,8 +1049,10 @@ public final class DevScene {
             fail("no seated player for a spectator to read a graveyard from");
             return;
         }
+        // The board's own count, not an assumed four: a table without a command zone draws
+        // three, and a guess that disagrees aims the click at a rectangle nothing is in.
         int index = Zone.PILES.indexOf(Zone.GRAVEYARD);
-        Rect zone = board.board().pileRect(seated.seat(), index, Zone.pilesFor(true));
+        Rect zone = board.board().pileRect(seated.seat(), index, board.pilesShowing());
         if (zone.isEmpty()) {
             fail("the seated player's graveyard had nowhere to be clicked");
             return;
@@ -1066,8 +1087,8 @@ public final class DevScene {
         GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
         if (view != null) {
             for (SeatView seat : view.seats()) {
-                for (int index = 0; index < Zone.pilesFor(true); index++) {
-                    Rect zone = board.board().pileRect(seat.seat(), index, Zone.pilesFor(true));
+                for (int index = 0; index < board.pilesShowing(); index++) {
+                    Rect zone = board.board().pileRect(seat.seat(), index, board.pilesShowing());
                     if (zone.isEmpty()) {
                         continue;
                     }

@@ -2,6 +2,7 @@ package dev.gathering.server;
 
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableBlockEntity;
+import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.SeatId;
@@ -63,6 +64,14 @@ public final class TableActions {
         if (result instanceof GameSession.Result.Rejected rejected) {
             player.sendSystemMessage(Component.literal(rejected.reason()));
             return;
+        }
+
+        // Giving up a seat is two stores, not one: the game's own seat state, which the fold
+        // has just updated, and the block's record of who is sitting where, which is what
+        // decides whose chair is free for the next player. Leaving either behind is a player
+        // who has stood up in one of them and is still sitting down in the other.
+        if (event instanceof GameEvent.SeatReleased) {
+            TableSeats.leave(level, origin, player.getUUID());
         }
 
         TableSessions.anchorOf(level, origin)
