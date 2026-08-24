@@ -156,7 +156,7 @@ public final class TableScreen extends Screen {
             new String[] {
                 "screen.gathering.table.keys_game",
                 "screen.gathering.table.key_untap",
-                "screen.gathering.table.key_draw_one",
+                "screen.gathering.table.key_draw",
                 "screen.gathering.table.key_scry",
                 "screen.gathering.table.key_mill",
                 "screen.gathering.table.key_reveal",
@@ -447,9 +447,37 @@ public final class TableScreen extends Screen {
         if (!playingOnTheBlock) {
             return new double[] {mouseX, mouseY};
         }
-        return TablePointer.at(tableTop(), mouseX, mouseY)
+        if (mouseX == askedX && mouseY == askedY) {
+            return answered;
+        }
+        askedX = mouseX;
+        askedY = mouseY;
+        answered = TablePointer.at(tableTop(), mouseX, mouseY)
                 .map(spot -> new double[] {spot.x(), spot.y()})
                 .orElse(null);
+        return answered;
+    }
+
+    /**
+     * The last question put to the pointer and the answer it gave.
+     *
+     * <p>Casting a ray at the table means building a view-projection, inverting it and
+     * intersecting a plane, and one frame drawn on the block asks the same question of the
+     * same pixel three times over - what card is under the cursor, what button, what pile.
+     * The answer cannot change between those three, so it is worked out once.
+     *
+     * <p>Thrown away at the top of every frame and whenever the view changes, so it can only
+     * ever serve the frame that asked for it or a click arriving before the next one - which
+     * is the frame the player was looking at when they clicked.
+     */
+    private double askedX = Double.NaN;
+    private double askedY = Double.NaN;
+    private double[] answered;
+
+    private void forgetThePointer() {
+        askedX = Double.NaN;
+        askedY = Double.NaN;
+        answered = null;
     }
 
     /**
@@ -461,6 +489,7 @@ public final class TableScreen extends Screen {
      */
     private void useTheBlock(boolean wanted) {
         playingOnTheBlock = wanted;
+        forgetThePointer();
         held = null;
         boxFrom = null;
         panFrom = null;
@@ -576,6 +605,7 @@ public final class TableScreen extends Screen {
         cursorY = mouseY;
         ClientHoverState.clear();
         tooltip = List.of();
+        forgetThePointer();
 
         Placed hovered = null;
         if (playingOnTheBlock) {
@@ -591,7 +621,7 @@ public final class TableScreen extends Screen {
             int verb = hovered == null ? verbSlotAt(mine, mouseX, mouseY) : -1;
             ClientTableHighlight.pointAtVerb(mine, verb);
             if (verb >= 0) {
-                tooltip = tipFor(VERB_NAMES[verb], VERB_KEYS[verb]);
+                tooltip = tipFor(VERB_NAMES[verb], VERB_KEY_NAMES[verb]);
             } else if (hovered == null) {
                 int pile = pileSlotAt(board, mouseX, mouseY);
                 if (pile >= 0) {
@@ -798,7 +828,7 @@ public final class TableScreen extends Screen {
                         where.x(), where.y(), where.width(), where.height(), ACCENT);
             }
             if (hovered) {
-                tooltip = tipFor(VERB_NAMES[index], VERB_KEYS[index]);
+                tooltip = tipFor(VERB_NAMES[index], VERB_KEY_NAMES[index]);
             }
             if (everyVerbNameFits(where.width() - 2)) {
                 GuiText.drawCentredAt(graphics, this.font, VERB_NAMES[index],
@@ -841,17 +871,12 @@ public final class TableScreen extends Screen {
 
     private boolean pressVerb(SeatId me, int x, int y) {
         int index = verbSlotAt(me, x, y);
-        if (index >= 0) {
-            GatheringButtons.clickSound();
-            switch (TableVerb.values()[index]) {
-                case UNTAP -> send(new GameEvent.SeatUntappedAll(me, me));
-                case DRAW -> send(new GameEvent.CardsDrawn(me, me, 1));
-                case SHUFFLE -> send(new GameEvent.LibraryShuffled(me, me));
-                case MULLIGAN -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND));
-            }
-            return true;
+        if (index < 0) {
+            return false;
         }
-        return false;
+        GatheringButtons.clickSound();
+        doVerb(me, TableVerb.values()[index]);
+        return true;
     }
 
     /** The line round a group of zones. Nothing inside it - the slots draw themselves. */
@@ -992,18 +1017,63 @@ public final class TableScreen extends Screen {
             Zone.PILES.stream().map(ZoneText::name).toArray(Component[]::new);
 
     /**
-     * The key that does the same thing as each mat button, in the order of the buttons.
+     * The key that runs each mat button, in the order of the buttons.
      *
-     * <p>Null where there is no key. Mulligan has none on purpose: it is wanted once a game
-     * and putting it on the number row would cost a key that a verb wanted every turn could
-     * have had.
+     * <p>-1 where there is no key. Mulligan has none on purpose: it is wanted once a game and
+     * putting it on the number row would cost a key that a verb wanted every turn could have
+     * had.
+     *
+     * <p>One table, read three ways: the key press dispatches through it, the tooltip names
+     * the key from it, and the button and the key therefore cannot come to mean different
+     * things. They were three separate lists for about an hour, which is how long it took to
+     * notice that changing one of them would have left the other two lying.
      */
-    private static final Component[] VERB_KEYS = {
-        Component.literal("1"),
-        Component.literal("2"),
-        Component.literal("R"),
-        null,
+    private static final int[] VERB_KEYS = {
+        org.lwjgl.glfw.GLFW.GLFW_KEY_1,
+        org.lwjgl.glfw.GLFW.GLFW_KEY_2,
+        org.lwjgl.glfw.GLFW.GLFW_KEY_R,
+        -1,
     };
+
+    /** What each of those keys is called, in the player's own language and keyboard layout. */
+    private static final Component[] VERB_KEY_NAMES = keyNames();
+
+    private static Component[] keyNames() {
+        Component[] named = new Component[VERB_KEYS.length];
+        for (int index = 0; index < VERB_KEYS.length; index++) {
+            named[index] = VERB_KEYS[index] < 0
+                    ? null
+                    : com.mojang.blaze3d.platform.InputConstants
+                            .getKey(VERB_KEYS[index], -1).getDisplayName();
+        }
+        return named;
+    }
+
+    /** The mat button this key press is, or null. */
+    private static TableVerb verbForKey(int key) {
+        for (int index = 0; index < VERB_KEYS.length; index++) {
+            if (VERB_KEYS[index] == key) {
+                return TableVerb.values()[index];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * What a mat button does, wherever it was asked for.
+     *
+     * <p>One body for the button and for the key, because they are the same verb: pressing
+     * Draw and pressing 2 have to reach the same event or one of them is a second, quieter
+     * implementation of drawing a card.
+     */
+    private void doVerb(SeatId me, TableVerb verb) {
+        switch (verb) {
+            case UNTAP -> send(new GameEvent.SeatUntappedAll(me, me));
+            case DRAW -> send(new GameEvent.CardsDrawn(me, me, 1));
+            case SHUFFLE -> send(new GameEvent.LibraryShuffled(me, me));
+            case MULLIGAN -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND));
+        }
+    }
 
     private static final Component[] VERB_NAMES =
             java.util.Arrays.stream(TableVerb.values())
@@ -1390,7 +1460,7 @@ public final class TableScreen extends Screen {
                 y = top;
             }
             int x = area.x() + 5 + column * columnWidth;
-            GuiText.draw(graphics, this.font, Component.translatable(section[0]),
+            GuiText.draw(graphics, this.font, keyLine(section[0]),
                     x, y, columnWidth - 6, ACCENT);
             y += line;
             for (int index = 1; index < section.length; index++) {
@@ -1399,7 +1469,7 @@ public final class TableScreen extends Screen {
                     y = top;
                     x = area.x() + 5 + column * columnWidth;
                 }
-                GuiText.draw(graphics, this.font, Component.translatable(section[index]),
+                GuiText.draw(graphics, this.font, keyLine(section[index]),
                         x + 6, y, columnWidth - 12, LABEL);
                 y += line;
             }
@@ -1408,6 +1478,36 @@ public final class TableScreen extends Screen {
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.table.keys_close"),
                 area.x() + 5, area.bottom() - line - 2, area.width() - 10, DIM);
+    }
+
+    /**
+     * One line of the key list.
+     *
+     * <p>The lines that name a mat button's key take that key as an argument rather than
+     * spelling it out, so the list cannot go on saying "2 - draw a card" after 2 has stopped
+     * drawing one. Everything else is prose that names no key of its own.
+     */
+    private static Component keyLine(String name) {
+        Component key = KEY_LIST_KEYS.get(name);
+        return key == null
+                ? Component.translatable(name)
+                : Component.translatable(name, key);
+    }
+
+    /** Which key-list lines name a mat button's key, and which key that is. */
+    private static final java.util.Map<String, Component> KEY_LIST_KEYS = keyListKeys();
+
+    private static java.util.Map<String, Component> keyListKeys() {
+        java.util.Map<String, Component> named = new java.util.HashMap<>();
+        for (int index = 0; index < VERB_KEYS.length; index++) {
+            if (VERB_KEYS[index] >= 0) {
+                named.put("screen.gathering.table.key_"
+                                + TableVerb.values()[index].name()
+                                        .toLowerCase(java.util.Locale.ROOT),
+                        VERB_KEY_NAMES[index]);
+            }
+        }
+        return java.util.Collections.unmodifiableMap(named);
     }
 
     /** How many lines the whole key list wants, headings included. */
@@ -1424,7 +1524,7 @@ public final class TableScreen extends Screen {
         int widest = 0;
         for (String[] section : KEY_HELP) {
             for (String key : section) {
-                widest = Math.max(widest, this.font.width(Component.translatable(key)));
+                widest = Math.max(widest, this.font.width(keyLine(key)));
             }
         }
         return widest;
@@ -2432,6 +2532,14 @@ public final class TableScreen extends Screen {
             return super.keyPressed(key, scanCode, modifiers);
         }
 
+        // The mat buttons first, so a key and the button printed with it on stay the same
+        // verb whichever of the two the player reaches for.
+        TableVerb byKey = verbForKey(key);
+        if (byKey != null) {
+            doVerb(me, byKey);
+            return true;
+        }
+
         if (key >= org.lwjgl.glfw.GLFW.GLFW_KEY_0 && key <= org.lwjgl.glfw.GLFW.GLFW_KEY_9) {
             return verbKey(me, key - org.lwjgl.glfw.GLFW.GLFW_KEY_0);
         }
@@ -2451,10 +2559,6 @@ public final class TableScreen extends Screen {
                 // TTS groups the selection into a stack; the nearest thing here is putting the
                 // selected cards onto one another, which is what a stack of cards is.
                 return groupSelection(me);
-            }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_R -> {
-                send(new GameEvent.LibraryShuffled(me, me));
-                return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE -> {
                 return deleteSelection(me);
@@ -2578,14 +2682,6 @@ public final class TableScreen extends Screen {
         return switch (number) {
             case 0 -> {
                 view().ifPresent(board -> passTurn(board, me));
-                yield true;
-            }
-            case 1 -> {
-                send(new GameEvent.SeatUntappedAll(me, me));
-                yield true;
-            }
-            case 2 -> {
-                send(new GameEvent.CardsDrawn(me, me, 1));
                 yield true;
             }
             case 3 -> {
