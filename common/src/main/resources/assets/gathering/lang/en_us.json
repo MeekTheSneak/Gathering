@@ -229,6 +229,7 @@
   "screen.gathering.pile.deciding": "Click a card to send it %1$s  \u00b7  drag to reorder  \u00b7  %2$s going",
   "screen.gathering.pile.empty": "Nothing here.",
   "screen.gathering.pile.hint": "Click a card to move it  \u00b7  Esc to close",
+  "screen.gathering.pile.hint_watching": "Watching  \u00b7  Esc to close",
   "screen.gathering.pile.hint_scrolling": "Click a card to move it  \u00b7  scroll for more  \u00b7  Esc to close",
   "screen.gathering.pile.not_yours": "You are not looking through this.",
   "screen.gathering.pile.scrying": "Scry %s",

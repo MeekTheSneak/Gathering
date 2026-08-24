@@ -810,10 +810,18 @@ public final class DevScene {
                     fail("a watcher has nowhere to open the game log");
                 }
                 aSpectatorReadsAGraveyard(client);
+                advance(SETTLE / 2);
+            }
+            case 62 -> {
+                expectScreen(client, "a spectator opening a graveyard", PileScreen.class);
+                shoot(client, "30-a-spectator-reads-a-graveyard");
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 62 -> {
+            case 63 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
@@ -1476,6 +1484,9 @@ public final class DevScene {
                     session.submit(new GameEvent.CardMoved(theirs, card,
                             dev.gathering.core.game.ZoneRef.of(theirs, Zone.BATTLEFIELD),
                             dev.gathering.core.game.Placement.at(TablePosition.of(3000, 4000)))));
+            // And bins one. A graveyard is public, so what a spectator reading it must see is
+            // a card - an empty pile proves only that the screen opens.
+            session.submit(new GameEvent.LibraryMilled(theirs, theirs, 1));
             TableBroadcast.sendToTable(server.overworld(), where);
             System.out.println("[devscene] a rival sat down opposite");
         });
@@ -1723,13 +1734,42 @@ public final class DevScene {
         }
         board.mouseClicked(zone.centreX(), zone.centreY(), 0);
         board.mouseReleased(zone.centreX(), zone.centreY(), 0);
-        if (client.screen instanceof PileScreen) {
-            System.out.println("[devscene] a spectator opened a seated player's graveyard");
-            shoot(client, "30-a-spectator-reads-a-graveyard");
-            client.screen.onClose();
-        } else {
+        if (!(client.screen instanceof PileScreen)) {
             fail("a spectator could not open a seated player's graveyard");
+            return;
         }
+        // Opening it is half of it. A graveyard is public, so a spectator has to be able to
+        // read the cards in one - a screen that opens onto "Nothing here" over a pile that
+        // has something in it is the visibility rules being too careful, which fails a
+        // watcher just as surely as being too loose would fail everyone else.
+        ZoneView bin = seated.zone(Zone.GRAVEYARD);
+        if (bin == null || bin.count() == 0) {
+            fail("the seated player's graveyard was empty, so nothing about reading one was tested");
+            return;
+        }
+        if (bin.cards().stream().noneMatch(card -> card instanceof CardView.Visible)) {
+            fail("a spectator opened a graveyard of " + bin.count()
+                    + " and was shown none of them");
+            return;
+        }
+        // And is not offered a gesture they have no seat to make. A screen that says "click
+        // a card to move it" to somebody who cannot move anything teaches them that its own
+        // writing is not worth reading.
+        if (client.screen instanceof PileScreen pile) {
+            String said = pile.footerSays();
+            String offered = net.minecraft.network.chat.Component
+                    .translatable("screen.gathering.pile.hint").getString();
+            if (said.equals(offered)) {
+                fail("a watcher was told to click a card to move it: \"" + said + "\"");
+                return;
+            }
+            System.out.println("[devscene] a spectator read " + bin.count()
+                    + " card(s) in a seated player's graveyard, and is told: " + said);
+        }
+        // The picture is the next step's. A screen opened this instant has not been drawn
+        // yet, and the frame grabbed here is the board that was up before it - which is how
+        // a picture named "a spectator reads a graveyard" came to be a picture of no
+        // graveyard at all, under a check that was passing the whole time.
     }
 
     /**

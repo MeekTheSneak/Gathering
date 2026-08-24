@@ -152,12 +152,19 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         int rows = (held + columns - 1) / columns;
         int shown = Math.max(1, Math.min(rows,
                 (roomDown - MARGIN * 2 - HEADER - FOOTER + GAP) / (CARD_HEIGHT + GAP)));
+        // A pile with nothing in it needs room for a sentence, not for a card. Reserving a
+        // card row for a card that is not there gave an empty graveyard a box the size of a
+        // full one, which is the whole window's worth of nothing this screen was shrunk to
+        // stop doing.
 
         // Wide enough for the cards, and for the writing above and below them, and no wider.
         int wanted = Math.max(
                 columns * (cardWidth + GAP) - GAP + MARGIN * 2,
                 Math.min(roomAcross, widestLine(rows > shown) + MARGIN * 2));
-        int tall = shown * (CARD_HEIGHT + GAP) - GAP + MARGIN * 2 + HEADER + FOOTER;
+        int inTheGrid = sizedFor == 0
+                ? this.font.lineHeight * 2
+                : shown * (CARD_HEIGHT + GAP) - GAP;
+        int tall = inTheGrid + MARGIN * 2 + HEADER + FOOTER;
         panel = new Rect(
                 (this.width - wanted) / 2, Math.max(0, (this.height - tall) / 2), wanted, tall);
         grid = new Rect(panel.x() + MARGIN, panel.y() + MARGIN + HEADER,
@@ -320,6 +327,12 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         }
         if (cards().isEmpty()) {
             return null;
+        }
+        // A watcher has no seat, so nothing in here is theirs to move. Offering them the
+        // click is the same small lie as offering a scroll with nothing below the fold, and
+        // this one they would actually try.
+        if (mySeat().isEmpty()) {
+            return Component.translatable("screen.gathering.pile.hint_watching");
         }
         return Component.translatable(scrolls
                 ? "screen.gathering.pile.hint_scrolling"
@@ -533,6 +546,11 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                 continue;
             }
             if (cards.get(index) instanceof CardView.Visible visible) {
+                if (mySeat().isEmpty()) {
+                    // No seat, nothing to move it with. The sound is the answer to "did that
+                    // do anything", so it is only made when the answer is yes.
+                    return true;
+                }
                 if (decision != null) {
                     // Held rather than acted on, because this press might be the start of a
                     // drag. Which of the two it was is not known until the button comes up.
