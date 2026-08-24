@@ -425,8 +425,19 @@ public final class DevScene {
             }
             case 23 -> {
                 shoot(client, "11-log");
+                // Escape shuts the log and leaves the player at the table. It used to shut
+                // the table: the log was open on top of the felt and the key that closes
+                // every other panel in the game walked straight past it.
                 if (client.screen != null) {
-                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                }
+                expectScreen(client, "pressing escape on the game log", TableScreen.class);
+                if (client.screen instanceof TableScreen board && board.theLogIsShowing()) {
+                    fail("escape left the game log open");
+                    return;
+                }
+                System.out.println("[devscene] escape shuts the log without leaving the table");
+                if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
                 }
                 advance(SETTLE / 2);

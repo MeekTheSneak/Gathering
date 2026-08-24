@@ -1652,6 +1652,11 @@ public final class TableScreen extends Screen {
      * against the hand strip, and a watcher has no hand, so for them the height came out
      * negative and the log silently refused to open.
      */
+    /** Whether the game log is open, for the scripted harness. */
+    boolean theLogIsShowing() {
+        return showingLog;
+    }
+
     boolean theLogHasRoom() {
         return floorOfTheFelt() - (layout().status().bottom() + 4) - 6
                 >= (this.font.lineHeight + 1) * 3;
@@ -2836,11 +2841,13 @@ public final class TableScreen extends Screen {
             showingKeys = !showingKeys;
             return true;
         }
-        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE
-                && (menu != null || !attaching.isEmpty() || showingKeys)) {
-            menu = null;
-            attaching = List.of();
-            showingKeys = false;
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && somethingIsOpen()) {
+            // Escape shuts whatever is open on top of the table, and only leaves the table
+            // when nothing is. Two of these used not to be on the list: the log, which is as
+            // open as a menu is and left by the same key everywhere else in the game, and a
+            // card halfway through being carried - so pressing Escape while holding one put
+            // the player outside the table still holding it.
+            closeWhatIsOpen();
             return true;
         }
         SeatId me = mySeat().orElse(null);
@@ -3316,6 +3323,28 @@ public final class TableScreen extends Screen {
             layout = TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
         }
         return layout;
+    }
+
+    /**
+     * Whether anything is open on top of the felt.
+     *
+     * <p>What Escape shuts, and the one list that decides it. Written out at the key it
+     * would have grown a copy the first time something else asked - the log's own close
+     * button, say - and those two lists parting company is a panel Escape will not close.
+     */
+    private boolean somethingIsOpen() {
+        return menu != null || !attaching.isEmpty() || showingKeys || showingLog || held != null;
+    }
+
+    /** Shuts all of it, because Escape is one press and a player pressed it once. */
+    private void closeWhatIsOpen() {
+        menu = null;
+        attaching = List.of();
+        showingKeys = false;
+        showingLog = false;
+        // Put back where it came from, which is what letting go off the table does too: the
+        // card never moved as far as the server is concerned, so there is nothing to undo.
+        held = null;
     }
 
     @Override

@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.31
+## Design Brief v1.32
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -169,6 +169,13 @@ Counted in casts, because that is what the rule counts, and shown in mana, becau
 **The verbs a player uses every turn are buttons printed on their own mat.** Untap, draw, shuffle and mulligan, in a run down the player's own left hand, mirroring the zone column on their right - the arrangement a printed playmat uses and the one the reference table uses. Only those four, where the reference table has six: a button is a card wide, because that is what its own word needs to be written across, so every one added shrinks the rest. At seven there is no longer room to write a word inside one and the mat becomes a column of unlabelled boxes, which costs more than scry, mill and reveal gain by being one press rather than one key. A mat with twenty buttons is a control panel, and everything else a table can do is a keypress or a menu away. Only on your own mat, because pressing somebody else's untap button is not a thing anybody does at a table. Flat rather than square or card-shaped - a card wide and well under half that tall. They are labels you press, and the only thing a button needs room for is its own word. Square ones were a card wide and a card wide tall, so four came to most of the depth of a mat: four words down the side of a table whose whole point is the space in the middle. Flat, they take about a third of that and read like the strip of buttons a table simulator puts down the edge of a board, which is the thing they are for being.
 
 **One margin, both sides of a mat.** Everything printed down the side of a mat - the verb strip on one, the zone column on the other - sits the same distance in from its own border, and the runs are fitted into the mat inside that margin rather than into the whole of it. Worked out separately the two came off different things: the buttons off the gap between buttons, the zones off the gap between zones, which shrinks whenever the zones do. A mat came out with a comfortable margin down one side, its zone column jammed against the border on the other, and the graveyard sitting on the bottom edge. Nobody reports that; it just looks like the board was laid out by two people. Without them the board is a rectangle of felt with no reason for a new player to think any of it can be clicked.
+
+**Escape shuts what is open, and only then leaves the table.** One key, one list: a menu, a
+half-finished attachment, the key list, the game log, a card halfway through being carried. If
+none of those is up, the player is looking at the table and Escape is how they get up from it.
+Two of those were missing and both were dead ends worth having - the log is as open as a menu
+is and was left by the key that closes every other panel in the game, and pressing Escape while
+carrying a card put the player outside the table still holding it.
 
 **A word on the felt is written whole or not at all.** A label shrunk to fit stops being a word before it stops being drawn, and the point where it does is not a fraction of its natural size: it is where the font's own pixels stop getting a screen pixel each. The same three-quarter-size word is crisp on an interface drawn at two screen pixels per interface pixel and mush on one drawn at one. So the rule is one screen pixel per font pixel, with a floor at half size, and a set of labels - a column of zone names, a run of mat buttons - is measured from its longest and written all at one size or not at all. A column reading "Exile" and nothing else says that zone is special rather than that the board is too small to write on. Card names are the exception and always were: a card name has to appear somehow, so it shrinks past that and loses its tail.
 
