@@ -90,6 +90,19 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     /** The cards the player has said they do not want on top. Order is not asked about. */
     private final java.util.Set<CardInstanceId> sendingAway = new java.util.LinkedHashSet<>();
 
+    /**
+     * How much of the window a pile may take at its very largest.
+     *
+     * <p>It is a box holding cards, so it is the size of the cards it holds - a graveyard
+     * with one card in it is a small box - and it stops growing here. Past that it scrolls,
+     * because a hundred-card library drawn whole would be the whole window again.
+     */
+    private static final double MOST_OF_THE_WINDOW = 0.72;
+
+    /** How many cards the box was built to hold, so it can notice more arriving. */
+    private int sizedFor = -1;
+
+    private Rect panel = Rect.NONE;
     private Rect grid = Rect.NONE;
     private int columns = 1;
     private int scroll;
@@ -113,16 +126,50 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     @Override
     protected void init() {
         int cardWidth = Math.max(8, CardShape.widthFor(CARD_HEIGHT));
-        grid = new Rect(MARGIN, MARGIN + HEADER,
-                this.width - MARGIN * 2, this.height - MARGIN * 2 - HEADER - FOOTER);
-        columns = Math.max(1, (grid.width() + GAP) / (cardWidth + GAP));
+        sizedFor = cards().size();
+        int held = Math.max(1, sizedFor);
+
+        int roomAcross = Math.max(cardWidth + MARGIN * 2, (int) (this.width * MOST_OF_THE_WINDOW));
+        int roomDown = Math.max(CARD_HEIGHT + MARGIN * 2 + HEADER + FOOTER,
+                (int) (this.height * MOST_OF_THE_WINDOW));
+
+        columns = Math.max(1, Math.min(held, (roomAcross - MARGIN * 2 + GAP) / (cardWidth + GAP)));
+        int rows = (held + columns - 1) / columns;
+        int shown = Math.max(1, Math.min(rows,
+                (roomDown - MARGIN * 2 - HEADER - FOOTER + GAP) / (CARD_HEIGHT + GAP)));
+
+        // Wide enough for the cards, and for the writing above and below them, and no wider.
+        int wanted = Math.max(
+                columns * (cardWidth + GAP) - GAP + MARGIN * 2,
+                Math.min(roomAcross, widestLine(rows > shown) + MARGIN * 2));
+        int tall = shown * (CARD_HEIGHT + GAP) - GAP + MARGIN * 2 + HEADER + FOOTER;
+        panel = new Rect(
+                (this.width - wanted) / 2, Math.max(0, (this.height - tall) / 2), wanted, tall);
+        grid = new Rect(panel.x() + MARGIN, panel.y() + MARGIN + HEADER,
+                panel.width() - MARGIN * 2, panel.height() - MARGIN * 2 - HEADER - FOOTER);
+        scroll = Math.min(scroll, hiddenBelow());
 
         // Escape closes it, but a screen whose only way out is a key you have to know is a
         // screen somebody gets stuck in.
         addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - 54, MARGIN - 4, 54, 16,
+                panel.right() - MARGIN - DONE_WIDTH, panel.y() + MARGIN - 4, DONE_WIDTH, 16,
                 Component.translatable("gui.done"),
                 decision == null ? this::onClose : this::decide));
+    }
+
+    private static final int DONE_WIDTH = 54;
+
+    /**
+     * The longest thing this screen has to write, so the box can be built to hold it.
+     *
+     * <p>Measured rather than guessed at, because a box sized to its cards is narrower than
+     * its own footer for any pile of one or two - and a hint shrunk to a third of its size to
+     * fit under two cards is a hint nobody reads.
+     */
+    private int widestLine(boolean scrolls) {
+        int widest = this.font.width(heading()) + DONE_WIDTH + MARGIN;
+        Component hint = footer(scrolls);
+        return hint == null ? widest : Math.max(widest, this.font.width(hint));
     }
 
     // ------------------------------------------------------------- the cards
@@ -154,25 +201,69 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         super.tick();
         if (view().isEmpty()) {
             this.onClose();
+            return;
         }
+        // A scry opens before the cards it is about arrive - the look is an event and the
+        // screen is the client's answer to it - so a box built to hold what was here when it
+        // opened is a box built for nothing. It was the whole window before, which hid this:
+        // the two cards that turned up after it opened were clipped off the bottom of a grid
+        // one row tall, and a screen titled "Scry 3" showed one card.
+        if (sizedFor != cards().size()) {
+            rebuildWidgets();
+        }
+    }
+
+    /**
+     * What this box is called.
+     *
+     * <p>While a decision is being made only the revealed cards are on screen, so naming the
+     * whole pile and its size would claim to be showing more than is actually there.
+     */
+    private Component heading() {
+        return decision == null
+                ? Component.translatable("screen.gathering.pile.title", this.title, count())
+                : Component.translatable(decision.title, cards().size());
+    }
+
+    /**
+     * The line under the cards, or nothing when there is nothing true to say.
+     *
+     * <p>Nothing to click and nothing to scroll, so the footer says neither. A pile with no
+     * cards in it that still reads "click a card to move it" is an instruction for something
+     * that cannot be done here, which is how a screen teaches somebody that its own writing
+     * is not worth reading - and "scroll for more" goes when there is no more, which is the
+     * same small lie in the other direction.
+     */
+    private Component footer(boolean scrolls) {
+        if (decision != null) {
+            return Component.translatable("screen.gathering.pile.deciding",
+                    Component.translatable(decision.away), sendingAway.size());
+        }
+        if (cards().isEmpty()) {
+            return null;
+        }
+        return Component.translatable(scrolls
+                ? "screen.gathering.pile.hint_scrolling"
+                : "screen.gathering.pile.hint");
     }
 
     // ---------------------------------------------------------------- render
 
+    /** The board behind, then the scrim, then the box this screen actually is. */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        GatheringSprites.panel(graphics, MARGIN - 6, MARGIN - 6,
-                this.width - (MARGIN - 6) * 2, this.height - (MARGIN - 6) * 2);
 
         List<CardView> cards = cards();
-        // While a decision is being made only the revealed cards are on screen, so naming the
-        // whole pile and its size would claim to be showing more than is actually there.
-        Component heading = decision == null
-                ? Component.translatable("screen.gathering.pile.title", this.title, count())
-                : Component.translatable(decision.title, cards.size());
-        GuiText.draw(graphics, this.font, heading,
-                MARGIN, MARGIN, this.width - MARGIN * 2, LABEL);
+        GuiText.draw(graphics, this.font, heading(),
+                panel.x() + MARGIN, panel.y() + MARGIN,
+                panel.width() - MARGIN * 2 - DONE_WIDTH, LABEL);
 
         ClientHoverState.clear();
         if (cards.isEmpty()) {
@@ -180,7 +271,8 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                     Component.translatable(count() == 0
                             ? "screen.gathering.pile.empty"
                             : "screen.gathering.pile.not_yours"),
-                    this.width / 2, grid.y() + grid.height() / 2, grid.width(), DIM);
+                    panel.x() + panel.width() / 2, grid.y() + grid.height() / 2,
+                    grid.width(), DIM);
         }
 
         for (int index = 0; index < cards.size(); index++) {
@@ -195,22 +287,11 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             }
         }
 
-        // Nothing to click and nothing to scroll, so the footer says neither. A pile with no
-        // cards in it that still reads "click a card to move it   scroll for more" is three
-        // instructions for things that cannot be done here, which is how a screen teaches
-        // somebody that its own writing is not worth reading.
-        // And "scroll for more" goes when there is no more: a pile of one card that still
-        // offers a scroll is the same kind of small lie as a pile of none offering a click.
-        Component hint = decision != null
-                ? Component.translatable("screen.gathering.pile.deciding",
-                        Component.translatable(decision.away), sendingAway.size())
-                : cards.isEmpty() ? null
-                : Component.translatable(hiddenBelow() > 0
-                        ? "screen.gathering.pile.hint_scrolling"
-                        : "screen.gathering.pile.hint");
+        Component hint = footer(hiddenBelow() > 0);
         if (hint != null) {
             GuiText.draw(graphics, this.font, hint,
-                    MARGIN, this.height - MARGIN - FOOTER + 3, this.width - MARGIN * 2, DIM);
+                    panel.x() + MARGIN, panel.bottom() - MARGIN - FOOTER + 3,
+                    panel.width() - MARGIN * 2, DIM);
         }
 
         if (menu != null) {
@@ -293,6 +374,32 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                 CARD_HEIGHT);
     }
 
+    /**
+     * Whether every card this box holds is actually in it. For the scripted harness.
+     *
+     * <p>Worth asking because the box is built to the number of cards it had when it opened,
+     * and a scry's cards arrive after it opens - so this is exactly the thing that goes wrong
+     * when the box forgets to grow.
+     */
+    /** Where a card in this box is, so the harness can click the card and not a pixel. */
+    Rect slotOfCard(int index) {
+        return index < 0 || index >= cards().size() ? Rect.NONE : slotOf(index);
+    }
+
+    /** How many cards have been marked to send away. For the harness, as above. */
+    int markedToSendAway() {
+        return sendingAway.size();
+    }
+
+    boolean everyCardIsOnScreen() {
+        int held = cards().size();
+        if (held == 0) {
+            return true;
+        }
+        Rect last = slotOf(held - 1);
+        return !last.isEmpty() && last.y() >= grid.y() && last.bottom() <= grid.bottom();
+    }
+
     // ----------------------------------------------------------------- input
 
     @Override
@@ -324,6 +431,14 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                     openMenu(visible, x, y);
                 }
             }
+            return true;
+        }
+        // A click on the board behind puts the box away, which is what clicking off any
+        // popup does and what somebody who has finished reading a graveyard is doing
+        // anyway. Not while a decision is open: a scry half-decided is not a thing to
+        // dismiss by accident, and it has a Done button that says what it will do.
+        if (decision == null && !panel.contains(x, y)) {
+            this.onClose();
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);

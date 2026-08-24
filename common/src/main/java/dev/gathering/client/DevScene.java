@@ -483,10 +483,28 @@ public final class DevScene {
                 expectScreen(client, "scrying three", PileScreen.class);
                 onTopBefore = countIn(Zone.LIBRARY);
                 shoot(client, "18-scrying");
-                // Send the first one to the bottom, then say so - the half that did not exist.
                 if (client.screen instanceof PileScreen pile) {
-                    pile.mouseClicked(44, 72, 0);
-                    pile.mouseReleased(44, 72, 0);
+                    // Every card the title claims. The box is built to the number it had when
+                    // it opened and a scry's cards arrive after that, so a box that forgets
+                    // to grow shows one card under the words "Scry 3".
+                    if (!pile.everyCardIsOnScreen()) {
+                        fail("the scry box does not hold every card it says it is showing");
+                    }
+                    // Send the first one to the bottom, then say so - the half that did not
+                    // exist. Aimed at where the card actually is: this used to be a pair of
+                    // numbers that were right for a box filling the whole window, and a box
+                    // that no longer does would have gone on passing without clicking a card.
+                    Rect first = pile.slotOfCard(0);
+                    if (first.isEmpty()) {
+                        fail("the scry box showed no first card to click");
+                    } else {
+                        pile.mouseClicked(first.centreX(), first.centreY(), 0);
+                        pile.mouseReleased(first.centreX(), first.centreY(), 0);
+                        if (pile.markedToSendAway() != 1) {
+                            fail("clicking a scried card marked "
+                                    + pile.markedToSendAway() + " cards to send away");
+                        }
+                    }
                 }
                 advance(SETTLE / 4);
             }

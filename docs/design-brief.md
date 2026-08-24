@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.27
+## Design Brief v1.28
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -177,6 +177,8 @@ One key toggles between this and roam mode; a second, smaller **roam HUD** (hand
 **The spectator view:** any non-seated player near a table can open a read-only GUI of the full public state, and arena tables broadcast a joinable spectate camera. Spectator clients receive exactly the public payload set defined by the visibility table, nothing more, so a spectating client is incapable of leaking a hand even if modified.
 
 **The look, and themes.** Every piece of GUI art is a real texture under `assets/gathering/textures/gui/sprites`, generated from a single palette by `tools/gui_textures.py` — so the whole set stays coherent, a resource pack can replace any of it, and a second theme is a second palette rather than a second afternoon in an image editor. A player-facing theme picker ships with the settings screen. The house style, set by the deck screen: a panel flush against the left edge of the screen with its right side tapering inward and a scrollbar running down that tapered edge, and the content it describes in heavy-bordered frames to the right of it. The taper angle is baked into the texture and repeated as one constant in the layout, so a theme replacing the texture keeps the angle the scrollbar is drawn along.
+
+**A screen takes as little of the window as the job needs.** The table is the thing being played, and anything drawn over it is in the way for as long as it is up - so the order of preference is: write it on the felt, then a tooltip, then a popup the size of its contents, then a panel, and only then the whole window. Nothing here has earned the whole window. A pile opened to be read is a box holding as many cards as it has, growing to a cap and scrolling past it, with the table still visible around it; the counters, the setup screen and every confirmation are centred panels; the verbs on a card are a context menu. The test is whether somebody can still see the board they are making a decision about, because most of these decisions are about the board.
 
 **Every screen is laid out for the window it is in, not for the one it was written in.** The smallest GUI-scaled screen Minecraft produces is 320x240 and the largest is a 4K display at GUI scale 1, a factor of twelve; a layout built from constants is correct at one point in that range. So the arithmetic lives in the pure module as plain integers and is checked across the whole range, and it degrades in a stated order rather than by overlapping: the deck screen drops the rules-text frame, then the card frame, and never the decklist. Text that a player did not choose — card names above all — shrinks to fit its space and is trimmed only when shrinking further would make it unreadable.
 
