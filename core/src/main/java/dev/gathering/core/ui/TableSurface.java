@@ -106,6 +106,21 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /** The gap between verb buttons, as a share of one button. */
     private static final double VERB_GAP = 0.16;
 
+    /** How tall a verb button is, as a share of its width. */
+    private static final double VERB_HEIGHT = 0.45;
+
+    /**
+     * How far in from its own edge of the mat anything printed down a side sits, in card
+     * heights.
+     *
+     * <p>One number for both sides. They used to be worked out separately - the buttons from
+     * the gap between buttons, the zone column from the gap between zones - and those two
+     * gaps are shares of two different things, so a mat came out with a comfortable margin
+     * down one side and its zone column jammed against the border on the other. Nobody would
+     * report that; it just looks like the board was laid out by two people.
+     */
+    private static final double EDGE_MARGIN = 0.23;
+
     /** How many slot widths of felt a zone's name is given to be written across. */
     private static final double PILE_LABEL_WIDTHS = 2.4;
 
@@ -388,8 +403,12 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         // together, which keeps them a set rather than letting the last one fall off the edge.
         boolean separated = count > Zone.PILES_WITHOUT_A_COMMAND_ZONE;
         double worth = count * (1 + PILE_GAP) + PILE_GAP + (separated ? PILE_GROUP_GAP : 0);
+        // Fitted into the mat inside its margin rather than into the whole of it. Measured
+        // against the full height the column filled the mat top to bottom, so a board whose
+        // zones had to shrink to fit came out with its graveyard sitting on the mat's own
+        // border - a margin down the sides and none at the ends reads as a printing mistake.
         int height = Math.min(
-                (int) Math.round(cardHeightOn(seat)), (int) (mat.height() / worth));
+                (int) Math.round(cardHeightOn(seat)), (int) (usableHeight(mat, seat) / worth));
         height = Math.max(1, height);
         int width = Math.max(1, CardShape.widthFor(height));
 
@@ -401,10 +420,11 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         // Zone nought sits nearest its own player, and the column runs away from them. Which
         // end of the mat that is depends on which chair the board belongs to.
         int slot = isTurned(seat) ? index : count - 1 - index;
-        // Two gaps in from the edge rather than one, because the column is drawn inside a
-        // box now and a box a gap wide round a column a gap from the edge puts its line on the
-        // mat's own border.
-        int inset = gap * 2;
+        // The mat's own margin, which the run of buttons down the other side uses too. Taken
+        // from the gap between zones it shrank whenever the zones did, so a column squeezed
+        // onto a shallow mat ended up hard against the border while the buttons opposite kept
+        // their room.
+        int inset = edgeMargin(seat);
         int left = isTurned(seat) ? mat.x() + inset : mat.right() - inset - width;
         return new Rect(left, top + slot * step + (slot >= breakAt(seat, count) ? apart : 0),
                 width, height);
@@ -443,9 +463,19 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      *
      * <p>On the player's own left, mirroring the zone column on their right, because a real
      * playmat has both and because a board with no affordances on it at all is a rectangle of
-     * felt that a new player has no reason to think they can click. Square rather than
-     * card-shaped: they are buttons, not places a card goes, and looking like a card slot is
-     * exactly the wrong promise.
+     * felt that a new player has no reason to think they can click.
+     *
+     * <p>A card wide and well under half that tall. Not card-shaped and not square either:
+     * they are labels you press, and the only thing a button needs room for is its own word.
+     * Square ones were a card wide <em>and</em> a card wide tall, so four of them came to
+     * three and a half card heights - most of the depth of a mat, given over to four words on
+     * the side of a table whose whole point is the space in the middle. Flat, they take about
+     * a third of that and read more like the strip of buttons a table simulator puts down the
+     * edge of a board, which is the thing they are for being.
+     *
+     * <p>The width is what the writing needs, so it is the width that stays: a name is fitted
+     * across a button and shrinks with it, and a button narrowed to save felt is a button
+     * whose word stops being written at all.
      *
      * <p>Index nought sits nearest its own player, the same way the zone column runs.
      */
@@ -454,17 +484,36 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         if (mat.isEmpty() || count <= 0 || index < 0 || index >= count) {
             return Rect.NONE;
         }
+        int width = Math.max(1, (int) Math.round(cardWidthOn(seat)));
+        // Shorter still on a mat with no room for the run, the same way the zone column
+        // shrinks together rather than letting its last box fall off the edge.
         double worth = count * (1 + VERB_GAP) + VERB_GAP;
-        int side = Math.max(1, Math.min(
-                (int) Math.round(cardWidthOn(seat)), (int) (mat.height() / worth)));
-        int gap = Math.max(1, (int) Math.round(side * VERB_GAP));
-        int step = side + gap;
+        int height = Math.max(1, Math.min(
+                (int) Math.round(width * VERB_HEIGHT), (int) (usableHeight(mat, seat) / worth)));
+        int gap = Math.max(1, (int) Math.round(height * VERB_GAP));
+        int step = height + gap;
         int total = count * step - gap;
         int top = mat.y() + (mat.height() - total) / 2;
         int slot = isTurned(seat) ? index : count - 1 - index;
-        int inset = gap * 2;
-        int left = isTurned(seat) ? mat.right() - inset - side : mat.x() + inset;
-        return new Rect(left, top + slot * step, side, side);
+        int inset = edgeMargin(seat);
+        int left = isTurned(seat) ? mat.right() - inset - width : mat.x() + inset;
+        return new Rect(left, top + slot * step, width, height);
+    }
+
+    /**
+     * The margin down either side of a mat, which both the buttons and the zones sit inside.
+     *
+     * <p>Off a card's height rather than off whatever is being printed, so the two sides
+     * match on a mat too shallow to draw either of them at full size - which is the case they
+     * stopped matching in.
+     */
+    private int edgeMargin(int seat) {
+        return Math.max(1, (int) Math.round(cardHeightOn(seat) * EDGE_MARGIN));
+    }
+
+    /** How much of a mat's depth a run printed down its side has to fit into. */
+    private double usableHeight(Rect mat, int seat) {
+        return Math.max(1, mat.height() - edgeMargin(seat) * 2.0);
     }
 
     /** The line round the whole run of verb buttons, drawn as one panel on the felt. */

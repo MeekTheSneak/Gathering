@@ -704,6 +704,107 @@ class TableSurfaceTest {
         assertThat(TableSurface.taxBand(Rect.NONE)).isEqualTo(Rect.NONE);
     }
 
+    /**
+     * The verb buttons are a strip down the edge, not a column of card-sized boxes.
+     *
+     * <p>Square, they were a card wide and a card wide tall, so four of them came to about
+     * three and a half card heights - most of the depth of a mat, given over to four words on
+     * a table whose whole point is the space in the middle. The width is what the writing
+     * needs and stays; the height is what was costing the felt.
+     */
+    @Test
+    @DisplayName("a run of verb buttons is a flat strip, not most of the mat")
+    void theVerbButtonsAreAFlatStrip() {
+        for (int seats : new int[] {1, 2, 4}) {
+            TableSurface surface = TableSurface.forSeatCount(seats);
+            int count = TableVerb.count();
+            for (int seat = 0; seat < seats; seat++) {
+                Rect mat = surface.matOf(seat);
+                Rect run = surface.verbGroup(seat, count);
+                if (run.isEmpty()) {
+                    continue;
+                }
+                for (int index = 0; index < count; index++) {
+                    Rect button = surface.verbSlot(seat, index, count);
+                    assertThat(button.width())
+                            .describedAs("%s seats: seat %s button %s is wider than it is tall",
+                                    seats, seat, index)
+                            .isGreaterThan(button.height());
+                    assertThat(mat.contains(button.x(), button.y())).isTrue();
+                    assertThat(mat.contains(button.right(), button.bottom())).isTrue();
+                }
+                assertThat(run.height())
+                        .describedAs("%s seats: seat %s gives its buttons under half the mat",
+                                seats, seat)
+                        .isLessThan(mat.height() / 2);
+            }
+        }
+    }
+
+    /**
+     * Nothing printed down the side of a mat touches the mat's own border.
+     *
+     * <p>The zone column was fitted into the whole depth of the mat, so on a board whose
+     * zones had to shrink to fit it filled the mat top to bottom and the graveyard sat on the
+     * border. A margin down the sides and none at the ends reads as a printing mistake.
+     */
+    @Test
+    @DisplayName("the zone column and the verb strip both keep clear of the mat's border")
+    void whatIsPrintedOnAMatKeepsInsideIt() {
+        for (int seats : new int[] {1, 2, 3, 4}) {
+            TableSurface surface = TableSurface.forSeatCount(seats);
+            for (int seat = 0; seat < seats; seat++) {
+                Rect mat = surface.matOf(seat);
+                int piles = Zone.PILES.size();
+                for (Rect run : new Rect[] {
+                        surface.pileGroup(seat, 0, piles - 1, piles),
+                        surface.verbGroup(seat, TableVerb.count())}) {
+                    if (run.isEmpty()) {
+                        continue;
+                    }
+                    // Clear of it by something a player would see, not by a unit. A run
+                    // whose last box lands one unit inside the border is a run touching the
+                    // border as far as anybody looking at it is concerned.
+                    int clear = Math.round(surface.pileSlot(seat, 0, piles).height() * 0.25f);
+                    assertThat(run.y() - mat.y())
+                            .describedAs("%s seats: seat %s keeps %s off the top border",
+                                    seats, seat, run)
+                            .isGreaterThanOrEqualTo(clear);
+                    assertThat(mat.bottom() - run.bottom())
+                            .describedAs("%s seats: seat %s keeps %s off the bottom border",
+                                    seats, seat, run)
+                            .isGreaterThanOrEqualTo(clear);
+                }
+            }
+        }
+    }
+
+    /**
+     * Both sides of a mat are printed the same distance in from its edge.
+     *
+     * <p>The inset used to come off the gap between buttons, which shrank with them - so
+     * flattening the buttons pulled the whole run towards the edge of the mat and left the
+     * two sides visibly mismatched.
+     */
+    @Test
+    @DisplayName("the verb strip and the zone column sit the same distance in")
+    void bothEdgesOfAMatAreInsetTheSame() {
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        int piles = Zone.PILES.size();
+        for (int seat = 0; seat < 2; seat++) {
+            Rect mat = surface.matOf(seat);
+            Rect button = surface.verbSlot(seat, 0, TableVerb.count());
+            Rect pile = surface.pileSlot(seat, 0, piles);
+            int verbEdge = surface.isTurned(seat)
+                    ? mat.right() - button.right() : button.x() - mat.x();
+            int pileEdge = surface.isTurned(seat)
+                    ? pile.x() - mat.x() : mat.right() - pile.right();
+            assertThat((double) verbEdge)
+                    .describedAs("seat %s insets its two edges the same", seat)
+                    .isCloseTo(pileEdge, within(mat.width() * 0.01));
+        }
+    }
+
     /** Both command slots are drawn, whether or not a deck has a second commander. */
     @Test
     void aTableWithACommandZoneDrawsBothOfItsSlots() {
