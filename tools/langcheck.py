@@ -64,6 +64,34 @@ def sources():
         yield path
 
 
+SHORTCUT = re.compile(r'Map\.entry\("([a-z0-9_]+)",\s*Component\.literal')
+
+# The prefix every menu entry's label is built under. A shortcut is written beside one of
+# those labels, so the label existing is exactly what makes the shortcut real.
+MENU_PREFIX = "menu.gathering.table."
+
+
+def strayShortcuts(entries):
+    """Keys promised beside a menu entry that no menu entry goes by.
+
+    The shortcut column is written from a table keyed on the entry's own name, so a name no
+    entry uses is a key the player is never shown and nothing at all complains: the map is
+    only ever read, never checked against the menu. "flip" sat there while the entries were
+    called "turn_face_down" and "turn_face_up".
+
+    Checked against the labels rather than against calls in the source, because plenty of
+    entries pick their name with a ternary - tapped or untapped, log shown or hidden - and
+    those names never appear next to the word "entry" at all.
+    """
+    promised = {}
+    for source in sources():
+        text = source.read_text(encoding="utf-8")
+        for key in SHORTCUT.findall(text):
+            promised.setdefault(key, source.relative_to(ROOT).as_posix())
+    return {key: where for key, where in promised.items()
+            if MENU_PREFIX + key not in entries}
+
+
 def main() -> int:
     entries = json.loads(LANG.read_text(encoding="utf-8"))
 
@@ -94,9 +122,13 @@ def main() -> int:
         print(f"missing: {key}  (asked for in {where})")
     for key in unused:
         print(f"unused:  {key}")
+    stray = strayShortcuts(entries)
+    for key, where in sorted(stray.items()):
+        print(f"stray shortcut: {key} is not a menu entry  (promised in {where})")
     print(f"\n{len(whole)} keys written out, {len(prefixes)} prefixes, "
-          f"{len(entries)} entries in en_us.json, {len(missing)} missing, {len(unused)} unused")
-    return 1 if missing else 0
+          f"{len(entries)} entries in en_us.json, {len(missing)} missing, {len(unused)} unused, "
+          f"{len(stray)} stray shortcuts")
+    return 1 if missing or stray else 0
 
 
 if __name__ == "__main__":

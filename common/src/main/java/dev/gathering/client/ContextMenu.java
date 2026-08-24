@@ -34,6 +34,12 @@ public final class ContextMenu {
     /** The line between two groups of entries. Dimmer than the dimmest text on it. */
     private static final int RULE = 0xFF4A4642;
 
+    /** The key written at the end of a row: present, and quieter than the verb. */
+    private static final int SHORTCUT = 0xFF8A8378;
+
+    /** How much clear space sits between a verb and its key. */
+    private static final int SHORTCUT_GAP = 10;
+
     private final List<Entry> entries;
     private final int x;
     private final int y;
@@ -68,7 +74,11 @@ public final class ContextMenu {
         int columnWidth = MIN_WIDTH;
         for (Entry entry : entries) {
             if (!entry.isRule()) {
-                columnWidth = Math.max(columnWidth, font.width(entry.label()) + PADDING * 2);
+                int shortcut = entry.shortcut() == null
+                        ? 0
+                        : font.width(entry.shortcut()) + SHORTCUT_GAP;
+                columnWidth = Math.max(
+                        columnWidth, font.width(entry.label()) + shortcut + PADDING * 2);
             }
         }
 
@@ -121,8 +131,16 @@ public final class ContextMenu {
             // The row under the cursor brightens as well as lighting up, so a menu read at a
             // glance still says which line a click would take.
             int colour = entry.enabled() ? (hovered ? HOVERED : TEXT) : DISABLED;
+            int shortcutWidth = entry.shortcut() == null
+                    ? 0
+                    : font.width(entry.shortcut()) + SHORTCUT_GAP;
             GuiText.draw(graphics, font, entry.label(),
-                    left + PADDING, row + 2, columnWidth - PADDING * 2, colour);
+                    left + PADDING, row + 2, columnWidth - PADDING * 2 - shortcutWidth, colour);
+            if (entry.shortcut() != null) {
+                GuiText.draw(graphics, font, entry.shortcut(),
+                        left + columnWidth - PADDING - shortcutWidth + SHORTCUT_GAP, row + 2,
+                        shortcutWidth, SHORTCUT);
+            }
         }
     }
 
@@ -197,16 +215,27 @@ public final class ContextMenu {
         return false;
     }
 
-    /** One line of the menu. */
-    public record Entry(Component label, boolean enabled, Runnable action) {
+    /**
+     * One line of the menu, and the key that does the same thing without opening it.
+     *
+     * <p>The shortcut is written on the row rather than left in a list somewhere, because a
+     * menu is where a player finds out what a verb is called and it is the only moment they
+     * are looking straight at it. A key nobody is shown is a key nobody presses.
+     */
+    public record Entry(Component label, Component shortcut, boolean enabled, Runnable action) {
 
         public static Entry of(Component label, Runnable action) {
-            return new Entry(label, true, action);
+            return new Entry(label, null, true, action);
+        }
+
+        /** The same, plus the key that does it without opening a menu at all. */
+        public static Entry of(Component label, Component shortcut, Runnable action) {
+            return new Entry(label, shortcut, true, action);
         }
 
         /** Shown but not selectable, so the option's absence is visible rather than mysterious. */
         public static Entry disabled(Component label) {
-            return new Entry(label, false, () -> { });
+            return new Entry(label, null, false, () -> { });
         }
 
         /**
@@ -222,7 +251,7 @@ public final class ContextMenu {
          * still a click on the menu, which is what stops a rule from being a hole.
          */
         public static Entry rule() {
-            return new Entry(Component.empty(), false, () -> { });
+            return new Entry(Component.empty(), null, false, () -> { });
         }
 
         boolean isRule() {

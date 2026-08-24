@@ -2149,8 +2149,38 @@ public final class TableScreen extends Screen {
     }
 
     private static ContextMenu.Entry entry(String key, Runnable action) {
-        return ContextMenu.Entry.of(Component.translatable("menu.gathering.table." + key), action);
+        Component shortcut = SHORTCUTS.get(key);
+        Component label = Component.translatable("menu.gathering.table." + key);
+        return shortcut == null
+                ? ContextMenu.Entry.of(label, action)
+                : ContextMenu.Entry.of(label, shortcut, action);
     }
+
+    /**
+     * The key that does the same thing as each menu entry, for the menu to say so.
+     *
+     * <p>Keyed off the same name the entry is, so an entry and its key cannot drift apart, and
+     * an entry with no key simply has none here. This is the only place a player is looking
+     * straight at a verb, so it is the only place worth telling them there is a faster way.
+     */
+    private static final java.util.Map<String, Component> SHORTCUTS = java.util.Map.ofEntries(
+            java.util.Map.entry("untap_all", Component.literal("1")),
+            java.util.Map.entry("draw", Component.literal("2")),
+            java.util.Map.entry("scry", Component.literal("3")),
+            java.util.Map.entry("mill", Component.literal("4")),
+            java.util.Map.entry("reveal", Component.literal("5")),
+            java.util.Map.entry("surveil", Component.literal("6")),
+            java.util.Map.entry("to_graveyard", Component.literal("7")),
+            java.util.Map.entry("to_exile", Component.literal("8")),
+            java.util.Map.entry("to_library_bottom", Component.literal("9")),
+            java.util.Map.entry("pass_turn", Component.literal("0")),
+            java.util.Map.entry("shuffle", Component.literal("R")),
+            java.util.Map.entry("turn_face_down", Component.literal("F")),
+            java.util.Map.entry("turn_face_up", Component.literal("F")),
+            java.util.Map.entry("untap", Component.literal("Q")),
+            java.util.Map.entry("tap", Component.literal("E")),
+            java.util.Map.entry("show_log", Component.literal("L")),
+            java.util.Map.entry("hide_log", Component.literal("L")));
 
     // ------------------------------------------------------------ hit-testing
 
