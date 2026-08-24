@@ -644,4 +644,31 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     public double cardHeightOn(int seat) {
         return cardWidthOn(seat) * CARD_HEIGHT_UNITS / CARD_WIDTH_UNITS;
     }
+
+    /**
+     * Where a card going into or out of this seat's hand passes over the mat.
+     *
+     * <p>A hand is not on the table - it is private, and belongs to its player rather than to
+     * a place - so it has no slot to fly to. What it has is an edge: the one nearest its
+     * player, where a real hand is held. A card drawn crosses that edge and stops being
+     * something anybody can point at, which is exactly what happens to a card picked up off a
+     * real table.
+     *
+     * <p>The same edge for everybody, so a draw looks the same to the player making it and to
+     * the three people watching. Only the player whose hand it is has anywhere for it to go
+     * afterwards, and that is drawn by the screen rather than by the mat.
+     */
+    public Rect handEdge(int seat) {
+        Rect mat = matOf(seat);
+        if (mat.isEmpty()) {
+            return Rect.NONE;
+        }
+        int height = Math.max(1, (int) Math.round(cardHeightOn(seat)));
+        int width = Math.max(1, CardShape.widthFor(height));
+        int middle = mat.x() + (mat.width() - width) / 2;
+        // Just outside the mat's own near edge, so a card arriving there reads as leaving the
+        // table rather than as landing on the lands row.
+        int edge = isTurned(seat) ? mat.y() - height / 2 : mat.bottom() - height / 2;
+        return new Rect(middle, edge, width, height);
+    }
 }

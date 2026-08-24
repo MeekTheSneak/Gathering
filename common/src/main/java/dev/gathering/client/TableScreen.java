@@ -656,6 +656,7 @@ public final class TableScreen extends Screen {
                         placed == hovered || isSelected(placed.card()), true);
             }
             renderPileBadges(graphics, board, onTable);
+            renderFlights(graphics, board);
         }
         hoveringSomething = hovered != null;
         if (hovered != null) {
@@ -852,6 +853,35 @@ public final class TableScreen extends Screen {
                                 this.font, longestOf(VERB_NAMES), where.width() - 2),
                         hovered ? LABEL : ZONE_LABEL);
             }
+        }
+    }
+
+    /** What a card nobody may name looks like on its way across: the back of one. */
+    private static final CardView A_SLEEVE = new CardView.Anonymous(
+            null, false, java.util.Map.of(), null, null);
+
+    /**
+     * The cards currently crossing the felt on their way somewhere.
+     *
+     * <p>Drawn over the board and under everything that is not the board, because a card in
+     * the air is above the table and below the hand holding the mouse. Face down unless this
+     * client was already entitled to know what it is - a card crossing to somebody's hand is
+     * a card leaving, and the fact that it left is public while the card is not.
+     */
+    private void renderFlights(GuiGraphics graphics, GameView board) {
+        long now = System.currentTimeMillis();
+        for (ClientCardFlights.Flight flight : ClientCardFlights.at(table, now)) {
+            Rect where = FlightPath.at(board(), table, pileCount(), flight, now);
+            if (where.isEmpty()) {
+                continue;
+            }
+            // A sleeve unless this client was already entitled to the name. A card on its
+            // way into somebody's hand has left the table, so it is drawn leaving as what
+            // anybody watching would see leaving: the back of a card.
+            CardView card = flight.move().card()
+                    .flatMap(id -> findCard(board, id))
+                    .orElse(A_SLEEVE);
+            drawCard(graphics, card, where, 0, false, true);
         }
     }
 
@@ -2903,7 +2933,20 @@ public final class TableScreen extends Screen {
         return seat;
     }
 
+    /**
+     * Sends an event, and notes any card it moves as this client's own doing.
+     *
+     * <p>A card this player just dragged has already crossed the felt under their own cursor,
+     * and a card they clicked into their graveyard was under the cursor when they did it. The
+     * board coming back and agreeing is not news, so it is not drawn flying: a second copy
+     * setting off from where the first one started would be the table arguing with the hand
+     * that moved it.
+     */
     private void send(GameEvent event) {
+        long now = System.currentTimeMillis();
+        if (event instanceof GameEvent.CardMoved moved) {
+            ClientCardFlights.movedItOurselves(moved.card(), now);
+        }
         ClientTableActions.send(table, event);
     }
 

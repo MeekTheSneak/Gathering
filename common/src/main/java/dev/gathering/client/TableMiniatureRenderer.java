@@ -240,7 +240,68 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             drawn += drawSeat(poseStack, buffers, packedLight, board.seats().get(index),
                     surface, placement, index, span, MAX_CARDS - drawn);
         }
+        drawFlights(poseStack, buffers, packedLight, board, placement, pos, piles, span);
         poseStack.popPose();
+    }
+
+    /**
+     * The cards crossing this table on their way somewhere.
+     *
+     * <p>The same flights the seated board draws, from the same two places - a flight is kept
+     * as where it is going from and to rather than as a pair of rectangles, so the one that is
+     * pixels on a window is a place on the felt here without either view knowing about the
+     * other.
+     *
+     * <p>Above the cards lying on the table rather than among them, because a card in the air
+     * is in the air. Everyone watching sees it, seated or not: that is the point.
+     */
+    private void drawFlights(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight, GameView board,
+            SurfaceBoard placement, BlockPos table, int piles, float span) {
+        long now = System.currentTimeMillis();
+        for (ClientCardFlights.Flight flight : ClientCardFlights.at(table, now)) {
+            Rect where = FlightPath.at(placement, table, piles, flight, now);
+            if (where.isEmpty()) {
+                continue;
+            }
+            CardView card = flight.move().card()
+                    .flatMap(id -> cardIn(board, id))
+                    .orElse(null);
+            ResourceLocation texture = card == null || card.isFaceDown()
+                    ? CardFaceRenderer.CARD_BACK
+                    : textureFor(card);
+            draw(poseStack, buffers, packedLight, texture,
+                    onSurface(where.x(), span), onSurface(where.y(), span),
+                    onSurface(where.width(), span), onSurface(where.height(), span),
+                    surface(board).facingDegrees(flight.move().to().seat().index()),
+                    false, IN_THE_AIR);
+        }
+    }
+
+    /** A card in the air sits above everything lying on the table, including a stack. */
+    private static final float IN_THE_AIR = STACK_LIFT * 4;
+
+    private static TableSurface surface(GameView board) {
+        return TableSurface.forSeatCount(board.seats().size());
+    }
+
+    /** This card as this client knows it, wherever on the board it currently is. */
+    private static java.util.Optional<CardView> cardIn(
+            GameView board, dev.gathering.core.game.CardInstanceId id) {
+        for (SeatView seat : board.seats()) {
+            for (Zone zone : Zone.values()) {
+                ZoneView contents = seat.zone(zone);
+                if (contents == null) {
+                    continue;
+                }
+                for (CardView card : contents.cards()) {
+                    if (card instanceof CardView.Visible visible && visible.id().equals(id)) {
+                        return java.util.Optional.of(card);
+                    }
+                }
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     /**

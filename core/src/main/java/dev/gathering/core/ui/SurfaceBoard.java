@@ -88,6 +88,11 @@ public final class SurfaceBoard implements BoardPlacement {
     }
 
     @Override
+    public Rect handEdgeRect(SeatId seat) {
+        return surface.handEdge(seat.index());
+    }
+
+    @Override
     public Rect matDividerRect(SeatId seat, int count) {
         return surface.matDivider(seat.index(), count);
     }

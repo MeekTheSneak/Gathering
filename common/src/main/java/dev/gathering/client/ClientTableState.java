@@ -41,8 +41,14 @@ public final class ClientTableState {
 
     public static void accept(BlockPos table, GameView board, boolean seated) {
         if (BOARDS.size() >= MAX_TABLES && !BOARDS.containsKey(table)) {
-            BOARDS.keySet().stream().findFirst().ifPresent(BOARDS::remove);
+            BOARDS.keySet().stream().findFirst().ifPresent(forgotten -> {
+                BOARDS.remove(forgotten);
+                ClientCardFlights.forget(forgotten);
+            });
         }
+        // Before the board is put down, because what is wanted is the difference between the
+        // one that was here and the one that has arrived - which is every card that moved.
+        ClientCardFlights.arrived(table, board, System.currentTimeMillis());
         BOARDS.put(table.immutable(), board);
         if (seated) {
             seatedAt = table.immutable();
@@ -80,6 +86,7 @@ public final class ClientTableState {
     /** Stops watching one table, without forgetting the rest of the room. */
     public static void forget(BlockPos table) {
         BOARDS.remove(table);
+        ClientCardFlights.forget(table);
         if (table.equals(seatedAt)) {
             seatedAt = null;
         }
@@ -93,6 +100,7 @@ public final class ClientTableState {
     /** On disconnect: what one server's tables showed is not true of the next. */
     public static void clear() {
         BOARDS.clear();
+        ClientCardFlights.clear();
         seatedAt = null;
     }
 }

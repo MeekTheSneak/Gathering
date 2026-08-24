@@ -324,6 +324,11 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     @Override
+    public Rect handEdgeRect(SeatId seat) {
+        return surfaceRect(surface.handEdge(seat.index()));
+    }
+
+    @Override
     public Rect matDividerRect(SeatId seat, int count) {
         return surfaceRect(surface.matDivider(seat.index(), count));
     }

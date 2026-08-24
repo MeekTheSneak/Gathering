@@ -79,6 +79,14 @@ public interface BoardPlacement {
     /** The line across a mat marking off the row nearest its own player. */
     Rect matDividerRect(SeatId seat, int count);
 
+    /**
+     * Where a card going into or out of this seat's hand crosses the mat's near edge.
+     *
+     * <p>A hand has no slot on the table, so a card on its way to one needs somewhere to be
+     * going. See {@link TableSurface#handEdge(int)}.
+     */
+    Rect handEdgeRect(SeatId seat);
+
     /** Which of a seat's piles a point is on, or -1 - so a card can be dropped into one. */
     int pileAt(SeatId seat, int count, double x, double y);
 
