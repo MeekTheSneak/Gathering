@@ -90,7 +90,9 @@ looking at its output rather than by reading code.
 - [x] Card identity (`{scryfall_id, foil, custom_id?}`) and card metadata
 - [x] Decklist parser - Moxfield, Archidekt, Arena, MTGO, deckstats, plain
 - [x] Scryfall client: batched collection resolution, rate limiting, retry, disk cache
-- [x] Deck import from pasted text or a deck-site link
+- [x] Deck import from pasted text, or from an Archidekt link. Moxfield is recognised and
+      deliberately never fetched - it refuses third-party readers, so the mod says so and
+      tells you where its export button is rather than hammering it
 - [x] Card and deck items carrying the data component, on both loaders
 - [x] Verification gate: JUnit + jqwik, data generation, headless game tests
 - [x] Networking: import, metadata, table actions, all round-trip tested
@@ -119,8 +121,8 @@ Phases 3-4 (collection and draft, arenas) are described in the design brief, sec
 ### Playing it
 
 Craft a table, place it, and it builds itself into a two-by-two multiblock. Import a deck
-with `/gathering import` - paste a decklist or a Moxfield-style link - then walk up to the
-table holding the deck and right-click it. That deals: you are sat down, shuffled, and
+with `/gathering import` - paste a decklist in any of the six formats above, or an Archidekt
+link - then walk up to the table holding the deck and right-click it. That deals: you are sat down, shuffled, and
 holding seven. Crouch and right-click instead to choose a format first, or free play if you
 would rather nobody's deck be checked.
 
