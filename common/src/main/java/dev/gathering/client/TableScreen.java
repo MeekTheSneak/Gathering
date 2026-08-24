@@ -1819,7 +1819,11 @@ public final class TableScreen extends Screen {
             entries.add(entry("mulligan", () -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND))));
             entries.add(entry("scry", () -> ask("scry", 1, count -> {
                 send(new GameEvent.LibraryLooked(me, me, count));
-                openPile(me, Zone.LIBRARY, true);
+                decideOnLibrary(me, PileScreen.Decision.SCRY);
+            })));
+            entries.add(entry("surveil", () -> ask("surveil", 1, count -> {
+                send(new GameEvent.LibraryLooked(me, me, count));
+                decideOnLibrary(me, PileScreen.Decision.SURVEIL);
             })));
             entries.add(entry("mill", () -> ask("mill", 1,
                     count -> send(new GameEvent.LibraryMilled(me, me, count)))));
@@ -1881,6 +1885,17 @@ public final class TableScreen extends Screen {
         // What the server sent is the truth about what is showing: a revealed card arrives as
         // a card in the library's card list, and a hidden one does not arrive at all.
         return board.seat(me).zone(Zone.LIBRARY).cards().size();
+    }
+
+    /**
+     * Opens the top of your own library with a decision attached.
+     *
+     * <p>Looking is half of a scry. Without the other half the cards are revealed and then
+     * left exactly where they were, which is a scry that did nothing.
+     */
+    private void decideOnLibrary(SeatId me, PileScreen.Decision decision) {
+        net.minecraft.client.Minecraft.getInstance()
+                .setScreen(new PileScreen(table, me, Zone.LIBRARY, true, decision, this));
     }
 
     private void openPile(SeatId owner, Zone pile, boolean opensALibrary) {

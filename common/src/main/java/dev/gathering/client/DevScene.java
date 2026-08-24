@@ -119,6 +119,9 @@ public final class DevScene {
     /** And how much commander damage had been taken before the button was pressed. */
     private static int tookCommanderDamage;
 
+    /** How many cards the library held before a scry, which a scry must not change. */
+    private static int onTopBefore;
+
     private DevScene() {
     }
 
@@ -371,6 +374,40 @@ public final class DevScene {
                 shoot(client, "17-library-menu");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                }
+                // Look at the top three, which is the half of a scry that already worked.
+                lookAtTheTopOfTheLibrary(client, 3);
+                advance(SETTLE);
+            }
+            case 24 -> {
+                expectScreen(client, "scrying three", PileScreen.class);
+                onTopBefore = countIn(Zone.LIBRARY);
+                shoot(client, "18-scrying");
+                // Send the first one to the bottom, then say so - the half that did not exist.
+                if (client.screen instanceof PileScreen pile) {
+                    pile.mouseClicked(44, 72, 0);
+                    pile.mouseReleased(44, 72, 0);
+                }
+                advance(SETTLE / 4);
+            }
+            case 25 -> {
+                shoot(client, "19-one-going-to-the-bottom");
+                press(client, "Done");
+                advance(SETTLE);
+            }
+            case 26 -> {
+                expectScreen(client, "deciding a scry", TableScreen.class);
+                if (countIn(Zone.LIBRARY) != onTopBefore) {
+                    fail("a scry changed how many cards were in the library: "
+                            + onTopBefore + " to " + countIn(Zone.LIBRARY));
+                }
+                // The count alone proves nothing - it is unchanged whether the decision
+                // arrived or was dropped on the floor. The log line only exists if it arrived.
+                if (!theLogMentions("log.gathering.scried")) {
+                    fail("the scry never reached the game");
+                }
+                shoot(client, "20-scry-decided");
+                if (client.screen != null) {
                     // Back onto the block, now that there is a played card, a full graveyard
                     // and a crowded hand to look at rather than an empty table.
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
@@ -381,86 +418,86 @@ public final class DevScene {
                 hover(client, new int[] {2, 2});
                 advance(SETTLE);
             }
-            case 24 -> {
+            case 27 -> {
                 if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
                     fail("a cursor off the board still had a card under it");
                 }
-                shoot(client, "18-on-the-table-in-play");
+                shoot(client, "21-on-the-table-in-play");
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 25 -> {
+            case 28 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
                 if (!ClientTableHighlight.isLitAtAll()) {
                     fail("the table in the world was not told what the cursor was on");
                 }
-                shoot(client, "19-on-the-table-hovering");
+                shoot(client, "22-on-the-table-hovering");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 26 -> {
+            case 29 -> {
                 // The whole table, which is the one framing that shows the chair nobody is in.
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 27 -> {
+            case 30 -> {
                 // Somebody sits down opposite. Every picture so far has been of a table with
                 // one player at it, which is not the game this is for.
                 seatARival(client);
                 advance(SETTLE);
             }
-            case 28 -> {
-                shoot(client, "20-two-players");
+            case 31 -> {
+                shoot(client, "23-two-players");
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
-            case 29 -> {
+            case 32 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
-                shoot(client, "21-commander-damage");
+                shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 30 -> {
+            case 33 -> {
                 int now = damageTaken(client);
                 if (now <= tookCommanderDamage) {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
                 }
-                shoot(client, "22-damage-recorded");
+                shoot(client, "25-damage-recorded");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 31 -> {
-                shoot(client, "23-the-whole-table");
+            case 34 -> {
+                shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
                 // init on an instance that is already holding a game. Two sizes: one where
                 // everything gets bigger and the felt gets smaller, and one the other way.
                 setGuiScale(client, 3);
                 advance(SETTLE / 2);
             }
-            case 32 -> {
+            case 35 -> {
                 theBoardIsStillFramed(client, "at gui scale three");
-                shoot(client, "24-a-bigger-interface");
+                shoot(client, "27-a-bigger-interface");
                 setGuiScale(client, 1);
                 advance(SETTLE / 2);
             }
-            case 33 -> {
+            case 36 -> {
                 theBoardIsStillFramed(client, "at gui scale one");
-                shoot(client, "25-a-smaller-interface");
+                shoot(client, "28-a-smaller-interface");
                 setGuiScale(client, 0);
                 advance(SETTLE / 2);
             }
-            case 34 -> {
+            case 37 -> {
                 theBoardIsStillFramed(client, "back at the automatic scale");
-                shoot(client, "26-back-to-normal");
+                shoot(client, "29-back-to-normal");
                 // Last, because everything above needs a seat: stand up mid-game and look at
                 // the same table as somebody who is only watching it.
                 standUp(client);
@@ -469,18 +506,18 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 35 -> {
+            case 38 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
-                shoot(client, "27-watching-from-outside");
+                shoot(client, "30-watching-from-outside");
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 36 -> {
+            case 39 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
-                shoot(client, "28-still-watching");
+                shoot(client, "31-still-watching");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -746,6 +783,15 @@ public final class DevScene {
         System.out.println("[devscene] dragged a card out of zone " + index);
     }
 
+    /** Whether the public log carries a line with this key, which is how an event proves it landed. */
+    private static boolean theLogMentions(String key) {
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (view == null) {
+            return false;
+        }
+        return view.log().stream().anyMatch(entry -> entry.key().equals(key));
+    }
+
     /** How many cards are sitting in one of this player's zones, as the client sees it. */
     private static int countIn(Zone zone) {
         SeatId seat = ClientTableState.seatAt(table).orElse(null);
@@ -834,6 +880,24 @@ public final class DevScene {
         java.lang.reflect.Field found = target.getClass().getDeclaredField(field);
         found.setAccessible(true);
         found.setDouble(target, value);
+    }
+
+    /**
+     * Looks at the top of this player's own library and opens the screen that decides.
+     *
+     * <p>Straight to the screen rather than through the library menu: a context menu row has
+     * no widget to press, and what is worth checking is that a decision reaches the game - the
+     * menu entry that opens this is one line.
+     */
+    private static void lookAtTheTopOfTheLibrary(Minecraft client, int howMany) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null) {
+            fail("no seat to scry with");
+            return;
+        }
+        ClientTableActions.send(table, new GameEvent.LibraryLooked(me, me, howMany));
+        client.setScreen(new PileScreen(
+                table, me, Zone.LIBRARY, true, PileScreen.Decision.SCRY, client.screen));
     }
 
     /**
