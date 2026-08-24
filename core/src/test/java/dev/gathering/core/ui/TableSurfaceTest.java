@@ -915,6 +915,40 @@ class TableSurfaceTest {
         }
     }
 
+    /**
+     * A counter's three pieces fit inside it, side by side and without overlapping.
+     *
+     * <p>They were worked out separately - the number given half the box and each end better
+     * than a quarter - which comes to more than there is. On a board drawn small enough for
+     * two figures to fill their allowance the minus ran into the four and the plus into the
+     * nought, and nothing said so because each piece was inside the box on its own.
+     */
+    @Test
+    @DisplayName("a life counter's number and its two ends do not overlap")
+    void aLifeCounterFitsItsOwnPieces() {
+        for (Rect box : new Rect[] {
+                new Rect(0, 0, 48, 16), new Rect(100, 40, 1118, 466), new Rect(5, 5, 9, 4)}) {
+            Rect middle = TableSurface.lifeMiddle(box);
+            for (boolean turned : new boolean[] {false, true}) {
+                Rect minus = TableSurface.lifeEnd(box, turned, -1);
+                Rect plus = TableSurface.lifeEnd(box, turned, 1);
+                for (Rect piece : new Rect[] {minus, plus, middle}) {
+                    assertThat(piece.isEmpty())
+                            .describedAs("%s has an empty piece", box)
+                            .isFalse();
+                    assertThat(piece.x()).isGreaterThanOrEqualTo(box.x());
+                    assertThat(piece.right()).isLessThanOrEqualTo(box.right());
+                }
+                assertThat(minus.overlaps(middle))
+                        .describedAs("%s turned %s: a sign sits over the number", box, turned)
+                        .isFalse();
+                assertThat(plus.overlaps(middle))
+                        .describedAs("%s turned %s: a sign sits over the number", box, turned)
+                        .isFalse();
+            }
+        }
+    }
+
     /** Both command slots are drawn, whether or not a deck has a second commander. */
     @Test
     void aTableWithACommandZoneDrawsBothOfItsSlots() {

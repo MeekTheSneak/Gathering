@@ -644,10 +644,12 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         float lineHeight = (bottom - top) * LIFE_WRITING;
         float across = right - left;
         // Kept for the number itself; the ends are placed from the shared rule below.
+        // In what the two ends leave, from the same rule the seated board uses.
+        Rect middle = TableSurface.lifeMiddle(box);
         writing(poseStack, buffers, packedLight,
                 Component.literal(Integer.toString(seat.life())),
-                (left + right) / 2f, (top + bottom) / 2f, lineHeight,
-                across * LIFE_NUMBER_ROOM, angle, 0);
+                onSurface(middle.centreX(), span), (top + bottom) / 2f, lineHeight,
+                onSurface(middle.width(), span), angle, 0);
         // The same minus and plus the seated board prints on the ends, because the ends are
         // buttons here too - the screen casts its ray at this board and presses them. A pair
         // of buttons marked in one view and bare in the other is a pair nobody finds twice.
@@ -680,9 +682,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /** How much of its box a life total is written at, leaving room for the two ends. */
     private static final float LIFE_WRITING = 0.7f;
-
-    /** How much of the box across the number itself may take. */
-    private static final float LIFE_NUMBER_ROOM = 0.40f;
 
     /** How much of an end's room its sign is allowed, so it clears the number beside it. */
     private static final float LIFE_END_WRITING = 0.5f;

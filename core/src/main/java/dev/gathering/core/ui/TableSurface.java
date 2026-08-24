@@ -633,8 +633,29 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
             return Rect.NONE;
         }
         boolean atTheLeft = (way < 0) != turned;
-        int room = Math.max(1, (int) Math.round(box.width() * LIFE_END_ROOM));
+        int room = endRoom(box);
         return new Rect(atTheLeft ? box.x() : box.right() - room, box.y(), room, box.height());
+    }
+
+    /**
+     * The room left for the number itself, between a counter's two ends.
+     *
+     * <p>What the ends leave, rather than a share of the box worked out separately. Given
+     * halves of their own the three came to more than the whole - the number was allowed half
+     * and each end better than a quarter - so on a board drawn small enough for two figures
+     * to fill their allowance, the minus ran into the four and the plus into the nought.
+     */
+    public static Rect lifeMiddle(Rect box) {
+        if (box.isEmpty()) {
+            return Rect.NONE;
+        }
+        int room = endRoom(box);
+        return new Rect(box.x() + room, box.y(),
+                Math.max(1, box.width() - room * 2), box.height());
+    }
+
+    private static int endRoom(Rect box) {
+        return Math.max(1, (int) Math.round(box.width() * LIFE_END_ROOM));
     }
 
     /**

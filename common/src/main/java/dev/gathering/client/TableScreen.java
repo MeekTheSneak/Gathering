@@ -809,9 +809,13 @@ public final class TableScreen extends Screen {
         graphics.fill(box.x(), box.y(), box.right(), box.bottom(), LIFE_BACKING);
         graphics.renderOutline(box.x(), box.y(), box.width(), box.height(),
                 way == 0 ? ZONE_BORDER : ACCENT);
+        // In what the two ends leave, not in half the box: half the box plus two ends better
+        // than a quarter each comes to more than there is, and two figures filling it ran
+        // into both signs.
+        Rect middle = TableSurface.lifeMiddle(box);
         Component total = Component.literal(Integer.toString(seat.life()));
-        GuiText.drawCentred(graphics, this.font, total, (int) box.centreX(),
-                (int) box.centreY() - this.font.lineHeight / 2, box.width() / 2, LABEL);
+        GuiText.drawCentred(graphics, this.font, total, (int) middle.centreX(),
+                (int) box.centreY() - this.font.lineHeight / 2, middle.width(), LABEL);
         // A minus over the end that takes one off and a plus over the end that puts one on,
         // asked of the same function the press is, so the two cannot end up disagreeing.
         drawLifeEnd(graphics, seat.seat(), box, -1, way);
