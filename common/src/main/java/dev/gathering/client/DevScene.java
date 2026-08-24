@@ -478,6 +478,7 @@ public final class DevScene {
                 }
                 shoot(client, "22-on-the-table-hovering");
                 theCursorPicksWhereItPoints(client);
+                thePickerAgreesAcrossTheScreen(client);
                 // A card lifted and still in the air over the board on the block: the size it
                 // is drawn at and whether anything says where it is about to land are both
                 // only visible mid-drag.
@@ -1328,6 +1329,83 @@ public final class DevScene {
                     + " surface units from where the camera is actually looking");
         } else {
             System.out.println("[devscene] the picker agrees with the game's own ray");
+        }
+    }
+
+    /**
+     * Checks the picker away from the middle of the screen, where the projection matters.
+     *
+     * <p>The centre only proves there is no constant offset: a camera looks along its forward
+     * axis whatever its lens does. An offset that grows towards the edges - the shape a wrong
+     * field of view or a wrong aspect ratio makes - passes that check and ruins every click
+     * that is not dead centre.
+     *
+     * <p>The second answer is a ray built by hand out of where the camera is, the three axes
+     * it faces along, and the half-angle the view frames with. No matrices, no viewport, no
+     * unprojection: none of the arithmetic under test. If the two disagree then either the
+     * picker is wrong or the board is framed with a lens it is not being drawn through, and
+     * both are worth stopping for.
+     */
+    private static void thePickerAgreesAcrossTheScreen(Minecraft client) {
+        if (table == null || !(client.screen instanceof TableScreen)) {
+            fail("there was no board on the block to check the picker across");
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        var camera = client.gameRenderer.getMainCamera();
+        var eye = camera.getPosition();
+        var look = camera.getLookVector();
+        var up = camera.getUpVector();
+        var left = camera.getLeftVector();
+        double tanUp = TableCameraView.spread() / 2.0;
+        double aspect = client.getWindow().getWidth()
+                / (double) Math.max(1, client.getWindow().getHeight());
+        double slack = TableSurface.CARD_WIDTH_UNITS / 8.0;
+
+        int[][] points = {
+            {width / 2, height / 2},
+            {width / 3, height / 3}, {width * 2 / 3, height / 3},
+            {width / 3, height / 2}, {width * 2 / 3, height / 2},
+        };
+        int checked = 0;
+        for (int[] at : points) {
+            TableTop.Spot ours = TablePointer.at(top, at[0], at[1]).orElse(null);
+            if (ours == null) {
+                continue;
+            }
+            // Where this pixel sits on the film, from -1 at one edge to +1 at the other.
+            double across = 2.0 * at[0] / width - 1.0;
+            double down = 1.0 - 2.0 * at[1] / height;
+            // Left is negative across, so the sideways term is subtracted.
+            double dirX = look.x() - left.x() * across * tanUp * aspect + up.x() * down * tanUp;
+            double dirY = look.y() - left.y() * across * tanUp * aspect + up.y() * down * tanUp;
+            double dirZ = look.z() - left.z() * across * tanUp * aspect + up.z() * down * tanUp;
+            if (dirY >= -1.0e-4) {
+                continue;
+            }
+            double toTheFelt = (top.topY() - eye.y) / dirY;
+            TableTop.Spot theirs = top.at(
+                    eye.x + dirX * toTheFelt, eye.z + dirZ * toTheFelt).orElse(null);
+            if (theirs == null) {
+                continue;
+            }
+            checked++;
+            double offX = Math.abs(ours.x() - theirs.x());
+            double offY = Math.abs(ours.y() - theirs.y());
+            if (offX > slack || offY > slack) {
+                fail("at " + at[0] + "," + at[1] + " the board picks " + Math.round(offX)
+                        + " by " + Math.round(offY) + " surface units from where a camera "
+                        + "with that lens is pointing");
+                return;
+            }
+        }
+        if (checked < 2) {
+            System.out.println("[devscene] too little felt on screen to check the picker across");
+        } else {
+            System.out.println("[devscene] the picker agrees at " + checked
+                    + " places across the screen");
         }
     }
 

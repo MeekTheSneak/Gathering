@@ -151,8 +151,13 @@ public final class TableCameraView {
      * degrees and somebody playing at a hundred are looking at very different amounts of
      * table from the same height, and framing a mat for one of them frames nothing for the
      * other.
+     *
+     * <p>Package-private rather than private because the scripted run builds a camera ray by
+     * hand to check the board's picker against, and the half-angle is the one thing such a
+     * ray cannot work out for itself. Reading it here rather than writing the formula out
+     * again is what stops the check and the framing from disagreeing about the same camera.
      */
-    private static double spread() {
+    static double spread() {
         double fov = Minecraft.getInstance().options.fov().get();
         return 2 * Math.tan(Math.toRadians(Math.max(30, Math.min(110, fov)) / 2));
     }
