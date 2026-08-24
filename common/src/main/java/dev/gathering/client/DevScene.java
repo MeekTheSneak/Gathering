@@ -22,6 +22,7 @@ import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.game.TablePosition;
+import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
@@ -90,6 +91,13 @@ public final class DevScene {
      * would prove only that grey rectangles are laid out correctly.
      */
     private static final String DECK = String.join("\n",
+            // A commander, because the table's one-click path starts a game of Commander and a
+            // run whose command zone is empty photographs a format nobody is playing - and
+            // never touches anything that only exists once somebody has a commander.
+            "Commander",
+            "1 Sakura-Tribe Elder",
+            "",
+            "Deck",
             "4 Llanowar Elves",
             "4 Grizzly Bears",
             "4 Giant Growth",
@@ -121,6 +129,9 @@ public final class DevScene {
 
     /** What the hand held before a mat button was pressed. */
     private static int inTheHand;
+
+    /** Casts recorded on this player's commander before the button was pressed. */
+    private static int taxPaid;
 
     /** What the graveyard held before the verb key was pressed at a card. */
     private static int beforeTheKey;
@@ -523,6 +534,27 @@ public final class DevScene {
             }
             case 37 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
+                // The other number a game of Commander asks a player to keep for an hour.
+                taxPaid = commanderTax(client);
+                openCommanderCounters(client);
+                advance(SETTLE / 2);
+            }
+            case 38 -> {
+                expectScreen(client, "asking for a commander's counters", CountersScreen.class);
+                shoot(client, "25a-commander-tax");
+                press(client, "+");
+                advance(SETTLE);
+            }
+            case 39 -> {
+                int now = commanderTax(client);
+                if (now <= taxPaid) {
+                    fail("commander tax did not go up: " + taxPaid + " to " + now);
+                }
+                press(client, "Done");
+                advance(SETTLE / 2);
+            }
+            case 40 -> {
+                expectScreen(client, "leaving a commander's counters", TableScreen.class);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
                 // init on an instance that is already holding a game. Two sizes: one where
@@ -530,19 +562,19 @@ public final class DevScene {
                 setGuiScale(client, 3);
                 advance(SETTLE / 2);
             }
-            case 38 -> {
+            case 41 -> {
                 theBoardIsStillFramed(client, "at gui scale three");
                 shoot(client, "27-a-bigger-interface");
                 setGuiScale(client, 1);
                 advance(SETTLE / 2);
             }
-            case 39 -> {
+            case 42 -> {
                 theBoardIsStillFramed(client, "at gui scale one");
                 shoot(client, "28-a-smaller-interface");
                 setGuiScale(client, 0);
                 advance(SETTLE / 2);
             }
-            case 40 -> {
+            case 43 -> {
                 theBoardIsStillFramed(client, "back at the automatic scale");
                 shoot(client, "29-back-to-normal");
                 // A game has to be finishable. Taken as far as the question and then backed
@@ -558,7 +590,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 41 -> {
+            case 44 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -567,7 +599,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 42 -> {
+            case 45 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "32-still-watching");
@@ -995,6 +1027,50 @@ public final class DevScene {
         }
         client.setScreen(new CountersScreen(table,
                 new CountersScreen.Subject.Seat(me, CountersScreen.titleForSeat(board, me)),
+                client.screen));
+    }
+
+    /** This player's own commander, which is the one card in their command zone. */
+    private static CardInstanceId myCommander(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || board == null) {
+            return null;
+        }
+        ZoneView command = board.seat(me).zone(Zone.COMMAND);
+        if (command == null) {
+            return null;
+        }
+        for (CardView held : command.cards()) {
+            if (held instanceof CardView.Visible visible) {
+                return visible.id();
+            }
+        }
+        return null;
+    }
+
+    /** How many times this player has cast their commander out of the command zone. */
+    private static int commanderTax(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        CardInstanceId commander = myCommander(client);
+        if (me == null || board == null || commander == null) {
+            return 0;
+        }
+        return board.seat(me).commanderTax().getOrDefault(commander, 0);
+    }
+
+    /** Opens the counters panel for this player's commander, which is where its tax lives. */
+    private static void openCommanderCounters(Minecraft client) {
+        CardInstanceId commander = myCommander(client);
+        if (commander == null) {
+            fail("there was no commander in the command zone to tax");
+            return;
+        }
+        client.setScreen(new CountersScreen(table,
+                new CountersScreen.Subject.Cards(
+                        java.util.List.of(commander),
+                        net.minecraft.network.chat.Component.literal("Commander")),
                 client.screen));
     }
 

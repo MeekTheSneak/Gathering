@@ -5,7 +5,9 @@ import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.SeatState;
 import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
+import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.ui.Rect;
@@ -133,11 +135,13 @@ public final class CountersScreen extends ChildScreen {
         int rows = Math.min(MAX_ROWS, present.size());
         int commonRows = (common().size() + 2) / 3;
         List<SeatId> opponents = commanderDamageFrom();
+        List<CardInstanceId> taxed = taxedCommanders();
 
         int height = MARGIN * 2 + ROW * 2
                 + rows * (ROW + GAP)
                 + commonRows * (ROW + GAP)
                 + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP))
+                + (taxed.isEmpty() ? 0 : (taxed.size() + 1) * (ROW + GAP))
                 + ROW + GAP * 3
                 // Room for the way out.
                 + ROW + GAP;
@@ -188,8 +192,25 @@ public final class CountersScreen extends ChildScreen {
                     Component.literal("+"), () -> hitBy(from, 1)));
         }
 
-        int customTop = damageTop
+        // Commander tax, one row per commander here, on a table that has commanders. The same
+        // shape as the damage grid above it and for the same reason: it is a number a player
+        // has to keep for an hour and cannot hold in their head.
+        List<CardInstanceId> commanders = taxed;
+        int taxTop = damageTop
                 + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP));
+        for (int index = 0; index < commanders.size(); index++) {
+            CardInstanceId commander = commanders.get(index);
+            int rowY = taxTop + ROW + index * (ROW + GAP);
+            addRenderableWidget(GatheringButtons.of(
+                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP, rowY, STEP_WIDTH, ROW,
+                    Component.literal("-"), () -> castCommander(commander, -1)));
+            addRenderableWidget(GatheringButtons.of(
+                    panel.right() - MARGIN - STEP_WIDTH, rowY, STEP_WIDTH, ROW,
+                    Component.literal("+"), () -> castCommander(commander, 1)));
+        }
+
+        int customTop = taxTop
+                + (commanders.isEmpty() ? 0 : (commanders.size() + 1) * (ROW + GAP));
         customName = new EditBox(this.font,
                 panel.x() + MARGIN, customTop, panel.width() - MARGIN * 2 - 44 - GAP, ROW,
                 Component.translatable("screen.gathering.counters.custom"));
@@ -297,6 +318,75 @@ public final class CountersScreen extends ChildScreen {
         return board.seat(mine.seat()).commanderDamage().getOrDefault(from, 0);
     }
 
+    /**
+     * The cards here that a commander tax applies to.
+     *
+     * <p>A card counts as a commander while it is in somebody's command zone, and goes on
+     * counting once it has a tax recorded - because a commander that has been cast is on the
+     * battlefield, which is exactly when its owner wants to see what the next one costs.
+     * There is no permanent mark on a card saying it is a commander; where it started is all
+     * the game knows, and this asks the two questions that follow from that.
+     */
+    private List<CardInstanceId> taxedCommanders() {
+        if (!(subject instanceof Subject.Cards chosen) || !tableHasACommandZone()) {
+            return List.of();
+        }
+        GameView board = ClientTableState.viewOf(table).orElse(null);
+        if (board == null) {
+            return List.of();
+        }
+        List<CardInstanceId> found = new ArrayList<>();
+        for (CardInstanceId card : chosen.cards()) {
+            if (ownerOfCommander(board, card) != null) {
+                found.add(card);
+            }
+        }
+        return found;
+    }
+
+    /** Whose commander this is, or null if it is not one. */
+    private static SeatId ownerOfCommander(GameView board, CardInstanceId card) {
+        for (SeatView seat : board.seats()) {
+            if (seat.commanderTax().containsKey(card)) {
+                return seat.seat();
+            }
+            ZoneView command = seat.zone(Zone.COMMAND);
+            if (command == null) {
+                continue;
+            }
+            for (CardView held : command.cards()) {
+                if (held instanceof CardView.Visible visible && visible.id().equals(card)) {
+                    return seat.seat();
+                }
+            }
+        }
+        return null;
+    }
+
+    /** How many times this commander has been cast out of the command zone. */
+    private int castsOf(CardInstanceId card) {
+        GameView board = ClientTableState.viewOf(table).orElse(null);
+        SeatId owner = board == null ? null : ownerOfCommander(board, card);
+        return owner == null ? 0 : board.seat(owner).commanderTax().getOrDefault(card, 0);
+    }
+
+    /**
+     * Records another cast of a commander, or takes one back.
+     *
+     * <p>Counted in casts rather than in mana, because that is what the rule is about and the
+     * mana falls out of it: two more for each cast that came before. Undoing a miscount has to
+     * work as well as recording one, so the same row does both.
+     */
+    private void castCommander(CardInstanceId card, int delta) {
+        GameView board = ClientTableState.viewOf(table).orElse(null);
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        SeatId owner = board == null ? null : ownerOfCommander(board, card);
+        if (me == null || owner == null || castsOf(card) + delta < 0) {
+            return;
+        }
+        ClientTableActions.send(table, new GameEvent.CommanderTaxChanged(me, owner, card, delta));
+    }
+
     /** Whose damage it is, for a row that has to say who is killing you. */
     private Component nameOf(SeatId seat) {
         GameView board = ClientTableState.viewOf(table).orElse(null);
@@ -390,6 +480,7 @@ public final class CountersScreen extends ChildScreen {
 
         List<SeatId> opponents = commanderDamageFrom();
         opponentsShown = opponents;
+        renderCommanderTax(graphics, y);
         if (opponents.isEmpty()) {
             return;
         }
@@ -410,6 +501,59 @@ public final class CountersScreen extends ChildScreen {
                     panel.right() - MARGIN - STEP_WIDTH * 2 - GAP - 24, rowY + 5, 22,
                     taken >= LETHAL_COMMANDER_DAMAGE ? LETHAL : VALUE);
         }
+    }
+
+    /**
+     * Commander tax, one row per commander in front of the player.
+     *
+     * <p>Counted in casts and shown in mana, because casts are what the rule counts and mana
+     * is what the player is about to pay. Two more for every cast that came before.
+     */
+    private void renderCommanderTax(GuiGraphics graphics, int y) {
+        List<CardInstanceId> commanders = taxedCommanders();
+        if (commanders.isEmpty()) {
+            return;
+        }
+        List<SeatId> opponents = opponentsShown;
+        int commonRows = (common().size() + 2) / 3;
+        int taxTop = y + Math.min(MAX_ROWS, current().size()) * (ROW + GAP) + ROW
+                + commonRows * (ROW + GAP) + GAP
+                + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP));
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.counters.commander_tax"),
+                panel.x() + MARGIN, taxTop + 5, panel.width() - MARGIN * 2, DIM);
+        for (int row = 0; row < commanders.size(); row++) {
+            CardInstanceId commander = commanders.get(row);
+            int casts = castsOf(commander);
+            int rowY = taxTop + ROW + row * (ROW + GAP);
+            GuiText.draw(graphics, this.font, nameOf(commander),
+                    panel.x() + MARGIN, rowY + 5, panel.width() - MARGIN * 2 - 60, LABEL);
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("screen.gathering.counters.extra_mana",
+                            casts * MANA_PER_CAST),
+                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP - 34, rowY + 5, 32, VALUE);
+        }
+    }
+
+    /** What each previous cast adds to a commander's cost. */
+    private static final int MANA_PER_CAST = 2;
+
+    /** What to call a card on a row, which is its name once this client knows it. */
+    private Component nameOf(CardInstanceId card) {
+        GameView board = ClientTableState.viewOf(table).orElse(null);
+        if (board == null) {
+            return Component.empty();
+        }
+        for (CardView held : board.allCardViews()) {
+            if (held instanceof CardView.Visible visible && visible.id().equals(card)) {
+                return ClientCardCache.get()
+                        .summary(dev.gathering.item.CardComponent.of(visible.identity()))
+                        .map(summary -> (Component) Component.literal(summary.name()))
+                        .orElseGet(() -> Component.translatable(
+                                "screen.gathering.deck.loading_card"));
+            }
+        }
+        return Component.empty();
     }
 
     /** "+1/+1" is wider than the button; the button says what it does in the room it has. */
