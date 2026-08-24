@@ -161,4 +161,83 @@ class CardTravelTest {
     private static CardInstanceId card() {
         return CardInstanceId.of(nextCard++);
     }
+
+    /**
+     * Several cards moving at once are matched one for one, not merged into a crowd.
+     *
+     * <p>Six cards discarded and six milled in the same update is two players tidying up,
+     * and the pairing has to keep them apart - a leftover paired across the table would draw
+     * somebody's discard flying into somebody else's graveyard.
+     */
+    @Test
+    void severalMovesAtOnceStayWithTheirOwnSeats() {
+        Map<CardTravel.Place, CardTravel.Held> before = board();
+        put(before, ME, Zone.HAND, 6);
+        put(before, ME, Zone.GRAVEYARD, 0);
+        put(before, THEM, Zone.LIBRARY, 40);
+        put(before, THEM, Zone.GRAVEYARD, 0);
+        Map<CardTravel.Place, CardTravel.Held> after = board();
+        put(after, ME, Zone.HAND, 0);
+        put(after, ME, Zone.GRAVEYARD, 6);
+        put(after, THEM, Zone.LIBRARY, 34);
+        put(after, THEM, Zone.GRAVEYARD, 6);
+
+        List<CardTravel.Move> moves = CardTravel.between(before, after);
+
+        assertThat(moves).hasSize(12);
+        assertThat(moves).allSatisfy(move ->
+                assertThat(move.from().seat()).isEqualTo(move.to().seat()));
+    }
+
+    /** A zone one board mentions and the other does not must not become a phantom move. */
+    @Test
+    void aSeatThatArrivesBringsNoCardsWithIt() {
+        Map<CardTravel.Place, CardTravel.Held> before = board();
+        put(before, ME, Zone.LIBRARY, 40);
+        Map<CardTravel.Place, CardTravel.Held> after = board();
+        put(after, ME, Zone.LIBRARY, 40);
+        put(after, THEM, Zone.LIBRARY, 40);
+        put(after, THEM, Zone.HAND, 7);
+
+        // Somebody sat down. Nothing moved: their board simply was not there before.
+        assertThat(CardTravel.between(before, after)).allSatisfy(move ->
+                assertThat(move.from().seat()).isEqualTo(move.to().seat()));
+    }
+
+    /** However much moves at once, working out what moved has to finish. */
+    @Test
+    void aBoardWhereEverythingChangesStillSettles() {
+        Map<CardTravel.Place, CardTravel.Held> before = board();
+        Map<CardTravel.Place, CardTravel.Held> after = board();
+        for (SeatId seat : new SeatId[] {ME, THEM}) {
+            for (Zone zone : Zone.values()) {
+                put(before, seat, zone, 9);
+                put(after, seat, zone, zone == Zone.GRAVEYARD ? 60 : 0);
+            }
+        }
+        assertThat(CardTravel.between(before, after)).isNotEmpty();
+    }
+
+    /**
+     * A board nobody has looked at for a while is a first sighting, not a difference.
+     *
+     * <p>A table stops sending boards when it goes out of range, and the last one it sent
+     * stays in memory. Walking back to a game half an hour later and comparing against that
+     * would set off every card that moved in the meantime at once - the exact flock of cards
+     * the first-sighting rule exists to prevent, arriving by the other door.
+     */
+    @Test
+    void twoSightingsFarApartAreNotADifference() {
+        assertThat(CardTravel.worthComparing(0)).isTrue();
+        assertThat(CardTravel.worthComparing(2_000)).isTrue();
+        assertThat(CardTravel.worthComparing(CardTravel.WORTH_COMPARING)).isTrue();
+        assertThat(CardTravel.worthComparing(CardTravel.WORTH_COMPARING + 1)).isFalse();
+        assertThat(CardTravel.worthComparing(30 * 60 * 1000L)).isFalse();
+    }
+
+    /** A clock that has gone backwards is not a board seen in the future. */
+    @Test
+    void aGapThatRunsBackwardsIsNotADifferenceEither() {
+        assertThat(CardTravel.worthComparing(-1)).isFalse();
+    }
 }

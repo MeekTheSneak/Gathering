@@ -49,7 +49,7 @@ public final class ClientTableState {
         }
         // Before the board is put down, because what is wanted is the difference between the
         // one that was here and the one that has arrived - which is every card that moved.
-        long now = System.currentTimeMillis();
+        long now = ClientCardFlights.now();
         ClientCardFlights.arrived(table, board, now);
         // And the one move that leaves no trace on the board at all: a shuffle changes no
         // zone and no count, so it has to be read off the log or it is not seen.

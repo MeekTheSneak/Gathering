@@ -175,4 +175,24 @@ class TableStackingTest {
         assertThat(Math.abs(TableStacking.offsetFor(depth, CARD)))
                 .isLessThanOrEqualTo((int) Math.ceil(TableStacking.MAX_DEPTH * TableStacking.STEP * CARD));
     }
+
+    /**
+     * How deep a card is drawn and how far it is offset are one answer, not two.
+     *
+     * <p>They were two: the offset ran out at MAX_DEPTH and the height did not, so the board
+     * drawn on the block lifted a card of depth nine nine steps while staggering it five -
+     * and anything positioned to clear the deepest stack, like a card flying over one, went
+     * underneath a pile of six.
+     */
+    @Test
+    void aStackIsNeverDrawnDeeperThanItIsStaggered() {
+        for (int depth = 0; depth < 40; depth++) {
+            assertThat(TableStacking.shownDepth(depth))
+                    .describedAs("depth %d", depth)
+                    .isBetween(0, TableStacking.MAX_DEPTH);
+            assertThat(TableStacking.offsetFor(depth, 100))
+                    .isEqualTo(TableStacking.offsetFor(TableStacking.shownDepth(depth), 100));
+        }
+        assertThat(TableStacking.shownDepth(-4)).isZero();
+    }
 }

@@ -39,6 +39,10 @@ public final class ClientCardFlights {
      * <p>Long enough to be followed by eye and short enough not to be waited for. A card that
      * takes half a second to reach a graveyard is a card somebody is watching instead of
      * playing; a card that takes a tenth is a flicker.
+     *
+     * <p>Measured against {@link net.minecraft.Util#getMillis()}, which counts from a
+     * monotonic source rather than from the wall clock - a machine that syncs its clock
+     * mid-flight must not leave a card hanging in the air.
      */
     public static final long CROSSING = 260L;
 
@@ -51,13 +55,32 @@ public final class ClientCardFlights {
             return gone <= 0 ? 0f : Math.min(1f, gone / (float) CROSSING);
         }
 
+        /**
+         * Whether it has arrived.
+         *
+         * <p>A clock that has gone backwards counts as arrived. These times come from a
+         * monotonic source so it should not happen, and if it ever does the failure has to
+         * be a card that lands early rather than one frozen at its origin for the rest of
+         * the session, never pruned because it can never finish.
+         */
         public boolean landed(long now) {
-            return now - began >= CROSSING;
+            long gone = now - began;
+            return gone < 0 || gone >= CROSSING;
         }
     }
 
-    private static final Map<BlockPos, Map<CardTravel.Place, CardTravel.Held>> SEEN =
-            new HashMap<>();
+    /**
+     * The last board seen at each table, and when it was seen.
+     *
+     * <p>When matters. A table stops sending boards the moment it is out of range or its
+     * chunk unloads, and the shape it last sent stays here - so walking back to a game half
+     * an hour later would compare a board against one from before lunch. How long is too
+     * long is {@link CardTravel#worthComparing(long)}'s to say.
+     */
+    private record Snapshot(Map<CardTravel.Place, CardTravel.Held> shape, long seen) {
+    }
+
+    private static final Map<BlockPos, Snapshot> SEEN = new HashMap<>();
 
     private static final Map<BlockPos, List<Flight>> FLYING = new HashMap<>();
 
@@ -87,6 +110,17 @@ public final class ClientCardFlights {
     private ClientCardFlights() {
     }
 
+    /**
+     * The clock every time in here is measured against.
+     *
+     * <p>Monotonic, and deliberately not the wall clock: a machine that syncs its time in the
+     * middle of a card's flight would otherwise leave that card hanging in the air forever,
+     * because it could never reach an end that had moved into the past.
+     */
+    public static long now() {
+        return net.minecraft.Util.getMillis();
+    }
+
     /** Notes that this client moved this card, so the board agreeing is not news. */
     public static void movedItOurselves(CardInstanceId card, long now) {
         if (card == null) {
@@ -108,16 +142,16 @@ public final class ClientCardFlights {
         Map<CardTravel.Place, CardTravel.Held> shape = shapeOf(board);
         Map<CardInstanceId, dev.gathering.core.game.TablePosition> sat = seatingOf(board);
         synchronized (ClientCardFlights.class) {
-            Map<CardTravel.Place, CardTravel.Held> before = SEEN.put(table.immutable(), shape);
+            Snapshot before = SEEN.put(table.immutable(), new Snapshot(shape, now));
             // Merged rather than replaced: the point of it is the cards that have just left.
             LAST_SAT.computeIfAbsent(table.immutable(), key -> new HashMap<>()).putAll(sat);
-            if (before == null) {
+            if (before == null || !CardTravel.worthComparing(now - before.seen())) {
                 return;
             }
             List<Flight> flying = FLYING.computeIfAbsent(table.immutable(), key -> new ArrayList<>());
             flying.removeIf(flight -> flight.landed(now));
             OWN_DOING.entrySet().removeIf(entry -> now - entry.getValue() > OWN_DOING_LASTS);
-            for (CardTravel.Move move : CardTravel.between(before, shape)) {
+            for (CardTravel.Move move : CardTravel.between(before.shape(), shape)) {
                 if (move.card().map(OWN_DOING::containsKey).orElse(false)) {
                     continue;
                 }

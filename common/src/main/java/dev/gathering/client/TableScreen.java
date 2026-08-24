@@ -870,7 +870,7 @@ public final class TableScreen extends Screen {
      * a card leaving, and the fact that it left is public while the card is not.
      */
     private void renderFlights(GuiGraphics graphics, GameView board) {
-        long now = System.currentTimeMillis();
+        long now = ClientCardFlights.now();
         for (ClientCardFlights.Flight flight : ClientCardFlights.at(table, now)) {
             Rect where = FlightPath.at(board(), table, pileCount(), flight, now);
             if (where.isEmpty()) {
@@ -938,7 +938,7 @@ public final class TableScreen extends Screen {
      */
     private Rect shakenIfStirred(SeatId seat, Zone zone, Rect slot) {
         long shaking = ClientTableNews.shakingFor(
-                table, seat, zone, System.currentTimeMillis());
+                table, seat, zone, ClientCardFlights.now());
         if (shaking < 0 || slot.isEmpty()) {
             return slot;
         }
@@ -2973,7 +2973,7 @@ public final class TableScreen extends Screen {
      * that moved it.
      */
     private void send(GameEvent event) {
-        long now = System.currentTimeMillis();
+        long now = ClientCardFlights.now();
         if (event instanceof GameEvent.CardMoved moved) {
             ClientCardFlights.movedItOurselves(moved.card(), now);
         }

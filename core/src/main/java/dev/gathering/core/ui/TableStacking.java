@@ -98,8 +98,21 @@ public final class TableStacking {
      * one drawn on a table two blocks across.
      */
     public static int offsetFor(int depth, int cardWidth) {
-        return -(int) Math.round(
-                Math.min(Math.max(0, depth), MAX_DEPTH) * STEP * Math.max(0, cardWidth));
+        return -(int) Math.round(shownDepth(depth) * STEP * Math.max(0, cardWidth));
+    }
+
+    /**
+     * How deep a card of this depth is actually drawn, which is not how deep it is.
+     *
+     * <p>The stagger runs out at {@link #MAX_DEPTH} and a pile does not, so a stack of nine
+     * is drawn as a stack of five with a badge saying nine. Anything that has to sit above
+     * such a pile has to be told the same number, or it works out its height from a depth the
+     * pile never reached: the board drawn on the block lifted each card by its true depth
+     * while offsetting it by its clamped one, so a card flying over a pile of six passed
+     * underneath it.
+     */
+    public static int shownDepth(int depth) {
+        return Math.min(Math.max(0, depth), MAX_DEPTH);
     }
 
     /**

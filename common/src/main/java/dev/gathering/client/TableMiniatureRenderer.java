@@ -259,7 +259,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private void drawFlights(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, GameView board,
             SurfaceBoard placement, BlockPos table, int piles, float span) {
-        long now = System.currentTimeMillis();
+        long now = ClientCardFlights.now();
         for (ClientCardFlights.Flight flight : ClientCardFlights.at(table, now)) {
             Rect where = FlightPath.at(placement, table, piles, flight, now);
             if (where.isEmpty()) {
@@ -279,8 +279,14 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         }
     }
 
-    /** A card in the air sits above everything lying on the table, including a stack. */
-    private static final float IN_THE_AIR = STACK_LIFT * 4;
+    /**
+     * A card in the air sits above everything lying on the table, including a stack.
+     *
+     * <p>One step above the deepest a stack is ever drawn, which is what
+     * {@link TableStacking#shownDepth(int)} answers - not the deepest a stack can be, which
+     * has no limit.
+     */
+    private static final float IN_THE_AIR = STACK_LIFT * (TableStacking.MAX_DEPTH + 1);
 
     private static TableSurface surface(GameView board) {
         return TableSurface.forSeatCount(board.seats().size());
@@ -467,7 +473,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * about which library is being shuffled and for how long.
      */
     private Rect shakenIfStirred(BlockPos table, SeatId seat, Zone zone, Rect slot) {
-        long shaking = ClientTableNews.shakingFor(table, seat, zone, System.currentTimeMillis());
+        long shaking = ClientTableNews.shakingFor(table, seat, zone, ClientCardFlights.now());
         if (shaking < 0) {
             return slot;
         }
@@ -677,7 +683,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             Rect placed = placement.rectOf(seat.seat(), where);
             float x = onSurface(placed.x(), span) + lean;
             float z = onSurface(placed.y(), span) + lean;
-            float lift = depths.get(index) * STACK_LIFT;
+            float lift = TableStacking.shownDepth(depths.get(index)) * STACK_LIFT;
 
             if (card instanceof CardView.Visible visible && ClientTableHighlight.isLit(visible.id())) {
                 // Under the card rather than over it: a ring drawn on top would cover the art

@@ -36,6 +36,28 @@ public final class CardTravel {
     private CardTravel() {
     }
 
+    /**
+     * How long two sightings of a board can be apart and still be a difference.
+     *
+     * <p>A table stops sending boards the moment it is out of range or its chunk unloads, and
+     * whatever it last sent stays in memory. Comparing against that when it comes back would
+     * take every card that moved in the meantime and set them all off at once - and the
+     * leftover counts would be paired across seats that had nothing to do with each other.
+     * Comfortably longer than the two seconds a table pushes on by itself.
+     */
+    public static final long WORTH_COMPARING = 8_000L;
+
+    /**
+     * Whether two sightings this far apart are a difference or a first sighting.
+     *
+     * <p>Here rather than beside the map that holds the sightings, because it is arithmetic
+     * about what a difference means - which is this class's whole subject - and because a
+     * rule kept next to a client-side cache is a rule nothing can test.
+     */
+    public static boolean worthComparing(long apart) {
+        return apart >= 0 && apart <= WORTH_COMPARING;
+    }
+
     /** One zone as a viewer sees it: how many cards, and which of them it may name. */
     public record Held(int count, List<CardInstanceId> seen) {
 

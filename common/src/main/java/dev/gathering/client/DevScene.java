@@ -1238,7 +1238,7 @@ public final class DevScene {
             return;
         }
         java.util.List<ClientCardFlights.Flight> flying =
-                ClientCardFlights.at(table, System.currentTimeMillis());
+                ClientCardFlights.at(table, ClientCardFlights.now());
         if (flying.isEmpty()) {
             fail("nothing was crossing the felt after " + after + ": the card teleported");
             return;
@@ -1256,13 +1256,17 @@ public final class DevScene {
      * looking exactly as it did. Without this it is a line in the log and nothing else.
      */
     private static void aPileIsBeingShaken(Minecraft client) {
+        if (table == null) {
+            fail("no table to watch a shuffle at");
+            return;
+        }
         SeatId me = ClientTableState.seatAt(table).orElse(null);
-        if (table == null || me == null) {
+        if (me == null) {
             fail("no seat to watch a shuffle from");
             return;
         }
         long shaking = ClientTableNews.shakingFor(
-                table, me, Zone.LIBRARY, System.currentTimeMillis());
+                table, me, Zone.LIBRARY, ClientCardFlights.now());
         if (shaking < 0) {
             fail("a shuffled library was not shaking: the shuffle showed nothing at all");
             return;
