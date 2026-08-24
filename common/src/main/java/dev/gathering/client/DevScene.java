@@ -116,6 +116,9 @@ public final class DevScene {
     /** How full the graveyard was before a card was dragged back out of it. */
     private static int inTheGraveyard;
 
+    /** What the graveyard held before the verb key was pressed at a card. */
+    private static int beforeTheKey;
+
     /** And how much commander damage had been taken before the button was pressed. */
     private static int tookCommanderDamage;
 
@@ -232,10 +235,8 @@ public final class DevScene {
             case 7 -> {
                 reportSeats(client);
                 shoot(client, "04-seated-board");
-                if (client.screen instanceof TableScreen) {
-                    // Draw a hand, so there is something in it to photograph.
-                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_7, 0, 0);
-                }
+                // Draw a hand, so there is something in it to photograph.
+                drawCards(client, 7);
                 advance(SETTLE);
             }
             case 8 -> {
@@ -331,10 +332,7 @@ public final class DevScene {
                 dragOutOfAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
                 // A crowded hand. Eighteen cards is a real Windfall turn and the size at which
                 // a fan either overlaps sensibly or turns into a wall.
-                if (client.screen != null) {
-                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_9, 0, 0);
-                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_9, 0, 0);
-                }
+                drawCards(client, 18);
                 advance(SETTLE);
             }
             case 19 -> {
@@ -344,9 +342,22 @@ public final class DevScene {
                             + " in it, from " + inTheGraveyard);
                 }
                 shoot(client, "14-out-of-the-graveyard");
-                advance(SETTLE / 2);
+                // The verb keys, on the card the cursor is over. One press of 7 is what the
+                // reference table does and what the whole point of the number row is; a key
+                // that draws a picture and reaches nothing would pass every other check here.
+                beforeTheKey = countIn(Zone.GRAVEYARD);
+                hover(client, cardPoint(client));
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_7, 0, 0);
+                }
+                advance(SETTLE);
             }
             case 20 -> {
+                int afterTheKey = countIn(Zone.GRAVEYARD);
+                if (afterTheKey <= beforeTheKey) {
+                    fail("the graveyard key put nothing in the graveyard: "
+                            + beforeTheKey + " to " + afterTheKey);
+                }
                 shoot(client, "15-crowded-hand");
                 // The graveyard has a card in it by now, and left-clicking a pile that is not
                 // a library opens it. Anything else here is a dead end the player would find.
@@ -1187,6 +1198,24 @@ public final class DevScene {
      * stops working the first time somebody moves a button, and does it silently - it goes on
      * taking pictures of a screen nothing was pressed on.
      */
+    /**
+     * Draws this many cards the way a player would: one press of the draw key each.
+     *
+     * <p>The number row used to draw its own number, so seven cards was one press of 7. It
+     * carries a verb per key now, the way the reference table binds them, and 7 sends the card
+     * being pointed at to the graveyard - so a run that still pressed it would set up a
+     * different game from the one it went on to photograph.
+     */
+    private static void drawCards(Minecraft client, int count) {
+        for (int drawn = 0; drawn < count; drawn++) {
+            if (client.screen == null) {
+                fail("nothing to draw cards on");
+                return;
+            }
+            client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_2, 0, 0);
+        }
+    }
+
     private static void press(Minecraft client, String label) {
         if (client.screen == null) {
             return;

@@ -150,11 +150,16 @@ public final class TableScreen extends Screen {
             },
             new String[] {
                 "screen.gathering.table.keys_game",
-                "screen.gathering.table.key_draw",
-                "screen.gathering.table.key_shuffle",
                 "screen.gathering.table.key_untap",
-                "screen.gathering.table.key_life",
+                "screen.gathering.table.key_draw_one",
+                "screen.gathering.table.key_scry",
+                "screen.gathering.table.key_mill",
+                "screen.gathering.table.key_reveal",
+                "screen.gathering.table.key_surveil",
+                "screen.gathering.table.key_to_zones",
                 "screen.gathering.table.key_pass",
+                "screen.gathering.table.key_shuffle",
+                "screen.gathering.table.key_life",
                 "screen.gathering.table.key_log",
             });
 
@@ -1991,8 +1996,9 @@ public final class TableScreen extends Screen {
      *
      * <p>Anybody arriving at this table has played on that one, and a key that does something
      * else here is a key they will press by accident all evening. So F flips, Q and E turn,
-     * G groups, R is the deck verb, Alt reads a card, and the number row draws that many -
-     * all straight from TTS.
+     * G groups, R is the deck verb and Alt reads a card - Tabletop Simulator's own object
+     * keys - while the number row carries the nine verbs the Magic table binds it to: untap,
+     * draw, scry, mill, reveal, and the three that send a card to a zone.
      *
      * <p>Where TTS has no equivalent - passing the turn, the log, life - the key is ours and
      * chosen not to collide with one of theirs.
@@ -2015,10 +2021,8 @@ public final class TableScreen extends Screen {
             return super.keyPressed(key, scanCode, modifiers);
         }
 
-        // The number row draws that many cards, exactly as it does in TTS.
-        if (key >= org.lwjgl.glfw.GLFW.GLFW_KEY_1 && key <= org.lwjgl.glfw.GLFW.GLFW_KEY_9) {
-            send(new GameEvent.CardsDrawn(me, me, key - org.lwjgl.glfw.GLFW.GLFW_KEY_0));
-            return true;
+        if (key >= org.lwjgl.glfw.GLFW.GLFW_KEY_0 && key <= org.lwjgl.glfw.GLFW.GLFW_KEY_9) {
+            return verbKey(me, key - org.lwjgl.glfw.GLFW.GLFW_KEY_0);
         }
 
         switch (key) {
@@ -2146,6 +2150,74 @@ public final class TableScreen extends Screen {
         return under != null && under.card() instanceof CardView.Visible visible
                 ? List.of(visible.id())
                 : List.of();
+    }
+
+    /**
+     * The number row: one press does one thing to the game, or to the card being pointed at.
+     *
+     * <p>The same nine verbs the reference table binds them to, because they are the nine
+     * things a game of Magic asks for over and over and because somebody arriving from that
+     * table already knows them. It used to be "draw that many cards", which spent the whole
+     * row on one verb and left the other eight behind a right-click and a menu.
+     *
+     * <p>Drawing a named number of cards is still on the library's menu, where a thing done
+     * once a game belongs.
+     */
+    private boolean verbKey(SeatId me, int number) {
+        return switch (number) {
+            case 0 -> {
+                view().ifPresent(board -> passTurn(board, me));
+                yield true;
+            }
+            case 1 -> {
+                send(new GameEvent.SeatUntappedAll(me, me));
+                yield true;
+            }
+            case 2 -> {
+                send(new GameEvent.CardsDrawn(me, me, 1));
+                yield true;
+            }
+            case 3 -> {
+                send(new GameEvent.LibraryLooked(me, me, 1));
+                decideOnLibrary(me, PileScreen.Decision.SCRY);
+                yield true;
+            }
+            case 4 -> {
+                send(new GameEvent.LibraryMilled(me, me, 1));
+                yield true;
+            }
+            case 5 -> {
+                send(new GameEvent.LibraryRevealed(me, me, 1));
+                yield true;
+            }
+            case 6 -> {
+                send(new GameEvent.LibraryLooked(me, me, 1));
+                decideOnLibrary(me, PileScreen.Decision.SURVEIL);
+                yield true;
+            }
+            case 7 -> sendUnderCursorTo(me, Zone.GRAVEYARD, Placement.TOP);
+            case 8 -> sendUnderCursorTo(me, Zone.EXILE, Placement.TOP);
+            case 9 -> sendUnderCursorTo(me, Zone.LIBRARY, Placement.BOTTOM);
+            default -> false;
+        };
+    }
+
+    /**
+     * Sends whatever the keys are pointing at to one of its owner's zones.
+     *
+     * <p>Its owner's, not the presser's: a creature somebody stole dies to its own owner's
+     * graveyard, which is the rule the card menu already follows and the reason this asks the
+     * card who owns it rather than assuming.
+     */
+    private boolean sendUnderCursorTo(SeatId me, Zone zone, Placement placement) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return false;
+        }
+        List<CardInstanceId> targets = underCursorOrSelected();
+        eachCard(board, targets, seen -> new GameEvent.CardMoved(
+                me, seen.id(), ZoneRef.of(seen.owner(), zone), placement));
+        return !targets.isEmpty();
     }
 
     private boolean flipUnderCursor(SeatId me) {
