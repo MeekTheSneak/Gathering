@@ -235,6 +235,8 @@
   "screen.gathering.setup": "Start a Game",
   "screen.gathering.setup.best_of": "Best of %s",
   "screen.gathering.setup.chosen": "%s, best of %s, starting at %s life",
+  "screen.gathering.setup.free_play": "Free play",
+  "screen.gathering.setup.chosen_free": "Free play - no deck check, starting at %s life",
   "screen.gathering.setup.format": "Format",
   "screen.gathering.setup.length": "Match length",
   "screen.gathering.setup.start": "Start",

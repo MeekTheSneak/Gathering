@@ -40,6 +40,7 @@ public final class TableSetupScreen extends Screen {
 
     private final BlockPos table;
 
+    /** Null while free play is chosen, which is not a format and has no preset. */
     private FormatPreset format = FormatPresets.defaultPreset();
     private int bestOf = MatchRules.single(FormatPresets.defaultPreset()).bestOf();
 
@@ -56,7 +57,7 @@ public final class TableSetupScreen extends Screen {
     protected void init() {
         List<FormatPreset> formats = FormatPresets.all();
         int height = MARGIN * 2 + ROW_HEIGHT * 3 + GAP * 3
-                + rowsFor(formats.size()) * (ROW_HEIGHT + GAP)
+                + rowsFor(formats.size() + 1) * (ROW_HEIGHT + GAP)
                 + (ROW_HEIGHT + GAP) * 2;
         panel = new Rect(
                 (this.width - PANEL_WIDTH) / 2,
@@ -69,19 +70,29 @@ public final class TableSetupScreen extends Screen {
         int columns = 3;
         int buttonWidth = (panel.width() - MARGIN * 2 - GAP * (columns - 1)) / columns;
 
+        // Free play first, because it is the shorter answer to "what kind of game" and the
+        // one a table full of people who just want to put cards down wants. Without it this
+        // screen could only start a game somebody would be held to, and the only way to a
+        // game with no format was to close the screen and walk up to the table holding a
+        // deck - a route nothing here mentions.
+        addRenderableWidget(GatheringButtons.toggle(
+                panel.x() + MARGIN, y, buttonWidth, ROW_HEIGHT,
+                Component.translatable("screen.gathering.setup.free_play"),
+                () -> format == null,
+                this::chooseFreePlay));
         for (int index = 0; index < formats.size(); index++) {
             FormatPreset preset = formats.get(index);
-            int column = index % columns;
-            int row = index / columns;
+            int column = (index + 1) % columns;
+            int row = (index + 1) / columns;
             addRenderableWidget(GatheringButtons.toggle(
                     panel.x() + MARGIN + column * (buttonWidth + GAP),
                     y + row * (ROW_HEIGHT + GAP), buttonWidth, ROW_HEIGHT,
                     Component.literal(preset.displayName()),
-                    () -> format.equals(preset),
+                    () -> preset.equals(format),
                     () -> chooseFormat(preset)));
         }
 
-        int lengthsTop = y + rowsFor(formats.size()) * (ROW_HEIGHT + GAP) + ROW_HEIGHT;
+        int lengthsTop = y + rowsFor(formats.size() + 1) * (ROW_HEIGHT + GAP) + ROW_HEIGHT;
         lengthsHeading = lengthsTop - this.font.lineHeight - 2;
         List<Integer> lengths = MatchRules.SUPPORTED_LENGTHS;
         int lengthWidth = (panel.width() - MARGIN * 2 - GAP * (lengths.size() - 1)) / lengths.size();
@@ -125,8 +136,20 @@ public final class TableSetupScreen extends Screen {
         bestOf = preset.hasSideboard() ? 3 : 1;
     }
 
+    /**
+     * No format: one game, nobody's deck refused.
+     *
+     * <p>A single game rather than a match, because a best-of-three with no format to
+     * sideboard against is three games with a screen between them.
+     */
+    private void chooseFreePlay() {
+        format = null;
+        bestOf = 1;
+    }
+
     private void start() {
-        ClientNetworking.send(new StartTablePayload(table, format.id(), bestOf));
+        ClientNetworking.send(new StartTablePayload(
+                table, format == null ? StartTablePayload.FREE_PLAY : format.id(), bestOf));
         this.onClose();
     }
 
@@ -150,9 +173,12 @@ public final class TableSetupScreen extends Screen {
 
         // What is currently chosen, spelled out, because eight buttons with one of them
         // selected is only legible if the selection is written down somewhere.
-        GuiText.drawCentred(graphics, this.font,
-                Component.translatable("screen.gathering.setup.chosen",
-                        format.displayName(), bestOf, format.startingLife()),
+        Component chosen = format == null
+                ? Component.translatable("screen.gathering.setup.chosen_free",
+                        FormatPresets.defaultPreset().startingLife())
+                : Component.translatable("screen.gathering.setup.chosen",
+                        format.displayName(), bestOf, format.startingLife());
+        GuiText.drawCentred(graphics, this.font, chosen,
                 panel.x() + panel.width() / 2, panel.bottom() - 12, panel.width() - MARGIN * 2, DIM);
     }
 

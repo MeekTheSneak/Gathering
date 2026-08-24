@@ -16,6 +16,17 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 public record StartTablePayload(BlockPos table, String formatId, int bestOf)
         implements CustomPacketPayload {
 
+    /**
+     * The id that means "no format at all".
+     *
+     * <p>Not a preset, because free play is the absence of one rather than a twelfth entry in
+     * a list of formats: it has no deck rules to check a deck against, and adding it to the
+     * presets would give the validator a format it is supposed to have no opinion on. The
+     * server borrows Commander's numbers for it, the same way the walk-up path does, and
+     * refuses nobody's deck.
+     */
+    public static final String FREE_PLAY = "";
+
     /** Long enough for any preset id, short enough that a bad one is not a payload. */
     public static final int MAX_FORMAT_ID = 64;
 

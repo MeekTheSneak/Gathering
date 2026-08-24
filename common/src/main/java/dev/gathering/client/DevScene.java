@@ -221,6 +221,11 @@ public final class DevScene {
                 expectScreen(client, "crouching at a bare table", TableSetupScreen.class);
                 shoot(client, "02-what-kind-of-game");
                 if (client.screen != null) {
+                    // Free play is the shorter answer to "what kind of game", and for a
+                    // while this screen could not give it: every game it started was one
+                    // somebody would be held to, and a game with no format meant closing
+                    // the screen and finding the walk-up path nothing here mentions.
+                    press(client, "Free play");
                     press(client, "Modern");
                     press(client, "Best of 3");
                 }

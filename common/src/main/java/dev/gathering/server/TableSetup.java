@@ -48,7 +48,8 @@ public final class TableSetup {
             return;
         }
 
-        MatchRules rules = rulesFrom(payload).orElse(null);
+        boolean freePlay = isFreePlay(payload);
+        MatchRules rules = rulesOf(payload).orElse(null);
         if (rules == null) {
             // A client asking for a format this server does not have is either out of date or
             // making things up, and there is nothing useful to say to either.
@@ -65,10 +66,12 @@ public final class TableSetup {
         player.sendSystemMessage(Component.translatable(outcome.messageKey()));
         if (outcome == TableSessions.Outcome.STARTED) {
             // Named, not assumed - which is what turns the deck check from a note into a
-            // refusal. Somebody who picked Modern off this screen asked to be held to it.
+            // refusal. Somebody who picked Modern off this screen asked to be held to it;
+            // somebody who picked free play asked for the opposite, and gets the walk-up
+            // path's numbers and none of its refusals.
             TableSessions.anchorOf(level, origin)
                     .flatMap(anchor -> dev.gathering.block.TableBlock.entityAt(level, anchor))
-                    .ifPresent(table -> table.formatWasChosen(true));
+                    .ifPresent(table -> table.formatWasChosen(!freePlay));
             TableBroadcast.sendToTable(level, origin);
         }
     }
@@ -80,6 +83,32 @@ public final class TableSetup {
      * a name, which is the same shape as every other place the mod takes a string from a
      * client.
      */
+    /**
+     * Whether this payload is asking for a game with no format at all.
+     *
+     * <p>One empty id and nothing else. A format this server does not have is not free play,
+     * it is a client that is out of date or making things up, and it goes on being refused -
+     * otherwise "start a game of Vintage" on a server without Vintage would quietly become a
+     * game with no rules rather than a message saying so.
+     */
+    public static boolean isFreePlay(StartTablePayload payload) {
+        return StartTablePayload.FREE_PLAY.equals(payload.formatId());
+    }
+
+    /**
+     * The rules to play by: the named format's, or the table's own when none was named.
+     *
+     * <p>Free play borrows the walk-up path's numbers - Commander's life total and command
+     * zone - because a table has to start somewhere, and the player never named a format so
+     * nothing holds them to one.
+     */
+    public static Optional<MatchRules> rulesOf(StartTablePayload payload) {
+        if (isFreePlay(payload)) {
+            return Optional.of(TableSessions.defaultRules());
+        }
+        return rulesFrom(payload);
+    }
+
     static Optional<MatchRules> rulesFrom(StartTablePayload payload) {
         Optional<FormatPreset> preset = FormatPresets.byId(payload.formatId());
         if (preset.isEmpty() || !MatchRules.SUPPORTED_LENGTHS.contains(payload.bestOf())) {
