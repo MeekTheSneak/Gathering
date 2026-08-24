@@ -2380,8 +2380,11 @@ public final class TableScreen extends Screen {
                 Component.translatable("screen.gathering.token.name"),
                 Component.translatable("screen.gathering.token.hint"),
                 CreateTokenPayload.MAX_NAME,
+                // Named, because the second question arrives after the first has gone and
+                // "How many?" on its own is a question about something the player can no
+                // longer see. Every other amount asked for in the mod names its verb.
                 name -> net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
-                        Component.translatable("screen.gathering.amount.tokens"), 1,
+                        Component.translatable("screen.gathering.amount.tokens", name), 1,
                         count -> ClientNetworking.send(new CreateTokenPayload(table, name, count)),
                         this)),
                 this));

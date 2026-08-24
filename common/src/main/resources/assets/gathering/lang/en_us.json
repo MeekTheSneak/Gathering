@@ -194,7 +194,7 @@
   "screen.gathering.amount.reveal": "Reveal how many?",
   "screen.gathering.amount.scry": "Scry how many?",
   "screen.gathering.amount.surveil": "Surveil how many?",
-  "screen.gathering.amount.tokens": "How many?",
+  "screen.gathering.amount.tokens": "How many %s?",
   "screen.gathering.counters": "Counters",
   "screen.gathering.counters.add": "Add",
   "screen.gathering.counters.commander_damage": "Commander damage taken",

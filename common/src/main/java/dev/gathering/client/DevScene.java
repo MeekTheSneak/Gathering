@@ -665,6 +665,32 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 49 -> {
+                // The two questions a token asks. Nothing else in this run opens either of
+                // them, and both are screens somebody can get stuck on: the first one is the
+                // only place in the mod that takes a line of typing from a player.
+                openTheTokenQuestion(client);
+                advance(SETTLE / 2);
+            }
+            case 50 -> {
+                expectScreen(client, "asking for a token", TextPromptScreen.class);
+                shoot(client, "28a-what-token");
+                typeInto(client, "Treasure");
+                press(client, "OK");
+                advance(SETTLE / 2);
+            }
+            case 51 -> {
+                expectScreen(client, "naming a token", AmountScreen.class);
+                shoot(client, "28b-how-many");
+                // Backed out rather than answered: a token wants a real printing off
+                // Scryfall, and this run has no network. What is being proved is that two
+                // questions in a row both come back to the board.
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                advance(SETTLE / 2);
+            }
+            case 52 -> {
+                expectScreen(client, "backing out of a token", TableScreen.class);
                 theBoardIsStillFramed(client, "back at the automatic interface");
                 shoot(client, "28-back-to-normal");
                 // A game has to be finishable. Taken as far as the question and then backed
@@ -680,7 +706,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 50 -> {
+            case 53 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -693,7 +719,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 51 -> {
+            case 54 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
@@ -1054,6 +1080,40 @@ public final class DevScene {
             return;
         }
         System.out.println("[devscene] the watcher's felt reaches the bottom of the window");
+    }
+
+    /**
+     * Opens the table menu and asks it for a token, which is the first of two questions.
+     *
+     * <p>Worth walking because it is the only place in the mod that takes a line of typing
+     * from a player, and because two child screens in a row is the shape most likely to
+     * strand somebody: the second one's way back has to be the board and not the first.
+     */
+    private static void openTheTokenQuestion(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to ask for a token from");
+            return;
+        }
+        String wanted = net.minecraft.network.chat.Component
+                .translatable("menu.gathering.table.make_token").getString();
+        if (!openTheTableMenu(client, board, wanted)) {
+            fail("no felt on the board offered a table menu to make a token from");
+            return;
+        }
+        if (!board.pressMenuEntry(wanted)) {
+            fail("the table menu offers no way to make a token");
+        }
+    }
+
+    /** Types into whatever field a screen put the cursor in. */
+    private static void typeInto(Minecraft client, String text) {
+        if (client.screen == null) {
+            fail("there was no screen to type into");
+            return;
+        }
+        for (char letter : text.toCharArray()) {
+            client.screen.charTyped(letter, 0);
+        }
     }
 
     /** Rests the cursor on a zone, so the next step can read what it says about itself. */

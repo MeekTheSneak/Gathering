@@ -36,6 +36,7 @@ public final class TextPromptScreen extends ChildScreen {
 
     private Rect panel = Rect.NONE;
     private EditBox field;
+    private int hintTop;
 
     public TextPromptScreen(Component question, Component hint, int maxLength,
             Consumer<String> answer, Screen back) {
@@ -48,7 +49,7 @@ public final class TextPromptScreen extends ChildScreen {
 
     @Override
     protected void init() {
-        int height = MARGIN * 2 + ROW * 3 + GAP * 2;
+        int height = MARGIN * 2 + ROW * 3 + GAP * 2 + this.font.lineHeight + 3;
         panel = new Rect(
                 (this.width - PANEL_WIDTH) / 2,
                 Math.max(MARGIN, (this.height - height) / 2),
@@ -59,13 +60,17 @@ public final class TextPromptScreen extends ChildScreen {
         field = new EditBox(this.font, panel.x() + MARGIN, top,
                 panel.width() - MARGIN * 2, ROW, question);
         field.setMaxLength(maxLength);
-        field.setHint(hint);
         addRenderableWidget(field);
         setInitialFocus(field);
 
         // Ok commits, so cancelling needed a button of its own rather than a key the player
         // has to already know about.
-        int decideTop = top + ROW + GAP;
+        // Under the examples, which are under the field they are examples for. They used to
+        // sit below the buttons, where a line explaining what to type is read after the
+        // button that sends it - and a second time in the field itself as a placeholder,
+        // which is one line of help written twice and shown in neither place reliably.
+        hintTop = top + ROW + 3;
+        int decideTop = hintTop + this.font.lineHeight + GAP;
         int half = (panel.width() - MARGIN * 2 - GAP) / 2;
         addRenderableWidget(GatheringButtons.of(
                 panel.x() + MARGIN, decideTop, half, ROW,
@@ -105,7 +110,7 @@ public final class TextPromptScreen extends ChildScreen {
         GuiText.drawCentred(graphics, this.font, question,
                 panel.x() + panel.width() / 2, panel.y() + 5, panel.width() - MARGIN * 2, LABEL);
         GuiText.drawCentred(graphics, this.font, hint,
-                panel.x() + panel.width() / 2, panel.bottom() - 11, panel.width() - MARGIN * 2, DIM);
+                panel.x() + panel.width() / 2, hintTop, panel.width() - MARGIN * 2, DIM);
     }
 
 }
