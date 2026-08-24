@@ -41,8 +41,10 @@ One seat's playmat, read off a top-down screenshot of a four-player table.
 ## What that means for us
 
 1. ~~Build the on-mat button group.~~ **Done** - four verbs down each player's own left hand,
-   in both views, and recorded in the design brief. This file goes away once the two below
-   are settled.
+   in both views, and recorded in the design brief. Four rather than the reference's six:
+   the buttons are square and a card wide, so each one added shrinks the rest, and at seven
+   there is no room to write a word inside one. Scry, mill and reveal stay on the number row,
+   where the reference puts them too. This file goes away once the two below are settled.
 2. Decide whether the command zone becomes two counted slots rather than one pile.
    **Needs the user**: it changes the game model, not just the drawing.
 3. Decide whether life becomes a token on the felt rather than a line of status text.
