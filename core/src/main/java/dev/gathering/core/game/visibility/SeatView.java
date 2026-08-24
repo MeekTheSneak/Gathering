@@ -27,7 +27,16 @@ public record SeatView(
         counters = counters == null
                 ? Map.of()
                 : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(counters));
-        zones = zones == null ? Map.of() : Map.copyOf(new EnumMap<>(zones));
+        // Sorted into zone order, so two views of the same board list their zones the same
+        // way. Built from the enum rather than from the map: EnumMap cannot be handed an
+        // empty map - it has nothing to infer the key type from and throws - so a seat with
+        // no zones at all, which is what a board still being assembled looks like, took a
+        // screen down rather than being empty.
+        EnumMap<Zone, ZoneView> sorted = new EnumMap<>(Zone.class);
+        if (zones != null) {
+            sorted.putAll(zones);
+        }
+        zones = Map.copyOf(sorted);
     }
 
     public int counter(String name) {

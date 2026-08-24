@@ -2,6 +2,7 @@ package dev.gathering.client;
 
 import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.game.CardInstanceId;
+import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.Placement;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.Zone;
@@ -652,8 +653,13 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         if (zone != Zone.EXILE) {
             entries.add(move(me, card, Zone.EXILE, Placement.TOP, "to_exile"));
         }
-        if (zone != Zone.COMMAND) {
-            entries.add(move(me, card, Zone.COMMAND, Placement.TOP, "to_command"));
+        // The slot it belongs in rather than always the first, now that there are two of
+        // them: sending a partner home to a slot the other commander is already in puts two
+        // cards in one box and leaves the other empty.
+        if (!zone.isCommandSlot() && view().isPresent()) {
+            entries.add(move(me, card,
+                    CommandSlots.homeFor(view().get().seat(card.owner())),
+                    Placement.TOP, "to_command"));
         }
         entries.add(move(me, card, Zone.LIBRARY, Placement.TOP, "to_library_top"));
         entries.add(move(me, card, Zone.LIBRARY, Placement.BOTTOM, "to_library_bottom"));

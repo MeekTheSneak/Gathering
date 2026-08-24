@@ -359,7 +359,10 @@ public final class CountersScreen extends ChildScreen {
             // Both slots. A deck with partners has a commander in each, and asking only the
             // first would leave the second one's tax with nowhere to be written down.
             for (Zone slot : Zone.COMMAND_SLOTS) {
-                ZoneView command = seat.zone(slot);
+                // The map rather than the accessor, so the guard below is a guard rather
+                // than a line that can never run: asking a seat for a zone it has not got
+                // throws by design.
+                ZoneView command = seat.zones().get(slot);
                 if (command == null) {
                     continue;
                 }

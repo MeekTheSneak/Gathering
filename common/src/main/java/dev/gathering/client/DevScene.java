@@ -727,13 +727,21 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 52 -> {
+                aCommanderLeavesItsSlot(client);
+                advance(SETTLE);
+            }
+            case 53 -> {
+                theCommanderGoesHomeToItsOwnSlot(client);
+                advance(SETTLE);
+            }
+            case 54 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 // The other number a game of Commander asks a player to keep for an hour.
                 taxPaid = commanderTax(client);
                 openCommanderCounters(client);
                 advance(SETTLE / 2);
             }
-            case 53 -> {
+            case 55 -> {
                 expectScreen(client, "asking for a commander's counters", CountersScreen.class);
                 if (client.screen instanceof CountersScreen counters
                         && counters.taxRowsShowing() != Zone.COMMAND_SLOTS.size()) {
@@ -744,7 +752,7 @@ public final class DevScene {
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 54 -> {
+            case 56 -> {
                 int now = commanderTax(client);
                 if (now <= taxPaid) {
                     fail("commander tax did not go up: " + taxPaid + " to " + now);
@@ -752,7 +760,7 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 55 -> {
+            case 57 -> {
                 expectScreen(client, "leaving a commander's counters", TableScreen.class);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
@@ -761,27 +769,27 @@ public final class DevScene {
                 resizeTo(client, 1, "a smaller interface");
                 advance(SETTLE / 2);
             }
-            case 56 -> {
+            case 58 -> {
                 theBoardIsStillFramed(client, "at the smallest interface");
                 shoot(client, "27-a-smaller-interface");
                 resizeTo(client, 0, "the automatic interface again");
                 advance(SETTLE / 2);
             }
-            case 57 -> {
+            case 59 -> {
                 // The two questions a token asks. Nothing else in this run opens either of
                 // them, and both are screens somebody can get stuck on: the first one is the
                 // only place in the mod that takes a line of typing from a player.
                 openTheTokenQuestion(client);
                 advance(SETTLE / 2);
             }
-            case 58 -> {
+            case 60 -> {
                 expectScreen(client, "asking for a token", TextPromptScreen.class);
                 shoot(client, "28a-what-token");
                 typeInto(client, "Treasure");
                 press(client, "OK");
                 advance(SETTLE / 2);
             }
-            case 59 -> {
+            case 61 -> {
                 expectScreen(client, "naming a token", AmountScreen.class);
                 shoot(client, "28b-how-many");
                 // Backed out rather than answered: a token wants a real printing off
@@ -792,7 +800,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 60 -> {
+            case 62 -> {
                 expectScreen(client, "backing out of a token", TableScreen.class);
                 theBoardIsStillFramed(client, "back at the automatic interface");
                 shoot(client, "28-back-to-normal");
@@ -809,7 +817,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 61 -> {
+            case 63 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -821,7 +829,7 @@ public final class DevScene {
                 aSpectatorReadsAGraveyard(client);
                 advance(SETTLE / 2);
             }
-            case 62 -> {
+            case 64 -> {
                 expectScreen(client, "a spectator opening a graveyard", PileScreen.class);
                 shoot(client, "30-a-spectator-reads-a-graveyard");
                 if (client.screen != null) {
@@ -830,7 +838,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 63 -> {
+            case 65 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
@@ -1562,7 +1570,7 @@ public final class DevScene {
     private static java.util.List<CardInstanceId> myCommanders(GameView board, SeatId me) {
         java.util.List<CardInstanceId> found = new java.util.ArrayList<>();
         for (Zone slot : Zone.COMMAND_SLOTS) {
-            ZoneView command = board.seat(me).zone(slot);
+            ZoneView command = board.seat(me).zones().get(slot);
             if (command == null) {
                 continue;
             }
@@ -1573,6 +1581,65 @@ public final class DevScene {
             }
         }
         return found;
+    }
+
+    /**
+     * Plays a commander out, so the next step can send it home again.
+     *
+     * <p>The single most common thing anybody does with a commander, and the one the second
+     * slot most easily gets wrong: with a partner still at home, "the command zone" as a
+     * destination has two answers and only one of them is right.
+     */
+    private static void aCommanderLeavesItsSlot(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || board == null) {
+            fail("no seat to send a commander out from");
+            return;
+        }
+        Zone leaving = Zone.COMMAND_SLOTS.get(Zone.COMMAND_SLOTS.size() - 1);
+        ZoneView slot = board.seat(me).zones().get(leaving);
+        CardInstanceId commander = slot == null ? null : slot.cards().stream()
+                .filter(card -> card instanceof CardView.Visible)
+                .map(card -> ((CardView.Visible) card).id())
+                .findFirst().orElse(null);
+        if (commander == null) {
+            fail("the last command slot was empty, so nothing about going home was tested");
+            return;
+        }
+        ClientTableActions.send(table, new GameEvent.CardMoved(me, commander,
+                dev.gathering.core.game.ZoneRef.of(me, Zone.BATTLEFIELD),
+                dev.gathering.core.game.Placement.at(TablePosition.of(5000, 5000))));
+        wentOutFrom = leaving;
+        sentOut = commander;
+    }
+
+    private static Zone wentOutFrom;
+    private static CardInstanceId sentOut;
+
+    /**
+     * Sends it back the way the menu would, and checks the menu's answer was its own slot.
+     *
+     * <p>Asking the same thing the menu entry asks, so what is checked is the rule the player
+     * would actually get rather than a second copy of it written for the test.
+     */
+    private static void theCommanderGoesHomeToItsOwnSlot(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || board == null || sentOut == null) {
+            fail("no seat to bring a commander home to");
+            return;
+        }
+        Zone home = dev.gathering.core.game.CommandSlots.homeFor(board.seat(me));
+        if (home != wentOutFrom) {
+            fail("a commander whose partner is still at home was sent to " + home
+                    + " rather than back to " + wentOutFrom);
+            return;
+        }
+        ClientTableActions.send(table, new GameEvent.CardMoved(me, sentOut,
+                dev.gathering.core.game.ZoneRef.of(me, home),
+                dev.gathering.core.game.Placement.TOP));
+        System.out.println("[devscene] a commander goes home to " + home);
     }
 
     /** How many times this player has cast their commander out of the command zone. */

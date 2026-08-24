@@ -4,6 +4,7 @@ import com.mojang.math.Axis;
 import dev.gathering.core.game.CardInstance;
 import dev.gathering.block.TableBlockEntity;
 import dev.gathering.core.game.CardInstanceId;
+import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.Placement;
 import dev.gathering.core.game.SeatId;
@@ -2252,6 +2253,18 @@ public final class TableScreen extends Screen {
         entries.add(entry("to_exile", () -> eachCard(board, targets, seen ->
                 new GameEvent.CardMoved(
                         me, seen.id(), ZoneRef.of(seen.owner(), Zone.EXILE), Placement.TOP))));
+        // A commander dying goes to the command zone, which is the single most common thing
+        // anybody does with one and had no entry at all: the only way back was to drag it.
+        // Offered on every card rather than only on a commander, because the mod holds no
+        // permanent mark saying which cards are commanders - where a card started is all the
+        // game knows - and refusing the move would be it inventing a rule.
+        if (pileCount() > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
+            entries.add(entry("to_command", () -> eachCard(board, targets, seen ->
+                    new GameEvent.CardMoved(me, seen.id(),
+                            ZoneRef.of(seen.owner(),
+                                    CommandSlots.homeFor(board.seat(seen.owner()))),
+                            Placement.TOP))));
+        }
         entries.add(entry("to_library_top", () -> eachCard(board, targets, seen ->
                 new GameEvent.CardMoved(
                         me, seen.id(), ZoneRef.of(seen.owner(), Zone.LIBRARY), Placement.TOP))));
