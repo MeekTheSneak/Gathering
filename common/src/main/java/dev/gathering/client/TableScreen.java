@@ -266,8 +266,9 @@ public final class TableScreen extends Screen {
     /** The seat the camera is currently framed for, or null for the whole table. */
     private SeatId framedFor;
 
-    /** Measured once per screen: how much felt the longest zone name needs. Nought is unasked. */
+    /** Measured once per screen: how much room the longest of each set needs. Nought is unasked. */
     private int longestZoneName;
+    private int longestVerbName;
 
     /** Frames the board on this seat's own mat, or on the whole table when there is no seat. */
     private void frameTheBoard(SeatId seat) {
@@ -728,9 +729,11 @@ public final class TableScreen extends Screen {
                 graphics.renderOutline(
                         where.x(), where.y(), where.width(), where.height(), ACCENT);
             }
-            GuiText.drawCentred(graphics, this.font, Component.translatable(verb.key()),
-                    (int) where.centreX(), (int) where.centreY() - this.font.lineHeight / 2,
-                    where.width() - 2, hovered ? LABEL : ZONE_LABEL);
+            if (everyVerbNameFits(where.width() - 2)) {
+                GuiText.drawCentred(graphics, this.font, VERB_NAMES[index],
+                        (int) where.centreX(), (int) where.centreY() - this.font.lineHeight / 2,
+                        where.width() - 2, hovered ? LABEL : ZONE_LABEL);
+            }
         }
     }
 
@@ -839,26 +842,46 @@ public final class TableScreen extends Screen {
      * a board too small to write on.
      */
     private boolean everyZoneNameFits(int room) {
-        return room >= roomForTheLongestZoneName();
+        if (longestZoneName == 0) {
+            longestZoneName = roomForTheLongestOf(ZONE_NAMES);
+        }
+        return room >= longestZoneName;
+    }
+
+    private boolean everyVerbNameFits(int room) {
+        if (longestVerbName == 0) {
+            longestVerbName = roomForTheLongestOf(VERB_NAMES);
+        }
+        return room >= longestVerbName;
     }
 
     /**
-     * How much felt the longest zone name needs, measured once.
+     * How much room the longest of these names needs.
      *
-     * <p>It was measured per zone per seat per frame - four translations and four font
-     * measurements each, sixty-four a frame on a four-player table - to answer a question
-     * whose answer only depends on the font and the language. Neither changes without the
-     * screen being built again, which is where this is cleared.
+     * <p>Asked of the whole set because the answer is about the set: writing the ones that fit
+     * and shortening the ones that do not gives a column reading "Exile" and nothing else, or
+     * a run of buttons reading "Mu...", "Sh...", "Dr...", which is worse than leaving all of
+     * them blank - the boxes are still there to be pressed either way, and half a word is a
+     * word somebody has to decode.
+     *
+     * <p>Measured once and kept, because it depends only on the font and the language and
+     * neither changes without this screen being built again.
      */
-    private int roomForTheLongestZoneName() {
-        if (longestZoneName == 0) {
-            for (Zone zone : Zone.PILES) {
-                longestZoneName = Math.max(longestZoneName,
-                        GuiText.roomFor(this.font, ZoneText.name(zone)));
-            }
+    private int roomForTheLongestOf(Component[] names) {
+        int widest = 0;
+        for (Component name : names) {
+            widest = Math.max(widest, GuiText.roomFor(this.font, name));
         }
-        return longestZoneName;
+        return widest;
     }
+
+    private static final Component[] ZONE_NAMES =
+            Zone.PILES.stream().map(ZoneText::name).toArray(Component[]::new);
+
+    private static final Component[] VERB_NAMES =
+            java.util.Arrays.stream(TableVerb.values())
+                    .map(verb -> (Component) Component.translatable(verb.key()))
+                    .toArray(Component[]::new);
 
     /**
      * The card showing on top of a pile, which is not the one currently in the air.
