@@ -180,7 +180,23 @@ public final class TableSetupScreen extends Screen {
                         format.displayName(), bestOf, format.startingLife());
         GuiText.drawCentred(graphics, this.font, chosen,
                 panel.x() + panel.width() / 2, panel.bottom() - 12, panel.width() - MARGIN * 2, DIM);
+        chosenSaid = chosen.getString();
     }
+
+    /**
+     * What the line spelling out the chosen game said last frame. For the scripted harness.
+     *
+     * <p>Recorded while drawing rather than worked out from the fields, because the fields
+     * are what the buttons set and a check that reads them back is a check that the button
+     * assigned a variable - which it plainly did. What is worth knowing is that the screen
+     * then told the player, since eight buttons with one of them chosen are only legible if
+     * the choice is written down.
+     */
+    String chosenSaid() {
+        return chosenSaid;
+    }
+
+    private String chosenSaid = "";
 
     @Override
     protected void renderBlurredBackground(float partialTick) {
