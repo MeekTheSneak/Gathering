@@ -1167,6 +1167,7 @@ public final class TableScreen extends Screen {
     private void renderHeldCard(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         if (held == null) {
             ClientTableHighlight.aimAt(null, -1);
+            ClientTableHighlight.landingOn(null);
             return;
         }
         CardView card = findCard(board, held.card()).orElse(null);
@@ -1181,6 +1182,10 @@ public final class TableScreen extends Screen {
         } else {
             ClientTableHighlight.aimAt(null, -1);
         }
+        // Whose side of the table it would land on, which the board on the block draws as a
+        // lit mat. Most of a mat is not a zone, so aiming alone left a card being dragged
+        // across the felt with nothing at all saying where it was about to go.
+        ClientTableHighlight.landingOn(landing);
 
         // The mat it would land on, outlined, so you can see whose side you are about to put
         // it on. Only on the seated screen: the mats on the block are measured on the table
@@ -1195,7 +1200,7 @@ public final class TableScreen extends Screen {
         // the table, and a card held over a table is not lying on it.
         SeatId sizedFor = landing != null ? landing : held.from();
         Rect airborne = playingOnTheBlock
-                ? centredOnCursor(mouseX, mouseY)
+                ? centredOnCursor(mouseX, mouseY, sizedFor)
                 : centred(mouseX - held.grabX(), mouseY - held.grabY(),
                         board().cardWidth(sizedFor), board().cardHeight(sizedFor));
         graphics.pose().pushPose();
@@ -1209,8 +1214,17 @@ public final class TableScreen extends Screen {
     }
 
     /** A hand-sized card taken by the middle, for the view where the board is not on screen. */
-    private Rect centredOnCursor(int mouseX, int mouseY) {
-        int height = Math.max(24, layout().hand().height() - 8);
+    /**
+     * The card in the air over the board on the block, at the size a card is on that board.
+     *
+     * <p>It used to be drawn the height of a card in your hand, which on the block is roughly
+     * two and a half times the size of a card lying on the table - so picking one up made it
+     * balloon, and it covered the very place it was about to be put down.
+     */
+    private Rect centredOnCursor(int mouseX, int mouseY, SeatId sizedFor) {
+        double blocks = board().surface().cardHeightOn(sizedFor.index())
+                / (double) TableSurface.SPAN * TableTop.SPAN_BLOCKS;
+        int height = Math.max(24, (int) Math.round(blocks * PIXELS_PER_BLOCK));
         int width = Math.max(16, CardShape.widthFor(height));
         return new Rect(mouseX - width / 2, mouseY - height / 2, width, height);
     }

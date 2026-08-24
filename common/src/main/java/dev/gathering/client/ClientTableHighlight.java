@@ -37,6 +37,9 @@ public final class ClientTableHighlight {
     private static SeatId aimedSeat;
     private static int aimedPile = -1;
 
+    /** Whose mat a card in the air would land on, zone or no zone. */
+    private static SeatId landing;
+
     private ClientTableHighlight() {
     }
 
@@ -57,6 +60,22 @@ public final class ClientTableHighlight {
         aimedPile = pile;
     }
 
+    /**
+     * Whose mat a dragged card would land on, zone or no zone.
+     *
+     * <p>Separate from the zone it is aimed at, because most of a mat is not a zone and a card
+     * let go over bare felt still lands on somebody's side of the table. Without it the board
+     * drawn on the block said nothing at all about where a card was going unless the cursor
+     * happened to be over one of the four small boxes in the corner.
+     */
+    public static void landingOn(SeatId seat) {
+        landing = seat;
+    }
+
+    public static boolean isLandingOn(SeatId seat) {
+        return seat != null && seat.equals(landing);
+    }
+
     /** Cleared when the in-world view closes, so a ring never outlives the cursor that made it. */
     public static void clear() {
         hovered = null;
@@ -64,6 +83,7 @@ public final class ClientTableHighlight {
         inTheAir = null;
         aimedSeat = null;
         aimedPile = -1;
+        landing = null;
     }
 
     public static boolean isLit(CardInstanceId card) {

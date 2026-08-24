@@ -146,6 +146,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** A taken seat's mat, and the darker line around it. Read from above, in a lit room. */
     private static final int MAT_COLOUR = 0x30000000;
 
+    /** The wash over the mat a card in the air would land on. */
+    private static final int MAT_LANDING = 0x334FA4CF;
+
     /**
      * How solid a mat's border is drawn.
      *
@@ -193,7 +196,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // A free chair keeps its outline and loses everything else - the same answer the
             // seated screen gives, because the two are the same board.
             drawMat(poseStack, buffers, surface.matOf(index), span,
-                    SeatColour.at(index, taken ? MAT_EDGE_ALPHA : FREE_SEAT_ALPHA), taken);
+                    SeatColour.at(index, taken ? MAT_EDGE_ALPHA : FREE_SEAT_ALPHA), taken,
+                    taken && ClientTableHighlight.isLandingOn(board.seats().get(index).seat()));
             if (taken) {
                 // The line marking off the row nearest its player, where lands go. On the mat
                 // rather than above it: it is a marking printed on the felt, not a thing
@@ -238,7 +242,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private void drawMat(
             PoseStack poseStack, MultiBufferSource buffers, Rect mat, float span, int border,
-            boolean filled) {
+            boolean filled, boolean landing) {
         if (mat.isEmpty()) {
             return;
         }
@@ -253,6 +257,12 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
         if (filled) {
             flat(consumer, pose, left, top, right, bottom, MAT_COLOUR);
+        }
+        if (landing) {
+            // The side of the table a card in the air would come down on. Lit across the
+            // whole mat rather than only where a zone is, because most of a mat is felt and
+            // dropping a card on felt is most of what anybody does with one.
+            flat(consumer, pose, left, top, right, bottom, MAT_LANDING);
         }
         flat(consumer, pose, left, top, right, top + edge, border);
         flat(consumer, pose, left, bottom - edge, right, bottom, border);

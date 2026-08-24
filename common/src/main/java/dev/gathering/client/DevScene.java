@@ -445,37 +445,49 @@ public final class DevScene {
                     fail("the table in the world was not told what the cursor was on");
                 }
                 shoot(client, "22-on-the-table-hovering");
+                // A card lifted and still in the air over the board on the block: the size it
+                // is drawn at and whether anything says where it is about to land are both
+                // only visible mid-drag.
+                liftACardOnTheBlock(client);
+                advance(SETTLE / 2);
+            }
+            case 29 -> {
+                shoot(client, "22a-carrying-a-card-on-the-table");
+                if (client.screen instanceof TableScreen board) {
+                    int[] to = cardPoint(client);
+                    board.mouseReleased(to[0], to[1], 0);
+                }
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 29 -> {
+            case 30 -> {
                 // The whole table, which is the one framing that shows the chair nobody is in.
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 30 -> {
+            case 31 -> {
                 // Somebody sits down opposite. Every picture so far has been of a table with
                 // one player at it, which is not the game this is for.
                 seatARival(client);
                 advance(SETTLE);
             }
-            case 31 -> {
+            case 32 -> {
                 shoot(client, "23-two-players");
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
-            case 32 -> {
+            case 33 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 33 -> {
+            case 34 -> {
                 int now = damageTaken(client);
                 if (now <= tookCommanderDamage) {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
@@ -487,7 +499,7 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 34 -> {
+            case 35 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
@@ -496,19 +508,19 @@ public final class DevScene {
                 setGuiScale(client, 3);
                 advance(SETTLE / 2);
             }
-            case 35 -> {
+            case 36 -> {
                 theBoardIsStillFramed(client, "at gui scale three");
                 shoot(client, "27-a-bigger-interface");
                 setGuiScale(client, 1);
                 advance(SETTLE / 2);
             }
-            case 36 -> {
+            case 37 -> {
                 theBoardIsStillFramed(client, "at gui scale one");
                 shoot(client, "28-a-smaller-interface");
                 setGuiScale(client, 0);
                 advance(SETTLE / 2);
             }
-            case 37 -> {
+            case 38 -> {
                 theBoardIsStillFramed(client, "back at the automatic scale");
                 shoot(client, "29-back-to-normal");
                 // Last, because everything above needs a seat: stand up mid-game and look at
@@ -519,7 +531,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 38 -> {
+            case 39 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -528,7 +540,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 39 -> {
+            case 40 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "32-still-watching");
@@ -1066,6 +1078,24 @@ public final class DevScene {
         } else {
             fail("a spectator could not open a seated player's graveyard");
         }
+    }
+
+    /**
+     * Picks a card up on the board drawn on the block and leaves it in the air.
+     *
+     * <p>Nothing about a card mid-drag can be photographed once it has been let go, and the
+     * two things worth looking at there - how big it is, and whether the table says where it
+     * would land - only exist while it is up.
+     */
+    private static void liftACardOnTheBlock(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to lift a card on");
+            return;
+        }
+        int[] from = cardPoint(client);
+        board.mouseClicked(from[0], from[1], 0);
+        board.mouseDragged(from[0] + 24, from[1] + 12, 0, 24, 12);
+        hover(client, new int[] {from[0] + 24, from[1] + 12});
     }
 
     private static void pokeEverything(Minecraft client) {
