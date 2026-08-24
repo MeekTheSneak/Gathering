@@ -865,15 +865,53 @@ class TableSurfaceTest {
         TableSurface surface = surfaceFor(new TableCell(0, 0));
         for (int seat = 0; seat < 2; seat++) {
             Rect life = surface.lifeBox(seat);
-            assertThat(TableSurface.lifeHalfIn(life, life.x() + 1, life.centreY())).isEqualTo(-1);
-            assertThat(TableSurface.lifeHalfIn(life, life.right() - 1, life.centreY())).isEqualTo(1);
-            assertThat(TableSurface.lifeHalfIn(life, life.x() - 5, life.centreY())).isZero();
-            assertThat(TableSurface.lifeHalfIn(life, life.centreX(), life.y() - 5)).isZero();
+            assertThat(TableSurface.lifeWayAt(life, false, life.x() + 1, life.centreY()))
+                    .isEqualTo(-1);
+            assertThat(TableSurface.lifeWayAt(life, false, life.right() - 1, life.centreY()))
+                    .isEqualTo(1);
+            assertThat(TableSurface.lifeWayAt(life, false, life.x() - 5, life.centreY())).isZero();
+            assertThat(TableSurface.lifeWayAt(life, false, life.centreX(), life.y() - 5)).isZero();
             // Whatever space the box is handed in - a view that has moved and scaled it still
             // gets the same answer about which end of it a point is on.
             Rect moved = new Rect(40, 80, 120, 30);
-            assertThat(TableSurface.lifeHalfIn(moved, 45, 90)).isEqualTo(-1);
-            assertThat(TableSurface.lifeHalfIn(moved, 155, 90)).isEqualTo(1);
+            assertThat(TableSurface.lifeWayAt(moved, false, 45, 90)).isEqualTo(-1);
+            assertThat(TableSurface.lifeWayAt(moved, false, 155, 90)).isEqualTo(1);
+        }
+    }
+
+    /**
+     * The end a sign is written on is the end a press on it acts as.
+     *
+     * <p>Stated for both frames, because that is where the two came apart: the board drawn in
+     * the world turns each seat's writing round to face them and the press was worked out
+     * from the surface, so on every seat facing the other way the end marked plus took a life
+     * off. Asking one function for both makes that impossible rather than unlikely.
+     */
+    @Test
+    @DisplayName("a press on the end marked plus puts a life on, whichever way it is turned")
+    void theSignOnAnEndIsWhatPressingItDoes() {
+        TableSurface surface = surfaceFor(new TableCell(0, 0));
+        for (boolean turned : new boolean[] {false, true}) {
+            for (int seat = 0; seat < 2; seat++) {
+                Rect life = surface.lifeBox(seat);
+                for (int way : new int[] {-1, 1}) {
+                    Rect end = TableSurface.lifeEnd(life, turned, way);
+                    assertThat(end.isEmpty())
+                            .describedAs("turned %s: seat %s has no %s end", turned, seat, way)
+                            .isFalse();
+                    assertThat(life.contains(end.x(), end.y())).isTrue();
+                    assertThat(life.contains(end.right() - 1, end.bottom() - 1)).isTrue();
+                    assertThat(TableSurface.lifeWayAt(
+                            life, turned, end.centreX(), end.centreY()))
+                            .describedAs("turned %s: seat %s presses its %s end the other way",
+                                    turned, seat, way)
+                            .isEqualTo(way);
+                }
+                assertThat(TableSurface.lifeEnd(life, turned, -1)
+                        .overlaps(TableSurface.lifeEnd(life, turned, 1)))
+                        .describedAs("turned %s: seat %s has two ends in one place", turned, seat)
+                        .isFalse();
+            }
         }
     }
 

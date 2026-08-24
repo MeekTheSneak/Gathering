@@ -789,35 +789,59 @@ public final class TableScreen extends Screen {
         if (box.isEmpty() || box.height() < this.font.lineHeight) {
             return;
         }
-        int half = mySeat().isEmpty() ? 0 : lifeHalfUnder(seat.seat(), cursorX, cursorY);
+        int way = mySeat().isEmpty() ? 0 : lifeWayUnder(seat.seat(), cursorX, cursorY);
         graphics.fill(box.x(), box.y(), box.right(), box.bottom(), LIFE_BACKING);
         graphics.renderOutline(box.x(), box.y(), box.width(), box.height(),
-                half == 0 ? ZONE_BORDER : ACCENT);
+                way == 0 ? ZONE_BORDER : ACCENT);
         Component total = Component.literal(Integer.toString(seat.life()));
         GuiText.drawCentred(graphics, this.font, total, (int) box.centreX(),
                 (int) box.centreY() - this.font.lineHeight / 2, box.width() / 2, LABEL);
         // A minus over the end that takes one off and a plus over the end that puts one on,
-        // read off the same arithmetic the press is, so the two cannot end up disagreeing.
-        drawLifeHalf(graphics, box, -1, half);
-        drawLifeHalf(graphics, box, 1, half);
+        // asked of the same function the press is, so the two cannot end up disagreeing.
+        drawLifeEnd(graphics, seat.seat(), box, -1, way);
+        drawLifeEnd(graphics, seat.seat(), box, 1, way);
     }
 
-    private void drawLifeHalf(GuiGraphics graphics, Rect box, int side, int lit) {
-        Component sign = Component.literal(side < 0 ? "-" : "+");
-        int room = Math.max(1, box.width() / 4);
-        int x = side < 0 ? box.x() + room / 2 : box.right() - room - room / 2;
-        GuiText.drawCentred(graphics, this.font, sign, x + room / 2,
-                (int) box.centreY() - this.font.lineHeight / 2, room,
-                lit == side ? ACCENT : ZONE_LABEL);
+    private void drawLifeEnd(GuiGraphics graphics, SeatId seat, Rect box, int way, int lit) {
+        Rect end = TableSurface.lifeEnd(box, lifeIsTurned(seat), way);
+        if (end.isEmpty()) {
+            return;
+        }
+        GuiText.drawCentred(graphics, this.font, Component.literal(way < 0 ? "-" : "+"),
+                (int) end.centreX(), (int) box.centreY() - this.font.lineHeight / 2,
+                end.width(), lit == way ? ACCENT : ZONE_LABEL);
     }
 
-    /** Which half of a seat's life counter this screen point is on: -1, 1, or 0 for neither. */
-    private int lifeHalfUnder(SeatId seat, int x, int y) {
+    /**
+     * Whether this seat's counter is drawn turned about in the view being played.
+     *
+     * <p>Asked of the surface rather than worked out here, because the board drawn in the
+     * world asks the same question before it writes the signs on the ends - and the two
+     * asking separately is how the end marked plus came to take a life off.
+     */
+    private boolean lifeIsTurned(SeatId seat) {
+        return board().surface().lifeIsTurned(seat.index(), !playingOnTheBlock);
+    }
+
+    /** Which way a press at this screen point on a seat's counter would go: -1, 1, or 0. */
+    private int lifeWayUnder(SeatId seat, int x, int y) {
         double[] at = pointer(x, y);
         // The board's own rectangle and the board's own pointer, so the answer is in one
         // space. Asked of absolute surface units it would name the wrong end of the counter
         // on the seated board, whose camera turns the felt round on its way to the screen.
-        return at == null ? 0 : TableSurface.lifeHalfIn(board().lifeRect(seat), at[0], at[1]);
+        return at == null ? 0
+                : TableSurface.lifeWayAt(
+                        board().lifeRect(seat), lifeIsTurned(seat), at[0], at[1]);
+    }
+
+    /**
+     * Where the end of a seat's counter meaning this way is, in the view being played.
+     *
+     * <p>Package-private for the scripted harness, which has to aim at the end this screen
+     * would actually read that way rather than at whichever end of the rectangle it guesses.
+     */
+    Rect lifeEndFor(SeatId seat, int way) {
+        return TableSurface.lifeEnd(board().lifeRect(seat), lifeIsTurned(seat), way);
     }
 
     /**
@@ -1167,7 +1191,7 @@ public final class TableScreen extends Screen {
             return null;
         }
         for (SeatView seat : board.seats()) {
-            if (seat.occupant().isEmpty() || lifeHalfUnder(seat.seat(), x, y) == 0) {
+            if (seat.occupant().isEmpty() || lifeWayUnder(seat.seat(), x, y) == 0) {
                 continue;
             }
             return List.of(
@@ -1198,8 +1222,8 @@ public final class TableScreen extends Screen {
             if (seat.occupant().isEmpty()) {
                 continue;
             }
-            int half = lifeHalfUnder(seat.seat(), x, y);
-            if (half == 0) {
+            int way = lifeWayUnder(seat.seat(), x, y);
+            if (way == 0) {
                 continue;
             }
             SeatId whose = seat.seat();
@@ -1210,11 +1234,11 @@ public final class TableScreen extends Screen {
                 // so the amount asked for is a plain number and the two halves mean the same
                 // thing under either button - rather than a typed minus sign, which is a
                 // second way to say something the button already said.
-                int way = half;
+                int chosen = way;
                 ask(way < 0 ? "life_lose" : "life_gain", 1,
-                        amount -> send(new GameEvent.LifeChanged(me, whose, way * amount)));
+                        amount -> send(new GameEvent.LifeChanged(me, whose, chosen * amount)));
             } else {
-                send(new GameEvent.LifeChanged(me, whose, half));
+                send(new GameEvent.LifeChanged(me, whose, way));
             }
             GatheringButtons.clickSound();
             return true;

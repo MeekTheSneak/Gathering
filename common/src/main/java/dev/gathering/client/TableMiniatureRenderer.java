@@ -643,6 +643,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         int angle = surface.facingDegrees(seatIndex);
         float lineHeight = (bottom - top) * LIFE_WRITING;
         float across = right - left;
+        // Kept for the number itself; the ends are placed from the shared rule below.
         writing(poseStack, buffers, packedLight,
                 Component.literal(Integer.toString(seat.life())),
                 (left + right) / 2f, (top + bottom) / 2f, lineHeight,
@@ -650,19 +651,28 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         // The same minus and plus the seated board prints on the ends, because the ends are
         // buttons here too - the screen casts its ray at this board and presses them. A pair
         // of buttons marked in one view and bare in the other is a pair nobody finds twice.
-        // Far enough out that a two-figure total does not run into them. Given a quarter of
-        // the box each they sat inside the room the number itself was allowed, and forty came
-        // out with a plus through the nought.
-        float end = across * LIFE_END_ROOM;
-        float quarter = left + across * LIFE_END_AT;
-        // Which end is which is read off the surface, not off the screen: a mat drawn for the
-        // player opposite is turned about, and so is its counter, so the minus stays on the
-        // end that takes a life off from where they are sitting.
-        boolean flipped = Math.floorMod(angle, 360) != 0;
-        writing(poseStack, buffers, packedLight, Component.literal(flipped ? "+" : "-"),
-                quarter, (top + bottom) / 2f, lineHeight, end, angle, 0);
-        writing(poseStack, buffers, packedLight, Component.literal(flipped ? "-" : "+"),
-                right - across * LIFE_END_AT, (top + bottom) / 2f, lineHeight, end, angle, 0);
+        //
+        // Which end is which comes from the same function the press does. Written out here
+        // instead, from this board's own idea of which way round the mat is, it disagreed
+        // with the press for every seat facing the other way: the sign was turned round with
+        // the mat and the press was not, so the end marked plus took a life off.
+        // The same question the screen asks before it decides which end a press means. This
+        // board turns each seat's own writing rather than the felt, so it says so.
+        boolean turned = surface.lifeIsTurned(seatIndex, false);
+        drawLifeEnd(poseStack, buffers, packedLight, box, turned, -1, lineHeight, angle, span);
+        drawLifeEnd(poseStack, buffers, packedLight, box, turned, 1, lineHeight, angle, span);
+    }
+
+    private void drawLifeEnd(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            Rect box, boolean turned, int way, float lineHeight, int angle, float span) {
+        Rect end = TableSurface.lifeEnd(box, turned, way);
+        if (end.isEmpty()) {
+            return;
+        }
+        writing(poseStack, buffers, packedLight, Component.literal(way < 0 ? "-" : "+"),
+                onSurface(end.centreX(), span), onSurface(end.centreY(), span),
+                lineHeight, onSurface(end.width(), span) * LIFE_END_WRITING, angle, 0);
     }
 
     /** What a life total is written on, so it reads against the table rather than into it. */
@@ -674,11 +684,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** How much of the box across the number itself may take. */
     private static final float LIFE_NUMBER_ROOM = 0.40f;
 
-    /** Where the minus and the plus sit, as a share of the box in from either end. */
-    private static final float LIFE_END_AT = 0.14f;
-
-    /** And how much room each of them gets. */
-    private static final float LIFE_END_ROOM = 0.14f;
+    /** How much of an end's room its sign is allowed, so it clears the number beside it. */
+    private static final float LIFE_END_WRITING = 0.5f;
 
     private void drawGroup(
             PoseStack poseStack, MultiBufferSource buffers, Rect group, float span) {

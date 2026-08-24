@@ -130,6 +130,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /** How far the counter stands off the edge of its own mat, as a share of its height. */
     private static final double LIFE_STANDOFF = 0.22;
 
+    /** How much of a life counter each of its two ends takes up. */
+    private static final double LIFE_END_ROOM = 0.28;
+
     /** How many slot widths of felt a zone's name is given to be written across. */
     private static final double PILE_LABEL_WIDTHS = 2.4;
 
@@ -585,12 +588,53 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      * spaces: pixels on the window, units of felt on the block. Read out of absolute surface
      * units it would answer about the wrong end of the counter on the seated board, whose
      * camera turns the felt round on its way to the screen.
+     *
+     * <p>And given whether the counter is drawn turned about, because that is the other thing
+     * the two views differ on: the seated camera has already turned the felt to face its own
+     * player, so a box arrives in their frame and this is false; the board in the world turns
+     * each seat's own writing instead, so there it is that seat's facing.
      */
-    public static int lifeHalfIn(Rect box, double x, double y) {
+    public static int lifeWayAt(Rect box, boolean turned, double x, double y) {
         if (box.isEmpty() || !box.contains((int) Math.round(x), (int) Math.round(y))) {
             return 0;
         }
-        return x < box.centreX() ? -1 : 1;
+        boolean atTheLeft = x < box.centreX();
+        return atTheLeft == turned ? 1 : -1;
+    }
+
+    /**
+     * The end of a counter that means this way, which is where its sign is written.
+     *
+     * <p>The other half of the same rule. A view draws its minus here and takes its press
+     * from {@link #lifeWayAt}, so the two cannot end up on opposite ends - which is what they
+     * were, on the board drawn in the world, for every seat facing the other way: the sign
+     * was turned round with the mat and the press was not, so the end marked plus took a life
+     * off.
+     *
+     * @param way -1 for the end that takes one off, 1 for the end that puts one on
+     */
+    /**
+     * Whether a seat's counter is drawn turned about, in a view that may already have turned
+     * the felt.
+     *
+     * <p>The seated camera turns the whole surface to face whoever is looking, so a counter
+     * arrives there already in their frame and nothing more is done to it. The board in the
+     * world turns nothing: it writes each seat's own marks facing that seat, so there the
+     * seat's facing is what decides. One method because the drawing and the press both have
+     * to ask, and they were asking separately - which is how the end marked plus came to take
+     * a life off on every seat facing the other way.
+     */
+    public boolean lifeIsTurned(int seat, boolean cameraAlreadyTurnedTheFelt) {
+        return !cameraAlreadyTurnedTheFelt && isTurned(seat);
+    }
+
+    public static Rect lifeEnd(Rect box, boolean turned, int way) {
+        if (box.isEmpty() || way == 0) {
+            return Rect.NONE;
+        }
+        boolean atTheLeft = (way < 0) != turned;
+        int room = Math.max(1, (int) Math.round(box.width() * LIFE_END_ROOM));
+        return new Rect(atTheLeft ? box.x() : box.right() - room, box.y(), room, box.height());
     }
 
     /**
