@@ -30,9 +30,8 @@ final class FlightPath {
     static Rect at(
             BoardPlacement board, BlockPos table, int pileCount,
             ClientCardFlights.Flight flight, long now) {
-        Optional<CardInstanceId> card = flight.move().card();
-        Rect from = rectOf(board, table, pileCount, flight.move().from(), card);
-        Rect to = rectOf(board, table, pileCount, flight.move().to(), card);
+        Rect from = rectOf(board, pileCount, flight.move().from(), flight.move().fromSpot());
+        Rect to = rectOf(board, pileCount, flight.move().to(), flight.move().toSpot());
         if (from.isEmpty() && to.isEmpty()) {
             return Rect.NONE;
         }
@@ -43,21 +42,19 @@ final class FlightPath {
      * Where a place is on this board.
      *
      * <p>A pile has a slot. A hand has an edge rather than a slot, because a hand is not on
-     * the table. The battlefield has wherever the card actually was: remembered, because a
-     * card that has just left it is not in the board any more, and the middle of a mat is not
-     * where anybody watched it sitting.
+     * the table. The battlefield has wherever the card actually was, which the flight carries
+     * with it - a card that has just left a mat is not in the board any more, and the middle
+     * of a mat is not where anybody watched it sitting.
      */
     private static Rect rectOf(
-            BoardPlacement board, BlockPos table, int pileCount,
-            CardTravel.Place place, Optional<CardInstanceId> card) {
+            BoardPlacement board, int pileCount,
+            CardTravel.Place place, Optional<TablePosition> spot) {
         if (place.zone() == Zone.HAND) {
             return board.handEdgeRect(place.seat());
         }
         if (place.zone() == Zone.BATTLEFIELD) {
-            TablePosition sat = card
-                    .flatMap(id -> ClientCardFlights.lastSatAt(table, id))
-                    .orElse(null);
-            return sat == null ? middleOf(board, place) : board.rectOf(place.seat(), sat);
+            return spot.map(sat -> board.rectOf(place.seat(), sat))
+                    .orElseGet(() -> middleOf(board, place));
         }
         int index = Zone.PILES.indexOf(place.zone());
         return index < 0 ? Rect.NONE : board.pileRect(place.seat(), index, pileCount);

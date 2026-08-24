@@ -85,17 +85,6 @@ public final class ClientCardFlights {
     private static final Map<BlockPos, List<Flight>> FLYING = new HashMap<>();
 
     /**
-     * Where each card was last seen sitting on a mat.
-     *
-     * <p>A creature that dies is not on the battlefield any more, so the board that arrives
-     * cannot say where it was - and a card flying to a graveyard from the middle of a mat it
-     * was never in the middle of reads as the wrong card moving. This is the only thing the
-     * new board does not contain, so it is the only thing kept.
-     */
-    private static final Map<BlockPos, Map<CardInstanceId, dev.gathering.core.game.TablePosition>>
-            LAST_SAT = new HashMap<>();
-
-    /**
      * Cards this client is moving itself, which must not also be drawn flying.
      *
      * <p>A card dragged across the felt has already made the journey under the player's own
@@ -140,11 +129,8 @@ public final class ClientCardFlights {
      */
     public static void arrived(BlockPos table, GameView board, long now) {
         Map<CardTravel.Place, CardTravel.Held> shape = shapeOf(board);
-        Map<CardInstanceId, dev.gathering.core.game.TablePosition> sat = seatingOf(board);
         synchronized (ClientCardFlights.class) {
             Snapshot before = SEEN.put(table.immutable(), new Snapshot(shape, now));
-            // Merged rather than replaced: the point of it is the cards that have just left.
-            LAST_SAT.computeIfAbsent(table.immutable(), key -> new HashMap<>()).putAll(sat);
             if (before == null || !CardTravel.worthComparing(now - before.seen())) {
                 return;
             }
@@ -177,19 +163,6 @@ public final class ClientCardFlights {
         synchronized (ClientCardFlights.class) {
             SEEN.remove(table);
             FLYING.remove(table);
-            LAST_SAT.remove(table);
-        }
-    }
-
-    /** Where this card was last seen sitting on a mat, if this client ever saw it there. */
-    public static Optional<dev.gathering.core.game.TablePosition> lastSatAt(
-            BlockPos table, CardInstanceId card) {
-        if (card == null) {
-            return Optional.empty();
-        }
-        synchronized (ClientCardFlights.class) {
-            Map<CardInstanceId, dev.gathering.core.game.TablePosition> sat = LAST_SAT.get(table);
-            return sat == null ? Optional.empty() : Optional.ofNullable(sat.get(card));
         }
     }
 
@@ -197,14 +170,17 @@ public final class ClientCardFlights {
         synchronized (ClientCardFlights.class) {
             SEEN.clear();
             FLYING.clear();
-            LAST_SAT.clear();
             OWN_DOING.clear();
         }
     }
 
     /**
-     * The board as two numbers per zone: how many cards, and which of them this client may
-     * name. Everything {@link CardTravel} needs and nothing else.
+     * The board as {@link CardTravel} needs it: per zone, how many cards, which of them this
+     * client may name, and where each named one is sitting.
+     *
+     * <p>The spots are in here rather than kept separately, which is what lets a card that
+     * has left a mat still be flown from where it was: the comparison holds both boards, so
+     * the place a card was is in the older of the two rather than in a memory of its own.
      */
     private static Map<CardTravel.Place, CardTravel.Held> shapeOf(GameView board) {
         Map<CardTravel.Place, CardTravel.Held> shape = new LinkedHashMap<>();
@@ -215,34 +191,18 @@ public final class ClientCardFlights {
                     continue;
                 }
                 List<CardInstanceId> seen = new ArrayList<>();
+                Map<CardInstanceId, dev.gathering.core.game.TablePosition> spots = new HashMap<>();
                 for (CardView card : contents.cards()) {
                     if (card instanceof CardView.Visible visible) {
                         seen.add(visible.id());
+                        card.placedAt().ifPresent(spot -> spots.put(visible.id(), spot));
                     }
                 }
                 shape.put(new CardTravel.Place(seat.seat(), zone),
-                        new CardTravel.Held(contents.count(), seen));
+                        new CardTravel.Held(contents.count(), seen, spots));
             }
         }
         return shape;
-    }
-
-    /** Where every card this client can see is sitting, so it can be remembered. */
-    private static Map<CardInstanceId, dev.gathering.core.game.TablePosition> seatingOf(
-            GameView board) {
-        Map<CardInstanceId, dev.gathering.core.game.TablePosition> sat = new HashMap<>();
-        for (SeatView seat : board.seats()) {
-            ZoneView battlefield = seat.zone(Zone.BATTLEFIELD);
-            if (battlefield == null) {
-                continue;
-            }
-            for (CardView card : battlefield.cards()) {
-                if (card instanceof CardView.Visible visible) {
-                    card.placedAt().ifPresent(where -> sat.put(visible.id(), where));
-                }
-            }
-        }
-        return sat;
     }
 
     /** Which card, if the viewer may know, so a flight can be drawn face up. */

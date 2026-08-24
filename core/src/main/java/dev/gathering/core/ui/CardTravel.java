@@ -2,6 +2,7 @@ package dev.gathering.core.ui;
 
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -58,14 +59,25 @@ public final class CardTravel {
         return apart >= 0 && apart <= WORTH_COMPARING;
     }
 
-    /** One zone as a viewer sees it: how many cards, and which of them it may name. */
-    public record Held(int count, List<CardInstanceId> seen) {
+    /**
+     * One zone as a viewer sees it: how many cards, which of them it may name, and - for the
+     * battlefield, where a card has a spot rather than a place in an order - where each of
+     * the named ones is sitting.
+     */
+    public record Held(
+            int count, List<CardInstanceId> seen, Map<CardInstanceId, TablePosition> spots) {
 
         public Held {
             seen = List.copyOf(seen);
+            spots = spots == null ? Map.of() : Map.copyOf(spots);
         }
 
-        public static final Held NOTHING = new Held(0, List.of());
+        /** A pile, where a card has no spot of its own. */
+        public Held(int count, List<CardInstanceId> seen) {
+            this(count, seen, Map.of());
+        }
+
+        public static final Held NOTHING = new Held(0, List.of(), Map.of());
     }
 
     /** Where a card is: whose zone, and which. */
@@ -79,12 +91,21 @@ public final class CardTravel {
      * places. A move nobody may see the identity of is still a move, and is still worth
      * drawing - as a sleeve.
      */
-    public record Move(Place from, Place to, Optional<CardInstanceId> card) {
+    public record Move(
+            Place from, Place to, Optional<CardInstanceId> card,
+            Optional<TablePosition> fromSpot, Optional<TablePosition> toSpot) {
 
         public Move {
             Objects.requireNonNull(from);
             Objects.requireNonNull(to);
             card = card == null ? Optional.empty() : card;
+            fromSpot = fromSpot == null ? Optional.empty() : fromSpot;
+            toSpot = toSpot == null ? Optional.empty() : toSpot;
+        }
+
+        /** A move between two piles, where neither end is a spot on a mat. */
+        public Move(Place from, Place to, Optional<CardInstanceId> card) {
+            this(from, to, card, Optional.empty(), Optional.empty());
         }
     }
 
@@ -106,11 +127,23 @@ public final class CardTravel {
         Map<CardInstanceId, Place> nowAt = placesOf(after);
 
         for (Map.Entry<CardInstanceId, Place> entry : wasAt.entrySet()) {
-            Place to = nowAt.get(entry.getKey());
-            if (to != null && !to.equals(entry.getValue())) {
-                moves.add(new Move(entry.getValue(), to, Optional.of(entry.getKey())));
-                lost.merge(entry.getValue(), 1, Integer::sum);
+            CardInstanceId card = entry.getKey();
+            Place was = entry.getValue();
+            Place to = nowAt.get(card);
+            if (to == null) {
+                continue;
+            }
+            Optional<TablePosition> left = spotOf(before, was, card);
+            Optional<TablePosition> arrived = spotOf(after, to, card);
+            if (!to.equals(was)) {
+                moves.add(new Move(was, to, Optional.of(card), left, arrived));
+                lost.merge(was, 1, Integer::sum);
                 gained.merge(to, 1, Integer::sum);
+            } else if (movedOnTheSpot(left, arrived)) {
+                // Same zone, different place on it. A creature pushed forward to attack has
+                // not changed zones and has certainly moved, and for everybody but the
+                // player whose hand did it there was nothing between the two spots at all.
+                moves.add(new Move(was, to, Optional.of(card), left, arrived));
             }
         }
 
@@ -140,6 +173,27 @@ public final class CardTravel {
             }
         }
         return List.copyOf(moves);
+    }
+
+    /**
+     * Whether these two spots are far enough apart to be a card being moved.
+     *
+     * <p>Coordinates only. A {@link TablePosition} carries an angle as well, and turning a
+     * card is not moving it: tapping every permanent you have would otherwise be a board's
+     * worth of cards flying from where they are to where they already are.
+     */
+    private static boolean movedOnTheSpot(
+            Optional<TablePosition> from, Optional<TablePosition> to) {
+        if (from.isEmpty() || to.isEmpty()) {
+            return false;
+        }
+        return from.get().x() != to.get().x() || from.get().y() != to.get().y();
+    }
+
+    private static Optional<TablePosition> spotOf(
+            Map<Place, Held> board, Place place, CardInstanceId card) {
+        Held held = board.get(place);
+        return held == null ? Optional.empty() : Optional.ofNullable(held.spots().get(card));
     }
 
     /** A zone that has cards to spare, preferring one belonging to the same player. */

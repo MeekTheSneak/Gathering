@@ -118,8 +118,19 @@ public final class DevScene {
      */
     private static final int A_MOMENT = 3;
 
-    /** A hard stop, so a scene that never gets going does not sit there until the timer kills it. */
-    private static final int GIVE_UP_TICKS = 20 * 60 * 2;
+    /**
+     * How long one step may sit there before the run is declared stuck.
+     *
+     * <p>Per step rather than for the whole run. A budget for the whole run is a number that
+     * has to be raised every time the scene grows a step, and the run that finally exceeds it
+     * fails with "gave up waiting" rather than with whatever was actually wrong - which is
+     * exactly what happened the first time this scene passed sixty steps. What is being
+     * watched for is a scene that has stopped moving, and that is a step that has not
+     * changed, however long the run before it took.
+     *
+     * <p>Forty seconds, against a longest legitimate wait of two.
+     */
+    private static final int STUCK_TICKS = 20 * 40;
 
     private static BlockPos table;
     private static boolean asked;
@@ -175,9 +186,9 @@ public final class DevScene {
         if (!isEnabled() || client == null) {
             return;
         }
-        if (++ticks > GIVE_UP_TICKS) {
-            fail("gave up waiting at step " + step);
-            finish(client, "gave up waiting at step " + step);
+        if (++ticks > STUCK_TICKS) {
+            fail("step " + step + " stopped moving");
+            finish(client, "step " + step + " stopped moving");
             return;
         }
         if (waited > 0) {
@@ -677,17 +688,29 @@ public final class DevScene {
             }
             case 47 -> {
                 shoot(client, "23-two-players");
+                // A card somebody else moves across their own mat. The commonest movement in
+                // the game and the last one still teleporting: a card changing zones was
+                // followed, and a card sliding from one spot to another was not.
+                theRivalSlidesACardAcrossTheirMat(client);
+                advance(A_MOMENT);
+            }
+            case 48 -> {
+                aCardIsInTheAir(client, "a rival sliding a card across their mat");
+                shoot(client, "23a-a-rivals-card-on-the-move");
+                advance(SETTLE);
+            }
+            case 49 -> {
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
-            case 48 -> {
+            case 50 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 49 -> {
+            case 51 -> {
                 int now = damageTaken(client);
                 if (now <= tookCommanderDamage) {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
@@ -699,20 +722,20 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 50 -> {
+            case 52 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 // The other number a game of Commander asks a player to keep for an hour.
                 taxPaid = commanderTax(client);
                 openCommanderCounters(client);
                 advance(SETTLE / 2);
             }
-            case 51 -> {
+            case 53 -> {
                 expectScreen(client, "asking for a commander's counters", CountersScreen.class);
                 shoot(client, "25a-commander-tax");
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 52 -> {
+            case 54 -> {
                 int now = commanderTax(client);
                 if (now <= taxPaid) {
                     fail("commander tax did not go up: " + taxPaid + " to " + now);
@@ -720,7 +743,7 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 53 -> {
+            case 55 -> {
                 expectScreen(client, "leaving a commander's counters", TableScreen.class);
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
@@ -729,27 +752,27 @@ public final class DevScene {
                 resizeTo(client, 1, "a smaller interface");
                 advance(SETTLE / 2);
             }
-            case 54 -> {
+            case 56 -> {
                 theBoardIsStillFramed(client, "at the smallest interface");
                 shoot(client, "27-a-smaller-interface");
                 resizeTo(client, 0, "the automatic interface again");
                 advance(SETTLE / 2);
             }
-            case 55 -> {
+            case 57 -> {
                 // The two questions a token asks. Nothing else in this run opens either of
                 // them, and both are screens somebody can get stuck on: the first one is the
                 // only place in the mod that takes a line of typing from a player.
                 openTheTokenQuestion(client);
                 advance(SETTLE / 2);
             }
-            case 56 -> {
+            case 58 -> {
                 expectScreen(client, "asking for a token", TextPromptScreen.class);
                 shoot(client, "28a-what-token");
                 typeInto(client, "Treasure");
                 press(client, "OK");
                 advance(SETTLE / 2);
             }
-            case 57 -> {
+            case 59 -> {
                 expectScreen(client, "naming a token", AmountScreen.class);
                 shoot(client, "28b-how-many");
                 // Backed out rather than answered: a token wants a real printing off
@@ -760,7 +783,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 58 -> {
+            case 60 -> {
                 expectScreen(client, "backing out of a token", TableScreen.class);
                 theBoardIsStillFramed(client, "back at the automatic interface");
                 shoot(client, "28-back-to-normal");
@@ -777,7 +800,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 59 -> {
+            case 61 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -790,7 +813,7 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 60 -> {
+            case 62 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
@@ -861,6 +884,8 @@ public final class DevScene {
     private static void advance(int settle) {
         step++;
         waited = settle;
+        // The clock is per step, so it starts again here. See STUCK_TICKS.
+        ticks = 0;
     }
 
     /**
@@ -1445,8 +1470,48 @@ public final class DevScene {
             }
             session.submit(new GameEvent.DeckLoaded(theirs, library, List.of()));
             session.submit(new GameEvent.CardsDrawn(theirs, theirs, 3));
+            // And plays one, so there is a card of somebody else's on the table - which is
+            // the only way to check what a card moved by another player looks like.
+            session.state().contents(theirs, Zone.HAND).stream().findFirst().ifPresent(card ->
+                    session.submit(new GameEvent.CardMoved(theirs, card,
+                            dev.gathering.core.game.ZoneRef.of(theirs, Zone.BATTLEFIELD),
+                            dev.gathering.core.game.Placement.at(TablePosition.of(3000, 4000)))));
             TableBroadcast.sendToTable(server.overworld(), where);
             System.out.println("[devscene] a rival sat down opposite");
+        });
+    }
+
+    /**
+     * The rival plays a card and then slides it across their own mat.
+     *
+     * <p>Through the session rather than through this client, which is the point: a card
+     * somebody else moves is the case the travelling had to cover, and the only case where
+     * this client is a spectator of the movement rather than the cause of it. It is also the
+     * commonest movement in the game and was the last one still teleporting.
+     */
+    private static void theRivalSlidesACardAcrossTheirMat(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            fail("no server to move a rival's card on");
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            GameSession session = TableSessions.sessionAt(server.overworld(), where).orElse(null);
+            if (session == null) {
+                return;
+            }
+            SeatId theirs = new SeatId(1);
+            CardInstanceId card = session.state()
+                    .contents(theirs, Zone.BATTLEFIELD).stream().findFirst().orElse(null);
+            if (card == null) {
+                System.out.println("[devscene] the rival had nothing on the table to slide");
+                return;
+            }
+            session.submit(new GameEvent.CardMoved(theirs, card,
+                    dev.gathering.core.game.ZoneRef.of(theirs, Zone.BATTLEFIELD),
+                    dev.gathering.core.game.Placement.at(TablePosition.of(7000, 6000))));
+            TableBroadcast.sendToTable(server.overworld(), where);
         });
     }
 

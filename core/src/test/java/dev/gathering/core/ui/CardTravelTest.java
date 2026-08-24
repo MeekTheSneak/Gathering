@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.SeatId;
+import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -239,5 +240,73 @@ class CardTravelTest {
     @Test
     void aGapThatRunsBackwardsIsNotADifferenceEither() {
         assertThat(CardTravel.worthComparing(-1)).isFalse();
+    }
+
+    /**
+     * A creature pushed forward to attack has not changed zones and has certainly moved.
+     *
+     * <p>The most common movement in the game, and the one that stayed a teleport longest:
+     * for everybody except the player whose hand did it, the card was here and then it was
+     * there with nothing in between.
+     */
+    @Test
+    void aCardSlidAcrossItsOwnMatIsAMove() {
+        CardInstanceId bear = card();
+        Map<CardTravel.Place, CardTravel.Held> before = board();
+        at(before, ME, Zone.BATTLEFIELD, bear, TablePosition.of(1000, 1000));
+        Map<CardTravel.Place, CardTravel.Held> after = board();
+        at(after, ME, Zone.BATTLEFIELD, bear, TablePosition.of(6000, 2000));
+
+        List<CardTravel.Move> moves = CardTravel.between(before, after);
+
+        assertThat(moves).hasSize(1);
+        CardTravel.Move move = moves.get(0);
+        assertThat(move.card()).contains(bear);
+        assertThat(move.from()).isEqualTo(move.to());
+        assertThat(move.fromSpot()).contains(TablePosition.of(1000, 1000));
+        assertThat(move.toSpot()).contains(TablePosition.of(6000, 2000));
+    }
+
+    /**
+     * Turning a card is not moving it.
+     *
+     * <p>A position carries an angle as well as a place, so comparing whole positions would
+     * make untapping a board a board's worth of cards flying from where they are to where
+     * they already are.
+     */
+    @Test
+    void tappingACardDoesNotSendItAnywhere() {
+        CardInstanceId bear = card();
+        Map<CardTravel.Place, CardTravel.Held> before = board();
+        at(before, ME, Zone.BATTLEFIELD, bear, TablePosition.of(1000, 1000, 0));
+        Map<CardTravel.Place, CardTravel.Held> after = board();
+        at(after, ME, Zone.BATTLEFIELD, bear, TablePosition.of(1000, 1000, 90));
+
+        assertThat(CardTravel.between(before, after)).isEmpty();
+    }
+
+    /** A card leaving a mat flies from where it sat, not from the middle of the mat. */
+    @Test
+    void aCardLeavingAMatRemembersWhereItSat() {
+        CardInstanceId bear = card();
+        Map<CardTravel.Place, CardTravel.Held> before = board();
+        at(before, ME, Zone.BATTLEFIELD, bear, TablePosition.of(7500, 3000));
+        put(before, ME, Zone.GRAVEYARD, 0);
+        Map<CardTravel.Place, CardTravel.Held> after = board();
+        put(after, ME, Zone.BATTLEFIELD, 0);
+        put(after, ME, Zone.GRAVEYARD, 1, bear);
+
+        List<CardTravel.Move> moves = CardTravel.between(before, after);
+
+        assertThat(moves).hasSize(1);
+        assertThat(moves.get(0).fromSpot()).contains(TablePosition.of(7500, 3000));
+        assertThat(moves.get(0).toSpot()).isEmpty();
+    }
+
+    private static void at(
+            Map<CardTravel.Place, CardTravel.Held> board,
+            SeatId seat, Zone zone, CardInstanceId card, TablePosition spot) {
+        board.put(new CardTravel.Place(seat, zone),
+                new CardTravel.Held(1, List.of(card), Map.of(card, spot)));
     }
 }
