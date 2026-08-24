@@ -7,6 +7,7 @@ import dev.gathering.core.game.SeatState;
 import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
+import dev.gathering.item.CardComponent;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
@@ -538,23 +539,41 @@ public final class CountersScreen extends ChildScreen {
     /** What each previous cast adds to a commander's cost. */
     private static final int MANA_PER_CAST = 2;
 
-    /** What to call a card on a row, which is its name once this client knows it. */
+    /**
+     * What to call a card on a row, which is its name once this client knows it.
+     *
+     * <p>Which card an id belongs to is asked once and remembered. It used to be asked every
+     * frame by walking every card in every zone of every seat - libraries included, so four
+     * hundred cards on a Commander table - to answer a question whose answer cannot change:
+     * a card instance is one printing for its whole life. The name itself is still looked up
+     * each frame, because that arrives from the cache whenever it arrives.
+     */
     private Component nameOf(CardInstanceId card) {
-        GameView board = ClientTableState.viewOf(table).orElse(null);
-        if (board == null) {
-            return Component.empty();
-        }
-        for (CardView held : board.allCardViews()) {
-            if (held instanceof CardView.Visible visible && visible.id().equals(card)) {
-                return ClientCardCache.get()
-                        .summary(dev.gathering.item.CardComponent.of(visible.identity()))
-                        .map(summary -> (Component) Component.literal(summary.name()))
-                        .orElseGet(() -> Component.translatable(
-                                "screen.gathering.deck.loading_card"));
+        CardComponent known = printings.get(card);
+        if (known == null) {
+            GameView board = ClientTableState.viewOf(table).orElse(null);
+            if (board == null) {
+                return Component.empty();
+            }
+            for (CardView held : board.allCardViews()) {
+                if (held instanceof CardView.Visible visible && visible.id().equals(card)) {
+                    known = CardComponent.of(visible.identity());
+                    printings.put(card, known);
+                    break;
+                }
+            }
+            if (known == null) {
+                return Component.empty();
             }
         }
-        return Component.empty();
+        return ClientCardCache.get().summary(known)
+                .map(summary -> (Component) Component.literal(summary.name()))
+                .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
     }
+
+    /** Which printing each card on a row is, found once - it cannot change. */
+    private final java.util.Map<CardInstanceId, CardComponent> printings =
+            new java.util.HashMap<>();
 
     /** "+1/+1" is wider than the button; the button says what it does in the room it has. */
     private static String shortLabel(String name) {

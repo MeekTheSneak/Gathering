@@ -160,6 +160,31 @@ class SessionCodecTest {
         assertThat(back).isEqualTo(log);
     }
 
+    @Test
+    @DisplayName("a game saved before rewinds could be stored still opens")
+    void anOlderLogStillOpens() throws Exception {
+        // Storing rewinds put a kind byte on every record and moved the format on. A world
+        // with a half-finished game in it was written by the format before that, and this mod
+        // holds that an unopenable session is still somebody's game.
+        SeatId a = new SeatId(0);
+        GameEvent tapped = new GameEvent.CardTapSet(a, new CardInstanceId(7), true);
+
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        try (java.io.DataOutputStream out = new java.io.DataOutputStream(bytes)) {
+            out.writeInt(1);
+            out.writeInt(1);
+            out.writeLong(0L);
+            out.writeBoolean(false);
+            out.writeBoolean(false);
+            EventCodec.write(out, tapped);
+            out.writeInt(0);
+        }
+
+        List<SessionRecord> back = SessionCodec.read(bytes.toByteArray(), new byte[0]);
+
+        assertThat(back).containsExactly(new SessionRecord.EventRecord(0, tapped, false));
+    }
+
     private static List<GameEvent> everyKind() {
         SeatId a = new SeatId(0);
         SeatId b = new SeatId(1);

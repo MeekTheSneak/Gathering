@@ -51,6 +51,9 @@ public final class SessionCodec {
     /** Somebody taking things back. Never secret: it names no card. */
     private static final byte REWIND = 1;
 
+    /** The format before a rewind could be stored: every record an event, and none of them said so. */
+    private static final int BEFORE_REWINDS = 1;
+
     private SessionCodec() {
     }
 
@@ -118,14 +121,19 @@ public final class SessionCodec {
 
         try (DataInputStream open = new DataInputStream(new ByteArrayInputStream(publicLog))) {
             int version = open.readInt();
-            if (version != VERSION) {
+            if (version != VERSION && version != BEFORE_REWINDS) {
                 throw new IOException("Session log is version " + version + ", this reads " + VERSION);
             }
+            // A log written before rewinds could be stored has no kind byte on its records,
+            // because everything in it was an event. Reading it as though each record said so
+            // is the whole of the difference, and it costs nothing to keep somebody's
+            // half-finished game openable.
+            boolean tagged = version == VERSION;
             int count = readSize(open.readInt());
 
             List<SessionRecord> records = new ArrayList<>(Math.min(count, 1024));
             for (int index = 0; index < count; index++) {
-                byte kind = open.readByte();
+                byte kind = tagged ? open.readByte() : HAPPENING;
                 if (kind == REWIND) {
                     records.add(new SessionRecord.UndoRecord(
                             open.readLong(), new SeatId(open.readInt()),
@@ -163,7 +171,10 @@ public final class SessionCodec {
         }
         try (DataInputStream sealed = new DataInputStream(new ByteArrayInputStream(secretLog))) {
             int version = sealed.readInt();
-            if (version != VERSION) {
+            // The sealed stream did not change when rewinds became storable - it holds only
+            // events and always did - so an older one still reads, and refusing it would put
+            // the hidden half of somebody's game out of reach for no reason.
+            if (version != VERSION && version != BEFORE_REWINDS) {
                 throw new IOException("Sealed log is version " + version + ", this reads " + VERSION);
             }
             while (true) {
