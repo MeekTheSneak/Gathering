@@ -125,7 +125,7 @@ class BoosterOpenerTest {
         weights.put(scarce, 1);
         BoosterConfig config = config(
                 variant("plain", 1, Map.of("mixed", 1)),
-                new BoosterSheet("mixed", false, true, weights));
+                new BoosterSheet("mixed", false, true, false, weights));
 
         int scarceSeen = 0;
         int packs = 4000;
@@ -244,7 +244,7 @@ class BoosterOpenerTest {
         weights.put(printing("there"), 2);
         weights.put(printing("not-there"), 0);
 
-        BoosterSheet sheet = new BoosterSheet("mixed", false, false, weights);
+        BoosterSheet sheet = new BoosterSheet("mixed", false, false, false, weights);
 
         assertThat(sheet.size()).isEqualTo(1);
         assertThat(sheet.total()).isEqualTo(2);
@@ -274,7 +274,7 @@ class BoosterOpenerTest {
             weights.put(printing, 1);
         }
 
-        BoosterSheet sheet = new BoosterSheet("ordered", false, false, weights);
+        BoosterSheet sheet = new BoosterSheet("ordered", false, false, false, weights);
 
         assertThat(sheet.printings())
                 .describedAs("the sheet reordered its own cards, so a roll lands elsewhere")
@@ -302,39 +302,52 @@ class BoosterOpenerTest {
     }
 
     /**
-     * A sheet that could not be drawn from evenly is refused when it is built.
+     * A sheet heavier than an int can count is drawn from across its whole length.
      *
-     * <p>There used to be a second branch in the roll for totals past what an int holds,
-     * built from a high draw and a low one - and for a total just over the limit the high
-     * draw was always nought, so the whole upper half of the sheet could never come up.
-     * Nobody would ever have found it: no real sheet is that heavy, so the branch was
-     * unreachable and wrong at the same time.
+     * <p>This is the case the opener has been wrong about twice. First there was a
+     * hand-rolled high-and-low draw whose high half was always nought, so the back of such a
+     * sheet could never come up. Then that was deleted and the case refused outright, on the
+     * reasoning that no real print sheet is that heavy - and real published collation
+     * promptly produced one at 210,395,225,040, because foil sheets state their odds as exact
+     * integer ratios.
      *
-     * <p>Refused at the source instead, which removes the branch rather than correcting it.
-     * A weight total that large is a mistake in a file and deserves a message.
+     * <p>So it is neither an impossible case nor one to improvise arithmetic for. What this
+     * asserts is the thing both wrong versions got wrong: that a card sitting past the int
+     * mark on the sheet can actually be opened.
      */
     @Test
-    void aSheetTooHeavyToDrawFromEvenlyIsRefused() {
-        Map<UUID, Integer> tooHeavy = new LinkedHashMap<>();
-        tooHeavy.put(printing("a"), Integer.MAX_VALUE);
-        tooHeavy.put(printing("b"), 1);
+    void aSheetHeavierThanAnIntIsDrawnFromAllTheWayAcross() {
+        Map<UUID, Integer> heavy = new LinkedHashMap<>();
+        UUID front = printing("front");
+        UUID back = printing("back");
+        // Two halves either side of the int mark, so a draw that cannot see past it can only
+        // ever come up with the front card.
+        heavy.put(front, Integer.MAX_VALUE);
+        heavy.put(back, Integer.MAX_VALUE);
+        BoosterSheet sheet = new BoosterSheet("heavy", false, true, false, heavy);
+        assertThat(sheet.total()).isEqualTo(2L * Integer.MAX_VALUE);
 
-        assertThatThrownBy(() -> new BoosterSheet("huge", false, false, tooHeavy))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("huge")
-                .hasMessageContaining("not a print sheet");
+        BoosterConfig config = config(new BoosterVariant("plain", 1, Map.of("heavy", 1)), sheet);
+
+        Set<UUID> seen = new LinkedHashSet<>();
+        for (int pack = 0; pack < 40; pack++) {
+            seen.add(BoosterOpener.open(config, SEED, "heavy-" + pack).cards().get(0).scryfallId());
+        }
+        assertThat(seen).containsExactlyInAnyOrder(front, back);
     }
 
-    /** And one right at the limit is fine, because that is a bound rather than a rounding. */
+    /** And the same sheet opens the same way every time, which is what a seed is for. */
     @Test
-    void aSheetExactlyAtTheLimitIsAllowed() {
-        Map<UUID, Integer> atTheLimit = new LinkedHashMap<>();
-        atTheLimit.put(printing("a"), Integer.MAX_VALUE - 1);
-        atTheLimit.put(printing("b"), 1);
+    void aHeavySheetIsStillReproducible() {
+        Map<UUID, Integer> heavy = new LinkedHashMap<>();
+        heavy.put(printing("front"), Integer.MAX_VALUE);
+        heavy.put(printing("back"), Integer.MAX_VALUE);
+        BoosterConfig config = config(
+                new BoosterVariant("plain", 1, Map.of("heavy", 4)),
+                new BoosterSheet("heavy", false, true, false, heavy));
 
-        BoosterSheet sheet = new BoosterSheet("edge", false, false, atTheLimit);
-
-        assertThat(sheet.total()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(BoosterOpener.open(config, SEED, "same").cards())
+                .isEqualTo(BoosterOpener.open(config, SEED, "same").cards());
     }
 
     // --- helpers ---
@@ -361,7 +374,7 @@ class BoosterOpenerTest {
         for (int index = 0; index < cards; index++) {
             weights.put(printing(name + "-" + index), 1);
         }
-        return new BoosterSheet(name, foil, duplicates, weights);
+        return new BoosterSheet(name, foil, duplicates, false, weights);
     }
 
     private static UUID printing(String of) {

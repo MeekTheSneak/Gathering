@@ -341,6 +341,23 @@ it.
 Every stage of that has been confirmed capable of failing — a gate that can't fail
 manufactures confidence rather than providing it.
 
+One check is deliberately off by default. Booster collation is read out of MTGJSON's
+published set files, and a reader of somebody else's schema can only honestly be checked
+against the real thing — but four megabytes of their card data has no business living in this
+repository. So download a set or two yourself and point the suite at them:
+
+```bash
+mkdir -p /tmp/mtgjson && cd /tmp/mtgjson
+curl -O https://mtgjson.com/api/v5/BLB.json    # a set
+curl -O https://mtgjson.com/api/v5/SPG.json    # what its play boosters reach into
+cd - && GATHERING_MTGJSON_DIR=/tmp/mtgjson ./gradlew :core:test --tests '*MtgjsonRealSetTest' -i
+```
+
+It prints what each file yielded and what it would need fetching next, and fails if a real
+pack cannot be opened. With `BLB` alone, five of its six kinds of booster drop out, because
+its Special Guest slot is printed in another set; with both files every kind reads clean.
+Skipped entirely when the variable is unset.
+
 ## If something goes wrong
 
 - **Cards import but show no art.** The client fetches images directly from Scryfall. Check

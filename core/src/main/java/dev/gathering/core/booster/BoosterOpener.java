@@ -57,13 +57,28 @@ public final class BoosterOpener {
     /**
      * Takes this many cards off one sheet.
      *
-     * <p>A sheet that refuses duplicates has each card removed as it is taken, which is what
+     * <p>A fixed sheet is not taken from, it is copied out whole; see {@link BoosterSheet#fixed}.
+     *
+     * <p>Otherwise: a sheet that refuses duplicates has each card removed as it is taken, which is what
      * cutting a real sheet does: the same card cannot be in one pack twice because there is
      * only one of it in that column. Taking from a copy rather than from the sheet itself,
      * because a sheet is data and the next pack wants all of it back.
      */
     private static void fill(
             List<CardIdentity> into, BoosterSheet sheet, int howMany, DeterministicRandom rolls) {
+        if (sheet.fixed()) {
+            // Not drawn from: a fixed sheet is the pack. Every card on it, as many copies as
+            // its weight, in the order the data was written - and no roll taken, so a pack
+            // with one of these in it stays reproducible alongside packs without.
+            int taken = 0;
+            for (Map.Entry<UUID, Integer> card : sheet.weights().entrySet()) {
+                for (int copy = 0; copy < card.getValue() && taken < howMany; copy++) {
+                    into.add(sheet.identityOf(card.getKey()));
+                    taken++;
+                }
+            }
+            return;
+        }
         BoosterSheet left = sheet;
         for (int card = 0; card < howMany; card++) {
             if (left.isEmpty()) {
@@ -83,20 +98,20 @@ public final class BoosterOpener {
     /**
      * A number in {@code [0, total)}.
      *
-     * <p>One roll and no arithmetic. There used to be a second branch here for totals past
-     * what an int holds, built out of a high and a low draw - and it was wrong: for a total
-     * just over the limit the high draw was always nought, so the upper half of the sheet
-     * could never come up at all. Nobody would ever have found that, because no sheet has
-     * two billion cards on it.
+     * <p>Taken from the stream's own wide draw rather than assembled here. This once held a
+     * hand-rolled high-and-low pair for totals past what an int holds, and it was quietly
+     * biased: for a total just over the limit the high draw was always nought, so the upper
+     * half of the sheet could never come up. It was then deleted on the reasoning that no
+     * real sheet is that heavy - which real collation promptly disproved, since a foil sheet
+     * states its odds as exact ratios running to hundreds of billions.
      *
-     * <p>So the branch is gone and the case it existed for is refused where the data is
-     * built instead. A weight total that large is a mistake in a file, and a mistake refused
-     * with a message beats one handled by arithmetic nobody can check.
+     * <p>So the wide case is real, and it belongs where every other unbiased draw in the mod
+     * is made: in the stream, rejection-sampled, checked once.
      */
-    private static int roll(DeterministicRandom rolls, long total) {
-        if (total <= 0 || total > Integer.MAX_VALUE) {
+    private static long roll(DeterministicRandom rolls, long total) {
+        if (total <= 0) {
             throw new IllegalArgumentException("Nothing sensible to draw from: " + total);
         }
-        return rolls.nextInt((int) total);
+        return rolls.nextLong(total);
     }
 }

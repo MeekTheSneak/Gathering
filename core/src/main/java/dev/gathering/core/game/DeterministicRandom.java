@@ -79,6 +79,36 @@ public final class DeterministicRandom {
         }
     }
 
+    /**
+     * A uniformly distributed value in {@code [0, bound)}, for bounds an int cannot hold.
+     *
+     * <p>Real print sheets need this. Published collation expresses a foil sheet's odds as
+     * exact integer ratios, and those run to hundreds of billions - one real set's foil sheet
+     * comes to 210,395,225,040 - so a draw against a sheet total is not an int draw.
+     *
+     * <p>A bound that does fit in an int is drawn as one, deliberately: every stream that
+     * never needed the wider draw stays byte for byte what it was, so old seeds still
+     * reproduce old shuffles and old packs.
+     *
+     * <p>Rejection-sampled for the same reason {@link #nextInt} is: modulo alone would skew
+     * toward the cards at the front of the sheet.
+     */
+    public long nextLong(long bound) {
+        if (bound <= 0) {
+            throw new IllegalArgumentException("Bound must be positive: " + bound);
+        }
+        if (bound <= Integer.MAX_VALUE) {
+            return nextInt((int) bound);
+        }
+        long limit = Long.MAX_VALUE - (Long.MAX_VALUE % bound) - 1;
+        while (true) {
+            long candidate = nextNonNegativeLong();
+            if (candidate <= limit) {
+                return candidate % bound;
+            }
+        }
+    }
+
     /** Fisher-Yates, which visits every permutation with equal probability given a fair source. */
     public <T> List<T> shuffled(List<T> source) {
         List<T> result = new ArrayList<>(source);
@@ -98,6 +128,14 @@ public final class DeterministicRandom {
             out.append(String.format("%02x", nextByte() & 0xFF));
         }
         return out.toString();
+    }
+
+    private long nextNonNegativeLong() {
+        long value = 0;
+        for (int index = 0; index < 8; index++) {
+            value = (value << 8) | (nextByte() & 0xFFL);
+        }
+        return value & Long.MAX_VALUE;
     }
 
     private int nextNonNegativeInt() {

@@ -28,7 +28,7 @@ import java.util.UUID;
  *   "set": "abc",
  *   "kind": "draft",
  *   "sheets": {
- *     "common":  { "foil": false, "duplicates": false,
+ *     "common":  { "foil": false, "duplicates": false, "fixed": false,
  *                  "cards": { "&lt;scryfall-uuid&gt;": 4, "&lt;scryfall-uuid&gt;": 1 } },
  *     "rare":    { "cards": { "&lt;scryfall-uuid&gt;": 1 } }
  *   },
@@ -95,6 +95,7 @@ public final class BoosterCodec {
             JsonObject written = new JsonObject();
             written.addProperty("foil", sheet.foil());
             written.addProperty("duplicates", sheet.duplicates());
+            written.addProperty("fixed", sheet.fixed());
             JsonObject cards = new JsonObject();
             sheet.weights().forEach((printing, weight) ->
                     cards.addProperty(printing.toString(), weight));
@@ -126,6 +127,7 @@ public final class BoosterCodec {
         JsonObject json = element.getAsJsonObject();
         boolean foil = flag(json, "foil", name);
         boolean duplicates = flag(json, "duplicates", name);
+        boolean fixed = flag(json, "fixed", name);
 
         Map<UUID, Integer> weights = new LinkedHashMap<>();
         JsonObject cards = object(json, "cards", "sheet '" + name + "'");
@@ -137,7 +139,7 @@ public final class BoosterCodec {
         if (weights.isEmpty()) {
             throw new BoosterCodecException("sheet '" + name + "': no cards on it");
         }
-        return new BoosterSheet(name, foil, duplicates, weights);
+        return new BoosterSheet(name, foil, duplicates, fixed, weights);
     }
 
     // ---------------------------------------------------------------- variants
@@ -166,20 +168,29 @@ public final class BoosterCodec {
     }
 
     // ------------------------------------------------------------------- bits
+    //
+    // Package-private rather than private: the feed adapters in this package read a different
+    // schema into the same shapes, and two copies of "is this field an object" is two places
+    // for the message to drift.
 
-    private static String string(JsonObject json, String field) throws BoosterCodecException {
+    static String string(JsonObject json, String field) throws BoosterCodecException {
+        return string(json, field, null);
+    }
+
+    static String string(JsonObject json, String field, String where) throws BoosterCodecException {
         JsonElement element = json.get(field);
         if (element == null || !element.isJsonPrimitive() || element.getAsString().isBlank()) {
-            throw new BoosterCodecException("'" + field + "' is missing or blank");
+            throw new BoosterCodecException(
+                    (where == null ? "" : where + ": ") + "'" + field + "' is missing or blank");
         }
         return element.getAsString();
     }
 
-    private static JsonObject object(JsonObject json, String field) throws BoosterCodecException {
+    static JsonObject object(JsonObject json, String field) throws BoosterCodecException {
         return object(json, field, null);
     }
 
-    private static JsonObject object(JsonObject json, String field, String where)
+    static JsonObject object(JsonObject json, String field, String where)
             throws BoosterCodecException {
         JsonElement element = json.get(field);
         if (element == null || !element.isJsonObject()) {
@@ -189,10 +200,16 @@ public final class BoosterCodec {
         return element.getAsJsonObject();
     }
 
-    private static JsonArray array(JsonObject json, String field) throws BoosterCodecException {
+    static JsonArray array(JsonObject json, String field) throws BoosterCodecException {
+        return array(json, field, null);
+    }
+
+    static JsonArray array(JsonObject json, String field, String where)
+            throws BoosterCodecException {
         JsonElement element = json.get(field);
         if (element == null || !element.isJsonArray()) {
-            throw new BoosterCodecException("'" + field + "' is missing or not a list");
+            throw new BoosterCodecException(
+                    (where == null ? "" : where + ": ") + "'" + field + "' is missing or not a list");
         }
         return element.getAsJsonArray();
     }
@@ -211,16 +228,29 @@ public final class BoosterCodec {
         return element.getAsBoolean();
     }
 
-    private static int weight(JsonElement element, String where) throws BoosterCodecException {
+    /**
+     * One card's or one slot's weight.
+     *
+     * <p>Read as a long and then checked to fit, rather than read straight as an int: Gson
+     * would quietly truncate a number too big for one, and a weight that came out a different
+     * number than the file said is exactly the sort of wrong nobody could ever see in a pack.
+     * Sheet <em>totals</em> do run past an int - see {@link BoosterSheet#total} - but no
+     * single card's weight has yet, and the day one does this says so.
+     */
+    static int weight(JsonElement element, String where) throws BoosterCodecException {
         if (element == null || !element.isJsonPrimitive()
                 || !element.getAsJsonPrimitive().isNumber()) {
             throw new BoosterCodecException(where + ": weight is missing or not a number");
         }
-        int weight = element.getAsInt();
+        long weight = element.getAsLong();
         if (weight < 0) {
             throw new BoosterCodecException(where + ": weight " + weight + " is negative");
         }
-        return weight;
+        if (weight > Integer.MAX_VALUE) {
+            throw new BoosterCodecException(
+                    where + ": weight " + weight + " is past what one card can carry");
+        }
+        return (int) weight;
     }
 
     private static UUID printing(String raw, String sheet) throws BoosterCodecException {

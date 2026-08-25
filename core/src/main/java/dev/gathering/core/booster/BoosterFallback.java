@@ -58,7 +58,7 @@ public final class BoosterFallback {
                 // the set, and counting it twice would make it quietly twice as common.
                 weights.putIfAbsent(printing, 1);
             }
-            sheets.put(nameOf(rarity), new BoosterSheet(nameOf(rarity), false, false, weights));
+            sheets.put(nameOf(rarity), new BoosterSheet(nameOf(rarity), false, false, false, weights));
         }
 
         Map<String, Integer> plain = new LinkedHashMap<>();

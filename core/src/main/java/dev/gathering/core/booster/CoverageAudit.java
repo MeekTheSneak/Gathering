@@ -90,6 +90,6 @@ public final class CoverageAudit {
                 weights.put(printing, 1);
             }
         }
-        return new BoosterSheet("archive", false, false, weights);
+        return new BoosterSheet("archive", false, false, false, weights);
     }
 }

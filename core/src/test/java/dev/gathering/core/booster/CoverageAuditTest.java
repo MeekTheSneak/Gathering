@@ -71,7 +71,7 @@ class CoverageAuditTest {
         Map<String, BoosterSheet> sheets = new LinkedHashMap<>();
         sheets.put("common", sheetOf("common", "c1", "c2", "c3"));
         sheets.put("theList", new BoosterSheet(
-                "theList", false, false, Map.of(onlyOnTheUnusedSheet, 1)));
+                "theList", false, false, false, Map.of(onlyOnTheUnusedSheet, 1)));
         BoosterConfig config = new BoosterConfig("tst", "draft", sheets,
                 List.of(new BoosterVariant("plain", 1, Map.of("common", 2))));
 
@@ -229,7 +229,7 @@ class CoverageAuditTest {
         for (String card : cards) {
             weights.put(printing(card), 1);
         }
-        return new BoosterSheet(name, false, false, weights);
+        return new BoosterSheet(name, false, false, false, weights);
     }
 
     private static UUID printing(String of) {

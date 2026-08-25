@@ -25,8 +25,14 @@ import java.util.UUID;
  * @param duplicates whether one pack may take the same card off this sheet twice. Real sheets
  *                   are cut so a pack cannot, with a handful of documented exceptions, so
  *                   this is data rather than an assumption.
+ * @param fixed      whether this sheet is not drawn from at all: every card on it goes into
+ *                   the pack, as many copies as its weight. That is what a Jumpstart-style
+ *                   themed pack is - a fixed list of cards printed as a unit - and it is a
+ *                   property of the sheet rather than a second kind of slot, because the data
+ *                   published for those products says so on the sheet.
  */
-public record BoosterSheet(String name, boolean foil, boolean duplicates, Map<UUID, Integer> weights) {
+public record BoosterSheet(
+        String name, boolean foil, boolean duplicates, boolean fixed, Map<UUID, Integer> weights) {
 
     public BoosterSheet {
         name = name == null ? "" : name;
@@ -44,18 +50,6 @@ public record BoosterSheet(String name, boolean foil, boolean duplicates, Map<UU
         // nobody can audit. The order data was written in is the order it is walked in.
         weights = java.util.Collections.unmodifiableMap(kept);
 
-        // A print sheet with two billion cards on it is a mistake in a file, and one that
-        // would otherwise have to be drawn from by arithmetic wider than a roll - which was
-        // where a real bias lived until it was taken out. Refused here, once, in the one
-        // place that can say what is wrong with it.
-        long total = 0;
-        for (int weight : weights.values()) {
-            total += weight;
-        }
-        if (total > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException(
-                    "Sheet '" + name + "' sums to " + total + ", which is not a print sheet");
-        }
     }
 
     public boolean isEmpty() {
@@ -67,7 +61,13 @@ public record BoosterSheet(String name, boolean foil, boolean duplicates, Map<UU
         return weights.size();
     }
 
-    /** The sum of every weight, which is what a draw is taken out of. */
+    /**
+     * The sum of every weight, which is what a draw is taken out of.
+     *
+     * <p>A long, and not out of caution: published collation writes a foil sheet's odds as
+     * exact integer ratios, and a real one of those comes to two hundred billion. An int
+     * total would be wrong for the sheets that need the precision most.
+     */
     public long total() {
         long total = 0;
         for (int weight : weights.values()) {
@@ -106,7 +106,7 @@ public record BoosterSheet(String name, boolean foil, boolean duplicates, Map<UU
         }
         return left.size() == weights.size()
                 ? this
-                : new BoosterSheet(name, foil, duplicates, left);
+                : new BoosterSheet(name, foil, duplicates, fixed, left);
     }
 
     /** What a card off this sheet is: a printing, and foil if the sheet is a foil sheet. */
