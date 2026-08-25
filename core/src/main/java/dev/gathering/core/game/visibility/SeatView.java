@@ -12,6 +12,7 @@ import java.util.Optional;
 public record SeatView(
         SeatId seat,
         PlayerRef player,
+        PlayerRef lastPlayer,
         int life,
         Map<SeatId, Integer> commanderDamage,
         Map<CardInstanceId, Integer> commanderTax,
@@ -45,6 +46,18 @@ public record SeatView(
 
     public Optional<PlayerRef> occupant() {
         return Optional.ofNullable(player);
+    }
+
+    /**
+     * Whose board this is: whoever is sitting here, or failing that whoever last was.
+     *
+     * <p>What every sentence about a seat wants. Asking who holds the chair instead gave the
+     * wrong answer the moment somebody stood up: their life total, the title over their
+     * graveyard and every line they had already put in the log all became "(empty)", which
+     * reads as though the game had forgotten they were ever there.
+     */
+    public Optional<PlayerRef> whoseBoard() {
+        return Optional.ofNullable(player == null ? lastPlayer : player);
     }
 
     /**

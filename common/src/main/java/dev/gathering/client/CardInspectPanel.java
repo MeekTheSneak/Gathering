@@ -46,8 +46,6 @@ public final class CardInspectPanel {
     private static final int SIDEBAR_WIDTH = 180;
     private static final float FULL_SCREEN_HEIGHT_FRACTION = 0.82f;
 
-    /** How much of a boxed panel the art may take before the oracle text is squeezed out. */
-    private static final float BOXED_ART_FRACTION = 0.6f;
 
     /**
      * How tall the art is in the cursor panel, as a share of the screen, and the bounds it

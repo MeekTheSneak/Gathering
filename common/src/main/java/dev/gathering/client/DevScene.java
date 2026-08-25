@@ -1058,6 +1058,19 @@ public final class DevScene {
                 aGameCanBeConceded(client);
                 // Last, because everything above needs a seat: stand up mid-game and look at
                 // the same table as somebody who is only watching it.
+                // Noted before the chair is given up, because the whole point of the check
+                // that follows is that this name survives standing up.
+                SeatId leaving = ClientTableState.seatAt(table).orElse(null);
+                GameView leavingFrom = table == null
+                        ? null : ClientTableState.viewOf(table).orElse(null);
+                whoWasSitting = leaving == null || leavingFrom == null
+                        ? null
+                        : leavingFrom.seat(leaving).occupant()
+                                .map(dev.gathering.core.game.PlayerRef::name).orElse(null);
+                if (whoWasSitting == null) {
+                    fail("the client stood up from a seat that had no name on it");
+                    return;
+                }
                 standUp(client);
                 // Half a second, deliberately short: the table pushes the public board out on
                 // its own every two seconds, so a longer wait here would cover for a seat
@@ -1090,6 +1103,18 @@ public final class DevScene {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
+                hoverSomebodysLifeCounter(client);
+                advance(SETTLE / 2);
+            }
+            case 87 -> {
+                aWatcherIsToldWhoseLifeThatIs(client);
+                shoot(client, "32-a-watcher-reads-a-life-total");
+                aWatcherOpensTheLog(client);
+                advance(SETTLE / 2);
+            }
+            case 88 -> {
+                theLogStillNamesWhoLeft(client);
+                shoot(client, "33-a-watcher-reads-the-log");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -2492,6 +2517,160 @@ public final class DevScene {
     }
 
     /** Puts the cursor on this player's own life counter, a frame before it is read. */
+    /**
+     * Rests on somebody else's life counter while holding no seat at all.
+     *
+     * <p>The watcher's case, which is the one the naming is really for. Sitting down puts
+     * your own board under your own number and the rest can be worked out from where they
+     * are; standing behind the table gives you four numbers on bare felt and nothing saying
+     * which board each belongs to.
+     */
+    private static void hoverSomebodysLifeCounter(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to rest on a life counter of");
+            return;
+        }
+        if (ClientTableState.seatAt(table).isPresent()) {
+            fail("the watcher check ran with a seat still held");
+            return;
+        }
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (view == null) {
+            fail("a watcher was shown no board at all");
+            return;
+        }
+        SeatId whose = null;
+        for (SeatView seat : view.seats()) {
+            if (seat.hasABoard() && !board.lifeEndFor(seat.seat(), 1).isEmpty()) {
+                whose = seat.seat();
+                break;
+            }
+        }
+        if (whose == null) {
+            fail("there was no life counter on the table for a watcher to rest on");
+            return;
+        }
+        watched = whose;
+        Rect end = board.lifeEndFor(whose, 1);
+        int[] at = board.board() instanceof SurfaceBoard
+                ? screenPointFor(client, new double[] {end.centreX(), end.centreY()}, null)
+                : new int[] {(int) end.centreX(), (int) end.centreY()};
+        if (at == null) {
+            fail("the life counter was not under any pixel of the window");
+            return;
+        }
+        hover(client, at);
+    }
+
+    /** Whose life counter the watcher is resting on, so the check knows whose name to want. */
+    private static SeatId watched;
+
+    /**
+     * A watcher presses the key that opens the game log.
+     *
+     * <p>Which they could not do at all: the key gave up at the seat check and the table
+     * menu refused to open without one, while the layout carried on reserving room for a
+     * panel nobody without a chair could reach. The log is the public record of a public
+     * game and a watcher is exactly who wants to read it.
+     */
+    private static void aWatcherOpensTheLog(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board for a watcher to open the log on");
+            return;
+        }
+        if (ClientTableState.seatAt(table).isPresent()) {
+            fail("the watcher's log check ran with a seat still held");
+            return;
+        }
+        if (!board.theLogIsShowing()) {
+            board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
+        }
+        if (!board.theLogIsShowing()) {
+            fail("a watcher pressed the log key and no log opened");
+        }
+    }
+
+    /**
+     * And what it says still names the player who stood up.
+     *
+     * <p>Read off what the panel actually drew, not off the log again: a check that renders
+     * the log a second time to see what the log says passes even when the panel draws
+     * nothing. Every line in there was earned by this client while it was still sitting
+     * down, so if standing up renamed them the panel is now a record of things "(empty)"
+     * did - which is a log that answers "who did that" with nothing.
+     */
+    private static void theLogStillNamesWhoLeft(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to read a watcher's log on");
+            return;
+        }
+        if (!board.theLogIsShowing()) {
+            fail("the log a watcher opened is not showing");
+            return;
+        }
+        String said = board.logSaid();
+        if (said.isBlank()) {
+            fail("the log a watcher opened drew no lines at all");
+            return;
+        }
+        String nobody = net.minecraft.network.chat.Component
+                .translatable("message.gathering.seat_empty").getString();
+        if (said.contains(nobody)) {
+            fail("the log calls somebody who left " + nobody + ": " + said);
+            return;
+        }
+        if (whoWasSitting != null && !said.contains(whoWasSitting)) {
+            fail("the log no longer names " + whoWasSitting + ": " + said);
+            return;
+        }
+        System.out.println("[devscene] the log still names " + whoWasSitting);
+    }
+
+    /** The name this client played under, kept so a check can look for it after standing up. */
+    private static String whoWasSitting;
+
+    /**
+     * A watcher resting on a life counter is told whose it is.
+     *
+     * <p>It used to be told nothing: the tooltip started by asking whether this client held
+     * a seat and gave up if it did not, so the one viewer with no way to work out whose
+     * number that is was the one viewer it refused to tell. What a watcher must not get is
+     * the two lines about clicking the ends, because there is no seat here to click from.
+     */
+    private static void aWatcherIsToldWhoseLifeThatIs(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to read a watcher's life tooltip on");
+            return;
+        }
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (view == null || watched == null) {
+            fail("there was no counter a watcher had rested on");
+            return;
+        }
+        String said = board.tooltipShowing().stream()
+                .map(net.minecraft.network.chat.Component::getString)
+                .collect(java.util.stream.Collectors.joining(" / "));
+        if (said.isEmpty()) {
+            fail("a watcher resting on a life counter was told nothing at all");
+            return;
+        }
+        String total = Integer.toString(view.seat(watched).life());
+        if (!said.contains(total)) {
+            fail("a watcher's life tooltip does not give the total " + total + ": " + said);
+            return;
+        }
+        String name = CountersScreen.titleForSeat(view, watched).getString();
+        if (!name.isBlank() && !said.contains(name)) {
+            fail("a watcher's life tooltip does not say whose it is (" + name + "): " + said);
+            return;
+        }
+        if (said.toLowerCase(java.util.Locale.ROOT).contains("click")) {
+            fail("a watcher was offered a button they have no seat to press: " + said);
+            return;
+        }
+        System.out.println("[devscene] a watcher is told: " + said);
+    }
+
     private static void hoverMyLifeCounter(Minecraft client) {
         if (!(client.screen instanceof TableScreen board)) {
             fail("there was no board to rest on a life counter of");

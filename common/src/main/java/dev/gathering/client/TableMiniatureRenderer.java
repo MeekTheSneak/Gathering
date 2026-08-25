@@ -614,12 +614,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     }
 
     /**
-     * The line round a group of zones: a marking on the mat, drawn as four thin quads.
-     *
-     * <p>Empty in the middle. The slots inside it draw their own recesses, and a filled box
-     * behind them would put a second shade of dark under every zone.
-     */
-    /**
      * A seat's life total, on the table past the far edge of its own board.
      *
      * <p>The same box the seated screen draws, in the same place, because it is the same
@@ -639,13 +633,16 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         float bottom = onSurface(box.bottom(), span);
         flat(buffers.getBuffer(RenderType.debugQuads()), poseStack.last().pose(),
                 left, top, right, bottom, LIFE_BACKING);
-        drawGroup(poseStack, buffers, box, span);
+        // In its own seat's colour, the same way the mat is. Two boards facing each other
+        // put their counters in the same strip of table between them, back to back; drawn in
+        // the one grey every other marking uses, the pair read as a single control and
+        // neither said which board it belonged to.
+        drawGroup(poseStack, buffers, box, span,
+                dev.gathering.core.ui.SeatColour.at(seatIndex, 0xAA));
         // Turned to face its own player, like everything else printed for one seat, so both
         // players read their own total the right way up.
         int angle = surface.facingDegrees(seatIndex);
         float lineHeight = (bottom - top) * LIFE_WRITING;
-        float across = right - left;
-        // Kept for the number itself; the ends are placed from the shared rule below.
         // In what the two ends leave, from the same rule the seated board uses.
         Rect middle = TableSurface.lifeMiddle(box);
         writing(poseStack, buffers, packedLight,
@@ -656,12 +653,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         // buttons here too - the screen casts its ray at this board and presses them. A pair
         // of buttons marked in one view and bare in the other is a pair nobody finds twice.
         //
-        // Which end is which comes from the same function the press does. Written out here
-        // instead, from this board's own idea of which way round the mat is, it disagreed
-        // with the press for every seat facing the other way: the sign was turned round with
-        // the mat and the press was not, so the end marked plus took a life off.
-        // The same question the screen asks before it decides which end a press means. This
-        // board turns each seat's own writing rather than the felt, so it says so.
+        // Which end is which comes from the same function the press does, asked with this
+        // board's own answer to whether the seat is turned - it turns each seat's writing
+        // rather than the felt, so it says so. Worked out here instead, it disagreed with
+        // the press for every seat facing the other way: the sign was turned round with the
+        // mat and the press was not, so the end marked plus took a life off.
         boolean turned = surface.lifeIsTurned(seatIndex, false);
         drawLifeEnd(poseStack, buffers, packedLight, box, turned, -1, lineHeight, angle, span);
         drawLifeEnd(poseStack, buffers, packedLight, box, turned, 1, lineHeight, angle, span);
@@ -688,8 +684,19 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** How much of an end's room its sign is allowed, so it clears the number beside it. */
     private static final float LIFE_END_WRITING = 0.5f;
 
+    /**
+     * The line round a group of zones: a marking on the mat, drawn as four thin quads.
+     *
+     * <p>Empty in the middle. The slots inside it draw their own recesses, and a filled box
+     * behind them would put a second shade of dark under every zone.
+     */
     private void drawGroup(
             PoseStack poseStack, MultiBufferSource buffers, Rect group, float span) {
+        drawGroup(poseStack, buffers, group, span, GROUP_EDGE_COLOUR);
+    }
+
+    private void drawGroup(
+            PoseStack poseStack, MultiBufferSource buffers, Rect group, float span, int colour) {
         if (group.isEmpty()) {
             return;
         }
@@ -701,10 +708,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
         VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
         Matrix4f pose = poseStack.last().pose();
-        flat(consumer, pose, left, top, right, top + edge, GROUP_EDGE_COLOUR);
-        flat(consumer, pose, left, bottom - edge, right, bottom, GROUP_EDGE_COLOUR);
-        flat(consumer, pose, left, top, left + edge, bottom, GROUP_EDGE_COLOUR);
-        flat(consumer, pose, right - edge, top, right, bottom, GROUP_EDGE_COLOUR);
+        flat(consumer, pose, left, top, right, top + edge, colour);
+        flat(consumer, pose, left, bottom - edge, right, bottom, colour);
+        flat(consumer, pose, left, top, left + edge, bottom, colour);
+        flat(consumer, pose, right - edge, top, right, bottom, colour);
     }
 
     /**

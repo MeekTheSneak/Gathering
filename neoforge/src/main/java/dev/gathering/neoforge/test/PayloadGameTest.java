@@ -122,6 +122,55 @@ public final class PayloadGameTest {
     }
 
     @GameTest(template = "empty")
+    public static void aRunTooLongForOnePacketIsSplitAndNothingIsLost(GameTestHelper helper) {
+        // A cube import and a table whose four graveyards are full both come to more
+        // summaries than the game will write in one custom payload, and a payload it refuses
+        // to write disconnects the player it was for. So the senders split, and what a
+        // client puts together from the pieces has to be exactly what was handed over: same
+        // cards, same order, none dropped at a seam and none sent twice.
+        int many = CardMetadataPayload.MOST_PER_PACKET * 2 + 1;
+        List<CardSummary> summaries = new java.util.ArrayList<>(many);
+        for (int index = 0; index < many; index++) {
+            summaries.add(new CardSummary(
+                    UUID.nameUUIDFromBytes(("printing-" + index).getBytes(
+                            java.nio.charset.StandardCharsets.UTF_8)),
+                    new CardFaceSummary("Card " + index, "{1}", "Artifact", "", "s", "n"),
+                    Optional.empty()));
+        }
+
+        List<CardMetadataPayload> packets = CardMetadataPayload.inPackets(summaries);
+        if (packets.size() != 3) {
+            helper.fail(many + " summaries went out as " + packets.size() + " packets");
+        }
+        for (CardMetadataPayload packet : packets) {
+            if (packet.cards().size() > CardMetadataPayload.MOST_PER_PACKET) {
+                helper.fail("a packet carried " + packet.cards().size() + " summaries");
+            }
+            if (packet.cards().isEmpty()) {
+                helper.fail("a packet carried nothing at all");
+            }
+        }
+
+        List<CardSummary> arrived = new java.util.ArrayList<>(many);
+        for (CardMetadataPayload packet : packets) {
+            arrived.addAll(roundTrip(helper, packet, CardMetadataPayload.STREAM_CODEC).cards());
+        }
+        if (!arrived.equals(summaries)) {
+            helper.fail("what arrived over " + packets.size() + " packets was not what was sent: "
+                    + arrived.size() + " of " + many);
+        }
+
+        // And a run that fits still goes as one, so the split is not a cost every send pays.
+        if (CardMetadataPayload.inPackets(summaries.subList(0, 1)).size() != 1) {
+            helper.fail("a single summary was split");
+        }
+        if (!CardMetadataPayload.inPackets(List.of()).isEmpty()) {
+            helper.fail("nothing at all was sent as a packet");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void deckEditsRoundTripForEveryHandActionAndSection(GameTestHelper helper) {
         // Three small enums on the wire: an off-by-one in any of them silently edits the
         // wrong pile, which reads as "the game lost my card" rather than as a protocol bug.

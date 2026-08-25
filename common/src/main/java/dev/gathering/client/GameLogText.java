@@ -104,12 +104,10 @@ public final class GameLogText {
     }
 
     private static Component nameOfSeat(GameView board, SeatId seat) {
-        return board.seats().stream()
-                .filter(view -> view.seat().equals(seat))
-                .findFirst()
-                .flatMap(view -> view.occupant())
-                .<Component>map(player -> Component.literal(player.name()))
-                .orElseGet(() -> Component.translatable("message.gathering.seat_empty"));
+        // Whose board, not who is in the chair. A log line is a record of something that
+        // already happened, so somebody standing up must not turn everything they did into
+        // "(empty) drew a card".
+        return dev.gathering.SeatNames.of(board, seat);
     }
 
     /**

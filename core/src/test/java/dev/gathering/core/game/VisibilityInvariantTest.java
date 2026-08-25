@@ -88,13 +88,43 @@ class VisibilityInvariantTest {
                 .isTrue();
     }
 
+    /**
+     * The board somebody walked away from still has their name on it.
+     *
+     * <p>Every sentence about a seat asked who was sitting in it, so standing up rewrote the
+     * game's whole history: the log lines they had already earned, the title over their
+     * graveyard and the number beside their board all turned into "(empty)". A log that
+     * forgets who did something the moment they leave is a log that cannot answer the one
+     * question it exists for.
+     */
+    @Test
+    void aBoardKeepsItsPlayersNameAfterTheyLeave() {
+        GameSession session = GameFixtures.twoPlayerTable(40);
+        String named = VisibilityRules.viewFor(session.state(), Viewer.SPECTATOR)
+                .seat(GameFixtures.ALICE).whoseBoard().orElseThrow().name();
+
+        session.submit(new GameEvent.SeatReleased(GameFixtures.ALICE));
+        SeatView left = VisibilityRules.viewFor(session.state(), Viewer.SPECTATOR)
+                .seat(GameFixtures.ALICE);
+
+        assertThat(left.occupant())
+                .describedAs("the chair itself is free for the next player")
+                .isEmpty();
+        assertThat(left.whoseBoard().map(player -> player.name()))
+                .describedAs("but the cards left on the table are still theirs")
+                .contains(named);
+    }
+
     /** A chair nobody has ever sat in has no cards, so it has no board to draw. */
     @Test
     void anEmptyChairHasNoBoard() {
         SeatView empty = new SeatView(
-                GameFixtures.ALICE, null, 40, Map.of(), Map.of(), Map.of(), false, Map.of());
+                GameFixtures.ALICE, null, null, 40, Map.of(), Map.of(), Map.of(), false, Map.of());
 
         assertThat(empty.hasABoard()).isFalse();
+        assertThat(empty.whoseBoard())
+                .describedAs("nobody has ever sat here, so there is genuinely no name")
+                .isEmpty();
     }
 
     /**

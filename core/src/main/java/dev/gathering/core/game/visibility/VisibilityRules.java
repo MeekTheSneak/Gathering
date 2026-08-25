@@ -90,6 +90,7 @@ public final class VisibilityRules {
         return new SeatView(
                 seat,
                 seatState.occupant(),
+                seatState.lastOccupant(),
                 seatState.life(),
                 seatState.commanderDamage(),
                 seatState.commanderTax(),

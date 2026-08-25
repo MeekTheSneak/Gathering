@@ -13,6 +13,8 @@ import java.util.Map;
  * declare them out, because deciding a game has ended is a rules judgement and there is no
  * rules engine here.
  *
+ * @param lastOccupant    whoever sat here most recently, kept after they leave so the board
+ *                        they left behind still has a name on it
  * @param commanderDamage damage taken from each other seat's commanders, the 21-point grid
  * @param commanderTax    per commander, the number of times it has been cast from the
  *                        command zone; displayed, never charged
@@ -23,6 +25,7 @@ import java.util.Map;
 public record SeatState(
         SeatId seat,
         PlayerRef occupant,
+        PlayerRef lastOccupant,
         int life,
         Map<SeatId, Integer> commanderDamage,
         Map<CardInstanceId, Integer> commanderTax,
@@ -41,16 +44,26 @@ public record SeatState(
     }
 
     public static SeatState startingAt(SeatId seat, int startingLife) {
-        return new SeatState(seat, null, startingLife, Map.of(), Map.of(), Map.of(), false);
+        return new SeatState(seat, null, null, startingLife, Map.of(), Map.of(), Map.of(), false);
     }
 
     /** A seat is held until the player leaves it, not until they walk away or log out. */
     public SeatState occupiedBy(PlayerRef player) {
-        return new SeatState(seat, player, life, commanderDamage, commanderTax, counters, conceded);
+        return new SeatState(
+                seat, player, player, life, commanderDamage, commanderTax, counters, conceded);
     }
 
+    /**
+     * Lets the chair go, and remembers who was in it.
+     *
+     * <p>The cards stay where they are, so the board outlasts the player - and a board with
+     * nobody's name on it is a board nobody can talk about. Everything the log has already
+     * recorded them doing is written against this seat, so forgetting the name here rewrites
+     * the whole history of the game as things "(empty)" did.
+     */
     public SeatState released() {
-        return new SeatState(seat, null, life, commanderDamage, commanderTax, counters, conceded);
+        return new SeatState(
+                seat, null, lastOccupant, life, commanderDamage, commanderTax, counters, conceded);
     }
 
     public java.util.Optional<PlayerRef> player() {
@@ -61,8 +74,20 @@ public record SeatState(
         return occupant != null;
     }
 
+    /**
+     * Whose board this is: whoever is sitting here, or failing that whoever last was.
+     *
+     * <p>Not the same question as who holds the chair. A seat somebody walked away from is
+     * free for the next player and still covered in the last one's cards, and every sentence
+     * anybody writes about it - the log, a life total, the title over a pile - wants the name
+     * rather than the chair.
+     */
+    public java.util.Optional<PlayerRef> whoseBoard() {
+        return java.util.Optional.ofNullable(occupant == null ? lastOccupant : occupant);
+    }
+
     public SeatState withLife(int delta) {
-        return new SeatState(seat, occupant, life + delta, commanderDamage, commanderTax, counters, conceded);
+        return new SeatState(seat, occupant, lastOccupant, life + delta, commanderDamage, commanderTax, counters, conceded);
     }
 
     public SeatState withCommanderDamage(SeatId from, int delta) {
@@ -73,7 +98,7 @@ public record SeatState(
         } else {
             updated.put(from, now);
         }
-        return new SeatState(seat, occupant, life, updated, commanderTax, counters, conceded);
+        return new SeatState(seat, occupant, lastOccupant, life, updated, commanderTax, counters, conceded);
     }
 
     public SeatState withCommanderTax(CardInstanceId commander, int delta) {
@@ -84,13 +109,13 @@ public record SeatState(
         } else {
             updated.put(commander, now);
         }
-        return new SeatState(seat, occupant, life, commanderDamage, updated, counters, conceded);
+        return new SeatState(seat, occupant, lastOccupant, life, commanderDamage, updated, counters, conceded);
     }
 
     public SeatState withConcede() {
         return conceded
                 ? this
-                : new SeatState(seat, occupant, life, commanderDamage, commanderTax, counters, true);
+                : new SeatState(seat, occupant, lastOccupant, life, commanderDamage, commanderTax, counters, true);
     }
 
     /**
@@ -108,7 +133,7 @@ public record SeatState(
         } else {
             updated.put(name, now);
         }
-        return new SeatState(seat, occupant, life, commanderDamage, commanderTax, updated, conceded);
+        return new SeatState(seat, occupant, lastOccupant, life, commanderDamage, commanderTax, updated, conceded);
     }
 
     public int counter(String name) {

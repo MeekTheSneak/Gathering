@@ -293,6 +293,7 @@
   "screen.gathering.table.log_empty": "Nothing has happened yet.",
   "screen.gathering.table.log_title": "Game log",
   "screen.gathering.table.mat_line": "%1$s - %2$s life | hand %3$s | deck %4$s",
+  "screen.gathering.table.seat_away": " (away)",
   "screen.gathering.table.pile.hint_draw": "Click to draw a card",
   "screen.gathering.table.pile.hint_look": "Click to look through it",
   "screen.gathering.table.pile.hint_more": "Right-click for more",

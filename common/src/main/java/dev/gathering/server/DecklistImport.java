@@ -119,7 +119,12 @@ public final class DecklistImport {
             player.drop(stack, false);
         }
 
-        send(player, new CardMetadataPayload(summariesFor(deck)));
+        // Split, because a deck may be a cube of a thousand cards and a summary carries
+        // oracle text and two image links per face. One packet of that is a packet the game
+        // refuses to write, which disconnects whoever was importing.
+        for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summariesFor(deck))) {
+            send(player, packet);
+        }
         send(player, new ImportResultPayload(component.name(), component.totalCards(), problemsOf(deck)));
 
         player.sendSystemMessage(Component.translatable(

@@ -137,8 +137,7 @@ public final class TableMatch {
     private static Component nameOf(ServerLevel level, BlockPos tableOrigin, SeatId seat) {
         return TableSessions.sessionAt(level, tableOrigin)
                 .map(session -> session.state().seatState(seat))
-                .flatMap(dev.gathering.core.game.SeatState::player)
-                .<Component>map(occupant -> Component.literal(occupant.name()))
-                .orElseGet(() -> Component.translatable("message.gathering.seat_empty"));
+                .map(dev.gathering.SeatNames::of)
+                .orElseGet(() -> dev.gathering.SeatNames.of(java.util.Optional.empty()));
     }
 }

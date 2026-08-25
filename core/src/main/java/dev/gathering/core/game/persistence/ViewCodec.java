@@ -48,7 +48,7 @@ import java.util.UUID;
  */
 public final class ViewCodec {
 
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     /** A ceiling on any length read from the wire, checked before it sizes anything. */
     public static final int MAX_ENTRIES = 20_000;
@@ -204,13 +204,11 @@ public final class ViewCodec {
     private static void seat(DataOutput out, SeatView seat) throws IOException {
         out.writeInt(seat.seat().index());
 
-        boolean occupied = seat.player() != null;
-        out.writeBoolean(occupied);
-        if (occupied) {
-            out.writeLong(seat.player().id().getMostSignificantBits());
-            out.writeLong(seat.player().id().getLeastSignificantBits());
-            out.writeUTF(seat.player().name());
-        }
+        writePlayer(out, seat.player());
+        // And whoever last held the chair, which outlives them leaving it. A board outlasts
+        // its player, and a board nobody's name is on is one nobody can write a sentence
+        // about: the log, the life total and the title over a pile all want this.
+        writePlayer(out, seat.lastPlayer());
 
         out.writeInt(seat.life());
         out.writeBoolean(seat.conceded());
@@ -242,11 +240,11 @@ public final class ViewCodec {
 
     private static SeatView seat(DataInput in) throws IOException {
         SeatId id = new SeatId(in.readInt());
-        PlayerRef player = null;
-        if (in.readBoolean()) {
-            UUID uuid = new UUID(in.readLong(), in.readLong());
-            player = new PlayerRef(uuid, in.readUTF());
-        }
+        PlayerRef player = readPlayer(in);
+        // Whoever last held the chair, which outlives them leaving it. Written separately
+        // rather than inferred, because a viewer has no other way to know whose board they
+        // are looking at once the chair is free.
+        PlayerRef lastPlayer = readPlayer(in);
         int life = in.readInt();
         boolean conceded = in.readBoolean();
 
@@ -274,7 +272,24 @@ public final class ViewCodec {
             Zone zone = Zone.valueOf(in.readUTF());
             zones.put(zone, zone(in));
         }
-        return new SeatView(id, player, life, damage, tax, counters, conceded, zones);
+        return new SeatView(id, player, lastPlayer, life, damage, tax, counters, conceded, zones);
+    }
+
+    private static PlayerRef readPlayer(DataInput in) throws IOException {
+        if (!in.readBoolean()) {
+            return null;
+        }
+        UUID uuid = new UUID(in.readLong(), in.readLong());
+        return new PlayerRef(uuid, in.readUTF());
+    }
+
+    private static void writePlayer(DataOutput out, PlayerRef player) throws IOException {
+        out.writeBoolean(player != null);
+        if (player != null) {
+            out.writeLong(player.id().getMostSignificantBits());
+            out.writeLong(player.id().getLeastSignificantBits());
+            out.writeUTF(player.name());
+        }
     }
 
     private static void zone(DataOutput out, ZoneView zone) throws IOException {

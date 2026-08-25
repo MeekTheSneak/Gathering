@@ -614,10 +614,7 @@ public final class CountersScreen extends ChildScreen {
 
     /** The label for a seat, which is whoever is in it. */
     public static Component titleForSeat(GameView board, SeatId seat) {
-        return board.seat(seat).occupant()
-                .map(player -> Component.literal(player.name()))
-                .map(Component.class::cast)
-                .orElseGet(() -> Component.translatable("message.gathering.seat_empty"));
+        return dev.gathering.SeatNames.of(board.seat(seat));
     }
 
 }

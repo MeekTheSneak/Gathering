@@ -7,6 +7,7 @@ import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.Placement;
+import dev.gathering.SeatNames;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
@@ -95,6 +96,9 @@ public final class TableScreen extends Screen {
 
     /** How many seats had a zone column drawn for them last frame. */
     private int boardsDrawn;
+
+    /** What the log panel wrote the last time it drew, so a check can read it back. */
+    private String logSaid = "";
 
     /** The tax band under the cursor: darker still, so a button looks like one. */
     private static final int TAX_LIT = 0xD0000000;
@@ -826,8 +830,12 @@ public final class TableScreen extends Screen {
         }
         int way = mySeat().isEmpty() ? 0 : lifeWayUnder(seat.seat(), cursorX, cursorY);
         graphics.fill(box.x(), box.y(), box.right(), box.bottom(), LIFE_BACKING);
+        // In its own seat's colour, the same way the mat is - and brighter under the cursor,
+        // the same way everything pressable here is. Two boards facing each other put their
+        // counters in the same strip of table between them, back to back, and in one grey
+        // the pair read as a single control with neither saying which board it was for.
         graphics.renderOutline(box.x(), box.y(), box.width(), box.height(),
-                way == 0 ? ZONE_BORDER : ACCENT);
+                SeatColour.at(seat.seat().index(), way == 0 ? 0xAA : 0xFF));
         // In what the two ends leave, not in half the box: half the box plus two ends better
         // than a quarter each comes to more than there is, and two figures filling it ran
         // into both signs.
@@ -1229,18 +1237,26 @@ public final class TableScreen extends Screen {
      *
      * <p>Named, because a number floating on the table between two boards belongs to one of
      * them and which one is the whole question a four-seat table asks.
+     *
+     * <p>Named for a watcher too, and that is the case the naming is really for. Somebody
+     * sitting down has their own board under their own number and can work the rest out from
+     * where it is; somebody standing behind the table has no such anchor, and it was exactly
+     * that viewer the tooltip used to say nothing at all to. What a watcher does not get is
+     * the two lines about pressing it, because they have no seat to press it from - an
+     * offer nobody can take is worse than no offer.
      */
     private List<Component> tipForLife(GameView board, int x, int y) {
-        if (mySeat().isEmpty()) {
-            return null;
-        }
         for (SeatView seat : board.seats()) {
             if (!seat.hasABoard() || lifeWayUnder(seat.seat(), x, y) == 0) {
                 continue;
             }
+            Component whose = Component.translatable("screen.gathering.table.life",
+                    CountersScreen.titleForSeat(board, seat.seat()), seat.life());
+            if (mySeat().isEmpty()) {
+                return List.of(whose);
+            }
             return List.of(
-                    Component.translatable("screen.gathering.table.life",
-                            CountersScreen.titleForSeat(board, seat.seat()), seat.life()),
+                    whose,
                     Component.translatable("screen.gathering.table.life.hint")
                             .withStyle(ChatFormatting.DARK_GRAY),
                     Component.translatable("screen.gathering.table.life.hint_more")
@@ -1754,13 +1770,28 @@ public final class TableScreen extends Screen {
             // A chair nobody is in says so and stops. Forty life, no cards and no deck are
             // all true of a player who does not exist, and printing them makes an empty seat
             // look like somebody who is losing badly.
-            Component text = seat.occupant()
-                    .<Component>map(player -> Component.translatable(
-                            "screen.gathering.table.mat_line", player.name(), seat.life(),
-                            count(seat, Zone.HAND), count(seat, Zone.LIBRARY)))
-                    .orElseGet(() -> Component.translatable("screen.gathering.table.free_seat"));
-            if (seat.occupant().isPresent() && !seat.counters().isEmpty()) {
-                text = text.copy().append(Component.literal("  " + describeCounters(seat)));
+            //
+            // A board, not an occupant. The numbers beside a board somebody walked away from
+            // are real - that is their library and their life total, sitting on the table -
+            // and calling the whole column "free seat" hid a board in play behind an offer of
+            // a chair. The chair genuinely is free, so the offer is not wrong; it is just not
+            // the whole of what is there, and the name is the part that was missing.
+            Component text;
+            if (!seat.hasABoard()) {
+                text = Component.translatable("screen.gathering.table.free_seat");
+            } else {
+                text = Component.translatable(
+                        "screen.gathering.table.mat_line", SeatNames.of(seat).getString(),
+                        seat.life(), count(seat, Zone.HAND), count(seat, Zone.LIBRARY));
+                // And said plainly when nobody is in the chair, because a name in this row
+                // otherwise means somebody is sitting behind those cards and answering.
+                if (seat.occupant().isEmpty()) {
+                    text = text.copy().append(
+                            Component.translatable("screen.gathering.table.seat_away"));
+                }
+                if (!seat.counters().isEmpty()) {
+                    text = text.copy().append(Component.literal("  " + describeCounters(seat)));
+                }
             }
             GuiText.draw(graphics, this.font, text,
                     area.x() + 4 + index * column, line, column - 8,
@@ -1770,7 +1801,7 @@ public final class TableScreen extends Screen {
         // A chair nobody is in is named by its number rather than called "(empty)". The
         // columns above can say a chair is free, because that is what they are for; in a
         // sentence about whose turn it is, "(empty)" reads as something having gone wrong.
-        String who = board.seat(active).occupant()
+        String who = board.seat(active).whoseBoard()
                 .map(player -> player.name())
                 .orElseGet(() -> Component.translatable(
                         "message.gathering.seat_number", active.index() + 1).getString());
@@ -1834,10 +1865,19 @@ public final class TableScreen extends Screen {
         int first = area.y() + 4 + line + 2;
         int last = area.bottom() - line - 4;
         int y = first;
+        // Recorded as it is drawn rather than worked out again afterwards. A check that
+        // re-renders the log to see what the log says is a check that passes even when the
+        // panel draws nothing at all.
+        StringBuilder wrote = new StringBuilder();
         for (Component entry : said) {
             GuiText.draw(graphics, this.font, entry, area.x() + 5, y, area.width() - 10, LABEL);
+            if (!wrote.isEmpty()) {
+                wrote.append(" / ");
+            }
+            wrote.append(entry.getString());
             y += line;
         }
+        logSaid = wrote.toString();
         if (log.isEmpty()) {
             GuiText.drawCentred(graphics, this.font,
                     Component.translatable("screen.gathering.table.log_empty"),
@@ -1845,6 +1885,11 @@ public final class TableScreen extends Screen {
         }
         GuiText.draw(graphics, this.font, close,
                 area.x() + 5, area.bottom() - line - 2, area.width() - 10, DIM);
+    }
+
+    /** The lines the log panel last actually put on the screen, for the scripted harness. */
+    String logSaid() {
+        return logSaid;
     }
 
     /** Whether the game log is open, for the scripted harness. */
@@ -2920,6 +2965,14 @@ public final class TableScreen extends Screen {
     private void openTableMenu(int x, int y) {
         SeatId me = mySeat().orElse(null);
         if (me == null) {
+            // A watcher has no seat, so every verb below is a verb they cannot make - but the
+            // log is not a verb. It is the record of what has happened at this table, it is
+            // public, and refusing to open the menu at all left the one person who most needs
+            // to catch up with no way to ask for it.
+            List<ContextMenu.Entry> watching = ContextMenu.entries();
+            watching.add(entry(showingLog ? "hide_log" : "show_log",
+                    () -> showingLog = !showingLog));
+            menu = ContextMenu.at(this.font, x, y, this.width, this.height, watching);
             return;
         }
         List<ContextMenu.Entry> entries = ContextMenu.entries();
@@ -3075,6 +3128,16 @@ public final class TableScreen extends Screen {
             closeWhatIsOpen();
             return true;
         }
+        // The log is above the seat check, because it is the one panel here that is about
+        // the table rather than about a board. It is the public record of a public game, and
+        // the person most likely to want to read it is somebody watching who did not see the
+        // first half - who had no way to open it at all: the key gave up here and the table
+        // menu refused to open for them, while the layout went on reserving room for a panel
+        // they could not reach.
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_L) {
+            showingLog = !showingLog;
+            return true;
+        }
         SeatId me = mySeat().orElse(null);
         if (me == null) {
             return super.keyPressed(key, scanCode, modifiers);
@@ -3148,10 +3211,6 @@ public final class TableScreen extends Screen {
             // --- ours, chosen to keep clear of theirs ---
             case org.lwjgl.glfw.GLFW.GLFW_KEY_U -> {
                 send(new GameEvent.SeatUntappedAll(me, me));
-                return true;
-            }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_L -> {
-                showingLog = !showingLog;
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> {

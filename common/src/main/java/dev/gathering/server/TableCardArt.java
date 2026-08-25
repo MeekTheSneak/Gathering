@@ -109,8 +109,13 @@ public final class TableCardArt {
                     for (CardMetadata card : cards) {
                         summaries.add(CardSummary.of(card));
                     }
-                    player.connection.send(new ClientboundCustomPayloadPacket(
-                            new CardMetadataPayload(summaries)));
+                    // Split rather than sent whole. Every other sender of these is bounded by
+                    // one deck; a table is several at once, and all of them can be public at
+                    // the end of a long game. A payload the game refuses to write disconnects
+                    // the player it was for.
+                    for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summaries)) {
+                        player.connection.send(new ClientboundCustomPayloadPacket(packet));
+                    }
                 }));
     }
 }

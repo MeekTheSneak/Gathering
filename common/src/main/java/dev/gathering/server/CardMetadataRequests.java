@@ -39,7 +39,11 @@ public final class CardMetadataRequests {
             for (CardMetadata card : cards) {
                 summaries.add(CardSummary.of(card));
             }
-            player.connection.send(new ClientboundCustomPayloadPacket(new CardMetadataPayload(summaries)));
+            // A request may name a whole deck, which is more summaries than the game will
+            // write in one payload - and one it refuses to write disconnects whoever asked.
+            for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summaries)) {
+                player.connection.send(new ClientboundCustomPayloadPacket(packet));
+            }
         }));
     }
 }

@@ -43,8 +43,7 @@ public final class TableStatus {
         boolean mine = view.viewer() instanceof dev.gathering.core.game.visibility.Viewer.Seated seated
                 && seated.seat().equals(seat.seat());
 
-        String who = seat.occupant().map(player -> player.name())
-                .orElseGet(() -> Component.translatable("message.gathering.seat_empty").getString());
+        String who = dev.gathering.SeatNames.of(seat).getString();
 
         Component line = Component.translatable(
                 "message.gathering.session_seat",
