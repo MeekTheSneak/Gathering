@@ -48,7 +48,12 @@ public class PackItem extends Item {
             // pack still in the hand when it does is a pack that can be opened twice - so it
             // is taken now and handed back if nothing comes out of it.
             stack.shrink(1);
-            PackOpening.openFor(opener, pack.setCode(), pack.kind(), () -> giveBack(opener, pack));
+            // Sneaking opens it where it stands; an ordinary right-click opens it by hand.
+            // The server decides, because the server is what knows a pack came out at all -
+            // and it already knows whether this player is sneaking, because that is synced.
+            boolean ceremony = !opener.isShiftKeyDown();
+            PackOpening.openFor(opener, pack.setCode(), pack.kind(),
+                    () -> giveBack(opener, pack), ceremony);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }

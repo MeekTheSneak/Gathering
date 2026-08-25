@@ -3,6 +3,7 @@ package dev.gathering.network;
 import dev.gathering.core.card.CardFace;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.card.ImageTier;
+import dev.gathering.core.card.Rarity;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,14 +18,29 @@ import net.minecraft.network.codec.StreamCodec;
  * <p>Card identity crosses the network as a UUID and this. A client is sent one of these
  * only for cards the visibility rules entitle it to; the payload set a client receives is
  * exactly the set it is allowed to know, which is why a modified client learns nothing.
+ *
+ * <p>Rarity travels with it because rarity is printed on the card. It is not hidden
+ * information about a card a client already holds - a client that can read the name and the
+ * type line can read the little symbol too - and two things need it: a collection sorted by
+ * rarity, and the light that comes out of a booster being torn open.
  */
-public record CardSummary(UUID scryfallId, CardFaceSummary front, Optional<CardFaceSummary> back) {
+public record CardSummary(
+        UUID scryfallId, CardFaceSummary front, Optional<CardFaceSummary> back, Rarity rarity) {
 
     public static final StreamCodec<RegistryFriendlyByteBuf, CardSummary> STREAM_CODEC = StreamCodec.composite(
             UUIDUtil.STREAM_CODEC, CardSummary::scryfallId,
             CardFaceSummary.STREAM_CODEC, CardSummary::front,
             ByteBufCodecs.optional(CardFaceSummary.STREAM_CODEC), CardSummary::back,
+            ByteBufCodecs.idMapper(
+                    id -> id >= 0 && id < Rarity.values().length
+                            ? Rarity.values()[id]
+                            : Rarity.UNKNOWN,
+                    Rarity::ordinal), CardSummary::rarity,
             CardSummary::new);
+
+    public CardSummary {
+        rarity = rarity == null ? Rarity.UNKNOWN : rarity;
+    }
 
     public static final StreamCodec<RegistryFriendlyByteBuf, List<CardSummary>> LIST_STREAM_CODEC =
             STREAM_CODEC.apply(ByteBufCodecs.list());
@@ -42,12 +58,14 @@ public record CardSummary(UUID scryfallId, CardFaceSummary front, Optional<CardF
                             card.oracleText(),
                             card.images().bestFor(ImageTier.SMALL).orElse(""),
                             card.images().bestFor(ImageTier.NORMAL).orElse("")),
-                    Optional.empty());
+                    Optional.empty(),
+                    card.rarity());
         }
         return new CardSummary(
                 card.scryfallId(),
                 CardFaceSummary.of(faces.get(0)),
-                faces.size() > 1 ? Optional.of(CardFaceSummary.of(faces.get(1))) : Optional.empty());
+                faces.size() > 1 ? Optional.of(CardFaceSummary.of(faces.get(1))) : Optional.empty(),
+                card.rarity());
     }
 
     public String name() {

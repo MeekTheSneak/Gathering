@@ -68,7 +68,12 @@ public final class PackOpening {
      * @param kind which product of that set, or blank for whatever this server calls a booster
      */
     public static void openFor(ServerPlayer player, String setCode, String kind) {
-        openFor(player, setCode, kind, () -> { });
+        openFor(player, setCode, kind, () -> { }, false);
+    }
+
+    public static void openFor(
+            ServerPlayer player, String setCode, String kind, Runnable giveBack) {
+        openFor(player, setCode, kind, giveBack, false);
     }
 
     /**
@@ -77,9 +82,13 @@ public final class PackOpening {
      * @param giveBack run on the server thread if no pack comes out, however far along it
      *                 got. A booster that vanished from somebody's hand because a set turned
      *                 out to have no packs is worse than one that would not open.
+     * @param ceremony whether to tell the client what came out so it can be opened by hand.
+     *                 The cards are already given either way; this only decides whether there
+     *                 is a wrapper to tear.
      */
     public static void openFor(
-            ServerPlayer player, String setCode, String kind, Runnable giveBack) {
+            ServerPlayer player, String setCode, String kind, Runnable giveBack,
+            boolean ceremony) {
         String refusal = whyNot();
         if (refusal != null) {
             player.sendSystemMessage(Component.translatable(refusal));
@@ -131,7 +140,7 @@ public final class PackOpening {
                         giveBack.run();
                         return;
                     }
-                    deliver(player, opened);
+                    deliver(player, opened, ceremony, set, kind);
                 }));
     }
 
@@ -267,7 +276,8 @@ public final class PackOpening {
     }
 
     /** Server thread only. */
-    private static void deliver(ServerPlayer player, Opened opened) {
+    private static void deliver(
+            ServerPlayer player, Opened opened, boolean ceremony, String set, String kind) {
         // Everything the client is about to hold, in one go rather than a packet a card:
         // a client told about a card before it holds one never renders a blank.
         List<CardSummary> summaries = new ArrayList<>();
@@ -286,8 +296,22 @@ public final class PackOpening {
             }
         }
 
-        player.sendSystemMessage(Component.translatable(
-                "message.gathering.pack_opened", opened.pack().from(), delivery.giving().size()));
+        if (ceremony) {
+            // After the cards, not before. The wrapper is theatre over something that has
+            // already happened, so nothing about tearing it can go wrong enough to cost
+            // somebody a booster.
+            List<dev.gathering.item.CardComponent> shown = new ArrayList<>();
+            for (CardIdentity card : delivery.giving()) {
+                shown.add(dev.gathering.item.CardComponent.of(card));
+            }
+            player.connection.send(new ClientboundCustomPayloadPacket(
+                    new dev.gathering.network.PackOpenedPayload(set, kind, shown)));
+        } else {
+            // Quick opened, so there is no screen to say it on.
+            player.sendSystemMessage(Component.translatable(
+                    "message.gathering.pack_opened", opened.pack().from(),
+                    delivery.giving().size()));
+        }
         if (delivery.unnameable() > 0) {
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.pack_unresolved", delivery.unnameable()));

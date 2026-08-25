@@ -283,13 +283,34 @@ public final class CardInspectPanel {
         graphics.fill(x, y, x + width, y + height, PLACEHOLDER);
         graphics.renderOutline(x, y, width, height, PLACEHOLDER_BORDER);
         Font font = Minecraft.getInstance().font;
+        // Fitted to the box, not drawn at whatever width the sentence happens to be. A row of
+        // small cards with no art came out as four sentences overlapping each other and the
+        // cards either side, which reads as the interface being broken rather than as the art
+        // not having arrived.
+        int room = Math.max(1, width - PADDING * 2);
+        GuiText.drawCentred(graphics, font, Component.literal(face.name()),
+                x + width / 2, y + PADDING, room, TEXT);
+
         Component message = url.isEmpty()
                 ? Component.translatable("overlay.gathering.no_image")
                 : ClientCardImages.get().hasFailed(url.get())
                         ? Component.translatable("overlay.gathering.image_unavailable")
                         : Component.translatable("overlay.gathering.fetching_image");
-        graphics.drawCenteredString(font, message, x + width / 2, y + height / 2 - 4, DIM_TEXT);
-        graphics.drawCenteredString(font, Component.literal(face.name()), x + width / 2, y + 8, TEXT);
+        // Only if the whole of it fits. Half a sentence in a box the size of a postage stamp
+        // says less than the empty box does, and the card's own name is already there.
+        int lines = GuiText.linesNeeded(font, message, room);
+        int needs = lines * (font.lineHeight + 1);
+        if (needs <= height - PADDING * 2 - font.lineHeight) {
+            int top = y + (height - needs) / 2;
+            for (var row : font.split(message, room)) {
+                // Drawn as the wrapped sequence rather than turned back into a string:
+                // FormattedCharSequence has no readable toString, and the one it does have
+                // would have put an object identity on the card.
+                graphics.drawString(font, row, x + (width - font.width(row)) / 2, top,
+                        DIM_TEXT, false);
+                top += font.lineHeight + 1;
+            }
+        }
     }
 
     private static void drawTextPanel(

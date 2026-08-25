@@ -120,6 +120,10 @@ public final class GatheringNetwork {
                 dev.gathering.network.DraftViewPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
+                dev.gathering.network.PackOpenedPayload.TYPE,
+                dev.gathering.network.PackOpenedPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
                 CloseTablePayload.TYPE,
                 CloseTablePayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));

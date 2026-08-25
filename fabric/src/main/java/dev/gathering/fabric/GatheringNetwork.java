@@ -58,6 +58,9 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.DraftViewPayload.TYPE,
                 dev.gathering.network.DraftViewPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.PackOpenedPayload.TYPE,
+                dev.gathering.network.PackOpenedPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CloseTablePayload.TYPE, CloseTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(ImportResultPayload.TYPE, ImportResultPayload.STREAM_CODEC);

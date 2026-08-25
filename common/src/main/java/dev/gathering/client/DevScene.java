@@ -1178,7 +1178,148 @@ public final class DevScene {
                 shoot(client, "38-sealed-packs");
                 advance(SETTLE / 2);
             }
+            case 100 -> {
+                aSealedPackOnTheScreen(client);
+                advance(SETTLE);
+            }
+            case 101 -> {
+                expectScreen(client, "tearing a pack open", PackOpeningScreen.class);
+                aSealedPackIsSealed(client);
+                shoot(client, "39-a-sealed-pack");
+                tearThePack(client, 0.45);
+                advance(SETTLE / 2);
+            }
+            case 102 -> {
+                aPackHalfTornIsHalfTorn(client);
+                shoot(client, "40-tearing-it-open");
+                tearThePack(client, 1.2);
+                advance(SETTLE / 2);
+            }
+            case 103 -> {
+                aTornPackIsOpen(client);
+                everyCardIsShown(client);
+                shoot(client, "41-what-was-in-it");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
+        }
+    }
+
+    /**
+     * A sealed pack on the screen, with something worth finding in it.
+     *
+     * <p>The cards are made up and told to this client the way the server would tell it, so
+     * the light coming out of the tear is decided by the same rule a real pack's would be.
+     * What is being looked at is the drawing.
+     */
+    private static void aSealedPackOnTheScreen(Minecraft client) {
+        java.util.List<dev.gathering.network.CardSummary> summaries = new java.util.ArrayList<>();
+        java.util.List<dev.gathering.item.CardComponent> cards = new java.util.ArrayList<>();
+        dev.gathering.core.card.Rarity[] rarities = {
+                dev.gathering.core.card.Rarity.COMMON, dev.gathering.core.card.Rarity.COMMON,
+                dev.gathering.core.card.Rarity.UNCOMMON, dev.gathering.core.card.Rarity.MYTHIC};
+        for (int index = 0; index < rarities.length; index++) {
+            java.util.UUID id = java.util.UUID.nameUUIDFromBytes(
+                    ("ceremony-" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            summaries.add(new dev.gathering.network.CardSummary(
+                    id,
+                    new dev.gathering.network.CardFaceSummary(
+                            "Pulled Card " + index, "{1}", "Artifact", "", "", ""),
+                    java.util.Optional.empty(),
+                    rarities[index]));
+            cards.add(dev.gathering.item.CardComponent.of(
+                    dev.gathering.core.card.CardIdentity.ofPrinting(id, false)));
+        }
+        ClientCardCache.get().accept(summaries);
+        client.setScreen(new PackOpeningScreen("blb", "collector", cards));
+    }
+
+    private static void aSealedPackIsSealed(Minecraft client) {
+        if (!(client.screen instanceof PackOpeningScreen pack)) {
+            fail("there was no pack on the screen to be sealed");
+            return;
+        }
+        if (!pack.tear().isUntouched()) {
+            fail("a pack nobody has touched was already torn");
+        }
+        if (pack.glow() != dev.gathering.core.ui.PackGlow.MYTHIC_LIGHT) {
+            fail("a pack with a mythic in it is glowing " + Integer.toHexString(pack.glow()));
+        }
+    }
+
+    private static void aPackHalfTornIsHalfTorn(Minecraft client) {
+        if (!(client.screen instanceof PackOpeningScreen pack)) {
+            fail("the pack screen went away mid-tear");
+            return;
+        }
+        if (pack.tear().isUntouched()) {
+            fail("dragging across the wrapper tore nothing at all");
+            return;
+        }
+        if (pack.tear().isOpen()) {
+            fail("a pack dragged half way across came apart");
+        }
+    }
+
+    private static void aTornPackIsOpen(Minecraft client) {
+        if (!(client.screen instanceof PackOpeningScreen pack)) {
+            fail("the pack screen went away before it was open");
+            return;
+        }
+        if (!pack.tear().isOpen()) {
+            fail("a pack dragged the whole way across is still sealed at "
+                    + Math.round(pack.tear().torn() * 100) + " per cent");
+        }
+    }
+
+    /**
+     * A torn pack shows what was in it rather than an empty wrapper.
+     *
+     * <p>The dead end this exists to catch: a pack that tears open beautifully and then sits
+     * there is worse than one that never opened, because the player has been made to work for
+     * nothing.
+     */
+    private static void everyCardIsShown(Minecraft client) {
+        if (!(client.screen instanceof PackOpeningScreen pack)) {
+            fail("there was no pack screen showing what came out");
+            return;
+        }
+        if (!pack.tear().isOpen()) {
+            fail("the pack was not open, so nothing could be shown");
+            return;
+        }
+        if (pack.shown().size() != 4) {
+            fail("a pack of four showed " + pack.shown().size() + " cards");
+            return;
+        }
+        // The best card last: the whole point of a reveal order.
+        var last = ClientCardCache.get().summary(pack.shown().get(pack.shown().size() - 1));
+        if (last.isEmpty()
+                || last.get().rarity() != dev.gathering.core.card.Rarity.MYTHIC) {
+            fail("the last card revealed was "
+                    + last.map(s -> s.rarity().toString()).orElse("unknown")
+                    + " rather than the mythic");
+        }
+    }
+
+    /**
+     * Drags a cursor across the wrapper, corner first.
+     *
+     * <p>Through the screen's own mouse handlers rather than past them: a tear that works and
+     * a tear nothing can reach look identical from the inside.
+     */
+    private static void tearThePack(Minecraft client, double toFraction) {
+        if (!(client.screen instanceof PackOpeningScreen pack)) {
+            fail("there was no pack to tear");
+            return;
+        }
+        int y = pack.packMiddleY();
+        int from = pack.packLeft();
+        pack.mouseClicked(from + 1, y, 0);
+        int steps = 24;
+        for (int step = 1; step <= steps; step++) {
+            double along = toFraction * step / steps;
+            pack.mouseDragged(from + along * pack.packWidth(), y, 0, 1, 0);
         }
     }
 

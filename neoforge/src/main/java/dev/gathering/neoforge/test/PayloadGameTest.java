@@ -103,11 +103,13 @@ public final class PayloadGameTest {
         CardSummary singleFaced = new CardSummary(
                 SOL_RING,
                 new CardFaceSummary("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "small", "normal"),
-                Optional.empty());
+                Optional.empty(),
+                dev.gathering.core.card.Rarity.UNCOMMON);
         CardSummary doubleFaced = new CardSummary(
                 UUID.fromString("11bf83bb-c95b-4b4f-9a56-ce7a1816307a"),
                 new CardFaceSummary("Delver of Secrets", "{U}", "Creature", "At the beginning...", "s1", "n1"),
-                Optional.of(new CardFaceSummary("Insectile Aberration", "", "Creature", "Flying", "s2", "n2")));
+                Optional.of(new CardFaceSummary("Insectile Aberration", "", "Creature", "Flying", "s2", "n2")),
+                dev.gathering.core.card.Rarity.MYTHIC);
 
         CardMetadataPayload payload = new CardMetadataPayload(List.of(singleFaced, doubleFaced));
         CardMetadataPayload restored = roundTrip(helper, payload, CardMetadataPayload.STREAM_CODEC);
@@ -173,7 +175,8 @@ public final class PayloadGameTest {
                     UUID.nameUUIDFromBytes(("printing-" + index).getBytes(
                             java.nio.charset.StandardCharsets.UTF_8)),
                     new CardFaceSummary("Card " + index, "{1}", "Artifact", "", "s", "n"),
-                    Optional.empty()));
+                    Optional.empty(),
+                    dev.gathering.core.card.Rarity.COMMON));
         }
 
         List<CardMetadataPayload> packets = CardMetadataPayload.inPackets(summaries);

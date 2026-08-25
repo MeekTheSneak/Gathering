@@ -160,6 +160,12 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> acceptTableView(table));
             return;
         }
+        if (payload instanceof dev.gathering.network.PackOpenedPayload opened) {
+            context.enqueueWork(() -> Minecraft.getInstance().setScreen(
+                    new dev.gathering.client.PackOpeningScreen(
+                            opened.setCode(), opened.kind(), opened.cards())));
+            return;
+        }
         if (payload instanceof dev.gathering.network.DraftViewPayload pod) {
             context.enqueueWork(() -> acceptDraftView(pod));
             return;
