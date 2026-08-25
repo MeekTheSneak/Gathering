@@ -30,6 +30,7 @@ class DraftStateTest {
         assertThat(DraftRules.picksPerTurn(4)).isEqualTo(2);
         assertThat(DraftRules.picksPerTurn(5)).isEqualTo(2);
         assertThat(DraftRules.picksPerTurn(6)).isEqualTo(1);
+        assertThat(DraftRules.picksPerTurn(7)).isEqualTo(1);
         assertThat(DraftRules.picksPerTurn(8)).isEqualTo(1);
     }
 

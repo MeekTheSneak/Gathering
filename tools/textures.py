@@ -37,16 +37,18 @@ PALETTE = {
     "list_edge":    (0x6E, 0x8A, 0xC4),
     "shadow":       (0x00, 0x00, 0x00, 0x66),
 
-    "frame":        (0x08, 0x08, 0x0B),
-    "frame_lip":    (0x3A, 0x3A, 0x46),
-    "frame_fill":   (0x11, 0x11, 0x17),
-
     "track":        (0x12, 0x18, 0x2A),
     "thumb":        (0x4F, 0xC3, 0xD9),
 
     # The table surface. Dyeable later; this is the undyed default.
     "felt":         (0x1E, 0x4B, 0x33),
     "felt_weave":   (0x18, 0x3E, 0x2A),
+
+    # The collection block: a dark cabinet with brass edges. A placeholder until the real
+    # one is drawn, and deliberately not wood - it must not read as another table.
+    "cabinet":      (0x3A, 0x2C, 0x22),
+    "cabinet_dark": (0x2A, 0x1E, 0x17),
+    "cabinet_lip":  (0x8C, 0x6E, 0x3C),
 }
 
 # The deck panel's right edge runs from this fraction of the width at the top to this
@@ -432,16 +434,55 @@ def felt(size=16):
         size, size, px)
 
 
+def collection(size=16):
+    """A drawer front and a lid, for the block a collection lives in.
+
+    A placeholder: flat panels with a brass lip and a handle, enough to read as a cabinet
+    from across a room and no more. The real one is somebody's to draw.
+    """
+    base = PALETTE["cabinet"]
+    dark = PALETTE["cabinet_dark"]
+    lip = PALETTE["cabinet_lip"]
+
+    def grained(x, y, colour):
+        h = (x * 73856093) ^ (y * 19349663)
+        h = (h ^ (h >> 13)) & 0xFFFF
+        grain = (h % 5) - 2
+        return tuple(max(0, min(255, c + grain)) for c in colour) + (255,)
+
+    side = blank(size, size)
+    for y in range(size):
+        for x in range(size):
+            edge = x == 0 or y == 0 or x == size - 1 or y == size - 1
+            side[y][x] = grained(x, y, lip if edge else base)
+    # Two drawers with a handle each.
+    for drawer in (3, 10):
+        for x in range(2, size - 2):
+            side[drawer][x] = grained(x, drawer, dark)
+            side[drawer + 4][x] = grained(x, drawer + 4, dark)
+        for x in range(6, 10):
+            side[drawer + 2][x] = grained(x, drawer + 2, lip)
+
+    top = blank(size, size)
+    for y in range(size):
+        for x in range(size):
+            edge = x == 0 or y == 0 or x == size - 1 or y == size - 1
+            top[y][x] = grained(x, y, lip if edge else dark)
+
+    out = "common/src/main/resources/assets/gathering/textures/block/"
+    write_png(out + "collection.png", size, size, side)
+    write_png(out + "collection_top.png", size, size, top)
+
+
 def main():
     nine_slice("panel", PALETTE["panel"], PALETTE["panel_edge"])
     nine_slice("panel_inset", PALETTE["inset"], PALETTE["inset_edge"])
     nine_slice("row_highlight", PALETTE["accent_dim"], PALETTE["accent"])
-    # A heavy border with a dark interior: what a card and its notes sit inside.
-    nine_slice("frame", PALETTE["frame_fill"], PALETTE["frame"], lip=PALETTE["frame_lip"])
     deck_panel()
     scrollbar()
     symbols()
     felt()
+    collection()
 
 
 if __name__ == "__main__":

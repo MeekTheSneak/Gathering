@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.43
+## Design Brief v1.44
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -244,6 +244,8 @@ Config-gated. Ships after play mode is proven, because play mode is the differen
   **Sleeving moves cards, it does not reference them.** Building a deck takes the cards out of the collection and puts them in the deck item; dissolving the deck puts them back where they came from. That is paper-true, it is the one place collection mode adds a check import mode does not have (own the card to sleeve it), and it means a shared collection cannot quietly back two decks at once. A deck remembers which collection it was assembled from, which is what makes playgroup loaner decks work without any separate lending mechanic.
 
   In import mode the block still earns its place as a rack for deck items, with the card storage simply empty.
+
+  **Searching happens on the server.** The block holds the counts and the server holds the card details, so a client asks a question and gets one page back rather than being sent ten thousand card names it would have to search itself. That is what makes the screen behave the same on a collection of ten cards and one of ten thousand, and it is why the search is a box and six colour pips rather than a query language: what crosses the wire is a set of filters, not a string somebody has to learn to write.
 - **Trading:** a two-sided trade window with lock-in confirmation. No escrowless hand trades.
 - **Loaner decks:** admin-defined decklists attached to any table, playable by anyone with no import permission or collection required. A new player's first game happens in their first minute on the server, the starter-deck moment of the whole Pixelmon fantasy.
 - **Sleeves are how a card back works.** Every card renders as if sleeved: the printed face shows through the front, and the reverse is always the sleeve, opaque. That is what makes a face-down card unreadable from every angle rather than only from the front, so it is a requirement of the hidden-information pillar and not a cosmetic choice; the mod also ships no Wizards card back, and never will. Turning a double-faced card over shows its other printed side, which is a reading action rather than a hiding one - when the table arrives and face-down becomes a zone-level fact with a marker attached, the two want separating.

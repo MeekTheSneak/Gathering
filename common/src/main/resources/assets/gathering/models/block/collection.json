@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "gathering:block/collection_top",
+    "bottom": "gathering:block/collection_top",
+    "side": "gathering:block/collection"
+  }
+}

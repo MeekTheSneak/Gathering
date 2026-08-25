@@ -62,6 +62,16 @@ final class GatheringRegistration {
     private static final Supplier<Item> PACK =
             ITEMS.register(GatheringContent.PACK_ID, GatheringContent::createPack);
 
+    private static final Supplier<Block> COLLECTION =
+            BLOCKS.register(GatheringContent.COLLECTION_ID, GatheringContent::createCollection);
+    private static final Supplier<Item> COLLECTION_ITEM =
+            ITEMS.register(GatheringContent.COLLECTION_ID, GatheringContent::createCollectionItem);
+    private static final Supplier<BlockEntityType<dev.gathering.block.CollectionBlockEntity>>
+            COLLECTION_ENTITY = BLOCK_ENTITIES.register(
+                    dev.gathering.block.CollectionBlockEntity.ID, () -> BlockEntityType.Builder
+                            .of(GatheringContent::createCollectionEntity, COLLECTION.get())
+                            .build(null));
+
     private static final Supplier<Block> TABLE =
             BLOCKS.register(GatheringContent.TABLE_ID, GatheringContent::createTable);
     private static final Supplier<Item> TABLE_ITEM =
@@ -104,6 +114,7 @@ final class GatheringRegistration {
                 output.accept(new ItemStack(DECK.get()));
                 output.accept(new ItemStack(PACK.get()));
                 output.accept(new ItemStack(TABLE_ITEM.get()));
+                output.accept(new ItemStack(COLLECTION_ITEM.get()));
             })
             .build());
 
@@ -141,6 +152,9 @@ final class GatheringRegistration {
         GatheringComponents.POOL.bind(POOL_COMPONENT);
         GatheringComponents.PACK.bind(PACK_COMPONENT);
         dev.gathering.registry.GatheringLoot.SEALED_PRODUCT.bind(SEALED_PRODUCT_ENTRY);
+        GatheringContent.COLLECTION.bind(COLLECTION);
+        GatheringContent.COLLECTION_ITEM.bind(COLLECTION_ITEM);
+        GatheringContent.COLLECTION_ENTITY.bind(COLLECTION_ENTITY);
     }
 
     static Supplier<CreativeModeTab> creativeTab() {

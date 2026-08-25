@@ -166,6 +166,15 @@ public final class GatheringNeoForgeClient {
                             opened.setCode(), opened.kind(), opened.cards())));
             return;
         }
+        if (payload instanceof dev.gathering.network.OpenCollectionPayload collection) {
+            context.enqueueWork(() ->
+                    dev.gathering.client.CollectionScreen.show(collection));
+            return;
+        }
+        if (payload instanceof dev.gathering.network.CollectionPagePayload page) {
+            context.enqueueWork(() -> dev.gathering.client.CollectionScreen.accept(page));
+            return;
+        }
         if (payload instanceof dev.gathering.network.DraftViewPayload pod) {
             context.enqueueWork(() -> acceptDraftView(pod));
             return;

@@ -174,11 +174,13 @@ public final class PackOpeningScreen extends Screen {
         drawTornEdge(graphics, tornTo, crimp);
         drawSymbol(graphics, crimp);
 
-        Component say = tear.isUntouched()
-                ? Component.translatable("screen.gathering.pack_take_hold")
-                : Component.translatable("screen.gathering.pack_keep_going");
-        graphics.drawCenteredString(
-                this.font, say, width() / 2, packY + packHeight + 8, 0xFFBFC7D2);
+        // Only before it has been touched. Once somebody is tearing it, the tear is the
+        // feedback; a line of text cheering them on is the screen talking for the sake of it.
+        if (tear.isUntouched()) {
+            graphics.drawCenteredString(this.font,
+                    Component.translatable("screen.gathering.pack_take_hold"),
+                    width() / 2, packY + packHeight + 8, 0xFFBFC7D2);
+        }
     }
 
     /**

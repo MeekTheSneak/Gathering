@@ -97,6 +97,19 @@ public final class GatheringNetwork {
                 dev.gathering.network.AddBasicsPayload.STREAM_CODEC,
                 GatheringNetwork::onAddBasics);
 
+        registrar.playToServer(
+                dev.gathering.network.CollectionSearchPayload.TYPE,
+                dev.gathering.network.CollectionSearchPayload.STREAM_CODEC,
+                (payload, context) -> dev.gathering.server.CollectionView.search(
+                        (net.minecraft.server.level.ServerPlayer) context.player(),
+                        payload.where(), payload.query(), payload.descending(), payload.page()));
+        registrar.playToServer(
+                dev.gathering.network.CollectionTakePayload.TYPE,
+                dev.gathering.network.CollectionTakePayload.STREAM_CODEC,
+                (payload, context) -> dev.gathering.server.CollectionView.take(
+                        (net.minecraft.server.level.ServerPlayer) context.player(),
+                        payload.where(), payload.card(), payload.howMany()));
+
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.
         registrar.playToClient(
@@ -130,6 +143,14 @@ public final class GatheringNetwork {
         registrar.playToClient(
                 OpenTableSetupPayload.TYPE,
                 OpenTableSetupPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.OpenCollectionPayload.TYPE,
+                dev.gathering.network.OpenCollectionPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.CollectionPagePayload.TYPE,
+                dev.gathering.network.CollectionPagePayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
                 OpenSideboardPayload.TYPE,

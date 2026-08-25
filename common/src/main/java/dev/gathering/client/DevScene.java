@@ -1204,6 +1204,24 @@ public final class DevScene {
             }
             case 104 -> {
                 theReadKeyAnswersOverAPulledCard(client);
+                client.setScreen(null);
+                aCollectionWithSomethingInIt(client);
+                advance(SETTLE);
+            }
+            case 105 -> {
+                openTheCollection(client);
+                advance(SETTLE);
+            }
+            case 106 -> {
+                expectScreen(client, "opening a collection", CollectionScreen.class);
+                aCollectionShowsWhatIsInIt(client);
+                shoot(client, "42-a-collection");
+                searchTheCollection(client, "forest");
+                advance(SETTLE);
+            }
+            case 107 -> {
+                aSearchNarrowsIt(client);
+                shoot(client, "43-searching-a-collection");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -1305,6 +1323,129 @@ public final class DevScene {
                     + last.map(s -> s.rarity().toString()).orElse("unknown")
                     + " rather than the mythic");
         }
+    }
+
+    /** Where the collection block is, once it has been put down. */
+    private static BlockPos collectionBlock;
+
+    /**
+     * A collection with a few real cards in it.
+     *
+     * <p>Stocked on the server, which is where a collection lives - the client is told what
+     * is in one only when somebody opens it, which is the thing being checked.
+     */
+    private static void aCollectionWithSomethingInIt(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to put a collection on");
+            return;
+        }
+        BlockPos where = client.player.blockPosition().offset(-2, -1, 2);
+        collectionBlock = where;
+        java.util.UUID player = client.player.getUUID();
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            level.setBlock(where, GatheringContent.COLLECTION.get().defaultBlockState(), 3);
+            if (!(level.getBlockEntity(where)
+                    instanceof dev.gathering.block.CollectionBlockEntity collection)) {
+                fail("a collection block was placed without its block entity");
+                return;
+            }
+            collection.claimFor(player);
+            collection.setLabel("The good one");
+            // Cards the import has already resolved, so they are named the moment the
+            // collection is opened. A collection of made-up ids would photograph as a list
+            // of "not looked up yet", which says nothing about whether the screen reads.
+            var service = dev.gathering.service.CardDataService.active().orElse(null);
+            if (service == null) {
+                fail("there was no card service to stock a collection from");
+                return;
+            }
+            for (String name : java.util.List.of("Forest", "Mountain", "Island",
+                    "Lightning Bolt", "Counterspell", "Grizzly Bears", "Giant Growth")) {
+                service.findByName(name).thenAccept(found -> found.ifPresent(card ->
+                        server.execute(() -> collection.put(
+                                dev.gathering.core.card.CardIdentity.ofPrinting(
+                                        card.scryfallId(), false),
+                                name.equals("Forest") ? 20 : 4))));
+            }
+            System.out.println("[devscene] a collection is being stocked");
+        });
+    }
+
+    /** Opens it the way a player would: standing at it, empty handed. */
+    private static void openTheCollection(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || collectionBlock == null || client.player == null) {
+            fail("there was no collection to open");
+            return;
+        }
+        java.util.UUID player = client.player.getUUID();
+        BlockPos where = collectionBlock;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            var opener = server.getPlayerList().getPlayer(player);
+            if (opener == null
+                    || !(level.getBlockEntity(where)
+                            instanceof dev.gathering.block.CollectionBlockEntity collection)) {
+                fail("the collection went away before it could be opened");
+                return;
+            }
+            opener.teleportTo(where.getX() + 0.5, where.getY() + 1, where.getZ() + 1.5);
+            dev.gathering.server.CollectionView.open(opener, where, collection);
+        });
+    }
+
+    /**
+     * A collection that has cards in it shows them.
+     *
+     * <p>The dead end this exists to catch: a block you can put a collection into and then
+     * open onto an empty list, because the page never arrived or never asked.
+     */
+    private static void aCollectionShowsWhatIsInIt(Minecraft client) {
+        if (!(client.screen instanceof CollectionScreen collection)) {
+            fail("there was no collection on the screen");
+            return;
+        }
+        if (collection.shown().isEmpty()) {
+            fail("a collection with a hundred cards in it opened onto an empty list");
+            return;
+        }
+        if (!collection.mayTake()) {
+            fail("the player who put the collection down may not take from it");
+            return;
+        }
+        System.out.println("[devscene] a collection opened showing "
+                + collection.shown().size() + " rows");
+    }
+
+    private static void searchTheCollection(Minecraft client, String text) {
+        if (!(client.screen instanceof CollectionScreen collection)) {
+            fail("there was no collection to search");
+            return;
+        }
+        collection.searchFor(text);
+    }
+
+    /** Typing narrows it, and narrows it to something. */
+    private static void aSearchNarrowsIt(Minecraft client) {
+        if (!(client.screen instanceof CollectionScreen collection)) {
+            fail("the collection went away mid-search");
+            return;
+        }
+        if (collection.shown().isEmpty()) {
+            fail("searching a collection for a card that is in it found nothing");
+            return;
+        }
+        for (var row : collection.shown()) {
+            String name = row.about().map(summary -> summary.front().name()).orElse("");
+            if (!name.toLowerCase(java.util.Locale.ROOT).contains("forest")) {
+                fail("a search for forest turned up " + name);
+                return;
+            }
+        }
+        System.out.println("[devscene] searching a collection narrowed it to "
+                + collection.shown().size() + " rows");
     }
 
     /** Puts the cursor on the card the pack was opened for. */

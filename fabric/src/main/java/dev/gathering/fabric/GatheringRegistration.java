@@ -81,6 +81,20 @@ final class GatheringRegistration {
                 Gathering.id(GatheringComponents.PACK_ID),
                 GatheringComponents.createPackType()));
 
+        net.minecraft.world.level.block.Block collection = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.COLLECTION_ID),
+                GatheringContent.createCollection());
+        GatheringContent.COLLECTION.bindValue(collection);
+        GatheringContent.COLLECTION_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.COLLECTION_ID),
+                GatheringContent.createCollectionItem()));
+        GatheringContent.COLLECTION_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.CollectionBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        .create(GatheringContent::createCollectionEntity, collection)
+                        .build()));
+
         dev.gathering.registry.GatheringLoot.SEALED_PRODUCT.bindValue(Registry.register(
                 BuiltInRegistries.LOOT_POOL_ENTRY_TYPE,
                 Gathering.id(dev.gathering.registry.GatheringLoot.SEALED_PRODUCT_ID),
@@ -97,6 +111,8 @@ final class GatheringRegistration {
                             output.accept(new ItemStack(deck));
                             output.accept(new ItemStack(pack));
                             output.accept(new ItemStack(GatheringContent.TABLE_ITEM.get()));
+                            output.accept(
+                                    new ItemStack(GatheringContent.COLLECTION_ITEM.get()));
                         })
                         .build());
     }

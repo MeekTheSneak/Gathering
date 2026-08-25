@@ -288,23 +288,19 @@ In rough order of how much it would change what I build next:
 
 ## What is deliberately not there yet
 
-- **No format validation at a table.** The validator exists and nothing calls it: any deck
-  can be put down at any table. Choosing a format when you start a game, best-of-three, and
-  sideboarding between games are the next thing being built.
-- **No undo button.** Undo is built and tested in the core and has no way to be reached from
-  the seated view yet.
-- **No spectator screen.** You can see a table's miniature from across the room, but there is
-  no read-only GUI for watching a game you are not in.
-- **No collection block.** Specified in the design brief, phase 3.
-- **Cards don't stack, and there's no way to get rid of one** except dropping it.
+- **No shop.** Sealed product is found in the world and granted by an operator; the NPC that
+  sells it is specified in the design brief and not built.
+- **Nothing puts a deck back into a collection.** Cards go into a collection block one at a
+  time and come out one at a time; sleeving a whole deck out of one, and dissolving a deck
+  back into it, is the next thing here.
+- **No trading.** Cards move between players by dropping them.
 - **No way to name a deck after the fact.** Import names one; a deck started from two cards
   cannot be renamed yet.
 - **No theme picker.** The GUI art is all real textures generated from one palette in
-  `tools/gui_textures.py`, so a second theme is a matter of a second palette and a place to
-  choose it — but there is no such place yet, and a resource pack is the only way to swap them
-  today.
-- **No deck legality check anywhere.** Setting a card as a commander asks no questions; the
-  format validator exists but nothing calls it until there is a table to sit at.
+  `tools/textures.py`, so a second theme is a matter of a second palette and a place to choose
+  it — but there is no such place yet, and a resource pack is the only way to swap them today.
+- **Placeholder art.** The booster wrapper and the collection block are generated templates,
+  not drawn textures.
 
 ### 4. Squash the window
 

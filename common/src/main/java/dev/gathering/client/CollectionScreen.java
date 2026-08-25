@@ -1,0 +1,423 @@
+package dev.gathering.client;
+
+import dev.gathering.core.card.Rarity;
+import dev.gathering.core.collection.CollectionSearch;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.CardItem;
+import dev.gathering.network.CardSummary;
+import dev.gathering.network.CollectionPagePayload;
+import dev.gathering.network.CollectionQuery;
+import dev.gathering.network.CollectionSearchPayload;
+import dev.gathering.network.CollectionTakePayload;
+import dev.gathering.network.OpenCollectionPayload;
+import java.util.List;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+
+/**
+ * A collection, read.
+ *
+ * <p>Rows rather than card faces. Ten thousand cards is a list you scan, and a grid of art
+ * shows nine of them; what somebody opening a collection wants to know is whether a card is
+ * in there and how many, which is a line of text.
+ *
+ * <p>Searching happens on the server, so nothing here filters anything: the box and the
+ * buttons ask, and a page comes back. Which means the screen behaves the same on a collection
+ * of ten cards and one of ten thousand.
+ *
+ * <p>Client-only.
+ */
+public final class CollectionScreen extends Screen implements CardPreviewHost {
+
+    private static final int MARGIN = 16;
+    private static final int ROW_HEIGHT = 14;
+    private static final int TOP_BAR = 80;
+    private static final int BOTTOM_BAR = 28;
+    private static final int BACKING = 0xE8080B10;
+    private static final int ROW_ODD = 0x18FFFFFF;
+    private static final int ROW_HOVER = 0x30FFFFFF;
+    private static final int TEXT = 0xFFDDE3EC;
+    private static final int DIM = 0xFF8A94A3;
+
+    private final BlockPos where;
+    private final String label;
+    private final boolean mayTake;
+    private final boolean mayAdd;
+    private int total;
+    private int distinct;
+
+    private CollectionQuery query = CollectionQuery.EVERYTHING;
+    private boolean descending;
+    private int page;
+    private int pages = 1;
+    private int matched;
+    private List<CollectionPagePayload.Row> rows = List.of();
+
+    private EditBox searchBox;
+    private Button sortButton;
+    private Button rarityButton;
+    private Button previousButton;
+    private Button nextButton;
+
+    private CollectionScreen(OpenCollectionPayload opened) {
+        super(Component.translatable("screen.gathering.collection"));
+        this.where = opened.where();
+        this.label = opened.label();
+        this.total = opened.total();
+        this.distinct = opened.distinct();
+        this.mayTake = opened.mayTake();
+        this.mayAdd = opened.mayAdd();
+    }
+
+    /** Opens one, replacing whatever collection was open before. */
+    public static void show(OpenCollectionPayload opened) {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new CollectionScreen(opened));
+    }
+
+    /** A page arriving for the collection that is open. Ignored for any other. */
+    public static void accept(CollectionPagePayload payload) {
+        if (net.minecraft.client.Minecraft.getInstance().screen
+                instanceof CollectionScreen screen && screen.where.equals(payload.where())) {
+            screen.take(payload);
+        }
+    }
+
+    private void take(CollectionPagePayload payload) {
+        this.page = payload.page();
+        this.pages = Math.max(1, payload.pages());
+        this.matched = payload.matched();
+        this.rows = payload.rows();
+        updateButtons();
+    }
+
+    @Override
+    protected void init() {
+        searchBox = new EditBox(this.font, MARGIN, MARGIN + 20, this.width - 2 * MARGIN - 148, 18,
+                Component.translatable("screen.gathering.collection.search"));
+        searchBox.setMaxLength(CollectionQuery.MOST_CHARACTERS);
+        searchBox.setHint(Component.translatable("screen.gathering.collection.search_hint"));
+        searchBox.setValue(query.text());
+        // Asked when the search is finished rather than while it is being typed: every
+        // keystroke would be a packet and a pass over the whole collection.
+        searchBox.setResponder(text -> { });
+        addRenderableWidget(searchBox);
+
+        sortButton = GatheringButtons.of(this.width - MARGIN - 144, MARGIN + 20, 88, 18,
+                sortLabel(), this::nextSort);
+        addRenderableWidget(sortButton);
+
+        previousButton = GatheringButtons.of(this.width - MARGIN - 52, MARGIN + 20, 24, 18,
+                Component.literal("<"), () -> turnTo(page - 1));
+        addRenderableWidget(previousButton);
+        nextButton = GatheringButtons.of(this.width - MARGIN - 26, MARGIN + 20, 26, 18,
+                Component.literal(">"), () -> turnTo(page + 1));
+        addRenderableWidget(nextButton);
+
+        // Colour and rarity are buttons rather than something to type, because a search box
+        // that understands "c:wu" is a query language, and a query language is a thing to
+        // learn. Six pips and a cycle say the same and can be found by looking.
+        int pipsX = MARGIN;
+        int pipsY = MARGIN + 42;
+        for (String colour : COLOURS) {
+            addRenderableWidget(GatheringButtons.of(pipsX, pipsY, 18, 16,
+                    Component.literal(colour), () -> toggleColour(colour)));
+            pipsX += 20;
+        }
+        rarityButton = GatheringButtons.of(pipsX + 6, pipsY, 92, 16, rarityLabel(), this::nextRarity);
+        addRenderableWidget(rarityButton);
+
+        setInitialFocus(searchBox);
+        updateButtons();
+    }
+
+    /** WUBRG and colourless, in the order a player reads them. */
+    private static final String[] COLOURS = {"W", "U", "B", "R", "G", "C"};
+
+    /** The rarities worth filtering by, and off. */
+    private static final Rarity[] RARITIES = {
+            null, Rarity.COMMON, Rarity.UNCOMMON, Rarity.RARE, Rarity.MYTHIC};
+
+    /**
+     * Turns one colour on or off.
+     *
+     * <p>Several on means at least all of them, which is how anybody already reads a colour
+     * filter: white and blue finds the Azorius card, not the mono-white ones.
+     */
+    private void toggleColour(String colour) {
+        String now = query.colours();
+        query = query.inColours(now.contains(colour)
+                ? now.replace(colour, "")
+                : now + colour);
+        askFor(0);
+    }
+
+    private void nextRarity() {
+        int at = 0;
+        for (int index = 0; index < RARITIES.length; index++) {
+            if (RARITIES[index] == query.rarity()) {
+                at = index;
+                break;
+            }
+        }
+        query = query.ofRarity(RARITIES[(at + 1) % RARITIES.length]);
+        askFor(0);
+    }
+
+    private Component rarityLabel() {
+        return query.rarity() == null
+                ? Component.translatable("screen.gathering.collection.rarity_any")
+                : Component.translatable("screen.gathering.collection.rarity",
+                        Component.translatable("screen.gathering.collection.rarity."
+                                + query.rarity().name().toLowerCase(java.util.Locale.ROOT)));
+    }
+
+    private void updateButtons() {
+        if (sortButton != null) {
+            sortButton.setMessage(sortLabel());
+        }
+        if (rarityButton != null) {
+            rarityButton.setMessage(rarityLabel());
+        }
+        if (previousButton != null) {
+            previousButton.active = page > 0;
+        }
+        if (nextButton != null) {
+            nextButton.active = page + 1 < pages;
+        }
+    }
+
+    private Component sortLabel() {
+        return Component.translatable("screen.gathering.collection.sort",
+                Component.translatable("screen.gathering.collection.sort."
+                        + query.sort().name().toLowerCase(java.util.Locale.ROOT)),
+                Component.literal(descending ? "▲" : "▼"));
+    }
+
+    /**
+     * Cycles the order.
+     *
+     * <p>One button rather than five, because a collection has one order at a time and five
+     * buttons of which four are off is four buttons doing nothing. Pressing it on the order
+     * already showing turns it round instead, which is where anybody would look for it.
+     */
+    private void nextSort() {
+        CollectionSearch.Sort[] all = CollectionSearch.Sort.values();
+        int next = (query.sort().ordinal() + 1) % all.length;
+        if (next == 0 && !descending) {
+            descending = true;
+        } else if (next == 0) {
+            descending = false;
+        }
+        query = query.orderedBy(all[next]);
+        askFor(0);
+    }
+
+    private void turnTo(int newPage) {
+        askFor(Math.clamp(newPage, 0, pages - 1));
+    }
+
+    private void askFor(int wanted) {
+        query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
+        ClientNetworking.send(new CollectionSearchPayload(where, query, descending, wanted));
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scan, int modifiers) {
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
+            askFor(0);
+            return true;
+        }
+        return super.keyPressed(key, scan, modifiers);
+    }
+
+    /**
+     * The felt and the panel, under the widgets.
+     *
+     * <p>Drawn here rather than in {@code render} because {@code super.render} paints the
+     * menu background and then the widgets: anything drawn before it is blurred over, and
+     * anything drawn after it sits on top of the buttons.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        graphics.fill(0, 0, this.width, this.height, BACKING);
+        GatheringSprites.inset(graphics, MARGIN - 4, TOP_BAR - 4,
+                this.width - 2 * MARGIN + 8, this.height - BOTTOM_BAR - TOP_BAR + 8);
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+
+        Component title = label.isEmpty()
+                ? Component.translatable("screen.gathering.collection")
+                : Component.literal(label);
+        graphics.drawString(this.font, title, MARGIN, MARGIN, TEXT, false);
+        graphics.drawString(this.font,
+                Component.translatable("screen.gathering.collection.holding", total, distinct),
+                MARGIN + this.font.width(title) + 8, MARGIN, DIM, false);
+
+        drawColoursOn(graphics);
+        drawRows(graphics, mouseX, mouseY);
+        drawFooter(graphics);
+    }
+
+    /**
+     * A line under the colours that are on.
+     *
+     * <p>A vanilla button has no on state, and six buttons that all look the same whether
+     * they are doing anything is a filter nobody can read.
+     */
+    private void drawColoursOn(GuiGraphics graphics) {
+        int x = MARGIN;
+        int y = MARGIN + 42 + 15;
+        for (String colour : COLOURS) {
+            if (query.colours().contains(colour)) {
+                graphics.fill(x + 2, y, x + 16, y + 1, 0xFFE8C86A);
+            }
+            x += 20;
+        }
+    }
+
+    private void drawRows(GuiGraphics graphics, int mouseX, int mouseY) {
+        int top = TOP_BAR;
+        int bottom = this.height - BOTTOM_BAR;
+        if (rows.isEmpty()) {
+            graphics.drawCenteredString(this.font,
+                    Component.translatable(total == 0
+                            ? "screen.gathering.collection.empty"
+                            : "screen.gathering.collection.nothing_found"),
+                    this.width / 2, (top + bottom) / 2 - 4, DIM);
+            ClientHoverState.clear();
+            return;
+        }
+
+        CollectionPagePayload.Row over = null;
+        int fits = Math.max(1, (bottom - top) / ROW_HEIGHT);
+        for (int index = 0; index < rows.size() && index < fits; index++) {
+            CollectionPagePayload.Row row = rows.get(index);
+            int y = top + index * ROW_HEIGHT;
+            boolean hovered = mouseX >= MARGIN && mouseX < this.width - MARGIN
+                    && mouseY >= y && mouseY < y + ROW_HEIGHT;
+            if (hovered) {
+                graphics.fill(MARGIN - 2, y, this.width - MARGIN + 2, y + ROW_HEIGHT, ROW_HOVER);
+                over = row;
+            } else if (index % 2 == 1) {
+                graphics.fill(MARGIN - 2, y, this.width - MARGIN + 2, y + ROW_HEIGHT, ROW_ODD);
+            }
+            drawRow(graphics, row, y);
+        }
+        ClientHoverState.setHovered(over == null
+                ? net.minecraft.world.item.ItemStack.EMPTY
+                : CardItem.of(over.card()));
+    }
+
+    private void drawRow(GuiGraphics graphics, CollectionPagePayload.Row row, int y) {
+        int text = y + 3;
+        graphics.drawString(this.font, Component.literal(row.count() + "x"),
+                MARGIN, text, DIM, false);
+
+        CardSummary about = row.about().orElse(null);
+        Component name = about == null
+                ? Component.translatable("screen.gathering.collection.unnamed")
+                : Component.literal(about.front().name());
+        graphics.drawString(this.font, name, MARGIN + 26, text,
+                about == null ? DIM : TEXT, false);
+
+        if (about == null) {
+            return;
+        }
+        String right = about.front().typeLine();
+        int rightWidth = this.font.width(right);
+        int rightX = this.width - MARGIN - rightWidth;
+        // Only where there is room for it. A type line running under the name is worse than
+        // no type line.
+        if (rightX > MARGIN + 32 + this.font.width(name)) {
+            graphics.drawString(this.font, right, rightX, text, DIM, false);
+        }
+        if (row.card().foil()) {
+            graphics.drawString(this.font, "✦", MARGIN + 18, text, 0xFFE8C86A, false);
+        }
+    }
+
+    private void drawFooter(GuiGraphics graphics) {
+        int y = this.height - BOTTOM_BAR + 8;
+        Component found = Component.translatable(
+                "screen.gathering.collection.page", matched, page + 1, pages);
+        graphics.drawString(this.font, found, MARGIN, y, DIM, false);
+
+        Component how = mayTake
+                ? Component.translatable("screen.gathering.collection.hint_take")
+                : Component.translatable("screen.gathering.collection.hint_look");
+        graphics.drawString(this.font, how,
+                this.width - MARGIN - this.font.width(how), y, DIM, false);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (super.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (!mayTake) {
+            return false;
+        }
+        int index = rowUnder(mouseY);
+        if (index < 0 || index >= rows.size() || mouseX < MARGIN || mouseX > this.width - MARGIN) {
+            return false;
+        }
+        CardComponent card = rows.get(index).card();
+        // Left takes one, right takes four - a playset, which is what anybody taking more
+        // than one card out of a binder is taking.
+        int howMany = button == 1 ? 4 : 1;
+        ClientNetworking.send(new CollectionTakePayload(where, card, howMany));
+        GatheringButtons.clickSound();
+        return true;
+    }
+
+    private int rowUnder(double mouseY) {
+        int top = TOP_BAR;
+        if (mouseY < top || mouseY >= this.height - BOTTOM_BAR) {
+            return -1;
+        }
+        return (int) ((mouseY - top) / ROW_HEIGHT);
+    }
+
+    @Override
+    public void removed() {
+        ClientHoverState.clear();
+        super.removed();
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    /** What the screen is looking for, for the scripted run. */
+    public CollectionQuery query() {
+        return query;
+    }
+
+    /** What is on the page, for the scripted run. */
+    public List<CollectionPagePayload.Row> shown() {
+        return rows;
+    }
+
+    /** Whether this player may take from it, for the scripted run. */
+    public boolean mayTake() {
+        return mayTake;
+    }
+
+    /** Types a search and asks for it, for the scripted run. */
+    public void searchFor(String text) {
+        if (searchBox != null) {
+            searchBox.setValue(text == null ? "" : text);
+        }
+        askFor(0);
+    }
+}

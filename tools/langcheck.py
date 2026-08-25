@@ -30,6 +30,7 @@ SOUNDS = ROOT / "common/src/main/resources/assets/gathering/sounds.json"
 EXPECTED_UNREFERENCED = {
     # Minecraft derives these from the registry id and the keybind category itself.
     "block.gathering.table",
+    "block.gathering.collection",
     "item.gathering.card",
     "item.gathering.deck",
     "item.gathering.pack",

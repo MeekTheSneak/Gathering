@@ -54,6 +54,18 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.AddBasicsPayload.TYPE,
                 dev.gathering.network.AddBasicsPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.CollectionSearchPayload.TYPE,
+                dev.gathering.network.CollectionSearchPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.CollectionTakePayload.TYPE,
+                dev.gathering.network.CollectionTakePayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.OpenCollectionPayload.TYPE,
+                dev.gathering.network.OpenCollectionPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.CollectionPagePayload.TYPE,
+                dev.gathering.network.CollectionPagePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(TableViewPayload.TYPE, TableViewPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.DraftViewPayload.TYPE,
@@ -107,6 +119,18 @@ final class GatheringNetwork {
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.AddBasicsPayload.TYPE, (payload, context) ->
                         dev.gathering.server.BasicLands.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.CollectionSearchPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.CollectionView.search(
+                                context.player(), payload.where(), payload.query(),
+                                payload.descending(), payload.page()));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.CollectionTakePayload.TYPE, (payload, context) ->
+                        dev.gathering.server.CollectionView.take(
+                                context.player(), payload.where(), payload.card(),
+                                payload.howMany()));
 
         ServerPlayNetworking.registerGlobalReceiver(SideboardEditPayload.TYPE, (payload, context) ->
                 dev.gathering.server.Sideboarding.handle(context.player(), payload));

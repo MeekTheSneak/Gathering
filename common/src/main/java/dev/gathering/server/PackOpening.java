@@ -311,7 +311,10 @@ public final class PackOpening {
                     "message.gathering.pack_opened", set.toUpperCase(Locale.ROOT), kind,
                     delivery.giving().size()));
         }
-        if (delivery.unnameable() > 0) {
+        if (delivery.unnameable() == 1) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.pack_unresolved_one"));
+        } else if (delivery.unnameable() > 1) {
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.pack_unresolved", delivery.unnameable()));
         }

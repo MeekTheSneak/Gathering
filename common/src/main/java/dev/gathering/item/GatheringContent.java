@@ -28,6 +28,7 @@ public final class GatheringContent {
     public static final String DECK_ID = "deck";
     public static final String PACK_ID = "pack";
     public static final String TABLE_ID = "table";
+    public static final String COLLECTION_ID = "collection";
 
     public static final Registered<Item> CARD = new Registered<>(CARD_ID);
     public static final Registered<Item> DECK = new Registered<>(DECK_ID);
@@ -36,6 +37,11 @@ public final class GatheringContent {
     public static final Registered<Item> TABLE_ITEM = new Registered<>(TABLE_ID);
     public static final Registered<BlockEntityType<TableBlockEntity>> TABLE_ENTITY =
             new Registered<>(TableBlockEntity.ID);
+    public static final Registered<Block> COLLECTION = new Registered<>(COLLECTION_ID);
+    public static final Registered<Item> COLLECTION_ITEM = new Registered<>(COLLECTION_ID);
+    public static final Registered<BlockEntityType<dev.gathering.block.CollectionBlockEntity>>
+            COLLECTION_ENTITY = new Registered<>(
+                    dev.gathering.block.CollectionBlockEntity.ID);
 
     private GatheringContent() {
     }
@@ -93,5 +99,32 @@ public final class GatheringContent {
      */
     public static TableBlockEntity createTableEntity(BlockPos pos, BlockState state) {
         return new TableBlockEntity(pos, state);
+    }
+
+    /**
+     * Where a collection lives.
+     *
+     * <p>Stone rather than wood, and harder than a table: this is the one block in the mod
+     * with somebody's whole collection inside it, and a block that takes a moment to break is
+     * a block nobody breaks by accident while clearing a wall.
+     */
+    public static Block createCollection() {
+        return new dev.gathering.block.CollectionBlock(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.COLOR_BROWN)
+                .strength(3.0f)
+                .sound(SoundType.WOOD)
+                // Pistons would take the block and leave the block entity, which is a
+                // collection deleted by a redstone accident.
+                .pushReaction(PushReaction.BLOCK));
+    }
+
+    public static Item createCollectionItem() {
+        return new net.minecraft.world.item.BlockItem(
+                COLLECTION.get(), new Item.Properties().stacksTo(1));
+    }
+
+    public static dev.gathering.block.CollectionBlockEntity createCollectionEntity(
+            BlockPos pos, BlockState state) {
+        return new dev.gathering.block.CollectionBlockEntity(pos, state);
     }
 }
