@@ -1,13 +1,13 @@
 package dev.gathering.core.deck;
 
+import dev.gathering.core.net.HttpTransport;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.gathering.core.decklist.DeckSection;
 import dev.gathering.core.decklist.DecklistEntry;
 import dev.gathering.core.decklist.ParsedDecklist;
-import dev.gathering.core.scryfall.HttpTransport;
-import dev.gathering.core.scryfall.ScryfallException;
+import dev.gathering.core.net.FetchException;
 import dev.gathering.core.testing.Fixtures;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -88,7 +88,7 @@ class ArchidektDeckSourceTest {
                 new StubTransport(404, "{\"error\":\"Deck not found.\"}"), "test");
 
         assertThatThrownBy(() -> source.fetch(DeckLink.parse("https://archidekt.com/decks/1").orElseThrow()))
-                .isInstanceOf(ScryfallException.class)
+                .isInstanceOf(FetchException.class)
                 .hasMessageContaining("does not exist, or it is private");
     }
 
@@ -97,7 +97,7 @@ class ArchidektDeckSourceTest {
         ArchidektDeckSource source = new ArchidektDeckSource(new StubTransport(503, ""), "test");
 
         assertThatThrownBy(() -> source.fetch(DeckLink.parse("https://archidekt.com/decks/1").orElseThrow()))
-                .isInstanceOf(ScryfallException.class)
+                .isInstanceOf(FetchException.class)
                 .hasMessageContaining("text export");
     }
 
@@ -118,7 +118,7 @@ class ArchidektDeckSourceTest {
         ArchidektDeckSource source = new ArchidektDeckSource(new StubTransport(200, "<html>nope</html>"), "test");
 
         assertThatThrownBy(() -> source.fetch(DeckLink.parse("https://archidekt.com/decks/1").orElseThrow()))
-                .isInstanceOf(ScryfallException.class);
+                .isInstanceOf(FetchException.class);
     }
 
     private static final class StubTransport implements HttpTransport {

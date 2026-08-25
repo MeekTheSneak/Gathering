@@ -1,5 +1,7 @@
 package dev.gathering.service;
 
+import dev.gathering.core.net.JdkHttpTransport;
+import dev.gathering.core.net.RateLimiter;
 import dev.gathering.Gathering;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.deck.CachingCardSource;
@@ -7,8 +9,6 @@ import dev.gathering.core.deck.DeckImporter;
 import dev.gathering.core.deck.ResolvedDeck;
 import dev.gathering.core.scryfall.CardQuery;
 import dev.gathering.core.scryfall.DiskCardMetadataStore;
-import dev.gathering.core.scryfall.JdkHttpTransport;
-import dev.gathering.core.scryfall.RateLimiter;
 import dev.gathering.core.scryfall.ScryfallClient;
 import dev.gathering.platform.Platform;
 import java.io.IOException;

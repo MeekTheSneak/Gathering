@@ -1,4 +1,4 @@
-package dev.gathering.core.scryfall;
+package dev.gathering.core.net;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

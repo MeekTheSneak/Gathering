@@ -1,4 +1,4 @@
-package dev.gathering.core.scryfall;
+package dev.gathering.core.net;
 
 import java.io.IOException;
 import java.net.URI;
@@ -50,7 +50,7 @@ public final class JdkHttpTransport implements HttpTransport {
             return new HttpReply(response.statusCode(), response.body());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new ScryfallException("Interrupted during " + request.method() + " " + request.uri(), e);
+            throw new FetchException("Interrupted during " + request.method() + " " + request.uri(), e);
         }
     }
 }

@@ -1,4 +1,4 @@
-package dev.gathering.core.scryfall;
+package dev.gathering.core.net;
 
 /**
  * A minimum delay between outbound requests, per Scryfall's request guidelines.

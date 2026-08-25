@@ -1,5 +1,9 @@
 package dev.gathering.core.scryfall;
 
+import dev.gathering.core.net.FetchException;
+import dev.gathering.core.net.FakeHttpTransport;
+import dev.gathering.core.net.HttpTransport;
+import dev.gathering.core.net.RateLimiter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -174,7 +178,7 @@ class ScryfallClientTest {
                 .reply(429, "");
 
         assertThatThrownBy(() -> client(transport).cardById(SOL_RING))
-                .isInstanceOf(ScryfallException.class)
+                .isInstanceOf(FetchException.class)
                 .hasMessageContaining("429");
         assertThat(transport.requestCount()).isEqualTo(3);
     }
@@ -184,7 +188,7 @@ class ScryfallClientTest {
     void doesNotRetryClientErrors() {
         FakeHttpTransport transport = new FakeHttpTransport().reply(422, "");
 
-        assertThatThrownBy(() -> client(transport).cardById(SOL_RING)).isInstanceOf(ScryfallException.class);
+        assertThatThrownBy(() -> client(transport).cardById(SOL_RING)).isInstanceOf(FetchException.class);
         assertThat(transport.requestCount()).isEqualTo(1);
     }
 
@@ -195,7 +199,7 @@ class ScryfallClientTest {
                 .failWith(new IOException("connection reset"))
                 .failWith(new IOException("connection reset"));
 
-        assertThatThrownBy(() -> client(transport).cardById(SOL_RING)).isInstanceOf(ScryfallException.class);
+        assertThatThrownBy(() -> client(transport).cardById(SOL_RING)).isInstanceOf(FetchException.class);
         assertThat(transport.requestCount()).isEqualTo(3);
     }
 
@@ -254,7 +258,7 @@ class ScryfallClientTest {
         FakeHttpTransport transport = new FakeHttpTransport().reply(200, "<html>maintenance</html>");
 
         assertThatThrownBy(() -> client(transport).cardById(SOL_RING))
-                .isInstanceOf(ScryfallException.class)
+                .isInstanceOf(FetchException.class)
                 .hasMessageContaining("not JSON");
     }
 

@@ -1,5 +1,6 @@
 package dev.gathering.core.deck;
 
+import dev.gathering.core.net.HttpTransport;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -8,8 +9,7 @@ import dev.gathering.core.decklist.DeckSection;
 import dev.gathering.core.decklist.DecklistEntry;
 import dev.gathering.core.decklist.ParseProblem;
 import dev.gathering.core.decklist.ParsedDecklist;
-import dev.gathering.core.scryfall.HttpTransport;
-import dev.gathering.core.scryfall.ScryfallException;
+import dev.gathering.core.net.FetchException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -47,7 +47,7 @@ public final class ArchidektDeckSource {
     /**
      * Fetches and converts a deck.
      *
-     * @throws ScryfallException when the deck cannot be read; the message is written to be
+     * @throws FetchException when the deck cannot be read; the message is written to be
      *                           shown to the player, because that is where it ends up
      */
     public ParsedDecklist fetch(DeckLink link) throws IOException {
@@ -57,17 +57,17 @@ public final class ArchidektDeckSource {
 
         HttpTransport.HttpReply reply = transport.get(link.apiUrl(), headers);
         if (reply.status() == 404) {
-            throw new ScryfallException(
+            throw new FetchException(
                     "That Archidekt deck does not exist, or it is private. Only public decks can be imported.",
                     reply.status());
         }
         if (!reply.isSuccess()) {
-            throw new ScryfallException(
+            throw new FetchException(
                     "Archidekt could not be reached (HTTP " + reply.status() + "). Try again, or paste the text export.",
                     reply.status());
         }
         if (reply.body() != null && reply.body().length() > MAX_RESPONSE_BYTES) {
-            throw new ScryfallException("That deck is implausibly large; paste the text export instead.", -1);
+            throw new FetchException("That deck is implausibly large; paste the text export instead.", -1);
         }
         return convert(parseJson(reply.body()));
     }
@@ -190,15 +190,15 @@ public final class ArchidektDeckSource {
         return code == null ? null : code.toUpperCase(Locale.ROOT);
     }
 
-    private static JsonObject parseJson(String body) throws ScryfallException {
+    private static JsonObject parseJson(String body) throws FetchException {
         try {
             JsonElement element = JsonParser.parseString(body == null ? "" : body);
             if (!element.isJsonObject()) {
-                throw new ScryfallException("Archidekt sent something that is not a deck.", -1);
+                throw new FetchException("Archidekt sent something that is not a deck.", -1);
             }
             return element.getAsJsonObject();
         } catch (RuntimeException e) {
-            throw new ScryfallException("Archidekt sent a reply that could not be read.", e);
+            throw new FetchException("Archidekt sent a reply that could not be read.", e);
         }
     }
 

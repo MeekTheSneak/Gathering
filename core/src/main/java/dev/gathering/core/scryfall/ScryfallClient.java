@@ -1,5 +1,9 @@
 package dev.gathering.core.scryfall;
 
+import dev.gathering.core.net.FetchException;
+import dev.gathering.core.net.HttpFetcher;
+import dev.gathering.core.net.HttpTransport;
+import dev.gathering.core.net.RateLimiter;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -36,18 +40,13 @@ public final class ScryfallClient {
     /** The collection endpoint's documented ceiling. */
     public static final int COLLECTION_BATCH_SIZE = 75;
 
-    private static final int DEFAULT_MAX_ATTEMPTS = 3;
-    private static final long RETRY_BACKOFF_MILLIS = 500L;
-
-    private final HttpTransport transport;
-    private final RateLimiter rateLimiter;
+    private final HttpFetcher fetcher;
     private final String baseUrl;
     private final Map<String, String> headers;
-    private final int maxAttempts;
-    private final RateLimiter.Sleeper sleeper;
 
     public ScryfallClient(HttpTransport transport, RateLimiter rateLimiter, String userAgent) {
-        this(transport, rateLimiter, userAgent, DEFAULT_BASE_URL, DEFAULT_MAX_ATTEMPTS, Thread::sleep);
+        this(transport, rateLimiter, userAgent, DEFAULT_BASE_URL,
+                HttpFetcher.DEFAULT_MAX_ATTEMPTS, Thread::sleep);
     }
 
     public ScryfallClient(
@@ -57,11 +56,9 @@ public final class ScryfallClient {
             String baseUrl,
             int maxAttempts,
             RateLimiter.Sleeper sleeper) {
-        this.transport = java.util.Objects.requireNonNull(transport, "transport");
-        this.rateLimiter = java.util.Objects.requireNonNull(rateLimiter, "rateLimiter");
+        this.fetcher = new HttpFetcher(transport, rateLimiter, maxAttempts,
+                HttpFetcher.DEFAULT_BACKOFF_MILLIS, sleeper);
         this.baseUrl = stripTrailingSlash(java.util.Objects.requireNonNull(baseUrl, "baseUrl"));
-        this.maxAttempts = Math.max(1, maxAttempts);
-        this.sleeper = java.util.Objects.requireNonNull(sleeper, "sleeper");
         this.headers = Map.of(
                 "User-Agent", java.util.Objects.requireNonNull(userAgent, "userAgent"),
                 "Accept", "application/json",
@@ -181,59 +178,14 @@ public final class ScryfallClient {
 
     /** Returns null for a 404, which is an answer ("no such card"), not a failure. */
     private JsonObject getJson(String path) throws IOException {
-        return parse(send(() -> transport.get(baseUrl + path, headers), "GET " + path));
+        return parse(fetcher.get(baseUrl + path, headers, "GET " + path));
     }
 
     private JsonObject postJson(String path, String body) throws IOException {
-        return parse(send(() -> transport.post(baseUrl + path, body, headers), "POST " + path));
+        return parse(fetcher.post(baseUrl + path, body, headers, "POST " + path));
     }
 
-    private HttpTransport.HttpReply send(Request request, String description) throws IOException {
-        IOException lastFailure = null;
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                rateLimiter.acquire();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new ScryfallException("Interrupted before " + description, e);
-            }
-
-            HttpTransport.HttpReply reply;
-            try {
-                reply = request.send();
-            } catch (IOException e) {
-                lastFailure = new ScryfallException(description + " failed", e);
-                backoff(attempt, description);
-                continue;
-            }
-
-            if (reply.isSuccess() || reply.status() == 404) {
-                return reply;
-            }
-            if (!reply.isRetryable()) {
-                throw new ScryfallException(description + " returned HTTP " + reply.status(), reply.status());
-            }
-            lastFailure = new ScryfallException(description + " returned HTTP " + reply.status(), reply.status());
-            backoff(attempt, description);
-        }
-        throw lastFailure != null
-                ? lastFailure
-                : new ScryfallException(description + " failed after " + maxAttempts + " attempts", -1);
-    }
-
-    private void backoff(int attempt, String description) throws ScryfallException {
-        if (attempt >= maxAttempts) {
-            return;
-        }
-        try {
-            sleeper.sleep(RETRY_BACKOFF_MILLIS * attempt);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ScryfallException("Interrupted while backing off before retrying " + description, e);
-        }
-    }
-
-    private static JsonObject parse(HttpTransport.HttpReply reply) throws ScryfallException {
+    private static JsonObject parse(HttpTransport.HttpReply reply) throws FetchException {
         if (reply.status() == 404) {
             return null;
         }
@@ -241,7 +193,7 @@ public final class ScryfallClient {
             JsonElement element = JsonParser.parseString(reply.body());
             return element.isJsonObject() ? element.getAsJsonObject() : null;
         } catch (RuntimeException e) {
-            throw new ScryfallException("Scryfall returned a body that is not JSON", e);
+            throw new FetchException("Scryfall returned a body that is not JSON", e);
         }
     }
 
@@ -251,10 +203,5 @@ public final class ScryfallClient {
 
     private static String stripTrailingSlash(String url) {
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
-    }
-
-    @FunctionalInterface
-    private interface Request {
-        HttpTransport.HttpReply send() throws IOException;
     }
 }

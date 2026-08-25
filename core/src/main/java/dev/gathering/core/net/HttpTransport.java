@@ -1,4 +1,4 @@
-package dev.gathering.core.scryfall;
+package dev.gathering.core.net;
 
 import java.io.IOException;
 import java.util.Map;
