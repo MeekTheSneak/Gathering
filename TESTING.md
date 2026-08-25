@@ -296,9 +296,10 @@ In rough order of how much it would change what I build next:
 - **A chest does not decide which set.** It decides which kind of booster: a collector booster
   is much likelier out of an end city than out of a village. Tying a set to a structure is an
   idea and not built.
-- **Nothing puts a deck back into a collection.** Cards go into a collection block one at a
-  time and come out one at a time; sleeving a whole deck out of one, and dissolving a deck
-  back into it, is the next thing here.
+- **A decklist cannot be sleeved out of a collection in one go.** Cards go in one at a time
+  and come out one at a time — into the deck in your hand, if you are holding one — and a
+  whole deck poured back in is one gesture. Handing a collection a list and getting the deck
+  it can build is not there.
 - **No trading.** Cards move between players by dropping them.
 - **No way to name a deck after the fact.** Import names one; a deck started from two cards
   cannot be renamed yet.
