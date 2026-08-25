@@ -43,6 +43,18 @@ final class GatheringRegistration {
     private static final DeferredRegister<net.minecraft.sounds.SoundEvent> SOUNDS =
             DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, Gathering.MOD_ID);
 
+    private static final DeferredRegister<net.minecraft.world.level.storage.loot.entries.LootPoolEntryType>
+            LOOT_ENTRIES = DeferredRegister.create(
+                    BuiltInRegistries.LOOT_POOL_ENTRY_TYPE, Gathering.MOD_ID);
+
+    // The global loot modifier is what actually puts a pack in a chest on NeoForge; the
+    // entry type beside it exists so a data pack can do the same by hand. See GatheringLoot.
+    private static final DeferredRegister<com.mojang.serialization.MapCodec<
+            ? extends net.neoforged.neoforge.common.loot.IGlobalLootModifier>> LOOT_MODIFIERS =
+            DeferredRegister.create(
+                    net.neoforged.neoforge.registries.NeoForgeRegistries.Keys.GLOBAL_LOOT_MODIFIER_SERIALIZERS,
+                    Gathering.MOD_ID);
+
     private static final Supplier<Item> CARD =
             ITEMS.register(GatheringContent.CARD_ID, GatheringContent::createCard);
     private static final Supplier<Item> DECK =
@@ -73,6 +85,17 @@ final class GatheringRegistration {
     private static final Supplier<DataComponentType<dev.gathering.item.PackComponent>> PACK_COMPONENT =
             DATA_COMPONENTS.register(GatheringComponents.PACK_ID, GatheringComponents::createPackType);
 
+    private static final Supplier<net.minecraft.world.level.storage.loot.entries.LootPoolEntryType>
+            SEALED_PRODUCT_ENTRY = LOOT_ENTRIES.register(
+                    dev.gathering.registry.GatheringLoot.SEALED_PRODUCT_ID,
+                    dev.gathering.registry.GatheringLoot::createSealedProductType);
+
+    private static final Supplier<com.mojang.serialization.MapCodec<
+            ? extends net.neoforged.neoforge.common.loot.IGlobalLootModifier>> SEALED_PRODUCT_MODIFIER =
+            LOOT_MODIFIERS.register(
+                    dev.gathering.registry.GatheringLoot.SEALED_PRODUCT_ID,
+                    () -> dev.gathering.neoforge.loot.PackLootModifier.CODEC);
+
     private static final Supplier<CreativeModeTab> TAB = CREATIVE_TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup." + Gathering.MOD_ID + ".main"))
             .icon(() -> new ItemStack(DECK.get()))
@@ -94,6 +117,8 @@ final class GatheringRegistration {
         BLOCK_ENTITIES.register(modBus);
         ITEMS.register(modBus);
         DATA_COMPONENTS.register(modBus);
+        LOOT_ENTRIES.register(modBus);
+        LOOT_MODIFIERS.register(modBus);
         CREATIVE_TABS.register(modBus);
 
         // One list, walked, rather than three named registrations - see GatheringSounds.
@@ -115,6 +140,7 @@ final class GatheringRegistration {
         GatheringComponents.DECK.bind(DECK_COMPONENT);
         GatheringComponents.POOL.bind(POOL_COMPONENT);
         GatheringComponents.PACK.bind(PACK_COMPONENT);
+        dev.gathering.registry.GatheringLoot.SEALED_PRODUCT.bind(SEALED_PRODUCT_ENTRY);
     }
 
     static Supplier<CreativeModeTab> creativeTab() {

@@ -1,5 +1,6 @@
 package dev.gathering.core.config;
 
+import dev.gathering.core.sealed.LootSource;
 import dev.gathering.core.table.TableCluster;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -76,7 +77,6 @@ public record GatheringConfig(
      * <p>Entries come off this list as the feature behind them lands.
      */
     private static final java.util.Map<String, String> NOT_BUILT_YET = java.util.Map.ofEntries(
-            java.util.Map.entry("collection.pack_loot_sources", "sealed product in loot"),
             java.util.Map.entry("collection.sealed_store_enabled", "the shop"),
             java.util.Map.entry("collection.sealed_price_item", "the shop"),
             java.util.Map.entry("collection.current_set", "the shop's pinned shelf"),
@@ -89,6 +89,18 @@ public record GatheringConfig(
             java.util.Map.entry("ante.cards_per_player", "playing for keeps"),
             java.util.Map.entry("ante.exclusions", "playing for keeps"),
             java.util.Map.entry("ante.allow_per_table_opt_out", "playing for keeps"));
+
+    /**
+     * Where sealed product turns up on a server that has not said otherwise.
+     *
+     * <p>Every source there is, because a server that switched collecting on wants the
+     * feature. Turning one off is a decision worth making deliberately; having one silently
+     * absent from the file you were given is not.
+     */
+    private static final List<String> DEFAULT_LOOT_SOURCES = List.of(
+            LootSource.FISHING.configName(),
+            LootSource.STRUCTURES.configName(),
+            LootSource.DIGGING.configName());
 
     /** Every setting name this understands, so a typo in the file can be spotted. */
     public static Set<String> knownKeys() {
@@ -133,10 +145,7 @@ public record GatheringConfig(
                 List.copyOf(toml.strings("import.formats", List.of("commander"))));
 
         Collecting collecting = new Collecting(
-                noted("collection.pack_loot_sources",
-                        List.copyOf(toml.strings("collection.pack_loot_sources",
-                                List.of("fishing", "structures", "trading"))),
-                        List.of("fishing", "structures", "trading"), notes),
+                lootSources(toml.strings("collection.pack_loot_sources", DEFAULT_LOOT_SOURCES), notes),
                 noted("collection.sealed_store_enabled",
                         toml.flag("collection.sealed_store_enabled", true), true, notes),
                 noted("collection.sealed_price_item",
@@ -204,6 +213,28 @@ public record GatheringConfig(
      * because the file this mod writes mentions every setting - so "is it in the file" would
      * mean a fresh server reporting a dozen things it has not been asked to do.
      */
+    /**
+     * The loot sources a file asked for, keeping only ones that are a place in the world.
+     *
+     * <p>A name nobody knows is dropped and said out loud. Silently keeping it would be a
+     * server owner who believes packs come out of somewhere they never come out of, and this
+     * is exactly the list a typo is easiest to make in.
+     */
+    private static List<String> lootSources(List<String> asked, List<String> notes) {
+        List<String> kept = new ArrayList<>();
+        for (String named : asked) {
+            LootSource source = LootSource.named(named).orElse(null);
+            if (source == null) {
+                notes.add("collection.pack_loot_sources lists '" + named
+                        + "', which is not somewhere packs can be found. Packs turn up in "
+                        + String.join(", ", DEFAULT_LOOT_SOURCES) + ".");
+            } else if (!kept.contains(source.configName())) {
+                kept.add(source.configName());
+            }
+        }
+        return List.copyOf(kept);
+    }
+
     private static <T> T noted(String path, T value, T fallback, List<String> notes) {
         String missing = NOT_BUILT_YET.get(path);
         if (missing != null && !java.util.Objects.equals(value, fallback)) {
@@ -258,7 +289,7 @@ public record GatheringConfig(
                 # them says so in the log rather than doing nothing quietly.
                 #
                 # Where sealed product turns up. Needs collection_enabled.
-                pack_loot_sources = ["fishing", "structures", "trading"]
+                pack_loot_sources = ["fishing", "structures", "archaeology"]
                 # Shops sell sealed product only, never single cards, at flat prices you set.
                 sealed_store_enabled = true
                 sealed_price_item = "minecraft:diamond"

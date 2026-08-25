@@ -2,6 +2,7 @@ package dev.gathering.core.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.gathering.core.sealed.LootSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -132,11 +133,38 @@ class GatheringConfigTest {
     void listsKeepTheirOrder() throws Exception {
         GatheringConfig config = read("""
                 [collection]
-                pack_loot_sources = ["trading", "fishing"]
+                pack_loot_sources = ["archaeology", "fishing"]
                 """);
-        assertThat(config.collecting().packLootSources()).containsExactly("trading", "fishing");
+        assertThat(config.collecting().packLootSources())
+                .containsExactly("archaeology", "fishing");
         assertThat(config.importing().formats()).containsExactly("commander");
         assertThat(config.ante().exclusions()).containsExactly("basic lands");
+    }
+
+    @Test
+    @DisplayName("a loot source nobody has is dropped and said out loud")
+    void anUnknownLootSourceIsReported() throws Exception {
+        // The one list a typo is easiest to make in, and the one where a typo kept quietly
+        // means a server owner believing packs come out of somewhere they never do.
+        GatheringConfig config = read("""
+                [collection]
+                pack_loot_sources = ["fishing", "trading", "structrues"]
+                """);
+        assertThat(config.collecting().packLootSources()).containsExactly("fishing");
+        assertThat(config.notes()).anyMatch(note -> note.contains("trading"));
+        assertThat(config.notes()).anyMatch(note -> note.contains("structrues"));
+    }
+
+    @Test
+    @DisplayName("every source the default file names is a place packs really come from")
+    void theDefaultSourcesAreAllReal() {
+        // The default is written into the file a server is handed, so a name here that
+        // nothing resolves is a note in every fresh server's log for a setting nobody typed.
+        GatheringConfig defaults = GatheringConfig.defaults();
+        assertThat(defaults.collecting().packLootSources())
+                .isNotEmpty()
+                .allMatch(named -> LootSource.named(named).isPresent());
+        assertThat(defaults.notes()).isEmpty();
     }
 
     @Test

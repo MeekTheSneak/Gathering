@@ -81,6 +81,11 @@ final class GatheringRegistration {
                 Gathering.id(GatheringComponents.PACK_ID),
                 GatheringComponents.createPackType()));
 
+        dev.gathering.registry.GatheringLoot.SEALED_PRODUCT.bindValue(Registry.register(
+                BuiltInRegistries.LOOT_POOL_ENTRY_TYPE,
+                Gathering.id(dev.gathering.registry.GatheringLoot.SEALED_PRODUCT_ID),
+                dev.gathering.registry.GatheringLoot.createSealedProductType()));
+
         Registry.register(
                 BuiltInRegistries.CREATIVE_MODE_TAB,
                 Gathering.id("main"),

@@ -26,5 +26,8 @@ public final class GatheringDataGenerators {
         generator.addProvider(
                 event.includeClient(),
                 new GatheringItemModels(generator.getPackOutput(), event.getExistingFileHelper()));
+        generator.addProvider(
+                event.includeServer(),
+                new GatheringLootModifiers(generator.getPackOutput(), event.getLookupProvider()));
     }
 }
