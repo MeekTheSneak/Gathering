@@ -49,6 +49,7 @@ public record GatheringConfig(
             int lootRecentSets,
             boolean sealedStoreEnabled,
             String sealedPriceItem,
+            int sealedPriceBooster,
             String currentSet,
             int stallRotationHours,
             int stallRotatingSlots,
@@ -81,6 +82,7 @@ public record GatheringConfig(
     private static final java.util.Map<String, String> NOT_BUILT_YET = java.util.Map.ofEntries(
             java.util.Map.entry("collection.sealed_store_enabled", "the shop"),
             java.util.Map.entry("collection.sealed_price_item", "the shop"),
+            java.util.Map.entry("collection.sealed_price_booster", "the shop"),
             java.util.Map.entry("collection.stall_rotation_hours", "the rotating shelf"),
             java.util.Map.entry("collection.stall_rotating_slots", "the rotating shelf"),
             java.util.Map.entry("table.max_tables_loaded", "a limit on tables kept loaded"),
@@ -130,6 +132,7 @@ public record GatheringConfig(
                 "collection.loot_recent_sets",
                 "collection.sealed_store_enabled",
                 "collection.sealed_price_item",
+                "collection.sealed_price_booster",
                 "collection.current_set",
                 "collection.stall_rotation_hours",
                 "collection.stall_rotating_slots",
@@ -173,6 +176,9 @@ public record GatheringConfig(
                 noted("collection.sealed_price_item",
                         toml.string("collection.sealed_price_item", "minecraft:diamond"),
                         "minecraft:diamond", notes),
+                noted("collection.sealed_price_booster",
+                        clamped(toml.number("collection.sealed_price_booster", 2), 1, 512,
+                                "collection.sealed_price_booster", notes), 2, notes),
                 noted("collection.current_set",
                         toml.string("collection.current_set", "auto").trim().toLowerCase(Locale.ROOT),
                         "auto", notes),
@@ -362,6 +368,10 @@ public record GatheringConfig(
                 # Shops sell sealed product only, never single cards, at flat prices you set.
                 sealed_store_enabled = true
                 sealed_price_item = "minecraft:diamond"
+                # What one booster costs, in that item. Everything else follows from what is
+                # inside it: a box of thirty costs thirty, a Commander deck costs what its
+                # hundred cards would. No real-world price is used anywhere, ever.
+                sealed_price_booster = 2
                 # Which set is found and sold. "auto" asks Scryfall for the newest release, so
                 # a server left alone stays current; name a set code to stay where you are.
                 current_set = "auto"

@@ -152,6 +152,44 @@ class MtgjsonRealSetTest {
         assertThat(checked).as("no set file held a booster anybody sells").isGreaterThan(0);
     }
 
+    @Test
+    @DisplayName("every real product this would sell comes out at a price somebody would pay")
+    void everyRealProductIsPricedSensibly() throws Exception {
+        List<Path> files = setFiles();
+        Assumptions.assumeTrue(!files.isEmpty(),
+                "set GATHERING_MTGJSON_DIR to a directory of MTGJSON set files to run this");
+
+        int priced = 0;
+        for (Path file : files) {
+            JsonObject json = read(file);
+            var products = dev.gathering.core.sealed.MtgjsonProducts.read(
+                    json, MtgjsonCollation.printings(json));
+            dev.gathering.core.sealed.SealedPrice.Catalogue catalogue = products::byId;
+            for (var product : products.products()) {
+                if (!dev.gathering.core.sealed.SealedPrice.isSellable(product)) {
+                    continue;
+                }
+                int worth = dev.gathering.core.sealed.SealedPrice.inBoosters(product, catalogue);
+                System.out.println("    " + worth + " boosters - " + product.name());
+                assertThat(worth)
+                        .as(product.name() + " is worth " + worth + " boosters")
+                        .isBetween(1, 5000);
+                if (product.isOneBooster()) {
+                    assertThat(worth).as(product.name() + " is one booster").isEqualTo(1);
+                }
+                if (product.holdsOtherProducts()) {
+                    assertThat(worth)
+                            .as(product.name() + " holds " + product.piecesHeld()
+                                    + " things and costs " + worth)
+                            .isGreaterThanOrEqualTo(product.piecesHeld());
+                }
+                priced++;
+            }
+        }
+        System.out.println(priced + " real products priced");
+        assertThat(priced).as("no set file held anything a shop would sell").isGreaterThan(0);
+    }
+
     /** Every arrangement a file publishes, before any of them is dropped for want of a set. */
     private static java.util.Set<String> publishedKinds(JsonObject file) {
         JsonObject data = file.getAsJsonObject("data");

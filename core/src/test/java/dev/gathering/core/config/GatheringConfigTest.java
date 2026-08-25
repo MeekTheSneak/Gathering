@@ -223,6 +223,20 @@ class GatheringConfigTest {
     }
 
     @Test
+    @DisplayName("what a booster costs is one number, and it is never nothing")
+    void theBoosterPriceIsBounded() {
+        assertThat(readOrThrow("""
+                [collection]
+                sealed_price_booster = 5
+                """).collecting().sealedPriceBooster()).isEqualTo(5);
+        assertThat(readOrThrow("""
+                [collection]
+                sealed_price_booster = 0
+                """).collecting().sealedPriceBooster()).isGreaterThanOrEqualTo(1);
+        assertThat(GatheringConfig.defaults().collecting().sealedPriceBooster()).isPositive();
+    }
+
+    @Test
     @DisplayName("every source the default file names is a place packs really come from")
     void theDefaultSourcesAreAllReal() {
         // The default is written into the file a server is handed, so a name here that
