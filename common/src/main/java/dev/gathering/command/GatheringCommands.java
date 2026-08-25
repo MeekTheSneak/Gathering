@@ -5,6 +5,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.gathering.network.OpenImportScreenPayload;
 import dev.gathering.server.CardGrant;
 import dev.gathering.server.DecklistImport;
+import dev.gathering.server.PackCoverage;
 import dev.gathering.server.PackOpening;
 import dev.gathering.service.CardDataService;
 import net.minecraft.commands.CommandSourceStack;
@@ -61,6 +62,15 @@ public final class GatheringCommands {
                                                 context.getSource(),
                                                 StringArgumentType.getString(context, "set"),
                                                 StringArgumentType.getString(context, "kind"))))))
+                // Whether a set's own packs can produce all of it. Answered whether or not
+                // collecting is turned on, because "would this set be complete if I enabled
+                // it" is the question you ask before enabling it.
+                .then(Commands.literal("coverage")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("set", StringArgumentType.word())
+                                .executes(context -> auditSet(
+                                        context.getSource(),
+                                        StringArgumentType.getString(context, "set")))))
                 // Ending a game is a command rather than a click, because it cannot be undone
                 // and a table is a thing people lean on.
                 .then(Commands.literal("table")
@@ -114,6 +124,12 @@ public final class GatheringCommands {
     private static int openPack(CommandSourceStack source, String set, String kind)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         PackOpening.openFor(source.getPlayerOrException(), set, kind);
+        return 1;
+    }
+
+    private static int auditSet(CommandSourceStack source, String set)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        PackCoverage.report(source.getPlayerOrException(), set);
         return 1;
     }
 

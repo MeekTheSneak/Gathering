@@ -152,18 +152,7 @@ public final class PackOpening {
                 return java.util.concurrent.CompletableFuture.completedFuture(
                         new Opened(null, null, List.of()));
             }
-            Map<Rarity, List<UUID>> pool = new LinkedHashMap<>();
-            for (CardMetadata card : inTheSet) {
-                // Nothing that was never in a booster: a set's oversized cards, its digital
-                // printings and its promos are in the set and were never on a print sheet.
-                if (card.digitalOnly() || card.oversized() || card.scryfallId() == null) {
-                    continue;
-                }
-                pool.computeIfAbsent(card.rarity(), rarity -> new ArrayList<>())
-                        .add(card.scryfallId());
-            }
-            BoosterConfig config = BoosterFallback.configFor(
-                    set, PLAIN_ODDS_KIND, pool, RaritySlots.usual());
+            BoosterConfig config = plainOddsFor(set, inTheSet);
             if (!config.isUsable()) {
                 return java.util.concurrent.CompletableFuture.completedFuture(
                         new Opened(null, null, List.of()));
@@ -175,6 +164,42 @@ public final class PackOpening {
             }
             return cards.findAll(printings).thenApply(found -> new Opened(null, pack, found));
         });
+    }
+
+    /**
+     * A pack built from what is in a set and the plain slot odds.
+     *
+     * <p>Public and separate because two things want it and they must not each grow their own
+     * copy of what counts as a card that was ever in a booster: the opening, and the audit
+     * that reports which of a set's cards no pack of it reaches. Those two disagreeing would
+     * be an audit about a different pack from the one players open.
+     */
+    public static BoosterConfig plainOddsFor(String set, List<CardMetadata> inTheSet) {
+        Map<Rarity, List<UUID>> pool = new LinkedHashMap<>();
+        for (CardMetadata card : inTheSet) {
+            if (!wasEverInABooster(card)) {
+                continue;
+            }
+            pool.computeIfAbsent(card.rarity(), rarity -> new ArrayList<>())
+                    .add(card.scryfallId());
+        }
+        return BoosterFallback.configFor(set, PLAIN_ODDS_KIND, pool, RaritySlots.usual());
+    }
+
+    /**
+     * Whether a printing is one a pack could ever have contained.
+     *
+     * <p>A set's oversized cards and its digital-only printings are in the set and were never
+     * on a print sheet, so neither a fallback pack nor an audit of one should count them.
+     *
+     * <p>Nor are basic lands, which the rest of the mod already treats as free: a deck may
+     * take as many as it likes without owning any. Counting them would put a basic in every
+     * fallback pack, and would report a set as incomplete over five cards nobody has ever
+     * needed to open a pack to get.
+     */
+    public static boolean wasEverInABooster(CardMetadata card) {
+        return card != null && card.scryfallId() != null
+                && !card.digitalOnly() && !card.oversized() && !card.isBasicLand();
     }
 
     /**
