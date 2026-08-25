@@ -94,6 +94,7 @@ public final class GatheringNeoForge {
         dev.gathering.server.SealedLoot.clear();
         dev.gathering.server.CardShop.clear();
         dev.gathering.server.CurrentSet.clear();
+        dev.gathering.server.TradeSessions.clear();
         if (cardData != null) {
             cardData.close();
             cardData = null;

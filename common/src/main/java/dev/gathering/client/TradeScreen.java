@@ -39,8 +39,9 @@ import net.minecraft.world.item.ItemStack;
 public final class TradeScreen extends Screen implements CardPreviewHost {
 
     private static final int MARGIN = 16;
+    private static final int PADDING = 8;
     private static final int ROW_HEIGHT = 14;
-    private static final int HEADER = 44;
+    private static final int GAP = 6;
     private static final int BUTTON_HEIGHT = 20;
 
     private static final int TEXT = 0xFFE8E4DC;
@@ -51,8 +52,9 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
 
     private TradeViewPayload view;
     private Button agreeButton;
+    private Button takeBackButton;
 
-    /** My carried cards, worked out each frame from the inventory the client already has. */
+    /** My carried cards, worked out from the inventory the client already has. */
     private final List<Row> mine = new ArrayList<>();
 
     /** One of my cards: what it is, how many I carry, how many are on the table. */
@@ -83,19 +85,49 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
     private void update(TradeViewPayload next) {
         this.view = next;
         updateButtons();
+        rebuildMine();
+    }
+
+    /**
+     * Twenty times a second, not once a frame.
+     *
+     * <p>The row list is read out of the inventory, and the inventory changes when the server
+     * says so - which is a tick at best. Rebuilding it in {@link #render} walked thirty-seven
+     * stacks and built two maps on every frame drawn, which on a screen that is mostly sitting
+     * still waiting for somebody else to click is all of it wasted.
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        rebuildMine();
     }
 
     @Override
     protected void init() {
-        int buttonWidth = Math.min(120, (this.width - MARGIN * 3) / 2);
-        int buttonTop = this.height - MARGIN - BUTTON_HEIGHT;
-        this.agreeButton = GatheringButtons.of(MARGIN, buttonTop, buttonWidth, BUTTON_HEIGHT,
-                Component.empty(), this::flipAgreement);
+        int buttonTop = buttonTop();
+        int inner = panelWidth() - PADDING * 2;
+        // Three across the bottom, each a third of the room. Narrowed together rather than
+        // stacked, so the row reads left to right in the order it is used: say yes, undo,
+        // walk out.
+        int buttonWidth = Math.max(40, Math.min(120, (inner - GAP * 2) / 3));
+        this.agreeButton = GatheringButtons.of(columnLeft(), buttonTop, buttonWidth,
+                BUTTON_HEIGHT, Component.empty(), this::flipAgreement);
         addRenderableWidget(this.agreeButton);
+
+        // Taking an offer back down was one right-click per card, which for a pile of ten is
+        // ten clicks to undo one decision. Sends the CLEAR the protocol always had.
+        this.takeBackButton = GatheringButtons.of(
+                columnLeft() + buttonWidth + GAP, buttonTop, buttonWidth, BUTTON_HEIGHT,
+                Component.translatable("screen.gathering.trade.take_it_back"),
+                () -> ClientNetworking.send(
+                        TradeActionPayload.of(TradeActionPayload.Action.CLEAR)));
+        addRenderableWidget(this.takeBackButton);
+
         addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - buttonWidth, buttonTop, buttonWidth, BUTTON_HEIGHT,
+                columnLeft() + inner - buttonWidth, buttonTop, buttonWidth, BUTTON_HEIGHT,
                 Component.translatable("screen.gathering.trade.walk_away"), this::onClose));
         updateButtons();
+        rebuildMine();
     }
 
     private void updateButtons() {
@@ -103,6 +135,11 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
             this.agreeButton.setMessage(Component.translatable(view.iAgreed()
                     ? "screen.gathering.trade.think_again"
                     : "screen.gathering.trade.agree"));
+        }
+        if (this.takeBackButton != null) {
+            // Nothing to take back is not a button worth pressing, and one that does nothing
+            // when pressed is worse than one that is visibly not for now.
+            this.takeBackButton.active = !view.mine().isEmpty();
         }
     }
 
@@ -118,51 +155,133 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
         super.onClose();
     }
 
+    // ------------------------------------------------------------------ layout
+
+    private int panelLeft() {
+        return MARGIN;
+    }
+
+    private int panelWidth() {
+        return this.width - MARGIN * 2;
+    }
+
+    private int columnLeft() {
+        return panelLeft() + PADDING;
+    }
+
+    private int columnWidth() {
+        return (panelWidth() - PADDING * 2 - GAP) / 2;
+    }
+
+    private int theirColumnLeft() {
+        return columnLeft() + columnWidth() + GAP;
+    }
+
+    private int titleTop() {
+        return MARGIN + PADDING;
+    }
+
+    private int hintTop() {
+        return titleTop() + this.font.lineHeight + 2;
+    }
+
+    private int headingTop() {
+        return hintTop() + this.font.lineHeight + GAP;
+    }
+
+    private int lightTop() {
+        return headingTop() + this.font.lineHeight + 1;
+    }
+
+    /** Where the first card row is drawn, under both headings. */
+    private int rowsTop() {
+        return lightTop() + this.font.lineHeight + GAP;
+    }
+
+    private int buttonTop() {
+        return this.height - MARGIN - PADDING - BUTTON_HEIGHT;
+    }
+
+    /**
+     * The panel goes here, not in {@link #render}.
+     *
+     * <p>{@code Screen#render} calls this itself and applies a full-screen blur, so anything
+     * drawn before {@code super.render} is blurred with the world behind it. Without a panel
+     * at all - which is how this screen shipped - the two columns were white text over a
+     * blurred sky, and which side a name was on took a moment to work out.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.panel(graphics, panelLeft(), MARGIN, panelWidth(), this.height - MARGIN * 2);
+
+        // One recess per side, so the table has two halves you can see the edge of rather
+        // than two lists that happen to start at different x.
+        int top = headingTop() - 3;
+        int bottom = buttonTop() - GAP;
+        GatheringSprites.inset(graphics, columnLeft() - 3, top, columnWidth() + 6, bottom - top);
+        GatheringSprites.inset(graphics, theirColumnLeft() - 3, top, columnWidth() + 6, bottom - top);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        rebuildMine();
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        graphics.drawString(this.font, getTitle(), MARGIN, MARGIN, TEXT, false);
-        int column = (this.width - MARGIN * 3) / 2;
+        int left = columnLeft();
+        int right = theirColumnLeft();
+        int column = columnWidth();
 
-        drawLight(graphics, MARGIN, MARGIN + 14, view.iAgreed(),
-                "screen.gathering.trade.you_agreed", "screen.gathering.trade.you_have_not");
-        drawLight(graphics, MARGIN * 2 + column, MARGIN + 14, view.theyAgreed(),
-                "screen.gathering.trade.they_agreed", "screen.gathering.trade.they_have_not");
+        graphics.drawString(this.font, getTitle(), left, titleTop(), TEXT, false);
+        // The instruction, once, across the whole panel. It was the column heading, which put
+        // a sentence into a space one card name wide and drew it over the first row.
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.trade.how"),
+                left, hintTop(), panelWidth() - PADDING * 2, DIM);
 
         graphics.drawString(this.font,
                 Component.translatable("screen.gathering.trade.yours"),
-                MARGIN, MARGIN + 30, DIM, false);
-        graphics.drawString(this.font,
+                left, headingTop(), TEXT, false);
+        GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.trade.theirs", view.other()),
-                MARGIN * 2 + column, MARGIN + 30, DIM, false);
+                right, headingTop(), column, TEXT);
 
-        drawMine(graphics, MARGIN, HEADER, column, mouseX, mouseY);
-        drawTheirs(graphics, MARGIN * 2 + column, HEADER, column);
+        drawLight(graphics, left, lightTop(), column, view.iAgreed(),
+                "screen.gathering.trade.you_agreed", "screen.gathering.trade.you_have_not");
+        drawLight(graphics, right, lightTop(), column, view.theyAgreed(),
+                "screen.gathering.trade.they_agreed", "screen.gathering.trade.they_have_not");
+
+        drawMine(graphics, left, rowsTop(), column, mouseX, mouseY);
+        drawTheirs(graphics, right, rowsTop(), column);
     }
 
-    private void drawLight(GuiGraphics graphics, int x, int y, boolean agreed,
+    private void drawLight(GuiGraphics graphics, int x, int y, int width, boolean agreed,
             String yes, String no) {
-        graphics.drawString(this.font, Component.translatable(agreed ? yes : no), x, y,
-                agreed ? UP : WAITING, false);
+        GuiText.draw(graphics, this.font, Component.translatable(agreed ? yes : no), x, y, width,
+                agreed ? UP : WAITING);
     }
 
     private void drawMine(GuiGraphics graphics, int x, int top, int width,
             int mouseX, int mouseY) {
         ItemStack hovered = ItemStack.EMPTY;
+        if (mine.isEmpty()) {
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("screen.gathering.trade.nothing_carried"),
+                    x, top + 3, width, DIM);
+        }
         for (int index = 0; index < mine.size() && index < rowsThatFit(); index++) {
             Row row = mine.get(index);
             int y = top + index * ROW_HEIGHT;
+            String count = row.up() + "/" + row.carried();
+            int countWidth = this.font.width(count);
             if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + ROW_HEIGHT) {
                 graphics.fill(x - 2, y, x + width, y + ROW_HEIGHT, ROW_HOVER);
                 hovered = CardItem.of(row.card());
             }
-            graphics.drawString(this.font, nameOf(row.card()), x, y + 3,
-                    row.up() > 0 ? TEXT : DIM, false);
-            String count = row.up() + "/" + row.carried();
-            graphics.drawString(this.font, count,
-                    x + width - this.font.width(count), y + 3,
+            // Trimmed to what is left after the count. A long name used to be drawn straight
+            // through it, and the number - which is the thing being changed by clicking - was
+            // the half that lost.
+            GuiText.draw(graphics, this.font, nameOf(row.card()), x, y + 3,
+                    width - countWidth - GAP, row.up() > 0 ? TEXT : DIM);
+            graphics.drawString(this.font, count, x + width - countWidth, y + 3,
                     row.up() > 0 ? UP : DIM, false);
         }
         ClientHoverState.setHovered(hovered);
@@ -170,26 +289,27 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
 
     private void drawTheirs(GuiGraphics graphics, int x, int top, int width) {
         if (view.theirs().isEmpty()) {
-            graphics.drawString(this.font,
+            GuiText.draw(graphics, this.font,
                     Component.translatable("screen.gathering.trade.nothing_yet"),
-                    x, top + 3, DIM, false);
+                    x, top + 3, width, DIM);
             return;
         }
         for (int index = 0; index < view.theirs().size() && index < rowsThatFit(); index++) {
             TradeViewPayload.Pile pile = view.theirs().get(index);
             int y = top + index * ROW_HEIGHT;
-            graphics.drawString(this.font, nameOf(pile.card()), x, y + 3, TEXT, false);
             String count = String.valueOf(pile.count());
-            graphics.drawString(this.font, count,
-                    x + width - this.font.width(count), y + 3, UP, false);
+            int countWidth = this.font.width(count);
+            GuiText.draw(graphics, this.font, nameOf(pile.card()), x, y + 3,
+                    width - countWidth - GAP, TEXT);
+            graphics.drawString(this.font, count, x + width - countWidth, y + 3, UP, false);
         }
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int column = (this.width - MARGIN * 3) / 2;
-        int index = (int) ((mouseY - HEADER) / ROW_HEIGHT);
-        if (mouseX >= MARGIN && mouseX < MARGIN + column
+        int column = columnWidth();
+        int index = (int) ((mouseY - rowsTop()) / ROW_HEIGHT);
+        if (mouseX >= columnLeft() && mouseX < columnLeft() + column
                 && index >= 0 && index < mine.size() && index < rowsThatFit()) {
             Row row = mine.get(index);
             // Left puts one up, right takes one back down. The same two buttons the deck
@@ -218,7 +338,11 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
             return;
         }
         Map<CardComponent, Integer> carried = new LinkedHashMap<>();
-        for (ItemStack stack : this.minecraft.player.getInventory().items) {
+        // The off hand too, and for the same reason the server counts it: a card held out
+        // towards somebody must not be the one card the trade cannot see.
+        List<ItemStack> holding = new ArrayList<>(this.minecraft.player.getInventory().items);
+        holding.addAll(this.minecraft.player.getInventory().offhand);
+        for (ItemStack stack : holding) {
             CardItem.cardOf(stack)
                     .map(CardComponent::faceUp)
                     .ifPresent(card -> carried.merge(card, stack.getCount(), Integer::sum));
@@ -238,8 +362,18 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
                 .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
     }
 
+    /** How many of my rows are drawn. For the scene that photographs this screen. */
+    int listedMine() {
+        return Math.min(mine.size(), rowsThatFit());
+    }
+
+    /** How many of their piles are drawn. */
+    int listedTheirs() {
+        return Math.min(view.theirs().size(), rowsThatFit());
+    }
+
     private int rowsThatFit() {
-        return Math.max(1, (this.height - HEADER - MARGIN * 2 - BUTTON_HEIGHT) / ROW_HEIGHT);
+        return Math.max(1, (buttonTop() - GAP - rowsTop()) / ROW_HEIGHT);
     }
 
     @Override

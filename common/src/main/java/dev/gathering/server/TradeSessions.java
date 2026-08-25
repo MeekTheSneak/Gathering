@@ -82,6 +82,10 @@ public final class TradeSessions {
         if (!near(asking, other)) {
             return false;
         }
+        // Anybody who logged out mid-trade, forgotten here rather than through a disconnect
+        // hook in each loader. Without it their own table outlives them and they come back to
+        // a server that says they are already trading, for ever.
+        TABLES.keySet().removeIf(who -> asking.server.getPlayerList().getPlayer(who) == null);
         if (TABLES.containsKey(asking.getUUID()) || TABLES.containsKey(other.getUUID())) {
             say(asking, "message.gathering.trade_busy");
             return false;
@@ -207,7 +211,7 @@ public final class TradeSessions {
     /** Every card item this person is carrying, counted by what it is. */
     private static CardTally counting(ServerPlayer player) {
         CardTally.Builder tally = CardTally.builder();
-        for (ItemStack stack : player.getInventory().items) {
+        for (ItemStack stack : carrying(player)) {
             CardItem.cardOf(stack)
                     .map(card -> card.faceUp().toIdentity())
                     .ifPresent(card -> tally.add(card, stack.getCount()));
@@ -222,8 +226,7 @@ public final class TradeSessions {
             left.put(card, wanted.of(card));
         }
         List<ItemStack> taken = new ArrayList<>();
-        for (int slot = 0; slot < player.getInventory().items.size(); slot++) {
-            ItemStack stack = player.getInventory().items.get(slot);
+        for (ItemStack stack : carrying(player)) {
             CardIdentity card = CardItem.cardOf(stack)
                     .map(held -> held.faceUp().toIdentity()).orElse(null);
             int still = card == null ? 0 : left.getOrDefault(card, 0);
@@ -237,6 +240,19 @@ public final class TradeSessions {
             taken.add(moved);
         }
         return taken;
+    }
+
+    /**
+     * Every stack this person is carrying that a card could be in.
+     *
+     * <p>The main inventory and the off hand. A card held in the off hand is a card, and a
+     * trade that could not see it would be one where the card you are holding out to somebody
+     * is the one card you cannot put up.
+     */
+    private static List<ItemStack> carrying(ServerPlayer player) {
+        List<ItemStack> stacks = new ArrayList<>(player.getInventory().items);
+        stacks.addAll(player.getInventory().offhand);
+        return stacks;
     }
 
     private static void give(ServerPlayer player, List<ItemStack> stacks) {
@@ -285,9 +301,14 @@ public final class TradeSessions {
         UUID them = table.across(player.getUUID()).orElse(null);
 
         // What is being offered to somebody is a card they are being shown on purpose, so its
-        // name and picture go with it. Without this the other half of the table is a row of
-        // sleeves under a count.
-        CardMetadataRequests.pushKnown(player, table.offerFrom(them).cards());
+        // name and picture go with it - without them the other half of the table is a row of
+        // sleeves under a count, which is not something anybody can agree to.
+        //
+        // Through the same channel the table uses, which remembers what each client has
+        // already been told. A trade redraws on every click by either person, and re-sending
+        // the same printings on all of them would be a lookup per click aimed at somebody
+        // else's Scryfall quota.
+        CardArtPush.send(player, printingsIn(table.offerFrom(them)));
 
         Sending.to(player, new TradeViewPayload(
                 name,
@@ -296,6 +317,15 @@ public final class TradeSessions {
                 table.hasAgreed(player.getUUID()),
                 them != null && table.hasAgreed(them),
                 table.stage() == TradeTable.Stage.CLOSED));
+    }
+
+    /** The printings in an offer, for telling somebody what they are being shown. */
+    private static java.util.Set<UUID> printingsIn(CardTally tally) {
+        java.util.Set<UUID> printings = new java.util.LinkedHashSet<>();
+        for (CardIdentity card : tally.cards()) {
+            card.printing().ifPresent(printings::add);
+        }
+        return printings;
     }
 
     private static List<TradeViewPayload.Pile> piles(CardTally tally) {

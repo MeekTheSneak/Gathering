@@ -1244,7 +1244,143 @@ public final class DevScene {
                 shoot(client, "44-building-from-a-collection");
                 advance(SETTLE / 2);
             }
+            case 109 -> {
+                client.setScreen(null);
+                cardsInHandToTradeWith(client);
+                advance(SETTLE);
+            }
+            case 110 -> {
+                aTradeOnTheScreen(client, false, 2);
+                advance(SETTLE);
+            }
+            case 111 -> {
+                expectScreen(client, "opening a trade", TradeScreen.class);
+                aTradeShowsBothSides(client);
+                shoot(client, "45-a-trade");
+                // The lights are the reason the screen exists, and they are the one thing a
+                // picture of an open trade does not show. Sent as the server would send it.
+                aTradeOnTheScreen(client, true, 2);
+                advance(SETTLE);
+            }
+            case 112 -> {
+                expectScreen(client, "agreeing to a trade", TradeScreen.class);
+                shoot(client, "45a-both-agreed");
+                // Taking a whole offer back down in one press. Reached for rather than
+                // assumed: it is the third button on a row that used to hold two, and a
+                // button drawn under another one is a button nobody can press.
+                press(client, "Take it all back");
+                aTradeOnTheScreen(client, false, 0);
+                advance(SETTLE);
+            }
+            case 113 -> {
+                expectScreen(client, "taking an offer back down", TradeScreen.class);
+                takingItBackIsSpentWhenThereIsNothingUp(client);
+                shoot(client, "45b-nothing-up");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
+        }
+    }
+
+    /**
+     * Cards in the inventory, so the trade screen has something of mine to list.
+     *
+     * <p>Given on the server, which is where an inventory lives: the client copy arrives on
+     * its own, and a card put straight into the client's inventory would be one the server
+     * would take back on the next sync.
+     */
+    private static void cardsInHandToTradeWith(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to hand trade cards out on");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        List<dev.gathering.item.CardComponent> cards = someCards(client, 1);
+        if (cards.isEmpty()) {
+            fail("there were no looked-up cards to trade with");
+            return;
+        }
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player == null) {
+                fail("the player went away before they could be given cards");
+                return;
+            }
+            int each = 3;
+            for (dev.gathering.item.CardComponent card : cards) {
+                ItemStack stack = dev.gathering.item.CardItem.of(card);
+                stack.setCount(each);
+                if (!player.getInventory().add(stack)) {
+                    fail("there was no room for a card to trade with");
+                }
+                each++;
+            }
+            // One in the off hand as well. Both sides used to read the main inventory only,
+            // which made the card you are holding out to somebody the one card you could not
+            // put up - so the scene holds one there on purpose.
+            player.getInventory().offhand.set(0,
+                    dev.gathering.item.CardItem.of(cards.get(0)));
+        });
+    }
+
+    /**
+     * A trade, delivered the way the server delivers one.
+     *
+     * <p>Not opened by walking up to a second player, because there is only one here. What is
+     * being looked at is the screen: the two columns, the counts, and the agreement lights -
+     * all of which are drawn from the payload and from this client's own inventory, which are
+     * exactly the two things a real trade gives it.
+     */
+    private static void aTradeOnTheScreen(Minecraft client, boolean agreed, int mineUp) {
+        List<dev.gathering.item.CardComponent> cards = someCards(client, 1);
+        if (cards.isEmpty()) {
+            fail("there were no looked-up cards to build a trade out of");
+            return;
+        }
+        List<dev.gathering.network.TradeViewPayload.Pile> mine = new java.util.ArrayList<>();
+        if (mineUp > 0) {
+            mine.add(new dev.gathering.network.TradeViewPayload.Pile(cards.get(0), mineUp));
+        }
+        List<dev.gathering.network.TradeViewPayload.Pile> theirs = new java.util.ArrayList<>();
+        for (int index = 0; index < cards.size(); index++) {
+            theirs.add(new dev.gathering.network.TradeViewPayload.Pile(
+                    cards.get(index), index + 1));
+        }
+        TradeScreen.accept(new dev.gathering.network.TradeViewPayload(
+                "Steve", mine, theirs, agreed, agreed, false));
+    }
+
+    /** With nothing of mine up there is nothing to take back, and the button says so. */
+    private static void takingItBackIsSpentWhenThereIsNothingUp(Minecraft client) {
+        if (!(client.screen instanceof TradeScreen trade)) {
+            fail("there was no trade screen to look for the take-back button on");
+            return;
+        }
+        for (net.minecraft.client.gui.components.events.GuiEventListener child
+                : trade.children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget
+                    && widget.getMessage().getString().equals("Take it all back")) {
+                if (widget.active) {
+                    fail("take it all back was still live with nothing on the table");
+                }
+                return;
+            }
+        }
+        fail("there was no take-it-all-back button on the trade screen");
+    }
+
+    /** A trade with cards on both sides shows cards on both sides. */
+    private static void aTradeShowsBothSides(Minecraft client) {
+        if (!(client.screen instanceof TradeScreen trade)) {
+            fail("there was no trade screen to read");
+            return;
+        }
+        if (trade.listedMine() <= 0) {
+            fail("a trade screen listed none of the cards I am carrying");
+        }
+        if (trade.listedTheirs() <= 0) {
+            fail("a trade screen listed none of the cards I am being offered");
         }
     }
 
