@@ -50,12 +50,14 @@ public final class GatheringNeoForge {
             throw new IllegalStateException("Could not open the Gathering card metadata cache", e);
         }
         cardData.warmCache().thenAccept(count -> LOGGER.info("Card metadata cache warmed: {} printings", count));
+        dev.gathering.server.CurrentSet.resolve();
         dev.gathering.server.SealedLoot.warm();
     }
 
     private void onServerStopped(ServerStoppedEvent event) {
         ServerSettings.clear();
         dev.gathering.server.SealedLoot.clear();
+        dev.gathering.server.CurrentSet.clear();
         if (cardData != null) {
             cardData.close();
             cardData = null;

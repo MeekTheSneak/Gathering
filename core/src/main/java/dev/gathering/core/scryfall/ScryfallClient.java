@@ -10,6 +10,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.card.SetCode;
+import dev.gathering.core.card.SetRelease;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -136,6 +137,21 @@ public final class ScryfallClient {
             }
         }
         return List.copyOf(found);
+    }
+
+    /**
+     * Every set Scryfall knows about, newest listed first.
+     *
+     * <p>One request and about a megabyte, which is why nothing asks it per card: what it is
+     * for is working out which set is the current one, once, when a server starts.
+     *
+     * <p>Not paged. Scryfall returns the whole list in one reply and says so with
+     * {@code has_more: false}; if that ever changes, a truncated list still answers the only
+     * question asked of it, because the list arrives newest first.
+     */
+    public List<SetRelease> everySet() throws IOException {
+        JsonObject json = getJson("/sets");
+        return json == null ? List.of() : ScryfallSetCodec.parseList(json);
     }
 
     /**

@@ -79,7 +79,6 @@ public record GatheringConfig(
     private static final java.util.Map<String, String> NOT_BUILT_YET = java.util.Map.ofEntries(
             java.util.Map.entry("collection.sealed_store_enabled", "the shop"),
             java.util.Map.entry("collection.sealed_price_item", "the shop"),
-            java.util.Map.entry("collection.current_set", "the shop's pinned shelf"),
             java.util.Map.entry("collection.stall_rotation_hours", "the rotating shelf"),
             java.util.Map.entry("collection.stall_rotating_slots", "the rotating shelf"),
             java.util.Map.entry("table.max_tables_loaded", "a limit on tables kept loaded"),
@@ -284,16 +283,18 @@ public record GatheringConfig(
                 formats = ["commander"]
 
                 [collection]
-                # Most of this section describes where collecting is going rather than where it
-                # is: the shop and the loot are not built yet, and changing a setting for one of
-                # them says so in the log rather than doing nothing quietly.
+                # Some of this section describes where collecting is going rather than where it
+                # is: the shop is not built yet, and changing a setting for it says so in the
+                # log rather than doing nothing quietly.
                 #
-                # Where sealed product turns up. Needs collection_enabled.
+                # Where sealed product turns up: any of "fishing", "structures", "archaeology".
+                # Needs collection_enabled.
                 pack_loot_sources = ["fishing", "structures", "archaeology"]
                 # Shops sell sealed product only, never single cards, at flat prices you set.
                 sealed_store_enabled = true
                 sealed_price_item = "minecraft:diamond"
-                # Which set the pinned shelf stocks. "auto" follows the newest release.
+                # Which set is found and sold. "auto" asks Scryfall for the newest release, so
+                # a server left alone stays current; name a set code to stay where you are.
                 current_set = "auto"
                 stall_rotation_hours = 4
                 stall_rotating_slots = 6

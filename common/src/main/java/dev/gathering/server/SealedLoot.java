@@ -9,6 +9,7 @@ import dev.gathering.service.ServerSettings;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
@@ -47,38 +48,39 @@ public final class SealedLoot {
      */
     public static void warm() {
         available = List.of();
-        var settings = ServerSettings.get();
-        if (!settings.modes().collectionEnabled()) {
-            return;
-        }
-        String set = settings.collecting().currentSet();
-        if (set.isEmpty() || set.equals("auto")) {
-            // "auto" is meant to follow the newest release and nothing here can yet ask what
-            // that is. Said once, plainly, rather than left as a feature that silently does
-            // nothing: an admin who turned collecting on is owed the reason no packs drop.
-            LOGGER.warn("Collecting is on but collection.current_set is \"{}\", so nothing can "
-                    + "drop yet. Point it at a set code until following the newest release "
-                    + "is built.", set.isEmpty() ? "" : set);
+        if (!ServerSettings.get().modes().collectionEnabled()) {
             return;
         }
         CollationService collation = CollationService.active().orElse(null);
         if (collation == null) {
             return;
         }
-        collation.productsFor(set).whenComplete((reading, failure) -> {
-            if (failure != null) {
-                LOGGER.warn("Could not read what {} was sold as, so nothing drops", set, failure);
-                return;
-            }
-            List<PackComponent> packs = new ArrayList<>();
-            for (SealedProduct booster : reading.boosters()) {
-                packs.add(new PackComponent(
-                        booster.asBooster().setCode(), booster.asBooster().kind()));
-            }
-            available = List.copyOf(packs);
-            LOGGER.info("Sealed product from {} can be found in the world: {} kind(s) of pack",
-                    set, packs.size());
-        });
+        // Which set this is happens off on its own thread - it may be a question for
+        // Scryfall - so this waits for it rather than reading the config itself. A server
+        // with no current set at all has already said so; there is nothing to add here.
+        CurrentSet.whenKnown()
+                .thenComposeAsync(current -> current
+                        .map(collation::productsFor)
+                        .orElseGet(() -> CompletableFuture.completedFuture(null)),
+                        collation.worker())
+                .whenComplete((reading, failure) -> {
+                    if (failure != null) {
+                        LOGGER.warn("Could not read what the current set was sold as, so "
+                                + "nothing drops", failure);
+                        return;
+                    }
+                    if (reading == null) {
+                        return;
+                    }
+                    List<PackComponent> packs = new ArrayList<>();
+                    for (SealedProduct booster : reading.boosters()) {
+                        packs.add(new PackComponent(
+                                booster.asBooster().setCode(), booster.asBooster().kind()));
+                    }
+                    available = List.copyOf(packs);
+                    LOGGER.info("Sealed product from {} can be found in the world: {} kind(s) "
+                            + "of pack", reading.setCode(), packs.size());
+                });
     }
 
     /** Between servers, so one world's set does not drop in the next. */

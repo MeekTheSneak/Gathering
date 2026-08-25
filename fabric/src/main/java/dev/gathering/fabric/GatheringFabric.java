@@ -73,12 +73,14 @@ public final class GatheringFabric implements ModInitializer {
             }
             cardData.warmCache().thenAccept(count ->
                     LOGGER.info("Card metadata cache warmed: {} printings", count));
+            dev.gathering.server.CurrentSet.resolve();
             dev.gathering.server.SealedLoot.warm();
         });
 
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             ServerSettings.clear();
             dev.gathering.server.SealedLoot.clear();
+            dev.gathering.server.CurrentSet.clear();
             if (cardData != null) {
                 cardData.close();
                 cardData = null;

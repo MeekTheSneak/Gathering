@@ -152,6 +152,16 @@ public final class CardDataService implements AutoCloseable {
         });
     }
 
+    /**
+     * Which set is the current one, according to Scryfall's own list of every set.
+     *
+     * <p>What a server that has not named a set is running. One request of about a megabyte,
+     * so it is asked once at start and never per player.
+     */
+    public CompletableFuture<Optional<dev.gathering.core.card.SetRelease>> currentSet(String today) {
+        return supply(() -> dev.gathering.core.card.SetRelease.current(client.everySet(), today));
+    }
+
     /** Tokens matching a name, for the "make a token" screen. */
     public CompletableFuture<List<CardMetadata>> tokensNamed(String name) {
         return supply(() -> client.tokensNamed(name));

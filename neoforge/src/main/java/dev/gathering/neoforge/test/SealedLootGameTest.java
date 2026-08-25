@@ -125,6 +125,27 @@ public final class SealedLootGameTest {
         helper.succeed();
     }
 
+    /**
+     * A server that is not collecting does not go and ask which set is current.
+     *
+     * <p>The answer is already there before anything asks for it, which is what "did not
+     * make a request" looks like from here. Worth pinning: every play-only server in the
+     * world would otherwise fetch a megabyte at every start for a number nobody reads.
+     */
+    @GameTest(template = "empty")
+    public static void aPlayOnlyServerNeverAsksWhichSetIsCurrent(GameTestHelper helper) {
+        var known = dev.gathering.server.CurrentSet.whenKnown();
+        if (!known.isDone()) {
+            helper.fail("A server with collecting off went looking for the current set");
+            return;
+        }
+        if (known.join().isPresent()) {
+            helper.fail("A server with collecting off has a current set: " + known.join().get());
+            return;
+        }
+        helper.succeed();
+    }
+
     /** Nothing is available on a server that has not been told a set, so nothing drops. */
     @GameTest(template = "empty")
     public static void nothingDropsBeforeASetIsKnown(GameTestHelper helper) {
