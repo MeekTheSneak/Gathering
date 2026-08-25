@@ -189,6 +189,15 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
      * its own footer for any pile of one or two - and a hint shrunk to a third of its size to
      * fit under two cards is a hint nobody reads.
      */
+    /**
+     * The widest thing this box has to fit, which is what sets how wide it is.
+     *
+     * <p>Worth knowing that this is usually the sentence under the cards rather than the
+     * cards: a graveyard holding one card was given a box four cards wide because every hint
+     * used to end by saying Escape closes the box. There is a Done button an inch above it
+     * and Escape closes every panel in the mod, so those three words were costing more felt
+     * than anything else in here.
+     */
     private int widestLine(boolean scrolls) {
         int widest = this.font.width(heading()) + DONE_WIDTH + MARGIN;
         Component hint = footer(scrolls);
@@ -510,6 +519,18 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     String footerSays() {
         Component said = footer(hiddenBelow() > 0);
         return said == null ? "" : said.getString();
+    }
+
+    /**
+     * How wide this box came out. For the harness.
+     *
+     * <p>The one number that says whether it is behaving: the box is meant to be the size of
+     * what it holds, and what it holds is usually one or two cards. It is the writing that
+     * runs away with it - every hint used to end by saying Escape closes the box, and those
+     * three words made a one-card graveyard into a panel covering half the table.
+     */
+    int panelWidth() {
+        return panel.width();
     }
 
     /** How many cards have been marked to send away. For the harness, as above. */

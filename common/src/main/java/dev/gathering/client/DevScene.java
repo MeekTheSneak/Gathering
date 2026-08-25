@@ -664,6 +664,7 @@ public final class DevScene {
             }
             case 45 -> {
                 expectScreen(client, "left-clicking the graveyard", PileScreen.class);
+                aPileBoxIsTheSizeOfWhatItHolds(client);
                 shoot(client, "16-graveyard-open");
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0);
@@ -2458,6 +2459,30 @@ public final class DevScene {
             return;
         }
         System.out.println("[devscene] " + boards + " board(s) still drawn after standing up");
+    }
+
+    /**
+     * A box holding one card does not cover half the table.
+     *
+     * <p>The point of shrinking these screens: what is behind them is the board, and the
+     * board is what most of the decisions taken on them are about. The cards were never what
+     * made this one wide - the sentence under them was, because every hint used to end by
+     * saying Escape closes the box, next to a Done button and under a rule that Escape closes
+     * every panel in the mod.
+     */
+    private static void aPileBoxIsTheSizeOfWhatItHolds(Minecraft client) {
+        if (!(client.screen instanceof PileScreen pile)) {
+            fail("there was no pile box to measure");
+            return;
+        }
+        int window = client.getWindow().getGuiScaledWidth();
+        if (pile.panelWidth() * 2 >= window) {
+            fail("a graveyard holding one card took " + pile.panelWidth()
+                    + " of " + window + " across");
+            return;
+        }
+        System.out.println("[devscene] a one-card pile box is " + pile.panelWidth()
+                + " of " + window + " across");
     }
 
     /** How many cards a particular seat holds in a zone, whoever is or is not sitting there. */
