@@ -39,6 +39,14 @@ public final class PackGrant {
      * @param kind which booster, or blank for the first the set publishes
      */
     public static void give(ServerPlayer player, String setCode, String kind) {
+        // The same question the opening asks, asked before handing anybody a pack rather
+        // than after: a booster granted on a server that is not collecting is a booster that
+        // will refuse to open, and finding that out afterwards is worse than being told now.
+        String refusal = PackOpening.whyNot();
+        if (refusal != null) {
+            player.sendSystemMessage(Component.translatable(refusal));
+            return;
+        }
         CollationService collation = CollationService.active().orElse(null);
         if (collation == null) {
             player.sendSystemMessage(Component.translatable("message.gathering.pipeline_unavailable"));

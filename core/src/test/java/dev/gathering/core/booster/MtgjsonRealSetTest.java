@@ -95,6 +95,79 @@ class MtgjsonRealSetTest {
         assertThat(opened).as("nothing was opened at all").isGreaterThan(0);
     }
 
+    @Test
+    @DisplayName("every booster those files sell is one those files can open")
+    void everyRealBoosterSoldCanBeOpened() throws Exception {
+        List<Path> files = setFiles();
+        Assumptions.assumeTrue(!files.isEmpty(),
+                "set GATHERING_MTGJSON_DIR to a directory of MTGJSON set files to run this");
+
+        Map<String, JsonObject> parsed = new LinkedHashMap<>();
+        Map<String, UUID> bridge = new LinkedHashMap<>();
+        for (Path file : files) {
+            JsonObject json = read(file);
+            parsed.put(file.getFileName().toString(), json);
+            bridge.putAll(MtgjsonCollation.printings(json));
+        }
+
+        int checked = 0;
+        int missing = 0;
+        for (Map.Entry<String, JsonObject> file : parsed.entrySet()) {
+            MtgjsonCollation.Reading collation = MtgjsonCollation.read(file.getValue(), bridge);
+            var products = dev.gathering.core.sealed.MtgjsonProducts.read(file.getValue(), bridge);
+            java.util.Set<String> published = publishedKinds(file.getValue());
+            for (var booster : products.boosters()) {
+                var names = booster.asBooster();
+                if (!names.setCode().equalsIgnoreCase(collation.setCode())) {
+                    // A pack of another set, sold in this one's catalogue. Openable, but
+                    // out of the file that would say so.
+                    continue;
+                }
+                if (collation.pack(names.kind()) == null && published.contains(names.kind())) {
+                    // The file publishes this arrangement and the reading dropped it, which
+                    // means it draws from a set that is not in this directory. That is the
+                    // reading working: a server would have fetched the companion. Counted
+                    // out loud rather than passed over, so a run against one file does not
+                    // look like a run that checked everything.
+                    missing++;
+                    continue;
+                }
+                assertThat(collation.pack(names.kind()))
+                        .as(file.getKey() + ": " + booster.name() + " names \"" + names.kind()
+                                + "\", which the file does not publish at all. It publishes: "
+                                + published)
+                        .isNotNull();
+                checked++;
+            }
+        }
+        System.out.println(checked + " real boosters sold, all of them openable; "
+                + missing + " waiting on a set file that is not in the directory");
+        assertThat(checked).as("no set file held a booster anybody sells").isGreaterThan(0);
+    }
+
+    /** Every arrangement a file publishes, before any of them is dropped for want of a set. */
+    private static java.util.Set<String> publishedKinds(JsonObject file) {
+        JsonObject data = file.getAsJsonObject("data");
+        if (data == null || !data.has("booster") || !data.get("booster").isJsonObject()) {
+            return java.util.Set.of();
+        }
+        return new java.util.LinkedHashSet<>(data.getAsJsonObject("booster").keySet());
+    }
+
+    /** The set files to read, or an empty list where there are none to read. */
+    private static List<Path> setFiles() throws IOException {
+        String where = System.getenv("GATHERING_MTGJSON_DIR");
+        if (where == null || where.isBlank() || !Files.isDirectory(Path.of(where))) {
+            return List.of();
+        }
+        List<Path> files = new ArrayList<>();
+        try (Stream<Path> found = Files.list(Path.of(where))) {
+            found.filter(path -> path.getFileName().toString().endsWith(".json")).sorted()
+                    .forEach(files::add);
+        }
+        return files;
+    }
+
     private static JsonObject read(Path file) throws IOException {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             return JsonParser.parseReader(reader).getAsJsonObject();

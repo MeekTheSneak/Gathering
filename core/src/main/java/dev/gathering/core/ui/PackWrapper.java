@@ -47,9 +47,4 @@ public final class PackWrapper {
             default -> PLAIN;
         };
     }
-
-    /** Whether a kind of pack has a colour of its own, or is taking the plain one. */
-    public static boolean hasItsOwnColour(String kind) {
-        return symbolColour(kind) != PLAIN;
-    }
 }

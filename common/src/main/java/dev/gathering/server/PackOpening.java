@@ -71,11 +71,6 @@ public final class PackOpening {
         openFor(player, setCode, kind, () -> { }, false);
     }
 
-    public static void openFor(
-            ServerPlayer player, String setCode, String kind, Runnable giveBack) {
-        openFor(player, setCode, kind, giveBack, false);
-    }
-
     /**
      * The same, for a caller that took something off a player to do it.
      *
@@ -112,7 +107,7 @@ public final class PackOpening {
                     BoosterConfig config = pick(reading, kind);
                     if (config == null) {
                         return java.util.concurrent.CompletableFuture.completedFuture(
-                                new Opened(reading, null, List.of()));
+                                new Opened(reading, null, null, List.of()));
                     }
                     OpenedPack pack = BoosterOpener.open(config, freshSeed(), config.id());
                     List<UUID> printings = new ArrayList<>();
@@ -120,7 +115,7 @@ public final class PackOpening {
                         card.printing().ifPresent(printings::add);
                     }
                     return cards.findAll(printings)
-                            .thenApply(found -> new Opened(reading, pack, found));
+                            .thenApply(found -> new Opened(reading, config, pack, found));
                 }, collation.worker())
                 .whenComplete((opened, failure) -> player.server.execute(() -> {
                     if (player.hasDisconnected()) {
@@ -140,7 +135,7 @@ public final class PackOpening {
                         giveBack.run();
                         return;
                     }
-                    deliver(player, opened, ceremony, set, kind);
+                    deliver(player, opened, ceremony);
                 }));
     }
 
@@ -178,8 +173,8 @@ public final class PackOpening {
      * A pack and the card data for what came out of it, or no pack and the reading that had
      * none to give - which is the difference between two very different sentences.
      */
-    private record Opened(MtgjsonCollation.Reading reading, OpenedPack pack,
-            List<CardMetadata> cards) {
+    private record Opened(MtgjsonCollation.Reading reading, BoosterConfig config,
+            OpenedPack pack, List<CardMetadata> cards) {
     }
 
     /**
@@ -276,8 +271,12 @@ public final class PackOpening {
     }
 
     /** Server thread only. */
-    private static void deliver(
-            ServerPlayer player, Opened opened, boolean ceremony, String set, String kind) {
+    private static void deliver(ServerPlayer player, Opened opened, boolean ceremony) {
+        // What was actually opened, not what was asked for. Asking for a set and no kind is
+        // the ordinary way to open one from a console, and telling the screen the empty
+        // string it was given draws a play booster in the draft booster's black.
+        String set = opened.config().setCode();
+        String kind = opened.config().kind();
         // Everything the client is about to hold, in one go rather than a packet a card:
         // a client told about a card before it holds one never renders a blank.
         List<CardSummary> summaries = new ArrayList<>();
@@ -309,7 +308,7 @@ public final class PackOpening {
         } else {
             // Quick opened, so there is no screen to say it on.
             player.sendSystemMessage(Component.translatable(
-                    "message.gathering.pack_opened", opened.pack().from(),
+                    "message.gathering.pack_opened", set.toUpperCase(Locale.ROOT), kind,
                     delivery.giving().size()));
         }
         if (delivery.unnameable() > 0) {

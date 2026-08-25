@@ -43,7 +43,7 @@ public final class PackOpeningScreen extends Screen {
 
     /** How the cards are laid out once the wrapper is off. */
     private static final int GAP = 4;
-    private static final int CARD_HEIGHT = 96;
+    private static final int MARGIN_PIXELS = 16;
     private static final int WRAPPER_EDGE = 0xFF161A20;
 
     /**
@@ -63,50 +63,70 @@ public final class PackOpeningScreen extends Screen {
     private final String setCode;
     private final String kind;
     private final List<CardComponent> cards;
-    private final int glow;
 
     private PackTear tear = PackTear.unopened(1, 0L);
     private List<CardComponent> revealed = List.of();
-    private int left;
-    private int top;
-    private int width;
-    private int height;
+
+    // Named for the pack rather than for the screen: Screen has width and height of its own,
+    // and a field here called either would shadow it silently.
+    private int packX;
+    private int packY;
+    private int packWidth;
+    private int packHeight;
+
+    /**
+     * What colour comes out of the tear, and whether that answer is final.
+     *
+     * <p>Worked out from the summaries this client holds, which arrive in the packets just
+     * ahead of the pack - so almost always before the screen opens, and not always. Until
+     * every card in the pack has one it is worked out again each frame, because a pack that
+     * decided it had nothing worth glowing about before its cards arrived would sit there
+     * dark through the one moment the whole ceremony exists for.
+     */
+    private int glow;
+    private boolean glowSettled;
+
+    /**
+     * Where the revealed cards were last drawn.
+     *
+     * <p>Kept rather than worked out again, so the scripted run can put a cursor on a card
+     * using the numbers the drawing used rather than a second copy of the same arithmetic
+     * that could disagree with it.
+     */
+    private PackLayout grid;
+    private int gridLeft;
+    private int gridTop;
 
     public PackOpeningScreen(String setCode, String kind, List<CardComponent> cards) {
         super(Component.translatable("screen.gathering.pack_opening"));
         this.setCode = setCode == null ? "" : setCode;
         this.kind = kind == null ? "" : kind;
         this.cards = cards == null ? List.of() : List.copyOf(cards);
-        this.glow = PackGlow.forPack(raritiesOf(this.cards));
+        settleGlow();
     }
 
-    /**
-     * What is in the pack, as rarities.
-     *
-     * <p>Read off the summaries this client was sent with the cards. A card whose summary has
-     * not landed is unknown rather than common, so a pack does not briefly claim to hold
-     * nothing worth glowing about and then change its mind.
-     */
-    private static List<Rarity> raritiesOf(List<CardComponent> cards) {
+    /** The glow, and whether every card has been named yet. */
+    private void settleGlow() {
         List<Rarity> rarities = new ArrayList<>(cards.size());
         for (CardComponent card : cards) {
             ClientCardCache.get().summary(card)
                     .map(CardSummary::rarity)
                     .ifPresent(rarities::add);
         }
-        return rarities;
+        glow = PackGlow.forPack(rarities);
+        glowSettled = rarities.size() == cards.size();
     }
 
     @Override
     protected void init() {
         int shorter = Math.min(this.width(), this.height());
-        this.height = (int) (shorter * PACK_HEIGHT);
-        this.width = (int) (this.height * PACK_SHAPE);
-        this.left = (this.width() - this.width) / 2;
-        this.top = (this.height() - this.height) / 2;
+        this.packHeight = (int) (shorter * PACK_HEIGHT);
+        this.packWidth = (int) (this.packHeight * PACK_SHAPE);
+        this.packX = (this.width() - this.packWidth) / 2;
+        this.packY = (this.height() - this.packHeight) / 2;
         // Kept across a resize: a pack half torn when somebody dragged the window is still
         // half torn, and starting it again would be the window eating their progress.
-        this.tear = new PackTear(this.width, seed(), this.tear.gripped(), this.tear.torn());
+        this.tear = new PackTear(this.packWidth, seed(), this.tear.gripped(), this.tear.torn());
     }
 
     private int width() {
@@ -138,27 +158,27 @@ public final class PackOpeningScreen extends Screen {
             drawWhatWasInIt(graphics, mouseX, mouseY);
             return;
         }
+        if (!glowSettled) {
+            settleGlow();
+        }
 
-        int tornTo = left + tear.tornTo();
-        int crimp = top + (int) (height * CRIMP);
+        int tornTo = packX + tear.tornTo();
+        int crimp = packY + (int) (packHeight * CRIMP);
 
         // The wrapper below the tear, which is the pack proper.
-        graphics.fill(left, crimp, left + width, top + height, WRAPPER_EDGE);
-        drawWrapper(graphics, left, crimp, left + width, top + height, BODY_ROW, BODY_ROWS);
-
+        graphics.fill(packX, crimp, packX + packWidth, packY + packHeight, WRAPPER_EDGE);
+        drawWrapper(graphics, packX, crimp, packX + packWidth, packY + packHeight,
+                BODY_ROW, BODY_ROWS);
         // The strip above it, still attached where the tear has not reached.
-        if (!tear.isOpen()) {
-            drawWrapper(graphics, tornTo, top, left + width, crimp, CRIMP_ROW, CRIMP_ROWS);
-        }
+        drawWrapper(graphics, tornTo, packY, packX + packWidth, crimp, CRIMP_ROW, CRIMP_ROWS);
         drawTornEdge(graphics, tornTo, crimp);
         drawSymbol(graphics, crimp);
 
         Component say = tear.isUntouched()
                 ? Component.translatable("screen.gathering.pack_take_hold")
-                : tear.isOpen()
-                        ? Component.translatable("screen.gathering.pack_kept", cards.size())
-                        : Component.translatable("screen.gathering.pack_keep_going");
-        graphics.drawCenteredString(this.font, say, width() / 2, top + height + 8, 0xFFBFC7D2);
+                : Component.translatable("screen.gathering.pack_keep_going");
+        graphics.drawCenteredString(
+                this.font, say, width() / 2, packY + packHeight + 8, 0xFFBFC7D2);
     }
 
     /**
@@ -169,15 +189,25 @@ public final class PackOpeningScreen extends Screen {
      * grid in collation order would hand it over in the middle of the second row.
      */
     private void drawWhatWasInIt(GuiGraphics graphics, int mouseX, int mouseY) {
-        int room = Math.min(width() - 16, width() * 5);
+        // Inset from the window rather than running to its edges: a row of cards touching
+        // both sides reads as a screen that ran out of room, not as a pack laid out.
+        int room = Math.min(width() - 2 * MARGIN_PIXELS, packWidth * 5);
+        // As tall as the pack they came out of, and no taller. A ceiling is wanted - four
+        // cards drawn to fill a window is silly - and that is the one worth having: the cards
+        // come out the size of the wrapper that was holding them a second ago, so a small
+        // pack reads as a handful rather than as four posters.
         PackLayout laid = PackLayout.fit(
-                Math.max(1, revealed.size()), room, height() - 40, GAP, CARD_HEIGHT);
+                Math.max(1, revealed.size()), room, height() - 40, GAP, packHeight);
         int gridWidth = laid.width(GAP);
         int gridHeight = laid.height(GAP);
         int gridLeft = (width() - gridWidth) / 2;
         int gridTop = (height() - gridHeight) / 2;
 
         graphics.fill(0, 0, width(), height(), BACKING);
+        this.grid = laid;
+        this.gridLeft = gridLeft;
+        this.gridTop = gridTop;
+        CardComponent over = null;
         for (int index = 0; index < revealed.size(); index++) {
             int column = index % laid.columns();
             int row = index / laid.columns();
@@ -189,12 +219,23 @@ public final class PackOpeningScreen extends Screen {
                             graphics, summary, x, y, laid.cardWidth(), laid.cardHeight()),
                     () -> GatheringSprites.inset(
                             graphics, x, y, laid.cardWidth(), laid.cardHeight()));
+            // Held over a card, the read-a-card key shows it here exactly as it does over a
+            // hand, a pile or a draft pack. A grid of cards you have just been given and
+            // cannot look at properly is the one place in the mod that would not answer it.
+            if (mouseX >= x && mouseX < x + laid.cardWidth()
+                    && mouseY >= y && mouseY < y + laid.cardHeight()) {
+                over = card;
+            }
             // The one the pack was opened for, ringed in its own colour.
             if (index == revealed.size() - 1 && glow != PackGlow.NO_LIGHT) {
                 graphics.renderOutline(x - 1, y - 1, laid.cardWidth() + 2, laid.cardHeight() + 2,
                         glow);
             }
         }
+        ClientHoverState.setHovered(over == null
+                ? net.minecraft.world.item.ItemStack.EMPTY
+                : dev.gathering.item.CardItem.of(over));
+
         graphics.drawCenteredString(this.font, this.title, width() / 2, gridTop - 14, 0xFFBFC7D2);
         graphics.drawCenteredString(this.font,
                 Component.translatable("screen.gathering.pack_kept", revealed.size()),
@@ -259,11 +300,11 @@ public final class PackOpeningScreen extends Screen {
         if (tear.isUntouched() || glow == PackGlow.NO_LIGHT) {
             return;
         }
-        int steps = Math.max(8, width / 2);
-        float[] edge = tear.edge(steps, height * (float) CRIMP * 0.5f);
-        int reach = Math.max(4, height / 10);
+        int steps = Math.max(8, packWidth / 2);
+        float[] edge = tear.edge(steps, packHeight * (float) CRIMP * 0.5f);
+        int reach = Math.max(4, packHeight / 10);
         for (int step = 0; step < steps; step++) {
-            int x = left + Math.round(step * width / (float) (steps - 1));
+            int x = packX + Math.round(step * packWidth / (float) (steps - 1));
             if (x > tornTo) {
                 break;
             }
@@ -278,11 +319,11 @@ public final class PackOpeningScreen extends Screen {
 
     /** The set's symbol, printed on the wrapper in the product's colour. */
     private void drawSymbol(GuiGraphics graphics, int crimp) {
-        int side = (int) (width * 0.42);
+        int side = (int) (packWidth * 0.42);
         int colour = PackWrapper.symbolColour(kind);
         ClientSetSymbols.get().symbol(setCode, colour, 128).ifPresent(symbol -> {
-            int x = left + (width - side) / 2;
-            int y = crimp + (top + height - crimp - side) / 2;
+            int x = packX + (packWidth - side) / 2;
+            int y = crimp + (packY + packHeight - crimp - side) / 2;
             graphics.blit(symbol, x, y, 0f, 0f, side, side, side, side);
         });
     }
@@ -301,7 +342,7 @@ public final class PackOpeningScreen extends Screen {
 
     private void follow(double mouseX) {
         boolean wasSealed = !tear.isOpen();
-        tear = tear.followedTo((int) Math.round(mouseX - left));
+        tear = tear.followedTo((int) Math.round(mouseX - packX));
         if (wasSealed && tear.isOpen()) {
             // Sorted once, at the moment it comes apart. Doing it every frame would re-sort a
             // list whose order is the whole point, as summaries arrive one packet at a time.
@@ -317,15 +358,15 @@ public final class PackOpeningScreen extends Screen {
      * the tear works and not that anything reaches it.
      */
     public int packLeft() {
-        return left;
+        return packX;
     }
 
     public int packWidth() {
-        return width;
+        return packWidth;
     }
 
     public int packMiddleY() {
-        return top + height / 2;
+        return packY + packHeight / 2;
     }
 
     public PackTear tear() {
@@ -337,8 +378,33 @@ public final class PackOpeningScreen extends Screen {
         return revealed;
     }
 
+    /**
+     * The middle of one revealed card, as it was last drawn, or null before it has been.
+     *
+     * <p>For the scripted run, which points a real cursor at a real card to find out whether
+     * the read-a-card key answers over one.
+     */
+    public int[] middleOfCard(int index) {
+        if (grid == null || index < 0 || index >= revealed.size()) {
+            return null;
+        }
+        int column = index % grid.columns();
+        int row = index / grid.columns();
+        return new int[] {
+                gridLeft + column * (grid.cardWidth() + GAP) + grid.cardWidth() / 2,
+                gridTop + row * (grid.cardHeight() + GAP) + grid.cardHeight() / 2};
+    }
+
     public int glow() {
         return glow;
+    }
+
+    @Override
+    public void removed() {
+        // The grid is gone, so nothing is under the cursor any more. Left set, the read-a-card
+        // key would keep showing the last card of a pack that is no longer on screen.
+        ClientHoverState.clear();
+        super.removed();
     }
 
     @Override

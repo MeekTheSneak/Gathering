@@ -31,7 +31,6 @@ class PackWrapperTest {
                 "something nobody has printed"}) {
             assertThat(PackWrapper.symbolColour(kind)).as(String.valueOf(kind))
                     .isEqualTo(PackWrapper.PLAIN);
-            assertThat(PackWrapper.hasItsOwnColour(kind)).isFalse();
         }
     }
 

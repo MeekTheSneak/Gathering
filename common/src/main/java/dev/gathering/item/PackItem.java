@@ -81,6 +81,13 @@ public class PackItem extends Item {
             if (!pack.kind().isEmpty()) {
                 lines.add(Component.translatable("tooltip.gathering.pack_kind", pack.kind()));
             }
+            // Both gestures, said here, because a pack is the first thing in collection mode
+            // a player picks up and there is nowhere else for it to be said. The ceremony is
+            // named first: it is the one worth finding, and the quick one is the shortcut.
+            lines.add(Component.translatable("tooltip.gathering.pack_open")
+                    .withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+            lines.add(Component.translatable("tooltip.gathering.pack_open_quick")
+                    .withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
         });
     }
 }

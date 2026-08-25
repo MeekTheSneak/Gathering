@@ -1199,6 +1199,11 @@ public final class DevScene {
                 aTornPackIsOpen(client);
                 everyCardIsShown(client);
                 shoot(client, "41-what-was-in-it");
+                putTheCursorOnAPulledCard(client);
+                advance(SETTLE);
+            }
+            case 104 -> {
+                theReadKeyAnswersOverAPulledCard(client);
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -1300,6 +1305,49 @@ public final class DevScene {
                     + last.map(s -> s.rarity().toString()).orElse("unknown")
                     + " rather than the mythic");
         }
+    }
+
+    /** Puts the cursor on the card the pack was opened for. */
+    private static void putTheCursorOnAPulledCard(Minecraft client) {
+        if (!(client.screen instanceof PackOpeningScreen pack)) {
+            fail("there was no pack screen to point at");
+            return;
+        }
+        int[] middle = pack.middleOfCard(pack.shown().size() - 1);
+        if (middle == null) {
+            fail("the pack showed cards and could not say where any of them was");
+            return;
+        }
+        hover(client, middle);
+    }
+
+    /**
+     * A card you have just been given can be read where it is shown.
+     *
+     * <p>The dead end this exists to catch: a reveal that hands over fourteen cards drawn at
+     * thumbnail size and answers nothing when you try to look at one. Every other place the
+     * mod draws a card answers the read-a-card key, and this was the one that did not.
+     */
+    private static void theReadKeyAnswersOverAPulledCard(Minecraft client) {
+        if (!(client.screen instanceof PackOpeningScreen pack)) {
+            fail("the pack screen went away before a card could be read");
+            return;
+        }
+        net.minecraft.world.item.ItemStack under = ClientHoverState.hovered();
+        if (under.isEmpty()) {
+            fail("the cursor was on a card the pack had just given out and nothing was under it");
+            return;
+        }
+        var card = dev.gathering.item.CardItem.cardOf(under).orElse(null);
+        if (card == null) {
+            fail("what was under the cursor on the reveal was not a card: " + under);
+            return;
+        }
+        if (!card.equals(pack.shown().get(pack.shown().size() - 1))) {
+            fail("the cursor was on the last card and the game thought it was on another");
+            return;
+        }
+        System.out.println("[devscene] a card just pulled can be read where it is shown");
     }
 
     /**

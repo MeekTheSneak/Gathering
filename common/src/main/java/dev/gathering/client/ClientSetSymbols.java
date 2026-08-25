@@ -83,6 +83,9 @@ public final class ClientSetSymbols {
     /** As many drawn symbols as are kept before the lot are released and drawn again. */
     private static final int MOST_DRAWN = 64;
 
+    /** Sizes and colours that would not draw. Client thread only, like {@link #drawn}. */
+    private final Set<String> undrawable = new java.util.HashSet<>();
+
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
     private final Set<String> failed = ConcurrentHashMap.newKeySet();
     private final AtomicInteger textureCounter = new AtomicInteger();
@@ -115,6 +118,9 @@ public final class ClientSetSymbols {
             return Optional.empty();
         }
         String key = code + "/" + Integer.toHexString(colour) + "/" + size;
+        if (undrawable.contains(key)) {
+            return Optional.empty();
+        }
         ResourceLocation ready = drawn.get(key);
         if (ready != null) {
             return Optional.of(ready);
@@ -135,10 +141,6 @@ public final class ClientSetSymbols {
         return code != null && failed.contains(code);
     }
 
-    public int readyCount() {
-        return outlines.size();
-    }
-
     // ----------------------------------------------------------------- fetch
 
     private void fetch(String code) {
@@ -150,8 +152,11 @@ public final class ClientSetSymbols {
             }
             outlines.put(code, SetSymbol.read(svg));
         } catch (SvgException | RuntimeException notASymbol) {
-            // One line per set rather than a flood: a set is only ever attempted once.
+            // One line per set rather than a flood: a set is only ever attempted once this
+            // session. The cached file goes with it, so a restart tries the network again
+            // rather than reading the same unreadable bytes for ever.
             LOGGER.warn("Could not read the set symbol for {}: {}", code, notASymbol.toString());
+            discardCached(code);
             failed.add(code);
         } finally {
             inFlight.remove(code);
@@ -218,7 +223,11 @@ public final class ClientSetSymbols {
             drawn.put(key, id);
             return Optional.of(id);
         } catch (SvgException | RuntimeException couldNotDraw) {
+            // Remembered, because this is the render thread: without it a symbol that will
+            // not rasterise is rasterised again on every frame the pack is on screen, for
+            // the whole session.
             LOGGER.warn("Could not draw the set symbol {}: {}", key, couldNotDraw.toString());
+            undrawable.add(key);
             return Optional.empty();
         }
     }
@@ -237,6 +246,18 @@ public final class ClientSetSymbols {
         }
     }
 
+    private void discardCached(String code) {
+        Path file = cacheFile(code);
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException couldNotDelete) {
+            LOGGER.debug("Could not discard the cached set symbol for {}", code, couldNotDelete);
+        }
+    }
+
     private void writeCache(String code, String svg) {
         Path file = cacheFile(code);
         if (file == null || svg == null) {
@@ -244,7 +265,16 @@ public final class ClientSetSymbols {
         }
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(file, svg, StandardCharsets.UTF_8);
+            // Written beside and moved into place. A client killed part way through a write
+            // would otherwise leave half a symbol on disk, and half a symbol reads as a
+            // symbol that will not parse - for good, because a set is only tried once.
+            Path beside = Files.createTempFile(file.getParent(), code + "-", ".part");
+            try {
+                Files.writeString(beside, svg, StandardCharsets.UTF_8);
+                Files.move(beside, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } finally {
+                Files.deleteIfExists(beside);
+            }
         } catch (IOException couldNotWrite) {
             // A cache we cannot write is slower, not broken.
             LOGGER.debug("Could not cache the set symbol for {}", code, couldNotWrite);
