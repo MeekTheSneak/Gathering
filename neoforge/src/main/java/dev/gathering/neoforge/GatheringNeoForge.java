@@ -3,6 +3,7 @@ package dev.gathering.neoforge;
 import dev.gathering.Gathering;
 import dev.gathering.platform.Platform;
 import dev.gathering.service.CardDataService;
+import dev.gathering.service.CollationService;
 import dev.gathering.service.ServerSettings;
 import java.io.IOException;
 import net.neoforged.bus.api.IEventBus;
@@ -26,6 +27,7 @@ public final class GatheringNeoForge {
     private static final Logger LOGGER = LoggerFactory.getLogger(Gathering.MOD_NAME);
 
     private CardDataService cardData;
+    private CollationService collation;
 
     public GatheringNeoForge(IEventBus modBus) {
         GatheringRegistration.bootstrap(modBus);
@@ -41,6 +43,7 @@ public final class GatheringNeoForge {
         ServerSettings.load(Platform.get());
         try {
             cardData = CardDataService.start(Platform.get());
+            collation = CollationService.start(Platform.get());
         } catch (IOException e) {
             // Without a cache directory there is no card pipeline, and every later failure
             // would be a confusing symptom of this one.
@@ -54,6 +57,10 @@ public final class GatheringNeoForge {
         if (cardData != null) {
             cardData.close();
             cardData = null;
+        }
+        if (collation != null) {
+            collation.close();
+            collation = null;
         }
     }
 }

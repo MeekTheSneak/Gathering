@@ -3,6 +3,7 @@ package dev.gathering.fabric;
 import dev.gathering.Gathering;
 import dev.gathering.platform.Platform;
 import dev.gathering.service.CardDataService;
+import dev.gathering.service.CollationService;
 import dev.gathering.service.ServerSettings;
 import java.io.IOException;
 import dev.gathering.command.GatheringCommands;
@@ -22,6 +23,7 @@ public final class GatheringFabric implements ModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger(Gathering.MOD_NAME);
 
     private CardDataService cardData;
+    private CollationService collation;
 
     @Override
     public void onInitialize() {
@@ -47,6 +49,7 @@ public final class GatheringFabric implements ModInitializer {
             ServerSettings.load(Platform.get());
             try {
                 cardData = CardDataService.start(Platform.get());
+                collation = CollationService.start(Platform.get());
             } catch (IOException e) {
                 throw new IllegalStateException("Could not open the Gathering card metadata cache", e);
             }
@@ -59,6 +62,10 @@ public final class GatheringFabric implements ModInitializer {
             if (cardData != null) {
                 cardData.close();
                 cardData = null;
+            }
+            if (collation != null) {
+                collation.close();
+                collation = null;
             }
         });
 

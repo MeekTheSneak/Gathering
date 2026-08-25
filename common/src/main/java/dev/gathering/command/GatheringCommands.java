@@ -5,6 +5,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.gathering.network.OpenImportScreenPayload;
 import dev.gathering.server.CardGrant;
 import dev.gathering.server.DecklistImport;
+import dev.gathering.server.PackOpening;
 import dev.gathering.service.CardDataService;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -46,6 +47,20 @@ public final class GatheringCommands {
                                         context.getSource(),
                                         StringArgumentType.getString(context, "name"),
                                         true))))
+                // Opening a booster from nothing is an admin grant, not a way to collect:
+                // the loot and the shop are how a player comes by sealed product.
+                .then(Commands.literal("pack")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("set", StringArgumentType.word())
+                                .executes(context -> openPack(
+                                        context.getSource(),
+                                        StringArgumentType.getString(context, "set"),
+                                        ""))
+                                .then(Commands.argument("kind", StringArgumentType.word())
+                                        .executes(context -> openPack(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "set"),
+                                                StringArgumentType.getString(context, "kind"))))))
                 // Ending a game is a command rather than a click, because it cannot be undone
                 // and a table is a thing people lean on.
                 .then(Commands.literal("table")
@@ -88,6 +103,18 @@ public final class GatheringCommands {
         source.sendSuccess(() -> net.minecraft.network.chat.Component.translatable(
                 outcome.messageKey()), true);
         return outcome == dev.gathering.block.TableSessions.Outcome.ENDED ? 1 : 0;
+    }
+
+    /**
+     * Opens one booster of a set into the player's inventory.
+     *
+     * <p>Says nothing here about whether the server allows it; that answer lives with the
+     * opening, which is also where a pack item will ask.
+     */
+    private static int openPack(CommandSourceStack source, String set, String kind)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        PackOpening.openFor(source.getPlayerOrException(), set, kind);
+        return 1;
     }
 
     private static int giveCard(CommandSourceStack source, String cardName, boolean foil)
