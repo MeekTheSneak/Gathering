@@ -322,6 +322,13 @@ public class TableBlock extends BaseEntityBlock {
             TableSeats.Claim claim = TableSeats.take(level, tableOrigin, cell, side, player.getUUID());
             player.sendSystemMessage(Component.translatable(claim.messageKey()));
             tellTheTableWhoIsSittingAtIt(level, tableOrigin);
+            // Sitting down with nothing to play is the moment a loaner is for, and it is the
+            // only moment somebody who has just joined a server will find one. Offered rather
+            // than mentioned: a chat line saying decks exist is a thing to go and look up.
+            if (claim == TableSeats.Claim.TAKEN
+                    && player instanceof net.minecraft.server.level.ServerPlayer sat) {
+                dev.gathering.server.Lending.offerIfEmptyHanded(sat, tableOrigin);
+            }
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -549,6 +556,20 @@ public class TableBlock extends BaseEntityBlock {
         }
         player.sendSystemMessage(Component.translatable("message.gathering.table_full"));
         return false;
+    }
+
+    /**
+     * Puts a deck a player was just handed straight down at their seat.
+     *
+     * <p>The loaner path. Somebody who has borrowed a deck at the table they are sitting at
+     * has already made the only decision there is, and asking them to right-click the table
+     * with the thing the table just gave them is a step that exists only because the code is
+     * shaped that way. The stack is shrunk here exactly as it would have been.
+     */
+    public static void putDown(Level level, BlockPos tableOrigin, Player player, ItemStack stack) {
+        if (DeckItem.deckOf(stack).isPresent()) {
+            commitDeck(level, tableOrigin, player, stack);
+        }
     }
 
     /**

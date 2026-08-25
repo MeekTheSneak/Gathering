@@ -1278,7 +1278,96 @@ public final class DevScene {
                 shoot(client, "45b-nothing-up");
                 advance(SETTLE / 2);
             }
+            case 114 -> {
+                client.setScreen(null);
+                aShelfOfLoanerDecks(client);
+                advance(SETTLE);
+            }
+            case 115 -> {
+                offerTheLoaners(client);
+                advance(SETTLE);
+            }
+            case 116 -> {
+                expectScreen(client, "being offered a loaner deck", LoanerScreen.class);
+                theShelfIsOnTheScreen(client);
+                shoot(client, "46-borrow-a-deck");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
+        }
+    }
+
+    /**
+     * Decks on the loaner shelf, put there rather than read out of a folder.
+     *
+     * <p>What the folder becomes is a pure rule with its own tests. What is being looked at
+     * here is the screen a new player is shown, which wants a shelf with enough on it to say
+     * whether a list of names reads as a list of names.
+     */
+    private static void aShelfOfLoanerDecks(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null) {
+            fail("there was no server to stock a loaner shelf on");
+            return;
+        }
+        List<dev.gathering.item.CardComponent> cards = someCards(client, 20);
+        if (cards.isEmpty()) {
+            fail("there were no looked-up cards to build a loaner deck out of");
+            return;
+        }
+        server.execute(() -> {
+            dev.gathering.server.LoanerDecks.clear();
+            for (String name : List.of("Green Stompy", "Mono Red Burn", "Azorius Control",
+                    "Elves", "Goblins")) {
+                dev.gathering.server.LoanerDecks.stock(name, new dev.gathering.item.DeckComponent(
+                        name, "A deck the server lends out.", java.util.Optional.empty(),
+                        cards, List.of(), List.of()));
+            }
+            System.out.println("[devscene] the loaner shelf has "
+                    + dev.gathering.server.LoanerDecks.names().size() + " deck(s) on it");
+        });
+    }
+
+    /** Offers the shelf the way sitting down at a table with nothing does. */
+    private static void offerTheLoaners(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to offer a loaner from");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        BlockPos where = client.player.blockPosition();
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player == null) {
+                fail("the player went away before they could be offered a deck");
+                return;
+            }
+            dev.gathering.server.Lending.offer(player, where);
+        });
+    }
+
+    /** A shelf with decks on it shows decks. */
+    private static void theShelfIsOnTheScreen(Minecraft client) {
+        if (!(client.screen instanceof LoanerScreen shelf)) {
+            fail("there was no loaner screen to read");
+            return;
+        }
+        if (shelf.listed() <= 0) {
+            fail("a loaner screen with decks on the shelf listed none of them");
+        }
+        // The way out that is not borrowing. A screen whose only answers all commit you to
+        // something is one somebody feels trapped by.
+        boolean wayOut = false;
+        for (net.minecraft.client.gui.components.events.GuiEventListener child
+                : shelf.children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget
+                    && widget.getMessage().getString().equals("No thanks")) {
+                wayOut = true;
+            }
+        }
+        if (!wayOut) {
+            fail("the only way off the loaner screen was to take a deck");
         }
     }
 

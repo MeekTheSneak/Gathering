@@ -55,6 +55,7 @@ public final class GatheringNeoForge {
         dev.gathering.server.CurrentSet.resolve();
         dev.gathering.server.SealedLoot.warm();
         dev.gathering.server.CardShop.warm();
+        dev.gathering.server.LoanerDecks.warm();
         // The one line the access transformer exists for. Everything about which building
         // goes into which pool is LocalGameStore's; this reaches the list.
         dev.gathering.village.LocalGameStore.addToVillages(event.getServer(),
@@ -95,6 +96,7 @@ public final class GatheringNeoForge {
         dev.gathering.server.CardShop.clear();
         dev.gathering.server.CurrentSet.clear();
         dev.gathering.server.TradeSessions.clear();
+        dev.gathering.server.LoanerDecks.clear();
         if (cardData != null) {
             cardData.close();
             cardData = null;

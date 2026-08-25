@@ -66,6 +66,12 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.CollectionTakePayload.TYPE,
                 dev.gathering.network.CollectionTakePayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.TakeLoanerPayload.TYPE,
+                dev.gathering.network.TakeLoanerPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.OpenLoanersPayload.TYPE,
+                dev.gathering.network.OpenLoanersPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.OpenCollectionPayload.TYPE,
                 dev.gathering.network.OpenCollectionPayload.STREAM_CODEC);
@@ -148,6 +154,10 @@ final class GatheringNetwork {
                         dev.gathering.server.CollectionView.take(
                                 context.player(), payload.where(), payload.card(),
                                 payload.howMany()));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.TakeLoanerPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.Lending.handle(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(SideboardEditPayload.TYPE, (payload, context) ->
                 dev.gathering.server.Sideboarding.handle(context.player(), payload));

@@ -73,6 +73,15 @@ public final class GatheringNetwork {
                 GatheringNetwork::onTradeAction);
 
         registrar.playToServer(
+                dev.gathering.network.TakeLoanerPayload.TYPE,
+                dev.gathering.network.TakeLoanerPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.Lending.handle(player, payload);
+                    }
+                }));
+
+        registrar.playToServer(
                 TableActionPayload.TYPE,
                 TableActionPayload.STREAM_CODEC,
                 GatheringNetwork::onTableAction);
@@ -166,6 +175,10 @@ public final class GatheringNetwork {
         registrar.playToClient(
                 dev.gathering.network.CollectionPagePayload.TYPE,
                 dev.gathering.network.CollectionPagePayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.OpenLoanersPayload.TYPE,
+                dev.gathering.network.OpenLoanersPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
                 OpenSideboardPayload.TYPE,
