@@ -37,6 +37,21 @@ public final class TableClusters {
      * which is why this cannot just look at the biggest of them.
      */
     public static boolean wouldFit(BlockGetter level, BlockPos origin) {
+        // Small enough, and still a line. A table pushed against the front or back of another
+        // takes an edge the game is played across away from both of them, and the people they
+        // could still seat would be at the sides reading their own boards sideways. Refused
+        // here, where a player is standing with the table in their hand and can be told, and
+        // never as a seat that turns out to be unusable.
+        return whyItWouldNotFit(level, origin).isEmpty();
+    }
+
+    /**
+     * The shape this placement would leave behind: the new table and everything it touches.
+     *
+     * <p>Two separate clusters either side of the gap merge into one when it is filled, which
+     * is why this cannot just look at the biggest of them.
+     */
+    private static java.util.Set<TableCell> shapeAfterPlacing(BlockGetter level, BlockPos origin) {
         java.util.Set<TableCell> joined = new java.util.LinkedHashSet<>();
         joined.add(new TableCell(0, 0));
         for (Side side : Side.values()) {
@@ -44,11 +59,25 @@ public final class TableClusters {
             if (!isTableOrigin(level, blockPos(origin, neighbour))) {
                 continue;
             }
-            TableCluster existing = TableCluster.around(
-                    neighbour, cell -> isTableOrigin(level, blockPos(origin, cell)));
-            joined.addAll(existing.cells());
+            joined.addAll(TableCluster.around(
+                    neighbour, cell -> isTableOrigin(level, blockPos(origin, cell))).cells());
         }
-        return joined.size() <= TableCluster.MAX_TABLES;
+        return joined;
+    }
+
+    /**
+     * Why a table would not go here, for the message a player gets when it does not.
+     *
+     * <p>Two reasons and they are not the same: one is a cap somebody can work round by
+     * building elsewhere, the other is a shape. A refusal that does not say which is a table
+     * that just will not place.
+     */
+    public static String whyItWouldNotFit(BlockGetter level, BlockPos origin) {
+        java.util.Set<TableCell> joined = shapeAfterPlacing(level, origin);
+        if (joined.size() > TableCluster.MAX_TABLES) {
+            return "message.gathering.cluster_full";
+        }
+        return TableCluster.seatsEverySide(joined) ? "" : "message.gathering.cluster_line";
     }
 
     /** Where a seat is in the world: the block outside that edge of that table. */

@@ -46,17 +46,32 @@ class TableClusterTest {
     }
 
     @Test
-    @DisplayName("four tables in a block seat eight, around the outside")
-    void fourTablesSeatEight() {
-        TableCluster cluster = clusterOf(cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1));
+    @DisplayName("tables stacked front to back seat nobody, and say so before they are built")
+    void aBlockOfTablesSeatsNobody() {
+        // A table with another one above or below it has lost one of the two edges the game
+        // is played across. The players it could still take would be sitting at the sides,
+        // reading their own boards sideways, and the screen a player sits down to knows two
+        // ways up: its own and the one opposite. So the shape seats nobody, and the placement
+        // that would make it is refused where somebody can be told why.
+        Set<TableCell> block = Set.of(cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1));
 
-        assertThat(cluster.capacity()).isEqualTo(8);
-        // Every corner table has two outward edges and no facing pair, so it seats two people
-        // round the outside corner - which is what pushed-together tables actually look like.
-        for (SeatAnchor seat : cluster.seats()) {
-            assertThat(cluster.contains(seat.cell().step(seat.side())))
-                    .describedAs("seat %s faces into another table", seat)
-                    .isFalse();
+        assertThat(TableCluster.seatsEverySide(block)).isFalse();
+        assertThat(TableCluster.of(block).capacity()).isZero();
+    }
+
+    @Test
+    @DisplayName("a line of tables is the shape that seats people")
+    void aLineSeatsTwoPerTable() {
+        for (int tables = 1; tables <= TableCluster.MAX_TABLES; tables++) {
+            Set<TableCell> line = new LinkedHashSet<>();
+            for (int x = 0; x < tables; x++) {
+                line.add(cell(x, 0));
+            }
+            assertThat(TableCluster.seatsEverySide(line))
+                    .describedAs("a line of %s seats everybody", tables)
+                    .isTrue();
+            assertThat(TableCluster.of(line).capacity())
+                    .isEqualTo(tables * TableCluster.SEATS_PER_TABLE);
         }
     }
 
@@ -78,13 +93,18 @@ class TableClusterTest {
     }
 
     @Test
-    @DisplayName("four tables in a T still seat eight, around the perimeter")
-    void aTShapeStillSeatsEight() {
-        // The middle table has one outward edge. Two seats on it would put somebody inside
-        // the furniture; one would make a four-table cluster seat seven.
+    @DisplayName("a T seats only the tables that still have both facing edges")
+    void aTShapeSeatsOnlyItsLine() {
+        // The stem has a table above it, so it has lost its north edge and seats nobody. The
+        // three across still face north and south and seat two apiece. This shape cannot be
+        // built any more, but one already in a world still has to load and still has to seat
+        // the people it can rather than putting anybody sideways.
         TableCluster cluster = clusterOf(cell(0, 0), cell(-1, 0), cell(1, 0), cell(0, -1));
 
-        assertThat(cluster.capacity()).isEqualTo(8);
+        assertThat(cluster.capacity()).isEqualTo(4);
+        for (SeatAnchor seat : cluster.seats()) {
+            assertThat(seat.side()).isIn(Side.NORTH, Side.SOUTH);
+        }
     }
 
     @Test
@@ -118,12 +138,29 @@ class TableClusterTest {
     }
 
     @Property(tries = 2000)
-    void everyShapeSeatsTwoPerTable(@ForAll("shapes") Set<TableCell> shape) {
+    void aShapeThatSeatsEverySideSeatsTwoPerTable(@ForAll("shapes") Set<TableCell> shape) {
         TableCluster cluster = TableCluster.of(shape);
 
+        if (TableCluster.seatsEverySide(shape)) {
+            assertThat(cluster.capacity())
+                    .isEqualTo(cluster.tableCount() * TableCluster.SEATS_PER_TABLE);
+        }
         assertThat(cluster.capacity())
-                .isEqualTo(cluster.tableCount() * TableCluster.SEATS_PER_TABLE);
-        assertThat(cluster.capacity()).isBetween(2, TableCluster.MAX_TABLES * TableCluster.SEATS_PER_TABLE);
+                .isBetween(0, TableCluster.MAX_TABLES * TableCluster.SEATS_PER_TABLE);
+    }
+
+    /**
+     * Nobody is ever seated where their own board would read sideways.
+     *
+     * <p>The whole reason a shape that is not a line seats fewer people. Stated over every
+     * shape rather than over the ones the placement rule allows, because a world built before
+     * that rule existed still loads and still has to put nobody at a side.
+     */
+    @Property(tries = 2000)
+    void noSeatIsEverOnASideEdge(@ForAll("shapes") Set<TableCell> shape) {
+        for (SeatAnchor seat : TableCluster.of(shape).seats()) {
+            assertThat(seat.side()).isIn(Side.NORTH, Side.SOUTH);
+        }
     }
 
     @Property(tries = 2000)

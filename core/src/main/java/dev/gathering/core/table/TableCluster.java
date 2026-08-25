@@ -163,32 +163,43 @@ public final class TableCluster {
         int wanted = ordered.size() * SEATS_PER_TABLE;
 
         List<SeatAnchor> anchors = new ArrayList<>(wanted);
-        List<SeatAnchor> spare = new ArrayList<>();
-
         for (TableCell cell : ordered) {
             List<Side> outward = outwardSides(cell, present);
-            List<Side> pair = facingPair(outward);
-            for (Side side : outward) {
-                if (pair != null && pair.contains(side)) {
-                    anchors.add(new SeatAnchor(cell, side));
-                } else {
-                    spare.add(new SeatAnchor(cell, side));
-                }
+            // North and south only. A seat on an east or west edge is a board that has to be
+            // read sideways, and the screen a player sits down to knows two ways up: its own
+            // and the one opposite. Rather than teach it a quarter turn nobody would ever see
+            // - tables join in a line, and a shape that would need such a seat is refused
+            // where it is placed and can be explained - the edge simply seats nobody.
+            if (!outward.contains(Side.NORTH) || !outward.contains(Side.SOUTH)) {
+                continue;
             }
+            anchors.add(new SeatAnchor(cell, Side.NORTH));
+            anchors.add(new SeatAnchor(cell, Side.SOUTH));
         }
+        return anchors.size() > wanted
+                ? List.copyOf(anchors.subList(0, wanted))
+                : List.copyOf(anchors);
+    }
 
-        // More facing seats than the cluster seats is possible - four tables in a line have
-        // ten outward edges and eight of them pair up - so trim before topping up.
-        if (anchors.size() > wanted) {
-            return List.copyOf(anchors.subList(0, wanted));
+    /**
+     * Whether every table in this shape would seat people on facing north and south edges.
+     *
+     * <p>Which is to say: whether it is a line. A table with another one above or below it
+     * has lost one of the two edges the game is played across, and the players it could still
+     * seat would be sitting at the sides reading their own boards sideways. Asked where a
+     * table is placed, so the answer arrives as a refusal somebody can be told about rather
+     * than as a seat that turns out to be unusable.
+     */
+    public static boolean seatsEverySide(Set<TableCell> cells) {
+        if (cells.isEmpty()) {
+            return true;
         }
-        for (SeatAnchor extra : spare) {
-            if (anchors.size() >= wanted) {
-                break;
+        for (TableCell cell : cells) {
+            if (cells.contains(cell.step(Side.NORTH)) || cells.contains(cell.step(Side.SOUTH))) {
+                return false;
             }
-            anchors.add(extra);
         }
-        return List.copyOf(anchors);
+        return true;
     }
 
     private static List<Side> outwardSides(TableCell cell, Set<TableCell> present) {

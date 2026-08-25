@@ -138,6 +138,8 @@
   "message.gathering.card_given": "Gave you %s.",
   "message.gathering.card_lookup_failed": "Could not reach Scryfall to look up \"%s\".",
   "message.gathering.card_not_found": "No card named \"%s\" was found.",
+  "message.gathering.cluster_full": "That cluster is already as big as a table cluster gets.",
+  "message.gathering.cluster_line": "Tables join in a line, side to side. One pushed against the front or back of another takes away an edge somebody has to sit at.",
   "message.gathering.deck_already_down": "Your deck is already on the table.",
   "message.gathering.deck_committed": "Your deck is on the table: %s cards, shuffled.",
   "message.gathering.deck_illegal": "This deck is not legal for %s:",

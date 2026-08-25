@@ -32,6 +32,15 @@ public class TableBlockItem extends BlockItem {
     protected boolean placeBlock(BlockPlaceContext context, BlockState state) {
         BlockPos origin = context.getClickedPos();
         if (!TableBlock.canPlaceAt(context, origin)) {
+            // Say why. A table that simply refuses to go down is a player clicking the same
+            // spot four times and then putting the mod away: the two reasons it can refuse -
+            // the cluster is already as big as one gets, and tables join in a line - are both
+            // things somebody would move one block to the side for if they were told.
+            String why = TableClusters.whyItWouldNotFit(context.getLevel(), origin);
+            if (!why.isEmpty() && context.getPlayer() != null
+                    && !context.getLevel().isClientSide()) {
+                context.getPlayer().sendSystemMessage(Component.translatable(why));
+            }
             return false;
         }
 
