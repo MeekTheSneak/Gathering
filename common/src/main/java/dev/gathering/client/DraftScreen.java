@@ -64,7 +64,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
     private Rect panel = Rect.NONE;
     private Rect grid = Rect.NONE;
     private Rect footerRow = Rect.NONE;
-    private int columns = 1;
 
     /** How the pack was laid out to fit the window it is being drawn in. */
     private PackLayout laid = PackLayout.fit(1, 100, 100, GAP, CARD_HEIGHT);
@@ -149,7 +148,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
                 this.height - MARGIN * 4 - HEADER - FOOTER,
                 GAP,
                 CARD_HEIGHT);
-        columns = laid.columns();
 
         int gridWidth = laid.width(GAP);
         int gridHeight = laid.height(GAP);
@@ -205,8 +203,12 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
             drawCard(graphics, cards.get(index), slotOf(index),
                     index == hovered, chosen.contains(index));
         }
-        if (cards.isEmpty()) {
-            GuiText.drawCentred(graphics, this.font, emptyLine(),
+        // Only while there is another pack coming. A finished pod has the headline saying so
+        // and the footer saying where the pool went, and a third sentence in the middle of an
+        // empty box saying it again is a box repeating itself.
+        if (cards.isEmpty() && !view.finished()) {
+            GuiText.drawCentred(graphics, this.font,
+                    Component.translatable("screen.gathering.draft.pack_coming"),
                     panel.x() + panel.width() / 2, grid.y() + grid.height() / 2 - 4,
                     panel.width() - MARGIN, DIM);
         }
@@ -233,12 +235,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         }
         return Component.translatable("screen.gathering.draft.round",
                 view.round() + 1, view.rounds(), view.myPool().size());
-    }
-
-    private Component emptyLine() {
-        return view.finished()
-                ? Component.translatable("screen.gathering.draft.pool_coming")
-                : Component.translatable("screen.gathering.draft.pack_coming");
     }
 
     /**
@@ -322,8 +318,8 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     private Rect slotOf(int index) {
         return new Rect(
-                grid.x() + (index % columns) * (laid.cardWidth() + GAP),
-                grid.y() + (index / columns) * (laid.cardHeight() + GAP),
+                grid.x() + (index % laid.columns()) * (laid.cardWidth() + GAP),
+                grid.y() + (index / laid.columns()) * (laid.cardHeight() + GAP),
                 laid.cardWidth(),
                 laid.cardHeight());
     }

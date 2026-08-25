@@ -76,7 +76,7 @@ public final class MatchGameTest {
     public static void betweenGamesTheBoardGoesAndTheDecksStay(GameTestHelper helper) {
         BlockPos origin = seatedTable(helper);
         startMatch(helper, origin, 3);
-        tableAt(helper, origin).holdDeck(new SeatId(0), deck());
+        tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null);
 
         winGame(helper, origin, new SeatId(0));
 
@@ -97,7 +97,7 @@ public final class MatchGameTest {
         BlockPos origin = seatedTable(helper);
         clearItems(helper, origin);
         startMatch(helper, origin, 3);
-        tableAt(helper, origin).holdDeck(new SeatId(0), deck());
+        tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null);
 
         winGame(helper, origin, new SeatId(0));
         startNextGame(helper, origin);
@@ -137,7 +137,7 @@ public final class MatchGameTest {
     public static void thenextGameKeepsTheScoreAndPutsTheDecksBackDown(GameTestHelper helper) {
         BlockPos origin = seatedTable(helper);
         startMatch(helper, origin, 3);
-        tableAt(helper, origin).holdDeck(new SeatId(0), deck());
+        tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null);
 
         winGame(helper, origin, new SeatId(0));
         startNextGame(helper, origin);

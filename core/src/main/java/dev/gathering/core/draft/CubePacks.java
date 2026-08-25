@@ -16,8 +16,12 @@ import java.util.List;
  * <p>Dealt from a shuffle of the whole cube rather than pack by pack, because a cube is one
  * pile of cards being cut into packs, and cutting it any other way would let the same
  * printing land in two packs of the same round. The shuffle is the same seeded stream the
- * table shuffles libraries with: the pod is reproducible from its seed, and the seed is the
- * one thing that never reaches a client.
+ * table shuffles libraries with, so the same cube and the same seed always cut the same
+ * packs - which is what makes the dealing checkable rather than something to be believed.
+ *
+ * <p>A pod running at a table is kept whole rather than replayed from its seed. Replaying
+ * would need a second implementation of the passing rules, and a bug in that second
+ * implementation would hand somebody else's cards back after a restart.
  */
 public final class CubePacks {
 
@@ -60,7 +64,7 @@ public final class CubePacks {
      * Cuts a shuffled cube into one pack per drafter per round.
      *
      * @param cube    every card in the cube, one entry per physical card
-     * @param seed    the session seed this pod was opened with; never logged, never sent
+     * @param seed    the pod's own shuffle seed, fresh per pod; never logged, never sent
      * @throws IllegalArgumentException if the cube cannot fill packs worth passing
      */
     public static List<List<DraftPack>> deal(List<CardIdentity> cube, int drafters, byte[] seed) {

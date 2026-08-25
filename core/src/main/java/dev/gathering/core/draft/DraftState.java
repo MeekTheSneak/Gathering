@@ -67,6 +67,16 @@ public record DraftState(
                 throw new IllegalArgumentException(
                         "Every round needs one pack per drafter: " + drafters + " expected");
             }
+            for (DraftPack pack : round) {
+                // A pack with nothing in it is a pod that can never finish. Nobody has a pick
+                // due, so nobody can declare, so the turn never resolves and the round never
+                // ends - the pod sits at the first round for ever with no way to move it on.
+                // Refused here rather than handled later, because there is no sensible way to
+                // draft from an empty pack and a stuck pod is far worse than a refusal.
+                if (pack == null || pack.isEmpty()) {
+                    throw new IllegalArgumentException("A pod cannot be dealt an empty pack");
+                }
+            }
         }
         List<List<CardIdentity>> pools = new ArrayList<>(drafters);
         for (int index = 0; index < drafters; index++) {

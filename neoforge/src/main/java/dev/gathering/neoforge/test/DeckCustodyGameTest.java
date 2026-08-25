@@ -52,7 +52,7 @@ public final class DeckCustodyGameTest {
         DeckComponent deck = deck();
 
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(0), deck);
+        table.holdDeck(new SeatId(0), deck, null);
 
         TableSessions.returnDecks(helper.getLevel(), origin, table);
 
@@ -86,7 +86,7 @@ public final class DeckCustodyGameTest {
         clearItems(helper, origin);
 
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(0), deck());
+        table.holdDeck(new SeatId(0), deck(), null);
 
         TableSessions.returnDecks(helper.getLevel(), origin, table);
 
@@ -100,7 +100,7 @@ public final class DeckCustodyGameTest {
     public static void breakingTheTableGivesTheDecksBack(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         clearItems(helper, origin);
-        tableAt(helper, origin).holdDeck(new SeatId(0), deck());
+        tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null);
 
         helper.getLevel().destroyBlock(TablePart.SOUTH_EAST.offsetFrom(origin), false);
 
@@ -115,7 +115,7 @@ public final class DeckCustodyGameTest {
         // A server restart mid-match must not eat four decks.
         BlockPos origin = place(helper, 1, 2, 1);
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(2), deck());
+        table.holdDeck(new SeatId(2), deck(), null);
 
         var registries = helper.getLevel().registryAccess();
         var saved = table.saveWithoutMetadata(registries);
@@ -205,7 +205,7 @@ public final class DeckCustodyGameTest {
         clearItems(helper, origin);
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(0), deck());
+        table.holdDeck(new SeatId(0), deck(), null);
 
         TableSessions.returnDecks(helper.getLevel(), origin, table);
 

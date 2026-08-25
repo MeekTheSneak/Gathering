@@ -269,6 +269,25 @@ class DraftStateTest {
                 .hasMessageContaining("one pack per drafter");
     }
 
+    /**
+     * A pod is never dealt an empty pack.
+     *
+     * <p>Not fussiness: with nothing in a pack nobody has a pick due, so nobody can declare,
+     * so the turn never resolves and the round never ends. The pod would sit at its first
+     * round for ever with nothing anybody could do to move it on.
+     */
+    @Test
+    void aPodCannotBeDealtAnEmptyPack() {
+        List<List<DraftPack>> withAnEmptyOne = new ArrayList<>(openingFor(4, 8));
+        List<DraftPack> firstRound = new ArrayList<>(withAnEmptyOne.get(0));
+        firstRound.set(2, DraftPack.of(List.of()));
+        withAnEmptyOne.set(0, firstRound);
+
+        assertThatThrownBy(() -> DraftState.opening(4, withAnEmptyOne))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("empty pack");
+    }
+
     // --- helpers ---
 
     private static DraftState podOf(int drafters, int packSize) {

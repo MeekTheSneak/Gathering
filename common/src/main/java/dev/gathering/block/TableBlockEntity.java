@@ -262,18 +262,18 @@ public class TableBlockEntity extends BlockEntity {
         }
     }
 
-    /** Takes a seat's deck into the table's keeping for the rest of the match. */
-    public void holdDeck(SeatId seat, DeckComponent deck) {
-        holdDeck(seat, deck, null);
-    }
-
     /**
-     * The same, keeping the pool the deck was drafted from.
+     * Takes a seat's deck into the table's keeping for the rest of the match, and the pool it
+     * was drafted from - null for a deck nobody drafted, which is every imported one.
      *
-     * <p>Held with it rather than left on the item, because the item is gone: the table takes
-     * the whole deck for the length of a match and hands back a new stack afterwards. Without
-     * this a drafted deck came back from its first game with no pool on it, and the limited
-     * check it had been playing under quietly stopped applying.
+     * <p>The pool is held with the deck rather than left on the item, because the item is
+     * gone: the table takes the whole deck for the length of a match and hands back a new
+     * stack afterwards. Without this a drafted deck came back from its first game with no
+     * pool on it, and the limited check it had been playing under quietly stopped applying.
+     *
+     * <p>There is deliberately no two-argument version. One that defaulted the pool to null
+     * would drop a pool every time somebody called the short form out of habit - which is a
+     * deck quietly stopping being a drafted deck, and nothing to see when it happens.
      */
     public void holdDeck(SeatId seat, DeckComponent deck, DraftedPool pool) {
         decks.put(seat, deck);

@@ -30,9 +30,6 @@ public final class DraftViewCodec {
 
     public static final int VERSION = 1;
 
-    /** A ceiling on any length read from the wire, checked before it sizes anything. */
-    public static final int MAX_ENTRIES = DraftBytes.MAX_ENTRIES;
-
     private DraftViewCodec() {
     }
 

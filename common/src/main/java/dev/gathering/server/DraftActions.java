@@ -111,16 +111,11 @@ public final class DraftActions {
         // against. Never the session seed, which is the one value that never leaves the
         // server - the pod's own place in the world is enough to tell two drafts apart.
         String podName = tableOrigin.toShortString();
-        for (int index = 0; index < pod.drafters().size(); index++) {
-            DrafterId place = DrafterId.of(index);
-            ServerPlayer drafter = level.getServer().getPlayerList()
-                    .getPlayer(pod.drafterAt(place).orElseThrow().id());
-            if (drafter == null) {
-                // Left before the last pick. Their pool is still in the pod, which is saved
-                // with the world, so ending here would lose it - the pod stays until it has
-                // been handed to somebody, and it is handed out again when they return.
-                return;
-            }
+        if (!everybodyIsHere(level, pod)) {
+            // Somebody left between their own last pick and the last one in the pod. Their
+            // pool is still in it, and the pod is saved with the world - so nothing is handed
+            // out until everybody can take theirs, and opening the table tries again.
+            return;
         }
         for (int index = 0; index < pod.drafters().size(); index++) {
             DrafterId place = DrafterId.of(index);
@@ -156,6 +151,17 @@ public final class DraftActions {
                     "message.gathering.draft_finished", pool.size()));
         }
         DraftPods.end(level, tableOrigin);
+    }
+
+    /** Whether every drafter is online to be handed their pool. */
+    private static boolean everybodyIsHere(ServerLevel level, DraftPod pod) {
+        for (int index = 0; index < pod.drafters().size(); index++) {
+            java.util.UUID who = pod.drafterAt(DrafterId.of(index)).orElseThrow().id();
+            if (level.getServer().getPlayerList().getPlayer(who) == null) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean within(ServerPlayer player, BlockPos tableOrigin) {

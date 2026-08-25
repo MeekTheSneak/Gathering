@@ -420,14 +420,25 @@ public class TableBlock extends BaseEntityBlock {
             cards.add(card.toIdentity());
         }
 
+        int here = DraftPods.drafters(level, tableOrigin).size();
         DraftPods.Outcome outcome = DraftPods.start(level, tableOrigin, cards, true);
-        player.sendSystemMessage(outcome == DraftPods.Outcome.CUBE_TOO_SMALL
-                ? Component.translatable(outcome.messageKey(),
-                        dev.gathering.core.draft.CubePacks.smallestCubeFor(
-                                Math.max(dev.gathering.core.draft.DraftRules.SMALLEST_POD,
-                                        DraftPods.drafters(level, tableOrigin).size())),
-                        cards.size())
-                : Component.translatable(outcome.messageKey()));
+        if (outcome == DraftPods.Outcome.CUBE_TOO_SMALL) {
+            player.sendSystemMessage(Component.translatable(outcome.messageKey(),
+                    dev.gathering.core.draft.CubePacks.smallestCubeFor(here), cards.size()));
+        } else if (outcome != DraftPods.Outcome.STARTED) {
+            player.sendSystemMessage(Component.translatable(outcome.messageKey()));
+        } else {
+            // Whoever cuts the cube need not be drafting it. Somebody can bring a cube to
+            // four other people and run their draft for them, which is what sponsoring a pod
+            // is - and telling them to pick a card when they have no pack is a message that
+            // sends them looking for a screen that will never open.
+            boolean drafting = DraftPods.podAt(level, tableOrigin)
+                    .flatMap(pod -> pod.placeOf(player.getUUID()))
+                    .isPresent();
+            player.sendSystemMessage(Component.translatable(drafting
+                    ? outcome.messageKey()
+                    : "message.gathering.draft_started_for_others", here));
+        }
         if (outcome == DraftPods.Outcome.STARTED && level instanceof ServerLevel server) {
             dev.gathering.server.DraftBroadcast.sendToPod(server, tableOrigin, true);
         }
