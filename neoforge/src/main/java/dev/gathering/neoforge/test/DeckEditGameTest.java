@@ -491,4 +491,65 @@ public final class DeckEditGameTest {
         }
         return found;
     }
+
+    /**
+     * The section a left-click sends a card to is never the one it is already in.
+     *
+     * <p>The gesture that means "move this" must always move it. A section that mapped to
+     * itself would be a click that silently did nothing, which is the worst kind - and the
+     * one nobody reports, because it looks like a missed click rather than a bug.
+     */
+    @GameTest(template = "empty")
+    public static void aCardAlwaysCrossesToADifferentPile(GameTestHelper helper) {
+        for (DeckComponent.Section section : DeckComponent.Section.values()) {
+            if (section.across() == section) {
+                helper.fail(section + " moves to itself, so a click on it does nothing");
+                return;
+            }
+        }
+        // And the two piles a deck is built out of swap, which is what building one is.
+        if (DeckComponent.Section.MAINBOARD.across() != DeckComponent.Section.SIDEBOARD
+                || DeckComponent.Section.SIDEBOARD.across() != DeckComponent.Section.MAINBOARD) {
+            helper.fail("The deck and the sideboard do not swap");
+            return;
+        }
+        // A commander goes to the deck rather than to the sideboard: a card in the command
+        // zone that is not wanted there is wanted in the ninety-nine.
+        if (DeckComponent.Section.COMMANDERS.across() != DeckComponent.Section.MAINBOARD) {
+            helper.fail("A commander crosses to "
+                    + DeckComponent.Section.COMMANDERS.across() + ", not the deck");
+        }
+        helper.succeed();
+    }
+
+    /**
+     * And a move both ways puts the deck back exactly as it was.
+     *
+     * <p>Which is what makes the new left-click safe to press: a card moved by mistake is one
+     * click from where it was, rather than something to go looking for.
+     */
+    @GameTest(template = "empty")
+    public static void movingAcrossAndBackChangesNothing(GameTestHelper helper) {
+        DeckComponent deck = new DeckComponent(
+                "Pool", "", java.util.Optional.empty(),
+                java.util.List.of(),
+                java.util.List.of(),
+                java.util.List.of(CardComponent.of(CardIdentity.ofPrinting(SOL_RING))));
+        CardComponent card = deck.sideboard().get(0);
+
+        DeckComponent across = deck.moved(
+                DeckComponent.Section.SIDEBOARD,
+                DeckComponent.Section.SIDEBOARD.across(), card).orElse(null);
+        if (across == null || across.entries().size() != 1 || !across.sideboard().isEmpty()) {
+            helper.fail("A card did not cross from the sideboard into the deck");
+            return;
+        }
+        DeckComponent back = across.moved(
+                DeckComponent.Section.MAINBOARD,
+                DeckComponent.Section.MAINBOARD.across(), card).orElse(null);
+        if (back == null || !back.equals(deck)) {
+            helper.fail("Crossing back did not put the deck as it was: " + back);
+        }
+        helper.succeed();
+    }
 }

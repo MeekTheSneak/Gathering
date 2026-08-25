@@ -77,10 +77,13 @@ public final class BasicLands {
             return;
         }
 
-        // Re-read now rather than trusting what was in hand when the lookup started: a
-        // network round trip is long enough to put the deck down, swap hands, or hand it to
-        // somebody else, and adding cards to whatever is there now would be adding them to
-        // the wrong thing.
+        // Re-read now rather than writing back the deck as it was when the lookup started: a
+        // network round trip is long enough to edit it, and writing back a stale copy would
+        // undo whatever happened in between. It does not identify the deck - somebody who
+        // swaps decks inside the round trip gets their lands in the new one - and that is
+        // left alone deliberately: the cost is a couple of basics in the wrong deckbox,
+        // which are free and one click to remove, and the check that would prevent it would
+        // also silently drop a request from anybody who edited their deck while waiting.
         InteractionHand hand = asked.hand();
         ItemStack stack = player.getItemInHand(hand);
         DeckComponent deck = DeckItem.deckOf(stack).orElse(null);

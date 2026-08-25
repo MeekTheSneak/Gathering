@@ -106,6 +106,23 @@ public record DeckComponent(
         MAINBOARD,
         SIDEBOARD;
 
+        /**
+         * Where a card goes when somebody moves it without saying where to.
+         *
+         * <p>The deck and the sideboard swap, which is what building a deck is. A commander
+         * goes to the deck: a card in the command zone that is not wanted there is wanted in
+         * the ninety-nine far more often than it is wanted out of the box altogether.
+         *
+         * <p>Never itself, or the gesture that means "move this" would sometimes mean
+         * nothing at all - and a click that silently does nothing is the worst kind.
+         */
+        public Section across() {
+            return switch (this) {
+                case MAINBOARD -> SIDEBOARD;
+                case SIDEBOARD, COMMANDERS -> MAINBOARD;
+            };
+        }
+
         public static final StreamCodec<ByteBuf, Section> STREAM_CODEC =
                 ByteBufCodecs.idMapper(Section::byId, Section::ordinal);
 

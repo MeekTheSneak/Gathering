@@ -23,6 +23,15 @@ public final class ClientCardCache implements CardNameLookup {
 
     private static final ClientCardCache INSTANCE = new ClientCardCache();
 
+    /**
+     * Concurrent because it is written from the network thread and read from the render one.
+     *
+     * <p>Card summaries are taken straight off the wire rather than being handed to the game
+     * thread first, which is worth a frame of latency on a screen full of cards and costs
+     * nothing here - but only while this stays a map that can take it. An ordinary
+     * {@link java.util.HashMap} would be an intermittent, unreproducible corruption on a
+     * client that happened to be drawing while a packet arrived.
+     */
     private final Map<UUID, CardSummary> summaries = new ConcurrentHashMap<>();
 
     private ClientCardCache() {

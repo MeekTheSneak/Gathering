@@ -355,7 +355,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
             return;
         }
         Rect hint = layout().hint();
-        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.deck.hint_take"),
+        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.deck.hint_move"),
                 hint.x(), hint.y(), hint.width(), PENDING_COLOUR);
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.deck.hint_menu"),
                 hint.x(), hint.y() + this.font.lineHeight, hint.width(), PENDING_COLOUR);
@@ -400,8 +400,15 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     }
 
     /**
-     * Left-click takes a card out of the deck; right-click moves it to or from the command
-     * zone.
+     * Left-click moves a card between the deck and the sideboard; right-click is everything
+     * else, taking a copy out included.
+     *
+     * <p>The other way round until a draft made the cost of it obvious. Building forty cards
+     * out of a forty-five card pool is twenty-odd cards crossing between the two piles, and
+     * with the crossing on a menu that is three interactions each - seventy clicks to build
+     * one deck, on the screen whose entire job is building decks. Left-click is the one a
+     * player makes over and over, so it is the one the common act belongs on; taking a card
+     * physically out of a deckbox is rare and keeps its place on the menu.
      *
      * <p>Both are requests, not edits: the server owns the deck and this screen only shows
      * what it is told. The card is named rather than the row, so a click that arrives after
@@ -435,7 +442,8 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         Row row = rows.get(index);
         if (button == 0) {
             GatheringButtons.clickSound();
-            ClientNetworking.send(DeckEditPayload.take(hand, row.section(), row.card()));
+            ClientNetworking.send(
+                    DeckEditPayload.move(hand, row.section(), row.section().across(), row.card()));
             return true;
         }
         if (button == 1) {

@@ -179,7 +179,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         // its own buttons - which then drew over the edges of it and over whatever was behind.
         int wordsWidth = Math.max(
                 this.font.width(headline()),
-                Math.max(this.font.width(footer()), buttonsWidth()));
+                this.font.width(footer()) + buttonsRoom());
         int width = Math.min(this.width - MARGIN * 2,
                 Math.max(gridWidth, wordsWidth) + MARGIN * 2);
         int height = Math.min(this.height - MARGIN * 2,
@@ -214,18 +214,15 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
     }
 
     /**
-     * How much room the row of buttons under the cards needs.
+     * How much of the footer row the buttons take, leaving the rest for the sentence.
      *
      * <p>Asked before they are made, because the panel has to be built wide enough to hold
-     * them and they are placed from the panel. Measured from the same labels they carry, so
-     * the two cannot come apart.
+     * them and they are placed from the panel. The buttons only - what the words need is
+     * added by the one caller that cares, rather than folded in here and subtracted again by
+     * the other, which is arithmetic that reads as a mistake even when it is not.
      */
-    private int buttonsWidth() {
-        int wide = POOL_BUTTON + 4 + this.font.width(footer());
-        if (canPick() && !showingPool) {
-            wide += TAKE_BUTTON + 4;
-        }
-        return wide;
+    private int buttonsRoom() {
+        return POOL_BUTTON + 4 + (canPick() && !showingPool ? TAKE_BUTTON + 4 : 0);
     }
 
     /**
@@ -291,7 +288,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         footerSaid = footer.getString();
         GuiText.draw(graphics, this.font, footer,
                 footerRow.x(), footerRow.y() + (footerRow.height() - this.font.lineHeight) / 2,
-                Math.max(1, footerRow.width() - buttonsWidth() + this.font.width(footer)), DIM);
+                Math.max(1, footerRow.width() - buttonsRoom()), DIM);
 
         // What Alt reads, the same way every other card box here does it: the card under
         // the cursor is handed to the zoom overlay rather than drawn large by this screen.
