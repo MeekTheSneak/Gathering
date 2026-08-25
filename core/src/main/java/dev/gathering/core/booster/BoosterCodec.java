@@ -169,15 +169,16 @@ public final class BoosterCodec {
 
     // ------------------------------------------------------------------- bits
     //
-    // Package-private rather than private: the feed adapters in this package read a different
-    // schema into the same shapes, and two copies of "is this field an object" is two places
-    // for the message to drift.
+    // Shared rather than private. Three readers now take published card data apart - this
+    // one, the collation adapter beside it, and the sealed-product reader - and they all want
+    // the same four questions asked the same way with the same message when the answer is no.
+    // Two copies of "is this field an object" is two places for that message to drift.
 
-    static String string(JsonObject json, String field) throws BoosterCodecException {
+    public static String string(JsonObject json, String field) throws BoosterCodecException {
         return string(json, field, null);
     }
 
-    static String string(JsonObject json, String field, String where) throws BoosterCodecException {
+    public static String string(JsonObject json, String field, String where) throws BoosterCodecException {
         JsonElement element = json.get(field);
         if (element == null || !element.isJsonPrimitive() || element.getAsString().isBlank()) {
             throw new BoosterCodecException(
@@ -186,11 +187,11 @@ public final class BoosterCodec {
         return element.getAsString();
     }
 
-    static JsonObject object(JsonObject json, String field) throws BoosterCodecException {
+    public static JsonObject object(JsonObject json, String field) throws BoosterCodecException {
         return object(json, field, null);
     }
 
-    static JsonObject object(JsonObject json, String field, String where)
+    public static JsonObject object(JsonObject json, String field, String where)
             throws BoosterCodecException {
         JsonElement element = json.get(field);
         if (element == null || !element.isJsonObject()) {
@@ -200,11 +201,11 @@ public final class BoosterCodec {
         return element.getAsJsonObject();
     }
 
-    static JsonArray array(JsonObject json, String field) throws BoosterCodecException {
+    public static JsonArray array(JsonObject json, String field) throws BoosterCodecException {
         return array(json, field, null);
     }
 
-    static JsonArray array(JsonObject json, String field, String where)
+    public static JsonArray array(JsonObject json, String field, String where)
             throws BoosterCodecException {
         JsonElement element = json.get(field);
         if (element == null || !element.isJsonArray()) {
@@ -237,7 +238,7 @@ public final class BoosterCodec {
      * Sheet <em>totals</em> do run past an int - see {@link BoosterSheet#total} - but no
      * single card's weight has yet, and the day one does this says so.
      */
-    static int weight(JsonElement element, String where) throws BoosterCodecException {
+    public static int weight(JsonElement element, String where) throws BoosterCodecException {
         if (element == null || !element.isJsonPrimitive()
                 || !element.getAsJsonPrimitive().isNumber()) {
             throw new BoosterCodecException(where + ": weight is missing or not a number");

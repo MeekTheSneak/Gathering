@@ -1,0 +1,126 @@
+package dev.gathering.core.sealed;
+
+import dev.gathering.core.card.CardIdentity;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * One thing that was really sold in a shop.
+ *
+ * <p>Not a thing this mod invented. Every product here is a product that existed on a shelf,
+ * read from the sealed-product data published for its set, and that is the whole point: what
+ * a player can find in the world or buy from a shop must be something somebody could have
+ * bought in paper. A set that came only as precons has no booster, and a booster nobody
+ * printed is not a product however convenient it would be to have one.
+ *
+ * <p>The three shapes the design calls for all fall out of the contents rather than being
+ * separate kinds. A pack is a product holding one booster arrangement. A box is a product
+ * holding twelve of another product. A bundle is a product holding some of each, an exact
+ * printing or two, and a spindown die nobody will ever render.
+ *
+ * @param productId  the published id for it, so a container can name what it holds
+ * @param name       what it was called on the shelf
+ * @param setCode    which set it belongs to, lower case as Scryfall writes it
+ * @param category   what shape it is - "booster_pack", "booster_box", "bundle", "deck"
+ * @param subtype    which of that shape - "play", "collector", "commander"
+ * @param cardCount  how many cards are in it, as published
+ */
+public record SealedProduct(
+        String productId,
+        String name,
+        String setCode,
+        String category,
+        String subtype,
+        int cardCount,
+        Contents contents) {
+
+    /** What is inside, in the four kinds the published data distinguishes. */
+    public record Contents(
+            List<Booster> boosters,
+            List<Held> holds,
+            List<CardIdentity> cards,
+            List<String> decks,
+            List<String> extras) {
+
+        public Contents {
+            boosters = boosters == null ? List.of() : List.copyOf(boosters);
+            holds = holds == null ? List.of() : List.copyOf(holds);
+            cards = cards == null ? List.of() : List.copyOf(cards);
+            decks = decks == null ? List.of() : List.copyOf(decks);
+            extras = extras == null ? List.of() : List.copyOf(extras);
+        }
+
+        public boolean isEmpty() {
+            return boosters.isEmpty() && holds.isEmpty() && cards.isEmpty() && decks.isEmpty();
+        }
+    }
+
+    /** A booster arrangement this product opens as, named the way collation names it. */
+    public record Booster(String setCode, String kind) {
+
+        public Booster {
+            setCode = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
+            kind = kind == null ? "" : kind.trim().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    /**
+     * So many of another product.
+     *
+     * <p>By its published id rather than by its contents, because a box of twelve boosters is
+     * twelve of the same product a player could buy singly - and a box that copied their
+     * contents would be a second place for a booster's odds to live.
+     */
+    public record Held(String productId, String name, int count) {
+
+        public Held {
+            productId = productId == null ? "" : productId;
+            name = name == null ? "" : name;
+            count = Math.max(0, count);
+        }
+    }
+
+    public SealedProduct {
+        productId = productId == null ? "" : productId;
+        name = name == null ? "" : name;
+        setCode = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
+        category = category == null ? "" : category.trim().toLowerCase(Locale.ROOT);
+        subtype = subtype == null ? "" : subtype.trim().toLowerCase(Locale.ROOT);
+        cardCount = Math.max(0, cardCount);
+        contents = contents == null
+                ? new Contents(List.of(), List.of(), List.of(), List.of(), List.of())
+                : contents;
+    }
+
+    /**
+     * Whether this is a single booster, and therefore something the opener can already open.
+     *
+     * <p>One arrangement and nothing else in the wrapper. A bundle holds boosters too, and is
+     * not one.
+     */
+    public boolean isOneBooster() {
+        return contents.boosters().size() == 1
+                && contents.holds().isEmpty()
+                && contents.cards().isEmpty()
+                && contents.decks().isEmpty();
+    }
+
+    /** The arrangement a single booster opens as, or null if this is not one. */
+    public Booster asBooster() {
+        return isOneBooster() ? contents.boosters().get(0) : null;
+    }
+
+    /** Whether this is a product made of other products - a box, a case, a bundle. */
+    public boolean holdsOtherProducts() {
+        return !contents.holds().isEmpty();
+    }
+
+    /** How many of everything it holds, counted one level down rather than all the way. */
+    public int piecesHeld() {
+        int pieces = 0;
+        for (Held held : contents.holds()) {
+            pieces += held.count();
+        }
+        return pieces;
+    }
+}
