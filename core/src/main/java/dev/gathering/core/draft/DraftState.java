@@ -1,0 +1,230 @@
+package dev.gathering.core.draft;
+
+import dev.gathering.core.card.CardIdentity;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * A draft pod, entire, as a value.
+ *
+ * <p>Everything the pod is: which round it is on, what each drafter is holding, what each
+ * has picked, and what has been declared this turn but not yet resolved. Every transition
+ * returns a new one, so a pod can be logged, replayed and reasoned about the same way a game
+ * session can, and nothing about it depends on a table, a world or a player.
+ *
+ * <p>A turn resolves all at once. Real drafting is simultaneous - everybody looks at their
+ * pack, everybody picks, then the packs move together - and modelling it as a queue of
+ * individual picks would have let one fast drafter see a pack twice while a slow one had not
+ * seen it at all. So a pick is <em>declared</em>, and nothing moves until every drafter with
+ * cards in front of them has declared. What anybody declared stays theirs alone until then,
+ * which is also the whole of the privacy rule: an undeclared pack cannot leak a pick that
+ * has not been made, and a declared one cannot leak it either, because declarations never
+ * reach another drafter's view.
+ */
+public record DraftState(
+        int drafters,
+        int round,
+        List<List<DraftPack>> opening,
+        List<DraftPack> holding,
+        Map<DrafterId, List<Integer>> declared,
+        List<List<CardIdentity>> pools) {
+
+    public DraftState {
+        if (!DraftRules.isAPodSize(drafters)) {
+            throw new IllegalArgumentException(
+                    "A pod is " + DraftRules.SMALLEST_POD + " to " + DraftRules.LARGEST_POD
+                            + " drafters, not " + drafters);
+        }
+        opening = deepCopy(opening);
+        holding = holding == null ? List.of() : List.copyOf(holding);
+        declared = declared == null
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new LinkedHashMap<>(declared));
+        List<List<CardIdentity>> sealed = new ArrayList<>();
+        if (pools != null) {
+            for (List<CardIdentity> pool : pools) {
+                sealed.add(List.copyOf(pool));
+            }
+        }
+        pools = List.copyOf(sealed);
+    }
+
+    /**
+     * A pod about to open its first pack.
+     *
+     * @param opening per round, per drafter, the pack that drafter opens - which is the
+     *                whole of the randomness in a draft, decided before anybody picks so the
+     *                pod is reproducible from its opening packs and its picks alone
+     */
+    public static DraftState opening(int drafters, List<List<DraftPack>> opening) {
+        if (opening == null || opening.isEmpty()) {
+            throw new IllegalArgumentException("A pod needs at least one round of packs");
+        }
+        for (List<DraftPack> round : opening) {
+            if (round == null || round.size() != drafters) {
+                throw new IllegalArgumentException(
+                        "Every round needs one pack per drafter: " + drafters + " expected");
+            }
+        }
+        List<List<CardIdentity>> pools = new ArrayList<>(drafters);
+        for (int index = 0; index < drafters; index++) {
+            pools.add(List.of());
+        }
+        return new DraftState(drafters, 0, opening, opening.get(0), Map.of(), pools);
+    }
+
+    /** Whether every pack has been emptied and every round played. */
+    public boolean isFinished() {
+        return round >= opening.size();
+    }
+
+    /** How many cards this drafter takes before the packs move on. */
+    public int picksDueFrom(DrafterId drafter) {
+        if (isFinished()) {
+            return 0;
+        }
+        return Math.min(DraftRules.picksPerTurn(drafters), packHeldBy(drafter).size());
+    }
+
+    public DraftPack packHeldBy(DrafterId drafter) {
+        require(drafter);
+        return isFinished() ? new DraftPack(List.of()) : holding.get(drafter.index());
+    }
+
+    public List<CardIdentity> poolOf(DrafterId drafter) {
+        require(drafter);
+        return pools.get(drafter.index());
+    }
+
+    /** Whether this drafter has said what they are taking from the pack in front of them. */
+    public boolean hasDeclared(DrafterId drafter) {
+        require(drafter);
+        return declared.containsKey(drafter);
+    }
+
+    /** Who the pod is still waiting on, in order, so a screen can say so by name. */
+    public List<DrafterId> stillToPick() {
+        List<DrafterId> waiting = new ArrayList<>();
+        if (isFinished()) {
+            return List.copyOf(waiting);
+        }
+        for (int index = 0; index < drafters; index++) {
+            DrafterId drafter = DrafterId.of(index);
+            if (picksDueFrom(drafter) > 0 && !declared.containsKey(drafter)) {
+                waiting.add(drafter);
+            }
+        }
+        return List.copyOf(waiting);
+    }
+
+    /**
+     * Declares what this drafter is taking, and resolves the turn if they were the last.
+     *
+     * @param positions places in the pack in front of them, as many as {@link #picksDueFrom}
+     * @throws IllegalArgumentException if the pod is finished, this drafter has already
+     *                                  declared, or the positions are the wrong number,
+     *                                  repeated, or not in the pack
+     */
+    public DraftState declare(DrafterId drafter, List<Integer> positions) {
+        require(drafter);
+        if (isFinished()) {
+            throw new IllegalArgumentException("The pod has finished drafting");
+        }
+        if (declared.containsKey(drafter)) {
+            throw new IllegalArgumentException(drafter + " has already picked this turn");
+        }
+        int due = picksDueFrom(drafter);
+        if (due == 0) {
+            throw new IllegalArgumentException(drafter + " has no pack to pick from");
+        }
+        List<Integer> chosen = positions == null ? List.of() : List.copyOf(positions);
+        if (chosen.size() != due) {
+            throw new IllegalArgumentException(
+                    drafter + " picks " + due + " this turn, not " + chosen.size());
+        }
+        DraftPack pack = packHeldBy(drafter);
+        for (int index = 0; index < chosen.size(); index++) {
+            Integer position = chosen.get(index);
+            if (position == null || position < 0 || position >= pack.size()) {
+                throw new IllegalArgumentException(
+                        "There is no card at " + position + " in a pack of " + pack.size());
+            }
+            if (chosen.indexOf(position) != index) {
+                throw new IllegalArgumentException(
+                        "The same card cannot be picked twice: " + position);
+            }
+        }
+
+        Map<DrafterId, List<Integer>> now = new LinkedHashMap<>(declared);
+        now.put(drafter, chosen);
+        DraftState waiting = new DraftState(drafters, round, opening, holding, now, pools);
+        return waiting.stillToPick().isEmpty() ? waiting.resolve() : waiting;
+    }
+
+    /**
+     * Everybody takes what they said, and the packs move on.
+     *
+     * <p>Private, because a turn resolving is not something anybody does - it is what has
+     * happened once the last drafter has decided. Exposing it would be exposing a way to
+     * make the packs move while somebody was still looking at one.
+     */
+    private DraftState resolve() {
+        List<DraftPack> left = new ArrayList<>(drafters);
+        List<List<CardIdentity>> grown = new ArrayList<>(drafters);
+        for (int index = 0; index < drafters; index++) {
+            DrafterId drafter = DrafterId.of(index);
+            DraftPack pack = holding.get(index);
+            List<Integer> taken = declared.getOrDefault(drafter, List.of());
+            List<CardIdentity> pool = new ArrayList<>(pools.get(index));
+            pool.addAll(pack.at(taken));
+            grown.add(pool);
+            left.add(pack.without(taken));
+        }
+
+        boolean anythingLeft = false;
+        for (DraftPack pack : left) {
+            if (!pack.isEmpty()) {
+                anythingLeft = true;
+                break;
+            }
+        }
+        if (!anythingLeft) {
+            // The round is over the moment the packs are empty, not a turn later. Passing
+            // empty packs round the ring first would have every drafter declare nothing at
+            // all several times before the next round opened.
+            int next = round + 1;
+            return next >= opening.size()
+                    ? new DraftState(drafters, next, opening, List.of(), Map.of(), grown)
+                    : new DraftState(drafters, next, opening, opening.get(next), Map.of(), grown);
+        }
+
+        // Round nought goes left, round one goes right, and so on: a pod that always passed
+        // the same way would spend the whole draft reading one neighbour and being read by
+        // the other.
+        int way = DraftRules.passing(round);
+        List<DraftPack> passed = new ArrayList<>(java.util.Collections.nCopies(drafters, null));
+        for (int index = 0; index < drafters; index++) {
+            passed.set(Math.floorMod(index + way, drafters), left.get(index));
+        }
+        return new DraftState(drafters, round, opening, passed, Map.of(), grown);
+    }
+
+    private void require(DrafterId drafter) {
+        if (drafter == null || drafter.index() >= drafters) {
+            throw new IllegalArgumentException("No such drafter in a pod of " + drafters + ": " + drafter);
+        }
+    }
+
+    private static List<List<DraftPack>> deepCopy(List<List<DraftPack>> rounds) {
+        if (rounds == null) {
+            return List.of();
+        }
+        List<List<DraftPack>> copy = new ArrayList<>(rounds.size());
+        for (List<DraftPack> round : rounds) {
+            copy.add(List.copyOf(round));
+        }
+        return List.copyOf(copy);
+    }
+}
