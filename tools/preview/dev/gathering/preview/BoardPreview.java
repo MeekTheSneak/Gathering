@@ -6,6 +6,7 @@ import dev.gathering.core.game.Zone;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.HandFan;
+import dev.gathering.core.ui.PackTear;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.SeatColour;
 import dev.gathering.core.ui.SurfaceBoard;
@@ -61,7 +62,64 @@ public final class BoardPreview {
         ImageIO.write(hand(854, 480, 15), "png", new File(out, "hand-15.png"));
         ImageIO.write(hand(1920, 1080, 7), "png", new File(out, "hand-7-big.png"));
         ImageIO.write(hand(320, 240, 10), "png", new File(out, "hand-10-tiny.png"));
+        ImageIO.write(tearing(), "png", new File(out, "pack-tearing.png"));
         System.out.println("wrote previews to " + out.getAbsolutePath());
+    }
+
+    /**
+     * A pack part-way torn, at several stages and for several packs.
+     *
+     * <p>The one thing about the tear that cannot be asserted: whether the torn edge looks
+     * like paper. An edge that wanders too little is a cut, one that wanders too much is a
+     * saw blade, and both pass every test that can be written about them.
+     */
+    private static BufferedImage tearing() {
+        int width = 300;
+        int height = 92;
+        int rows = 4;
+        BufferedImage image = new BufferedImage(width + 40, height * rows + 40,
+                BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setColor(new Color(0x101418));
+        graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+
+        float[] stages = {0.25f, 0.55f, 0.85f, 1.0f};
+        for (int row = 0; row < rows; row++) {
+            int top = 20 + row * height;
+            PackTear tear = PackTear.unopened(width, 40L + row);
+            tear = tear.followedTo(0).followedTo(Math.round(stages[row] * width));
+
+            // The wrapper.
+            graphics.setColor(new Color(0x24313A));
+            graphics.fillRect(20, top, width, height - 24);
+
+            // The strip that comes away, drawn along the torn edge.
+            int strip = 22;
+            int steps = 80;
+            float[] edge = tear.edge(steps, strip);
+            int tornTo = tear.tornTo();
+            graphics.setColor(new Color(0x3C4E5A));
+            for (int step = 0; step < steps - 1; step++) {
+                int fromX = 20 + Math.round(step * width / (float) (steps - 1));
+                int toX = 20 + Math.round((step + 1) * width / (float) (steps - 1));
+                if (fromX - 20 > tornTo) {
+                    break;
+                }
+                int fromY = top + strip + Math.round(edge[step]);
+                int toY = top + strip + Math.round(edge[step + 1]);
+                graphics.fillRect(fromX, top, Math.max(1, toX - fromX), fromY - top);
+                graphics.setColor(new Color(0xFFD24A));
+                graphics.drawLine(fromX, fromY, toX, toY);
+                graphics.setColor(new Color(0x3C4E5A));
+            }
+
+            graphics.setColor(TEXT);
+            graphics.drawString(Math.round(stages[row] * 100) + "%"
+                    + (tear.isOpen() ? "  open" : ""), 20 + width + 4, top + 14);
+        }
+        graphics.dispose();
+        return image;
     }
 
     /**
