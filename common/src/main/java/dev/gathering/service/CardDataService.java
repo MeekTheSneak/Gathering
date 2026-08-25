@@ -133,6 +133,25 @@ public final class CardDataService implements AutoCloseable {
         return supply(() -> client.printingsOf(cardName));
     }
 
+    /**
+     * Every printing in one set, kept in the cache on the way past.
+     *
+     * <p>What a set nobody has published the collation of is opened from. Stored as it
+     * arrives, because the next thing that happens to these cards is a pack being dealt out
+     * of them and then looked up one by one - and looking them up again over the network
+     * would be three hundred cards fetched twice.
+     */
+    public CompletableFuture<List<CardMetadata>> everyPrintingIn(String setCode) {
+        return supply(() -> {
+            List<CardMetadata> found = new java.util.ArrayList<>();
+            for (var parsed : client.everyPrintingIn(setCode)) {
+                store.store(parsed.metadata(), parsed.raw());
+                found.add(parsed.metadata());
+            }
+            return List.copyOf(found);
+        });
+    }
+
     /** Tokens matching a name, for the "make a token" screen. */
     public CompletableFuture<List<CardMetadata>> tokensNamed(String name) {
         return supply(() -> client.tokensNamed(name));

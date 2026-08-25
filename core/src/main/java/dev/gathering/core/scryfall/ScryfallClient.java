@@ -40,6 +40,14 @@ public final class ScryfallClient {
     /** The collection endpoint's documented ceiling. */
     public static final int COLLECTION_BATCH_SIZE = 75;
 
+    /**
+     * As far as a paged search is followed: 175 a page, so well past the largest set printed.
+     *
+     * <p>A bound rather than a limit anybody will meet. A search that kept saying there was
+     * more would otherwise be an unbounded loop against somebody else's server.
+     */
+    private static final int MOST_SEARCH_PAGES = 8;
+
     private final HttpFetcher fetcher;
     private final String baseUrl;
     private final Map<String, String> headers;
@@ -95,6 +103,59 @@ public final class ScryfallClient {
         // Scryfall pages at 175 results; a card with more printings than that is not a thing
         // the import screen needs, so the first page is the answer.
         return List.copyOf(cards);
+    }
+
+    /**
+     * Every printing in one set.
+     *
+     * <p>What a set with no published collation has to be opened from: the cards that are in
+     * it, so a pack can be dealt off plain rarity odds instead of not existing.
+     *
+     * <p>Paged by number rather than by following the {@code next_page} the reply carries.
+     * The set code is checked and the query built from it here, so nothing a server owner
+     * typed - and nothing a reply contained - reaches the network as a URL. It is the same
+     * rule the deck-link reader works to, for the same reason.
+     *
+     * @param setCode the set as Scryfall writes it, letters and digits only
+     */
+    public List<ScryfallCardCodec.ParsedCard> everyPrintingIn(String setCode) throws IOException {
+        String code = checkedSetCode(setCode);
+        List<ScryfallCardCodec.ParsedCard> found = new ArrayList<>();
+        for (int page = 1; page <= MOST_SEARCH_PAGES; page++) {
+            JsonObject json = getJson("/cards/search?unique=prints&order=set&page=" + page
+                    + "&q=" + encode("set:" + code));
+            if (json == null) {
+                break;
+            }
+            // Kept with their original JSON, because the caller's next move is to put them in
+            // the cache and the cache stores the body rather than a re-serialised model.
+            found.addAll(ScryfallCardCodec.parseCollectionEntries(json));
+            JsonElement more = json.get("has_more");
+            if (more == null || !more.isJsonPrimitive() || !more.getAsBoolean()) {
+                break;
+            }
+        }
+        return List.copyOf(found);
+    }
+
+    /**
+     * A set code, or a refusal.
+     *
+     * <p>This goes into a search query, and it arrives from a server config or a command
+     * argument - which is to say from something a person typed.
+     */
+    private static String checkedSetCode(String setCode) throws FetchException {
+        String code = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
+        if (code.isEmpty() || code.length() > 8) {
+            throw new FetchException("'" + setCode + "' is not a set code", -1);
+        }
+        for (int index = 0; index < code.length(); index++) {
+            char character = code.charAt(index);
+            if ((character < 'a' || character > 'z') && (character < '0' || character > '9')) {
+                throw new FetchException("'" + setCode + "' is not a set code", -1);
+            }
+        }
+        return code;
     }
 
     /**

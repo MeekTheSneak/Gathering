@@ -262,6 +262,61 @@ class ScryfallClientTest {
                 .hasMessageContaining("not JSON");
     }
 
+    @Test
+    @DisplayName("a set search follows its pages until the reply says there are no more")
+    void aSetSearchFollowsItsPages() throws Exception {
+        FakeHttpTransport transport = new FakeHttpTransport()
+                .reply(200, page(true, "sol_ring"))
+                .reply(200, page(false, "sol_ring"));
+
+        List<ScryfallCardCodec.ParsedCard> found = client(transport).everyPrintingIn("LTC");
+
+        assertThat(found).hasSize(2);
+        assertThat(found.get(0).raw()).isNotNull();
+        assertThat(transport.requests()).hasSize(2);
+        // Built from the set code and the page number, never from anything the reply carried.
+        assertThat(transport.requests().get(0).url()).contains("page=1").contains("set%3Altc");
+        assertThat(transport.requests().get(1).url()).contains("page=2");
+    }
+
+    @Test
+    @DisplayName("a search that never says it is finished stops anyway")
+    void aSearchThatNeverEndsIsStillBounded() throws Exception {
+        FakeHttpTransport transport = new FakeHttpTransport();
+        for (int page = 0; page < 40; page++) {
+            transport.reply(200, page(true, "sol_ring"));
+        }
+
+        client(transport).everyPrintingIn("ltc");
+
+        assertThat(transport.requestCount()).isLessThanOrEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("anything that is not a set code never reaches the network")
+    void anythingOtherThanASetCodeIsRefused() {
+        FakeHttpTransport transport = new FakeHttpTransport();
+        for (String notASetCode : new String[] {
+                "", "  ", "toolongaset", "l t c", "ltc\"", "set:ltc", "../x"}) {
+            assertThatThrownBy(() -> client(transport).everyPrintingIn(notASetCode))
+                    .as(notASetCode)
+                    .isInstanceOf(FetchException.class)
+                    .hasMessageContaining("is not a set code");
+        }
+        assertThat(transport.requestCount()).isZero();
+    }
+
+    /** A search reply: Scryfall's list wrapper round one card. */
+    private static String page(boolean more, String fixture) {
+        JsonObject json = new JsonObject();
+        json.addProperty("object", "list");
+        json.addProperty("has_more", more);
+        com.google.gson.JsonArray data = new com.google.gson.JsonArray();
+        data.add(Fixtures.json(fixture));
+        json.add("data", data);
+        return json.toString();
+    }
+
     private static ScryfallClient client(HttpTransport transport) {
         RateLimiter noWaiting = new RateLimiter(0, () -> 0L, millis -> { });
         return new ScryfallClient(

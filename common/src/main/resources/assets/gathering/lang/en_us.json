@@ -172,7 +172,7 @@
   "message.gathering.next_game_ready": "Crouch and right-click the table to start the next game.",
   "message.gathering.pack_collection_off": "Boosters are turned off on this server.",
   "message.gathering.pack_failed": "That pack could not be opened: %s",
-  "message.gathering.pack_no_collation": "No booster is published for %s, so there is nothing to open.",
+  "message.gathering.pack_no_collation": "Nothing could be opened for %s: no booster is published for it and no cards were found in it.",
   "message.gathering.pack_no_such_kind": "%s has no \"%s\" booster. It publishes: %s.",
   "message.gathering.pack_opened": "Opened %s: %s cards.",
   "message.gathering.pack_unresolved": "%s card(s) in that pack could not be looked up and were left out.",

@@ -1,11 +1,14 @@
 package dev.gathering.server;
 
 import dev.gathering.core.booster.BoosterConfig;
+import dev.gathering.core.booster.BoosterFallback;
 import dev.gathering.core.booster.BoosterOpener;
 import dev.gathering.core.booster.MtgjsonCollation;
 import dev.gathering.core.booster.OpenedPack;
+import dev.gathering.core.booster.RaritySlots;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.CardMetadata;
+import dev.gathering.core.card.Rarity;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardMetadataPayload;
@@ -58,6 +61,15 @@ public final class PackOpening {
      */
     private static final List<String> USUAL_KINDS = List.of("play", "draft", "set");
 
+    /**
+     * What a pack dealt off plain rarity odds calls itself.
+     *
+     * <p>Named rather than passed off as the set's own booster, because it is not one: it is
+     * what "nobody published how this set was collated" honestly comes to, and a player
+     * reading their own log should be able to tell the two apart.
+     */
+    private static final String PLAIN_ODDS_KIND = "plain-odds";
+
     private PackOpening() {
     }
 
@@ -86,6 +98,16 @@ public final class PackOpening {
                 // whichever thread asked - which here is the server thread.
                 .thenComposeAsync(reading -> {
                     BoosterConfig config = pick(reading, kind);
+                    if (config == null && (reading == null || reading.isEmpty())) {
+                        // Nobody published how this set was collated. It still has to open:
+                        // a server whose catalogue has holes in it where the unpublished sets
+                        // are is worse than one whose odd sets come out approximately right,
+                        // and the approximation says so in its own name. Whatever kind was
+                        // asked for, because a set that publishes nothing publishes no kinds
+                        // either, and refusing by name would be refusing over a distinction
+                        // that does not exist here.
+                        return onPlainOdds(cards, set);
+                    }
                     if (config == null) {
                         return java.util.concurrent.CompletableFuture.completedFuture(
                                 new Opened(reading, null, List.of()));
@@ -114,6 +136,45 @@ public final class PackOpening {
                     }
                     deliver(player, opened);
                 }));
+    }
+
+    /**
+     * A pack for a set nobody has published the collation of.
+     *
+     * <p>Built out of what is actually in the set - every printing, grouped by rarity - and
+     * the plain slot odds, then handed to the same interpreter everything else goes through.
+     * There is one opener; this only decides what to give it.
+     */
+    private static java.util.concurrent.CompletableFuture<Opened> onPlainOdds(
+            CardDataService cards, String set) {
+        return cards.everyPrintingIn(set).thenCompose(inTheSet -> {
+            if (inTheSet.isEmpty()) {
+                return java.util.concurrent.CompletableFuture.completedFuture(
+                        new Opened(null, null, List.of()));
+            }
+            Map<Rarity, List<UUID>> pool = new LinkedHashMap<>();
+            for (CardMetadata card : inTheSet) {
+                // Nothing that was never in a booster: a set's oversized cards, its digital
+                // printings and its promos are in the set and were never on a print sheet.
+                if (card.digitalOnly() || card.oversized() || card.scryfallId() == null) {
+                    continue;
+                }
+                pool.computeIfAbsent(card.rarity(), rarity -> new ArrayList<>())
+                        .add(card.scryfallId());
+            }
+            BoosterConfig config = BoosterFallback.configFor(
+                    set, PLAIN_ODDS_KIND, pool, RaritySlots.usual());
+            if (!config.isUsable()) {
+                return java.util.concurrent.CompletableFuture.completedFuture(
+                        new Opened(null, null, List.of()));
+            }
+            OpenedPack pack = BoosterOpener.open(config, freshSeed(), config.id());
+            List<UUID> printings = new ArrayList<>();
+            for (CardIdentity card : pack.cards()) {
+                card.printing().ifPresent(printings::add);
+            }
+            return cards.findAll(printings).thenApply(found -> new Opened(null, pack, found));
+        });
     }
 
     /**
