@@ -36,7 +36,9 @@ public record BoosterConfig(
                 }
             });
         }
-        sheets = Map.copyOf(keptSheets);
+        // Not Map.copyOf, for the same reason the sheets themselves are not: an order that
+        // changes between launches is an opening that changes between launches.
+        sheets = java.util.Collections.unmodifiableMap(keptSheets);
 
         List<BoosterVariant> keptVariants = new ArrayList<>();
         if (variants != null) {

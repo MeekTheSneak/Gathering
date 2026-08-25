@@ -250,6 +250,57 @@ class BoosterOpenerTest {
         assertThat(sheet.total()).isEqualTo(2);
     }
 
+    /**
+     * A sheet is walked in the order its data was written.
+     *
+     * <p>Not fussiness about maps. The opener draws by walking weights until it passes the
+     * roll, so the order decides which card a given roll lands on - and an order that is a
+     * per-launch hash order means the same seed opens a different pack every time the game
+     * starts. Which is not a test failure anybody would ever see: it passes all day inside
+     * one run, and only a player asking why their pack was different yesterday would notice.
+     *
+     * <p>Checked here rather than trusted, because the collection this is built from decides
+     * it silently and the wrong one compiles perfectly.
+     */
+    @Test
+    @DisplayName("a sheet is walked in the order it was written")
+    void aSheetKeepsTheOrderItsDataWasWrittenIn() {
+        List<UUID> written = new ArrayList<>();
+        Map<UUID, Integer> weights = new LinkedHashMap<>();
+        // Enough keys that a hash order is near-certain to differ from the written one.
+        for (int index = 0; index < 24; index++) {
+            UUID printing = printing("in-order-" + index);
+            written.add(printing);
+            weights.put(printing, 1);
+        }
+
+        BoosterSheet sheet = new BoosterSheet("ordered", false, false, weights);
+
+        assertThat(sheet.printings())
+                .describedAs("the sheet reordered its own cards, so a roll lands elsewhere")
+                .containsExactlyElementsOf(written);
+        // And walking it by weight gives them back in that order too, which is what a draw does.
+        List<UUID> walked = new ArrayList<>();
+        for (long at = 0; at < sheet.total(); at++) {
+            walked.add(sheet.at(at));
+        }
+        assertThat(walked).containsExactlyElementsOf(written);
+    }
+
+    /** And an arrangement keeps its slot order, which is the order cards enter the pack. */
+    @Test
+    void anArrangementKeepsItsSlotOrder() {
+        Map<String, Integer> slots = new LinkedHashMap<>();
+        for (int index = 0; index < 12; index++) {
+            slots.put("sheet-" + index, 1);
+        }
+
+        BoosterVariant variant = new BoosterVariant("plain", 1, slots);
+
+        assertThat(variant.slots().keySet())
+                .containsExactlyElementsOf(new ArrayList<>(slots.keySet()));
+    }
+
     // --- helpers ---
 
     private static BoosterConfig config(BoosterVariant variant, BoosterSheet... sheets) {

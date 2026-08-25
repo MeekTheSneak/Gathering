@@ -29,7 +29,10 @@ public record BoosterVariant(String name, int weight, Map<String, Integer> slots
                 }
             });
         }
-        slots = Map.copyOf(kept);
+        // Not Map.copyOf, whose order is a per-launch hash order: the slots decide what order
+        // cards go into a pack, and a pack whose contents reshuffled between launches would
+        // not be reproducible from its seed.
+        slots = java.util.Collections.unmodifiableMap(kept);
     }
 
     /** How many cards this arrangement comes to, which is what a pack's size means. */

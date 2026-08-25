@@ -38,7 +38,11 @@ public record BoosterSheet(String name, boolean foil, boolean duplicates, Map<UU
                 }
             });
         }
-        weights = Map.copyOf(kept);
+        // Not Map.copyOf: its iteration order is unspecified and in practice comes out of a
+        // hash salted once per launch, so the same seed would open a different pack every
+        // time the game started - and a pack nobody can check afterwards is an economy
+        // nobody can audit. The order data was written in is the order it is walked in.
+        weights = java.util.Collections.unmodifiableMap(kept);
     }
 
     public boolean isEmpty() {
