@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
@@ -11,7 +12,6 @@ import dev.gathering.network.StartTablePayload;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
@@ -38,7 +38,7 @@ public final class TableSetup {
 
     /** Asks the player what kind of game they want, on the client that asked for one. */
     public static void ask(ServerPlayer player, BlockPos tableOrigin) {
-        player.connection.send(new ClientboundCustomPayloadPacket(new OpenTableSetupPayload(tableOrigin)));
+        Sending.to(player, new OpenTableSetupPayload(tableOrigin));
     }
 
     public static void handle(ServerPlayer player, StartTablePayload payload) {

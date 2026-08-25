@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.core.decklist.DeckSection;
 import dev.gathering.core.decklist.ParseProblem;
 import dev.gathering.core.deck.ResolvedCard;
@@ -18,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
@@ -226,7 +226,7 @@ public final class DecklistImport {
     }
 
     private static void send(ServerPlayer player, net.minecraft.network.protocol.common.custom.CustomPacketPayload payload) {
-        player.connection.send(new ClientboundCustomPayloadPacket(payload));
+        Sending.to(player, payload);
     }
 
     private static String rootMessage(Throwable failure) {

@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.block.DraftPods;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.draft.DraftPod;
@@ -13,7 +14,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -63,8 +63,8 @@ public final class DraftBroadcast {
     public static void sendTo(
             ServerPlayer drafter, BlockPos tableOrigin, DraftPod pod, DrafterId place, boolean open) {
         DraftView seen = DraftVisibility.viewFor(pod.state(), place);
-        drafter.connection.send(new ClientboundCustomPayloadPacket(
-                new DraftViewPayload(tableOrigin, DraftViewCodec.write(seen), open)));
+        Sending.to(drafter,
+                new DraftViewPayload(tableOrigin, DraftViewCodec.write(seen), open));
         // Exactly the cards this view just named and no others, which is the same argument
         // the table's art push makes: a card the rules turned into a count has no identity
         // here to send.

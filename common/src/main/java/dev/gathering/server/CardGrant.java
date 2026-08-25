@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.item.CardComponent;
@@ -10,7 +11,6 @@ import dev.gathering.service.CardDataService;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
@@ -61,8 +61,8 @@ public final class CardGrant {
 
         // The summary first: a client told about a card before it holds one never renders a
         // blank, which is the difference between "loading" and "broken" on screen.
-        player.connection.send(new ClientboundCustomPayloadPacket(
-                new CardMetadataPayload(List.of(CardSummary.of(card)))));
+        Sending.to(player,
+                new CardMetadataPayload(List.of(CardSummary.of(card))));
 
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);

@@ -280,10 +280,11 @@ collection_enabled = true
 Restart. The server reads what the current set was really sold as, which takes a few seconds
 and one fetch.
 
-- **Make a shopkeeper.** Put a **shop counter** down next to an unemployed villager - one with
-  no profession, in a village or one you brought home - and wait a moment. They take the job
-  the way they would take a lectern. Trade with them and they level up, the way any villager
-  does.
+- **Find one.** Villages build a card shop among their houses: a room with a counter, a chest
+  of stock behind it and two tables to play at. `/locate structure minecraft:village_plains`
+  and look for it. Or make your own - put a **shop counter** down next to an unemployed
+  villager and wait a moment; they take the job the way they would take a lectern. Trade with
+  them and they level up, the way any villager does.
 - **What they sell** is boosters at first. Levelling them up adds rungs rather than changing
   the ones they have: prerelease kits and Commander decks in the middle, display boxes higher,
   cases at master.
@@ -321,9 +322,13 @@ In rough order of how much it would change what I build next:
 
 ## What is deliberately not there yet
 
-- **No card shop in a village yet.** The shopkeeper is built - a villager profession with a
-  shop counter as its workstation - but nothing places one. Put a shop counter down beside an
-  unemployed villager and you have a card shop; a village that comes with one is not built.
+- **Placeholder buildings.** The card shop that generates in a village is real and correct -
+  counter, stock chest, two tables, the village's own materials - and it is a generated
+  placeholder in the same sense the textures are. `tools/village.py` writes the five .nbt
+  files; replacing them changes nothing else.
+- **A village might not get a shop.** A jigsaw pool has no way to say "exactly one of these",
+  only how often to try, so `collection.village_shop_weight` is tuned for about one per
+  village rather than guaranteeing one. Some villages will have two and some none.
 - **A chest does not decide which set.** It decides which kind of booster: a collector booster
   is much likelier out of an end city than out of a village. Tying a set to a structure is an
   idea and not built.

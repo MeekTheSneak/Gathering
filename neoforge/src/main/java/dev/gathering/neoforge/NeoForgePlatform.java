@@ -31,4 +31,13 @@ public final class NeoForgePlatform implements Platform {
     public String loaderName() {
         return "NeoForge";
     }
+
+    @Override
+    public boolean canReceive(net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.resources.ResourceLocation payload) {
+        // NeoForge negotiates channels when the connection opens and throws rather than
+        // dropping anything sent down one that was never agreed, so this is asked before
+        // every send. See dev.gathering.network.Sending.
+        return player != null && payload != null && player.connection.hasChannel(payload);
+    }
 }

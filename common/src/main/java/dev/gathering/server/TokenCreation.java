@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.card.CardIdentity;
@@ -15,7 +16,6 @@ import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
@@ -85,8 +85,8 @@ public final class TokenCreation {
         }
         // The client is about to be told to draw a card it has never heard of, so tell it what
         // the card is before the board arrives naming it.
-        player.connection.send(new ClientboundCustomPayloadPacket(
-                new CardMetadataPayload(List.of(CardSummary.of(token)))));
+        Sending.to(player,
+                new CardMetadataPayload(List.of(CardSummary.of(token))));
 
         session.submit(new GameEvent.TokenCreated(
                 seat, seat, CardIdentity.ofPrinting(token.scryfallId()), payload.count()));

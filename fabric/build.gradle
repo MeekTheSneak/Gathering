@@ -23,6 +23,10 @@ dependencies {
 }
 
 loom {
+    // One field, so a card shop can be added to a village's house pool. Matches the NeoForge
+    // access transformer; see LocalGameStore.
+    accessWidenerPath = file('src/main/resources/gathering.accesswidener')
+
     runs {
         client { client() }
         server { server() }

@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.core.booster.BoosterConfig;
 import dev.gathering.core.booster.BoosterOpener;
 import dev.gathering.core.booster.MtgjsonCollation;
@@ -21,7 +22,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
@@ -284,7 +284,7 @@ public final class PackOpening {
             summaries.add(CardSummary.of(card));
         }
         for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summaries)) {
-            player.connection.send(new ClientboundCustomPayloadPacket(packet));
+            Sending.to(player, packet);
         }
 
         Delivery delivery = whatToGive(opened.pack(), opened.cards());
@@ -303,8 +303,8 @@ public final class PackOpening {
             for (CardIdentity card : delivery.giving()) {
                 shown.add(dev.gathering.item.CardComponent.of(card));
             }
-            player.connection.send(new ClientboundCustomPayloadPacket(
-                    new dev.gathering.network.PackOpenedPayload(set, kind, shown)));
+            Sending.to(player,
+                    new dev.gathering.network.PackOpenedPayload(set, kind, shown));
         } else {
             // Quick opened, so there is no screen to say it on.
             player.sendSystemMessage(Component.translatable(

@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.core.card.ArtToSend;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.game.visibility.GameView;
@@ -13,7 +14,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -140,7 +140,7 @@ public final class CardArtPush {
                     // the end of a long game. A payload the game refuses to write disconnects
                     // the player it was for.
                     for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summaries)) {
-                        player.connection.send(new ClientboundCustomPayloadPacket(packet));
+                        Sending.to(player, packet);
                     }
                 }));
     }

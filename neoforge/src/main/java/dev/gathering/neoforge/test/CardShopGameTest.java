@@ -17,6 +17,7 @@ import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerType;
+import java.util.List;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -68,13 +69,18 @@ public final class CardShopGameTest {
     }
 
     /**
-     * Bringing a counter back in step must not empty it.
+     * Walking up to a shopkeeper twice changes nothing.
      *
-     * <p>A server that has not read its sets yet has nothing to put on a counter, and the one
-     * thing that must not happen then is a shopkeeper losing the trades they already had.
+     * <p>Their counter is brought back in step every time somebody looks at it, which is what
+     * keeps every card shop the same shop. The thing that must never follow is a restock: if
+     * looking again reset what had been sold, standing in front of one and closing the screen
+     * over and over would be an infinite supply of boosters.
+     *
+     * <p>True whether or not this server has anything to stock, which is why it is the thing
+     * checked rather than a count.
      */
     @GameTest(template = "empty")
-    public static void nothingToStockLeavesTheCounterAlone(GameTestHelper helper) {
+    public static void lookingTwiceChangesNothing(GameTestHelper helper) {
         Villager villager = EntityType.VILLAGER.create(helper.getLevel());
         if (villager == null) {
             helper.fail("Could not make a villager to stand behind the counter");
@@ -85,10 +91,28 @@ public final class CardShopGameTest {
                 VillagerType.PLAINS, GatheringVillagers.SHOPKEEPER.get(), 3));
         helper.getLevel().addFreshEntity(villager);
 
-        int before = villager.getOffers().size();
         Shopkeepers.refresh(villager);
-        if (villager.getOffers().size() != before) {
-            helper.fail("A shopkeeper with nothing to stock lost what they had");
+        List<ItemStack> first = new java.util.ArrayList<>();
+        List<Integer> sold = new java.util.ArrayList<>();
+        villager.getOffers().forEach(offer -> {
+            first.add(offer.getResult());
+            sold.add(offer.getUses());
+        });
+
+        Shopkeepers.refresh(villager);
+        if (villager.getOffers().size() != first.size()) {
+            helper.fail("Looking at a shopkeeper twice changed how much they sell");
+            villager.discard();
+            return;
+        }
+        for (int slot = 0; slot < first.size(); slot++) {
+            var again = villager.getOffers().get(slot);
+            if (!ItemStack.isSameItemSameComponents(again.getResult(), first.get(slot))
+                    || again.getUses() != sold.get(slot)) {
+                helper.fail("Looking at a shopkeeper twice restocked them");
+                villager.discard();
+                return;
+            }
         }
         villager.discard();
         helper.succeed();

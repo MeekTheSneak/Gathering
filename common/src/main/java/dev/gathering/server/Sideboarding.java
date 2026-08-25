@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableBlockEntity;
 import dev.gathering.block.TableSessions;
@@ -9,7 +10,6 @@ import dev.gathering.network.OpenSideboardPayload;
 import dev.gathering.network.SideboardEditPayload;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
@@ -46,9 +46,9 @@ public final class Sideboarding {
             return;
         }
         deckFor(level, tableOrigin, player).ifPresent(held -> TableSessions.matchAt(level, tableOrigin)
-                .ifPresent(match -> player.connection.send(new ClientboundCustomPayloadPacket(
+                .ifPresent(match -> Sending.to(player,
                         new OpenSideboardPayload(
-                                tableOrigin, held.deck(), match.gameNumber(), match.rules().bestOf())))));
+                                tableOrigin, held.deck(), match.gameNumber(), match.rules().bestOf()))));
     }
 
     public static void handle(ServerPlayer player, SideboardEditPayload payload) {
@@ -78,10 +78,10 @@ public final class Sideboarding {
         // limited halfway through.
         held.table().holdDeck(held.seat(), edited.get(),
                 held.table().poolOf(held.seat()).orElse(null));
-        player.connection.send(new ClientboundCustomPayloadPacket(new OpenSideboardPayload(
+        Sending.to(player, new OpenSideboardPayload(
                 origin, edited.get(),
                 TableSessions.matchAt(level, origin).map(match -> match.gameNumber()).orElse(1),
-                TableSessions.matchAt(level, origin).map(match -> match.rules().bestOf()).orElse(1))));
+                TableSessions.matchAt(level, origin).map(match -> match.rules().bestOf()).orElse(1)));
     }
 
     private static boolean isSwap(DeckComponent.Section from, DeckComponent.Section to) {

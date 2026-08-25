@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.CardSummary;
@@ -8,7 +9,6 @@ import dev.gathering.service.CardDataService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -42,7 +42,7 @@ public final class CardMetadataRequests {
             // A request may name a whole deck, which is more summaries than the game will
             // write in one payload - and one it refuses to write disconnects whoever asked.
             for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summaries)) {
-                player.connection.send(new ClientboundCustomPayloadPacket(packet));
+                Sending.to(player, packet);
             }
         }));
     }

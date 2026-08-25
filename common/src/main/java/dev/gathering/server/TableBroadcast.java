@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableClusters;
 import dev.gathering.block.TableSeats;
@@ -20,7 +21,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -98,8 +98,8 @@ public final class TableBroadcast {
             // nobody scrolls back past the last dozen. What is kept is kept on the server.
             GameView seen = VisibilityRules.viewFor(
                     session.state(), viewer, session.recentLog(LOG_LINES_SENT));
-            player.connection.send(new ClientboundCustomPayloadPacket(
-                    new TableViewPayload(tableOrigin, ViewCodec.write(seen), open)));
+            Sending.to(player,
+                    new TableViewPayload(tableOrigin, ViewCodec.write(seen), open));
             // And the pictures for what is in it. A client only ever asked about cards in its
             // own inventory, so a rival's graveyard opened onto empty recesses under a count
             // that said there was something there. Sent from the view rather than asked for,
@@ -114,7 +114,7 @@ public final class TableBroadcast {
     /** Tells everyone at this cluster that the game is over and to stop watching it. */
     public static void closeAtTable(ServerLevel level, BlockPos tableOrigin) {
         for (Seated seated : seatedAt(level, tableOrigin)) {
-            seated.player().connection.send(new ClientboundCustomPayloadPacket(CloseTablePayload.INSTANCE));
+            Sending.to(seated.player(), CloseTablePayload.INSTANCE);
         }
     }
 

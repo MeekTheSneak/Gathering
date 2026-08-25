@@ -86,6 +86,23 @@ public class TableBlock extends BaseEntityBlock {
         return state.getValue(PART).isOrigin() ? new TableBlockEntity(pos, state) : null;
     }
 
+    /**
+     * A table turned with the building it is in.
+     *
+     * <p>A structure is placed at one of four rotations, block by block. Without this a table
+     * inside one comes out as four north-west corners on top of each other: four tables in the
+     * space of one, none of them whole, and nothing to say what went wrong.
+     */
+    @Override
+    protected BlockState rotate(BlockState state, net.minecraft.world.level.block.Rotation rotation) {
+        return state.setValue(PART, state.getValue(PART).rotated(rotation));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, net.minecraft.world.level.block.Mirror mirror) {
+        return state.setValue(PART, state.getValue(PART).mirrored(mirror));
+    }
+
     @Override
     protected RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;

@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.Sending;
 import dev.gathering.block.CollectionBlockEntity;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.CardMetadata;
@@ -22,7 +23,6 @@ import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
@@ -87,13 +87,13 @@ public final class CollectionView {
      */
     public static void open(ServerPlayer player, BlockPos where, CollectionBlockEntity collection) {
         UUID who = player.getUUID();
-        player.connection.send(new ClientboundCustomPayloadPacket(new OpenCollectionPayload(
+        Sending.to(player, new OpenCollectionPayload(
                 where,
                 collection.label(),
                 collection.cards().total(),
                 collection.cards().distinct(),
                 collection.rights().mayTake(who),
-                collection.rights().mayAdd(who))));
+                collection.rights().mayAdd(who)));
     }
 
     /** Answers one search with one page. */
@@ -128,11 +128,11 @@ public final class CollectionView {
                 row.card().printing().ifPresent(unnamed::add);
             }
         }
-        player.connection.send(new ClientboundCustomPayloadPacket(new CollectionPagePayload(
+        Sending.to(player, new CollectionPagePayload(
                 where, showing, pages,
                 new CollectionPagePayload.Counts(
                         collection.cards().total(), collection.cards().distinct(), found.size()),
-                sending)));
+                sending));
 
         // Whatever this page could not name is looked up now, so a second look at the same
         // page has it. Only this page: a collection of ten thousand cards nobody has ever

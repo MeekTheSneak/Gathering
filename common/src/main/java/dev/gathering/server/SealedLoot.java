@@ -153,17 +153,30 @@ public final class SealedLoot {
      */
     public static Optional<ItemStack> rollFrom(
             LootSource source, LootRichness richness, RandomSource random) {
-        Pool offering = pool;
-        if (offering.isEmpty() || random == null || source == null) {
+        if (random == null || source == null || pool.isEmpty()) {
             return Optional.empty();
         }
-        if (!ServerSettings.get().modes().collectionEnabled() || !asked(source)) {
+        if (!asked(source) || random.nextInt(source.oneIn()) != 0) {
             return Optional.empty();
         }
-        if (random.nextInt(source.oneIn()) != 0) {
-            return Optional.empty();
-        }
+        return packFrom(richness, random);
+    }
 
+    /**
+     * A pack, with no odds and no source.
+     *
+     * <p>For a chest that is meant to hold packs rather than one that might: the stock chest
+     * behind a card shop's counter is part of the shop, not a lucky find, and rolling it
+     * against one-in-eight would leave most of them empty. How many is the pool's to say.
+     *
+     * <p>Two rolls rather than three: which set it is from, and which of that set's products.
+     */
+    public static Optional<ItemStack> packFrom(LootRichness richness, RandomSource random) {
+        Pool offering = pool;
+        if (offering.isEmpty() || random == null
+                || !ServerSettings.get().modes().collectionEnabled()) {
+            return Optional.empty();
+        }
         String set = offering.sets().get(random.nextInt(offering.sets().size()));
         List<String> kinds = offering.sells().getOrDefault(set, List.of());
         Map<String, Integer> weights = BoosterOdds.weightsFor(kinds, richness);

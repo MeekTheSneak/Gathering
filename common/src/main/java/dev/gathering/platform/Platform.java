@@ -2,6 +2,8 @@ package dev.gathering.platform;
 
 import java.nio.file.Path;
 import java.util.ServiceLoader;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * The whole of what the mod needs to ask the loader.
@@ -24,6 +26,16 @@ public interface Platform {
     String modVersion();
 
     String loaderName();
+
+    /**
+     * Whether one of this mod's payloads may be sent to this player at all.
+     *
+     * <p>Here rather than in common code because only the loader knows: each one negotiates
+     * its own channels when a connection opens, and each one throws rather than dropping a
+     * packet sent down a channel that was never agreed. Asked through
+     * {@link dev.gathering.network.Sending}, which is the only thing that sends.
+     */
+    boolean canReceive(ServerPlayer player, ResourceLocation payload);
 
     static Platform get() {
         return Holder.INSTANCE;

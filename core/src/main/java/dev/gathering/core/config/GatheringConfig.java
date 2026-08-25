@@ -53,6 +53,7 @@ public record GatheringConfig(
             int sealedPriceBlockWorth,
             int sealedPriceBooster,
             int sealedRotationHours,
+            int villageShopWeight,
             String currentSet,
             String boosterModel) {
     }
@@ -132,6 +133,7 @@ public record GatheringConfig(
                 "collection.sealed_price_block_worth",
                 "collection.sealed_price_booster",
                 "collection.sealed_rotation_hours",
+                "collection.village_shop_weight",
                 "collection.current_set",
                 "collection.booster_model",
                 "table.max_tables_loaded",
@@ -185,6 +187,9 @@ public record GatheringConfig(
                 noted("collection.sealed_rotation_hours",
                         clamped(toml.number("collection.sealed_rotation_hours", 4), 1, 24 * 7,
                                 "collection.sealed_rotation_hours", notes), 4, notes),
+                noted("collection.village_shop_weight",
+                        clamped(toml.number("collection.village_shop_weight", 8), 0, 64,
+                                "collection.village_shop_weight", notes), 8, notes),
                 noted("collection.current_set",
                         toml.string("collection.current_set", "auto").trim().toLowerCase(Locale.ROOT),
                         "auto", notes),
@@ -382,6 +387,10 @@ public record GatheringConfig(
                 # in the world stocks the same thing at the same time and moves on together, so
                 # what is on the counter this evening is not what was there this morning.
                 sealed_rotation_hours = 4
+                # How often a card shop turns up among a village's buildings, against the
+                # thirty-odd houses Minecraft already has - eight is about one shop per
+                # village. Zero builds none, for a server placing its own.
+                village_shop_weight = 8
                 # Which set is found and sold. "auto" asks Scryfall for the newest release, so
                 # a server left alone stays current; name a set code to stay where you are.
                 current_set = "auto"

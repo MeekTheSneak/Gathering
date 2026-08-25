@@ -30,4 +30,14 @@ public final class FabricPlatform implements Platform {
     public String loaderName() {
         return "Fabric";
     }
+
+    @Override
+    public boolean canReceive(net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.resources.ResourceLocation payload) {
+        // The same question NeoForge answers with hasChannel. See
+        // dev.gathering.network.Sending.
+        return player != null && payload != null
+                && net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
+                        .canSend(player, payload);
+    }
 }

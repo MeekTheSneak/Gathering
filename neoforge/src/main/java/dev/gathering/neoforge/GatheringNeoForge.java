@@ -55,6 +55,14 @@ public final class GatheringNeoForge {
         dev.gathering.server.CurrentSet.resolve();
         dev.gathering.server.SealedLoot.warm();
         dev.gathering.server.CardShop.warm();
+        // The one line the access transformer exists for. Everything about which building
+        // goes into which pool is LocalGameStore's; this reaches the list.
+        dev.gathering.village.LocalGameStore.addToVillages(event.getServer(),
+                (pool, building, times) -> {
+                    for (int copy = 0; copy < times; copy++) {
+                        pool.templates.add(building);
+                    }
+                });
     }
 
     /** What a card shop's keeper sells, at each of their levels. */

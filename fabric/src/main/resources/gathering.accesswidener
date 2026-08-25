@@ -1,0 +1,6 @@
+accessWidener	v2	named
+
+# The list of buildings a jigsaw pool can produce. The NeoForge access transformer beside this
+# opens the same one field, and for the same reason: a village's house pool is frozen after it
+# is loaded, and replacing it wholesale would delete every other mod's village building.
+accessible	field	net/minecraft/world/level/levelgen/structure/pools/StructureTemplatePool	templates	Lit/unimi/dsi/fastutil/objects/ObjectArrayList;

@@ -1,5 +1,6 @@
 package dev.gathering.command;
 
+import dev.gathering.network.Sending;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.gathering.network.OpenImportScreenPayload;
@@ -12,7 +13,6 @@ import dev.gathering.service.CardDataService;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -185,7 +185,7 @@ public final class GatheringCommands {
             source.sendFailure(Component.literal(refusal));
             return 0;
         }
-        player.connection.send(new ClientboundCustomPayloadPacket(OpenImportScreenPayload.INSTANCE));
+        Sending.to(player, OpenImportScreenPayload.INSTANCE);
         return 1;
     }
 
