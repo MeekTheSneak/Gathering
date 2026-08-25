@@ -67,6 +67,10 @@ final class GatheringRegistration {
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
                 Gathering.id(GatheringComponents.DECK_ID),
                 GatheringComponents.createDeckType()));
+        GatheringComponents.POOL.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.POOL_ID),
+                GatheringComponents.createPoolType()));
 
         Registry.register(
                 BuiltInRegistries.CREATIVE_MODE_TAB,

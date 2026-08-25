@@ -19,7 +19,7 @@ class FormatPresetsTest {
         assertThat(FormatPresets.all())
                 .extracting(FormatPreset::id)
                 .containsExactly("commander", "oathbreaker", "standard", "pioneer",
-                        "modern", "legacy", "vintage", "pauper");
+                        "modern", "legacy", "vintage", "pauper", "limited");
     }
 
     @Test

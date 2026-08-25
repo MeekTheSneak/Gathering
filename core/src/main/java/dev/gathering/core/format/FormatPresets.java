@@ -36,8 +36,28 @@ public final class FormatPresets {
      */
     public static final FormatPreset VINTAGE = sixtyCard("vintage", "Vintage");
 
+    /**
+     * What a drafted or sealed pool is played as.
+     *
+     * <p>Forty cards, no maximum, and no copy limit at all - which is not laxity but the
+     * actual rule: in limited you may play every copy of a card you opened, and how many that
+     * is was settled by the packs rather than by the format. What stops somebody playing
+     * eight of a good uncommon is that they only drafted one, and that is a question about a
+     * pool rather than about a format, so it is asked by {@link PoolCheck} instead.
+     *
+     * <p>Its sideboard is unbounded for the same reason: in limited, everything you opened
+     * and did not play is your sideboard, and how much that is was decided by the packs.
+     *
+     * <p>Its legalities key is Vintage's. Limited has no ban list of its own - a card that
+     * came out of a pack is legal in the pack it came out of - so the only thing worth
+     * inheriting is the handful of cards that are not legal anywhere in paper at all.
+     */
+    public static final FormatPreset LIMITED = new FormatPreset(
+            "limited", "Limited", "vintage", 40, -1, Integer.MAX_VALUE, 20, CommanderRules.NONE,
+            Integer.MAX_VALUE);
+
     private static final Map<String, FormatPreset> BY_ID = index(
-            COMMANDER, OATHBREAKER, STANDARD, PIONEER, MODERN, LEGACY, VINTAGE, PAUPER);
+            COMMANDER, OATHBREAKER, STANDARD, PIONEER, MODERN, LEGACY, VINTAGE, PAUPER, LIMITED);
 
     private FormatPresets() {
     }

@@ -549,7 +549,11 @@ public class TableBlock extends BaseEntityBlock {
         }
 
         DeckComponent deck = DeckItem.deckOf(stack).orElseThrow();
-        if (!deckMayGoDown(level, tableOrigin, deck, player)) {
+        // The pool this deck was drafted from, if it was. Read off the stack rather than
+        // looked up, because it is a fact about this deck rather than about the table - a
+        // pool goes wherever the deck goes, including into somebody else's hands.
+        if (!deckMayGoDown(level, tableOrigin, deck, player,
+                stack.get(dev.gathering.registry.GatheringComponents.POOL.get()))) {
             return;
         }
         List<CardIdentity> library = deck.entries().stream().map(CardComponent::toIdentity).toList();
@@ -564,7 +568,8 @@ public class TableBlock extends BaseEntityBlock {
         // rest. The table hands the whole thing back when the match is over.
         TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
-                .ifPresent(table -> table.holdDeck(seat, deck));
+                .ifPresent(table -> table.holdDeck(seat, deck,
+                        stack.get(dev.gathering.registry.GatheringComponents.POOL.get())));
 
         stack.shrink(1);
         player.sendSystemMessage(Component.translatable(
@@ -607,13 +612,21 @@ public class TableBlock extends BaseEntityBlock {
      */
     public static boolean deckMayGoDown(
             Level level, BlockPos tableOrigin, DeckComponent deck, Player player) {
+        return deckMayGoDown(level, tableOrigin, deck, player, null);
+    }
+
+    /** The same, against the pool this deck was drafted from, when it has one. */
+    public static boolean deckMayGoDown(
+            Level level, BlockPos tableOrigin, DeckComponent deck, Player player,
+            dev.gathering.item.DraftedPool pool) {
         TableBlockEntity table = TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
                 .orElse(null);
         FormatPreset format = table == null ? null : table.match()
                 .map(match -> match.rules().format())
                 .orElse(null);
-        ValidationResult result = dev.gathering.server.DeckCheck.of(deck, format).orElse(null);
+        ValidationResult result =
+                dev.gathering.server.DeckCheck.of(deck, format, pool).orElse(null);
         if (result == null || result.isLegal()) {
             return true;
         }

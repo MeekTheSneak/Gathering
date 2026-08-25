@@ -306,12 +306,20 @@ class DeckValidatorTest {
     @Test
     @DisplayName("every shipping preset is well formed")
     void shippingPresets() {
-        assertThat(FormatPresets.all()).hasSize(8);
+        assertThat(FormatPresets.all()).hasSize(9);
         assertThat(FormatPresets.byId("commander")).contains(FormatPresets.COMMANDER);
         assertThat(FormatPresets.byId("COMMANDER")).contains(FormatPresets.COMMANDER);
         assertThat(FormatPresets.byId("brawl")).isEmpty();
         assertThat(FormatPresets.COMMANDER.startingLife()).isEqualTo(40);
         assertThat(FormatPresets.MODERN.startingLife()).isEqualTo(20);
+        // Limited is deliberately the loose one: forty cards, no ceiling, no copy limit and
+        // an unbounded sideboard, because in limited every one of those was decided by the
+        // packs. What stops a pool being eight of a good uncommon is that nobody opened
+        // eight, which is a question about a pool rather than about a format.
+        assertThat(FormatPresets.LIMITED.minimumDeckSize()).isEqualTo(40);
+        assertThat(FormatPresets.LIMITED.hasDeckSizeMaximum()).isFalse();
+        assertThat(FormatPresets.LIMITED.hasSideboard()).isTrue();
+        assertThat(FormatPresets.LIMITED.isSingleton()).isFalse();
         assertThat(FormatPresets.all()).allSatisfy(preset ->
                 assertThat(preset.legalitiesKey()).isNotBlank());
     }

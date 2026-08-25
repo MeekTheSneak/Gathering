@@ -8,6 +8,7 @@ import dev.gathering.core.format.ValidatableDeck;
 import dev.gathering.core.format.ValidationResult;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DraftedPool;
 import dev.gathering.service.CardDataService;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +49,20 @@ public final class DeckCheck {
      * start, and none of them is a reason to claim a deck is legal either.
      */
     public static Optional<ValidationResult> of(DeckComponent deck, FormatPreset format) {
+        return of(deck, format, null);
+    }
+
+    /**
+     * The same, against the pool this deck was drafted from.
+     *
+     * <p>A pool is the one thing a format cannot tell you. Every other check here asks
+     * whether a card is legal; this asks whether it is yours, which in limited is the whole
+     * format - four copies of the best card in the set is a fine limited deck and impossible
+     * because nobody opens four. A deck with no pool is judged on its format alone, which is
+     * every deck anybody imported.
+     */
+    public static Optional<ValidationResult> of(
+            DeckComponent deck, FormatPreset format, DraftedPool pool) {
         if (deck == null || format == null) {
             return Optional.empty();
         }
@@ -61,8 +76,22 @@ public final class DeckCheck {
         if (mainboard == null || commanders == null || sideboard == null) {
             return Optional.empty();
         }
-        return Optional.of(DeckValidator.validate(
-                new ValidatableDeck(deck.name(), mainboard, commanders, sideboard), format));
+        ValidatableDeck checkable =
+                new ValidatableDeck(deck.name(), mainboard, commanders, sideboard);
+        ValidationResult result = DeckValidator.validate(checkable, format);
+        if (pool == null || pool.isEmpty()) {
+            return Optional.of(result);
+        }
+        List<CardMetadata> drafted = lookUp(cards, pool.cards());
+        if (drafted == null) {
+            // A pool with a card the server cannot look up is a pool this check cannot judge,
+            // and an unjudgeable pool must not become an accusation. The format check stands.
+            return Optional.of(result);
+        }
+        List<dev.gathering.core.format.ValidationIssue> issues =
+                new ArrayList<>(result.issues());
+        issues.addAll(dev.gathering.core.format.PoolCheck.against(checkable, drafted));
+        return Optional.of(new ValidationResult(format, issues));
     }
 
     /** Every card in a section, or null if the cache cannot answer for one of them. */

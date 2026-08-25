@@ -106,6 +106,11 @@ public final class DraftActions {
      */
     private static void handOutThePools(ServerLevel level, BlockPos tableOrigin, DraftPod pod) {
         List<List<CardIdentity>> pools = pod.pooledAway();
+        // Names the draft rather than identifying it: two pools from two different pods must
+        // not read as the same pool, and this is what a deck check says it is checking
+        // against. Never the session seed, which is the one value that never leaves the
+        // server - the pod's own place in the world is enough to tell two drafts apart.
+        String podName = tableOrigin.toShortString();
         for (int index = 0; index < pod.drafters().size(); index++) {
             DrafterId place = DrafterId.of(index);
             ServerPlayer drafter = level.getServer().getPlayerList()
@@ -138,6 +143,12 @@ public final class DraftActions {
                     List.of(),
                     List.of(),
                     cards));
+            // And what it may be built from, which never changes while the deck inside it
+            // changes constantly. Limited is "play what you opened", and this is the record
+            // of what was opened - so it travels with the deck rather than living at the
+            // table the draft happened at.
+            stack.set(dev.gathering.registry.GatheringComponents.POOL.get(),
+                    new dev.gathering.item.DraftedPool(cards, podName));
             if (!drafter.getInventory().add(stack)) {
                 drafter.drop(stack, false);
             }

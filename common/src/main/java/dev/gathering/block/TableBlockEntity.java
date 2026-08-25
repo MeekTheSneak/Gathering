@@ -10,6 +10,7 @@ import dev.gathering.core.match.MatchRules;
 import dev.gathering.core.match.MatchState;
 import dev.gathering.core.table.Side;
 import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DraftedPool;
 import dev.gathering.server.SessionKeyring;
 import java.io.IOException;
 import javax.crypto.SecretKey;
@@ -66,6 +67,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String DECKS_KEY = "decks";
     private static final String DECK_SEAT_KEY = "seat";
     private static final String DECK_KEY = "deck";
+    private static final String POOL_KEY = "pool";
 
     /** Two seconds. Ambience, not gameplay - moves are pushed as they happen. */
     private static final int AMBIENT_INTERVAL_TICKS = 40;
@@ -123,6 +125,14 @@ public class TableBlockEntity extends BlockEntity {
      * restart mid-match must not eat four decks.
      */
     private final Map<SeatId, DeckComponent> decks = new LinkedHashMap<>();
+
+    /**
+     * And the pool each of those was drafted from, for the ones that were.
+     *
+     * <p>Beside the decks rather than inside them: a deck's contents change every time
+     * somebody boards a card in and a pool never changes at all.
+     */
+    private final Map<SeatId, DraftedPool> pools = new LinkedHashMap<>();
 
     public TableBlockEntity(BlockPos pos, BlockState state) {
         super(dev.gathering.item.GatheringContent.TABLE_ENTITY.get(), pos, state);
@@ -254,7 +264,24 @@ public class TableBlockEntity extends BlockEntity {
 
     /** Takes a seat's deck into the table's keeping for the rest of the match. */
     public void holdDeck(SeatId seat, DeckComponent deck) {
+        holdDeck(seat, deck, null);
+    }
+
+    /**
+     * The same, keeping the pool the deck was drafted from.
+     *
+     * <p>Held with it rather than left on the item, because the item is gone: the table takes
+     * the whole deck for the length of a match and hands back a new stack afterwards. Without
+     * this a drafted deck came back from its first game with no pool on it, and the limited
+     * check it had been playing under quietly stopped applying.
+     */
+    public void holdDeck(SeatId seat, DeckComponent deck, DraftedPool pool) {
         decks.put(seat, deck);
+        if (pool == null || pool.isEmpty()) {
+            pools.remove(seat);
+        } else {
+            pools.put(seat, pool);
+        }
         setChanged();
     }
 
@@ -262,17 +289,34 @@ public class TableBlockEntity extends BlockEntity {
         return Optional.ofNullable(decks.get(seat));
     }
 
+    /** The pool the deck at this seat was drafted from, if it was drafted. */
+    public Optional<DraftedPool> poolOf(SeatId seat) {
+        return Optional.ofNullable(pools.get(seat));
+    }
+
     /** Every deck the table is holding, in seat order. */
     public Map<SeatId, DeckComponent> heldDecks() {
         return Map.copyOf(decks);
     }
 
-    /** Hands the decks back and forgets them, which is what the end of a match is. */
-    public Map<SeatId, DeckComponent> releaseDecks() {
-        Map<SeatId, DeckComponent> released = Map.copyOf(decks);
+    /**
+     * Hands the decks back and forgets them, which is what the end of a match is.
+     *
+     * <p>Deck and pool together in one value, because handing one back without the other is
+     * the bug this shape exists to prevent - and two calls that must both happen is one call
+     * somebody forgets.
+     */
+    public Map<SeatId, HeldDeck> releaseDecks() {
+        Map<SeatId, HeldDeck> released = new LinkedHashMap<>();
+        decks.forEach((seat, deck) -> released.put(seat, new HeldDeck(deck, pools.get(seat))));
         decks.clear();
+        pools.clear();
         setChanged();
-        return released;
+        return Map.copyOf(released);
+    }
+
+    /** A deck the table is holding, and what it may be built from if it was drafted. */
+    public record HeldDeck(DeckComponent deck, DraftedPool pool) {
     }
 
     /** Records how a game went, without ending the set it belongs to. */
@@ -446,14 +490,23 @@ public class TableBlockEntity extends BlockEntity {
         }
 
         decks.clear();
+        pools.clear();
         ListTag heldDecks = tag.getList(DECKS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < heldDecks.size(); index++) {
             CompoundTag held = heldDecks.getCompound(index);
+            SeatId seat = new SeatId(held.getInt(DECK_SEAT_KEY));
             DeckComponent.CODEC
                     .parse(net.minecraft.nbt.NbtOps.INSTANCE, held.get(DECK_KEY))
                     .resultOrPartial(problem -> LOGGER.error(
                             "A deck held at {} will not load: {}", worldPosition, problem))
-                    .ifPresent(deck -> decks.put(new SeatId(held.getInt(DECK_SEAT_KEY)), deck));
+                    .ifPresent(deck -> decks.put(seat, deck));
+            if (held.contains(POOL_KEY)) {
+                DraftedPool.CODEC
+                        .parse(net.minecraft.nbt.NbtOps.INSTANCE, held.get(POOL_KEY))
+                        .resultOrPartial(problem -> LOGGER.error(
+                                "A pool held at {} will not load: {}", worldPosition, problem))
+                        .ifPresent(pool -> pools.put(seat, pool));
+            }
         }
 
         claims.clear();
@@ -506,6 +559,15 @@ public class TableBlockEntity extends BlockEntity {
                     CompoundTag entry = new CompoundTag();
                     entry.putInt(DECK_SEAT_KEY, seat.index());
                     entry.put(DECK_KEY, encoded);
+                    DraftedPool pool = pools.get(seat);
+                    if (pool != null && !pool.isEmpty()) {
+                        DraftedPool.CODEC
+                                .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, pool)
+                                .resultOrPartial(problem -> LOGGER.error(
+                                        "A pool held at {} will not save: {}",
+                                        worldPosition, problem))
+                                .ifPresent(written -> entry.put(POOL_KEY, written));
+                    }
                     held.add(entry);
                 }));
         tag.put(DECKS_KEY, held);

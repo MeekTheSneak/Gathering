@@ -9,6 +9,7 @@ import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DraftedPool;
 import dev.gathering.item.DeckItem;
 import dev.gathering.item.GatheringContent;
 import java.util.List;
@@ -19,6 +20,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -138,6 +140,88 @@ public final class DeckCustodyGameTest {
 
     // ------------------------------------------------------------- fixtures
 
+    /**
+     * A drafted deck comes back from a match still knowing what it was drafted from.
+     *
+     * <p>The table takes the whole deck for the length of a match and hands back a new stack
+     * afterwards, so anything living on the old stack is gone unless the table kept it. Which
+     * means a drafted deck used to come back from its first game with no pool on it, and the
+     * limited check it had been playing under quietly stopped applying from the second game
+     * onwards - the sort of failure nobody notices until somebody wins with a card they
+     * never opened.
+     */
+    @GameTest(template = "empty")
+    public static void aDraftedDeckKeepsItsPoolThroughAMatch(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        clearItems(helper, origin);
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        DraftedPool pool = new DraftedPool(
+                List.of(card(SOL_RING), card(SOL_RING), card(BOLT)), "a pod");
+
+        TableBlockEntity table = tableAt(helper, origin);
+        table.holdDeck(new SeatId(0), deck(), pool);
+
+        if (!table.poolOf(new SeatId(0)).equals(java.util.Optional.of(pool))) {
+            helper.fail("the table did not keep the pool it was handed");
+            return;
+        }
+
+        // Through a save and load first, because a match outlives a restart.
+        net.minecraft.nbt.CompoundTag saved =
+                table.saveWithFullMetadata(helper.getLevel().registryAccess());
+        TableBlockEntity reloaded =
+                new TableBlockEntity(origin, helper.getLevel().getBlockState(origin));
+        reloaded.loadWithComponents(saved, helper.getLevel().registryAccess());
+        if (!reloaded.poolOf(new SeatId(0)).equals(java.util.Optional.of(pool))) {
+            helper.fail("a pool did not survive a save and load: " + reloaded.poolOf(new SeatId(0)));
+            return;
+        }
+
+        TableSessions.returnDecks(helper.getLevel(), origin, table);
+
+        ItemStack back = deckStackInInventory(player)
+                .or(() -> deckStackOnTheFloor(helper, origin))
+                .orElse(null);
+        if (back == null) {
+            helper.fail("no deck came back from the table at all");
+            return;
+        }
+        DraftedPool returned = back.get(dev.gathering.registry.GatheringComponents.POOL.get());
+        if (returned == null) {
+            helper.fail("a drafted deck came back with no pool on it");
+            return;
+        }
+        if (!returned.equals(pool)) {
+            helper.fail("the pool that came back is not the one that went in");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** An ordinary imported deck has no pool, and must not acquire one. */
+    @GameTest(template = "empty")
+    public static void anOrdinaryDeckComesBackWithNoPool(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        clearItems(helper, origin);
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        TableBlockEntity table = tableAt(helper, origin);
+        table.holdDeck(new SeatId(0), deck());
+
+        TableSessions.returnDecks(helper.getLevel(), origin, table);
+
+        ItemStack back = deckStackInInventory(player)
+                .or(() -> deckStackOnTheFloor(helper, origin))
+                .orElse(null);
+        if (back == null) {
+            helper.fail("no deck came back from the table at all");
+            return;
+        }
+        if (back.get(dev.gathering.registry.GatheringComponents.POOL.get()) != null) {
+            helper.fail("an imported deck came back claiming to have been drafted");
+        }
+        helper.succeed();
+    }
+
     private static DeckComponent deck() {
         return new DeckComponent(
                 "Custody Test", "", Optional.empty(),
@@ -152,6 +236,26 @@ public final class DeckCustodyGameTest {
 
     private static TableBlockEntity tableAt(GameTestHelper helper, BlockPos origin) {
         return TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+    }
+
+    /** The deck stack itself, rather than what is inside it, so its other components show. */
+    private static Optional<ItemStack> deckStackInInventory(Player player) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (DeckItem.deckOf(stack).isPresent()) {
+                return Optional.of(stack);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<ItemStack> deckStackOnTheFloor(GameTestHelper helper, BlockPos origin) {
+        return helper.getLevel()
+                .getEntitiesOfClass(ItemEntity.class, new AABB(origin).inflate(6.0d))
+                .stream()
+                .map(ItemEntity::getItem)
+                .filter(stack -> DeckItem.deckOf(stack).isPresent())
+                .findFirst();
     }
 
     private static Optional<DeckComponent> deckInInventory(Player player) {

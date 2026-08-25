@@ -66,6 +66,8 @@ final class GatheringRegistration {
             DATA_COMPONENTS.register(GatheringComponents.CARD_ID, GatheringComponents::createCardType);
     private static final Supplier<DataComponentType<DeckComponent>> DECK_COMPONENT =
             DATA_COMPONENTS.register(GatheringComponents.DECK_ID, GatheringComponents::createDeckType);
+    private static final Supplier<DataComponentType<dev.gathering.item.DraftedPool>> POOL_COMPONENT =
+            DATA_COMPONENTS.register(GatheringComponents.POOL_ID, GatheringComponents::createPoolType);
 
     private static final Supplier<CreativeModeTab> TAB = CREATIVE_TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup." + Gathering.MOD_ID + ".main"))
@@ -105,6 +107,7 @@ final class GatheringRegistration {
         GatheringContent.TABLE_ENTITY.bind(TABLE_ENTITY);
         GatheringComponents.CARD.bind(CARD_COMPONENT);
         GatheringComponents.DECK.bind(DECK_COMPONENT);
+        GatheringComponents.POOL.bind(POOL_COMPONENT);
     }
 
     static Supplier<CreativeModeTab> creativeTab() {

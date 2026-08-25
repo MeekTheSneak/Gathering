@@ -178,8 +178,14 @@ public final class TableSessions {
      */
     public static void returnDecks(Level level, BlockPos tableOrigin, TableBlockEntity table) {
         List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
-        table.releaseDecks().forEach((seat, deck) -> {
-            ItemStack stack = DeckItem.of(deck);
+        table.releaseDecks().forEach((seat, held) -> {
+            ItemStack stack = DeckItem.of(held.deck());
+            // The pool goes back with the deck. A drafted deck that came back without one
+            // would still look like a drafted deck and no longer be held to what was opened.
+            if (held.pool() != null && !held.pool().isEmpty()) {
+                stack.set(dev.gathering.registry.GatheringComponents.POOL.get(), held.pool());
+            }
+
             Player owner = seat.index() < anchors.size()
                     ? occupantOf(level, tableOrigin, anchors.get(seat.index())).orElse(null)
                     : null;
