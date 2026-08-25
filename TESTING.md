@@ -268,7 +268,7 @@ board and nothing else: face-down cards are card backs, and nobody's hand is in 
 where it stops being. The layout, the sizes, the keys and the drag feel are all first guesses
 and all cheap to change.
 
-### 8. Buy something from a card shop
+### 8. Collect, buy, and build
 
 Collection mode is off by default. Switch it on in `config/gathering-server.toml`:
 
@@ -279,6 +279,20 @@ collection_enabled = true
 
 Restart. The server reads what the current set was really sold as, which takes a few seconds
 and one fetch.
+
+**Your collection.** Put a **collection** block down and right-click it: everything you own,
+searchable, one page at a time. Cards go in one at a time and come out one at a time — into
+the deck in your hand if you are holding one — and a whole deck poured back in is one gesture
+(sneak and right-click the block with the deck).
+
+- **Build a deck from a list.** Open a collection and press **Build a deck...**, paste a
+  decklist, and you get the deck it can make with the cards taken out of the box. It matches
+  by card rather than by printing, so a list off a deck site works even though it names
+  printings you do not own; the plain copy goes in before the foil; basics are conjured
+  rather than taken, because basics are free. What the box is short of is listed rather than
+  refused — ninety cards you have and a list of the ten to find beats no deck at all.
+
+**The card shop.**
 
 - **Find one.** Villages build a card shop among their houses: a room with a counter, a chest
   of stock behind it and two tables to play at. `/locate structure minecraft:village_plains`
@@ -332,10 +346,6 @@ In rough order of how much it would change what I build next:
 - **A chest does not decide which set.** It decides which kind of booster: a collector booster
   is much likelier out of an end city than out of a village. Tying a set to a structure is an
   idea and not built.
-- **A decklist cannot be sleeved out of a collection in one go.** Cards go in one at a time
-  and come out one at a time — into the deck in your hand, if you are holding one — and a
-  whole deck poured back in is one gesture. Handing a collection a list and getting the deck
-  it can build is not there.
 - **No trading.** Cards move between players by dropping them.
 - **No way to name a deck after the fact.** Import names one; a deck started from two cards
   cannot be renamed yet.

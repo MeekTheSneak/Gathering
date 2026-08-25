@@ -72,6 +72,21 @@ public final class DecklistImport {
     }
 
     /** The same answer for somebody described only by whether they run the server. */
+    /**
+     * Why this player may not build a deck out of a collection, or null.
+     *
+     * <p>Not the import rule. Sleeving a deck out of cards you already own is what collection
+     * mode is for, and a server running collection without import - which the brief calls a
+     * collecting game that still uses the table - would otherwise be a server where the whole
+     * feature is switched off. What the list is checked against is the box, and that check is
+     * the collection's own: own the cards, and be standing in front of them.
+     */
+    public static String whyNotFromCollection() {
+        return dev.gathering.service.ServerSettings.get().modes().collectionEnabled()
+                ? null
+                : "Collecting is turned off on this server.";
+    }
+
     public static String whyNot(boolean isOperator) {
         var settings = dev.gathering.service.ServerSettings.get();
         if (!settings.modes().importEnabled()) {
@@ -97,12 +112,25 @@ public final class DecklistImport {
      * @param description the player's note, shown under the name on the item
      */
     public static void importFor(
-            ServerPlayer player, CardDataService service, String decklist, String deckName, String description) {
+            ServerPlayer player, CardDataService service, String decklist, String deckName,
+            String description) {
+        importFor(player, service, decklist, deckName, description, null);
+    }
+
+    /**
+     * @param from the collection to build the deck out of, or null to conjure it out of
+     *             nothing. Naming one is the same request with the cards having to come from
+     *             somewhere: everything up to the resolved list is identical, and only the
+     *             last step differs.
+     */
+    public static void importFor(
+            ServerPlayer player, CardDataService service, String decklist, String deckName,
+            String description, net.minecraft.core.BlockPos from) {
         UUID id = player.getUUID();
 
         // The server's own answer, not the screen's. A client that never saw the screen - or
         // one written to skip it - arrives here, and this is the only place that decides.
-        String refusal = whyNot(player);
+        String refusal = from == null ? whyNot(player) : whyNotFromCollection();
         if (refusal != null) {
             send(player, new ImportResultPayload("", 0, List.of(refusal)));
             return;
@@ -140,7 +168,11 @@ public final class DecklistImport {
                                     List.of("The import could not reach Scryfall: " + rootMessage(failure))));
                             return;
                         }
-                        deliver(player, deck, deckName, description);
+                        if (from == null) {
+                            deliver(player, deck, deckName, description);
+                        } else {
+                            CollectionDecks.build(player, from, deck, deckName, description);
+                        }
                     });
                 });
     }

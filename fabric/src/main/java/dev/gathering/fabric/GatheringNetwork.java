@@ -91,8 +91,8 @@ final class GatheringNetwork {
             }
             // Import is asynchronous by construction; nothing here touches the network thread
             // beyond handing the text over.
-            DecklistImport.importFor(
-                    context.player(), service, payload.decklist(), payload.deckName(), payload.description());
+            DecklistImport.importFor(context.player(), service, payload.decklist(),
+                    payload.deckName(), payload.description(), payload.from().orElse(null));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(RequestCardMetadataPayload.TYPE, (payload, context) ->

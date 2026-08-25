@@ -67,6 +67,20 @@ public final class PayloadGameTest {
         if (!restored.description().equals("Two commanders, one bad idea")) {
             helper.fail("A deck description changed on the wire: " + restored.description());
         }
+        if (restored.from().isPresent()) {
+            helper.fail("An import out of nothing arrived naming a collection");
+        }
+
+        // And the same list built out of a collection, which is the same request with the
+        // cards having to come from somewhere.
+        net.minecraft.core.BlockPos box = new net.minecraft.core.BlockPos(-2048, 71, 4096);
+        ImportDecklistPayload fromBox = roundTrip(
+                helper,
+                new ImportDecklistPayload(decklist, "Burn", "", java.util.Optional.of(box)),
+                ImportDecklistPayload.STREAM_CODEC);
+        if (!fromBox.from().map(box::equals).orElse(false)) {
+            helper.fail("The collection to build from changed on the wire: " + fromBox.from());
+        }
         helper.succeed();
     }
 

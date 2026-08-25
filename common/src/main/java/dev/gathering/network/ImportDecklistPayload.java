@@ -11,8 +11,16 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * <p>The text is capped well above any real decklist and well below anything worth
  * worrying about. Parsing and resolution happen on the server, on the card pipeline's own
  * executor, and the client is told what came of it - it never resolves anything itself.
+ *
+ * <p>With a collection named, the same list builds a deck out of that collection's cards
+ * instead of out of nothing - which is the same request with the cards having to come from
+ * somewhere, rather than a second kind of import. The position is checked at the other end
+ * like every other position a client names: reading a collection is public, and being in
+ * front of one is not.
  */
-public record ImportDecklistPayload(String decklist, String deckName, String description)
+public record ImportDecklistPayload(
+        String decklist, String deckName, String description,
+        java.util.Optional<net.minecraft.core.BlockPos> from)
         implements CustomPacketPayload {
 
     /** A 100-card Commander list with printing hints runs to a few kilobytes. */
@@ -30,11 +38,19 @@ public record ImportDecklistPayload(String decklist, String deckName, String des
                     ByteBufCodecs.stringUtf8(MAX_LENGTH), ImportDecklistPayload::decklist,
                     ByteBufCodecs.stringUtf8(MAX_NAME_LENGTH), ImportDecklistPayload::deckName,
                     ByteBufCodecs.stringUtf8(MAX_DESCRIPTION_LENGTH), ImportDecklistPayload::description,
+                    ByteBufCodecs.optional(net.minecraft.core.BlockPos.STREAM_CODEC),
+                    ImportDecklistPayload::from,
                     ImportDecklistPayload::new);
+
+    /** Out of nothing, which is what import mode does. */
+    public ImportDecklistPayload(String decklist, String deckName, String description) {
+        this(decklist, deckName, description, java.util.Optional.empty());
+    }
 
     public ImportDecklistPayload {
         deckName = trimTo(deckName, MAX_NAME_LENGTH);
         description = trimTo(description, MAX_DESCRIPTION_LENGTH);
+        from = from == null ? java.util.Optional.empty() : from;
     }
 
     private static String trimTo(String value, int limit) {

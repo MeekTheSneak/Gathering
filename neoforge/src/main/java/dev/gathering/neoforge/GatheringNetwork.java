@@ -170,8 +170,8 @@ public final class GatheringNetwork {
         }
         // Import itself is asynchronous by construction, so this hands straight off to the
         // card pipeline's executor rather than doing anything on the network thread.
-        DecklistImport.importFor(
-                player, service, payload.decklist(), payload.deckName(), payload.description());
+        DecklistImport.importFor(player, service, payload.decklist(), payload.deckName(),
+                payload.description(), payload.from().orElse(null));
     }
 
     private static void onStartTable(StartTablePayload payload, IPayloadContext context) {

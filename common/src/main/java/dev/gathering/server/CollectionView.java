@@ -281,7 +281,15 @@ public final class CollectionView {
      * at a wall; a collection across the world is somebody reading a stranger's binder from
      * their own base.
      */
-    private static CollectionBlockEntity at(ServerPlayer player, BlockPos where) {
+    /**
+     * The collection this player is actually standing at.
+     *
+     * <p>Package-visible so {@link CollectionDecks} asks the same question rather than a
+     * second one that looks like it. Reading a collection is public; being in front of one is
+     * not, and a payload naming a position is a payload naming <em>any</em> position - so
+     * every path in has to check, and there is one check.
+     */
+    static CollectionBlockEntity at(ServerPlayer player, BlockPos where) {
         if (where == null || !player.level().isLoaded(where)) {
             return null;
         }
@@ -312,7 +320,8 @@ public final class CollectionView {
      * making ten thousand requests, and the honest answer for a card nobody has looked up is
      * that nobody has looked it up.
      */
-    private static CardMetadata known(CardDataService service, CardIdentity card) {
+    /** Package-visible for the same reason {@link #at} is: one answer, asked from two places. */
+    static CardMetadata known(CardDataService service, CardIdentity card) {
         if (service == null) {
             return null;
         }

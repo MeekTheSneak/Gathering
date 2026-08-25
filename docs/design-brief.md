@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.48
+## Design Brief v1.49
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -246,7 +246,7 @@ Config-gated. Ships after play mode is proven, because play mode is the differen
 
   **Contents are a tally, not a pile of item stacks.** A real collection runs to tens of thousands of cards, which no slot-based container survives. The block stores counts per printing-and-finish, which keeps it compact, makes search instant, and makes "add forty Forests" one entry. The exception is cards that have a biography — won in an ante pot, pulled from a particular pack (section 12) — which are stored individually beside the tally, because a card that remembers being taken from someone is not fungible with another copy of itself.
 
-  **Sleeving moves cards, it does not reference them.** Building a deck takes the cards out of the collection and puts them in the deck item; dissolving the deck puts them back where they came from. That is paper-true, it is the one place collection mode adds a check import mode does not have (own the card to sleeve it), and it means a shared collection cannot quietly back two decks at once. A deck remembers which collection it was assembled from, which is what makes playgroup loaner decks work without any separate lending mechanic.
+  **Sleeving moves cards, it does not reference them.** Building a deck takes the cards out of the collection and puts them in the deck item; dissolving the deck puts them back where they came from. **A list builds a deck in one gesture**, because a hundred-card Commander list taken one card at a time is a hundred clicks and nobody does that twice: paste the list at the collection and the deck comes out with the cards taken out of the box. Matched by card rather than by printing - a list off a deck site names printings almost nobody owns, and two printings of a card are the same card to play with - with the plain copy sleeved before the foil, and basics conjured rather than taken because basics are free everywhere in this mod. A list the box cannot fill builds the part it can and names what is missing: ninety cards you have and a list of the ten to find is what somebody sitting at their binder wants, and a refusal would send them back to clicking. This is sleeving rather than importing, so it works on a collection-only server where import is switched off. That is paper-true, it is the one place collection mode adds a check import mode does not have (own the card to sleeve it), and it means a shared collection cannot quietly back two decks at once. A deck remembers which collection it was assembled from, which is what makes playgroup loaner decks work without any separate lending mechanic.
 
   In import mode the block still earns its place as a rack for deck items, with the card storage simply empty.
 

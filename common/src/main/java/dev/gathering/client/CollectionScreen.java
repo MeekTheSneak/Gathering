@@ -138,6 +138,14 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         rarityButton = GatheringButtons.of(pipsX + 6, pipsY, 92, 16, rarityLabel(), this::nextRarity);
         addRenderableWidget(rarityButton);
 
+        // The other way to take cards out, and the one worth finding. Sleeving a hundred-card
+        // list a card at a time is a hundred clicks; this is one, and it is here rather than
+        // on the import screen because the cards are here.
+        addRenderableWidget(GatheringButtons.of(
+                this.width - MARGIN - 110, pipsY, 110, 16,
+                Component.translatable("screen.gathering.collection.build_deck"),
+                () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
+
         setInitialFocus(searchBox);
         updateButtons();
         // Here rather than when the collection opened: this is the first moment anything

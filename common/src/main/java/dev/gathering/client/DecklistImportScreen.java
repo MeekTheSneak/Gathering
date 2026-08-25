@@ -46,8 +46,24 @@ public final class DecklistImportScreen extends Screen {
     private List<Component> problems = List.of();
     private boolean waiting;
 
+    /** Where the cards come from, or empty to conjure them out of nothing. */
+    private final java.util.Optional<net.minecraft.core.BlockPos> from;
+
     public DecklistImportScreen() {
         super(Component.translatable("screen.gathering.import"));
+        this.from = java.util.Optional.empty();
+    }
+
+    /**
+     * The same screen, building out of a collection.
+     *
+     * <p>A different title and the same everything else, because it is the same thing: a list
+     * goes in and a deck comes out. What differs is where the cards were, and that is worth
+     * one line at the top rather than a second screen to learn.
+     */
+    public DecklistImportScreen(net.minecraft.core.BlockPos collection) {
+        super(Component.translatable("screen.gathering.import.from_collection"));
+        this.from = java.util.Optional.ofNullable(collection);
     }
 
     private int panelLeft() {
@@ -124,7 +140,7 @@ public final class DecklistImportScreen extends Screen {
         this.importButton.active = false;
 
         ClientNetworking.send(new ImportDecklistPayload(
-                decklist, this.nameField.getValue(), this.descriptionField.getValue()));
+                decklist, this.nameField.getValue(), this.descriptionField.getValue(), this.from));
     }
 
     /** Called from the payload handler when the server reports back. */
