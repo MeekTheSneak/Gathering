@@ -211,13 +211,4 @@ public final class TableCluster {
         }
         return outward;
     }
-
-    private static List<Side> facingPair(List<Side> outward) {
-        for (Side[] pair : Side.FACING_PAIRS) {
-            if (outward.contains(pair[0]) && outward.contains(pair[1])) {
-                return List.of(pair[0], pair[1]);
-            }
-        }
-        return null;
-    }
 }

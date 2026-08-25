@@ -188,32 +188,19 @@ class TableClusterTest {
     }
 
     @Property(tries = 2000)
-    void peopleSitOppositeEachOtherWhereverTheShapeAllowsIt(@ForAll("shapes") Set<TableCell> shape) {
-        // Sitting across from your opponent is the shape of the game, so where every table
-        // has a free pair of opposite edges - a single table, or any straight run of them -
-        // every seat should have somebody facing it. Shapes that cannot manage that, like a
-        // block of four, are the ones this deliberately does not ask about.
+    void everybodySitsOppositeSomebody(@ForAll("shapes") Set<TableCell> shape) {
+        // Sitting across from your opponent is the shape of the game, and now that a table
+        // only seats people when both its north and south edges are free, it is true of every
+        // shape rather than only of the ones that could manage it. This used to skip the
+        // shapes it could not promise anything about - a block of four, an L - which are
+        // exactly the shapes that seat nobody now.
         TableCluster cluster = TableCluster.of(shape);
-        boolean everyTableCanPair = cluster.cells().stream()
-                .allMatch(cell -> hasFullyOutwardFacingPair(cell, shape));
-        if (!everyTableCanPair) {
-            return;
-        }
 
         for (SeatAnchor seat : cluster.seats()) {
             assertThat(cluster.seats())
                     .describedAs("nobody is sitting opposite %s", seat)
                     .contains(new SeatAnchor(seat.cell(), seat.side().opposite()));
         }
-    }
-
-    private static boolean hasFullyOutwardFacingPair(TableCell cell, Set<TableCell> shape) {
-        for (Side[] pair : Side.FACING_PAIRS) {
-            if (!shape.contains(cell.step(pair[0])) && !shape.contains(cell.step(pair[1]))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     @Property(tries = 2000)

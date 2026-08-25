@@ -38,10 +38,4 @@ public enum Side {
             case WEST -> EAST;
         };
     }
-
-    /** The two facing pairs, which is what "sit opposite each other" means. */
-    public static final Side[][] FACING_PAIRS = {
-        {NORTH, SOUTH},
-        {EAST, WEST},
-    };
 }
