@@ -37,40 +37,51 @@ public final class TableMatch {
      * <p>Here rather than at the end of the game because there is no end of the game to hook -
      * the only thing that finishes one is a player conceding, which arrives like any other
      * move.
+     *
+     * @return what the table was told, or null if that move did not end anything. The handler
+     *         ignores it; a test reads it, because the sentence is the only visible result of
+     *         a game ending and it was wrong for months with nothing to notice.
      */
-    public static void settleIfFinished(ServerLevel level, BlockPos tableOrigin, GameState state) {
+    public static Component settleIfFinished(
+            ServerLevel level, BlockPos tableOrigin, GameState state) {
         if (!GameOutcome.isFinished(state)) {
-            return;
+            return null;
         }
         TableBlockEntity table = TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> TableBlock.entityAt(level, anchor))
                 .orElse(null);
         if (table == null) {
-            return;
+            return null;
         }
         MatchState match = table.match().orElse(null);
         if (match == null) {
-            return;
+            return null;
         }
 
         Optional<SeatId> winner = GameOutcome.winnerOf(state);
         MatchState next = winner.map(match::afterGameWonBy).orElseGet(match::afterDrawnGame);
         table.recordMatch(next);
 
+        // Written before anything is put away, in both branches. The sentence names whoever
+        // won and the only place a seat's name lives is the session, so a line built after
+        // endGameKeepingMatch() - which is what the first branch used to do - looked up a
+        // game that had just been set to null and credited every won game to nobody at all.
+        // Built once, up here, so there is no longer an order to get wrong.
+        Component line = lineFor(level, tableOrigin, next, winner);
+
         if (next.hasGameToPlay()) {
             // The board goes away but the decks and the score do not: a set is still running,
             // and the next game starts when somebody crouches on the table.
             table.endGameKeepingMatch();
-            TableBroadcast.closeAtTable(level, tableOrigin);
-            announce(level, tableOrigin, next, winner);
         } else {
             // The set is over. Everybody gets their deck back, which is the whole reason the
             // table was holding them.
-            announce(level, tableOrigin, next, winner);
             TableSessions.returnDecks(level, tableOrigin, table);
             table.endSession();
-            TableBroadcast.closeAtTable(level, tableOrigin);
         }
+        TableBroadcast.tell(level, tableOrigin, line);
+        TableBroadcast.closeAtTable(level, tableOrigin);
+        return line;
     }
 
     /**
@@ -117,7 +128,8 @@ public final class TableMatch {
                         .orElse(false);
     }
 
-    private static void announce(
+    /** What the table is told when a game ends. Reads the seat's name off the live session. */
+    public static Component lineFor(
             ServerLevel level, BlockPos tableOrigin, MatchState match, Optional<SeatId> winner) {
         String key = match.hasGameToPlay()
                 ? (match.sideboardingBeforeNextGame()
@@ -125,13 +137,11 @@ public final class TableMatch {
                         : "message.gathering.game_over_next")
                 : "message.gathering.match_over";
 
-        Component line = winner
-                .map(seat -> Component.translatable(key, nameOf(level, tableOrigin, seat), match.gameNumber(),
-                        match.rules().bestOf()))
+        return winner
+                .map(seat -> Component.translatable(key, nameOf(level, tableOrigin, seat),
+                        match.gameNumber(), match.rules().bestOf()))
                 .orElseGet(() -> Component.translatable("message.gathering.game_drawn",
                         match.gameNumber(), match.rules().bestOf()));
-
-        TableBroadcast.tell(level, tableOrigin, line);
     }
 
     private static Component nameOf(ServerLevel level, BlockPos tableOrigin, SeatId seat) {

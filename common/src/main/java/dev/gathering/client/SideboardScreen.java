@@ -64,6 +64,16 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
     private CardComponent hovered;
 
     /**
+     * The two columns, grouped by card, worked out when the deck changes.
+     *
+     * <p>Not per frame. Both columns were grouped inside {@code render}, which meant a map and
+     * a list built twice a frame off a deck that only changes when the server says a card
+     * moved - a hundred and twenty allocations a second to draw a list that had not moved.
+     */
+    private List<Entry> mainRows = List.of();
+    private List<Entry> sideRows = List.of();
+
+    /**
      * Opens the sideboard, or refreshes the one already open.
      *
      * <p>Refreshing rather than reopening matters: every swap sends the deck back, and a
@@ -93,6 +103,7 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         this.deck = deck;
         this.gameNumber = gameNumber;
         this.bestOf = bestOf;
+        regroup();
     }
 
     /** A fresh copy of the deck from the server, after an edit landed. */
@@ -100,12 +111,35 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         this.deck = updated;
         this.gameNumber = game;
         this.bestOf = length;
+        regroup();
+    }
+
+    private void regroup() {
+        this.mainRows = groupedFor(DeckComponent.Section.MAINBOARD);
+        this.sideRows = groupedFor(DeckComponent.Section.SIDEBOARD);
+    }
+
+    /** Whichever column that section is, already grouped. */
+    private List<Entry> rowsOf(DeckComponent.Section section) {
+        return section == DeckComponent.Section.SIDEBOARD ? sideRows : mainRows;
+    }
+
+    /** How many distinct cards are listed in the deck. For the scene that photographs this. */
+    int listedDeck() {
+        return mainRows.size();
+    }
+
+    /** The same for the sideboard. */
+    int listedSideboard() {
+        return sideRows.size();
     }
 
     @Override
     protected void init() {
         int top = MARGIN + HEADER;
-        int bottom = this.height - MARGIN - FOOTER;
+        // Room kept for the hint, which now sits between the columns and the button rather
+        // than at the bottom of the window under the hotbar.
+        int bottom = this.height - MARGIN - FOOTER - hintHeight();
         int usable = this.width - MARGIN * 2;
 
         // The preview only gets a column when there is room for one. On a narrow window the
@@ -127,6 +161,20 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
 
     // ---------------------------------------------------------------- render
 
+    /**
+     * The panel goes here, not in {@link #render}.
+     *
+     * <p>{@code Screen#render} applies a full-screen blur itself, so anything drawn before
+     * {@code super.render} is blurred with the world. Without one - which is how this screen
+     * shipped - the three columns floated on the sky with chat showing between them.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.panel(graphics, MARGIN - 6, MARGIN - 6,
+                this.width - (MARGIN - 6) * 2, this.height - (MARGIN - 6) * 2);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
@@ -144,23 +192,46 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
 
         if (!preview.isEmpty()) {
             GatheringSprites.inset(graphics, preview.x(), preview.y(), preview.width(), preview.height());
-            summaryOf(hovered).ifPresent(summary -> CardInspectPanel.renderArt(graphics, summary,
-                    preview.x() + 3, preview.y() + 3, preview.width() - 6, preview.height() - 6));
+            Optional<CardSummary> summary = summaryOf(hovered);
+            if (summary.isPresent()) {
+                CardInspectPanel.renderArt(graphics, summary.get(),
+                        preview.x() + 3, preview.y() + 3, preview.width() - 6, preview.height() - 6);
+            } else {
+                // A recess the size of a card with nothing in it reads as a third column that
+                // has broken, which is exactly what it looked like the first time anybody
+                // photographed this screen. One line says what it is waiting for.
+                GuiText.drawCentred(graphics, this.font,
+                        Component.translatable("screen.gathering.sideboard.point_at_one"),
+                        preview.x() + preview.width() / 2,
+                        preview.y() + preview.height() / 2 - this.font.lineHeight / 2,
+                        preview.width() - 8, DIM);
+            }
         }
 
+        // Above the Done button, not under the hotbar. Drawn at the bottom of the window it
+        // came out over the hotbar and the button both, which made the one sentence that
+        // explains the screen the least readable thing on it.
         GuiText.drawCentred(graphics, this.font,
                 Component.translatable("screen.gathering.sideboard.hint"),
-                this.width / 2, this.height - MARGIN - 8, this.width - MARGIN * 2, DIM);
+                this.width / 2, this.height - MARGIN - FOOTER - hintHeight() + GAP / 2,
+                this.width - MARGIN * 2, DIM);
+    }
+
+    /** How much room the one-line instruction wants, kept out of the columns. */
+    private int hintHeight() {
+        return (this.font == null ? 9 : this.font.lineHeight) + GAP;
     }
 
     private void drawColumn(
             GuiGraphics graphics, Rect area, DeckComponent.Section section, int scroll,
             int mouseX, int mouseY, Component heading) {
-        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
+        // A recess, not a panel. The screen itself is the panel now, and a panel drawn on a
+        // panel is a raised box on a raised box - the columns read as three loose slabs.
+        GatheringSprites.inset(graphics, area.x(), area.y(), area.width(), area.height());
         GuiText.draw(graphics, this.font, heading, area.x() + 4, area.y() + 4, area.width() - 8, LABEL);
 
         int top = area.y() + 4 + this.font.lineHeight + 3;
-        List<Entry> entries = groupedFor(section);
+        List<Entry> entries = rowsOf(section);
         for (int index = 0; index < entries.size(); index++) {
             int line = top + index * ROW_HEIGHT - scroll;
             if (line < top - ROW_HEIGHT || line + ROW_HEIGHT > area.bottom()) {
@@ -209,7 +280,7 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         }
         int top = area.y() + 4 + this.font.lineHeight + 3;
         int index = (y - top + scroll) / ROW_HEIGHT;
-        List<Entry> entries = groupedFor(from);
+        List<Entry> entries = rowsOf(from);
         if (index < 0 || index >= entries.size()) {
             // Still ours: a click on a column's empty space should not fall through to
             // whatever is underneath.
@@ -235,7 +306,7 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
     }
 
     private int clampScroll(int wanted, Rect area, DeckComponent.Section section) {
-        int rows = groupedFor(section).size();
+        int rows = rowsOf(section).size();
         int visible = (area.height() - 4 - this.font.lineHeight - 7) / ROW_HEIGHT;
         int content = Math.max(0, (rows - visible) * ROW_HEIGHT);
         return Math.max(0, Math.min(content, wanted));

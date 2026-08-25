@@ -176,6 +176,44 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
+    /**
+     * Winning a game of a set names whoever won it.
+     *
+     * <p>The sentence is the only visible result of a game ending, and it was wrong for
+     * months with nothing to notice: the line was written after the board was put away, and a
+     * seat's name lives in the session, so every game of a set except the last credited an
+     * empty chair. The last one was right, which is exactly why nobody saw it.
+     */
+    @GameTest(template = "empty")
+    public static void aWonGameOfASetNamesWhoWonIt(GameTestHelper helper) {
+        BlockPos origin = seatedTable(helper);
+        startMatch(helper, origin, 3);
+
+        var session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        String winner = dev.gathering.SeatNames.of(session.state().seatState(new SeatId(0)))
+                .getString();
+        session.submit(new GameEvent.Conceded(new SeatId(1)));
+        net.minecraft.network.chat.Component line =
+                TableMatch.settleIfFinished(helper.getLevel(), origin, session.state());
+
+        if (line == null) {
+            helper.fail("A conceded game of a set said nothing at all");
+            return;
+        }
+        String said = line.getString();
+        if (!said.contains(winner)) {
+            helper.fail("Winning game one was announced as \"" + said + "\", which does not"
+                    + " name the winner (" + winner + ")");
+            return;
+        }
+        // And the set is genuinely still going, so this is the branch that used to be wrong.
+        if (!TableMatch.isBetweenGames(helper.getLevel(), origin)) {
+            helper.fail("Winning game one of three did not leave the table between games");
+            return;
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void aSoloGameKeepsRunningWhileYouPlayIt(GameTestHelper helper) {
         // Goldfishing: one player, one table, no opponent. This broke because one player left

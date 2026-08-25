@@ -369,6 +369,7 @@
   "screen.gathering.sideboard": "Sideboard",
   "screen.gathering.sideboard.done": "Done",
   "screen.gathering.sideboard.hint": "Click a card to move it between your deck and your sideboard",
+  "screen.gathering.sideboard.point_at_one": "Point at a card to see it.",
   "screen.gathering.sideboard.title": "Sideboarding before game %s of %s",
   "screen.gathering.table": "Table",
   "screen.gathering.table.attaching": "Click the card to put these %s on - Esc to cancel",

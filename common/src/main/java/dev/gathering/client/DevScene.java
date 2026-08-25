@@ -1293,7 +1293,103 @@ public final class DevScene {
                 shoot(client, "46-borrow-a-deck");
                 advance(SETTLE / 2);
             }
+            case 117 -> {
+                client.setScreen(null);
+                aBestOfThreeWaitingToSideboard(client);
+                advance(SETTLE * 2);
+            }
+            case 118 -> {
+                expectScreen(client, "finishing game one of a set", SideboardScreen.class);
+                bothSidesOfTheSideboardAreShown(client);
+                shoot(client, "47-between-games");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
+        }
+    }
+
+
+    /**
+     * A best-of-three with game one over, so the sideboard screen has a reason to be open.
+     *
+     * <p>Played rather than faked: a table goes down, a deck goes on it, the other seat scoops
+     * and the server offers the screen the way it does for anybody. What is being photographed
+     * is the one screen in the mod nothing had ever opened, and half of what could be wrong
+     * with it is whether it opens at all.
+     */
+    private static void aBestOfThreeWaitingToSideboard(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to play a set on");
+            return;
+        }
+        List<dev.gathering.item.CardComponent> deck = someCards(client, 20);
+        List<dev.gathering.item.CardComponent> board = someCards(client, 5);
+        if (deck.isEmpty()) {
+            fail("there were no looked-up cards to build a match deck out of");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        BlockPos where = client.player.blockPosition().offset(-6, -1, -6);
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player == null) {
+                fail("the player went away before a set could be played");
+                return;
+            }
+            BlockState state = GatheringContent.TABLE.get().defaultBlockState();
+            for (TablePart part : TablePart.values()) {
+                level.setBlock(part.offsetFrom(where), state.setValue(TableBlock.PART, part), 3);
+            }
+            var cluster = dev.gathering.block.TableClusters.at(level, where);
+            var seats = cluster.seats();
+            if (seats.size() < 2) {
+                fail("a table put down for a match had " + seats.size() + " seats");
+                return;
+            }
+            dev.gathering.block.TableSeats.take(level, where, seats.get(0).cell(),
+                    seats.get(0).side(), who);
+            dev.gathering.block.TableSeats.take(level, where, seats.get(1).cell(),
+                    seats.get(1).side(), java.util.UUID.nameUUIDFromBytes(
+                            "devscene-rival".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+            // Modern, best of three: a format with a sideboard, which is what makes the step
+            // between games exist at all.
+            if (dev.gathering.block.TableSessions.start(level, where,
+                    new dev.gathering.core.match.MatchRules(
+                            dev.gathering.core.format.FormatPresets.MODERN, 3))
+                    != dev.gathering.block.TableSessions.Outcome.STARTED) {
+                fail("a best-of-three would not start");
+                return;
+            }
+            TableBlock.putDown(level, where, player, dev.gathering.item.DeckItem.of(
+                    new dev.gathering.item.DeckComponent("Match Deck", "", java.util.Optional.of(who),
+                            deck, List.of(), board)));
+
+            var session = dev.gathering.block.TableSessions.sessionAt(level, where).orElse(null);
+            if (session == null) {
+                fail("the match went away before game one could be played");
+                return;
+            }
+            session.submit(new GameEvent.Conceded(new SeatId(1)));
+            dev.gathering.server.TableMatch.settleIfFinished(level, where, session.state());
+            dev.gathering.server.Sideboarding.offerTo(player, where);
+            System.out.println("[devscene] game one is over, sideboarding");
+        });
+    }
+
+    /** A sideboard screen shows the deck and the sideboard, not one of them. */
+    private static void bothSidesOfTheSideboardAreShown(Minecraft client) {
+        if (!(client.screen instanceof SideboardScreen board)) {
+            fail("there was no sideboard screen to read");
+            return;
+        }
+        if (board.listedDeck() <= 0) {
+            fail("a sideboard screen listed none of the deck");
+        }
+        if (board.listedSideboard() <= 0) {
+            fail("a sideboard screen listed none of the sideboard");
         }
     }
 
