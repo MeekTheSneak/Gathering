@@ -9,6 +9,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.gathering.core.card.CardMetadata;
+import dev.gathering.core.card.SetCode;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -16,7 +17,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -141,21 +141,12 @@ public final class ScryfallClient {
     /**
      * A set code, or a refusal.
      *
-     * <p>This goes into a search query, and it arrives from a server config or a command
-     * argument - which is to say from something a person typed.
+     * <p>This goes into a search query and arrives from a server config or a command
+     * argument. What counts as one is {@link SetCode}'s to say, in one place.
      */
     private static String checkedSetCode(String setCode) throws FetchException {
-        String code = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
-        if (code.isEmpty() || code.length() > 8) {
-            throw new FetchException("'" + setCode + "' is not a set code", -1);
-        }
-        for (int index = 0; index < code.length(); index++) {
-            char character = code.charAt(index);
-            if ((character < 'a' || character > 'z') && (character < '0' || character > '9')) {
-                throw new FetchException("'" + setCode + "' is not a set code", -1);
-            }
-        }
-        return code;
+        return SetCode.of(setCode).orElseThrow(
+                () -> new FetchException("'" + setCode + "' is not a set code", -1));
     }
 
     /**

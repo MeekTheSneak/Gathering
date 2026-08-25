@@ -3,6 +3,7 @@ package dev.gathering.core.booster;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.gathering.core.card.SetCode;
 import dev.gathering.core.net.FetchException;
 import dev.gathering.core.net.HttpFetcher;
 import dev.gathering.core.net.HttpTransport;
@@ -255,24 +256,15 @@ public final class MtgjsonFeed {
     }
 
     /**
-     * A set code, or a refusal.
+     * A set code as MTGJSON names its files, or a refusal.
      *
-     * <p>This value goes into a URL and into a file name, and it arrives from a server config,
-     * which is to say from something a person typed. Nothing but letters and digits gets past
-     * here, so there is no path to walk out of the cache directory with and no URL to bend.
+     * <p>What counts as one is {@link SetCode}'s to say - this value goes into a URL and into
+     * a file name and arrives from a server config, and that rule is worth having exactly one
+     * of. All this adds is the case MTGJSON writes them in and the refusal a caller can show.
      */
     private static String checked(String setCode) throws FetchException {
-        String code = setCode == null ? "" : setCode.trim().toUpperCase(Locale.ROOT);
-        if (code.isEmpty() || code.length() > 8) {
-            throw new FetchException("'" + setCode + "' is not a set code", -1);
-        }
-        for (int index = 0; index < code.length(); index++) {
-            char character = code.charAt(index);
-            if ((character < 'A' || character > 'Z') && (character < '0' || character > '9')) {
-                throw new FetchException("'" + setCode + "' is not a set code", -1);
-            }
-        }
-        return code;
+        return SetCode.upper(setCode).orElseThrow(
+                () -> new FetchException("'" + setCode + "' is not a set code", -1));
     }
 
     private static String stripTrailingSlash(String url) {
