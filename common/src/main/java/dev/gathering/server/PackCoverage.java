@@ -79,22 +79,17 @@ public final class PackCoverage {
     /**
      * The paths a card of this set can come out of.
      *
-     * <p>Every kind of pack the set publishes, or - where it publishes none - the plain-odds
-     * pack that is what this server would actually open, because an audit of a pack nobody
-     * opens answers nothing.
+     * <p>Every kind of pack the set was really printed with, and nothing else. A set that was
+     * never sold in packs has none, and the honest report for one of those is that it has
+     * none rather than a coverage figure against a pack that does not exist.
      */
-    public static List<Faucet> faucetsFor(
-            String set, MtgjsonCollation.Reading reading, List<CardMetadata> inTheSet) {
+    public static List<Faucet> faucetsFor(MtgjsonCollation.Reading reading) {
         List<Faucet> faucets = new ArrayList<>();
-        if (reading != null && !reading.isEmpty()) {
-            for (BoosterConfig config : reading.packs().values()) {
-                faucets.add(new BoosterFaucet(config));
-            }
+        if (reading == null) {
             return List.copyOf(faucets);
         }
-        BoosterConfig plain = PackOpening.plainOddsFor(set, inTheSet);
-        if (plain.isUsable()) {
-            faucets.add(new BoosterFaucet(plain));
+        for (BoosterConfig config : reading.packs().values()) {
+            faucets.add(new BoosterFaucet(config));
         }
         return List.copyOf(faucets);
     }
@@ -124,7 +119,12 @@ public final class PackCoverage {
                     "message.gathering.coverage_nothing", set));
             return;
         }
-        List<Faucet> faucets = faucetsFor(set, audited.reading(), audited.inTheSet());
+        List<Faucet> faucets = faucetsFor(audited.reading());
+        if (faucets.isEmpty()) {
+            player.sendSystemMessage(Component.translatable(
+                    "message.gathering.coverage_no_packs", set, catalogue.size()));
+            return;
+        }
         CoverageReport report = CoverageAudit.of(catalogue, faucets);
 
         player.sendSystemMessage(Component.translatable("message.gathering.coverage_counted",

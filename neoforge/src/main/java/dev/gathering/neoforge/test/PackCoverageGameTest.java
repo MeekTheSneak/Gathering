@@ -88,7 +88,7 @@ public final class PackCoverageGameTest {
                 card("one", Rarity.COMMON, false, false),
                 card("two", Rarity.RARE, false, false));
 
-        List<Faucet> faucets = PackCoverage.faucetsFor("tst", reading, set);
+        List<Faucet> faucets = PackCoverage.faucetsFor(reading);
         CoverageReport report = CoverageAudit.of(PackCoverage.catalogueOf(set), faucets);
 
         if (faucets.size() != 2) {
@@ -114,7 +114,7 @@ public final class PackCoverageGameTest {
                 card("two", Rarity.RARE, false, false));
 
         CoverageReport report = CoverageAudit.of(
-                PackCoverage.catalogueOf(set), PackCoverage.faucetsFor("tst", reading, set));
+                PackCoverage.catalogueOf(set), PackCoverage.faucetsFor(reading));
 
         if (report.isComplete()) {
             helper.fail("A card no pack of the set holds was reported as obtainable");
@@ -132,10 +132,11 @@ public final class PackCoverageGameTest {
     }
 
     @GameTest(template = "empty")
-    public static void aSetWithNoPublishedPacksIsAuditedAgainstTheOneItWouldOpen(
-            GameTestHelper helper) {
-        // Nothing published, so the pack this server would actually deal is the plain-odds
-        // one - and auditing against a pack nobody opens would answer nothing.
+    public static void aSetNeverSoldInPacksHasNoWayIn(GameTestHelper helper) {
+        // Bloomburrow Commander is the case: it was sold as precons and its cards turn up in
+        // Bloomburrow's collector boosters, and there has never been a pack of it. Inventing
+        // one so the set has something to open would be a product that does not exist, and
+        // the report would be a coverage figure against a pack nobody can buy.
         MtgjsonCollation.Reading nothing =
                 new MtgjsonCollation.Reading("tst", Map.of(), List.of(), List.of());
         List<CardMetadata> set = new ArrayList<>();
@@ -143,29 +144,12 @@ public final class PackCoverageGameTest {
             set.add(card("common" + index, Rarity.COMMON, false, false));
         }
         set.add(card("rare", Rarity.RARE, false, false));
-        set.add(card("digital", Rarity.COMMON, true, false));
 
-        List<Faucet> faucets = PackCoverage.faucetsFor("tst", nothing, set);
-        CoverageReport report = CoverageAudit.of(PackCoverage.catalogueOf(set), faucets);
+        List<Faucet> faucets = PackCoverage.faucetsFor(nothing);
 
-        if (faucets.size() != 1) {
-            helper.fail("A set with nothing published gave " + faucets.size() + " ways in");
-            return;
-        }
-        if (!faucets.get(0).name().endsWith(":plain-odds")) {
-            helper.fail("The fallback pack was called " + faucets.get(0).name());
-            return;
-        }
-        // Every card on a plain-odds sheet is on a sheet a pack draws from, so a set audited
-        // this way is complete by construction - and the digital printing is not in the
-        // catalogue to be missing from it.
-        if (!report.isComplete()) {
-            helper.fail("A plain-odds pack left " + report.uncovered().size()
-                    + " of its own set unreachable");
-            return;
-        }
-        if (report.catalogue() != 13) {
-            helper.fail("The catalogue counted " + report.catalogue() + ", not thirteen");
+        if (!faucets.isEmpty()) {
+            helper.fail("A set never sold in packs offered " + faucets.size()
+                    + " ways into it: " + faucets.get(0).name());
             return;
         }
         helper.succeed();

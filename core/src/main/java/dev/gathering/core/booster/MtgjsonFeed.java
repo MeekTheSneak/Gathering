@@ -95,13 +95,11 @@ public final class MtgjsonFeed {
      * Everything openable for one set, having fetched whatever its packs reach into.
      *
      * @param setCode the set as MTGJSON and Scryfall both write it - "blb", "dmu"
-     * @throws IOException            when the set file could not be fetched, which is worth
-     *                                trying again later
-     * @throws BoosterCodecException  when it was fetched and is not what this thinks a set
-     *                                file is, which is not
+     * @throws IOException when the set file could not be fetched, which is worth trying
+     *                     again later. A file that arrives and is not collation is not a
+     *                     failure: it comes back as a set with none, which is what it means.
      */
-    public MtgjsonCollation.Reading collationFor(String setCode)
-            throws IOException, BoosterCodecException {
+    public MtgjsonCollation.Reading collationFor(String setCode) throws IOException {
         String code = checked(setCode);
         JsonObject file = setFile(code).orElse(null);
         if (file == null) {
@@ -109,11 +107,23 @@ public final class MtgjsonFeed {
                     List.of(code + " is not a set MTGJSON has a file for"));
         }
 
-        Map<String, UUID> bridge = new LinkedHashMap<>(MtgjsonCollation.printings(file));
+        Map<String, UUID> bridge = new LinkedHashMap<>();
         Set<String> asked = new LinkedHashSet<>();
         asked.add(code);
         List<String> troubles = new ArrayList<>();
-        MtgjsonCollation.Reading reading = MtgjsonCollation.read(file, bridge);
+        MtgjsonCollation.Reading reading;
+        try {
+            bridge.putAll(MtgjsonCollation.printings(file));
+            reading = MtgjsonCollation.read(file, bridge);
+        } catch (BoosterCodecException notCollation) {
+            // A file that arrived and is not what this thinks a set file is. Reported as a
+            // set with no collation rather than as a failure, because that is what it means
+            // to everything downstream: the packs fall back to plain rarity odds, which is
+            // the same answer a set nobody has published anything for gets. Failing instead
+            // would take the set's cards down with the file - and they are fine.
+            return new MtgjsonCollation.Reading(code.toLowerCase(Locale.ROOT), Map.of(), List.of(),
+                    List.of(code + "'s collation could not be read: " + notCollation.getMessage()));
+        }
 
         // One round is enough for real data - a set names every source its packs use up front -
         // but it loops until nothing new arrives, so a source that itself names a source is
@@ -158,7 +168,15 @@ public final class MtgjsonFeed {
             if (!anythingNew) {
                 break;
             }
-            reading = MtgjsonCollation.read(file, bridge);
+            try {
+                reading = MtgjsonCollation.read(file, bridge);
+            } catch (BoosterCodecException notCollation) {
+                // It read once already, so this cannot happen for the file itself - only for
+                // something a companion brought with it. Kept rather than thrown away: what
+                // was read before the companion arrived is still a true answer.
+                troubles.add("re-reading with " + asked + " failed: " + notCollation.getMessage());
+                break;
+            }
         }
 
         if (troubles.isEmpty()) {
