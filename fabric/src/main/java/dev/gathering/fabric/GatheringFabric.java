@@ -57,10 +57,12 @@ public final class GatheringFabric implements ModInitializer {
             if (!source.isBuiltin()) {
                 return;
             }
-            dev.gathering.core.sealed.LootSource.of(key.location().toString()).ifPresent(from ->
+            String table = key.location().toString();
+            dev.gathering.core.sealed.LootSource.of(table).ifPresent(from ->
                     tableBuilder.withPool(LootPool.lootPool()
                             .setRolls(ConstantValue.exactly(1.0f))
-                            .add(dev.gathering.loot.PackLootEntry.forSource(from))));
+                            .add(dev.gathering.loot.PackLootEntry.forTable(
+                                    from, dev.gathering.core.sealed.LootRichness.of(table)))));
         });
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {

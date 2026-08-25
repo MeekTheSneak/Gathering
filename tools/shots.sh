@@ -24,6 +24,11 @@ timeout "${SHOT_SECONDS:-720}" xvfb-run -a -s "-screen 0 1280x800x24" \
     env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
     ./gradlew :neoforge:runClient -Pdevscene > /tmp/gathering-shots.log 2>&1
 
+# The world goes with it. It holds a table with a live game in it, and the game test server
+# runs in this same directory: left behind, that table ticks on a server with no client to
+# broadcast to, and the whole gate crashes on a leftover from a picture.
+rm -rf neoforge/run/saves/GatheringDevScene
+
 grep -E '^\[devscene\]' /tmp/gathering-shots.log
 
 if [ ! -d "$OUT" ] || [ -z "$(ls -A "$OUT" 2>/dev/null)" ]; then

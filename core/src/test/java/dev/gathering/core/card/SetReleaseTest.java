@@ -85,6 +85,27 @@ class SetReleaseTest {
     }
 
     @Test
+    @DisplayName("the last few, newest first, for a server drawing from more than one")
+    void theRecentOnes() {
+        List<SetRelease> sets = List.of(
+                set("trk", "expansion", "2026-11-13"),
+                set("hob", "expansion", "2026-08-14"),
+                set("msh", "expansion", "2026-06-26"),
+                set("trc", "commander", "2026-05-01"),
+                set("sos", "expansion", "2026-04-24"));
+
+        assertThat(SetRelease.recent(sets, "2026-08-25", 3))
+                .extracting(SetRelease::code)
+                .containsExactly("hob", "msh", "sos");
+        assertThat(SetRelease.recent(sets, "2026-08-25", 99)).hasSize(3);
+        assertThat(SetRelease.recent(sets, "2026-08-25", 0)).isEmpty();
+        assertThat(SetRelease.recent(null, "2026-08-25", 3)).isEmpty();
+        // And the newest of them is the current one, so the two rules cannot disagree.
+        assertThat(SetRelease.current(sets, "2026-08-25"))
+                .contains(SetRelease.recent(sets, "2026-08-25", 1).getFirst());
+    }
+
+    @Test
     @DisplayName("nothing to pick from is an answer, not a crash")
     void anEmptyListIsEmpty() {
         assertThat(SetRelease.current(List.of(), "2026-08-25")).isEmpty();

@@ -289,7 +289,13 @@ In rough order of how much it would change what I build next:
 ## What is deliberately not there yet
 
 - **No shop.** Sealed product is found in the world and granted by an operator; the NPC that
-  sells it is specified in the design brief and not built.
+  sells it is specified in the design brief and not built. Which means anything bigger than a
+  booster — a display box, a bundle, a Commander deck — cannot be obtained at all yet: loot
+  only ever produces single boosters, deliberately, because those larger products are what the
+  shop is for.
+- **A chest does not decide which set.** It decides which kind of booster: a collector booster
+  is much likelier out of an end city than out of a village. Tying a set to a structure is an
+  idea and not built.
 - **Nothing puts a deck back into a collection.** Cards go into a collection block one at a
   time and come out one at a time; sleeving a whole deck out of one, and dissolving a deck
   back into it, is the next thing here.

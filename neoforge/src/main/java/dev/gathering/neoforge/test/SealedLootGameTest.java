@@ -122,6 +122,22 @@ public final class SealedLootGameTest {
             helper.fail("A sealed_product entry naming a source nobody has parsed anyway");
             return;
         }
+
+        // And a data pack may say its own chest is a find worth making, which is what
+        // decides whether a collector booster is plausible out of it.
+        JsonElement rich = JsonParser.parseString(
+                "{\"source\": \"structures\", \"richness\": \"rich\"}");
+        var parsed = PackLootEntry.CODEC.codec().parse(JsonOps.INSTANCE, rich).result();
+        if (parsed.isEmpty()) {
+            helper.fail("A sealed_product entry saying its chest is rich would not parse");
+            return;
+        }
+        var backOut = PackLootEntry.CODEC.codec()
+                .encodeStart(JsonOps.INSTANCE, parsed.get()).result().orElse(null);
+        if (backOut == null || !backOut.toString().contains("rich")) {
+            helper.fail("How good the chest is did not survive a round trip: " + backOut);
+            return;
+        }
         helper.succeed();
     }
 
@@ -150,7 +166,8 @@ public final class SealedLootGameTest {
     @GameTest(template = "empty")
     public static void nothingDropsBeforeASetIsKnown(GameTestHelper helper) {
         for (LootSource source : LootSource.values()) {
-            if (SealedLoot.rollFrom(source, helper.getLevel().getRandom()).isPresent()) {
+            if (SealedLoot.rollFrom(source, dev.gathering.core.sealed.LootRichness.PLAIN,
+                    helper.getLevel().getRandom()).isPresent()) {
                 helper.fail("A pack dropped from " + source.configName()
                         + " before any set had been read");
                 return;
@@ -177,7 +194,8 @@ public final class SealedLootGameTest {
         LootTable table = LootTable.lootTable()
                 .withPool(LootPool.lootPool()
                         .setRolls(ConstantValue.exactly(1.0f))
-                        .add(PackLootEntry.forSource(LootSource.STRUCTURES)))
+                        .add(PackLootEntry.forTable(
+                                LootSource.STRUCTURES, dev.gathering.core.sealed.LootRichness.RICH)))
                 .build();
         LootParams params = new LootParams.Builder(level).create(LootContextParamSets.EMPTY);
 

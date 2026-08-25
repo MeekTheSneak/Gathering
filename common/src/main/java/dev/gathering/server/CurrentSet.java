@@ -2,10 +2,12 @@ package dev.gathering.server;
 
 import dev.gathering.core.card.SetCode;
 import dev.gathering.core.card.SetRelease;
+import dev.gathering.core.config.GatheringConfig;
 import dev.gathering.service.CardDataService;
 import dev.gathering.service.ServerSettings;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
@@ -34,8 +36,16 @@ public final class CurrentSet {
     /** What the config file writes when it wants the newest release rather than a set. */
     public static final String AUTO = "auto";
 
-    private static volatile CompletableFuture<Optional<String>> resolving =
-            CompletableFuture.completedFuture(Optional.empty());
+    /**
+     * How many releases back {@code "recent"} could ever reach.
+     *
+     * <p>The config clamps its own number well under this; this is what the one fetch asks
+     * for, so raising the setting does not mean asking Scryfall again.
+     */
+    private static final int MOST_RECENT_SETS = 64;
+
+    private static volatile CompletableFuture<List<SetRelease>> resolving =
+            CompletableFuture.completedFuture(List.of());
 
     private CurrentSet() {
     }
@@ -51,42 +61,55 @@ public final class CurrentSet {
             // Nothing on this server cares which set is current, and asking anyway would be
             // a request every play-only server makes at every start for an answer nobody
             // reads.
-            resolving = CompletableFuture.completedFuture(Optional.empty());
+            resolving = CompletableFuture.completedFuture(List.of());
+            pinned = Optional.empty();
             return;
         }
         String configured = settings.collecting().currentSet();
-        if (!configured.equals(AUTO)) {
+        // "current" alone is answered by a pinned set without asking anybody; "recent" is
+        // the only thing that actually needs the list of releases.
+        boolean wantsTheList = dev.gathering.core.sealed.LootSets
+                .needsMoreThanTheNewest(settings.collecting().lootSets());
+        if (!configured.equals(AUTO) && !wantsTheList) {
+            // Nothing on this server needs Scryfall's list: it named its current set, and its
+            // loot draws from sets it named too.
             Optional<String> named = SetCode.of(configured);
             if (named.isEmpty()) {
                 LOGGER.warn("collection.current_set is \"{}\", which is not a set code and not "
                         + "\"auto\", so this server has no current set.", configured);
             }
-            resolving = CompletableFuture.completedFuture(named);
+            pinned = named;
+            resolving = CompletableFuture.completedFuture(List.of());
             return;
         }
 
         CardDataService cards = CardDataService.active().orElse(null);
         if (cards == null) {
-            resolving = CompletableFuture.completedFuture(Optional.empty());
+            resolving = CompletableFuture.completedFuture(List.of());
             return;
         }
-        resolving = cards.currentSet(today()).handle((newest, failure) -> {
+        pinned = configured.equals(AUTO) ? Optional.empty() : SetCode.of(configured);
+        resolving = cards.premierSets(today(), MOST_RECENT_SETS).handle((sets, failure) -> {
             if (failure != null) {
-                LOGGER.warn("Could not ask Scryfall which set is current, so this server has "
-                        + "none. Name one in collection.current_set to run without asking.",
-                        failure);
-                return Optional.<String>empty();
+                LOGGER.warn("Could not ask Scryfall which sets are out, so this server has no "
+                        + "current set. Name one in collection.current_set to run without "
+                        + "asking.", failure);
+                return List.<SetRelease>of();
             }
-            Optional<String> code = newest.map(SetRelease::code).flatMap(SetCode::of);
-            code.ifPresentOrElse(
-                    found -> LOGGER.info("The current set is {} ({}), from Scryfall's own list",
-                            found.toUpperCase(java.util.Locale.ROOT),
-                            newest.map(SetRelease::name).orElse(found)),
-                    () -> LOGGER.warn("Scryfall's list of sets held nothing released yet, so "
-                            + "this server has no current set."));
-            return code;
+            if (sets.isEmpty()) {
+                LOGGER.warn("Scryfall's list of sets held nothing released yet, so this server "
+                        + "has no current set.");
+            } else if (pinned.isEmpty()) {
+                LOGGER.info("The current set is {} ({}), from Scryfall's own list",
+                        sets.getFirst().code().toUpperCase(java.util.Locale.ROOT),
+                        sets.getFirst().name());
+            }
+            return sets;
         });
     }
+
+    /** A set code the config pinned, or empty where it said "auto". */
+    private static volatile Optional<String> pinned = Optional.empty();
 
     /**
      * The current set, once it is known.
@@ -96,12 +119,29 @@ public final class CurrentSet {
      * way it treats a set with no products: nothing to sell and nothing to drop.
      */
     public static CompletableFuture<Optional<String>> whenKnown() {
-        return resolving;
+        return resolving.thenApply(sets -> pinned.isPresent()
+                ? pinned
+                : sets.stream().findFirst().map(SetRelease::code).flatMap(SetCode::of));
+    }
+
+    /**
+     * The last few releases, newest first, once they are known.
+     *
+     * <p>What a server drawing its packs from more than one set draws from. Out of the same
+     * list the current set came from, so it costs nothing beyond the one request.
+     */
+    public static CompletableFuture<List<String>> recent(int howMany) {
+        return resolving.thenApply(sets -> sets.stream()
+                .limit(Math.max(0, howMany))
+                .map(SetRelease::code)
+                .flatMap(code -> SetCode.of(code).stream())
+                .toList());
     }
 
     /** Between servers, so one world's answer is not the next one's. */
     public static void clear() {
-        resolving = CompletableFuture.completedFuture(Optional.empty());
+        resolving = CompletableFuture.completedFuture(List.of());
+        pinned = Optional.empty();
     }
 
     /**

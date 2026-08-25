@@ -156,6 +156,73 @@ class GatheringConfigTest {
     }
 
     @Test
+    @DisplayName("a seasonal server names its set, and an era server names its block")
+    void lootSetsTakeSetCodes() throws Exception {
+        GatheringConfig config = read("""
+                [collection]
+                loot_sets = ["blb", "DSK", "otj"]
+                loot_recent_sets = 4
+                """);
+
+        assertThat(config.collecting().lootSets()).containsExactly("blb", "dsk", "otj");
+        assertThat(config.collecting().lootRecentSets()).isEqualTo(4);
+        assertThat(config.notes()).noneMatch(note -> note.contains("loot_sets"));
+    }
+
+    @Test
+    @DisplayName("\"current\" and \"recent\" mean themselves, and repeats are one")
+    void lootSetsTakeTheTwoWords() throws Exception {
+        GatheringConfig config = read("""
+                [collection]
+                loot_sets = ["current", "recent", "current"]
+                """);
+
+        assertThat(config.collecting().lootSets()).containsExactly("current", "recent");
+    }
+
+    @Test
+    @DisplayName("a set code with a typo in it is dropped and said out loud")
+    void anUnknownLootSetIsReported() {
+        // A typo here is a set that never drops anything, and an empty chest is no way to
+        // find that out.
+        GatheringConfig config = readOrThrow("""
+                [collection]
+                loot_sets = ["blb", "../etc", "nonsense-set-code"]
+                """);
+
+        assertThat(config.collecting().lootSets()).containsExactly("blb");
+        assertThat(config.notes()).anyMatch(note -> note.contains("../etc"));
+    }
+
+    @Test
+    @DisplayName("a loot_sets naming nothing usable falls back to the current set")
+    void lootSetsFallBack() {
+        // Note what is not here: "whatever" would be kept, because eight letters is a shape a
+        // set code has and this cannot know which eight-letter words Wizards has used. What a
+        // config check can catch is a thing that could never be one.
+        GatheringConfig config = readOrThrow("""
+                [collection]
+                loot_sets = ["../etc", "a b c"]
+                """);
+
+        assertThat(config.collecting().lootSets()).containsExactly("current");
+        assertThat(config.notes()).anyMatch(note -> note.contains("loot_sets"));
+    }
+
+    @Test
+    @DisplayName("how far back recent reaches is clamped to something sane")
+    void recentIsBounded() {
+        assertThat(readOrThrow("""
+                [collection]
+                loot_recent_sets = 900
+                """).collecting().lootRecentSets()).isLessThanOrEqualTo(64);
+        assertThat(readOrThrow("""
+                [collection]
+                loot_recent_sets = 0
+                """).collecting().lootRecentSets()).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
     @DisplayName("every source the default file names is a place packs really come from")
     void theDefaultSourcesAreAllReal() {
         // The default is written into the file a server is handed, so a name here that
@@ -215,5 +282,14 @@ class GatheringConfigTest {
         // A list left out of the file is still its default; only an empty one written down
         // means empty.
         assertThat(config.ante().exclusions()).containsExactly("basic lands");
+    }
+
+    /** For the cases where the file is fine and only its values are being argued with. */
+    private static GatheringConfig readOrThrow(String text) {
+        try {
+            return read(text);
+        } catch (Exception unreadable) {
+            throw new AssertionError(unreadable);
+        }
     }
 }

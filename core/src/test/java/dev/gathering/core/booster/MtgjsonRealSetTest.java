@@ -117,6 +117,13 @@ class MtgjsonRealSetTest {
             var products = dev.gathering.core.sealed.MtgjsonProducts.read(file.getValue(), bridge);
             java.util.Set<String> published = publishedKinds(file.getValue());
             for (var booster : products.boosters()) {
+                // Nothing bigger than a booster is ever offered as one. A display box or a
+                // Commander deck is a thing you buy, and a chest that can hold thirty packs
+                // makes the shop pointless.
+                assertThat(booster.holdsOtherProducts())
+                        .as(file.getKey() + ": " + booster.name() + " holds other products "
+                                + "and is being offered as a single booster")
+                        .isFalse();
                 var names = booster.asBooster();
                 if (!names.setCode().equalsIgnoreCase(collation.setCode())) {
                     // A pack of another set, sold in this one's catalogue. Openable, but

@@ -153,13 +153,16 @@ public final class CardDataService implements AutoCloseable {
     }
 
     /**
-     * Which set is the current one, according to Scryfall's own list of every set.
+     * Every premier set that has come out, newest first, from Scryfall's list of all of them.
      *
-     * <p>What a server that has not named a set is running. One request of about a megabyte,
-     * so it is asked once at start and never per player.
+     * <p>The whole list rather than only the newest, because a server drawing its packs from
+     * the last few releases wants the same answer the current-set question does and it would
+     * be a second megabyte to ask twice. One request, asked once at start.
      */
-    public CompletableFuture<Optional<dev.gathering.core.card.SetRelease>> currentSet(String today) {
-        return supply(() -> dev.gathering.core.card.SetRelease.current(client.everySet(), today));
+    public CompletableFuture<List<dev.gathering.core.card.SetRelease>> premierSets(
+            String today, int howMany) {
+        return supply(() ->
+                dev.gathering.core.card.SetRelease.recent(client.everySet(), today, howMany));
     }
 
     /** Tokens matching a name, for the "make a token" screen. */

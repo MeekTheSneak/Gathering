@@ -45,6 +45,8 @@ public record GatheringConfig(
 
     public record Collecting(
             List<String> packLootSources,
+            List<String> lootSets,
+            int lootRecentSets,
             boolean sealedStoreEnabled,
             String sealedPriceItem,
             String currentSet,
@@ -101,6 +103,21 @@ public record GatheringConfig(
             LootSource.STRUCTURES.configName(),
             LootSource.DIGGING.configName());
 
+    /** What {@code loot_sets} means by "whatever is current". */
+    public static final String LOOT_SETS_CURRENT = "current";
+
+    /** And by "the last few releases", however many {@code loot_recent_sets} says. */
+    public static final String LOOT_SETS_RECENT = "recent";
+
+    /**
+     * Which sets a server's packs come from when it has not said.
+     *
+     * <p>Just the current one. A server that wants more says so, because every extra set is
+     * another few megabytes fetched at start - and because a server pinned to one release is
+     * what most people mean by turning collecting on.
+     */
+    private static final List<String> DEFAULT_LOOT_SETS = List.of(LOOT_SETS_CURRENT);
+
     /** Every setting name this understands, so a typo in the file can be spotted. */
     public static Set<String> knownKeys() {
         return new LinkedHashSet<>(List.of(
@@ -109,6 +126,8 @@ public record GatheringConfig(
                 "import.allow_all_players",
                 "import.formats",
                 "collection.pack_loot_sources",
+                "collection.loot_sets",
+                "collection.loot_recent_sets",
                 "collection.sealed_store_enabled",
                 "collection.sealed_price_item",
                 "collection.current_set",
@@ -145,6 +164,10 @@ public record GatheringConfig(
 
         Collecting collecting = new Collecting(
                 lootSources(toml.strings("collection.pack_loot_sources", DEFAULT_LOOT_SOURCES), notes),
+                lootSets(toml.strings("collection.loot_sets", DEFAULT_LOOT_SETS), notes),
+                noted("collection.loot_recent_sets",
+                        clamped(toml.number("collection.loot_recent_sets", 12), 1, 64,
+                                "collection.loot_recent_sets", notes), 12, notes),
                 noted("collection.sealed_store_enabled",
                         toml.flag("collection.sealed_store_enabled", true), true, notes),
                 noted("collection.sealed_price_item",
@@ -234,6 +257,45 @@ public record GatheringConfig(
         return List.copyOf(kept);
     }
 
+    /**
+     * Which sets packs may be found from, keeping only what means something.
+     *
+     * <p>Three shapes: {@code "current"} for whatever is out now, {@code "recent"} for the
+     * last few releases, and a set code for exactly that set. A seasonal server names the
+     * set it is about; an era server names the block it lives in; a server that says nothing
+     * gets the current one.
+     *
+     * <p>Anything else is dropped and said out loud. A set code with a typo in it is a set
+     * that never drops anything, and finding that out from an empty chest is no way to find
+     * it out.
+     */
+    private static List<String> lootSets(List<String> asked, List<String> notes) {
+        List<String> kept = new ArrayList<>();
+        for (String named : asked) {
+            String wanted = named == null ? "" : named.trim().toLowerCase(Locale.ROOT);
+            if (wanted.equals(LOOT_SETS_CURRENT) || wanted.equals(LOOT_SETS_RECENT)) {
+                if (!kept.contains(wanted)) {
+                    kept.add(wanted);
+                }
+                continue;
+            }
+            String code = dev.gathering.core.card.SetCode.of(wanted).orElse(null);
+            if (code == null) {
+                notes.add("collection.loot_sets lists '" + named + "', which is not a set code "
+                        + "and not \"" + LOOT_SETS_CURRENT + "\" or \"" + LOOT_SETS_RECENT
+                        + "\".");
+            } else if (!kept.contains(code)) {
+                kept.add(code);
+            }
+        }
+        if (kept.isEmpty() && !asked.isEmpty()) {
+            notes.add("collection.loot_sets named nothing this understands, so packs come from "
+                    + "the current set.");
+            return DEFAULT_LOOT_SETS;
+        }
+        return List.copyOf(kept);
+    }
+
     private static <T> T noted(String path, T value, T fallback, List<String> notes) {
         String missing = NOT_BUILT_YET.get(path);
         if (missing != null && !java.util.Objects.equals(value, fallback)) {
@@ -290,6 +352,13 @@ public record GatheringConfig(
                 # Where sealed product turns up: any of "fishing", "structures", "archaeology".
                 # Needs collection_enabled.
                 pack_loot_sources = ["fishing", "structures", "archaeology"]
+                # Which sets those packs are from. "current" is whatever is out now, "recent"
+                # is the last few releases, and a set code is exactly that set - so a seasonal
+                # server names its set and an era server names its block. Every extra set is
+                # another few megabytes fetched when the server starts.
+                loot_sets = ["current"]
+                # How far back "recent" reaches. Twelve is about three years of Magic.
+                loot_recent_sets = 12
                 # Shops sell sealed product only, never single cards, at flat prices you set.
                 sealed_store_enabled = true
                 sealed_price_item = "minecraft:diamond"

@@ -72,12 +72,25 @@ public record SetRelease(
      *         did not arrive rather than a state the real one is ever in
      */
     public static Optional<SetRelease> current(List<SetRelease> sets, String today) {
-        if (sets == null) {
-            return Optional.empty();
+        return recent(sets, today, 1).stream().findFirst();
+    }
+
+    /**
+     * The last few premier sets, newest first.
+     *
+     * <p>What a server drawing its packs from more than one release is drawing from. Twelve
+     * is about three years of Magic, which is the span a player has any feel for.
+     *
+     * @param howMany at most this many; fewer where the list is shorter
+     */
+    public static List<SetRelease> recent(List<SetRelease> sets, String today, int howMany) {
+        if (sets == null || howMany <= 0) {
+            return List.of();
         }
         return sets.stream()
                 .filter(set -> set.isPremier() && set.wasOutBy(today))
                 .sorted(NEWEST_FIRST)
-                .findFirst();
+                .limit(howMany)
+                .toList();
     }
 }
