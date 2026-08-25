@@ -1117,6 +1117,34 @@ public final class DevScene {
                 shoot(client, "33-a-watcher-reads-the-log");
                 advance(SETTLE / 2);
             }
+            case 89 -> {
+                aDraftPodFormsAtASecondCluster(client);
+                advance(SETTLE);
+            }
+            case 90 -> {
+                expectScreen(client, "a draft pod dealing its first pack", DraftScreen.class);
+                theDraftScreenShowsAPack(client);
+                shoot(client, "34-the-first-pack");
+                advance(SETTLE / 2);
+            }
+            case 91 -> {
+                // Clicked here and photographed next: a screenshot grabs the frame that has
+                // already been drawn, so shooting in the same step as the click photographs
+                // the screen as it was before it.
+                pickTwoFromTheDraftPack(client);
+                advance(SETTLE / 2);
+            }
+            case 92 -> {
+                theChosenCardsAreMarkedOnScreen(client);
+                shoot(client, "35-two-cards-chosen");
+                takeTheDraftPick(client);
+                advance(SETTLE);
+            }
+            case 93 -> {
+                theDraftIsWaitingOnTheRest(client);
+                shoot(client, "36-waiting-on-the-rest");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
         }
     }
@@ -1210,6 +1238,174 @@ public final class DevScene {
             // holding a deck is enough, so the scene has to actually walk up holding a deck.
             System.out.println("[devscene] table placed, nobody seated");
         });
+    }
+
+    /** Where the draft pod's tables are, once they have been put down. */
+    private static BlockPos draftTables;
+
+    /**
+     * Builds a second cluster away from the game, seats four, and deals a cube round it.
+     *
+     * <p>A real pod on real blocks rather than a view assembled on the client: the whole
+     * point of the harness is that a packet somebody breaks stops the run, and a screen fed
+     * by hand would go on passing after the day the payload stopped arriving. This client is
+     * one of the four, so what it is looking at is a pack the server decided it may see.
+     *
+     * <p>Two tables side by side along x, because seats are only ever on the north and south
+     * edges - stacked the other way, the cluster buries the two edges that seat anybody.
+     */
+    private static void aDraftPodFormsAtASecondCluster(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to run a draft on");
+            return;
+        }
+        BlockPos where = client.player.blockPosition().offset(-6, -1, 2);
+        draftTables = where;
+        java.util.UUID me = client.player.getUUID();
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            BlockState state = GatheringContent.TABLE.get().defaultBlockState();
+            for (int cell = 0; cell < 2; cell++) {
+                BlockPos corner = where.offset(cell * 2, 0, 0);
+                for (TablePart part : TablePart.values()) {
+                    level.setBlock(
+                            part.offsetFrom(corner), state.setValue(TableBlock.PART, part), 3);
+                }
+            }
+            dev.gathering.block.TableSeats.take(level, where,
+                    new dev.gathering.core.table.TableCell(0, 0),
+                    dev.gathering.core.table.Side.NORTH, me);
+            for (int other = 1; other <= 3; other++) {
+                dev.gathering.block.TableSeats.take(level, where,
+                        new dev.gathering.core.table.TableCell(other == 1 ? 0 : 1, 0),
+                        other == 1
+                                ? dev.gathering.core.table.Side.SOUTH
+                                : other == 2
+                                        ? dev.gathering.core.table.Side.NORTH
+                                        : dev.gathering.core.table.Side.SOUTH,
+                        new java.util.UUID(0L, 7000 + other));
+            }
+
+            List<CardIdentity> cube = new ArrayList<>();
+            for (int index = 0; index < 200; index++) {
+                cube.add(CardIdentity.ofPrinting(new java.util.UUID(0L, 9000 + index), false));
+            }
+            dev.gathering.block.DraftPods.Outcome outcome =
+                    dev.gathering.block.DraftPods.start(level, where, cube, true);
+            if (outcome != dev.gathering.block.DraftPods.Outcome.STARTED) {
+                System.out.println("[devscene] FAIL a draft would not start: " + outcome);
+                return;
+            }
+            dev.gathering.server.DraftBroadcast.sendToPod(level, where, true);
+            System.out.println("[devscene] a draft pod of four opened its first pack");
+        });
+    }
+
+    /** The pack that arrived is a pack, with cards in it and a decision to make. */
+    private static void theDraftScreenShowsAPack(Minecraft client) {
+        if (!(client.screen instanceof DraftScreen draft)) {
+            fail("there was no draft screen showing a pack");
+            return;
+        }
+        if (draft.showing().myPack().size() != 15) {
+            fail("the first pack has " + draft.showing().myPack().size() + " cards, not fifteen");
+            return;
+        }
+        if (draft.showing().picksDueFromMe() != 2) {
+            fail("a pod of four is not asking for two picks: "
+                    + draft.showing().picksDueFromMe());
+            return;
+        }
+        if (draft.slotOfCard(0).isEmpty() || draft.slotOfCard(14).isEmpty()) {
+            fail("the pack was not laid out - a card has no place on screen");
+            return;
+        }
+        if (!draft.footerSaid().contains("2")) {
+            fail("the screen does not say how many to pick: " + draft.footerSaid());
+            return;
+        }
+        System.out.println("[devscene] the first pack says: " + draft.footerSaid());
+    }
+
+    /** Clicks two cards, which is what a pod of four asks for. */
+    private static void pickTwoFromTheDraftPack(Minecraft client) {
+        if (!(client.screen instanceof DraftScreen draft)) {
+            fail("there was no draft screen to pick from");
+            return;
+        }
+        for (int index : new int[] {2, 5}) {
+            Rect slot = draft.slotOfCard(index);
+            if (slot.isEmpty()) {
+                fail("there was no card at " + index + " to click");
+                return;
+            }
+            draft.mouseClicked(slot.centreX(), slot.centreY(), 0);
+        }
+        if (draft.chosenCount() != 2) {
+            fail("clicking two cards chose " + draft.chosenCount());
+        }
+    }
+
+    /**
+     * The two cards clicked are marked as taken, and the screen says so.
+     *
+     * <p>Read off what the footer wrote rather than off the selection again: a check that
+     * asks the screen what it has selected passes even when the screen draws no sign of it,
+     * and a pick of two with nothing marked is a pick nobody can tell they have made.
+     */
+    private static void theChosenCardsAreMarkedOnScreen(Minecraft client) {
+        if (!(client.screen instanceof DraftScreen draft)) {
+            fail("there was no draft screen to read a selection on");
+            return;
+        }
+        if (draft.chosenCount() != 2) {
+            fail("two clicks left " + draft.chosenCount() + " cards chosen");
+            return;
+        }
+        if (!draft.footerSaid().contains("2 chosen")) {
+            fail("the screen does not say two are chosen: " + draft.footerSaid());
+            return;
+        }
+        System.out.println("[devscene] with two clicked, the screen says: " + draft.footerSaid());
+    }
+
+    /** And presses take, which sends the pick and hands the pack on. */
+    private static void takeTheDraftPick(Minecraft client) {
+        if (!(client.screen instanceof DraftScreen draft)) {
+            fail("there was no draft screen to take a pick on");
+            return;
+        }
+        press(client, net.minecraft.network.chat.Component
+                .translatable("screen.gathering.draft.take").getString());
+    }
+
+    /**
+     * Having picked, this drafter is waiting on the other three.
+     *
+     * <p>Which is the state a draft spends most of its time in, and the one place a pod can
+     * silently stall: if the server never answered, the screen would still be offering a
+     * take button over a pack the pod has moved on from.
+     */
+    private static void theDraftIsWaitingOnTheRest(Minecraft client) {
+        if (!(client.screen instanceof DraftScreen draft)) {
+            fail("the draft screen closed itself after a pick");
+            return;
+        }
+        if (!draft.showing().iHaveDeclared()) {
+            fail("the pick was sent and the pod does not think this drafter has picked");
+            return;
+        }
+        if (draft.showing().myPool().size() != 0) {
+            fail("a pick landed in a pool before the packs moved: "
+                    + draft.showing().myPool().size());
+            return;
+        }
+        if (draft.showing().waitingOn().size() != 3) {
+            fail("the pod is waiting on " + draft.showing().waitingOn().size() + ", not three");
+            return;
+        }
+        System.out.println("[devscene] after picking, the screen says: " + draft.footerSaid());
     }
 
     /** A flat, bright, empty world in creative: nothing to look at but the table. */

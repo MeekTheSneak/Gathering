@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * One drafter's view of a pod, as bytes.
@@ -32,7 +31,7 @@ public final class DraftViewCodec {
     public static final int VERSION = 1;
 
     /** A ceiling on any length read from the wire, checked before it sizes anything. */
-    public static final int MAX_ENTRIES = 20_000;
+    public static final int MAX_ENTRIES = DraftBytes.MAX_ENTRIES;
 
     private DraftViewCodec() {
     }
@@ -49,8 +48,8 @@ public final class DraftViewCodec {
             out.writeBoolean(view.iHaveDeclared());
             out.writeInt(view.picksDueFromMe());
 
-            identities(out, view.myPack().cards());
-            identities(out, view.myPool());
+            DraftBytes.identities(out, view.myPack().cards());
+            DraftBytes.identities(out, view.myPool());
 
             out.writeInt(view.waitingOn().size());
             for (DrafterId drafter : view.waitingOn()) {
@@ -71,21 +70,21 @@ public final class DraftViewCodec {
                 throw new IOException(
                         "A pod view is version " + version + ", this reads " + VERSION);
             }
-            DrafterId me = DrafterId.of(place(in.readInt()));
-            int drafters = size(in.readInt());
-            int round = size(in.readInt());
-            int rounds = size(in.readInt());
+            DrafterId me = DrafterId.of(DraftBytes.place(in.readInt()));
+            int drafters = DraftBytes.size(in.readInt());
+            int round = DraftBytes.size(in.readInt());
+            int rounds = DraftBytes.size(in.readInt());
             boolean finished = in.readBoolean();
             boolean declared = in.readBoolean();
-            int due = size(in.readInt());
+            int due = DraftBytes.size(in.readInt());
 
-            DraftPack pack = DraftPack.of(identities(in));
-            List<CardIdentity> pool = identities(in);
+            DraftPack pack = DraftPack.of(DraftBytes.identities(in));
+            List<CardIdentity> pool = DraftBytes.identities(in);
 
-            int waitingCount = size(in.readInt());
+            int waitingCount = DraftBytes.size(in.readInt());
             List<DrafterId> waiting = new ArrayList<>(Math.min(waitingCount, 64));
             for (int index = 0; index < waitingCount; index++) {
-                waiting.add(DrafterId.of(place(in.readInt())));
+                waiting.add(DrafterId.of(DraftBytes.place(in.readInt())));
             }
             Map<DrafterId, Integer> others = counts(in);
             Map<DrafterId, Integer> holding = counts(in);
@@ -104,60 +103,12 @@ public final class DraftViewCodec {
     }
 
     private static Map<DrafterId, Integer> counts(DataInput in) throws IOException {
-        int count = size(in.readInt());
+        int count = DraftBytes.size(in.readInt());
         Map<DrafterId, Integer> read = new LinkedHashMap<>();
         for (int index = 0; index < count; index++) {
-            read.put(DrafterId.of(place(in.readInt())), size(in.readInt()));
+            read.put(DrafterId.of(DraftBytes.place(in.readInt())), DraftBytes.size(in.readInt()));
         }
         return read;
     }
 
-    private static void identities(DataOutput out, List<CardIdentity> cards) throws IOException {
-        out.writeInt(cards.size());
-        for (CardIdentity card : cards) {
-            boolean printing = card.scryfallId() != null;
-            out.writeBoolean(printing);
-            if (printing) {
-                out.writeLong(card.scryfallId().getMostSignificantBits());
-                out.writeLong(card.scryfallId().getLeastSignificantBits());
-            } else {
-                out.writeUTF(card.customId());
-            }
-            out.writeBoolean(card.foil());
-        }
-    }
-
-    private static List<CardIdentity> identities(DataInput in) throws IOException {
-        int count = size(in.readInt());
-        List<CardIdentity> cards = new ArrayList<>(Math.min(count, 1024));
-        for (int index = 0; index < count; index++) {
-            if (in.readBoolean()) {
-                UUID id = new UUID(in.readLong(), in.readLong());
-                cards.add(CardIdentity.ofPrinting(id, in.readBoolean()));
-            } else {
-                cards.add(CardIdentity.ofCustom(in.readUTF(), in.readBoolean()));
-            }
-        }
-        return cards;
-    }
-
-    /**
-     * A length off the wire, refused before it sizes anything.
-     *
-     * <p>A hostile or broken sender saying "two billion cards follow" must not get an
-     * allocation of two billion out of this before the read fails.
-     */
-    private static int size(int size) throws IOException {
-        if (size < 0 || size > MAX_ENTRIES) {
-            throw new IOException("Implausible length in a pod view: " + size);
-        }
-        return size;
-    }
-
-    private static int place(int index) throws IOException {
-        if (index < 0 || index > DraftRules.LARGEST_POD) {
-            throw new IOException("Implausible place in a pod: " + index);
-        }
-        return index;
-    }
 }

@@ -153,6 +153,10 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> acceptTableView(table));
             return;
         }
+        if (payload instanceof dev.gathering.network.DraftViewPayload pod) {
+            context.enqueueWork(() -> acceptDraftView(pod));
+            return;
+        }
         if (payload instanceof dev.gathering.network.CloseTablePayload) {
             context.enqueueWork(() -> {
                 dev.gathering.client.ClientTableState.clear();
@@ -169,6 +173,11 @@ public final class GatheringNeoForgeClient {
                 }
             });
         }
+    }
+
+    /** Takes a pack off the wire and puts it in front of the drafter it belongs to. */
+    private static void acceptDraftView(dev.gathering.network.DraftViewPayload payload) {
+        dev.gathering.client.DraftScreen.show(payload.pod(), payload.view(), payload.open());
     }
 
     /** Hands the payload to the screen, which decides whether to open or refresh. */

@@ -113,6 +113,11 @@ public final class GatheringFabricClient implements ClientModInitializer {
                         context.client().execute(() -> acceptTableView(payload)));
 
         ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.DraftViewPayload.TYPE, (payload, context) ->
+                        context.client().execute(() -> dev.gathering.client.DraftScreen.show(
+                                payload.pod(), payload.view(), payload.open())));
+
+        ClientPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.CloseTablePayload.TYPE, (payload, context) ->
                         context.client().execute(() -> {
                             dev.gathering.client.ClientTableState.clear();

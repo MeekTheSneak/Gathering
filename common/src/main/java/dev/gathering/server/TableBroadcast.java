@@ -104,7 +104,7 @@ public final class TableBroadcast {
             // own inventory, so a rival's graveyard opened onto empty recesses under a count
             // that said there was something there. Sent from the view rather than asked for,
             // so a viewer learns about exactly the cards the rules just showed them.
-            TableCardArt.sendFor(player, seen);
+            CardArtPush.sendFor(player, seen);
         } catch (IOException e) {
             LOGGER.error("Could not send the board at {} to {}: {}",
                     tableOrigin, player.getGameProfile().getName(), e.getMessage());

@@ -22,6 +22,7 @@ import dev.gathering.core.table.Side;
 import dev.gathering.core.table.TableCell;
 import dev.gathering.core.table.TableCluster;
 import java.util.List;
+import net.minecraft.server.level.ServerLevel;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -269,7 +270,24 @@ public class TableBlock extends BaseEntityBlock {
         // their deck. Which then left them spectating their own game, with every action
         // refused, for reasons nothing on screen explained.
         if (DeckItem.deckOf(stack).isPresent()) {
-            sitDownAndPlay(level, tableOrigin, player, stack, side);
+            // Crouching with a deck in hand is the one other thing a deck at a table can
+            // mean: draft it. A cube is a decklist, so the gesture that puts a deck down and
+            // the gesture that cuts one into packs are the same click with and without a
+            // crouch - which is the same distinction the table already makes between sitting
+            // down and setting a game up.
+            if (player.isShiftKeyDown()) {
+                startADraft(level, tableOrigin, player, stack);
+            } else {
+                sitDownAndPlay(level, tableOrigin, player, stack, side);
+            }
+            return ItemInteractionResult.SUCCESS;
+        }
+
+        // A draft running here means you came to pick from your pack.
+        if (player instanceof net.minecraft.server.level.ServerPlayer drafting
+                && level instanceof net.minecraft.server.level.ServerLevel draftLevel
+                && DraftPods.hasPod(level, tableOrigin)) {
+            dev.gathering.server.DraftActions.openFor(drafting, tableOrigin);
             return ItemInteractionResult.SUCCESS;
         }
 
@@ -378,6 +396,43 @@ public class TableBlock extends BaseEntityBlock {
      * deliberate gesture for a table that wants to be something other than the usual. It is
      * just no longer in the way of the usual.
      */
+    /**
+     * Cuts the deck in somebody's hand into packs and deals them round the tables.
+     *
+     * <p>The cube is not taken. It is a decklist, and what the drafters walk away with are
+     * their own pools - so the cube's owner keeps it and can run the same draft again next
+     * week, which is what a cube is for.
+     */
+    private static void startADraft(Level level, BlockPos tableOrigin, Player player, ItemStack stack) {
+        DeckComponent cube = DeckItem.deckOf(stack).orElse(null);
+        if (cube == null) {
+            return;
+        }
+        List<dev.gathering.core.card.CardIdentity> cards =
+                new java.util.ArrayList<>(cube.totalCards());
+        for (dev.gathering.item.CardComponent card : cube.entries()) {
+            cards.add(card.toIdentity());
+        }
+        for (dev.gathering.item.CardComponent card : cube.sideboard()) {
+            cards.add(card.toIdentity());
+        }
+        for (dev.gathering.item.CardComponent card : cube.commanders()) {
+            cards.add(card.toIdentity());
+        }
+
+        DraftPods.Outcome outcome = DraftPods.start(level, tableOrigin, cards, true);
+        player.sendSystemMessage(outcome == DraftPods.Outcome.CUBE_TOO_SMALL
+                ? Component.translatable(outcome.messageKey(),
+                        dev.gathering.core.draft.CubePacks.smallestCubeFor(
+                                Math.max(dev.gathering.core.draft.DraftRules.SMALLEST_POD,
+                                        DraftPods.drafters(level, tableOrigin).size())),
+                        cards.size())
+                : Component.translatable(outcome.messageKey()));
+        if (outcome == DraftPods.Outcome.STARTED && level instanceof ServerLevel server) {
+            dev.gathering.server.DraftBroadcast.sendToPod(server, tableOrigin, true);
+        }
+    }
+
     private static void sitDownAndPlay(
             Level level, BlockPos tableOrigin, Player player, ItemStack stack, Side side) {
         if (!sitDownIfNeeded(level, tableOrigin, player, side)) {

@@ -7,6 +7,7 @@ import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.CardSummary;
 import dev.gathering.service.CardDataService;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,6 +18,10 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Sends a viewer the pictures for the cards they have just been shown.
+ *
+ * <p>Used by the table and by a draft pod, which is why it is not called after either: both
+ * have the same problem - a client can only ask about cards in its own inventory - and both
+ * solve it the same way, by sending what the rules have just decided this viewer may see.
  *
  * <p>A client only ever asked what a card looks like on behalf of cards in its own inventory,
  * which is the right scope for a request - it grants no access the player did not have. But it
@@ -37,7 +42,7 @@ import net.minecraft.server.level.ServerPlayer;
  * which is why each one is asked for only once per client per session: a card nobody can
  * find must not become a request on every tap for the rest of the game.
  */
-public final class TableCardArt {
+public final class CardArtPush {
 
     /**
      * What each player has already been sent, so a board update sends only what is new.
@@ -56,7 +61,26 @@ public final class TableCardArt {
      */
     private static final int MOST_WORTH_REMEMBERING = 2000;
 
-    private TableCardArt() {
+    private CardArtPush() {
+    }
+
+    /**
+     * What this player has been told about, forgetting anybody who has gone.
+     *
+     * <p>A client that reconnects with an empty cache is told about the table again. A
+     * disconnect has no hook here and adding one per loader would be a new seam for a sweep
+     * this cheap: it is one lookup per player on the server, on an update that has just
+     * encoded a whole board.
+     */
+    private static Set<UUID> alreadySentTo(ServerPlayer player) {
+        ALREADY_SENT.keySet().removeIf(
+                who -> player.server.getPlayerList().getPlayer(who) == null);
+        Set<UUID> sent = ALREADY_SENT.computeIfAbsent(
+                player.getUUID(), ignored -> ConcurrentHashMap.newKeySet());
+        if (sent.size() > MOST_WORTH_REMEMBERING) {
+            sent.clear();
+        }
+        return sent;
     }
 
     /**
@@ -65,29 +89,31 @@ public final class TableCardArt {
      * @param view the view already sent to this player, which is what bounds what is sent
      */
     public static void sendFor(ServerPlayer player, GameView view) {
-        CardDataService service = CardDataService.active().orElse(null);
-        if (service == null || view == null) {
+        if (view == null) {
             return;
         }
-        // Anybody who is no longer online is forgotten, so a client that reconnects with an
-        // empty cache is told about the table again. A disconnect has no hook here and adding
-        // one per loader would be a new seam for a sweep this cheap: it is one lookup per
-        // player on the server, on an update that has just encoded a whole board.
-        ALREADY_SENT.keySet().removeIf(
-                who -> player.server.getPlayerList().getPlayer(who) == null);
-        Set<UUID> sent = ALREADY_SENT.computeIfAbsent(
-                player.getUUID(), ignored -> ConcurrentHashMap.newKeySet());
-        if (sent.size() > MOST_WORTH_REMEMBERING) {
-            sent.clear();
-        }
-
         // Decided in the pure layer, where the property that matters is stated and checked:
         // every printing named is one this view already revealed.
-        Set<UUID> wanted = ArtToSend.wanted(view, sent);
+        send(player, ArtToSend.wanted(view, alreadySentTo(player)));
+    }
+
+    /**
+     * Sends the pictures for these printings, if this client has not been told about them.
+     *
+     * @param wanted printings this viewer has already been shown by name. The caller has
+     *               made the safety argument; this only avoids saying it twice.
+     */
+    public static void send(ServerPlayer player, Set<UUID> wanted) {
+        CardDataService service = CardDataService.active().orElse(null);
+        if (service == null || wanted == null || wanted.isEmpty()) {
+            return;
+        }
+        Set<UUID> sent = alreadySentTo(player);
+        wanted = new LinkedHashSet<>(wanted);
+        wanted.removeAll(sent);
         if (wanted.isEmpty()) {
             return;
         }
-
         // Marked before the lookup rather than after it. A printing this server has never
         // heard of would otherwise be asked for again on every action anybody takes at the
         // table, for the rest of the session - a trickle of lookups aimed at somebody else's

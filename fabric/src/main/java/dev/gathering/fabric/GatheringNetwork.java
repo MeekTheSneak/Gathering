@@ -48,7 +48,13 @@ final class GatheringNetwork {
                 SideboardEditPayload.TYPE, SideboardEditPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
                 CreateTokenPayload.TYPE, CreateTokenPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.DraftPickPayload.TYPE,
+                dev.gathering.network.DraftPickPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(TableViewPayload.TYPE, TableViewPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.DraftViewPayload.TYPE,
+                dev.gathering.network.DraftViewPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CloseTablePayload.TYPE, CloseTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(ImportResultPayload.TYPE, ImportResultPayload.STREAM_CODEC);
@@ -86,6 +92,11 @@ final class GatheringNetwork {
 
         ServerPlayNetworking.registerGlobalReceiver(StartTablePayload.TYPE, (payload, context) ->
                 dev.gathering.server.TableSetup.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.DraftPickPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.DraftActions.handle(
+                                context.player(), payload.pod(), payload.positions()));
 
         ServerPlayNetworking.registerGlobalReceiver(SideboardEditPayload.TYPE, (payload, context) ->
                 dev.gathering.server.Sideboarding.handle(context.player(), payload));

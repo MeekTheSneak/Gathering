@@ -87,6 +87,11 @@ public final class GatheringNetwork {
                 CreateTokenPayload.STREAM_CODEC,
                 GatheringNetwork::onCreateToken);
 
+        registrar.playToServer(
+                dev.gathering.network.DraftPickPayload.TYPE,
+                dev.gathering.network.DraftPickPayload.STREAM_CODEC,
+                GatheringNetwork::onDraftPick);
+
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.
         registrar.playToClient(
@@ -104,6 +109,10 @@ public final class GatheringNetwork {
         registrar.playToClient(
                 TableViewPayload.TYPE,
                 TableViewPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.DraftViewPayload.TYPE,
+                dev.gathering.network.DraftViewPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
                 CloseTablePayload.TYPE,
@@ -171,6 +180,15 @@ public final class GatheringNetwork {
         if (context.player() instanceof ServerPlayer player) {
             DeckEdits.handle(player, payload);
         }
+    }
+
+    private static void onDraftPick(
+            dev.gathering.network.DraftPickPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+                dev.gathering.server.DraftActions.handle(player, payload.pod(), payload.positions());
+            }
+        });
     }
 
     private static void onMetadataRequest(RequestCardMetadataPayload payload, IPayloadContext context) {

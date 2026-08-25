@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.36
+## Design Brief v1.37
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -258,7 +258,7 @@ A pod system layered on the same card pipeline and visibility framework. Draftin
 - **Entry, two paths.** Either every pod member stakes their own packs (3 each, consumed from inventory at pod start), or one player sponsors the pod from their inventory (pod size times 3). Sponsored pods choose at creation whether drafters keep their pools afterward or the cards return to the sponsor.
 - **Variants by pod size:** pick-2 draft at 4 to 5 players, normal single-pick draft at 6 to 8. Passing direction alternates per pack. Picks are private, enforced by the same payload-level visibility rules as hands; pack passing is server-authoritative.
 - **Modes.** In collection mode, packs are real and you keep what you draft (paper-true; this makes draft night simultaneously a game and a pack-opening ceremony, which is why it is the premier event format). In import mode, draft is a config option: packs are virtual, generated per chosen set by the same collation engine as real boosters, and pools evaporate when the pod ends since there is no collection.
-- **Cube draft:** import any decklist as the draft pool instead of generating packs. No new infrastructure, no collection dependency, and it works in pure import mode, so a curated cube can be the group's first draft experience before the economy even exists.
+- **Cube draft:** import any decklist as the draft pool instead of generating packs. Started by crouching at a cluster with the cube in hand: the pod is whoever is already sitting there, so nobody signs up twice. The cube is read, never taken - its owner keeps it and runs the same draft again next week. A cube too small for fifteen-card packs gets thinner ones down to a floor rather than being refused, because "build a bigger cube first" is not an answer to "draft ours". No new infrastructure, no collection dependency, and it works in pure import mode, so a curated cube can be the group's first draft experience before the economy even exists.
 - **After the draft:** a deckbuild screen with a 40-card minimum and free basic lands, then formatted "limited" games that validate each deck against that player's drafted pool plus basics. Pool records are session artifacts of the pod.
 - **Deferred:** 2-player variants (Winston, Winchester), draft timers beyond a simple optional pick clock.
 

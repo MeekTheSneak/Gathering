@@ -4,6 +4,8 @@ import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.persistence.SessionCipher;
 import dev.gathering.core.game.persistence.StoredSession;
+import dev.gathering.core.draft.DraftPod;
+import dev.gathering.core.draft.DraftPodCodec;
 import dev.gathering.core.match.MatchRules;
 import dev.gathering.core.match.MatchState;
 import dev.gathering.core.table.Side;
@@ -54,6 +56,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String FORMAT_CHOSEN_KEY = "format_chosen";
     private static final String SEATS_KEY = "seats";
     private static final String SESSION_OPEN_KEY = "session_open";
+    private static final String POD_KEY = "draft_pod";
     private static final String SESSION_SEALED_KEY = "session_sealed";
     private static final String STARTING_LIFE_KEY = "starting_life";
     private static final String FORMAT_KEY = "format";
@@ -97,6 +100,14 @@ public class TableBlockEntity extends BlockEntity {
      * fact at a table.
      */
     private MatchState match;
+
+    /**
+     * The draft running on this cluster, if any.
+     *
+     * <p>Saved with the world, because a draft is twenty minutes of decisions and a server
+     * restart in the middle of one must not eat it.
+     */
+    private DraftPod pod;
 
     /**
      * The decks that were put down on this table, held until the match is over.
@@ -145,6 +156,35 @@ public class TableBlockEntity extends BlockEntity {
 
     public Optional<MatchState> match() {
         return Optional.ofNullable(match);
+    }
+
+    /**
+     * The draft running on this cluster, if there is one.
+     *
+     * <p>Beside the session rather than inside it, because a pod is not a game: it forms
+     * before there is anything to play, it holds no board, and the games it turns into are
+     * ordinary sessions afterwards. Kept in the open rather than sealed, because unlike a
+     * library nothing here is a secret from the server - and unlike a session, what each
+     * drafter may see is decided when a view is built rather than stored separately.
+     */
+    public Optional<DraftPod> pod() {
+        return Optional.ofNullable(pod);
+    }
+
+    public boolean hasPod() {
+        return pod != null;
+    }
+
+    /** Opens a draft here, or replaces the one that was running with a turn of it. */
+    public void setPod(DraftPod running) {
+        this.pod = running;
+        setChanged();
+    }
+
+    /** Ends the draft and forgets it, which is what handing the pools out means. */
+    public void endPod() {
+        this.pod = null;
+        setChanged();
     }
 
     /**
@@ -392,6 +432,19 @@ public class TableBlockEntity extends BlockEntity {
                 : null;
         match = readMatch(tag);
 
+        // A draft that will not load is dropped rather than kept as unreadable bytes, unlike
+        // a session: a session's bytes are somebody's whole game and might open on the next
+        // start with the right key, but a pod that does not add up will never add up, and
+        // leaving it would leave a cluster permanently unable to start anything.
+        pod = null;
+        if (tag.contains(POD_KEY)) {
+            try {
+                pod = DraftPodCodec.read(tag.getByteArray(POD_KEY));
+            } catch (IOException broken) {
+                LOGGER.error("The draft at {} will not load: {}", worldPosition, broken.getMessage());
+            }
+        }
+
         decks.clear();
         ListTag heldDecks = tag.getList(DECKS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < heldDecks.size(); index++) {
@@ -426,6 +479,12 @@ public class TableBlockEntity extends BlockEntity {
         writeSession(tag);
         writeMatch(tag);
         writeDecks(tag);
+        // In the open. A pod holds every pack in the ring, so it is exactly as secret as a
+        // library - but it never leaves the server: what a drafter is sent is a view, built
+        // fresh each time, and there is no path from these bytes to a client.
+        if (pod != null) {
+            tag.putByteArray(POD_KEY, DraftPodCodec.write(pod));
+        }
         ListTag seats = new ListTag();
         claims.forEach((side, player) -> {
             CompoundTag seat = new CompoundTag();
