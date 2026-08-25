@@ -341,6 +341,22 @@ it.
 Every stage of that has been confirmed capable of failing — a gate that can't fail
 manufactures confidence rather than providing it.
 
+### What runs when
+
+Two of these are cheap and two are not, and the cheap two catch most of it.
+
+| | costs | run it |
+|---|---|---|
+| `./gradlew build` | seconds | every change |
+| `:neoforge:runGameTestServer` | ~20s | every change |
+| `tools/smoke.sh` | ~10 min | a new registration, a new model or texture, or a loader entry point - the things that can boot wrong. Not for a string added to the language file. |
+| `tools/shots.sh` | ~11 min | on demand, and once at the end of a piece of visual work rather than after each fix |
+
+The two slow ones boot real game instances under software rendering, which is
+why they cost what they do. Batch what you are checking and run them once: three
+pictures of three separate fixes tell you no more than one picture after all
+three, and cost half an hour more.
+
 One check is deliberately off by default. Booster collation is read out of MTGJSON's
 published set files, and a reader of somebody else's schema can only honestly be checked
 against the real thing — but four megabytes of their card data has no business living in this

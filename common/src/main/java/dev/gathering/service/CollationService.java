@@ -2,6 +2,9 @@ package dev.gathering.service;
 
 import dev.gathering.core.booster.MtgjsonCollation;
 import dev.gathering.core.booster.MtgjsonFeed;
+import dev.gathering.core.sealed.MtgjsonProducts;
+import com.google.gson.JsonObject;
+import java.util.List;
 import dev.gathering.core.net.JdkHttpTransport;
 import dev.gathering.core.net.RateLimiter;
 import dev.gathering.platform.Platform;
@@ -45,6 +48,9 @@ public final class CollationService implements AutoCloseable {
     private final ExecutorService executor;
     private final MtgjsonFeed feed;
     private final Map<String, MtgjsonCollation.Reading> alreadyRead = new ConcurrentHashMap<>();
+
+    /** The same, for what the set sold rather than what its packs hold. */
+    private final Map<String, MtgjsonProducts.Reading> productsRead = new ConcurrentHashMap<>();
 
     private CollationService(Path cacheRoot, String userAgent) throws IOException {
         this.executor = Executors.newSingleThreadExecutor(namedDaemonThreads("gathering-mtgjson"));
@@ -90,6 +96,45 @@ public final class CollationService implements AutoCloseable {
                     LOGGER.info("Collation for {}: {}", set, note);
                 }
                 alreadyRead.put(set, reading);
+                return reading;
+            } catch (Exception couldNotRead) {
+                throw new java.util.concurrent.CompletionException(couldNotRead);
+            }
+        }, executor);
+    }
+
+    /**
+     * What one set really sold, as products.
+     *
+     * <p>Out of the same file the collation comes from, so a set already read costs nothing.
+     * Never fails the future for a set that simply sold nothing sealed: that comes back as a
+     * reading with nothing in it and a note saying why.
+     */
+    public CompletableFuture<MtgjsonProducts.Reading> productsFor(String setCode) {
+        String set = setCode == null ? "" : setCode.trim().toLowerCase(java.util.Locale.ROOT);
+        MtgjsonProducts.Reading known = productsRead.get(set);
+        if (known != null) {
+            return CompletableFuture.completedFuture(known);
+        }
+        return CompletableFuture.supplyAsync(() -> {
+            MtgjsonProducts.Reading cached = productsRead.get(set);
+            if (cached != null) {
+                return cached;
+            }
+            try {
+                JsonObject file = feed.setFile(set).orElse(null);
+                if (file == null) {
+                    MtgjsonProducts.Reading nothing = new MtgjsonProducts.Reading(
+                            set, List.of(), List.of(set + " is not a set with a file"));
+                    productsRead.put(set, nothing);
+                    return nothing;
+                }
+                MtgjsonProducts.Reading reading =
+                        MtgjsonProducts.read(file, MtgjsonCollation.printings(file));
+                for (String note : reading.notes()) {
+                    LOGGER.info("Products for {}: {}", set, note);
+                }
+                productsRead.put(set, reading);
                 return reading;
             } catch (Exception couldNotRead) {
                 throw new java.util.concurrent.CompletionException(couldNotRead);

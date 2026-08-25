@@ -6,6 +6,7 @@ import dev.gathering.network.OpenImportScreenPayload;
 import dev.gathering.server.CardGrant;
 import dev.gathering.server.DecklistImport;
 import dev.gathering.server.PackCoverage;
+import dev.gathering.server.PackGrant;
 import dev.gathering.server.PackOpening;
 import dev.gathering.service.CardDataService;
 import net.minecraft.commands.CommandSourceStack;
@@ -48,20 +49,38 @@ public final class GatheringCommands {
                                         context.getSource(),
                                         StringArgumentType.getString(context, "name"),
                                         true))))
-                // Opening a booster from nothing is an admin grant, not a way to collect:
-                // the loot and the shop are how a player comes by sealed product.
+                // Sealed product from nothing is an admin grant, not a way to collect: the
+                // loot and the shop are how a player comes by it. Three things worth doing
+                // with a pack from a console, so they are named rather than guessed between.
                 .then(Commands.literal("pack")
                         .requires(source -> source.hasPermission(2))
-                        .then(Commands.argument("set", StringArgumentType.word())
-                                .executes(context -> openPack(
-                                        context.getSource(),
-                                        StringArgumentType.getString(context, "set"),
-                                        ""))
-                                .then(Commands.argument("kind", StringArgumentType.word())
+                        .then(Commands.literal("open")
+                                .then(Commands.argument("set", StringArgumentType.word())
                                         .executes(context -> openPack(
                                                 context.getSource(),
                                                 StringArgumentType.getString(context, "set"),
-                                                StringArgumentType.getString(context, "kind"))))))
+                                                ""))
+                                        .then(Commands.argument("kind", StringArgumentType.word())
+                                                .executes(context -> openPack(
+                                                        context.getSource(),
+                                                        StringArgumentType.getString(context, "set"),
+                                                        StringArgumentType.getString(context, "kind"))))))
+                        .then(Commands.literal("give")
+                                .then(Commands.argument("set", StringArgumentType.word())
+                                        .executes(context -> givePack(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "set"),
+                                                ""))
+                                        .then(Commands.argument("kind", StringArgumentType.word())
+                                                .executes(context -> givePack(
+                                                        context.getSource(),
+                                                        StringArgumentType.getString(context, "set"),
+                                                        StringArgumentType.getString(context, "kind"))))))
+                        .then(Commands.literal("list")
+                                .then(Commands.argument("set", StringArgumentType.word())
+                                        .executes(context -> listProducts(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "set"))))))
                 // Whether a set's own packs can produce all of it. Answered whether or not
                 // collecting is turned on, because "would this set be complete if I enabled
                 // it" is the question you ask before enabling it.
@@ -124,6 +143,20 @@ public final class GatheringCommands {
     private static int openPack(CommandSourceStack source, String set, String kind)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         PackOpening.openFor(source.getPlayerOrException(), set, kind);
+        return 1;
+    }
+
+    /** One sealed pack in the hand, of a product the set really sold. */
+    private static int givePack(CommandSourceStack source, String set, String kind)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        PackGrant.give(source.getPlayerOrException(), set, kind);
+        return 1;
+    }
+
+    /** What a set was really sold as. */
+    private static int listProducts(CommandSourceStack source, String set)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        PackGrant.list(source.getPlayerOrException(), set);
         return 1;
     }
 
