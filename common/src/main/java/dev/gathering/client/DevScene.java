@@ -1222,6 +1222,17 @@ public final class DevScene {
             case 107 -> {
                 aSearchNarrowsIt(client);
                 shoot(client, "43-searching-a-collection");
+                // The other way out of a collection, and the one that saves a hundred clicks.
+                // Pressed rather than assumed: a button that fits on a wide window and sits
+                // under another one on a narrow window is a button nobody can find, and the
+                // only way to know is to reach for it.
+                press(client, "Build deck\u2026");
+                advance(SETTLE);
+            }
+            case 108 -> {
+                expectScreen(client, "building a deck from a collection",
+                        DecklistImportScreen.class);
+                shoot(client, "44-building-from-a-collection");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");

@@ -66,6 +66,11 @@ public final class DecklistImportScreen extends Screen {
         this.from = java.util.Optional.ofNullable(collection);
     }
 
+    /** Whether this screen is building out of a collection rather than out of nothing. */
+    private boolean fromCollection() {
+        return this.from.isPresent();
+    }
+
     private int panelLeft() {
         return (this.width - Math.min(PANEL_WIDTH, this.width - MARGIN * 2)) / 2;
     }
@@ -112,7 +117,9 @@ public final class DecklistImportScreen extends Screen {
         // Two buttons side by side, narrowed rather than overlapped on a narrow panel.
         int buttonWidth = Math.max(40, Math.min(BUTTON_WIDTH, (inner - GAP) / 2));
         this.importButton = Button.builder(
-                        Component.translatable("screen.gathering.import.confirm"), button -> submit())
+                        Component.translatable(fromCollection()
+                                ? "screen.gathering.import.build"
+                                : "screen.gathering.import.confirm"), button -> submit())
                 .bounds(left + inner - buttonWidth, buttonTop, buttonWidth, BUTTON_HEIGHT)
                 .build();
         this.addRenderableWidget(this.importButton);
@@ -125,7 +132,9 @@ public final class DecklistImportScreen extends Screen {
     private void submit() {
         String decklist = this.decklistField.getValue();
         if (decklist.isBlank()) {
-            this.status = Component.translatable("screen.gathering.import.empty");
+            this.status = Component.translatable(fromCollection()
+                    ? "screen.gathering.import.empty_build"
+                    : "screen.gathering.import.empty");
             return;
         }
         if (decklist.length() > ImportDecklistPayload.MAX_LENGTH) {
@@ -148,9 +157,16 @@ public final class DecklistImportScreen extends Screen {
         this.waiting = false;
         this.importButton.active = true;
 
+        // The same screen says two different things, because it did two different things: a
+        // deck out of nothing was imported, and a deck out of a collection was built from
+        // cards somebody already had.
         this.status = result.isClean()
-                ? Component.translatable("screen.gathering.import.done", result.cardCount())
-                : Component.translatable("screen.gathering.import.done_with_problems",
+                ? Component.translatable(fromCollection()
+                        ? "screen.gathering.import.built"
+                        : "screen.gathering.import.done", result.cardCount())
+                : Component.translatable(fromCollection()
+                        ? "screen.gathering.import.built_with_problems"
+                        : "screen.gathering.import.done_with_problems",
                         result.cardCount(), result.problems().size());
 
         List<Component> lines = new ArrayList<>();

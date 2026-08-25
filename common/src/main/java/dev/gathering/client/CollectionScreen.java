@@ -34,6 +34,9 @@ import net.minecraft.network.chat.Component;
 public final class CollectionScreen extends Screen implements CardPreviewHost {
 
     private static final int MARGIN = 16;
+
+    /** What "Build deck..." needs, and what the narrowest window has room for beside the pips. */
+    private static final int BUILD_WIDTH = 86;
     private static final int ROW_HEIGHT = 14;
     private static final int TOP_BAR = 80;
     private static final int BOTTOM_BAR = 34;
@@ -141,8 +144,14 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         // The other way to take cards out, and the one worth finding. Sleeving a hundred-card
         // list a card at a time is a hundred clicks; this is one, and it is here rather than
         // on the import screen because the cards are here.
+        //
+        // Sized for the narrowest window the game draws. At 320 the pips and the rarity
+        // button end at 214 and the margin leaves 304, which is exactly the eighty-six this
+        // takes; every wider window is slack. Clamped as well, so a longer rarity label some
+        // day pushes this off the edge where it can be seen rather than underneath it.
+        int afterRarity = rarityButton.getX() + rarityButton.getWidth() + 4;
         addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - 110, pipsY, 110, 16,
+                Math.max(afterRarity, this.width - MARGIN - BUILD_WIDTH), pipsY, BUILD_WIDTH, 16,
                 Component.translatable("screen.gathering.collection.build_deck"),
                 () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
 
