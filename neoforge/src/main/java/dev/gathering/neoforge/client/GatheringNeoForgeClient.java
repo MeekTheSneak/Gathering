@@ -5,7 +5,7 @@ import dev.gathering.Gathering;
 import dev.gathering.client.CardItemRenderer;
 import dev.gathering.client.CardZoomOverlay;
 import dev.gathering.client.ClientCardCache;
-import dev.gathering.client.ClientCardImages;
+import dev.gathering.client.ClientFetching;
 import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientCardRequests;
 import dev.gathering.client.DevScene;
@@ -116,7 +116,7 @@ public final class GatheringNeoForgeClient {
                     connection.send(new net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket(payload));
                 }
             });
-            ClientCardImages.get().identifyAs(
+            ClientFetching.identifyAs(
                     Gathering.MOD_NAME + " client (+https://github.com/MeekTheSneak/Gathering)");
             GatheringClientPayloadHandlers.bind(GatheringNeoForgeClient::handlePayload);
 

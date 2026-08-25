@@ -70,8 +70,18 @@ public final class ClientSetSymbols {
     /** The outlines, once read. Written from a fetcher, read from the render thread. */
     private final Map<String, SetSymbol> outlines = new ConcurrentHashMap<>();
 
-    /** Textures already drawn, by set, colour and size. Client thread only. */
+    /**
+     * Textures already drawn, by set, colour and size. Client thread only.
+     *
+     * <p>Bounded, and thrown away whole rather than one at a time when it fills. A symbol is
+     * a few kilobytes and there are a handful in play, so this is a backstop against a
+     * session that wanders through hundreds of sets rather than a working eviction policy -
+     * and redrawing one costs nothing, because the outline it is drawn from is still here.
+     */
     private final Map<String, ResourceLocation> drawn = new java.util.HashMap<>();
+
+    /** As many drawn symbols as are kept before the lot are released and drawn again. */
+    private static final int MOST_DRAWN = 64;
 
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
     private final Set<String> failed = ConcurrentHashMap.newKeySet();
@@ -127,10 +137,6 @@ public final class ClientSetSymbols {
 
     public int readyCount() {
         return outlines.size();
-    }
-
-    public void shutdown() {
-        fetchers.shutdownNow();
     }
 
     // ----------------------------------------------------------------- fetch
@@ -200,6 +206,12 @@ public final class ClientSetSymbols {
                     // NativeImage packs ABGR, not ARGB.
                     image.setPixelRGBA(x, y, (alpha << 24) | (blue << 16) | (green << 8) | red);
                 }
+            }
+            if (drawn.size() >= MOST_DRAWN) {
+                for (ResourceLocation old : drawn.values()) {
+                    Minecraft.getInstance().getTextureManager().release(old);
+                }
+                drawn.clear();
             }
             ResourceLocation id = Gathering.id("set_symbol/" + textureCounter.incrementAndGet());
             Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));

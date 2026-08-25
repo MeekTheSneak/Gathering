@@ -45,11 +45,26 @@ public class PackItem extends Item {
         }
         if (!level.isClientSide() && player instanceof ServerPlayer opener) {
             // The stack goes first. Opening reaches a network and comes back later, and a
-            // pack still in the hand when it does is a pack that can be opened twice.
+            // pack still in the hand when it does is a pack that can be opened twice - so it
+            // is taken now and handed back if nothing comes out of it.
             stack.shrink(1);
-            PackOpening.openFor(opener, pack.setCode(), pack.kind());
+            PackOpening.openFor(opener, pack.setCode(), pack.kind(), () -> giveBack(opener, pack));
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+    }
+
+    /**
+     * Puts an unopened pack back where it came from. Server thread only.
+     *
+     * <p>Every way an opening can fail ends here: collecting switched off, the card pipeline
+     * not running, a set with no packs, a set file that would not come. None of those are the
+     * player's doing and none of them should cost them a booster.
+     */
+    private static void giveBack(ServerPlayer player, PackComponent pack) {
+        ItemStack stack = of(pack);
+        if (!player.getInventory().add(stack)) {
+            player.drop(stack, false);
+        }
     }
 
     @Override

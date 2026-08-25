@@ -68,15 +68,29 @@ public final class PackOpening {
      * @param kind which product of that set, or blank for whatever this server calls a booster
      */
     public static void openFor(ServerPlayer player, String setCode, String kind) {
+        openFor(player, setCode, kind, () -> { });
+    }
+
+    /**
+     * The same, for a caller that took something off a player to do it.
+     *
+     * @param giveBack run on the server thread if no pack comes out, however far along it
+     *                 got. A booster that vanished from somebody's hand because a set turned
+     *                 out to have no packs is worse than one that would not open.
+     */
+    public static void openFor(
+            ServerPlayer player, String setCode, String kind, Runnable giveBack) {
         String refusal = whyNot();
         if (refusal != null) {
             player.sendSystemMessage(Component.translatable(refusal));
+            giveBack.run();
             return;
         }
         CollationService collation = CollationService.active().orElse(null);
         CardDataService cards = CardDataService.active().orElse(null);
         if (collation == null || cards == null) {
             player.sendSystemMessage(Component.translatable("message.gathering.pipeline_unavailable"));
+            giveBack.run();
             return;
         }
 
@@ -101,16 +115,20 @@ public final class PackOpening {
                 }, collation.worker())
                 .whenComplete((opened, failure) -> player.server.execute(() -> {
                     if (player.hasDisconnected()) {
+                        // Nobody to hand cards to and nobody to hand a pack back to. The
+                        // stack went with them; nothing here can help that.
                         return;
                     }
                     if (failure != null) {
                         LOGGER.warn("Opening a {} pack failed", set, failure);
                         player.sendSystemMessage(Component.translatable(
                                 "message.gathering.pack_failed", rootMessage(failure)));
+                        giveBack.run();
                         return;
                     }
                     if (opened.pack() == null) {
                         player.sendSystemMessage(nothingToOpen(opened.reading(), set, kind));
+                        giveBack.run();
                         return;
                     }
                     deliver(player, opened);

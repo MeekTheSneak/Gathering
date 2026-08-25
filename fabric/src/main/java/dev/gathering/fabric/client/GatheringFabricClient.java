@@ -5,7 +5,7 @@ import dev.gathering.Gathering;
 import dev.gathering.client.CardFaceRenderer;
 import dev.gathering.client.CardZoomOverlay;
 import dev.gathering.client.ClientCardCache;
-import dev.gathering.client.ClientCardImages;
+import dev.gathering.client.ClientFetching;
 import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientCardRequests;
 import dev.gathering.client.ClientNetworking;
@@ -83,7 +83,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
         DeckScreenHook.Binding.bind(hand -> Minecraft.getInstance().setScreen(new DeckContentsScreen(hand)));
         CardZoomOverlay.bindKeyState(ZoomKeyState.of(ZOOM_KEY, () -> KeyBindingHelper.getBoundKeyOf(ZOOM_KEY)));
         ClientNetworking.bindSender(ClientPlayNetworking::send);
-        ClientCardImages.get().identifyAs(
+        ClientFetching.identifyAs(
                 Gathering.MOD_NAME + " client (+https://github.com/MeekTheSneak/Gathering)");
 
         // Cards draw their own printed face rather than a generic icon. Same drawing code as
