@@ -51,6 +51,9 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.DraftPickPayload.TYPE,
                 dev.gathering.network.DraftPickPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.AddBasicsPayload.TYPE,
+                dev.gathering.network.AddBasicsPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(TableViewPayload.TYPE, TableViewPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.DraftViewPayload.TYPE,
@@ -97,6 +100,10 @@ final class GatheringNetwork {
                 dev.gathering.network.DraftPickPayload.TYPE, (payload, context) ->
                         dev.gathering.server.DraftActions.handle(
                                 context.player(), payload.pod(), payload.positions()));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.AddBasicsPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.BasicLands.handle(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(SideboardEditPayload.TYPE, (payload, context) ->
                 dev.gathering.server.Sideboarding.handle(context.player(), payload));

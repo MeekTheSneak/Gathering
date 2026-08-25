@@ -170,4 +170,61 @@ class DeckScreenLayoutTest {
             layout.hint(), layout.done(), layout.card(), layout.info(),
         };
     }
+
+    /**
+     * All five basic lands have a button, inside the panel, at every window size.
+     *
+     * <p>A drafted pool is forty-five spells, so without these there is no legal deck to
+     * build from one at all - and a button drawn off the taper is a land nobody can add.
+     */
+    @Property(tries = 400)
+    void everyBasicLandHasSomewhereToBeClicked(
+            @ForAll @IntRange(min = 200, max = 3840) int width,
+            @ForAll @IntRange(min = 160, max = 2160) int height,
+            @ForAll @IntRange(min = 6, max = 20) int lineHeight) {
+        DeckScreenLayout laid = DeckScreenLayout.of(width, height, lineHeight);
+
+        Rect previous = null;
+        for (int index = 0; index < DeckScreenLayout.LAND_BUTTONS; index++) {
+            Rect button = laid.landButton(index);
+            assertThat(button.isEmpty())
+                    .describedAs("basic land %s has no button at %sx%s", index, width, height)
+                    .isFalse();
+            assertThat(button.x()).isGreaterThanOrEqualTo(laid.lands().x());
+            assertThat(button.right())
+                    .describedAs("basic land %s runs past the strip at %sx%s", index, width, height)
+                    .isLessThanOrEqualTo(laid.lands().right());
+            if (previous != null) {
+                assertThat(button.x())
+                        .describedAs("basic land %s overlaps the one before it", index)
+                        .isGreaterThanOrEqualTo(previous.right());
+            }
+            previous = button;
+        }
+    }
+
+    /** And the strip they sit in does not eat the rows above it. */
+    @Property(tries = 400)
+    void theLandStripDoesNotOverlapAnythingElse(
+            @ForAll @IntRange(min = 200, max = 3840) int width,
+            @ForAll @IntRange(min = 160, max = 2160) int height,
+            @ForAll @IntRange(min = 6, max = 20) int lineHeight) {
+        DeckScreenLayout laid = DeckScreenLayout.of(width, height, lineHeight);
+
+        assertThat(laid.lands().y())
+                .describedAs("the land strip is drawn over the card rows at %sx%s", width, height)
+                .isGreaterThanOrEqualTo(laid.rows().bottom());
+        assertThat(laid.lands().bottom())
+                .describedAs("the land strip is drawn over the hint at %sx%s", width, height)
+                .isLessThanOrEqualTo(laid.hint().y());
+    }
+
+    /** Asking for a land that does not exist gets nothing rather than a rectangle. */
+    @Test
+    void thereIsNoSixthBasicLand() {
+        DeckScreenLayout laid = DeckScreenLayout.of(854, 480, 9);
+
+        assertThat(laid.landButton(-1).isEmpty()).isTrue();
+        assertThat(laid.landButton(DeckScreenLayout.LAND_BUTTONS).isEmpty()).isTrue();
+    }
 }

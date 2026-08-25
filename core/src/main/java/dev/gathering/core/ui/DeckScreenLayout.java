@@ -23,6 +23,7 @@ public record DeckScreenLayout(
         Rect rows,
         Rect scrollbar,
         Rect hint,
+        Rect lands,
         Rect done,
         Rect card,
         Rect info) {
@@ -67,6 +68,12 @@ public record DeckScreenLayout(
     /** One hint line per mouse button. */
     public static final int HINT_LINES = 2;
 
+    /** How tall the row of basic-land buttons is. One button, and they are small ones. */
+    public static final int LAND_HEIGHT = 14;
+
+    /** The five basics, which is the whole list and has been since 1993. */
+    public static final int LAND_BUTTONS = 5;
+
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_WIDTH = 72;
 
@@ -101,8 +108,14 @@ public record DeckScreenLayout(
         int hintHeight = line * HINT_LINES;
         Rect hint = new Rect(PAD, buttonTop - GAP - hintHeight, contentWidth, hintHeight);
 
+        // Five buttons, one per basic land, in a strip above the hint. A deck built from a
+        // draft pool is forty-five spells and no lands, so without this there is no legal
+        // deck to build at all - and a Commander deck wants them too, which is why they are
+        // on the deck screen rather than on anything to do with drafting.
+        Rect lands = new Rect(PAD, hint.y() - GAP - LAND_HEIGHT, contentWidth, LAND_HEIGHT);
+
         int rowsTop = title.bottom() + GAP;
-        Rect rows = new Rect(PAD, rowsTop, contentWidth, Math.max(line, hint.y() - GAP - rowsTop));
+        Rect rows = new Rect(PAD, rowsTop, contentWidth, Math.max(line, lands.y() - GAP - rowsTop));
         // Anchored to where the edge is at the top, because the shear that lays the bar along
         // the taper carries it the rest of the way in. Anchoring it to the bottom edge and
         // then shearing it as well tapers it twice, which walks it off the panel.
@@ -110,8 +123,23 @@ public record DeckScreenLayout(
         Rect scrollbar = new Rect(scrollLeft, rows.y(), SCROLL_WIDTH, rows.height());
 
         return new DeckScreenLayout(
-                panel, title, rows, scrollbar, hint, done,
+                panel, title, rows, scrollbar, hint, lands, done,
                 cardOf(panel, width, height), infoOf(panel, width, height));
+    }
+
+    /**
+     * Where the nth basic-land button goes, so the screen and anything checking it agree.
+     *
+     * <p>Evenly across the strip rather than at a fixed width: the panel is a fraction of
+     * the window, so on a small one the five buttons have to share whatever there is.
+     */
+    public Rect landButton(int index) {
+        if (index < 0 || index >= LAND_BUTTONS || lands.isEmpty()) {
+            return Rect.NONE;
+        }
+        int gap = 2;
+        int each = Math.max(1, (lands.width() - gap * (LAND_BUTTONS - 1)) / LAND_BUTTONS);
+        return new Rect(lands.x() + index * (each + gap), lands.y(), each, lands.height());
     }
 
     private static Rect cardOf(Rect panel, int width, int height) {

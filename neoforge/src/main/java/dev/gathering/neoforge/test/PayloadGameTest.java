@@ -122,6 +122,44 @@ public final class PayloadGameTest {
     }
 
     @GameTest(template = "empty")
+    public static void askingForBasicLandsNamesATypeAndNeverACard(GameTestHelper helper) {
+        // The one card that reaches a deck without coming from anywhere, so the one place a
+        // client could name any card in Magic and be handed it. It names a type instead, and
+        // the count is clamped on the way in rather than trusted: a request for two billion
+        // Forests must be refused rather than allocated.
+        for (dev.gathering.network.AddBasicsPayload.Basic land
+                : dev.gathering.network.AddBasicsPayload.Basic.values()) {
+            dev.gathering.network.AddBasicsPayload asked =
+                    new dev.gathering.network.AddBasicsPayload(true, land, 3);
+            dev.gathering.network.AddBasicsPayload restored = roundTrip(
+                    helper, asked, dev.gathering.network.AddBasicsPayload.STREAM_CODEC);
+            if (!restored.equals(asked)) {
+                helper.fail("A request for " + land + " changed on the wire: " + restored);
+                return;
+            }
+            if (!restored.land().cardName().equals(land.cardName())) {
+                helper.fail("A basic land lost its name on the wire: " + restored.land());
+                return;
+            }
+        }
+
+        int most = dev.gathering.network.AddBasicsPayload.MOST_AT_ONCE;
+        dev.gathering.network.AddBasicsPayload huge = new dev.gathering.network.AddBasicsPayload(
+                false, dev.gathering.network.AddBasicsPayload.Basic.FOREST, Integer.MAX_VALUE);
+        if (huge.howMany() != most) {
+            helper.fail("A request for two billion Forests came through as " + huge.howMany());
+            return;
+        }
+        dev.gathering.network.AddBasicsPayload none = new dev.gathering.network.AddBasicsPayload(
+                false, dev.gathering.network.AddBasicsPayload.Basic.ISLAND, -5);
+        if (none.howMany() != 1) {
+            helper.fail("A request for minus five Islands came through as " + none.howMany());
+            return;
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void aRunTooLongForOnePacketIsSplitAndNothingIsLost(GameTestHelper helper) {
         // A cube import and a table whose four graveyards are full both come to more
         // summaries than the game will write in one custom payload, and a payload it refuses

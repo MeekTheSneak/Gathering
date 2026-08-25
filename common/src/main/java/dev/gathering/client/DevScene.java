@@ -1145,6 +1145,16 @@ public final class DevScene {
                 shoot(client, "36-waiting-on-the-rest");
                 advance(SETTLE / 2);
             }
+            case 94 -> {
+                openTheDeckScreen(client);
+                advance(SETTLE / 2);
+            }
+            case 95 -> {
+                expectScreen(client, "opening a deck to build it", DeckContentsScreen.class);
+                everyBasicLandHasAButton(client);
+                shoot(client, "37-building-a-deck");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
         }
     }
@@ -1406,6 +1416,92 @@ public final class DevScene {
             return;
         }
         System.out.println("[devscene] after picking, the screen says: " + draft.footerSaid());
+    }
+
+    /**
+     * Opens the deck in this player's hand, which is where a drafted pool becomes a deck.
+     *
+     * <p>Through the hook the keybind uses rather than by constructing the screen, so a run
+     * goes on passing only while the way a player actually reaches it still works.
+     */
+    /**
+     * Opens the deck screen on a deck in this client's hand.
+     *
+     * <p>Through the hook the keybind uses rather than by constructing the screen, so this
+     * goes on passing only while the way a player actually reaches it still works.
+     *
+     * <p>The deck is put in the client's own hand, which is all this step needs: what is
+     * checked here is what the screen draws, and the screen reads the client's copy. What
+     * the server does when a land button is pressed is checked where it can be checked
+     * properly - over the deck arithmetic itself, without a card service in the way.
+     */
+    private static void openTheDeckScreen(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player to open a deck screen for");
+            return;
+        }
+        net.minecraft.world.InteractionHand holding = null;
+        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+            if (dev.gathering.item.DeckItem.deckOf(client.player.getItemInHand(hand)).isPresent()) {
+                holding = hand;
+                break;
+            }
+        }
+        if (holding == null) {
+            dev.gathering.item.DeckComponent made = new dev.gathering.item.DeckComponent(
+                    "Pool", "", java.util.Optional.empty(), List.of(), List.of(), List.of());
+            client.player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                    dev.gathering.item.DeckItem.of(made));
+            holding = net.minecraft.world.InteractionHand.MAIN_HAND;
+        }
+        dev.gathering.service.DeckScreenHook.Binding.open(holding);
+    }
+
+    /**
+     * All five basics are on the deck screen, each with somewhere to be clicked.
+     *
+     * <p>A drafted pool is forty-five spells: without these there is no legal deck to build
+     * from one at all, so a button missing or drawn off the panel is a draft that ends in a
+     * deck nobody can put down.
+     */
+    private static void everyBasicLandHasAButton(Minecraft client) {
+        if (!(client.screen instanceof DeckContentsScreen deck)) {
+            fail("there was no deck screen to look for lands on");
+            return;
+        }
+        java.util.Set<String> labelled = new java.util.LinkedHashSet<>();
+        for (net.minecraft.client.gui.components.events.GuiEventListener child : deck.children()) {
+            if (!(child instanceof net.minecraft.client.gui.components.AbstractWidget widget)) {
+                continue;
+            }
+            for (dev.gathering.network.AddBasicsPayload.Basic land
+                    : dev.gathering.network.AddBasicsPayload.Basic.values()) {
+                String name = net.minecraft.network.chat.Component
+                        .translatable(land.translationKey()).getString();
+                // By the glyph the button is actually marked with, so a button that lost its
+                // symbol is a button this stops finding rather than one it quietly counts.
+                String marked = dev.gathering.client.ManaText.of(land.symbol()).getString();
+                if (marked.isBlank() || !widget.getMessage().getString().equals(marked)) {
+                    continue;
+                }
+                if (widget.getWidth() < 4 || widget.getHeight() < 4) {
+                    fail("the " + name + " button is " + widget.getWidth()
+                            + " by " + widget.getHeight() + ", which nobody can click");
+                    return;
+                }
+                if (widget.getX() < 0 || widget.getRight() > deck.width
+                        || widget.getY() < 0 || widget.getBottom() > deck.height) {
+                    fail("the " + name + " button is drawn off the screen");
+                    return;
+                }
+                labelled.add(name);
+            }
+        }
+        if (labelled.size() != dev.gathering.network.AddBasicsPayload.Basic.values().length) {
+            fail("only " + labelled.size() + " basic lands have buttons: " + labelled);
+            return;
+        }
+        System.out.println("[devscene] the deck screen offers " + labelled);
     }
 
     /** A flat, bright, empty world in creative: nothing to look at but the table. */

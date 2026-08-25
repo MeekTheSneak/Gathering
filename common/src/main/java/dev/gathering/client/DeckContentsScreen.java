@@ -7,6 +7,7 @@ import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
 import dev.gathering.item.DeckItem;
 import dev.gathering.network.CardSummary;
+import dev.gathering.network.AddBasicsPayload;
 import dev.gathering.network.DeckEditPayload;
 import dev.gathering.network.RequestCardMetadataPayload;
 import java.util.ArrayList;
@@ -93,10 +94,57 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         rebuild(deck);
         requestNames(deck);
 
+        // A row of five, one per basic land. Click adds one, shift-click adds five, because
+        // a mana base is seventeen cards and seventeen clicks is not a deckbuilding screen.
+        AddBasicsPayload.Basic[] basics = AddBasicsPayload.Basic.values();
+        for (int index = 0; index < basics.length; index++) {
+            AddBasicsPayload.Basic land = basics[index];
+            Rect where = layout.landButton(index);
+            if (where.isEmpty()) {
+                continue;
+            }
+            this.addRenderableWidget(new LandButton(where, land));
+        }
+
         Rect done = layout.done();
         this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> this.onClose())
                 .bounds(done.x(), done.y(), done.width(), done.height())
                 .build());
+    }
+
+    /** How many a shift-click asks for, which is about a third of a limited mana base. */
+    private static final int A_HANDFUL = 5;
+
+    /**
+     * One basic land, added on a click.
+     *
+     * <p>Its own widget rather than a plain button so it can tell a shift-click from an
+     * ordinary one. Vanilla's button hands its callback nothing at all about the click, and
+     * the alternative - reading the keyboard from inside the callback - is the sort of thing
+     * that works until somebody rebinds a key.
+     */
+    private final class LandButton extends Button {
+
+        private final AddBasicsPayload.Basic land;
+
+        private LandButton(Rect where, AddBasicsPayload.Basic land) {
+            super(where.x(), where.y(), where.width(), where.height(),
+                    ManaText.of(land.symbol()),
+                    button -> { },
+                    DEFAULT_NARRATION);
+            this.land = land;
+            // The name lives on the tooltip, because the button has room for one glyph.
+            setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                    Component.translatable("screen.gathering.deck.basic.hint",
+                            Component.translatable(land.translationKey()), A_HANDFUL)));
+        }
+
+        @Override
+        public void onPress() {
+            boolean handful = net.minecraft.client.gui.screens.Screen.hasShiftDown();
+            ClientNetworking.send(AddBasicsPayload.of(hand, land, handful ? A_HANDFUL : 1));
+            GatheringButtons.clickSound();
+        }
     }
 
     /** The deck the player is holding right now, which is the only one this screen shows. */
