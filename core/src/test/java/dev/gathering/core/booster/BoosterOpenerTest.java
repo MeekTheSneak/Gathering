@@ -301,6 +301,42 @@ class BoosterOpenerTest {
                 .containsExactlyElementsOf(new ArrayList<>(slots.keySet()));
     }
 
+    /**
+     * A sheet that could not be drawn from evenly is refused when it is built.
+     *
+     * <p>There used to be a second branch in the roll for totals past what an int holds,
+     * built from a high draw and a low one - and for a total just over the limit the high
+     * draw was always nought, so the whole upper half of the sheet could never come up.
+     * Nobody would ever have found it: no real sheet is that heavy, so the branch was
+     * unreachable and wrong at the same time.
+     *
+     * <p>Refused at the source instead, which removes the branch rather than correcting it.
+     * A weight total that large is a mistake in a file and deserves a message.
+     */
+    @Test
+    void aSheetTooHeavyToDrawFromEvenlyIsRefused() {
+        Map<UUID, Integer> tooHeavy = new LinkedHashMap<>();
+        tooHeavy.put(printing("a"), Integer.MAX_VALUE);
+        tooHeavy.put(printing("b"), 1);
+
+        assertThatThrownBy(() -> new BoosterSheet("huge", false, false, tooHeavy))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("huge")
+                .hasMessageContaining("not a print sheet");
+    }
+
+    /** And one right at the limit is fine, because that is a bound rather than a rounding. */
+    @Test
+    void aSheetExactlyAtTheLimitIsAllowed() {
+        Map<UUID, Integer> atTheLimit = new LinkedHashMap<>();
+        atTheLimit.put(printing("a"), Integer.MAX_VALUE - 1);
+        atTheLimit.put(printing("b"), 1);
+
+        BoosterSheet sheet = new BoosterSheet("edge", false, false, atTheLimit);
+
+        assertThat(sheet.total()).isEqualTo(Integer.MAX_VALUE);
+    }
+
     // --- helpers ---
 
     private static BoosterConfig config(BoosterVariant variant, BoosterSheet... sheets) {

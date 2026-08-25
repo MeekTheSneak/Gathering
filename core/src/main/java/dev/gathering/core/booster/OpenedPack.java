@@ -1,7 +1,6 @@
 package dev.gathering.core.booster;
 
 import dev.gathering.core.card.CardIdentity;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -39,8 +38,4 @@ public record OpenedPack(String from, List<CardIdentity> cards) {
         return cards.get(cards.size() - 1);
     }
 
-    /** The same pack with its cards in a different order, which is what sorting produces. */
-    public OpenedPack inOrder(List<CardIdentity> ordered) {
-        return new OpenedPack(from, new ArrayList<>(ordered));
-    }
 }

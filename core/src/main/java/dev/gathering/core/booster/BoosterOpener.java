@@ -64,7 +64,6 @@ public final class BoosterOpener {
      */
     private static void fill(
             List<CardIdentity> into, BoosterSheet sheet, int howMany, DeterministicRandom rolls) {
-        List<UUID> taken = new ArrayList<>(howMany);
         BoosterSheet left = sheet;
         for (int card = 0; card < howMany; card++) {
             if (left.isEmpty()) {
@@ -74,7 +73,6 @@ public final class BoosterOpener {
                 break;
             }
             UUID printing = left.at(roll(rolls, left.total()));
-            taken.add(printing);
             into.add(sheet.identityOf(printing));
             if (!sheet.duplicates()) {
                 left = left.without(List.of(printing));
@@ -83,21 +81,22 @@ public final class BoosterOpener {
     }
 
     /**
-     * A number in {@code [0, total)}, from a stream that only offers ints.
+     * A number in {@code [0, total)}.
      *
-     * <p>Sheet weights are summed as longs because a large sheet with heavy weights can pass
-     * what an int holds, and a total that silently wrapped would draw from the wrong half of
-     * the sheet. Split into a high and low part rather than narrowed.
+     * <p>One roll and no arithmetic. There used to be a second branch here for totals past
+     * what an int holds, built out of a high and a low draw - and it was wrong: for a total
+     * just over the limit the high draw was always nought, so the upper half of the sheet
+     * could never come up at all. Nobody would ever have found that, because no sheet has
+     * two billion cards on it.
+     *
+     * <p>So the branch is gone and the case it existed for is refused where the data is
+     * built instead. A weight total that large is a mistake in a file, and a mistake refused
+     * with a message beats one handled by arithmetic nobody can check.
      */
-    private static long roll(DeterministicRandom rolls, long total) {
-        if (total <= 0) {
-            throw new IllegalArgumentException("Nothing to draw from");
+    private static int roll(DeterministicRandom rolls, long total) {
+        if (total <= 0 || total > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Nothing sensible to draw from: " + total);
         }
-        if (total <= Integer.MAX_VALUE) {
-            return rolls.nextInt((int) total);
-        }
-        long high = rolls.nextInt((int) (total >>> 31));
-        long low = rolls.nextInt(Integer.MAX_VALUE);
-        return (high << 31 | low) % total;
+        return rolls.nextInt((int) total);
     }
 }

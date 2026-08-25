@@ -43,6 +43,19 @@ public record BoosterSheet(String name, boolean foil, boolean duplicates, Map<UU
         // time the game started - and a pack nobody can check afterwards is an economy
         // nobody can audit. The order data was written in is the order it is walked in.
         weights = java.util.Collections.unmodifiableMap(kept);
+
+        // A print sheet with two billion cards on it is a mistake in a file, and one that
+        // would otherwise have to be drawn from by arithmetic wider than a roll - which was
+        // where a real bias lived until it was taken out. Refused here, once, in the one
+        // place that can say what is wrong with it.
+        long total = 0;
+        for (int weight : weights.values()) {
+            total += weight;
+        }
+        if (total > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                    "Sheet '" + name + "' sums to " + total + ", which is not a print sheet");
+        }
     }
 
     public boolean isEmpty() {

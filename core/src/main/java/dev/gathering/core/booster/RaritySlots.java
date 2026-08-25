@@ -74,7 +74,4 @@ public record RaritySlots(
         return cards;
     }
 
-    public int slotsOf(Rarity rarity) {
-        return slots.getOrDefault(rarity, 0);
-    }
 }
