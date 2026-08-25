@@ -92,6 +92,10 @@ public final class GatheringFabricClient implements ClientModInitializer {
                 GatheringContent.CARD.get(),
                 (stack, matrices, buffers, light, overlay) ->
                         CardFaceRenderer.render(stack, matrices, buffers, light));
+        BuiltinItemRendererRegistry.INSTANCE.register(
+                GatheringContent.PACK.get(),
+                (stack, matrices, buffers, light, overlay) ->
+                        dev.gathering.client.PackFaceRenderer.render(stack, matrices, buffers, light));
 
         // The miniature on the table top, which is what makes a table worth more than a menu.
         net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(

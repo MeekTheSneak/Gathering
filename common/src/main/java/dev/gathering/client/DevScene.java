@@ -1161,8 +1161,79 @@ public final class DevScene {
                 shoot(client, "37-building-a-deck");
                 advance(SETTLE / 2);
             }
+            case 97 -> {
+                // Out of every screen, so the picture is the hotbar and the world.
+                client.setScreen(null);
+                sealedPacksInTheHotbar(client);
+                advance(SETTLE);
+            }
+            case 98 -> {
+                // A moment for the symbols to arrive: they are fetched the first time one is
+                // asked for, so the first frame of a pack is always a plain wrapper.
+                sealedPacksInTheHotbar(client);
+                advance(SETTLE * 2);
+            }
+            case 99 -> {
+                everyPackDrewItsSymbol(client);
+                shoot(client, "38-sealed-packs");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
         }
+    }
+
+    /**
+     * Three packs in the hotbar, one of each product a wrapper has a colour for.
+     *
+     * <p>Set client-side, which is all a picture of an item needs: what is drawn is what this
+     * client's own inventory holds. The symbol on each is fetched by this client from
+     * Scryfall exactly as it would be in a real game.
+     */
+    private static void sealedPacksInTheHotbar(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player to hand a pack to");
+            return;
+        }
+        String[][] packs = {
+                {"dmu", "draft"}, {"blb", "play"}, {"blb", "collector"}, {"lci", ""}};
+        for (int slot = 0; slot < packs.length; slot++) {
+            client.player.getInventory().setItem(slot, dev.gathering.item.PackItem.of(
+                    new dev.gathering.item.PackComponent(packs[slot][0], packs[slot][1])));
+        }
+        client.player.getInventory().selected = 1;
+    }
+
+    /**
+     * Every pack in the hotbar has its set's symbol by now, or says which has not.
+     *
+     * <p>Not fatal on its own: this fetches from somebody else's server, and a run with no
+     * network is a run that cannot check this rather than a broken mod. What it must never do
+     * is pass quietly while drawing nothing.
+     */
+    private static void everyPackDrewItsSymbol(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player holding packs");
+            return;
+        }
+        java.util.List<String> waiting = new java.util.ArrayList<>();
+        for (int slot = 0; slot < 4; slot++) {
+            var pack = dev.gathering.item.PackItem.packOf(client.player.getInventory().getItem(slot));
+            if (pack.isEmpty()) {
+                fail("slot " + slot + " was meant to hold a pack and did not");
+                return;
+            }
+            String set = pack.get().setCode();
+            int colour = dev.gathering.core.ui.PackWrapper.symbolColour(pack.get().kind());
+            if (ClientSetSymbols.get().symbol(set, colour, 64).isEmpty()) {
+                waiting.add(set + (ClientSetSymbols.get().hasFailed(set) ? " (gave up)" : ""));
+            }
+        }
+        if (waiting.isEmpty()) {
+            System.out.println("[devscene] every pack in the hotbar drew its own set's symbol");
+            return;
+        }
+        System.out.println("[devscene] still without a symbol: " + waiting
+                + "; the picture shows plain wrappers for those");
     }
 
     /**

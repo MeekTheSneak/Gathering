@@ -3,6 +3,7 @@ package dev.gathering.neoforge.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.gathering.Gathering;
 import dev.gathering.client.CardItemRenderer;
+import dev.gathering.client.PackItemRenderer;
 import dev.gathering.client.CardZoomOverlay;
 import dev.gathering.client.ClientCardCache;
 import dev.gathering.client.ClientFetching;
@@ -87,6 +88,12 @@ public final class GatheringNeoForgeClient {
                 return CardItemRenderer.instance();
             }
         }, GatheringContent.CARD.get());
+        event.registerItem(new IClientItemExtensions() {
+            @Override
+            public BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                return PackItemRenderer.instance();
+            }
+        }, GatheringContent.PACK.get());
     }
 
     /** The felt is one texture tinted per table, so the tint needs a handler on each loader. */

@@ -21,10 +21,10 @@ public final class GatheringItemModels extends ItemModelProvider {
 
     @Override
     protected void registerModels() {
-        // The card is deliberately absent: its model is hand-authored as builtin/entity so
-        // CardItemRenderer draws the real card art, and its display transforms are meant to
-        // be edited by hand rather than regenerated.
+        // The card and the pack are deliberately absent: both models are hand-authored as
+        // builtin/entity so their own renderers draw the real card art and the real set
+        // symbol, and their display transforms are meant to be edited by hand rather than
+        // regenerated.
         basicItem(GatheringContent.DECK.get());
-        basicItem(GatheringContent.PACK.get());
     }
 }
