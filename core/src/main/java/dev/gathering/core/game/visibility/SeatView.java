@@ -47,6 +47,30 @@ public record SeatView(
         return Optional.ofNullable(player);
     }
 
+    /**
+     * Whether this seat has a board on the table, whether or not anybody is sitting at it.
+     *
+     * <p>Leaving a seat releases the chair and leaves the cards exactly where they were, so a
+     * board can outlast its player: they walked away mid-game, or the session is waiting for
+     * somebody to come back. Drawing the furniture only for an occupied seat made that board
+     * a battlefield with no zones behind it - the graveyard and the exile pile, which are
+     * public and which somebody watching is there to read, simply stopped being on the table.
+     *
+     * <p>A chair nobody has ever sat in still shows only its outline, which is the thing this
+     * is careful to keep: it has no cards, so it has no board.
+     */
+    public boolean hasABoard() {
+        if (player != null) {
+            return true;
+        }
+        for (ZoneView held : zones.values()) {
+            if (held.count() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public ZoneView zone(Zone zone) {
         ZoneView view = zones.get(zone);
         if (view == null) {

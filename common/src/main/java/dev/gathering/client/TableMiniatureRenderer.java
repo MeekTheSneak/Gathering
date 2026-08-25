@@ -200,7 +200,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         // actually taken: a playmat appearing when a player sits down is how a table shows
         // that it now has a game in it, and an empty seat's mat would say the opposite.
         for (int index = 0; index < board.seats().size(); index++) {
-            boolean taken = board.seats().get(index).occupant().isPresent();
+            // A board rather than an occupant: a seat somebody walked away from still holds
+            // their cards, and a mat carrying a library and a graveyard is a board.
+            boolean taken = board.seats().get(index).hasABoard();
             // A free chair keeps its outline and loses everything else - the same answer the
             // seated screen gives, because the two are the same board.
             drawMat(poseStack, buffers, surface.matOf(index), span,
@@ -233,7 +235,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // Same rule as the mats: a seat nobody has taken shows nothing at all. Drawing
             // its zones but not its mat left four empty boxes floating on bare felt, which
             // reads as a fault rather than as a free chair.
-            if (board.seats().get(index).occupant().isPresent()) {
+            if (board.seats().get(index).hasABoard()) {
                 drawPiles(poseStack, buffers, packedLight, board.seats().get(index),
                         surface, pos, index, span, piles);
                 drawLife(poseStack, buffers, packedLight, board.seats().get(index),

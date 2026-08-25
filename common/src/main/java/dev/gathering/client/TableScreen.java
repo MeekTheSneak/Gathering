@@ -93,6 +93,9 @@ public final class TableScreen extends Screen {
     /** What the hand strip wrote in itself last frame, when it wrote instead of dealing. */
     private String handSaid = "";
 
+    /** How many seats had a zone column drawn for them last frame. */
+    private int boardsDrawn;
+
     /** The tax band under the cursor: darker still, so a button looks like one. */
     private static final int TAX_LIT = 0xD0000000;
     private static final int COUNTER_TEXT = 0xFFFFE9A8;
@@ -319,6 +322,18 @@ public final class TableScreen extends Screen {
      */
     String handStripSaid() {
         return handSaid;
+    }
+
+    /**
+     * How many seats this screen drew a zone column for last frame. For the harness.
+     *
+     * <p>Counted while drawing rather than worked out from the board, which is what makes it
+     * worth asking at all: the run's first attempt at this asked the board how many seats had
+     * a board, which is the same question the screen asks, so putting the old condition back
+     * left it green while the boards it had stopped drawing sat there missing their zones.
+     */
+    int boardsDrawn() {
+        return boardsDrawn;
     }
 
     boolean feltReachesDownTo(int y) {
@@ -761,11 +776,15 @@ public final class TableScreen extends Screen {
             if (mat.isEmpty()) {
                 continue;
             }
-            boolean taken = seat.occupant().isPresent();
-            // A free chair keeps its outline and loses everything else. Drawing nothing at all
-            // for it leaves a hole in the felt that reads as a fault; drawing it as though
-            // somebody were there says a game is going on that is not. An outline says what is
-            // true: a board goes here, and nobody has put one down yet.
+            // A chair nobody has sat in keeps its outline and loses everything else. Drawing
+            // nothing at all for it leaves a hole in the felt that reads as a fault; drawing
+            // it as though somebody were there says a game is going on that is not. An
+            // outline says what is true: a board goes here, and nobody has put one down yet.
+            //
+            // A board, not an occupant. Somebody who walks away mid-game leaves their cards
+            // where they were, and a mat still carrying a library and a graveyard is a board
+            // - it was drawn as a bare chair with its own battlefield cards floating on it.
+            boolean taken = seat.hasABoard();
             if (taken) {
                 boolean mine = me != null && me.equals(seat.seat());
                 graphics.fill(mat.x(), mat.y(), mat.right(), mat.bottom(), mine ? MAT_MINE : MAT);
@@ -874,10 +893,15 @@ public final class TableScreen extends Screen {
      */
     private void renderPiles(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         int count = pileCount();
+        boardsDrawn = 0;
         for (SeatView seat : board.seats()) {
-            if (seat.occupant().isEmpty()) {
+            // A board rather than an occupant: somebody who walks away mid-game leaves their
+            // cards where they were, and their graveyard and exile pile are public and are
+            // what anybody watching is there to read.
+            if (!seat.hasABoard()) {
                 continue;
             }
+            boardsDrawn++;
             drawPileGroup(graphics, board().pileGroupRect(seat.seat(), 0, IN_HAND_REACH, count));
             if (count > Zone.PILES_WITHOUT_A_COMMAND_ZONE) {
                 drawPileGroup(graphics, board().pileGroupRect(
@@ -1211,7 +1235,7 @@ public final class TableScreen extends Screen {
             return null;
         }
         for (SeatView seat : board.seats()) {
-            if (seat.occupant().isEmpty() || lifeWayUnder(seat.seat(), x, y) == 0) {
+            if (!seat.hasABoard() || lifeWayUnder(seat.seat(), x, y) == 0) {
                 continue;
             }
             return List.of(
@@ -1239,7 +1263,7 @@ public final class TableScreen extends Screen {
             return false;
         }
         for (SeatView seat : board.seats()) {
-            if (seat.occupant().isEmpty()) {
+            if (!seat.hasABoard()) {
                 continue;
             }
             int way = lifeWayUnder(seat.seat(), x, y);

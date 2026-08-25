@@ -1068,6 +1068,7 @@ public final class DevScene {
                     fail("standing up left the client still holding a seat");
                 }
                 shoot(client, "29-watching-from-outside");
+                theBoardTheyLeftIsStillDrawn(client);
                 theFeltRunsToTheBottomForAWatcher(client);
                 if (client.screen instanceof TableScreen board && !board.theLogHasRoom()) {
                     fail("a watcher has nowhere to open the game log");
@@ -2411,6 +2412,58 @@ public final class DevScene {
             fail("the setup screen says \"" + said + "\", which does not mention " + wanted);
             return;
         }
+    }
+
+    /**
+     * The board this client just stood up from is still on the table.
+     *
+     * <p>Standing up releases the chair and leaves the cards exactly where they were, and
+     * everything that drew a mat asked whether somebody was sitting at it - so the board this
+     * run had spent eighty steps building became a battlefield with no zones behind it the
+     * moment its player walked away. The graveyard and the exile pile are public, and the one
+     * person left looking at the table is there to read them.
+     */
+    private static void theBoardTheyLeftIsStillDrawn(Minecraft client) {
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (view == null) {
+            fail("there was no board left behind to look at");
+            return;
+        }
+        int boards = 0;
+        for (SeatView seat : view.seats()) {
+            if (!seat.hasABoard()) {
+                continue;
+            }
+            boards++;
+            if (seat.occupant().isEmpty() && countIn(seat, Zone.LIBRARY) == 0
+                    && countIn(seat, Zone.GRAVEYARD) == 0) {
+                fail("seat " + seat.seat().index()
+                        + " counts as a board with nobody at it and nothing on it");
+                return;
+            }
+        }
+        if (boards == 0) {
+            fail("standing up took every board off the table");
+            return;
+        }
+        // What the screen drew, not what the board says it should have. Asked the second way
+        // this check is the same question twice and stays green while the zones go missing.
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board on screen to count the mats it drew");
+            return;
+        }
+        if (board.boardsDrawn() != boards) {
+            fail("the table drew zones for " + board.boardsDrawn() + " of " + boards
+                    + " boards still on it");
+            return;
+        }
+        System.out.println("[devscene] " + boards + " board(s) still drawn after standing up");
+    }
+
+    /** How many cards a particular seat holds in a zone, whoever is or is not sitting there. */
+    private static int countIn(SeatView seat, Zone zone) {
+        ZoneView held = seat.zones().get(zone);
+        return held == null ? 0 : held.count();
     }
 
     /** Puts the cursor on this player's own life counter, a frame before it is read. */

@@ -55,6 +55,46 @@ class VisibilityInvariantTest {
         }
     }
 
+    /**
+     * A board outlasts its player, and says so.
+     *
+     * <p>Leaving a seat releases the chair and leaves the cards where they were. Everything
+     * that draws a mat asked whether somebody was sitting at it, so a board somebody walked
+     * away from became a battlefield with no zones behind it: the graveyard and the exile
+     * pile, which are public and which anybody watching is there to read, stopped being on
+     * the table at all.
+     */
+    @Test
+    @DisplayName("a seat somebody left still has a board, and an empty chair still has none")
+    void aBoardOutlastsItsPlayer() {
+        GameSession session = GameFixtures.twoPlayerTable(40);
+        GameView before = VisibilityRules.viewFor(session.state(), Viewer.SPECTATOR);
+        for (SeatView seat : before.seats()) {
+            assertThat(seat.hasABoard())
+                    .describedAs("seat %s has a board while its player is sitting there",
+                            seat.seat())
+                    .isTrue();
+        }
+
+        session.submit(new GameEvent.SeatReleased(GameFixtures.ALICE));
+        GameView after = VisibilityRules.viewFor(session.state(), Viewer.SPECTATOR);
+        SeatView left = after.seat(GameFixtures.ALICE);
+
+        assertThat(left.occupant()).isEmpty();
+        assertThat(left.hasABoard())
+                .describedAs("the cards somebody walked away from are still on the table")
+                .isTrue();
+    }
+
+    /** A chair nobody has ever sat in has no cards, so it has no board to draw. */
+    @Test
+    void anEmptyChairHasNoBoard() {
+        SeatView empty = new SeatView(
+                GameFixtures.ALICE, null, 40, Map.of(), Map.of(), Map.of(), false, Map.of());
+
+        assertThat(empty.hasABoard()).isFalse();
+    }
+
     @Nested
     @DisplayName("section 6's table, line by line")
     class TheTable {
