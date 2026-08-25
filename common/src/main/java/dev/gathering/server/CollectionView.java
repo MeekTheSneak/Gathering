@@ -8,9 +8,12 @@ import dev.gathering.core.collection.CollectionSearch;
 import dev.gathering.core.scryfall.CardQuery;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
+import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DeckItem;
 import dev.gathering.network.CollectionPagePayload;
 import dev.gathering.network.CollectionQuery;
 import dev.gathering.network.OpenCollectionPayload;
+import dev.gathering.registry.GatheringComponents;
 import dev.gathering.service.CardDataService;
 import java.util.ArrayList;
 import java.util.List;
@@ -102,30 +105,126 @@ public final class CollectionView {
         fetchLater(unnamed);
     }
 
-    /** Takes cards out and puts them in a hand. */
-    public static void take(ServerPlayer player, BlockPos where, CardComponent card, int howMany) {
+    /**
+     * Takes cards out.
+     *
+     * <p>Into the deck in hand where there is one, and into the inventory otherwise. That is
+     * what sleeving is: you do not carry forty loose cards from the binder to the table, you
+     * put them in the deck as you pick them. Holding a deck is the whole of the gesture -
+     * there is no mode to switch into and nothing to press first.
+     */
+    public static int take(ServerPlayer player, BlockPos where, CardComponent card, int howMany) {
         CollectionBlockEntity collection = at(player, where);
         if (collection == null || card == null) {
-            return;
+            return 0;
         }
         if (!collection.rights().mayTake(player.getUUID())) {
             player.sendSystemMessage(
                     Component.translatable("message.gathering.collection_may_not_take"));
-            return;
+            return 0;
         }
+        ItemStack held = player.getMainHandItem();
+        DeckComponent deck = DeckItem.deckOf(held).orElse(null);
         int took = collection.take(card.faceUp().toIdentity(), howMany);
         if (took == 0) {
-            return;
+            return 0;
         }
-        for (int one = 0; one < took; one++) {
+        int sleeved = deck == null ? 0 : sleeve(held, deck, card, took);
+        // Whatever the deck had no room for goes in the hand rather than back in the
+        // collection: it came out because somebody asked for it, and a card that silently
+        // un-took itself is a click that did nothing for a reason nobody can see.
+        for (int one = sleeved; one < took; one++) {
             ItemStack stack = CardItem.of(card.faceUp());
             if (!player.getInventory().add(stack)) {
                 player.drop(stack, false);
             }
         }
-        // The screen is showing a page that has just changed underneath it, so it gets a
-        // fresh one rather than being left to guess.
-        search(player, where, CollectionQuery.EVERYTHING, false, 0);
+        return took;
+    }
+
+    /**
+     * The same, and then the screen is told what the collection looks like now.
+     *
+     * <p>What a click on a row actually runs. Separate from the taking because the taking is
+     * a thing that happens to a collection and the sending is a thing that happens to a
+     * connection: they fail differently, they are checked differently, and a page pushed at
+     * whoever asked is not part of what it means to take a card.
+     */
+    public static void takeAndShow(
+            ServerPlayer player, BlockPos where, CardComponent card, int howMany) {
+        if (take(player, where, card, howMany) > 0) {
+            // The screen is showing a page that has just changed underneath it, so it gets a
+            // fresh one rather than being left to guess.
+            search(player, where, CollectionQuery.EVERYTHING, false, 0);
+        }
+    }
+
+    /**
+     * Puts cards into a held deck, and says how many fitted.
+     *
+     * <p>Into the mainboard. Which section a card belongs in is the deck screen's question
+     * and it is a better place to ask it: sleeving is gathering the cards, and sorting them
+     * is what you do once they are all in front of you.
+     */
+    private static int sleeve(ItemStack held, DeckComponent deck, CardComponent card, int howMany) {
+        DeckComponent building = deck;
+        int sleeved = 0;
+        for (int one = 0; one < howMany; one++) {
+            DeckComponent grown =
+                    building.withAdded(DeckComponent.Section.MAINBOARD, card.faceUp()).orElse(null);
+            if (grown == null) {
+                break;
+            }
+            building = grown;
+            sleeved++;
+        }
+        if (sleeved > 0) {
+            held.set(GatheringComponents.DECK.get(), building);
+        }
+        return sleeved;
+    }
+
+    /**
+     * Pours a deck back into a collection.
+     *
+     * <p>Every card of it, from every section, and the deck item goes with them. Paper-true,
+     * and the reason a shared collection cannot quietly back two decks at once: the cards are
+     * in one place or the other, never counted in both.
+     *
+     * @return whether the deck was dissolved, so the caller knows whether to keep the item
+     */
+    public static boolean dissolve(ServerPlayer player, BlockPos where, ItemStack held) {
+        CollectionBlockEntity collection = at(player, where);
+        DeckComponent deck = DeckItem.deckOf(held).orElse(null);
+        if (collection == null || deck == null) {
+            return false;
+        }
+        if (!collection.rights().mayAdd(player.getUUID())) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.collection_may_not_add"));
+            return true;
+        }
+        if (deck.isEmpty()) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.collection_deck_empty"));
+            return true;
+        }
+        CardTally.Builder pouring = CardTally.builder();
+        for (DeckComponent.Section section : DeckComponent.Section.values()) {
+            for (CardComponent card : deck.section(section)) {
+                pouring.add(card.faceUp().toIdentity(), 1);
+            }
+        }
+        CardTally poured = pouring.build();
+        collection.putAll(poured);
+        held.shrink(1);
+        player.sendSystemMessage(Component.translatable(
+                "message.gathering.collection_dissolved",
+                deck.name().isBlank()
+                        ? Component.translatable("item.gathering.deck")
+                        : Component.literal(deck.name()),
+                poured.total()));
+        return true;
     }
 
     // ------------------------------------------------------------------ bits

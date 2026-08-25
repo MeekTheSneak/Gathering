@@ -9,6 +9,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.SlotAccess;
@@ -58,6 +60,34 @@ public class DeckItem extends Item {
             DeckScreenHook.Binding.open(hand);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+    }
+
+    /**
+     * Sneak and right-click a collection to pour the deck back into it.
+     *
+     * <p>On the item rather than on the block, because that is where sneaking sends a
+     * right-click: vanilla skips block interaction entirely when somebody is crouching with
+     * something in hand. Which makes the two gestures fall out of the game's own rules -
+     * right-click a collection holding a deck and it opens so you can sleeve into it, crouch
+     * and the deck goes back in. Dissolving is not something to do by accident.
+     */
+    @Override
+    public InteractionResult useOn(net.minecraft.world.item.context.UseOnContext context) {
+        Level level = context.getLevel();
+        if (!(level.getBlockEntity(context.getClickedPos())
+                instanceof dev.gathering.block.CollectionBlockEntity)) {
+            return InteractionResult.PASS;
+        }
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (!(context.getPlayer() instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
+        }
+        return dev.gathering.server.CollectionView.dissolve(
+                        player, context.getClickedPos(), context.getItemInHand())
+                ? InteractionResult.SUCCESS
+                : InteractionResult.PASS;
     }
 
     /**

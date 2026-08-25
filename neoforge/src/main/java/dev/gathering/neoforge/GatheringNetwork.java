@@ -106,7 +106,7 @@ public final class GatheringNetwork {
         registrar.playToServer(
                 dev.gathering.network.CollectionTakePayload.TYPE,
                 dev.gathering.network.CollectionTakePayload.STREAM_CODEC,
-                (payload, context) -> dev.gathering.server.CollectionView.take(
+                (payload, context) -> dev.gathering.server.CollectionView.takeAndShow(
                         (net.minecraft.server.level.ServerPlayer) context.player(),
                         payload.where(), payload.card(), payload.howMany()));
 

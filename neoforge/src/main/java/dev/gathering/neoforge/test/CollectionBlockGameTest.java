@@ -233,6 +233,172 @@ public final class CollectionBlockGameTest {
         helper.succeed();
     }
 
+    /**
+     * A deck in hand fills up from the collection rather than the inventory.
+     *
+     * <p>Which is what sleeving is: you do not carry forty loose cards from the binder to the
+     * table. Holding a deck is the whole of the gesture, so this is the one that must not
+     * quietly stop working.
+     */
+    @GameTest(template = "empty")
+    public static void cardsGoIntoTheDeckInHand(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        var player = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(player.getUUID()));
+        collection.put(CardIdentity.ofPrinting(FOREST, false), 20);
+        player.setPos(net.minecraft.world.phys.Vec3.atCenterOf(helper.absolutePos(at)));
+
+        ItemStack deck = dev.gathering.item.DeckItem.of(new dev.gathering.item.DeckComponent(
+                "Jank", "", java.util.Optional.of(player.getUUID()),
+                java.util.List.of(), java.util.List.of(), java.util.List.of()));
+        player.setItemInHand(InteractionHand.MAIN_HAND, deck);
+
+        dev.gathering.server.CollectionView.take(player, helper.absolutePos(at),
+                CardComponent.of(CardIdentity.ofPrinting(FOREST, false)), 4);
+
+        var after = dev.gathering.item.DeckItem.deckOf(
+                player.getMainHandItem()).orElse(null);
+        if (after == null || after.deckSize() != 4) {
+            helper.fail("Four cards sleeved into a held deck came out as "
+                    + (after == null ? "no deck" : after.deckSize() + " cards"));
+            return;
+        }
+        if (collection.cards().of(CardIdentity.ofPrinting(FOREST, false)) != 16) {
+            helper.fail("The collection still holds "
+                    + collection.cards().of(CardIdentity.ofPrinting(FOREST, false)));
+            return;
+        }
+        // The deck itself is in the inventory - it is what is in hand - so what is counted
+        // is loose cards, which is what a card that failed to sleeve would look like.
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            if (player.getInventory().getItem(slot).is(GatheringContent.CARD.get())) {
+                helper.fail("A card sleeved into a deck turned up loose in the inventory as well");
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    /** With nothing in hand the cards come out loose, as they always did. */
+    @GameTest(template = "empty")
+    public static void withoutADeckTheyComeOutLoose(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        var player = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(player.getUUID()));
+        collection.put(CardIdentity.ofPrinting(BOLT, false), 4);
+        player.setPos(net.minecraft.world.phys.Vec3.atCenterOf(helper.absolutePos(at)));
+
+        dev.gathering.server.CollectionView.take(player, helper.absolutePos(at),
+                CardComponent.of(CardIdentity.ofPrinting(BOLT, false)), 2);
+
+        if (collection.cards().of(CardIdentity.ofPrinting(BOLT, false)) != 2) {
+            helper.fail("Two cards taken left " + collection.cards());
+            return;
+        }
+        int loose = 0;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            if (player.getInventory().getItem(slot).is(GatheringContent.CARD.get())) {
+                loose++;
+            }
+        }
+        if (loose != 2) {
+            helper.fail("Two cards taken with an empty hand turned up as " + loose);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A deck poured back in is every card of it, from every section. */
+    @GameTest(template = "empty")
+    public static void aDeckDissolvesBackIntoIt(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        var player = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(player.getUUID()));
+        player.setPos(net.minecraft.world.phys.Vec3.atCenterOf(helper.absolutePos(at)));
+
+        CardComponent forest = CardComponent.of(CardIdentity.ofPrinting(FOREST, false));
+        CardComponent bolt = CardComponent.of(CardIdentity.ofPrinting(BOLT, false));
+        ItemStack deck = dev.gathering.item.DeckItem.of(new dev.gathering.item.DeckComponent(
+                "Jank", "", java.util.Optional.of(player.getUUID()),
+                java.util.List.of(forest, forest, bolt),
+                java.util.List.of(bolt),
+                java.util.List.of(forest)));
+        player.setItemInHand(InteractionHand.MAIN_HAND, deck);
+
+        if (!dev.gathering.server.CollectionView.dissolve(
+                player, helper.absolutePos(at), player.getMainHandItem())) {
+            helper.fail("A deck held at a collection would not dissolve into it");
+            return;
+        }
+        if (collection.cards().total() != 5) {
+            helper.fail("A five-card deck poured in as " + collection.cards().total());
+            return;
+        }
+        if (collection.cards().of(CardIdentity.ofPrinting(FOREST, false)) != 3
+                || collection.cards().of(CardIdentity.ofPrinting(BOLT, false)) != 2) {
+            helper.fail("The sideboard or the command zone did not come with it: "
+                    + collection.cards().counts());
+            return;
+        }
+        if (!player.getMainHandItem().isEmpty()) {
+            helper.fail("A dissolved deck is still in the hand as well as in the collection");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** And a stranger cannot pour a deck into somebody else's collection. */
+    @GameTest(template = "empty")
+    public static void aStrangerMayNotDissolveIntoIt(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        collection.setRights(CollectionRights.ownedBy(STRANGER));
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setPos(net.minecraft.world.phys.Vec3.atCenterOf(helper.absolutePos(at)));
+
+        CardComponent forest = CardComponent.of(CardIdentity.ofPrinting(FOREST, false));
+        ItemStack deck = dev.gathering.item.DeckItem.of(new dev.gathering.item.DeckComponent(
+                "Jank", "", java.util.Optional.of(player.getUUID()),
+                java.util.List.of(forest), java.util.List.of(), java.util.List.of()));
+        player.setItemInHand(InteractionHand.MAIN_HAND, deck);
+
+        dev.gathering.server.CollectionView.dissolve(
+                player, helper.absolutePos(at), player.getMainHandItem());
+
+        if (!collection.cards().isEmpty()) {
+            helper.fail("A stranger poured a deck into somebody else's collection");
+            return;
+        }
+        if (player.getMainHandItem().isEmpty()) {
+            helper.fail("A refused deck was taken off the player anyway");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A collection across the world is not one anybody is standing at. */
+    @GameTest(template = "empty")
+    public static void takingNeedsSomebodyStandingThere(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        var player = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(player.getUUID()));
+        collection.put(CardIdentity.ofPrinting(BOLT, false), 4);
+        player.setPos(player.getX() + 400, player.getY(), player.getZ());
+
+        dev.gathering.server.CollectionView.take(player, helper.absolutePos(at),
+                CardComponent.of(CardIdentity.ofPrinting(BOLT, false)), 4);
+
+        if (collection.cards().of(CardIdentity.ofPrinting(BOLT, false)) != 4) {
+            helper.fail("A collection four hundred blocks away handed its cards over");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static CollectionBlockEntity place(GameTestHelper helper, BlockPos at) {
         helper.setBlock(at, GatheringContent.COLLECTION.get().defaultBlockState());
         if (helper.getLevel().getBlockEntity(helper.absolutePos(at))

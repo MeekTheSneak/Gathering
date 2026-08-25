@@ -128,7 +128,7 @@ final class GatheringNetwork {
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.CollectionTakePayload.TYPE, (payload, context) ->
-                        dev.gathering.server.CollectionView.take(
+                        dev.gathering.server.CollectionView.takeAndShow(
                                 context.player(), payload.where(), payload.card(),
                                 payload.howMany()));
 

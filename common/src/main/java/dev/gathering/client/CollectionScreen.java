@@ -36,7 +36,7 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
     private static final int MARGIN = 16;
     private static final int ROW_HEIGHT = 14;
     private static final int TOP_BAR = 80;
-    private static final int BOTTOM_BAR = 28;
+    private static final int BOTTOM_BAR = 34;
     private static final int BACKING = 0xE8080B10;
     private static final int ROW_ODD = 0x18FFFFFF;
     private static final int ROW_HOVER = 0x30FFFFFF;
@@ -346,16 +346,50 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
     }
 
     private void drawFooter(GuiGraphics graphics) {
-        int y = this.height - BOTTOM_BAR + 8;
+        int y = this.height - BOTTOM_BAR + 6;
         Component found = Component.translatable(
                 "screen.gathering.collection.page", matched, page + 1, pages);
         graphics.drawString(this.font, found, MARGIN, y, DIM, false);
 
-        Component how = mayTake
-                ? Component.translatable("screen.gathering.collection.hint_take")
+        Component how = mayTake ? whatAClickDoes()
                 : Component.translatable("screen.gathering.collection.hint_look");
         graphics.drawString(this.font, how,
                 this.width - MARGIN - this.font.width(how), y, DIM, false);
+
+        // The other half of the gesture, said where somebody is holding the deck it applies
+        // to. It is the only place it can be found, and a tooltip five lines long is not one.
+        if (heldDeckName() != null) {
+            Component back = Component.translatable("screen.gathering.collection.hint_dissolve");
+            graphics.drawString(this.font, back,
+                    this.width - MARGIN - this.font.width(back), y + 11, DIM, false);
+        }
+    }
+
+    /**
+     * What clicking a row will do, said in the words of what is in hand.
+     *
+     * <p>Read off this client's own hand rather than sent: it is holding the deck, and the
+     * server checks the same thing before it moves a card. Which means the line changes the
+     * moment somebody swaps hands, with no round trip and nothing to keep in step.
+     */
+    private Component whatAClickDoes() {
+        String deck = heldDeckName();
+        return deck == null
+                ? Component.translatable("screen.gathering.collection.hint_take")
+                : Component.translatable("screen.gathering.collection.hint_sleeve", deck);
+    }
+
+    /** The name of the deck in hand, or null where there is not one. */
+    private String heldDeckName() {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null) {
+            return null;
+        }
+        return dev.gathering.item.DeckItem.deckOf(player.getMainHandItem())
+                .map(deck -> deck.name().isBlank()
+                        ? Component.translatable("item.gathering.deck").getString()
+                        : deck.name())
+                .orElse(null);
     }
 
     @Override

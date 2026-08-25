@@ -1448,6 +1448,21 @@ public final class DevScene {
                 + collection.shown().size() + " rows");
     }
 
+    /*
+     * Sleeving a card out of a collection into a held deck is not scripted here.
+     *
+     * The gesture is "what is in the main hand", and this harness drives the client and the
+     * integrated server separately: the pack pictures above set the client's own hotbar and
+     * its selected slot without telling the server, so the two sides disagree about which
+     * slot the main hand is and a deck put in one is not the deck the other reads. Fixing
+     * that would mean the scene faking an inventory sync, which would be a picture of the
+     * harness rather than of the mod.
+     *
+     * What it would have checked is checked in CollectionBlockGameTest, where there is one
+     * player and one inventory: cards go into the deck in hand, they come out loose without
+     * one, and a deck poured back in brings every section with it.
+     */
+
     /** Puts the cursor on the card the pack was opened for. */
     private static void putTheCursorOnAPulledCard(Minecraft client) {
         if (!(client.screen instanceof PackOpeningScreen pack)) {
