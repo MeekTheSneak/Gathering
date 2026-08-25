@@ -115,6 +115,50 @@ class VisibilityInvariantTest {
                 .contains(named);
     }
 
+    /**
+     * Counters keep the order they were put on, on a card and beside a seat alike.
+     *
+     * <p>They are drawn as a stack of labels, so the order is something a player reads - and
+     * a map ordered by a hash salted once per launch would shuffle that stack every time the
+     * game started. Not a failure anybody would report either: it looks stable all session,
+     * and only somebody who noticed their poison counter had moved would ever say so.
+     *
+     * <p>Checked with enough counters that a hash order is near certain to differ, and on
+     * both kinds, because the seat's were kept in order from the day they were added and the
+     * card's were not - which made one rule mean two things depending on where the counter
+     * was.
+     */
+    @Test
+    void countersKeepTheOrderTheyWerePutOn() {
+        List<String> names = new java.util.ArrayList<>();
+        Map<String, Integer> counters = new java.util.LinkedHashMap<>();
+        for (int index = 0; index < 20; index++) {
+            String name = "counter-" + index;
+            names.add(name);
+            counters.put(name, index + 1);
+        }
+
+        CardView.Visible card = new CardView.Visible(
+                new CardInstanceId(1),
+                dev.gathering.core.card.CardIdentity.ofPrinting(java.util.UUID.randomUUID()),
+                GameFixtures.ALICE,
+                dev.gathering.core.game.Facing.FACE_UP,
+                false,
+                counters,
+                dev.gathering.core.game.TablePosition.of(0, 0),
+                false,
+                null);
+        assertThat(card.counters().keySet())
+                .describedAs("a card's counters came back in a different order")
+                .containsExactlyElementsOf(names);
+
+        SeatView seat = new SeatView(
+                GameFixtures.ALICE, null, null, 40, Map.of(), Map.of(), counters, false, Map.of());
+        assertThat(seat.counters().keySet())
+                .describedAs("a seat's counters came back in a different order")
+                .containsExactlyElementsOf(names);
+    }
+
     /** A chair nobody has ever sat in has no cards, so it has no board to draw. */
     @Test
     void anEmptyChairHasNoBoard() {

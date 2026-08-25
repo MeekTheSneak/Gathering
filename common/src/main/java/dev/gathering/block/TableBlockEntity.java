@@ -294,9 +294,17 @@ public class TableBlockEntity extends BlockEntity {
         return Optional.ofNullable(pools.get(seat));
     }
 
-    /** Every deck the table is holding, in seat order. */
+    /**
+     * Every deck the table is holding, in seat order.
+     *
+     * <p>In seat order, which Map.copyOf would have thrown away for a hash order salted once
+     * per launch. This is walked to put held decks back down between games of a set, and each
+     * one puts a line in the session log - so the log's own order would have come out
+     * differently every time the server started, on a record whose whole job is being the
+     * thing everybody can check afterwards.
+     */
     public Map<SeatId, DeckComponent> heldDecks() {
-        return Map.copyOf(decks);
+        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(decks));
     }
 
     /**
@@ -312,7 +320,8 @@ public class TableBlockEntity extends BlockEntity {
         decks.clear();
         pools.clear();
         setChanged();
-        return Map.copyOf(released);
+        // Seat order, for the same reason: this decides what order decks are handed back in.
+        return java.util.Collections.unmodifiableMap(released);
     }
 
     /** A deck the table is holding, and what it may be built from if it was drafted. */

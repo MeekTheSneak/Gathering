@@ -305,4 +305,53 @@ public final class DeckCustodyGameTest {
         }
         return origin;
     }
+
+    /**
+     * A table holds and hands back its decks in seat order.
+     *
+     * <p>Not tidiness. Putting held decks back down between games of a set writes a line in
+     * the session log for each, so this decides the log's own order - and the log is the
+     * record everybody is supposed to be able to check afterwards. Held in a map ordered by a
+     * hash salted once per launch, the same match would have read differently every time the
+     * server started.
+     */
+    @GameTest(template = "empty")
+    public static void decksAreHeldAndHandedBackInSeatOrder(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        clearItems(helper, origin);
+        TableBlockEntity table = tableAt(helper, origin);
+
+        // Put down out of order and with enough seats that a hash order is near certain to
+        // differ from the one they went in.
+        int[] order = {5, 1, 7, 3, 6, 0, 4, 2};
+        List<SeatId> expected = new java.util.ArrayList<>();
+        for (int seat : order) {
+            table.holdDeck(new SeatId(seat), deck(), null);
+            expected.add(new SeatId(seat));
+        }
+        expected.sort(java.util.Comparator.comparingInt(SeatId::index));
+
+        List<SeatId> held = new java.util.ArrayList<>(table.heldDecks().keySet());
+        held.sort(java.util.Comparator.comparingInt(SeatId::index));
+        if (!held.equals(expected)) {
+            helper.fail("The table is not holding every deck it was given: " + held);
+            return;
+        }
+        // The order they are walked in is the order they were put in, which is what the log
+        // ends up recording.
+        List<SeatId> walked = new java.util.ArrayList<>(table.heldDecks().keySet());
+        List<SeatId> asGiven = new java.util.ArrayList<>();
+        for (int seat : order) {
+            asGiven.add(new SeatId(seat));
+        }
+        if (!walked.equals(asGiven)) {
+            helper.fail("Held decks came back in " + walked + ", not the order they went in");
+            return;
+        }
+        List<SeatId> handedBack = new java.util.ArrayList<>(table.releaseDecks().keySet());
+        if (!handedBack.equals(asGiven)) {
+            helper.fail("Decks were handed back in " + handedBack + ", not the order held");
+        }
+        helper.succeed();
+    }
 }

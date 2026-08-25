@@ -17,7 +17,12 @@ import java.util.Optional;
 public record MatchState(MatchRules rules, Map<SeatId, Integer> wins, int gameNumber) {
 
     public MatchState {
-        wins = wins == null ? Map.of() : Map.copyOf(wins);
+        // In seat order rather than a hash order salted once per launch: this is walked to
+        // write the match into the save, and a score that encoded differently on every start
+        // is a save file that churns for no reason.
+        wins = wins == null
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(wins));
         if (gameNumber < 1) {
             throw new IllegalArgumentException("A match starts on game one, not " + gameNumber);
         }

@@ -36,8 +36,14 @@ public record DraftView(
     public DraftView {
         myPool = myPool == null ? List.of() : List.copyOf(myPool);
         waitingOn = waitingOn == null ? List.of() : List.copyOf(waitingOn);
-        others = others == null ? Map.of() : Map.copyOf(others);
-        holdingSizes = holdingSizes == null ? Map.of() : Map.copyOf(holdingSizes);
+        // In ring order, because these are walked to write the view out. A hash order salted
+        // once per launch would encode the same pod differently on every start.
+        others = others == null
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(others));
+        holdingSizes = holdingSizes == null
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(holdingSizes));
     }
 
     /** Which way the packs are going this round, for the arrow a screen draws. */

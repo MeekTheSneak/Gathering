@@ -23,7 +23,12 @@ public record CollectionResult(
         Map<String, CardMetadata> found, List<CardQuery> notFound, Map<UUID, JsonObject> raw) {
 
     public CollectionResult {
-        found = found == null ? Map.of() : Map.copyOf(found);
+        // In the order the queries were asked, because callers take values() as a list and
+        // hand it on - and a list whose order is a hash salted once per launch is a list that
+        // comes back differently on every start for the same request.
+        found = found == null
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(found));
         notFound = notFound == null ? List.of() : List.copyOf(notFound);
         raw = raw == null ? Map.of() : Map.copyOf(raw);
     }

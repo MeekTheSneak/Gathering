@@ -40,7 +40,7 @@ public sealed interface CardView {
             CardInstanceId attachedTo) implements CardView {
 
         public Visible {
-            counters = counters == null ? Map.of() : Map.copyOf(counters);
+            counters = CardView.kept(counters);
             facing = facing == null ? Facing.FACE_UP : facing;
         }
     }
@@ -62,8 +62,24 @@ public sealed interface CardView {
             CardInstanceId attachedTo) implements CardView {
 
         public Anonymous {
-            counters = counters == null ? Map.of() : Map.copyOf(counters);
+            counters = CardView.kept(counters);
         }
+    }
+
+    /**
+     * Keeps counters in the order they were put on.
+     *
+     * <p>They are drawn as a stack of labels along the bottom of the card, so the order is
+     * something a player reads - and {@code Map.copyOf} orders by a hash salted once per
+     * launch, which would shuffle that stack every time the game started. The seat's own
+     * counters have been kept in order for exactly this reason since they were added; these
+     * were not, which made the same rule mean two different things depending on whether the
+     * counter was on a card or beside a board.
+     */
+    static Map<String, Integer> kept(Map<String, Integer> counters) {
+        return counters == null || counters.isEmpty()
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(counters));
     }
 
     default boolean carriesIdentity() {

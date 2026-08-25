@@ -21,8 +21,15 @@ public record SeatView(
         Map<Zone, ZoneView> zones) {
 
     public SeatView {
-        commanderDamage = commanderDamage == null ? Map.of() : Map.copyOf(commanderDamage);
-        commanderTax = commanderTax == null ? Map.of() : Map.copyOf(commanderTax);
+        // Kept in order, like the counters below and for a related reason: these are written
+        // into the board's byte form by walking them, so a hash order salted once per launch
+        // would encode the same board differently on every start.
+        commanderDamage = commanderDamage == null
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(commanderDamage));
+        commanderTax = commanderTax == null
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(commanderTax));
         // Kept in the order they arrived rather than in a hash order, because a screen draws
         // them as rows and rows that reorder themselves are rows nobody can point at.
         counters = counters == null
@@ -37,7 +44,11 @@ public record SeatView(
         if (zones != null) {
             sorted.putAll(zones);
         }
-        zones = Map.copyOf(sorted);
+        // The EnumMap itself, not a copy of it: Map.copyOf would order by a hash salted once
+        // per launch and throw away the zone order this went to the trouble of building - so
+        // the sentence above about two views listing their zones the same way was true of the
+        // sort and false of what came out of it.
+        zones = java.util.Collections.unmodifiableMap(sorted);
     }
 
     public int counter(String name) {
