@@ -63,10 +63,6 @@ public record ShopPrice(int blocks, int loose) {
         return Optional.of(new ShopPrice(blocks, loose));
     }
 
-    /** Whether anything is owed at all. */
-    public boolean isFree() {
-        return blocks == 0 && loose == 0;
-    }
 
     /** What it comes to, back in the loose item. */
     public int total(int perBlock) {

@@ -69,7 +69,6 @@ class ShopPriceTest {
             assertThat(paid.blocks()).isBetween(0, ShopPrice.MOST_IN_A_SLOT);
             assertThat(paid.loose()).isBetween(0, ShopPrice.MOST_IN_A_SLOT);
             assertThat(paid.total(perBlock)).isEqualTo(price);
-            assertThat(paid.isFree()).isFalse();
         });
     }
 }

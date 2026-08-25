@@ -45,8 +45,8 @@ class SealedShelfTest {
     void everythingIsPriced() {
         SealedShelf shelf = SealedShelf.of(CATALOGUE, 2);
 
-        assertThat(shelf.byId("pack-play").price()).isEqualTo(2);
-        assertThat(shelf.byId("box").price()).isEqualTo(60);
+        assertThat(priceOf(shelf, "Test play")).isEqualTo(2);
+        assertThat(priceOf(shelf, "Test Play Booster Box")).isEqualTo(60);
     }
 
     @Test
@@ -54,7 +54,8 @@ class SealedShelfTest {
     void onlyRealProducts() {
         SealedShelf shelf = SealedShelf.of(CATALOGUE, 2);
 
-        assertThat(shelf.byId("art")).isNull();
+        assertThat(shelf.items()).extracting(SealedShelf.Item::name)
+                .doesNotContain("Test Art Series");
         assertThat(shelf.items()).hasSize(3);
     }
 
@@ -66,7 +67,8 @@ class SealedShelfTest {
         // that came in the box would be worse than not stocking it at all.
         SealedShelf shelf = SealedShelf.of(CATALOGUE, 2);
 
-        assertThat(shelf.byId("precon")).isNull();
+        assertThat(shelf.items()).extracting(SealedShelf.Item::name)
+                .doesNotContain("Test Commander Deck");
     }
 
     @Test
@@ -82,8 +84,8 @@ class SealedShelfTest {
         SealedShelf cheap = SealedShelf.of(CATALOGUE, 1);
         SealedShelf dear = SealedShelf.of(CATALOGUE, 4);
 
-        assertThat(cheap.byId("box").price()).isEqualTo(30);
-        assertThat(dear.byId("box").price()).isEqualTo(120);
+        assertThat(priceOf(cheap, "Test Play Booster Box")).isEqualTo(30);
+        assertThat(priceOf(dear, "Test Play Booster Box")).isEqualTo(120);
     }
 
     @Test
@@ -106,8 +108,16 @@ class SealedShelfTest {
         assertThat(SealedShelf.of(List.of())).isEqualTo(SealedShelf.EMPTY);
         assertThat(SealedShelf.of((List<SealedShelf>) null)).isEqualTo(SealedShelf.EMPTY);
         assertThat(SealedShelf.EMPTY.isEmpty()).isTrue();
-        assertThat(SealedShelf.EMPTY.byId("anything")).isNull();
-        assertThat(SealedShelf.of(CATALOGUE, 2).byId(null)).isNull();
+    }
+
+    /** What the shelf charges for the thing with this name on it. */
+    private static int priceOf(SealedShelf shelf, String name) {
+        for (SealedShelf.Item item : shelf.items()) {
+            if (item.name().equals(name)) {
+                return item.price();
+            }
+        }
+        throw new AssertionError("Nothing called '" + name + "' is on the shelf");
     }
 
     private static SealedProduct booster(String id, String kind) {

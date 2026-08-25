@@ -49,8 +49,6 @@ public final class SealedContents {
     public record Bag(List<SealedProduct.Booster> boosters, List<CardIdentity> cards,
             List<SealedDeck> decks) {
 
-        public static final Bag NOTHING = new Bag(List.of(), List.of(), List.of());
-
         public Bag {
             boosters = boosters == null ? List.of() : List.copyOf(boosters);
             cards = cards == null ? List.of() : List.copyOf(cards);

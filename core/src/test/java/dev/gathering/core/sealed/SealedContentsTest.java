@@ -176,7 +176,6 @@ class SealedContentsTest {
 
         assertThat(SealedContents.of(empty, CATALOGUE)).isEmpty();
         assertThat(SealedContents.of(null, CATALOGUE)).isEmpty();
-        assertThat(SealedContents.Bag.NOTHING.isEmpty()).isTrue();
     }
 
     // ------------------------------------------------------------------ bits

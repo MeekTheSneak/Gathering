@@ -107,10 +107,6 @@ public final class CardShop {
         stock = Stock.NOTHING;
     }
 
-    /** Whether there is a shop on this server at all. */
-    public static boolean isOpen() {
-        return !stock.isEmpty();
-    }
 
     /**
      * What every shopkeeper of this level has on the counter.

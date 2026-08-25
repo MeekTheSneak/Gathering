@@ -42,18 +42,6 @@ public record SealedShelf(List<Item> items) {
         return items.isEmpty();
     }
 
-    /** The thing with this published id, or null. */
-    public Item byId(String productId) {
-        if (productId == null) {
-            return null;
-        }
-        for (Item item : items) {
-            if (item.product() != null && item.product().productId().equals(productId)) {
-                return item;
-            }
-        }
-        return null;
-    }
 
     /**
      * The shelf for one set's catalogue.

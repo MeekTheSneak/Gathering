@@ -43,8 +43,15 @@ public final class ShopTrades {
     /** What taking it once is worth to the shopkeeper, per level. */
     private static final int[] EXPERIENCE = {2, 5, 10, 15, 30};
 
-    /** Vanilla's own demand multiplier. A thing everybody buys gets dearer, a little. */
-    private static final float DEMAND = 0.05f;
+    /**
+     * How far a price is allowed to drift, as vanilla scales it.
+     *
+     * <p>Not the price. Vanilla moves a trade around its base price with demand and with how
+     * a villager feels about you, and this is the multiplier on that - the same 0.05 an
+     * ordinary villager trade uses. What the thing is actually worth is
+     * {@link dev.gathering.core.sealed.SealedPrice}'s and is the same on every counter.
+     */
+    private static final float PRICE_DRIFT = 0.05f;
 
     private ShopTrades() {
     }
@@ -70,14 +77,6 @@ public final class ShopTrades {
         return List.copyOf(listings);
     }
 
-    /** Every level's listings, in order, for a loader that wants them all at once. */
-    public static List<List<VillagerTrades.ItemListing>> all() {
-        List<List<VillagerTrades.ItemListing>> levels = new ArrayList<>(ShopTier.LEVELS);
-        for (int level = 1; level <= ShopTier.LEVELS; level++) {
-            levels.add(at(level));
-        }
-        return List.copyOf(levels);
-    }
 
     /** One thing on every shopkeeper's counter. */
     private record Offer(int level, int choice, long rotation)
@@ -121,7 +120,7 @@ public final class ShopTrades {
 
             int tier = Math.clamp(level, 1, ShopTier.LEVELS) - 1;
             return new MerchantOffer(first, second, result,
-                    USES[tier], EXPERIENCE[tier], DEMAND);
+                    USES[tier], EXPERIENCE[tier], PRICE_DRIFT);
         }
 
     }

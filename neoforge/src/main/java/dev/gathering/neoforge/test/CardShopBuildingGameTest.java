@@ -176,6 +176,51 @@ public final class CardShopBuildingGameTest {
         helper.succeed();
     }
 
+    /**
+     * The chest behind the counter rolls, and does not throw.
+     *
+     * <p>Its pool entry is the one with no source on it, which means "always a pack" rather
+     * than "one chest in eight" - a shop's stock is not a lucky find. That path is only ever
+     * taken by this one table, so without this nothing would notice it was broken until
+     * somebody opened the chest in a village and found nothing in it.
+     *
+     * <p>Nothing comes out here because collecting is off on a test server, which is the same
+     * thing every other loot test in this mod checks. What is being checked is that a table
+     * with a sourceless entry in it rolls at all.
+     */
+    @GameTest(template = "empty")
+    public static void theShopsOwnChestRolls(GameTestHelper helper) {
+        var table = helper.getLevel().getServer().reloadableRegistries().getLootTable(
+                net.minecraft.resources.ResourceKey.create(
+                        net.minecraft.core.registries.Registries.LOOT_TABLE,
+                        Gathering.id("chests/card_shop")));
+        var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(
+                helper.getLevel())
+                .withParameter(
+                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
+                        net.minecraft.world.phys.Vec3.atCenterOf(
+                                helper.absolutePos(net.minecraft.core.BlockPos.ZERO)))
+                .create(net.minecraft.world.level.storage.loot.parameters
+                        .LootContextParamSets.CHEST);
+
+        boolean anything = false;
+        for (int roll = 0; roll < 32; roll++) {
+            for (var stack : table.getRandomItems(params)) {
+                anything = true;
+                if (stack.is(dev.gathering.item.GatheringContent.PACK.get())) {
+                    helper.fail("A pack came out of a shop's chest with collecting switched off");
+                    return;
+                }
+            }
+        }
+        if (!anything) {
+            helper.fail("The shop's chest is empty however many times it is rolled, so the "
+                    + "loot table is not in the jar or holds nothing");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static <T extends Comparable<T>> String value(BlockState state, Property<T> property) {
         return property.getName(state.getValue(property));
     }
