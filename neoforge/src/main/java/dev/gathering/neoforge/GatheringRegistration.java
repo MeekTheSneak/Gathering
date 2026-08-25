@@ -47,6 +47,8 @@ final class GatheringRegistration {
             ITEMS.register(GatheringContent.CARD_ID, GatheringContent::createCard);
     private static final Supplier<Item> DECK =
             ITEMS.register(GatheringContent.DECK_ID, GatheringContent::createDeck);
+    private static final Supplier<Item> PACK =
+            ITEMS.register(GatheringContent.PACK_ID, GatheringContent::createPack);
 
     private static final Supplier<Block> TABLE =
             BLOCKS.register(GatheringContent.TABLE_ID, GatheringContent::createTable);
@@ -68,6 +70,8 @@ final class GatheringRegistration {
             DATA_COMPONENTS.register(GatheringComponents.DECK_ID, GatheringComponents::createDeckType);
     private static final Supplier<DataComponentType<dev.gathering.item.DraftedPool>> POOL_COMPONENT =
             DATA_COMPONENTS.register(GatheringComponents.POOL_ID, GatheringComponents::createPoolType);
+    private static final Supplier<DataComponentType<dev.gathering.item.PackComponent>> PACK_COMPONENT =
+            DATA_COMPONENTS.register(GatheringComponents.PACK_ID, GatheringComponents::createPackType);
 
     private static final Supplier<CreativeModeTab> TAB = CREATIVE_TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup." + Gathering.MOD_ID + ".main"))
@@ -75,6 +79,7 @@ final class GatheringRegistration {
             .displayItems((parameters, output) -> {
                 output.accept(new ItemStack(CARD.get()));
                 output.accept(new ItemStack(DECK.get()));
+                output.accept(new ItemStack(PACK.get()));
                 output.accept(new ItemStack(TABLE_ITEM.get()));
             })
             .build());
@@ -102,12 +107,14 @@ final class GatheringRegistration {
         // waiting on a lifecycle event: nothing is resolved until something asks.
         GatheringContent.CARD.bind(CARD);
         GatheringContent.DECK.bind(DECK);
+        GatheringContent.PACK.bind(PACK);
         GatheringContent.TABLE.bind(TABLE);
         GatheringContent.TABLE_ITEM.bind(TABLE_ITEM);
         GatheringContent.TABLE_ENTITY.bind(TABLE_ENTITY);
         GatheringComponents.CARD.bind(CARD_COMPONENT);
         GatheringComponents.DECK.bind(DECK_COMPONENT);
         GatheringComponents.POOL.bind(POOL_COMPONENT);
+        GatheringComponents.PACK.bind(PACK_COMPONENT);
     }
 
     static Supplier<CreativeModeTab> creativeTab() {

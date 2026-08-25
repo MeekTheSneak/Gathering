@@ -32,6 +32,7 @@ EXPECTED_UNREFERENCED = {
     "block.gathering.table",
     "item.gathering.card",
     "item.gathering.deck",
+    "item.gathering.pack",
     "key.categories.gathering",
 }
 # Turns pass whole rather than a step at a time, so nothing shows a phase now - but PhaseSet is

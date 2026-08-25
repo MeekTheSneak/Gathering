@@ -56,8 +56,13 @@ final class GatheringRegistration {
         Item deck = Registry.register(
                 BuiltInRegistries.ITEM, Gathering.id(GatheringContent.DECK_ID), GatheringContent.createDeck());
 
+        Item pack = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.PACK_ID),
+                GatheringContent.createPack());
+
         GatheringContent.CARD.bindValue(card);
         GatheringContent.DECK.bindValue(deck);
+        GatheringContent.PACK.bindValue(pack);
 
         GatheringComponents.CARD.bindValue(Registry.register(
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
@@ -71,6 +76,10 @@ final class GatheringRegistration {
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
                 Gathering.id(GatheringComponents.POOL_ID),
                 GatheringComponents.createPoolType()));
+        GatheringComponents.PACK.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.PACK_ID),
+                GatheringComponents.createPackType()));
 
         Registry.register(
                 BuiltInRegistries.CREATIVE_MODE_TAB,
@@ -81,6 +90,7 @@ final class GatheringRegistration {
                         .displayItems((parameters, output) -> {
                             output.accept(new ItemStack(card));
                             output.accept(new ItemStack(deck));
+                            output.accept(new ItemStack(pack));
                             output.accept(new ItemStack(GatheringContent.TABLE_ITEM.get()));
                         })
                         .build());

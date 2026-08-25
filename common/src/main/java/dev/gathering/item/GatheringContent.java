@@ -26,10 +26,12 @@ public final class GatheringContent {
 
     public static final String CARD_ID = "card";
     public static final String DECK_ID = "deck";
+    public static final String PACK_ID = "pack";
     public static final String TABLE_ID = "table";
 
     public static final Registered<Item> CARD = new Registered<>(CARD_ID);
     public static final Registered<Item> DECK = new Registered<>(DECK_ID);
+    public static final Registered<Item> PACK = new Registered<>(PACK_ID);
     public static final Registered<Block> TABLE = new Registered<>(TABLE_ID);
     public static final Registered<Item> TABLE_ITEM = new Registered<>(TABLE_ID);
     public static final Registered<BlockEntityType<TableBlockEntity>> TABLE_ENTITY =
@@ -49,6 +51,18 @@ public final class GatheringContent {
 
     public static Item createDeck() {
         return new DeckItem(new Item.Properties().stacksTo(1));
+    }
+
+    /**
+     * Packs stack, unlike cards and decks.
+     *
+     * <p>Two sealed boosters of the same product are interchangeable in a way two cards never
+     * are - nobody has looked inside either - so a box of thirty is one slot rather than
+     * thirty, which is the difference between a display box being a thing you can carry and a
+     * thing you cannot.
+     */
+    public static Item createPack() {
+        return new PackItem(new Item.Properties().stacksTo(16));
     }
 
     public static Block createTable() {

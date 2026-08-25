@@ -25,5 +25,6 @@ public final class GatheringItemModels extends ItemModelProvider {
         // CardItemRenderer draws the real card art, and its display transforms are meant to
         // be edited by hand rather than regenerated.
         basicItem(GatheringContent.DECK.get());
+        basicItem(GatheringContent.PACK.get());
     }
 }
