@@ -296,6 +296,13 @@ the deck in your hand if you are holding one — and a whole deck poured back in
   rather than taken, because basics are free. What the box is short of is listed rather than
   refused — ninety cards you have and a list of the ten to find beats no deck at all.
 
+**Trading.** Hold a card and right-click another player: a trade table opens for both of you.
+Your side lists what you are carrying with how much of each is up (`2/4`); left-click puts one
+up, right-click takes one back. Both of you have to press Agree, and **changing anything
+clears both agreements** - which is the point, and the thing to try breaking. Put a card up,
+get them to agree, then swap it for a worse one and see that their agreement went out. Walk
+more than eight blocks apart and it ends.
+
 **The card shop.**
 
 - **Find one.** Villages build a card shop among their houses: a room with a counter, a chest
@@ -350,7 +357,6 @@ In rough order of how much it would change what I build next:
 - **A chest does not decide which set.** It decides which kind of booster: a collector booster
   is much likelier out of an end city than out of a village. Tying a set to a structure is an
   idea and not built.
-- **No trading.** Cards move between players by dropping them.
 - **No theme picker.** The GUI art is all real textures generated from one palette in
   `tools/textures.py`, so a second theme is a matter of a second palette and a place to choose
   it — but there is no such place yet, and a resource pack is the only way to swap them today.

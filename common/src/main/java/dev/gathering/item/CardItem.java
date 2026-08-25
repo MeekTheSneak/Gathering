@@ -14,6 +14,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickAction;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
@@ -112,6 +113,42 @@ public class CardItem extends Item {
                 .flatMap(card -> CardNameLookup.Binding.current().nameOf(card))
                 .<Component>map(Component::literal)
                 .orElseGet(() -> super.getName(stack));
+    }
+
+    /**
+     * Right-click somebody while holding a card, and you are offering to trade.
+     *
+     * <p>The gesture is the sentence: holding a card out to a person is what asking to trade
+     * looks like at a table, and right-clicking a player does nothing else in this game. No
+     * command to remember and nothing to find in a menu.
+     *
+     * <p>Which card is in the hand does not matter and nothing is put up by it - the table
+     * opens empty. Holding one is the way of saying you mean it, not the offer.
+     */
+    @Override
+    public net.minecraft.world.InteractionResult interactLivingEntity(
+            ItemStack stack, net.minecraft.world.entity.player.Player player,
+            net.minecraft.world.entity.LivingEntity target,
+            net.minecraft.world.InteractionHand hand) {
+        if (player.level().isClientSide()) {
+            return target instanceof net.minecraft.world.entity.player.Player
+                    ? net.minecraft.world.InteractionResult.SUCCESS
+                    : net.minecraft.world.InteractionResult.PASS;
+        }
+        if (!(player instanceof ServerPlayer asking)
+                || !(target instanceof ServerPlayer other)) {
+            return net.minecraft.world.InteractionResult.PASS;
+        }
+        if (!dev.gathering.server.TradeSessions.isOffered()) {
+            // Collection mode's, and only there: with cards conjured out of a decklist,
+            // swapping one is two people agreeing to trade things they could each have typed.
+            asking.sendSystemMessage(
+                    net.minecraft.network.chat.Component.translatable(
+                            "message.gathering.trade_off"));
+            return net.minecraft.world.InteractionResult.CONSUME;
+        }
+        dev.gathering.server.TradeSessions.open(asking, other);
+        return net.minecraft.world.InteractionResult.CONSUME;
     }
 
     @Override

@@ -179,6 +179,10 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> acceptDraftView(pod));
             return;
         }
+        if (payload instanceof dev.gathering.network.TradeViewPayload trade) {
+            context.enqueueWork(() -> dev.gathering.client.TradeScreen.accept(trade));
+            return;
+        }
         if (payload instanceof dev.gathering.network.CloseTablePayload) {
             context.enqueueWork(() -> {
                 dev.gathering.client.ClientTableState.clear();

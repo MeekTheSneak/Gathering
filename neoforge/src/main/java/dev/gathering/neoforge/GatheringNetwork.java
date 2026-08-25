@@ -68,6 +68,11 @@ public final class GatheringNetwork {
                 GatheringNetwork::onDeckRename);
 
         registrar.playToServer(
+                dev.gathering.network.TradeActionPayload.TYPE,
+                dev.gathering.network.TradeActionPayload.STREAM_CODEC,
+                GatheringNetwork::onTradeAction);
+
+        registrar.playToServer(
                 TableActionPayload.TYPE,
                 TableActionPayload.STREAM_CODEC,
                 GatheringNetwork::onTableAction);
@@ -137,6 +142,10 @@ public final class GatheringNetwork {
         registrar.playToClient(
                 dev.gathering.network.DraftViewPayload.TYPE,
                 dev.gathering.network.DraftViewPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.TradeViewPayload.TYPE,
+                dev.gathering.network.TradeViewPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
                 dev.gathering.network.PackOpenedPayload.TYPE,
@@ -215,6 +224,14 @@ public final class GatheringNetwork {
     private static void onDeckEdit(DeckEditPayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
             DeckEdits.handle(player, payload);
+        }
+    }
+
+    private static void onTradeAction(
+            dev.gathering.network.TradeActionPayload payload, IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) {
+            context.enqueueWork(() ->
+                    dev.gathering.server.TradeSessions.handle(player, payload));
         }
     }
 

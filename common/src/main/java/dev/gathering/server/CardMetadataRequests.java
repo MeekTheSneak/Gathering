@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.core.card.CardIdentity;
 import dev.gathering.network.Sending;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.network.CardMetadataPayload;
@@ -22,6 +23,33 @@ public final class CardMetadataRequests {
     private CardMetadataRequests() {
     }
 
+    /**
+     * Tells somebody what these cards are, without them having asked.
+     *
+     * <p>For the one case where a client is shown cards it does not hold: the other half of a
+     * trade table. Somebody putting a card up is showing it to the person across from them on
+     * purpose, so the name and the picture go with it - otherwise the offer is a row of
+     * sleeves under a count, which is not something anybody can agree to.
+     *
+     * <p>Only ever the cards the rules just put in front of them, never a list a client chose.
+     */
+    public static void pushKnown(ServerPlayer player, java.util.Collection<CardIdentity> cards) {
+        CardDataService service = CardDataService.active().orElse(null);
+        if (service == null || cards == null || cards.isEmpty()) {
+            return;
+        }
+        List<UUID> printings = cards.stream()
+                .map(CardIdentity::printing)
+                .flatMap(java.util.Optional::stream)
+                .distinct()
+                .limit(RequestCardMetadataPayload.MAX_REQUESTED)
+                .toList();
+        if (printings.isEmpty()) {
+            return;
+        }
+        send(player, service, printings);
+    }
+
     public static void handle(ServerPlayer player, CardDataService service, RequestCardMetadataPayload request) {
         List<UUID> wanted = request.printings().stream()
                 .distinct()
@@ -30,7 +58,10 @@ public final class CardMetadataRequests {
         if (wanted.isEmpty()) {
             return;
         }
+        send(player, service, wanted);
+    }
 
+    private static void send(ServerPlayer player, CardDataService service, List<UUID> wanted) {
         service.findAll(wanted).whenComplete((cards, failure) -> player.server.execute(() -> {
             if (player.hasDisconnected() || failure != null || cards == null || cards.isEmpty()) {
                 return;
