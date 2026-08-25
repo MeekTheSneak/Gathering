@@ -102,11 +102,12 @@ public final class GatheringNetwork {
                 dev.gathering.network.CollectionSearchPayload.STREAM_CODEC,
                 (payload, context) -> dev.gathering.server.CollectionView.search(
                         (net.minecraft.server.level.ServerPlayer) context.player(),
-                        payload.where(), payload.query(), payload.descending(), payload.page()));
+                        payload.where(), payload.query(), payload.descending(), payload.page(),
+                        payload.perPage()));
         registrar.playToServer(
                 dev.gathering.network.CollectionTakePayload.TYPE,
                 dev.gathering.network.CollectionTakePayload.STREAM_CODEC,
-                (payload, context) -> dev.gathering.server.CollectionView.takeAndShow(
+                (payload, context) -> dev.gathering.server.CollectionView.take(
                         (net.minecraft.server.level.ServerPlayer) context.player(),
                         payload.where(), payload.card(), payload.howMany()));
 

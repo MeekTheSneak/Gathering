@@ -108,23 +108,4 @@ class BoosterOddsTest {
         assertThat(BoosterOdds.pick(weights, 9999)).isEqualTo("play");
         assertThat(BoosterOdds.pick(weights, -1)).isEqualTo("play");
     }
-
-    @Test
-    @DisplayName("what a set sells, named once each")
-    void kindsAreListedOnce() {
-        SealedProduct play = booster("play");
-        SealedProduct alsoPlay = booster("play");
-        SealedProduct collector = booster("collector");
-
-        assertThat(BoosterOdds.kindsOf(List.of(play, alsoPlay, collector)))
-                .containsExactly("play", "collector");
-        assertThat(BoosterOdds.kindsOf(null)).isEmpty();
-    }
-
-    private static SealedProduct booster(String kind) {
-        return new SealedProduct("id-" + kind, "Test " + kind, "tst", "booster_pack", kind, 15,
-                new SealedProduct.Contents(
-                        List.of(new SealedProduct.Booster("tst", kind)),
-                        List.of(), List.of(), List.of(), List.of()));
-    }
 }

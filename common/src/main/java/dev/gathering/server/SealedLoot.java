@@ -47,15 +47,43 @@ public final class SealedLoot {
     private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
 
     /**
-     * What can drop, by set, decided at start and read on the loot thread.
+     * What can drop: every set on offer, in the order they are offered in, and what each one
+     * sells.
      *
-     * <p>Replaced whole rather than added to, so a reader either sees a set or does not and
-     * never sees half of one.
+     * <p>One object rather than a list and a map beside it. They are two halves of one answer
+     * and they were two fields: a roll that read the new list and the old map picked a set
+     * that was not in it and quietly dropped nothing, which is the kind of window that turns
+     * up once a week on a busy server and never in a test.
      */
-    private static volatile Map<String, List<String>> available = Map.of();
+    private record Pool(List<String> sets, Map<String, List<String>> sells) {
 
-    /** The sets in the order they will be offered in, so a roll is repeatable. */
-    private static volatile List<String> sets = List.of();
+        static final Pool NOTHING = new Pool(List.of(), Map.of());
+
+        static Pool of(Map<String, List<String>> sells) {
+            return sells.isEmpty() ? NOTHING : new Pool(List.copyOf(sells.keySet()), sells);
+        }
+
+        boolean isEmpty() {
+            return sets.isEmpty();
+        }
+    }
+
+    /** Decided at start and read on the loot thread. Replaced whole, never edited. */
+    private static volatile Pool pool = Pool.NOTHING;
+
+    /**
+     * Which source and how good a chest one loot table is, worked out once each.
+     *
+     * <p>A global loot modifier is handed every table the game rolls - every mob, every
+     * block, every chest - so this is on the hot path of anything that drops anything. The
+     * answer for a given table never changes, and there are a few hundred tables, so it is
+     * remembered rather than re-parsed a few thousand times a second in a farm.
+     */
+    private static final Map<String, Optional<Chest>> CHESTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** What a loot table is, for the purposes of dropping a pack out of it. */
+    private record Chest(LootSource source, LootRichness richness) {
+    }
 
     private SealedLoot() {
     }
@@ -67,8 +95,7 @@ public final class SealedLoot {
      * server never fetches anything for a feature it has switched off.
      */
     public static void warm() {
-        available = Map.of();
-        sets = List.of();
+        pool = Pool.NOTHING;
         var settings = ServerSettings.get();
         if (!settings.modes().collectionEnabled()) {
             return;
@@ -79,23 +106,22 @@ public final class SealedLoot {
         }
         wanted(settings)
                 .thenComposeAsync(codes -> readAll(collation, codes), collation.worker())
-                .whenComplete((pool, failure) -> {
+                .whenComplete((found, failure) -> {
                     if (failure != null) {
                         LOGGER.warn("Could not read what this server's sets were sold as, so "
                                 + "nothing drops", failure);
                         return;
                     }
-                    available = pool;
-                    sets = List.copyOf(pool.keySet());
+                    pool = Pool.of(found);
                     LOGGER.info("Sealed product can be found in the world: {} set(s), {}",
-                            pool.size(), describe(pool));
+                            found.size(), describe(found));
                 });
     }
 
     /** Between servers, so one world's sets do not drop in the next. */
     public static void clear() {
-        available = Map.of();
-        sets = List.of();
+        pool = Pool.NOTHING;
+        CHESTS.clear();
     }
 
     /**
@@ -107,10 +133,18 @@ public final class SealedLoot {
      * did not ask for, nothing resolved yet, or simply the odds.
      */
     public static Optional<ItemStack> rollFor(String tableId, RandomSource random) {
-        LootSource source = LootSource.of(tableId).orElse(null);
-        return source == null
+        // Before the string is touched at all. On NeoForge this runs for every loot table the
+        // game rolls, so a server that is not collecting must pay one volatile read for every
+        // zombie that dies and not a pair of allocations.
+        if (pool.isEmpty()) {
+            return Optional.empty();
+        }
+        Chest chest = CHESTS.computeIfAbsent(tableId == null ? "" : tableId,
+                        id -> LootSource.of(id).map(source -> new Chest(source, LootRichness.of(id))))
+                .orElse(null);
+        return chest == null
                 ? Optional.empty()
-                : rollFrom(source, LootRichness.of(tableId), random);
+                : rollFrom(chest.source(), chest.richness(), random);
     }
 
     /**
@@ -121,9 +155,8 @@ public final class SealedLoot {
      */
     public static Optional<ItemStack> rollFrom(
             LootSource source, LootRichness richness, RandomSource random) {
-        Map<String, List<String>> pool = available;
-        List<String> offering = sets;
-        if (pool.isEmpty() || offering.isEmpty() || random == null || source == null) {
+        Pool offering = pool;
+        if (offering.isEmpty() || random == null || source == null) {
             return Optional.empty();
         }
         if (!ServerSettings.get().modes().collectionEnabled() || !asked(source)) {
@@ -133,8 +166,8 @@ public final class SealedLoot {
             return Optional.empty();
         }
 
-        String set = offering.get(random.nextInt(offering.size()));
-        List<String> kinds = pool.getOrDefault(set, List.of());
+        String set = offering.sets().get(random.nextInt(offering.sets().size()));
+        List<String> kinds = offering.sells().getOrDefault(set, List.of());
         Map<String, Integer> weights = BoosterOdds.weightsFor(kinds, richness);
         int total = BoosterOdds.totalOf(weights);
         if (total <= 0) {

@@ -59,6 +59,7 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
 
     private EditBox searchBox;
     private Button sortButton;
+    private Button directionButton;
     private Button rarityButton;
     private Button previousButton;
     private Button nextButton;
@@ -89,7 +90,9 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
     private void take(CollectionPagePayload payload) {
         this.page = payload.page();
         this.pages = Math.max(1, payload.pages());
-        this.matched = payload.matched();
+        this.total = payload.counts().total();
+        this.distinct = payload.counts().distinct();
+        this.matched = payload.counts().matched();
         this.rows = payload.rows();
         updateButtons();
     }
@@ -106,9 +109,14 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         searchBox.setResponder(text -> { });
         addRenderableWidget(searchBox);
 
-        sortButton = GatheringButtons.of(this.width - MARGIN - 144, MARGIN + 20, 88, 18,
+        sortButton = GatheringButtons.of(this.width - MARGIN - 144, MARGIN + 20, 70, 18,
                 sortLabel(), this::nextSort);
         addRenderableWidget(sortButton);
+        // Its own button rather than a wrap-around on the first one. Turning the order round
+        // is a thing people do constantly and it should not take five presses to reach.
+        directionButton = GatheringButtons.of(this.width - MARGIN - 72, MARGIN + 20, 18, 18,
+                directionLabel(), this::flipDirection);
+        addRenderableWidget(directionButton);
 
         previousButton = GatheringButtons.of(this.width - MARGIN - 52, MARGIN + 20, 24, 18,
                 Component.literal("<"), () -> turnTo(page - 1));
@@ -132,6 +140,10 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
 
         setInitialFocus(searchBox);
         updateButtons();
+        // Here rather than when the collection opened: this is the first moment anything
+        // knows how tall the window is, and it runs again on every resize, so the page always
+        // fits the box it is drawn in.
+        askFor(page);
     }
 
     /** WUBRG and colourless, in the order a player reads them. */
@@ -179,6 +191,9 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         if (sortButton != null) {
             sortButton.setMessage(sortLabel());
         }
+        if (directionButton != null) {
+            directionButton.setMessage(directionLabel());
+        }
         if (rarityButton != null) {
             rarityButton.setMessage(rarityLabel());
         }
@@ -191,28 +206,28 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
     }
 
     private Component sortLabel() {
-        return Component.translatable("screen.gathering.collection.sort",
-                Component.translatable("screen.gathering.collection.sort."
-                        + query.sort().name().toLowerCase(java.util.Locale.ROOT)),
-                Component.literal(descending ? "▲" : "▼"));
+        return Component.translatable("screen.gathering.collection.sort."
+                + query.sort().name().toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private Component directionLabel() {
+        return Component.literal(descending ? "▲" : "▼");
     }
 
     /**
-     * Cycles the order.
+     * Cycles what the list is ordered by.
      *
      * <p>One button rather than five, because a collection has one order at a time and five
-     * buttons of which four are off is four buttons doing nothing. Pressing it on the order
-     * already showing turns it round instead, which is where anybody would look for it.
+     * buttons of which four are off is four buttons doing nothing.
      */
     private void nextSort() {
         CollectionSearch.Sort[] all = CollectionSearch.Sort.values();
-        int next = (query.sort().ordinal() + 1) % all.length;
-        if (next == 0 && !descending) {
-            descending = true;
-        } else if (next == 0) {
-            descending = false;
-        }
-        query = query.orderedBy(all[next]);
+        query = query.orderedBy(all[(query.sort().ordinal() + 1) % all.length]);
+        askFor(0);
+    }
+
+    private void flipDirection() {
+        descending = !descending;
         askFor(0);
     }
 
@@ -222,7 +237,19 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
 
     private void askFor(int wanted) {
         query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
-        ClientNetworking.send(new CollectionSearchPayload(where, query, descending, wanted));
+        ClientNetworking.send(
+                new CollectionSearchPayload(where, query, descending, wanted, rowsThatFit()));
+    }
+
+    /**
+     * How many rows this window has room for.
+     *
+     * <p>Sent with every search, because a page bigger than the box is rows nobody can see -
+     * and, worse, rows somebody can click on without seeing, since a click is a position and
+     * the list below the fold is still under the cursor.
+     */
+    private int rowsThatFit() {
+        return Math.max(1, (this.height - BOTTOM_BAR - TOP_BAR) / ROW_HEIGHT);
     }
 
     @Override
@@ -298,8 +325,7 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         }
 
         CollectionPagePayload.Row over = null;
-        int fits = Math.max(1, (bottom - top) / ROW_HEIGHT);
-        for (int index = 0; index < rows.size() && index < fits; index++) {
+        for (int index = 0; index < rows.size() && index < rowsThatFit(); index++) {
             CollectionPagePayload.Row row = rows.get(index);
             int y = top + index * ROW_HEIGHT;
             boolean hovered = mouseX >= MARGIN && mouseX < this.width - MARGIN
@@ -409,6 +435,10 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         // than one card out of a binder is taking.
         int howMany = button == 1 ? 4 : 1;
         ClientNetworking.send(new CollectionTakePayload(where, card, howMany));
+        // And then ask for the page again. Same connection, so the take is dealt with first;
+        // asking from here rather than being told keeps the search somebody is looking at in
+        // the one place that knows it.
+        askFor(page);
         GatheringButtons.clickSound();
         return true;
     }

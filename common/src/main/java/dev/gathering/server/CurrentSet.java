@@ -39,13 +39,29 @@ public final class CurrentSet {
     /**
      * How many releases back {@code "recent"} could ever reach.
      *
-     * <p>The config clamps its own number well under this; this is what the one fetch asks
-     * for, so raising the setting does not mean asking Scryfall again.
+     * <p>What the one fetch asks for. The config clamps its own number to this, so raising
+     * the setting never means asking Scryfall again.
      */
     private static final int MOST_RECENT_SETS = 64;
 
-    private static volatile CompletableFuture<List<SetRelease>> resolving =
-            CompletableFuture.completedFuture(List.of());
+    /**
+     * The whole answer: what the config pinned, and what Scryfall said is out.
+     *
+     * <p>One object rather than two fields. They are two halves of "which set is current" and
+     * a reader that caught the new list beside the old pin would get an answer neither of
+     * them gave.
+     */
+    private record Answer(Optional<String> pinned, CompletableFuture<List<SetRelease>> releases) {
+
+        static final Answer NOTHING =
+                new Answer(Optional.empty(), CompletableFuture.completedFuture(List.of()));
+
+        static Answer pinnedTo(Optional<String> code) {
+            return new Answer(code, CompletableFuture.completedFuture(List.of()));
+        }
+    }
+
+    private static volatile Answer answer = Answer.NOTHING;
 
     private CurrentSet() {
     }
@@ -61,11 +77,16 @@ public final class CurrentSet {
             // Nothing on this server cares which set is current, and asking anyway would be
             // a request every play-only server makes at every start for an answer nobody
             // reads.
-            resolving = CompletableFuture.completedFuture(List.of());
-            pinned = Optional.empty();
+            answer = Answer.NOTHING;
             return;
         }
         String configured = settings.collecting().currentSet();
+        Optional<String> pinned =
+                configured.equals(AUTO) ? Optional.empty() : SetCode.of(configured);
+        if (!configured.equals(AUTO) && pinned.isEmpty()) {
+            LOGGER.warn("collection.current_set is \"{}\", which is not a set code and not "
+                    + "\"auto\", so this server has no current set.", configured);
+        }
         // "current" alone is answered by a pinned set without asking anybody; "recent" is
         // the only thing that actually needs the list of releases.
         boolean wantsTheList = dev.gathering.core.sealed.LootSets
@@ -73,23 +94,19 @@ public final class CurrentSet {
         if (!configured.equals(AUTO) && !wantsTheList) {
             // Nothing on this server needs Scryfall's list: it named its current set, and its
             // loot draws from sets it named too.
-            Optional<String> named = SetCode.of(configured);
-            if (named.isEmpty()) {
-                LOGGER.warn("collection.current_set is \"{}\", which is not a set code and not "
-                        + "\"auto\", so this server has no current set.", configured);
-            }
-            pinned = named;
-            resolving = CompletableFuture.completedFuture(List.of());
+            answer = Answer.pinnedTo(pinned);
             return;
         }
 
         CardDataService cards = CardDataService.active().orElse(null);
         if (cards == null) {
-            resolving = CompletableFuture.completedFuture(List.of());
+            // No pipeline to ask with. A set the config named is still a set, so the pin is
+            // kept rather than thrown away with the list that was never going to arrive.
+            answer = Answer.pinnedTo(pinned);
             return;
         }
-        pinned = configured.equals(AUTO) ? Optional.empty() : SetCode.of(configured);
-        resolving = cards.premierSets(today(), MOST_RECENT_SETS).handle((sets, failure) -> {
+        answer = new Answer(pinned, cards.premierSets(today(), MOST_RECENT_SETS)
+                .handle((sets, failure) -> {
             if (failure != null) {
                 LOGGER.warn("Could not ask Scryfall which sets are out, so this server has no "
                         + "current set. Name one in collection.current_set to run without "
@@ -105,11 +122,8 @@ public final class CurrentSet {
                         sets.getFirst().name());
             }
             return sets;
-        });
+        }));
     }
-
-    /** A set code the config pinned, or empty where it said "auto". */
-    private static volatile Optional<String> pinned = Optional.empty();
 
     /**
      * The current set, once it is known.
@@ -119,8 +133,9 @@ public final class CurrentSet {
      * way it treats a set with no products: nothing to sell and nothing to drop.
      */
     public static CompletableFuture<Optional<String>> whenKnown() {
-        return resolving.thenApply(sets -> pinned.isPresent()
-                ? pinned
+        Answer now = answer;
+        return now.releases().thenApply(sets -> now.pinned().isPresent()
+                ? now.pinned()
                 : sets.stream().findFirst().map(SetRelease::code).flatMap(SetCode::of));
     }
 
@@ -131,7 +146,7 @@ public final class CurrentSet {
      * list the current set came from, so it costs nothing beyond the one request.
      */
     public static CompletableFuture<List<String>> recent(int howMany) {
-        return resolving.thenApply(sets -> sets.stream()
+        return answer.releases().thenApply(sets -> sets.stream()
                 .limit(Math.max(0, howMany))
                 .map(SetRelease::code)
                 .flatMap(code -> SetCode.of(code).stream())
@@ -140,8 +155,7 @@ public final class CurrentSet {
 
     /** Between servers, so one world's answer is not the next one's. */
     public static void clear() {
-        resolving = CompletableFuture.completedFuture(List.of());
-        pinned = Optional.empty();
+        answer = Answer.NOTHING;
     }
 
     /**

@@ -17,11 +17,31 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * can.
  */
 public record CollectionPagePayload(
-        BlockPos where, int page, int pages, int matched, List<CollectionPagePayload.Row> rows)
+        BlockPos where, int page, int pages, CollectionPagePayload.Counts counts,
+        List<CollectionPagePayload.Row> rows)
         implements CustomPacketPayload {
 
-    /** How many rows a page holds. A screenful, with room for a tall window. */
+    /** As many rows as a page may hold, however tall the window asking is. */
     public static final int ROWS_PER_PAGE = 60;
+
+    /**
+     * How big the collection is and how much of it this search found.
+     *
+     * <p>Sent with every page rather than once when the screen opens, because taking a card
+     * out changes it: a header still saying forty-four cards after four have left is a screen
+     * lying about the thing it is showing.
+     */
+    public record Counts(int total, int distinct, int matched) {
+
+        public static final Counts NOTHING = new Counts(0, 0, 0);
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, Counts> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.VAR_INT, Counts::total,
+                        ByteBufCodecs.VAR_INT, Counts::distinct,
+                        ByteBufCodecs.VAR_INT, Counts::matched,
+                        Counts::new);
+    }
 
     /**
      * One line: a card, how many, and what is known about it.
@@ -46,12 +66,13 @@ public record CollectionPagePayload(
                     BlockPos.STREAM_CODEC, CollectionPagePayload::where,
                     ByteBufCodecs.VAR_INT, CollectionPagePayload::page,
                     ByteBufCodecs.VAR_INT, CollectionPagePayload::pages,
-                    ByteBufCodecs.VAR_INT, CollectionPagePayload::matched,
+                    Counts.STREAM_CODEC, CollectionPagePayload::counts,
                     Row.STREAM_CODEC.apply(ByteBufCodecs.list(ROWS_PER_PAGE)),
                     CollectionPagePayload::rows,
                     CollectionPagePayload::new);
 
     public CollectionPagePayload {
+        counts = counts == null ? Counts.NOTHING : counts;
         rows = rows == null ? List.of() : List.copyOf(rows);
     }
 

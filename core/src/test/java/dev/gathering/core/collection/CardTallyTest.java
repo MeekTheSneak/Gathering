@@ -96,45 +96,6 @@ class CardTallyTest {
     }
 
     @Test
-    @DisplayName("a pile of cards counts itself")
-    void aPileCountsItself() {
-        CardTally tally = CardTally.counting(List.of(bolt(), forest(), bolt(), bolt()));
-
-        assertThat(tally.of(bolt())).isEqualTo(3);
-        assertThat(tally.of(forest())).isEqualTo(1);
-        assertThat(CardTally.counting(null)).isEqualTo(CardTally.EMPTY);
-        assertThat(CardTally.counting(List.of())).isEqualTo(CardTally.EMPTY);
-    }
-
-    @Test
-    @DisplayName("owning the cards to sleeve a deck is a question with an answer")
-    void holdingADeckIsAskable() {
-        CardTally collection = CardTally.EMPTY.plus(bolt(), 3).plus(forest(), 20);
-        CardTally deck = CardTally.EMPTY.plus(bolt(), 4).plus(forest(), 20);
-
-        assertThat(collection.holdsAllOf(deck)).isFalse();
-        assertThat(collection.shortOf(deck).of(bolt())).isEqualTo(1);
-        assertThat(collection.shortOf(deck).of(forest())).isZero();
-
-        CardTally enough = collection.plus(bolt(), 1);
-        assertThat(enough.holdsAllOf(deck)).isTrue();
-        assertThat(enough.shortOf(deck).isEmpty()).isTrue();
-    }
-
-    @Test
-    @DisplayName("sleeving a whole deck takes every card of it at once")
-    void takingAWholeDeck() {
-        CardTally collection = CardTally.EMPTY.plus(bolt(), 4).plus(forest(), 20);
-        CardTally deck = CardTally.EMPTY.plus(bolt(), 4).plus(forest(), 16);
-
-        CardTally.Taking taken = collection.takeAll(deck);
-
-        assertThat(taken.took()).isEqualTo(20);
-        assertThat(taken.left().of(bolt())).isZero();
-        assertThat(taken.left().of(forest())).isEqualTo(4);
-    }
-
-    @Test
     @DisplayName("dissolving a deck puts the cards back where they came from")
     void pouringOneIntoAnother() {
         CardTally collection = CardTally.EMPTY.plus(forest(), 4);

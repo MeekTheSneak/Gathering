@@ -1,9 +1,7 @@
 package dev.gathering.core.sealed;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -43,13 +41,13 @@ public final class BoosterOdds {
     }
 
     /** Whether a kind of booster is the rare one. */
-    public static boolean isCollector(String kind) {
+    private static boolean isCollector(String kind) {
         String named = named(kind);
         return named.equals("collector");
     }
 
     /** Whether a kind is a sample of the rare one. */
-    public static boolean isSample(String kind) {
+    private static boolean isSample(String kind) {
         return named(kind).equals("collector-sample");
     }
 
@@ -127,21 +125,6 @@ public final class BoosterOdds {
         // nothing: a pack that failed to come out because of arithmetic is worse than a
         // slightly likelier draft booster.
         return last;
-    }
-
-    /** Every kind on offer, for a caller that has products rather than names. */
-    public static List<String> kindsOf(Collection<SealedProduct> boosters) {
-        List<String> kinds = new ArrayList<>();
-        if (boosters == null) {
-            return kinds;
-        }
-        for (SealedProduct booster : boosters) {
-            SealedProduct.Booster names = booster == null ? null : booster.asBooster();
-            if (names != null && !kinds.contains(names.kind())) {
-                kinds.add(names.kind());
-            }
-        }
-        return kinds;
     }
 
     private static String named(String kind) {

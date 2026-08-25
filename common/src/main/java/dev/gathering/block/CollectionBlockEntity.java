@@ -118,21 +118,6 @@ public class CollectionBlockEntity extends BlockEntity {
         return taken.took();
     }
 
-    /** Everything, out at once - what breaking the block does. */
-    public CardTally emptyOut() {
-        CardTally held = cards;
-        if (!held.isEmpty()) {
-            cards = CardTally.EMPTY;
-            setChanged();
-        }
-        return held;
-    }
-
-    public void setCards(CardTally newCards) {
-        this.cards = CardTally.orEmpty(newCards);
-        setChanged();
-    }
-
     // ------------------------------------------------------------ on the disk
 
     @Override

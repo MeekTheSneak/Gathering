@@ -50,10 +50,41 @@ public final class CollectionView {
     /** How far from a collection somebody may be and still be at it. */
     private static final double WITHIN = 8.0;
 
+    /**
+     * At most one search per player per tick.
+     *
+     * <p>A search is a pass over everything in the collection and a sort of what matched, on
+     * the server thread, asked for by a packet a client sends whenever it likes. Ten thousand
+     * cards is a few milliseconds; ten thousand cards a thousand times a second is a server
+     * nobody can play on.
+     *
+     * <p>One tick rather than a comfortable-looking number on purpose. Anything slower would
+     * drop the refresh after a card is taken when somebody is clicking quickly, which is a
+     * screen going stale to defend against something nobody doing that is doing. Two searches
+     * inside one tick cannot come from a person at all.
+     */
+    private static final int TICKS_BETWEEN_SEARCHES = 1;
+
+    /**
+     * When each player last searched. Server thread only.
+     *
+     * <p>Emptied rather than pruned when it grows past a server's worth of players: the
+     * entries are a UUID and an int, and forgetting them all costs one player one extra
+     * search.
+     */
+    private static final int MOST_REMEMBERED = 512;
+    private static final Map<UUID, Integer> LAST_SEARCH = new java.util.HashMap<>();
+
     private CollectionView() {
     }
 
-    /** Opens a collection for somebody, and sends them its first page. */
+    /**
+     * Opens a collection for somebody.
+     *
+     * <p>No cards with it. The screen asks for its first page itself, once it knows how tall
+     * it is - a page sent before then would be sized for a window nobody has measured, and
+     * would be thrown away by the one the screen asks for a moment later.
+     */
     public static void open(ServerPlayer player, BlockPos where, CollectionBlockEntity collection) {
         UUID who = player.getUUID();
         player.connection.send(new ClientboundCustomPayloadPacket(new OpenCollectionPayload(
@@ -63,21 +94,23 @@ public final class CollectionView {
                 collection.cards().distinct(),
                 collection.rights().mayTake(who),
                 collection.rights().mayAdd(who))));
-        search(player, where, CollectionQuery.EVERYTHING, false, 0);
     }
 
     /** Answers one search with one page. */
     public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
-            boolean descending, int page) {
+            boolean descending, int page, int rowsThatFit) {
         CollectionBlockEntity collection = at(player, where);
-        if (collection == null) {
+        if (collection == null || tooSoon(player)) {
             return;
         }
         List<CollectionSearch.Row> rows = rowsOf(collection.cards());
         List<CollectionSearch.Row> found =
                 CollectionSearch.run(rows, query.asSearch(descending));
 
-        int perPage = CollectionPagePayload.ROWS_PER_PAGE;
+        // As many as the window asking has room for, and never more than a page holds. A
+        // page larger than the box is rows nobody can see and rows somebody can click on
+        // without seeing.
+        int perPage = Math.clamp(rowsThatFit, 1, CollectionPagePayload.ROWS_PER_PAGE);
         int pages = Math.max(1, (found.size() + perPage - 1) / perPage);
         int showing = Math.clamp(page, 0, pages - 1);
         int from = showing * perPage;
@@ -95,8 +128,11 @@ public final class CollectionView {
                 row.card().printing().ifPresent(unnamed::add);
             }
         }
-        player.connection.send(new ClientboundCustomPayloadPacket(
-                new CollectionPagePayload(where, showing, pages, found.size(), sending)));
+        player.connection.send(new ClientboundCustomPayloadPacket(new CollectionPagePayload(
+                where, showing, pages,
+                new CollectionPagePayload.Counts(
+                        collection.cards().total(), collection.cards().distinct(), found.size()),
+                sending)));
 
         // Whatever this page could not name is looked up now, so a second look at the same
         // page has it. Only this page: a collection of ten thousand cards nobody has ever
@@ -112,6 +148,11 @@ public final class CollectionView {
      * what sleeving is: you do not carry forty loose cards from the binder to the table, you
      * put them in the deck as you pick them. Holding a deck is the whole of the gesture -
      * there is no mode to switch into and nothing to press first.
+     *
+     * <p>Takes and says nothing back. The screen asks for a fresh page itself, because the
+     * screen is where the search somebody is looking at actually lives: a page pushed from
+     * here would have to guess at it, and guessing wrong means every card taken throws the
+     * player back to the top of an unfiltered list.
      */
     public static int take(ServerPlayer player, BlockPos where, CardComponent card, int howMany) {
         CollectionBlockEntity collection = at(player, where);
@@ -140,23 +181,6 @@ public final class CollectionView {
             }
         }
         return took;
-    }
-
-    /**
-     * The same, and then the screen is told what the collection looks like now.
-     *
-     * <p>What a click on a row actually runs. Separate from the taking because the taking is
-     * a thing that happens to a collection and the sending is a thing that happens to a
-     * connection: they fail differently, they are checked differently, and a page pushed at
-     * whoever asked is not part of what it means to take a card.
-     */
-    public static void takeAndShow(
-            ServerPlayer player, BlockPos where, CardComponent card, int howMany) {
-        if (take(player, where, card, howMany) > 0) {
-            // The screen is showing a page that has just changed underneath it, so it gets a
-            // fresh one rather than being left to guess.
-            search(player, where, CollectionQuery.EVERYTHING, false, 0);
-        }
     }
 
     /**
@@ -228,6 +252,27 @@ public final class CollectionView {
     }
 
     // ------------------------------------------------------------------ bits
+
+    /**
+     * Whether this player has searched too recently to search again.
+     *
+     * <p>Silently, because the only thing that can hit it is a client asking faster than a
+     * person can press a button, and a screen that said "slow down" to somebody who did
+     * nothing would be answering a question they never asked. A dropped search is followed
+     * by another one the moment they touch anything.
+     */
+    private static boolean tooSoon(ServerPlayer player) {
+        int now = player.server.getTickCount();
+        Integer last = LAST_SEARCH.get(player.getUUID());
+        if (last != null && now - last < TICKS_BETWEEN_SEARCHES && now >= last) {
+            return true;
+        }
+        if (LAST_SEARCH.size() >= MOST_REMEMBERED) {
+            LAST_SEARCH.clear();
+        }
+        LAST_SEARCH.put(player.getUUID(), now);
+        return false;
+    }
 
     /**
      * The collection this player is standing at, or null.
