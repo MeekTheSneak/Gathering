@@ -39,7 +39,7 @@ public record SealedProduct(
             List<Booster> boosters,
             List<Held> holds,
             List<CardIdentity> cards,
-            List<String> decks,
+            List<InDeck> decks,
             List<String> extras) {
 
         public Contents {
@@ -52,6 +52,22 @@ public record SealedProduct(
 
         public boolean isEmpty() {
             return boosters.isEmpty() && holds.isEmpty() && cards.isEmpty() && decks.isEmpty();
+        }
+    }
+
+    /**
+     * A deck that comes in the box, named rather than listed.
+     *
+     * <p>The published data puts a precon's hundred cards elsewhere in the same file and names
+     * them here, so a product on its own says a deck is in the box and not what is in the
+     * deck. By name and set, because that is the whole of what the product says and because
+     * two sets have each published a deck called "Peace Offering".
+     */
+    public record InDeck(String name, String setCode) {
+
+        public InDeck {
+            name = name == null ? "" : name.trim();
+            setCode = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
         }
     }
 

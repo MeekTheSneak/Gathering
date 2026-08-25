@@ -48,9 +48,11 @@ class SealedPriceTest {
     private static final SealedProduct PRECON = new SealedProduct(
             "precon", "Test Commander Deck", "tst", "commander_deck", "default", 100,
             new SealedProduct.Contents(
-                    List.of(), List.of(), List.of(), List.of("Test Commander Deck"), List.of()));
+                    List.of(), List.of(), List.of(),
+                    List.of(new SealedProduct.InDeck("Test Commander Deck", "tst")),
+                    List.of()));
 
-    private static final SealedPrice.Catalogue CATALOGUE = catalogue(PACK, COLLECTOR, BOX, CASE);
+    private static final SealedCatalogue CATALOGUE = Catalogues.of(PACK, COLLECTOR, BOX, CASE);
 
     @Test
     @DisplayName("a booster is the unit")
@@ -100,21 +102,19 @@ class SealedPriceTest {
                         List.of(), List.of(), List.of()));
 
         assertThat(SealedPrice.inBoosters(strange, CATALOGUE)).isEqualTo(12);
-        assertThat(SealedPrice.inBoosters(strange, SealedPrice.Catalogue.EMPTY)).isEqualTo(12);
+        assertThat(SealedPrice.inBoosters(strange, SealedCatalogue.EMPTY)).isEqualTo(12);
     }
 
     @Test
     @DisplayName("a product that holds itself does not hang the server")
     void nestingIsBounded() {
-        Map<String, SealedProduct> loop = new LinkedHashMap<>();
         SealedProduct itself = new SealedProduct(
                 "loop", "A box of itself", "tst", "case", "play", 0,
                 new SealedProduct.Contents(
                         List.of(), List.of(new SealedProduct.Held("loop", "itself", 2)),
                         List.of(), List.of(), List.of()));
-        loop.put("loop", itself);
 
-        int worth = SealedPrice.inBoosters(itself, loop::get);
+        int worth = SealedPrice.inBoosters(itself, Catalogues.of(itself));
 
         assertThat(worth).isPositive();
         assertThat(worth).isLessThan(1000);
@@ -151,7 +151,7 @@ class SealedPriceTest {
                 new SealedProduct.Contents(
                         List.of(),
                         List.of(new SealedProduct.Held("pack-collector", "Sample", 1)),
-                        List.of(), List.of("Test Commander Deck"),
+                        List.of(), List.of(new SealedProduct.InDeck("Test Commander Deck", "tst")),
                         List.of("spinning life counter", "paper deck box")));
 
         assertThat(SealedPrice.inBoosters(precon, CATALOGUE)).isEqualTo(8);
@@ -164,18 +164,30 @@ class SealedPriceTest {
         SealedProduct redemption = new SealedProduct(
                 "redemption", "Test MTGO Redemption", "tst", "box_set", "mtgo_redemption", 281,
                 new SealedProduct.Contents(
-                        List.of(), List.of(), List.of(), List.of("Test Redemption"), List.of()));
+                        List.of(), List.of(), List.of(),
+                        List.of(new SealedProduct.InDeck("Test Redemption", "tst")),
+                        List.of()));
 
         assertThat(SealedPrice.isSellable(redemption)).isFalse();
     }
 
     @Test
-    @DisplayName("what a shop will sell is what the data actually describes")
-    void onlyPublishedProductsAreSold() {
+    @DisplayName("what a shop will sell is anything with something in the box")
+    void onlyRealBoxesAreSold() {
         assertThat(SealedPrice.isSellable(PACK)).isTrue();
         assertThat(SealedPrice.isSellable(BOX)).isTrue();
         assertThat(SealedPrice.isSellable(BUNDLE)).isTrue();
         assertThat(SealedPrice.isSellable(PRECON)).isTrue();
+
+        // Whatever MTGJSON happens to call it. There was a list of categories here and it
+        // sold a case of fifteen prerelease packs while refusing one prerelease pack, because
+        // only the first is called a "case".
+        SealedProduct kit = new SealedProduct(
+                "kit", "Test Prerelease Pack", "tst", "limited_aid_tool", "prerelease_kit", 0,
+                new SealedProduct.Contents(
+                        List.of(new SealedProduct.Booster("tst", "prerelease")),
+                        List.of(), List.of(), List.of(), List.of("spindown")));
+        assertThat(SealedPrice.isSellable(kit)).isTrue();
 
         SealedProduct empty = new SealedProduct(
                 "art", "An art print", "tst", "art_series", "default", 0, null);
@@ -194,11 +206,4 @@ class SealedPriceTest {
                         List.of(), List.of(), List.of(), List.of()));
     }
 
-    private static SealedPrice.Catalogue catalogue(SealedProduct... products) {
-        Map<String, SealedProduct> byId = new LinkedHashMap<>();
-        for (SealedProduct product : products) {
-            byId.put(product.productId(), product);
-        }
-        return byId::get;
-    }
 }

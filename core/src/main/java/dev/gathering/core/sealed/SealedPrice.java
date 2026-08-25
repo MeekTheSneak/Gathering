@@ -52,7 +52,7 @@ public final class SealedPrice {
     }
 
     /** What a product is worth, in the item a server prices in. */
-    public static int of(SealedProduct product, Catalogue catalogue, int perBooster) {
+    public static int of(SealedProduct product, SealedCatalogue catalogue, int perBooster) {
         return Math.max(CHEAPEST, inBoosters(product, catalogue) * Math.max(1, perBooster));
     }
 
@@ -62,22 +62,11 @@ public final class SealedPrice {
      * <p>The unit, kept apart from the money so it can be argued about without anybody having
      * to agree on what a diamond is worth.
      */
-    public static int inBoosters(SealedProduct product, Catalogue catalogue) {
+    public static int inBoosters(SealedProduct product, SealedCatalogue catalogue) {
         return inBoosters(product, catalogue, MOST_NESTING);
     }
 
-    /** Where the other products a box holds are looked up. */
-    @FunctionalInterface
-    public interface Catalogue {
-
-        /** The product with this published id, or null. */
-        SealedProduct byId(String productId);
-
-        /** A catalogue with nothing in it, for a product that holds nothing. */
-        Catalogue EMPTY = productId -> null;
-    }
-
-    private static int inBoosters(SealedProduct product, Catalogue catalogue, int depth) {
+    private static int inBoosters(SealedProduct product, SealedCatalogue catalogue, int depth) {
         if (product == null) {
             return CHEAPEST;
         }
@@ -106,13 +95,13 @@ public final class SealedPrice {
         // Exact cards - a bundle's foil promo, a Secret Lair's four.
         worth += asBoosters(product.contents().cards().size());
 
-        // And decks. The data names a deck rather than listing it, so the product's own card
-        // count is what there is to go on - which is the right number anyway, because that is
-        // what the deck is. Added to what else is in the box rather than instead of it: a
-        // Commander deck that comes with a sample pack is a deck and a sample pack, and
-        // pricing it as one of them was a hundred cards going for two boosters.
+        // And decks. Their real length where the catalogue has read them, and the product's
+        // own card count where it has not - which is close, because that count is mostly the
+        // deck. Added to what else is in the box rather than instead of it: a Commander deck
+        // that comes with a sample pack is a deck and a sample pack, and pricing it as one of
+        // them had a hundred cards going for two boosters.
         if (!product.contents().decks().isEmpty()) {
-            worth += asBoosters(product.cardCount());
+            worth += asBoosters(deckCards(product, catalogue));
         }
 
         // Nothing said about what is inside at all. Its card count is the last thing to go on,
@@ -121,6 +110,20 @@ public final class SealedPrice {
             worth = asBoosters(product.cardCount());
         }
         return Math.max(CHEAPEST, worth);
+    }
+
+    /** How long the decks in a box are, or the box's own card count where they are unread. */
+    private static int deckCards(SealedProduct product, SealedCatalogue catalogue) {
+        int cards = 0;
+        for (SealedProduct.InDeck named : product.contents().decks()) {
+            SealedDeck deck = catalogue == null
+                    ? null : catalogue.deck(named.setCode(), named.name());
+            if (deck == null) {
+                return product.cardCount();
+            }
+            cards += deck.size();
+        }
+        return cards;
     }
 
     /** How many boosters a loose pile of cards is worth, rounded up so nothing is free. */
@@ -134,9 +137,16 @@ public final class SealedPrice {
     /**
      * Whether a product is one this shop will ever sell.
      *
-     * <p>Sealed only, which is every product in the published data: what the line actually
-     * excludes is anything the mod would have to invent. A category nobody publishes is not
-     * something to guess a price for.
+     * <p>Two questions, and neither of them is what the data calls it. Is there anything
+     * inside it at all - an art series and a subset are catalogue entries rather than boxes -
+     * and does it exist on paper.
+     *
+     * <p>Not a list of categories. There was one, and it sold a case of fifteen prerelease
+     * packs while refusing a single prerelease pack, because MTGJSON calls one
+     * {@code limited_aid_case} and the other {@code limited_aid_tool} and only the first
+     * happens to contain the word "case". Whether the mod can actually hand a thing over is
+     * the question that matters and {@link SealedContents} answers it; a second list of words
+     * to keep in step with somebody else's vocabulary only ever disagreed with it.
      */
     public static boolean isSellable(SealedProduct product) {
         if (product == null || product.contents().isEmpty()) {
@@ -151,15 +161,6 @@ public final class SealedPrice {
                 return false;
             }
         }
-        String category = product.category().toLowerCase(Locale.ROOT);
-        // Named rather than excluded: a category added later is not sold until somebody has
-        // looked at it, which is the safe direction for a thing that takes people's diamonds.
-        return category.contains("booster")
-                || category.contains("bundle")
-                || category.contains("deck")
-                || category.contains("box")
-                || category.contains("case")
-                || category.contains("kit")
-                || category.contains("pack");
+        return true;
     }
 }

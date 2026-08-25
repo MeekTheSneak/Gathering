@@ -129,11 +129,11 @@ public final class MtgjsonProducts {
             throw new BoosterCodecException(where + ": 'contents' is not an object");
         }
         return new SealedProduct(productId, name, own, category, subtype, cards,
-                contents(contents.getAsJsonObject(), where, printings, notes));
+                contents(contents.getAsJsonObject(), setCode, where, printings, notes));
     }
 
-    private static SealedProduct.Contents contents(
-            JsonObject json, String where, Map<String, UUID> printings, List<String> notes)
+    private static SealedProduct.Contents contents(JsonObject json, String setCode, String where,
+            Map<String, UUID> printings, List<String> notes)
             throws BoosterCodecException {
         List<SealedProduct.Booster> boosters = new ArrayList<>();
         for (JsonObject entry : listOf(json, "pack", where)) {
@@ -167,9 +167,14 @@ public final class MtgjsonProducts {
                     + "and were left out");
         }
 
-        List<String> decks = new ArrayList<>();
+        // Named, not listed. What is actually in it lives further down the same file and is
+        // read by MtgjsonDecks; the set is carried along because a starter kit names decks
+        // that belong to a different set from the box.
+        List<SealedProduct.InDeck> decks = new ArrayList<>();
         for (JsonObject entry : listOf(json, "deck", where)) {
-            decks.add(text(entry, "name"));
+            String named = text(entry, "set");
+            decks.add(new SealedProduct.InDeck(
+                    text(entry, "name"), named.isEmpty() ? setCode : named));
         }
 
         // The dice, the storage box, the reference cards. Kept by name so a product can say

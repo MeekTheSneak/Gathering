@@ -164,7 +164,8 @@ class MtgjsonRealSetTest {
             JsonObject json = read(file);
             var products = dev.gathering.core.sealed.MtgjsonProducts.read(
                     json, MtgjsonCollation.printings(json));
-            dev.gathering.core.sealed.SealedPrice.Catalogue catalogue = products::byId;
+            dev.gathering.core.sealed.SealedCatalogue catalogue =
+                    dev.gathering.core.sealed.SealedCatalogue.of(products);
             for (var product : products.products()) {
                 if (!dev.gathering.core.sealed.SealedPrice.isSellable(product)) {
                     continue;

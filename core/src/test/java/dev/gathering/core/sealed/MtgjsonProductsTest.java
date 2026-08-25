@@ -88,7 +88,10 @@ class MtgjsonProductsTest {
         assertThat(bundle.contents().cards().get(0).scryfallId())
                 .isEqualTo(UUID.fromString(PROMO));
         assertThat(bundle.contents().cards().get(0).foil()).isTrue();
-        assertThat(bundle.contents().decks()).containsExactly("Test Bundle Land Pack");
+        // Named and not listed, and the set it belongs to comes along with the name: a
+        // starter kit names decks published beside it rather than in its own file.
+        assertThat(bundle.contents().decks()).containsExactly(
+                new SealedProduct.InDeck("Test Bundle Land Pack", "tst"));
         // Kept by name so a product can say what was in the box, and never handed to anybody.
         assertThat(bundle.contents().extras()).containsExactly("Spindown", "Card-storage box");
         assertThat(bundle.isOneBooster()).isFalse();
