@@ -64,14 +64,10 @@ public final class CardDataService implements AutoCloseable {
                 source, new dev.gathering.core.deck.ArchidektDeckSource(new JdkHttpTransport(), userAgent));
     }
 
-    /** Builds the service from what the loader knows about this installation. */
-    public static CardDataService create(Platform platform) throws IOException {
-        return new CardDataService(platform.dataDirectory().resolve(CACHE_DIRECTORY), userAgentFor(platform));
-    }
-
-    /** Builds the service and makes it the running server's, in one step. */
+    /** Builds the service from what the loader knows, and makes it the running server's. */
     public static CardDataService start(Platform platform) throws IOException {
-        CardDataService service = create(platform);
+        CardDataService service = new CardDataService(
+                platform.dataDirectory().resolve(CACHE_DIRECTORY), userAgentFor(platform));
         active = service;
         return service;
     }

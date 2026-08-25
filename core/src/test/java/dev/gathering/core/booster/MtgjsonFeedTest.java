@@ -138,14 +138,17 @@ class MtgjsonFeedTest {
 
     @Test
     @DisplayName("a set file that is not JSON says so and leaves nothing cached")
-    void aReplyThatIsNotJsonIsRefused() {
+    void aReplyThatIsNotJsonIsRefused() throws Exception {
         FakeHttpTransport transport = new FakeHttpTransport().reply(200, "<html>nope</html>");
 
         assertThatThrownBy(() -> feed(transport).collationFor("tst"))
                 .isInstanceOf(FetchException.class)
                 .hasMessageContaining("not JSON");
-        assertThat(cache.resolve("TST.json")).doesNotExist();
-        assertThat(cache.resolve("TST.json.part")).doesNotExist();
+        // Nothing at all, not just no set file: a half-written temporary left behind is a
+        // cache directory that grows every time somebody's proxy returns a login page.
+        try (java.util.stream.Stream<Path> left = Files.list(cache)) {
+            assertThat(left).isEmpty();
+        }
     }
 
     // ------------------------------------------------------------------- bits

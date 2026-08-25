@@ -201,11 +201,16 @@ public final class MtgjsonFeed {
                     reply.status());
         }
         JsonObject file = parse(body, code);
-        Path temporary = cacheRoot.resolve(code + ".json.part");
-        Files.writeString(temporary, body, StandardCharsets.UTF_8);
-        // Moved into place rather than written in place, so a fetch cut off half way through
-        // leaves the previous file rather than a broken one.
-        Files.move(temporary, cached, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        // Written somewhere else and moved into place, so a fetch cut off half way through
+        // leaves the previous file rather than a broken one - and to a name of its own, so
+        // two callers after the same set cannot write into each other's.
+        Path temporary = Files.createTempFile(cacheRoot, code + "-", ".part");
+        try {
+            Files.writeString(temporary, body, StandardCharsets.UTF_8);
+            Files.move(temporary, cached, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
         return Optional.of(file);
     }
 

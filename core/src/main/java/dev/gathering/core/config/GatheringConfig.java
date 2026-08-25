@@ -64,6 +64,32 @@ public record GatheringConfig(
         notes = notes == null ? List.of() : List.copyOf(notes);
     }
 
+    /**
+     * Settings the file describes and this version does not act on yet, and what is missing.
+     *
+     * <p>The file is written from the design rather than from what happens to be finished, so
+     * a server owner can see the shape of the thing. That is only honest as long as changing
+     * one of these says so: a setting that is read, kept, and never consulted is a server
+     * running differently from the file its owner is reading, which is the one failure a
+     * config file cannot recover from.
+     *
+     * <p>Entries come off this list as the feature behind them lands.
+     */
+    private static final java.util.Map<String, String> NOT_BUILT_YET = java.util.Map.ofEntries(
+            java.util.Map.entry("collection.pack_loot_sources", "sealed product in loot"),
+            java.util.Map.entry("collection.sealed_store_enabled", "the shop"),
+            java.util.Map.entry("collection.sealed_price_item", "the shop"),
+            java.util.Map.entry("collection.current_set", "the shop's pinned shelf"),
+            java.util.Map.entry("collection.stall_rotation_hours", "the rotating shelf"),
+            java.util.Map.entry("collection.stall_rotating_slots", "the rotating shelf"),
+            java.util.Map.entry("table.max_tables_loaded", "a limit on tables kept loaded"),
+            java.util.Map.entry("table.max_cluster_tables", "a cluster cap other than four"),
+            java.util.Map.entry("table.max_cards_per_session", "a limit on cards in a session"),
+            java.util.Map.entry("ante.enabled", "playing for keeps"),
+            java.util.Map.entry("ante.cards_per_player", "playing for keeps"),
+            java.util.Map.entry("ante.exclusions", "playing for keeps"),
+            java.util.Map.entry("ante.allow_per_table_opt_out", "playing for keeps"));
+
     /** Every setting name this understands, so a typo in the file can be spotted. */
     public static Set<String> knownKeys() {
         return new LinkedHashSet<>(List.of(
@@ -107,24 +133,37 @@ public record GatheringConfig(
                 List.copyOf(toml.strings("import.formats", List.of("commander"))));
 
         Collecting collecting = new Collecting(
-                List.copyOf(toml.strings("collection.pack_loot_sources",
-                        List.of("fishing", "structures", "trading"))),
-                toml.flag("collection.sealed_store_enabled", true),
-                toml.string("collection.sealed_price_item", "minecraft:diamond"),
-                toml.string("collection.current_set", "auto").trim().toLowerCase(Locale.ROOT),
-                clamped(toml.number("collection.stall_rotation_hours", 4), 1, 24 * 7,
-                        "collection.stall_rotation_hours", notes),
-                clamped(toml.number("collection.stall_rotating_slots", 6), 1, 32,
-                        "collection.stall_rotating_slots", notes),
+                noted("collection.pack_loot_sources",
+                        List.copyOf(toml.strings("collection.pack_loot_sources",
+                                List.of("fishing", "structures", "trading"))),
+                        List.of("fishing", "structures", "trading"), notes),
+                noted("collection.sealed_store_enabled",
+                        toml.flag("collection.sealed_store_enabled", true), true, notes),
+                noted("collection.sealed_price_item",
+                        toml.string("collection.sealed_price_item", "minecraft:diamond"),
+                        "minecraft:diamond", notes),
+                noted("collection.current_set",
+                        toml.string("collection.current_set", "auto").trim().toLowerCase(Locale.ROOT),
+                        "auto", notes),
+                noted("collection.stall_rotation_hours",
+                        clamped(toml.number("collection.stall_rotation_hours", 4), 1, 24 * 7,
+                                "collection.stall_rotation_hours", notes), 4, notes),
+                noted("collection.stall_rotating_slots",
+                        clamped(toml.number("collection.stall_rotating_slots", 6), 1, 32,
+                                "collection.stall_rotating_slots", notes), 6, notes),
                 toml.string("collection.booster_model", "play").trim().toLowerCase(Locale.ROOT));
 
         Tables tables = new Tables(
-                clamped(toml.number("table.max_tables_loaded", 16), 1, 256,
-                        "table.max_tables_loaded", notes),
-                clamped(toml.number("table.max_cluster_tables", TableCluster.MAX_TABLES),
-                        1, TableCluster.MAX_TABLES, "table.max_cluster_tables", notes),
-                clamped(toml.number("table.max_cards_per_session", 1600), 100, 20_000,
-                        "table.max_cards_per_session", notes));
+                noted("table.max_tables_loaded",
+                        clamped(toml.number("table.max_tables_loaded", 16), 1, 256,
+                                "table.max_tables_loaded", notes), 16, notes),
+                noted("table.max_cluster_tables",
+                        clamped(toml.number("table.max_cluster_tables", TableCluster.MAX_TABLES),
+                                1, TableCluster.MAX_TABLES, "table.max_cluster_tables", notes),
+                        TableCluster.MAX_TABLES, notes),
+                noted("table.max_cards_per_session",
+                        clamped(toml.number("table.max_cards_per_session", 1600), 100, 20_000,
+                                "table.max_cards_per_session", notes), 1600, notes));
 
         boolean anteWanted = toml.flag("ante.enabled", false);
         if (anteWanted && !collectionEnabled) {
@@ -135,11 +174,15 @@ public record GatheringConfig(
             anteWanted = false;
         }
         Ante ante = new Ante(
-                anteWanted,
-                clamped(toml.number("ante.cards_per_player", 1), 1, 10, "ante.cards_per_player",
-                        notes),
-                List.copyOf(toml.strings("ante.exclusions", List.of("basic lands"))),
-                toml.flag("ante.allow_per_table_opt_out", true));
+                noted("ante.enabled", anteWanted, false, notes),
+                noted("ante.cards_per_player",
+                        clamped(toml.number("ante.cards_per_player", 1), 1, 10,
+                                "ante.cards_per_player", notes), 1, notes),
+                noted("ante.exclusions",
+                        List.copyOf(toml.strings("ante.exclusions", List.of("basic lands"))),
+                        List.of("basic lands"), notes),
+                noted("ante.allow_per_table_opt_out",
+                        toml.flag("ante.allow_per_table_opt_out", true), true, notes));
 
         for (String unknown : toml.unknownKeys(knownKeys())) {
             notes.add("'" + unknown + "' is not a setting this version knows about");
@@ -152,6 +195,21 @@ public record GatheringConfig(
     /** Whether this player may turn a decklist into a deck out of nothing. */
     public boolean mayImport(boolean isOperator) {
         return modes.importEnabled() && (importing.allowAllPlayers() || isOperator);
+    }
+
+    /**
+     * A value, and a note if changing it will not have changed anything.
+     *
+     * <p>Compared against the default rather than against whether the file mentions it,
+     * because the file this mod writes mentions every setting - so "is it in the file" would
+     * mean a fresh server reporting a dozen things it has not been asked to do.
+     */
+    private static <T> T noted(String path, T value, T fallback, List<String> notes) {
+        String missing = NOT_BUILT_YET.get(path);
+        if (missing != null && !java.util.Objects.equals(value, fallback)) {
+            notes.add("'" + path + "' is set, but " + missing + " is not built yet");
+        }
+        return value;
     }
 
     private static int clamped(int value, int least, int most, String path, List<String> notes) {
@@ -195,6 +253,10 @@ public record GatheringConfig(
                 formats = ["commander"]
 
                 [collection]
+                # Most of this section describes where collecting is going rather than where it
+                # is: the shop and the loot are not built yet, and changing a setting for one of
+                # them says so in the log rather than doing nothing quietly.
+                #
                 # Where sealed product turns up. Needs collection_enabled.
                 pack_loot_sources = ["fishing", "structures", "trading"]
                 # Shops sell sealed product only, never single cards, at flat prices you set.
@@ -207,14 +269,15 @@ public record GatheringConfig(
                 booster_model = "play"
 
                 [table]
+                # Not enforced yet; the shapes and counts here are what they will be enforced at.
                 # Counted in clusters, not in blocks.
                 max_tables_loaded = 16
                 max_cluster_tables = 4
                 max_cards_per_session = 1600
 
                 [ante]
-                # Playing for keeps. Needs collection_enabled, and every player at the table has
-                # to agree before a game with it on can start.
+                # Playing for keeps. Not built yet. Needs collection_enabled, and every player at
+                # the table will have to agree before a game with it on can start.
                 enabled = false
                 cards_per_player = 1
                 exclusions = ["basic lands"]

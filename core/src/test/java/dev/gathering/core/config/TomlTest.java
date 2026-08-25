@@ -48,6 +48,18 @@ class TomlTest {
     }
 
     @Test
+    @DisplayName("a dotted setting name means what the section would have meant")
+    void dottedKeysAreThePathTheySpell() throws Exception {
+        Toml toml = Toml.read("modes.import_enabled = false\n");
+        assertThat(toml.has("modes.import_enabled")).isTrue();
+        assertThat(toml.flag("modes.import_enabled", true)).isFalse();
+
+        // And under a section, the two join up rather than one replacing the other.
+        Toml nested = Toml.read("[collection]\nfoo.bar = 1\n");
+        assertThat(nested.number("collection.foo.bar", 0)).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("a setting nobody asked about is reported rather than dropped")
     void unknownSettingsAreReported() throws Exception {
         Toml toml = Toml.read("""
@@ -125,6 +137,9 @@ class TomlTest {
         assertMalformed("[]\n", 1, "section with no name");
         assertMalformed("[a b!]\n", 1, "not a section name");
         assertMalformed("a b! = 1\n", 1, "not a setting name");
+        assertMalformed(".a = 1\n", 1, "not a setting name");
+        assertMalformed("a. = 1\n", 1, "not a setting name");
+        assertMalformed("a..b = 1\n", 1, "not a setting name");
         assertMalformed("a =\n", 1, "has no value");
         assertMalformed("a = yes\n", 1, "which is not true, false");
         assertMalformed("a = \"unclosed\n", 1, "never closes it");

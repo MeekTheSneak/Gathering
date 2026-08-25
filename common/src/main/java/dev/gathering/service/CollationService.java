@@ -52,15 +52,11 @@ public final class CollationService implements AutoCloseable {
                 new JdkHttpTransport(), RateLimiter.defaultLimiter(), userAgent, cacheRoot);
     }
 
-    public static CollationService create(Platform platform) throws IOException {
-        return new CollationService(
-                platform.dataDirectory().resolve(CACHE_DIRECTORY),
-                CardDataService.userAgentFor(platform));
-    }
-
     /** Builds the service and makes it the running server's, in one step. */
     public static CollationService start(Platform platform) throws IOException {
-        CollationService service = create(platform);
+        CollationService service = new CollationService(
+                platform.dataDirectory().resolve(CACHE_DIRECTORY),
+                CardDataService.userAgentFor(platform));
         active = service;
         return service;
     }
@@ -99,6 +95,18 @@ public final class CollationService implements AutoCloseable {
                 throw new java.util.concurrent.CompletionException(couldNotRead);
             }
         }, executor);
+    }
+
+    /**
+     * The thread this service's blocking work happens on.
+     *
+     * <p>Exposed so a caller composing more work onto a collation future can say where it
+     * runs. Without that, a future this service has already completed - which is every set
+     * read once - runs whatever is chained onto it on the thread that asked, and the thread
+     * that asks is the server thread.
+     */
+    public java.util.concurrent.Executor worker() {
+        return executor;
     }
 
     @Override

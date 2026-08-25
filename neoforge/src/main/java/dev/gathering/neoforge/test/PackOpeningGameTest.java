@@ -170,6 +170,31 @@ public final class PackOpeningGameTest {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void askingForAKindASetDoesNotHaveSaysSoRatherThanBlamingTheSet(
+            GameTestHelper helper) {
+        MtgjsonCollation.Reading has = reading("draft");
+        MtgjsonCollation.Reading hasNothing =
+                new MtgjsonCollation.Reading("tst", Map.of(), List.of(), List.of());
+
+        String wrongKind = PackOpening.whyNothingOpened(has, "collector");
+        if (!"message.gathering.pack_no_such_kind".equals(wrongKind)) {
+            helper.fail("Asking a set with boosters for a kind it lacks said " + wrongKind);
+            return;
+        }
+        String noBoosters = PackOpening.whyNothingOpened(hasNothing, "collector");
+        if (!"message.gathering.pack_no_collation".equals(noBoosters)) {
+            helper.fail("A set with no boosters at all said " + noBoosters);
+            return;
+        }
+        // Nobody named a kind, so there is no kind to blame.
+        if (!"message.gathering.pack_no_collation".equals(PackOpening.whyNothingOpened(has, ""))) {
+            helper.fail("Naming no kind still blamed the kind");
+            return;
+        }
+        helper.succeed();
+    }
+
     // ------------------------------------------------------------------- bits
 
     private static CardMetadata metadata(UUID id) {

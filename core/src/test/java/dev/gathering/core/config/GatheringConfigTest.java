@@ -75,7 +75,11 @@ class GatheringConfigTest {
 
         assertThat(config.ante().enabled()).isTrue();
         assertThat(config.ante().cardsPerPlayer()).isEqualTo(2);
-        assertThat(config.notes()).isEmpty();
+        // Nothing plays for keeps yet, and a server owner who turned it on is told
+        // rather than left to find out at a table.
+        assertThat(config.notes()).containsExactlyInAnyOrder(
+                "'ante.enabled' is set, but playing for keeps is not built yet",
+                "'ante.cards_per_player' is set, but playing for keeps is not built yet");
     }
 
     @Test
@@ -90,11 +94,14 @@ class GatheringConfigTest {
         assertThat(config.tables().maxTablesLoaded()).isEqualTo(1);
         assertThat(config.tables().maxClusterTables())
                 .isEqualTo(dev.gathering.core.table.TableCluster.MAX_TABLES);
-        assertThat(config.notes()).hasSize(2);
         assertThat(config.notes()).anySatisfy(note ->
                 assertThat(note).contains("max_tables_loaded").contains("using 1"));
         assertThat(config.notes()).anySatisfy(note ->
                 assertThat(note).contains("max_cluster_tables").contains("above 4"));
+        // Clamped back to four, which is what it already was, so nothing about it has
+        // changed and there is nothing to say beyond the clamping.
+        assertThat(config.notes()).noneSatisfy(note ->
+                assertThat(note).contains("max_cluster_tables").contains("not built yet"));
     }
 
     @Test
@@ -137,6 +144,29 @@ class GatheringConfigTest {
     void anEmptyFileIsTheDefaults() throws Exception {
         assertThat(read("")).isEqualTo(GatheringConfig.defaults());
         assertThat(read("# nothing but a comment\n")).isEqualTo(GatheringConfig.defaults());
+    }
+
+    @Test
+    @DisplayName("a setting for something that is not built yet says so when it is changed")
+    void settingsForUnbuiltThingsSaySo() throws Exception {
+        GatheringConfig config = read("""
+                [collection]
+                sealed_store_enabled = false
+                booster_model = "collector"
+                """);
+
+        assertThat(config.collecting().sealedStoreEnabled()).isFalse();
+        assertThat(config.notes()).containsExactly(
+                "'collection.sealed_store_enabled' is set, but the shop is not built yet");
+        // booster_model is acted on when a pack is opened, so changing it says nothing.
+        assertThat(config.collecting().boosterModel()).isEqualTo("collector");
+    }
+
+    @Test
+    @DisplayName("a server that has changed nothing is told nothing")
+    void anUneditedFileSaysNothing() throws Exception {
+        assertThat(GatheringConfig.read(Toml.read(GatheringConfig.defaultFileText())).notes())
+                .isEmpty();
     }
 
     private static GatheringConfig read(String text) throws TomlException {

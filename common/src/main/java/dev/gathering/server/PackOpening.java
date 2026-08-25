@@ -81,18 +81,23 @@ public final class PackOpening {
 
         String set = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
         collation.collationFor(set)
-                .thenCompose(reading -> {
+                // Async on the collation worker, not chained plainly: a set already read is
+                // an already-completed future, and a plain chain would draw the pack on
+                // whichever thread asked - which here is the server thread.
+                .thenComposeAsync(reading -> {
                     BoosterConfig config = pick(reading, kind);
                     if (config == null) {
-                        return java.util.concurrent.CompletableFuture.completedFuture(null);
+                        return java.util.concurrent.CompletableFuture.completedFuture(
+                                new Opened(reading, null, List.of()));
                     }
                     OpenedPack pack = BoosterOpener.open(config, freshSeed(), config.id());
                     List<UUID> printings = new ArrayList<>();
                     for (CardIdentity card : pack.cards()) {
                         card.printing().ifPresent(printings::add);
                     }
-                    return cards.findAll(printings).thenApply(found -> new Opened(pack, found));
-                })
+                    return cards.findAll(printings)
+                            .thenApply(found -> new Opened(reading, pack, found));
+                }, collation.worker())
                 .whenComplete((opened, failure) -> player.server.execute(() -> {
                     if (player.hasDisconnected()) {
                         return;
@@ -103,9 +108,8 @@ public final class PackOpening {
                                 "message.gathering.pack_failed", rootMessage(failure)));
                         return;
                     }
-                    if (opened == null) {
-                        player.sendSystemMessage(Component.translatable(
-                                "message.gathering.pack_no_collation", set));
+                    if (opened.pack() == null) {
+                        player.sendSystemMessage(nothingToOpen(opened.reading(), set, kind));
                         return;
                     }
                     deliver(player, opened);
@@ -126,8 +130,38 @@ public final class PackOpening {
         return null;
     }
 
-    /** A pack and the card data for what came out of it. */
-    private record Opened(OpenedPack pack, List<CardMetadata> cards) {
+    /**
+     * A pack and the card data for what came out of it, or no pack and the reading that had
+     * none to give - which is the difference between two very different sentences.
+     */
+    private record Opened(MtgjsonCollation.Reading reading, OpenedPack pack,
+            List<CardMetadata> cards) {
+    }
+
+    /**
+     * Why nothing came out, in a sentence that says which of the two things went wrong.
+     *
+     * <p>"That set publishes no booster" and "that set publishes no booster of that name" are
+     * not the same problem, and telling somebody the first when they typed the second sends
+     * them off to check the set code that was right all along. The second lists what the set
+     * does publish, because that is the next thing they would have to go and find out.
+     */
+    private static Component nothingToOpen(
+            MtgjsonCollation.Reading reading, String set, String kind) {
+        String key = whyNothingOpened(reading, kind);
+        if (key.endsWith("no_collation")) {
+            return Component.translatable(key, set);
+        }
+        return Component.translatable(key, set, kind.trim().toLowerCase(Locale.ROOT),
+                String.join(", ", reading.packs().keySet()));
+    }
+
+    /** Which of the two sentences applies. Its own method so a test can ask. */
+    public static String whyNothingOpened(MtgjsonCollation.Reading reading, String kind) {
+        if (reading == null || reading.isEmpty() || kind == null || kind.isBlank()) {
+            return "message.gathering.pack_no_collation";
+        }
+        return "message.gathering.pack_no_such_kind";
     }
 
     /**

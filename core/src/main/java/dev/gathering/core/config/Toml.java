@@ -61,9 +61,12 @@ public final class Toml {
                 throw new TomlException(line, "'" + trimmed + "' is neither a section nor a setting");
             }
             String key = trimmed.substring(0, equals).trim();
-            if (!isBareKey(key)) {
+            if (!isKey(key)) {
                 throw new TomlException(line, "'" + key + "' is not a setting name");
             }
+            // A dotted key is a path of its own - "modes.import_enabled = true" outside any
+            // section says exactly what "[modes]" then "import_enabled = true" says, and
+            // somebody quoting one line of the file at somebody else will write it that way.
             String path = section.isEmpty() ? key : section + "." + key;
             if (values.containsKey(path)) {
                 throw new TomlException(line, "'" + path + "' is set twice");
@@ -297,6 +300,19 @@ public final class Toml {
             }
         }
         return raw.trim();
+    }
+
+    /** A setting name, or several joined by dots, which TOML allows and means the same. */
+    private static boolean isKey(String key) {
+        if (key.isEmpty() || key.startsWith(".") || key.endsWith(".") || key.contains("..")) {
+            return false;
+        }
+        for (String part : key.split("\\.", -1)) {
+            if (!isBareKey(part)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean isBareKey(String key) {
