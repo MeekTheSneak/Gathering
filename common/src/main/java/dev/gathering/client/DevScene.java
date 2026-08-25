@@ -1056,8 +1056,20 @@ public final class DevScene {
                 // using - but the wiring from menu entry to question is the part that was
                 // missing entirely, and it is the part this proves.
                 aGameCanBeConceded(client);
+                advance(SETTLE / 2);
+            }
+            case 84 -> {
+                // Photographed a step after it was opened, so the frame is the question
+                // rather than the board it was asked over.
+                expectScreen(client, "asking before a game is thrown away", ConfirmScreen.class);
+                theConcedeQuestionOffersBothAnswers(client);
+                shoot(client, "28c-are-you-sure");
+                backOutOfConceding(client);
+
                 // Last, because everything above needs a seat: stand up mid-game and look at
-                // the same table as somebody who is only watching it.
+                // the same table as somebody who is only watching it. After backing out of
+                // the question, not before - standing up works through the board's own menu,
+                // and with a dialog over it the gesture goes nowhere at all.
                 // Noted before the chair is given up, because the whole point of the check
                 // that follows is that this name survives standing up.
                 SeatId leaving = ClientTableState.seatAt(table).orElse(null);
@@ -1077,7 +1089,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 84 -> {
+            case 85 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -1090,7 +1102,7 @@ public final class DevScene {
                 aSpectatorReadsAGraveyard(client);
                 advance(SETTLE / 2);
             }
-            case 85 -> {
+            case 86 -> {
                 expectScreen(client, "a spectator opening a graveyard", PileScreen.class);
                 shoot(client, "30-a-spectator-reads-a-graveyard");
                 if (client.screen != null) {
@@ -1099,63 +1111,63 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 86 -> {
+            case 87 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
                 hoverSomebodysLifeCounter(client);
                 advance(SETTLE / 2);
             }
-            case 87 -> {
+            case 88 -> {
                 aWatcherIsToldWhoseLifeThatIs(client);
                 shoot(client, "32-a-watcher-reads-a-life-total");
                 aWatcherOpensTheLog(client);
                 advance(SETTLE / 2);
             }
-            case 88 -> {
+            case 89 -> {
                 theLogStillNamesWhoLeft(client);
                 shoot(client, "33-a-watcher-reads-the-log");
                 advance(SETTLE / 2);
             }
-            case 89 -> {
+            case 90 -> {
                 aDraftPodFormsAtASecondCluster(client);
                 advance(SETTLE);
             }
-            case 90 -> {
+            case 91 -> {
                 expectScreen(client, "a draft pod dealing its first pack", DraftScreen.class);
                 theDraftScreenShowsAPack(client);
                 shoot(client, "34-the-first-pack");
                 advance(SETTLE / 2);
             }
-            case 91 -> {
+            case 92 -> {
                 // Clicked here and photographed next: a screenshot grabs the frame that has
                 // already been drawn, so shooting in the same step as the click photographs
                 // the screen as it was before it.
                 pickTwoFromTheDraftPack(client);
                 advance(SETTLE / 2);
             }
-            case 92 -> {
+            case 93 -> {
                 theChosenCardsAreMarkedOnScreen(client);
                 shoot(client, "35-two-cards-chosen");
                 takeTheDraftPick(client);
                 advance(SETTLE);
             }
-            case 93 -> {
+            case 94 -> {
                 theDraftIsWaitingOnTheRest(client);
                 shoot(client, "36-waiting-on-the-rest");
                 lookAtMyPicks(client);
                 advance(SETTLE / 2);
             }
-            case 94 -> {
+            case 95 -> {
                 theScreenIsShowingMyPicks(client);
                 shoot(client, "36a-my-picks-so-far");
                 advance(SETTLE / 2);
             }
-            case 95 -> {
+            case 96 -> {
                 openTheDeckScreen(client);
                 advance(SETTLE / 2);
             }
-            case 96 -> {
+            case 97 -> {
                 expectScreen(client, "opening a deck to build it", DeckContentsScreen.class);
                 everyBasicLandHasAButton(client);
                 theDeckScreenListsItsCards(client);
@@ -1166,7 +1178,7 @@ public final class DevScene {
                 nameTheDeck(client, "Bear Tribal");
                 advance(SETTLE / 2);
             }
-            case 97 -> {
+            case 98 -> {
                 // Taken here rather than at the end of the step that typed it: a screenshot
                 // grabs the last frame drawn, so a picture taken in the same step as the
                 // typing is a picture of the screen before it.
@@ -1176,59 +1188,59 @@ public final class DevScene {
                 sealedPacksInTheHotbar(client);
                 advance(SETTLE);
             }
-            case 98 -> {
+            case 99 -> {
                 // A moment for the symbols to arrive: they are fetched the first time one is
                 // asked for, so the first frame of a pack is always a plain wrapper.
                 sealedPacksInTheHotbar(client);
                 advance(SETTLE * 2);
             }
-            case 99 -> {
+            case 100 -> {
                 everyPackDrewItsSymbol(client);
                 shoot(client, "38-sealed-packs");
                 advance(SETTLE / 2);
             }
-            case 100 -> {
+            case 101 -> {
                 aSealedPackOnTheScreen(client);
                 advance(SETTLE);
             }
-            case 101 -> {
+            case 102 -> {
                 expectScreen(client, "tearing a pack open", PackOpeningScreen.class);
                 aSealedPackIsSealed(client);
                 shoot(client, "39-a-sealed-pack");
                 tearThePack(client, 0.45);
                 advance(SETTLE / 2);
             }
-            case 102 -> {
+            case 103 -> {
                 aPackHalfTornIsHalfTorn(client);
                 shoot(client, "40-tearing-it-open");
                 tearThePack(client, 1.2);
                 advance(SETTLE / 2);
             }
-            case 103 -> {
+            case 104 -> {
                 aTornPackIsOpen(client);
                 everyCardIsShown(client);
                 shoot(client, "41-what-was-in-it");
                 putTheCursorOnAPulledCard(client);
                 advance(SETTLE);
             }
-            case 104 -> {
+            case 105 -> {
                 theReadKeyAnswersOverAPulledCard(client);
                 client.setScreen(null);
                 aCollectionWithSomethingInIt(client);
                 advance(SETTLE);
             }
-            case 105 -> {
+            case 106 -> {
                 openTheCollection(client);
                 advance(SETTLE);
             }
-            case 106 -> {
+            case 107 -> {
                 expectScreen(client, "opening a collection", CollectionScreen.class);
                 aCollectionShowsWhatIsInIt(client);
                 shoot(client, "42-a-collection");
                 searchTheCollection(client, "forest");
                 advance(SETTLE);
             }
-            case 107 -> {
+            case 108 -> {
                 aSearchNarrowsIt(client);
                 shoot(client, "43-searching-a-collection");
                 // The other way out of a collection, and the one that saves a hundred clicks.
@@ -1238,22 +1250,22 @@ public final class DevScene {
                 press(client, "Build deck\u2026");
                 advance(SETTLE);
             }
-            case 108 -> {
+            case 109 -> {
                 expectScreen(client, "building a deck from a collection",
                         DecklistImportScreen.class);
                 shoot(client, "44-building-from-a-collection");
                 advance(SETTLE / 2);
             }
-            case 109 -> {
+            case 110 -> {
                 client.setScreen(null);
                 cardsInHandToTradeWith(client);
                 advance(SETTLE);
             }
-            case 110 -> {
+            case 111 -> {
                 aTradeOnTheScreen(client, false, 2);
                 advance(SETTLE);
             }
-            case 111 -> {
+            case 112 -> {
                 expectScreen(client, "opening a trade", TradeScreen.class);
                 aTradeShowsBothSides(client);
                 shoot(client, "45-a-trade");
@@ -1262,7 +1274,7 @@ public final class DevScene {
                 aTradeOnTheScreen(client, true, 2);
                 advance(SETTLE);
             }
-            case 112 -> {
+            case 113 -> {
                 expectScreen(client, "agreeing to a trade", TradeScreen.class);
                 shoot(client, "45a-both-agreed");
                 // Taking a whole offer back down in one press. Reached for rather than
@@ -1272,33 +1284,33 @@ public final class DevScene {
                 aTradeOnTheScreen(client, false, 0);
                 advance(SETTLE);
             }
-            case 113 -> {
+            case 114 -> {
                 expectScreen(client, "taking an offer back down", TradeScreen.class);
                 takingItBackIsSpentWhenThereIsNothingUp(client);
                 shoot(client, "45b-nothing-up");
                 advance(SETTLE / 2);
             }
-            case 114 -> {
+            case 115 -> {
                 client.setScreen(null);
                 aShelfOfLoanerDecks(client);
                 advance(SETTLE);
             }
-            case 115 -> {
+            case 116 -> {
                 offerTheLoaners(client);
                 advance(SETTLE);
             }
-            case 116 -> {
+            case 117 -> {
                 expectScreen(client, "being offered a loaner deck", LoanerScreen.class);
                 theShelfIsOnTheScreen(client);
                 shoot(client, "46-borrow-a-deck");
                 advance(SETTLE / 2);
             }
-            case 117 -> {
+            case 118 -> {
                 client.setScreen(null);
                 aBestOfThreeWaitingToSideboard(client);
                 advance(SETTLE * 2);
             }
-            case 118 -> {
+            case 119 -> {
                 expectScreen(client, "finishing game one of a set", SideboardScreen.class);
                 bothSidesOfTheSideboardAreShown(client);
                 shoot(client, "47-between-games");
@@ -3154,12 +3166,43 @@ public final class DevScene {
                     + (client.screen == null ? "none" : client.screen.getClass().getSimpleName()));
             return;
         }
-        // No picture: a screen only opened this instant has not been drawn yet, and the
-        // frame this would grab is the board that was up before it.
+        // Left open on purpose. A screen opened this instant has not been drawn yet, so the
+        // picture is taken in the step after this one - which is why this used to take none
+        // at all, and why the one dialog that stops somebody throwing a game away by accident
+        // went unlooked-at while every other screen was photographed.
         System.out.println("[devscene] conceding asks before it ends the game");
+        cameFromTheBoard = before;
+    }
+
+    /** The board the concede question was asked over, so backing out can be checked. */
+    private static Screen cameFromTheBoard;
+
+    /** Backs out of the question, which must land back on the board it was asked over. */
+    private static void backOutOfConceding(Minecraft client) {
+        if (!(client.screen instanceof ConfirmScreen)) {
+            fail("the concede question went away before it could be backed out of");
+            return;
+        }
         client.screen.onClose();
-        if (client.screen != before) {
+        if (client.screen != cameFromTheBoard) {
             fail("backing out of conceding did not come back to the board");
+        }
+    }
+
+    /** A question with two answers has two answers you can see and press. */
+    private static void theConcedeQuestionOffersBothAnswers(Minecraft client) {
+        if (!(client.screen instanceof ConfirmScreen ask)) {
+            fail("there was no concede question to read");
+            return;
+        }
+        java.util.Set<String> answers = new java.util.LinkedHashSet<>();
+        for (net.minecraft.client.gui.components.events.GuiEventListener child : ask.children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
+                answers.add(widget.getMessage().getString());
+            }
+        }
+        if (answers.size() < 2) {
+            fail("the concede question offered " + answers.size() + " answer(s): " + answers);
         }
     }
 

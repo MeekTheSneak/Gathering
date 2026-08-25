@@ -83,6 +83,19 @@ public final class CountersScreen extends ChildScreen {
     /** Which rows were drawn last frame, so the screen knows when it needs rebuilding. */
     private List<String> rowsShown = List.of();
 
+    /**
+     * The counters as of the last board this screen saw, and which board that was.
+     *
+     * <p>Worked out per board rather than per frame. {@link #current()} walks every card in
+     * the subject, and for each one {@link #cardIn} streamed the whole board looking for it -
+     * so a screen open over three selected cards on a Commander table streamed a few hundred
+     * card views three times, sixty times a second, to draw a list of counters that changes
+     * when somebody clicks. The view object is replaced whole every time the server sends
+     * one, so comparing it by identity is exactly "has anything changed".
+     */
+    private GameView countedFrom;
+    private Map<String, Integer> counted = Map.of();
+
     /** And which opponents there were to take commander damage from, for the same reason. */
     private List<SeatId> opponentsShown = List.of();
 
@@ -425,29 +438,34 @@ public final class CountersScreen extends ChildScreen {
      */
     private Map<String, Integer> current() {
         GameView board = ClientTableState.viewOf(table).orElse(null);
+        if (board == countedFrom) {
+            return counted;
+        }
+        countedFrom = board;
+        counted = countersIn(board);
+        return counted;
+    }
+
+    private Map<String, Integer> countersIn(GameView board) {
         if (board == null) {
             return Map.of();
         }
         Map<String, Integer> found = new LinkedHashMap<>();
         switch (subject) {
             case Subject.Cards cards -> {
-                for (CardInstanceId id : cards.cards()) {
-                    cardIn(board, id).ifPresent(card ->
-                            card.counters().forEach((name, count) -> found.merge(name, count, Integer::sum)));
+                // The board walked once, not once per selected card. Ten cards selected used
+                // to mean ten passes over every card view on the table.
+                java.util.Set<CardInstanceId> wanted = java.util.Set.copyOf(cards.cards());
+                for (CardView card : board.allCardViews()) {
+                    if (card instanceof CardView.Visible visible && wanted.contains(visible.id())) {
+                        card.counters().forEach((name, count) ->
+                                found.merge(name, count, Integer::sum));
+                    }
                 }
             }
             case Subject.Seat seat -> found.putAll(board.seat(seat.seat()).counters());
         }
         return found;
-    }
-
-    private static Optional<CardView> cardIn(GameView board, CardInstanceId id) {
-        return board.allCardViews().stream()
-                .filter(CardView.Visible.class::isInstance)
-                .map(CardView.Visible.class::cast)
-                .filter(visible -> visible.id().equals(id))
-                .map(CardView.class::cast)
-                .findFirst();
     }
 
     @Override
@@ -460,7 +478,7 @@ public final class CountersScreen extends ChildScreen {
         // A counter that has just come into existence needs a row, and one that has just gone
         // needs to stop having one. So does an opponent: somebody sitting down opposite adds
         // a commander to take damage from, and this screen is open for the length of a turn.
-        if (!new ArrayList<>(current().keySet()).equals(rowsShown)
+        if (!List.copyOf(current().keySet()).equals(rowsShown)
                 || !commanderDamageFrom().equals(opponentsShown)) {
             rebuildWidgets();
         }
@@ -481,7 +499,7 @@ public final class CountersScreen extends ChildScreen {
                 panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);
 
         Map<String, Integer> counters = current();
-        rowsShown = new ArrayList<>(counters.keySet());
+        rowsShown = List.copyOf(counters.keySet());
         int y = panel.y() + MARGIN + ROW;
         int index = 0;
         for (Map.Entry<String, Integer> entry : counters.entrySet()) {

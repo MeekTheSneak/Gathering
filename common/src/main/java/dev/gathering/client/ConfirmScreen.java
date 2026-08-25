@@ -65,10 +65,23 @@ public final class ConfirmScreen extends ChildScreen {
                 }));
     }
 
+    /**
+     * Behind the widgets, not over them.
+     *
+     * <p>Drawn in {@code render} - which runs after {@code super.render} has already drawn
+     * every button - the panel painted over its own buttons, so what was left was the label
+     * with no frame under it and no sign it could be pressed. {@code CountersScreen} hit this
+     * and fixed it the same way; these two kept the bug.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
         GuiText.drawCentred(graphics, this.font, question,
                 panel.x() + panel.width() / 2, panel.y() + MARGIN, panel.width() - MARGIN * 2, TEXT);
         GuiText.drawWrapped(graphics, this.font, detail,
