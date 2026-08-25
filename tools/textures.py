@@ -49,6 +49,18 @@ PALETTE = {
     "cabinet":      (0x3A, 0x2C, 0x22),
     "cabinet_dark": (0x2A, 0x1E, 0x17),
     "cabinet_lip":  (0x8C, 0x6E, 0x3C),
+
+    # The shop counter: a light wooden counter with a glass display front, so it reads as a
+    # till rather than as another cabinet. A placeholder until the real one is drawn.
+    "counter":      (0x9A, 0x76, 0x46),
+    "counter_dark": (0x6B, 0x50, 0x2E),
+    "counter_top":  (0xB4, 0x8E, 0x59),
+    "counter_glass": (0x63, 0x8C, 0x96),
+
+    # The sealed box item: brown card with a printed band.
+    "box":          (0x8A, 0x6A, 0x44),
+    "box_dark":     (0x5E, 0x46, 0x2C),
+    "box_band":     (0x2B, 0x3E, 0x66),
 }
 
 # The deck panel's right edge runs from this fraction of the width at the top to this
@@ -474,6 +486,90 @@ def collection(size=16):
     write_png(out + "collection_top.png", size, size, top)
 
 
+def shop_counter(size=16):
+    """A wooden counter with a glass front, for the block a shopkeeper works behind.
+
+    A placeholder: a panelled side, a display window on the front and a worn top. Enough to
+    read as a shop counter across a room and no more. The real one is somebody's to draw.
+    """
+    base = PALETTE["counter"]
+    dark = PALETTE["counter_dark"]
+    top_wood = PALETTE["counter_top"]
+    glass = PALETTE["counter_glass"]
+
+    def grained(x, y, colour):
+        h = (x * 83492791) ^ (y * 29863331)
+        h = (h ^ (h >> 13)) & 0xFFFF
+        grain = (h % 5) - 2
+        return tuple(max(0, min(255, c + grain)) for c in colour) + (255,)
+
+    def panelled(window):
+        px = blank(size, size)
+        for y in range(size):
+            for x in range(size):
+                edge = x == 0 or y == 0 or x == size - 1 or y == size - 1
+                px[y][x] = grained(x, y, dark if edge else base)
+        # The worktop, along the top two rows.
+        for y in (1, 2):
+            for x in range(1, size - 1):
+                px[y][x] = grained(x, y, top_wood)
+        if window:
+            # A display case below the top, with a frame around it.
+            for y in range(5, size - 3):
+                for x in range(3, size - 3):
+                    px[y][x] = grained(x, y, glass)
+            for y in range(5, size - 3):
+                px[y][3] = grained(3, y, dark)
+                px[y][size - 4] = grained(size - 4, y, dark)
+        else:
+            # A plain panel, so the back and sides do not pretend to be glass.
+            for y in range(6, size - 4):
+                for x in range(4, size - 4):
+                    px[y][x] = grained(x, y, dark)
+        return px
+
+    top = blank(size, size)
+    for y in range(size):
+        for x in range(size):
+            edge = x == 0 or y == 0 or x == size - 1 or y == size - 1
+            top[y][x] = grained(x, y, dark if edge else top_wood)
+
+    out = "common/src/main/resources/assets/gathering/textures/block/"
+    write_png(out + "shop_counter.png", size, size, panelled(False))
+    write_png(out + "shop_counter_front.png", size, size, panelled(True))
+    write_png(out + "shop_counter_top.png", size, size, top)
+
+
+def sealed_box(size=16):
+    """A shrink-wrapped box, for anything bigger than a booster.
+
+    A placeholder: a brown carton seen at a slight angle with a printed band across it. The
+    real one is somebody's to draw, and there may end up being one per shape of product.
+    """
+    card = PALETTE["box"]
+    shade = PALETTE["box_dark"]
+    band = PALETTE["box_band"]
+    px = blank(size, size)
+    for y in range(3, size - 1):
+        for x in range(2, size - 2):
+            px[y][x] = card + (255,)
+    # The lid, lighter, along the top.
+    for y in range(2, 4):
+        for x in range(3, size - 1):
+            px[y][x] = tuple(min(255, c + 22) for c in card) + (255,)
+    # The right-hand face, in shadow, so it reads as a box rather than a rectangle.
+    for y in range(3, size - 1):
+        px[y][size - 3] = shade + (255,)
+        px[y][size - 4] = shade + (255,)
+    # A printed band across the front.
+    for y in range(8, 11):
+        for x in range(2, size - 4):
+            px[y][x] = band + (255,)
+    write_png(
+        "common/src/main/resources/assets/gathering/textures/item/sealed.png",
+        size, size, px)
+
+
 def main():
     nine_slice("panel", PALETTE["panel"], PALETTE["panel_edge"])
     nine_slice("panel_inset", PALETTE["inset"], PALETTE["inset_edge"])
@@ -483,6 +579,8 @@ def main():
     symbols()
     felt()
     collection()
+    shop_counter()
+    sealed_box()
 
 
 if __name__ == "__main__":

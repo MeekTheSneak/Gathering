@@ -29,6 +29,8 @@ public final class GatheringContent {
     public static final String PACK_ID = "pack";
     public static final String TABLE_ID = "table";
     public static final String COLLECTION_ID = "collection";
+    public static final String SEALED_ID = "sealed";
+    public static final String SHOP_COUNTER_ID = "shop_counter";
 
     public static final Registered<Item> CARD = new Registered<>(CARD_ID);
     public static final Registered<Item> DECK = new Registered<>(DECK_ID);
@@ -37,6 +39,9 @@ public final class GatheringContent {
     public static final Registered<Item> TABLE_ITEM = new Registered<>(TABLE_ID);
     public static final Registered<BlockEntityType<TableBlockEntity>> TABLE_ENTITY =
             new Registered<>(TableBlockEntity.ID);
+    public static final Registered<Item> SEALED = new Registered<>(SEALED_ID);
+    public static final Registered<Block> SHOP_COUNTER = new Registered<>(SHOP_COUNTER_ID);
+    public static final Registered<Item> SHOP_COUNTER_ITEM = new Registered<>(SHOP_COUNTER_ID);
     public static final Registered<Block> COLLECTION = new Registered<>(COLLECTION_ID);
     public static final Registered<Item> COLLECTION_ITEM = new Registered<>(COLLECTION_ID);
     public static final Registered<BlockEntityType<dev.gathering.block.CollectionBlockEntity>>
@@ -69,6 +74,35 @@ public final class GatheringContent {
      */
     public static Item createPack() {
         return new PackItem(new Item.Properties().stacksTo(16));
+    }
+
+    /**
+     * Boxes stack the way packs do, and for the same reason.
+     *
+     * <p>Not as far, though. A box is a thing you buy one or two of and open; a chest with
+     * sixteen cases in it is not a collection, it is a warehouse.
+     */
+    public static Item createSealed() {
+        return new SealedItem(new Item.Properties().stacksTo(8));
+    }
+
+    /**
+     * The counter a shopkeeper works behind.
+     *
+     * <p>An ordinary workstation: put one down in a village and an unemployed villager takes
+     * the job, exactly the way a lectern or a grindstone works. Nothing about it needs
+     * explaining to somebody who has played Minecraft.
+     */
+    public static Block createShopCounter() {
+        return new dev.gathering.block.ShopCounterBlock(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.WOOD)
+                .strength(2.5f)
+                .sound(SoundType.WOOD));
+    }
+
+    public static Item createShopCounterItem() {
+        return new net.minecraft.world.item.BlockItem(
+                SHOP_COUNTER.get(), new Item.Properties());
     }
 
     public static Block createTable() {

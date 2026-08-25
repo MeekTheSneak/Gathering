@@ -260,13 +260,15 @@ class GatheringConfigTest {
     void settingsForUnbuiltThingsSaySo() throws Exception {
         GatheringConfig config = read("""
                 [collection]
-                sealed_store_enabled = false
                 booster_model = "collector"
+                [table]
+                max_tables_loaded = 32
                 """);
 
-        assertThat(config.collecting().sealedStoreEnabled()).isFalse();
+        assertThat(config.tables().maxTablesLoaded()).isEqualTo(32);
         assertThat(config.notes()).containsExactly(
-                "'collection.sealed_store_enabled' is set, but the shop is not built yet");
+                "'table.max_tables_loaded' is set, but a limit on tables kept loaded is not "
+                        + "built yet");
         // booster_model is acted on when a pack is opened, so changing it says nothing.
         assertThat(config.collecting().boosterModel()).isEqualTo("collector");
     }

@@ -35,6 +35,8 @@ public final class GatheringNeoForge {
         // Game bus: these are things happening in the game, not mod setup.
         NeoForge.EVENT_BUS.addListener(this::onServerStarting);
         NeoForge.EVENT_BUS.addListener(this::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onVillagerTrades);
+        NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onEntityInteract);
 
         LOGGER.info("{} loaded. {}", Gathering.MOD_NAME, Gathering.FAN_CONTENT_DISCLAIMER);
     }
@@ -52,11 +54,37 @@ public final class GatheringNeoForge {
         cardData.warmCache().thenAccept(count -> LOGGER.info("Card metadata cache warmed: {} printings", count));
         dev.gathering.server.CurrentSet.resolve();
         dev.gathering.server.SealedLoot.warm();
+        dev.gathering.server.CardShop.warm();
+    }
+
+    /** What a card shop's keeper sells, at each of their levels. */
+    private static void onVillagerTrades(
+            net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
+        if (event.getType() != dev.gathering.village.GatheringVillagers.SHOPKEEPER.get()) {
+            return;
+        }
+        for (int level = 1; level <= dev.gathering.core.sealed.ShopTier.LEVELS; level++) {
+            event.getTrades().get(level).addAll(dev.gathering.village.ShopTrades.at(level));
+        }
+    }
+
+    /**
+     * Brings a shopkeeper's counter back in step before anybody looks at it.
+     *
+     * <p>Here rather than on a tick because this is the only moment it matters, and because a
+     * villager nobody is talking to is a villager whose offers nobody can see.
+     */
+    private static void onEntityInteract(
+            net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.EntityInteract event) {
+        if (event.getTarget() instanceof net.minecraft.world.entity.npc.Villager villager) {
+            dev.gathering.village.Shopkeepers.refresh(villager);
+        }
     }
 
     private void onServerStopped(ServerStoppedEvent event) {
         ServerSettings.clear();
         dev.gathering.server.SealedLoot.clear();
+        dev.gathering.server.CardShop.clear();
         dev.gathering.server.CurrentSet.clear();
         if (cardData != null) {
             cardData.close();

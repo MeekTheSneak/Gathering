@@ -77,11 +77,23 @@ public final class GatheringFabric implements ModInitializer {
                     LOGGER.info("Card metadata cache warmed: {} printings", count));
             dev.gathering.server.CurrentSet.resolve();
             dev.gathering.server.SealedLoot.warm();
+            dev.gathering.server.CardShop.warm();
         });
+
+        // A shopkeeper's counter is brought back in step just before somebody looks at it, so
+        // every card shop in the world is stocking the same thing at the same time.
+        net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(
+                (player, level, hand, entity, hit) -> {
+                    if (entity instanceof net.minecraft.world.entity.npc.Villager villager) {
+                        dev.gathering.village.Shopkeepers.refresh(villager);
+                    }
+                    return net.minecraft.world.InteractionResult.PASS;
+                });
 
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             ServerSettings.clear();
             dev.gathering.server.SealedLoot.clear();
+            dev.gathering.server.CardShop.clear();
             dev.gathering.server.CurrentSet.clear();
             if (cardData != null) {
                 cardData.close();

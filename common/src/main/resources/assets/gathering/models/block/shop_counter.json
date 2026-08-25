@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "gathering:block/shop_counter_top",
+    "front": "gathering:block/shop_counter_front",
+    "side": "gathering:block/shop_counter"
+  }
+}

@@ -49,10 +49,11 @@ public record GatheringConfig(
             int lootRecentSets,
             boolean sealedStoreEnabled,
             String sealedPriceItem,
+            String sealedPriceBlock,
+            int sealedPriceBlockWorth,
             int sealedPriceBooster,
+            int sealedRotationHours,
             String currentSet,
-            int stallRotationHours,
-            int stallRotatingSlots,
             String boosterModel) {
     }
 
@@ -80,11 +81,6 @@ public record GatheringConfig(
      * <p>Entries come off this list as the feature behind them lands.
      */
     private static final java.util.Map<String, String> NOT_BUILT_YET = java.util.Map.ofEntries(
-            java.util.Map.entry("collection.sealed_store_enabled", "the shop"),
-            java.util.Map.entry("collection.sealed_price_item", "the shop"),
-            java.util.Map.entry("collection.sealed_price_booster", "the shop"),
-            java.util.Map.entry("collection.stall_rotation_hours", "the rotating shelf"),
-            java.util.Map.entry("collection.stall_rotating_slots", "the rotating shelf"),
             java.util.Map.entry("table.max_tables_loaded", "a limit on tables kept loaded"),
             java.util.Map.entry("table.max_cluster_tables", "a cluster cap other than four"),
             java.util.Map.entry("table.max_cards_per_session", "a limit on cards in a session"),
@@ -132,10 +128,11 @@ public record GatheringConfig(
                 "collection.loot_recent_sets",
                 "collection.sealed_store_enabled",
                 "collection.sealed_price_item",
+                "collection.sealed_price_block",
+                "collection.sealed_price_block_worth",
                 "collection.sealed_price_booster",
+                "collection.sealed_rotation_hours",
                 "collection.current_set",
-                "collection.stall_rotation_hours",
-                "collection.stall_rotating_slots",
                 "collection.booster_model",
                 "table.max_tables_loaded",
                 "table.max_cluster_tables",
@@ -174,20 +171,23 @@ public record GatheringConfig(
                 noted("collection.sealed_store_enabled",
                         toml.flag("collection.sealed_store_enabled", true), true, notes),
                 noted("collection.sealed_price_item",
-                        toml.string("collection.sealed_price_item", "minecraft:diamond"),
-                        "minecraft:diamond", notes),
+                        toml.string("collection.sealed_price_item", "minecraft:emerald"),
+                        "minecraft:emerald", notes),
+                noted("collection.sealed_price_block",
+                        toml.string("collection.sealed_price_block", "minecraft:emerald_block"),
+                        "minecraft:emerald_block", notes),
+                noted("collection.sealed_price_block_worth",
+                        clamped(toml.number("collection.sealed_price_block_worth", 9), 1, 64,
+                                "collection.sealed_price_block_worth", notes), 9, notes),
                 noted("collection.sealed_price_booster",
                         clamped(toml.number("collection.sealed_price_booster", 2), 1, 512,
                                 "collection.sealed_price_booster", notes), 2, notes),
+                noted("collection.sealed_rotation_hours",
+                        clamped(toml.number("collection.sealed_rotation_hours", 4), 1, 24 * 7,
+                                "collection.sealed_rotation_hours", notes), 4, notes),
                 noted("collection.current_set",
                         toml.string("collection.current_set", "auto").trim().toLowerCase(Locale.ROOT),
                         "auto", notes),
-                noted("collection.stall_rotation_hours",
-                        clamped(toml.number("collection.stall_rotation_hours", 4), 1, 24 * 7,
-                                "collection.stall_rotation_hours", notes), 4, notes),
-                noted("collection.stall_rotating_slots",
-                        clamped(toml.number("collection.stall_rotating_slots", 6), 1, 32,
-                                "collection.stall_rotating_slots", notes), 6, notes),
                 toml.string("collection.booster_model", "play").trim().toLowerCase(Locale.ROOT));
 
         Tables tables = new Tables(
@@ -365,18 +365,26 @@ public record GatheringConfig(
                 loot_sets = ["current"]
                 # How far back "recent" reaches. Twelve is about three years of Magic.
                 loot_recent_sets = 12
-                # Shops sell sealed product only, never single cards, at flat prices you set.
+                # A card-shop villager sells sealed product only, never single cards. Anything
+                # bigger than a booster - a display box, a Commander deck, a case - is sold and
+                # never found, and how far up a shopkeeper stocks depends on their level.
                 sealed_store_enabled = true
-                sealed_price_item = "minecraft:diamond"
-                # What one booster costs, in that item. Everything else follows from what is
-                # inside it: a box of thirty costs thirty, a Commander deck costs what its
+                sealed_price_item = "minecraft:emerald"
+                # And what to take for the dear things. A trade holds two stacks of sixty-four,
+                # so a case is paid for in blocks and change rather than not at all.
+                sealed_price_block = "minecraft:emerald_block"
+                sealed_price_block_worth = 9
+                # What one booster costs, in the loose item. Everything else follows from what
+                # is inside it: a box of thirty costs thirty, a Commander deck costs what its
                 # hundred cards would. No real-world price is used anywhere, ever.
                 sealed_price_booster = 2
+                # How often the shelf turns over, in hours of a running server. Every card shop
+                # in the world stocks the same thing at the same time and moves on together, so
+                # what is on the counter this evening is not what was there this morning.
+                sealed_rotation_hours = 4
                 # Which set is found and sold. "auto" asks Scryfall for the newest release, so
                 # a server left alone stays current; name a set code to stay where you are.
                 current_set = "auto"
-                stall_rotation_hours = 4
-                stall_rotating_slots = 6
                 booster_model = "play"
 
                 [table]

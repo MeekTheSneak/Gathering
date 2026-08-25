@@ -268,6 +268,39 @@ board and nothing else: face-down cards are card backs, and nobody's hand is in 
 where it stops being. The layout, the sizes, the keys and the drag feel are all first guesses
 and all cheap to change.
 
+### 8. Buy something from a card shop
+
+Collection mode is off by default. Switch it on in `config/gathering-server.toml`:
+
+```toml
+[modes]
+collection_enabled = true
+```
+
+Restart. The server reads what the current set was really sold as, which takes a few seconds
+and one fetch.
+
+- **Make a shopkeeper.** Put a **shop counter** down next to an unemployed villager - one with
+  no profession, in a village or one you brought home - and wait a moment. They take the job
+  the way they would take a lectern. Trade with them and they level up, the way any villager
+  does.
+- **What they sell** is boosters at first. Levelling them up adds rungs rather than changing
+  the ones they have: prerelease kits and Commander decks in the middle, display boxes higher,
+  cases at master.
+- **Every card shop sells the same thing.** Two shopkeepers at the same level have the same two
+  trades at the same price, deliberately - so breaking the counter and re-placing it until the
+  shelf offers what you want does not work. The whole world's shelf turns over every few hours
+  (`collection.sealed_rotation_hours`), all shops together.
+- **Buying a box gives you the box.** Right-click it to open it: a case gives six boxes, a box
+  gives thirty-six packs, a Commander deck gives the hundred cards sleeved with the commander
+  already in the command zone, plus the sample pack that really came in that box.
+- **Prices are in emeralds**, derived from what is inside rather than typed per product
+  (`collection.sealed_price_booster` is the one number). Anything dear enough to need more than
+  a stack is paid for in emerald blocks and change.
+
+**What I would most like to know** is whether the ladder is paced right - whether a display box
+arrives too early or too late - and whether a few hours is the right turnover.
+
 ## What I'd most like to know
 
 In rough order of how much it would change what I build next:
@@ -288,11 +321,9 @@ In rough order of how much it would change what I build next:
 
 ## What is deliberately not there yet
 
-- **No shop.** Sealed product is found in the world and granted by an operator; the NPC that
-  sells it is specified in the design brief and not built. Which means anything bigger than a
-  booster — a display box, a bundle, a Commander deck — cannot be obtained at all yet: loot
-  only ever produces single boosters, deliberately, because those larger products are what the
-  shop is for.
+- **No card shop in a village yet.** The shopkeeper is built - a villager profession with a
+  shop counter as its workstation - but nothing places one. Put a shop counter down beside an
+  unemployed villager and you have a card shop; a village that comes with one is not built.
 - **A chest does not decide which set.** It decides which kind of booster: a collector booster
   is much likelier out of an end city than out of a village. Tying a set to a structure is an
   idea and not built.

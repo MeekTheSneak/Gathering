@@ -40,6 +40,13 @@ final class GatheringRegistration {
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, Gathering.MOD_ID);
 
+    private static final DeferredRegister<net.minecraft.world.entity.ai.village.poi.PoiType> POI_TYPES =
+            DeferredRegister.create(BuiltInRegistries.POINT_OF_INTEREST_TYPE, Gathering.MOD_ID);
+
+    private static final DeferredRegister<net.minecraft.world.entity.npc.VillagerProfession>
+            PROFESSIONS = DeferredRegister.create(
+                    BuiltInRegistries.VILLAGER_PROFESSION, Gathering.MOD_ID);
+
     private static final DeferredRegister<net.minecraft.sounds.SoundEvent> SOUNDS =
             DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, Gathering.MOD_ID);
 
@@ -61,6 +68,23 @@ final class GatheringRegistration {
             ITEMS.register(GatheringContent.DECK_ID, GatheringContent::createDeck);
     private static final Supplier<Item> PACK =
             ITEMS.register(GatheringContent.PACK_ID, GatheringContent::createPack);
+
+    private static final Supplier<Item> SEALED =
+            ITEMS.register(GatheringContent.SEALED_ID, GatheringContent::createSealed);
+
+    private static final Supplier<Block> SHOP_COUNTER = BLOCKS.register(
+            GatheringContent.SHOP_COUNTER_ID, GatheringContent::createShopCounter);
+    private static final Supplier<Item> SHOP_COUNTER_ITEM = ITEMS.register(
+            GatheringContent.SHOP_COUNTER_ID, GatheringContent::createShopCounterItem);
+
+    // Registering the type is all it takes here: NeoForge's own registry callback puts every
+    // one of its block states into the map villagers search, so nothing has to be told twice.
+    private static final Supplier<net.minecraft.world.entity.ai.village.poi.PoiType> COUNTER_POI =
+            POI_TYPES.register(GatheringContent.SHOP_COUNTER_ID,
+                    dev.gathering.village.GatheringVillagers::createCounterPoi);
+    private static final Supplier<net.minecraft.world.entity.npc.VillagerProfession> SHOPKEEPER =
+            PROFESSIONS.register(dev.gathering.village.GatheringVillagers.SHOPKEEPER_ID,
+                    dev.gathering.village.GatheringVillagers::createShopkeeper);
 
     private static final Supplier<Block> COLLECTION =
             BLOCKS.register(GatheringContent.COLLECTION_ID, GatheringContent::createCollection);
@@ -94,6 +118,9 @@ final class GatheringRegistration {
             DATA_COMPONENTS.register(GatheringComponents.POOL_ID, GatheringComponents::createPoolType);
     private static final Supplier<DataComponentType<dev.gathering.item.PackComponent>> PACK_COMPONENT =
             DATA_COMPONENTS.register(GatheringComponents.PACK_ID, GatheringComponents::createPackType);
+    private static final Supplier<DataComponentType<dev.gathering.item.SealedComponent>>
+            SEALED_COMPONENT = DATA_COMPONENTS.register(
+                    GatheringComponents.SEALED_ID, GatheringComponents::createSealedType);
 
     private static final Supplier<net.minecraft.world.level.storage.loot.entries.LootPoolEntryType>
             SEALED_PRODUCT_ENTRY = LOOT_ENTRIES.register(
@@ -113,6 +140,8 @@ final class GatheringRegistration {
                 output.accept(new ItemStack(CARD.get()));
                 output.accept(new ItemStack(DECK.get()));
                 output.accept(new ItemStack(PACK.get()));
+                output.accept(new ItemStack(SEALED.get()));
+                output.accept(new ItemStack(SHOP_COUNTER_ITEM.get()));
                 output.accept(new ItemStack(TABLE_ITEM.get()));
                 output.accept(new ItemStack(COLLECTION_ITEM.get()));
             })
@@ -124,6 +153,9 @@ final class GatheringRegistration {
     static void bootstrap(IEventBus modBus) {
         // Blocks before items: the table's item names its block when it is created.
         BLOCKS.register(modBus);
+        // After blocks: the counter's point of interest names every one of its block states.
+        POI_TYPES.register(modBus);
+        PROFESSIONS.register(modBus);
         SOUNDS.register(modBus);
         BLOCK_ENTITIES.register(modBus);
         ITEMS.register(modBus);
@@ -151,6 +183,12 @@ final class GatheringRegistration {
         GatheringComponents.DECK.bind(DECK_COMPONENT);
         GatheringComponents.POOL.bind(POOL_COMPONENT);
         GatheringComponents.PACK.bind(PACK_COMPONENT);
+        GatheringComponents.SEALED.bind(SEALED_COMPONENT);
+        GatheringContent.SEALED.bind(SEALED);
+        GatheringContent.SHOP_COUNTER.bind(SHOP_COUNTER);
+        GatheringContent.SHOP_COUNTER_ITEM.bind(SHOP_COUNTER_ITEM);
+        dev.gathering.village.GatheringVillagers.COUNTER_POI.bind(COUNTER_POI);
+        dev.gathering.village.GatheringVillagers.SHOPKEEPER.bind(SHOPKEEPER);
         dev.gathering.registry.GatheringLoot.SEALED_PRODUCT.bind(SEALED_PRODUCT_ENTRY);
         GatheringContent.COLLECTION.bind(COLLECTION);
         GatheringContent.COLLECTION_ITEM.bind(COLLECTION_ITEM);

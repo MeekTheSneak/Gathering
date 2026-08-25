@@ -34,6 +34,11 @@ EXPECTED_UNREFERENCED = {
     "item.gathering.card",
     "item.gathering.deck",
     "item.gathering.pack",
+    "item.gathering.sealed",
+    "block.gathering.shop_counter",
+    # Vanilla builds this one from the profession's registry id, with the namespace in the
+    # middle because the profession is not minecraft's.
+    "entity.minecraft.villager.gathering.shopkeeper",
     "key.categories.gathering",
 }
 # Turns pass whole rather than a step at a time, so nothing shows a phase now - but PhaseSet is

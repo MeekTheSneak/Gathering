@@ -1,9 +1,7 @@
 package dev.gathering.server;
 
-import dev.gathering.core.config.GatheringConfig;
 import dev.gathering.core.sealed.BoosterOdds;
 import dev.gathering.core.sealed.LootRichness;
-import dev.gathering.core.sealed.LootSets;
 import dev.gathering.core.sealed.LootSource;
 import dev.gathering.core.sealed.SealedProduct;
 import dev.gathering.item.PackComponent;
@@ -104,7 +102,7 @@ public final class SealedLoot {
         if (collation == null) {
             return;
         }
-        wanted(settings)
+        SetsInPlay.wanted(settings)
                 .thenComposeAsync(codes -> readAll(collation, codes), collation.worker())
                 .whenComplete((found, failure) -> {
                     if (failure != null) {
@@ -180,33 +178,6 @@ public final class SealedLoot {
     }
 
     // ------------------------------------------------------------------ bits
-
-    /**
-     * Which sets this server draws its packs from, once they are known.
-     *
-     * <p>What to do with the three answers is {@link LootSets}'s and is checked there; what
-     * happens here is going and getting them. "Current" and "recent" come out of the same
-     * one request, so asking for both costs no more than asking for either.
-     */
-    private static CompletableFuture<List<String>> wanted(GatheringConfig settings) {
-        List<String> named = settings.collecting().lootSets();
-        if (!LootSets.needsTheReleaseList(named)) {
-            return CompletableFuture.completedFuture(
-                    LootSets.wanted(named, Optional.empty(), List.of()));
-        }
-        CompletableFuture<List<String>> recent =
-                LootSets.needsMoreThanTheNewest(named)
-                        ? CurrentSet.recent(settings.collecting().lootRecentSets())
-                        : CompletableFuture.completedFuture(List.of());
-        return CurrentSet.whenKnown().thenCombine(recent, (current, releases) -> {
-            List<String> all = LootSets.wanted(named, current, releases);
-            if (all.isEmpty()) {
-                LOGGER.warn("Collecting is on and no set could be worked out, so nothing drops. "
-                        + "Name one in collection.loot_sets to run without asking Scryfall.");
-            }
-            return all;
-        });
-    }
 
     /**
      * What each set really sold, read one set at a time.

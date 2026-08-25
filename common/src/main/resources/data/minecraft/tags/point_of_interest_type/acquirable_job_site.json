@@ -1,7 +1,6 @@
 {
   "replace": false,
   "values": [
-    "gathering:table",
     "gathering:shop_counter"
   ]
 }

@@ -9,6 +9,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import java.util.List;
 
 /**
  * All Fabric registration, in one class, mirroring the NeoForge bootstrap.
@@ -59,10 +60,14 @@ final class GatheringRegistration {
         Item pack = Registry.register(
                 BuiltInRegistries.ITEM, Gathering.id(GatheringContent.PACK_ID),
                 GatheringContent.createPack());
+        Item sealed = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.SEALED_ID),
+                GatheringContent.createSealed());
 
         GatheringContent.CARD.bindValue(card);
         GatheringContent.DECK.bindValue(deck);
         GatheringContent.PACK.bindValue(pack);
+        GatheringContent.SEALED.bindValue(sealed);
 
         GatheringComponents.CARD.bindValue(Registry.register(
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
@@ -80,6 +85,10 @@ final class GatheringRegistration {
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
                 Gathering.id(GatheringComponents.PACK_ID),
                 GatheringComponents.createPackType()));
+        GatheringComponents.SEALED.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.SEALED_ID),
+                GatheringComponents.createSealedType()));
 
         net.minecraft.world.level.block.Block collection = Registry.register(
                 BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.COLLECTION_ID),
@@ -94,6 +103,33 @@ final class GatheringRegistration {
                 net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
                         .create(GatheringContent::createCollectionEntity, collection)
                         .build()));
+
+        // The counter, then somewhere to work at it, then the job. Fabric's helper registers
+        // the point of interest and puts every one of the block's states into the map
+        // villagers search, which is the part vanilla keeps to itself.
+        net.minecraft.world.level.block.Block counter = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.SHOP_COUNTER_ID),
+                GatheringContent.createShopCounter());
+        GatheringContent.SHOP_COUNTER.bindValue(counter);
+        Item counterItem = Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.SHOP_COUNTER_ID),
+                GatheringContent.createShopCounterItem());
+        GatheringContent.SHOP_COUNTER_ITEM.bindValue(counterItem);
+        dev.gathering.village.GatheringVillagers.COUNTER_POI.bindValue(
+                net.fabricmc.fabric.api.object.builder.v1.world.poi.PointOfInterestHelper.register(
+                        Gathering.id(GatheringContent.SHOP_COUNTER_ID), 1, 1, counter));
+        dev.gathering.village.GatheringVillagers.SHOPKEEPER.bindValue(Registry.register(
+                BuiltInRegistries.VILLAGER_PROFESSION,
+                Gathering.id(dev.gathering.village.GatheringVillagers.SHOPKEEPER_ID),
+                dev.gathering.village.GatheringVillagers.createShopkeeper()));
+        for (int level = 1; level <= dev.gathering.core.sealed.ShopTier.LEVELS; level++) {
+            List<net.minecraft.world.entity.npc.VillagerTrades.ItemListing> listings =
+                    dev.gathering.village.ShopTrades.at(level);
+            net.fabricmc.fabric.api.object.builder.v1.trade.TradeOfferHelper
+                    .registerVillagerOffers(
+                            dev.gathering.village.GatheringVillagers.SHOPKEEPER.get(), level,
+                            factories -> factories.addAll(listings));
+        }
 
         dev.gathering.registry.GatheringLoot.SEALED_PRODUCT.bindValue(Registry.register(
                 BuiltInRegistries.LOOT_POOL_ENTRY_TYPE,
@@ -110,6 +146,8 @@ final class GatheringRegistration {
                             output.accept(new ItemStack(card));
                             output.accept(new ItemStack(deck));
                             output.accept(new ItemStack(pack));
+                            output.accept(new ItemStack(sealed));
+                            output.accept(new ItemStack(counterItem));
                             output.accept(new ItemStack(GatheringContent.TABLE_ITEM.get()));
                             output.accept(
                                     new ItemStack(GatheringContent.COLLECTION_ITEM.get()));

@@ -3,6 +3,8 @@ package dev.gathering.service;
 import dev.gathering.core.booster.MtgjsonCollation;
 import dev.gathering.core.booster.MtgjsonFeed;
 import dev.gathering.core.sealed.MtgjsonProducts;
+import dev.gathering.core.sealed.MtgjsonDecks;
+import dev.gathering.core.sealed.SealedCatalogue;
 import com.google.gson.JsonObject;
 import java.util.List;
 import dev.gathering.core.net.JdkHttpTransport;
@@ -50,7 +52,23 @@ public final class CollationService implements AutoCloseable {
     private final Map<String, MtgjsonCollation.Reading> alreadyRead = new ConcurrentHashMap<>();
 
     /** The same, for what the set sold rather than what its packs hold. */
-    private final Map<String, MtgjsonProducts.Reading> productsRead = new ConcurrentHashMap<>();
+    private final Map<String, Catalogue> cataloguesRead = new ConcurrentHashMap<>();
+
+    /**
+     * One set's file, read for everything a shop needs out of it.
+     *
+     * <p>Products and decks together because they are two halves of one answer and one file:
+     * a precon is published in {@code sealedProduct} and the hundred cards it names are
+     * published in {@code decks}, and reading the file twice to get them would be a second
+     * parse of thirty megabytes for a join.
+     */
+    public record Catalogue(MtgjsonProducts.Reading products, MtgjsonDecks.Reading decks) {
+
+        /** Both lookups, as the pure rules want them. */
+        public SealedCatalogue lookup() {
+            return SealedCatalogue.of(products, decks);
+        }
+    }
 
     private CollationService(Path cacheRoot, String userAgent) throws IOException {
         this.executor = Executors.newSingleThreadExecutor(namedDaemonThreads("gathering-mtgjson"));
@@ -111,31 +129,49 @@ public final class CollationService implements AutoCloseable {
      * reading with nothing in it and a note saying why.
      */
     public CompletableFuture<MtgjsonProducts.Reading> productsFor(String setCode) {
+        return catalogueFor(setCode).thenApply(Catalogue::products);
+    }
+
+    /**
+     * What one set really sold, and the decks those products name.
+     *
+     * <p>Out of the same file the collation comes from, read once. Never fails the future for
+     * a set that simply sold nothing sealed: that comes back as a reading with nothing in it
+     * and a note saying why.
+     */
+    public CompletableFuture<Catalogue> catalogueFor(String setCode) {
         String set = setCode == null ? "" : setCode.trim().toLowerCase(java.util.Locale.ROOT);
-        MtgjsonProducts.Reading known = productsRead.get(set);
+        Catalogue known = cataloguesRead.get(set);
         if (known != null) {
             return CompletableFuture.completedFuture(known);
         }
         return CompletableFuture.supplyAsync(() -> {
-            MtgjsonProducts.Reading cached = productsRead.get(set);
+            Catalogue cached = cataloguesRead.get(set);
             if (cached != null) {
                 return cached;
             }
             try {
                 JsonObject file = feed.setFile(set).orElse(null);
                 if (file == null) {
-                    MtgjsonProducts.Reading nothing = new MtgjsonProducts.Reading(
-                            set, List.of(), List.of(set + " is not a set with a file"));
-                    productsRead.put(set, nothing);
+                    Catalogue nothing = new Catalogue(
+                            new MtgjsonProducts.Reading(
+                                    set, List.of(), List.of(set + " is not a set with a file")),
+                            MtgjsonDecks.Reading.NOTHING);
+                    cataloguesRead.put(set, nothing);
                     return nothing;
                 }
-                MtgjsonProducts.Reading reading =
-                        MtgjsonProducts.read(file, MtgjsonCollation.printings(file));
+                Map<String, java.util.UUID> printings = MtgjsonCollation.printings(file);
+                MtgjsonProducts.Reading reading = MtgjsonProducts.read(file, printings);
+                MtgjsonDecks.Reading decks = MtgjsonDecks.read(file, printings);
                 for (String note : reading.notes()) {
                     LOGGER.info("Products for {}: {}", set, note);
                 }
-                productsRead.put(set, reading);
-                return reading;
+                for (String note : decks.notes()) {
+                    LOGGER.info("Decks in {}: {}", set, note);
+                }
+                Catalogue read = new Catalogue(reading, decks);
+                cataloguesRead.put(set, read);
+                return read;
             } catch (Exception couldNotRead) {
                 throw new java.util.concurrent.CompletionException(couldNotRead);
             }
