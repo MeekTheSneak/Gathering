@@ -51,10 +51,36 @@ public final class DecklistImport {
      */
     private static final long COOLDOWN_NANOS = java.time.Duration.ofSeconds(3).toNanos();
 
+    /** Vanilla's own "runs the server" level, the same one /op grants. */
+    private static final int OPERATOR_LEVEL = 2;
+
     private static final java.util.Map<UUID, Long> lastImportNanos = new java.util.concurrent.ConcurrentHashMap<>();
     private static final java.util.Set<UUID> inFlight = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private DecklistImport() {
+    }
+
+    /**
+     * Why this player may not import, or null if they may.
+     *
+     * <p>Public so the command that opens the import screen can ask before opening it: being
+     * told no after typing a decklist out is a worse answer than being told no instead of
+     * being handed the box to type it into.
+     */
+    public static String whyNot(ServerPlayer player) {
+        return whyNot(player.hasPermissions(OPERATOR_LEVEL));
+    }
+
+    /** The same answer for somebody described only by whether they run the server. */
+    public static String whyNot(boolean isOperator) {
+        var settings = dev.gathering.service.ServerSettings.get();
+        if (!settings.modes().importEnabled()) {
+            return "Importing decklists is turned off on this server.";
+        }
+        if (!settings.mayImport(isOperator)) {
+            return "Only server operators can import decklists here.";
+        }
+        return null;
     }
 
     /**
@@ -73,6 +99,14 @@ public final class DecklistImport {
     public static void importFor(
             ServerPlayer player, CardDataService service, String decklist, String deckName, String description) {
         UUID id = player.getUUID();
+
+        // The server's own answer, not the screen's. A client that never saw the screen - or
+        // one written to skip it - arrives here, and this is the only place that decides.
+        String refusal = whyNot(player);
+        if (refusal != null) {
+            send(player, new ImportResultPayload("", 0, List.of(refusal)));
+            return;
+        }
 
         if (!inFlight.add(id)) {
             send(player, new ImportResultPayload("", 0,

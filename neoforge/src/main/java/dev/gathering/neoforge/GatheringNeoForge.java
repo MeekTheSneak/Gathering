@@ -3,6 +3,7 @@ package dev.gathering.neoforge;
 import dev.gathering.Gathering;
 import dev.gathering.platform.Platform;
 import dev.gathering.service.CardDataService;
+import dev.gathering.service.ServerSettings;
 import java.io.IOException;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -37,6 +38,7 @@ public final class GatheringNeoForge {
     }
 
     private void onServerStarting(ServerStartingEvent event) {
+        ServerSettings.load(Platform.get());
         try {
             cardData = CardDataService.start(Platform.get());
         } catch (IOException e) {
@@ -48,6 +50,7 @@ public final class GatheringNeoForge {
     }
 
     private void onServerStopped(ServerStoppedEvent event) {
+        ServerSettings.clear();
         if (cardData != null) {
             cardData.close();
             cardData = null;

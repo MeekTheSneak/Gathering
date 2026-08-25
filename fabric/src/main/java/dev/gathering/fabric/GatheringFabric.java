@@ -3,6 +3,7 @@ package dev.gathering.fabric;
 import dev.gathering.Gathering;
 import dev.gathering.platform.Platform;
 import dev.gathering.service.CardDataService;
+import dev.gathering.service.ServerSettings;
 import java.io.IOException;
 import dev.gathering.command.GatheringCommands;
 import net.fabricmc.api.ModInitializer;
@@ -43,6 +44,7 @@ public final class GatheringFabric implements ModInitializer {
         });
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+            ServerSettings.load(Platform.get());
             try {
                 cardData = CardDataService.start(Platform.get());
             } catch (IOException e) {
@@ -53,6 +55,7 @@ public final class GatheringFabric implements ModInitializer {
         });
 
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            ServerSettings.clear();
             if (cardData != null) {
                 cardData.close();
                 cardData = null;

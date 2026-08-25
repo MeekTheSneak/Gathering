@@ -104,6 +104,11 @@ public final class GatheringCommands {
 
     private static int openImportScreen(CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
+        String refusal = DecklistImport.whyNot(player);
+        if (refusal != null) {
+            source.sendFailure(Component.literal(refusal));
+            return 0;
+        }
         player.connection.send(new ClientboundCustomPayloadPacket(OpenImportScreenPayload.INSTANCE));
         return 1;
     }

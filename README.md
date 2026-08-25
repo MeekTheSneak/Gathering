@@ -116,7 +116,31 @@ looking at its output rather than by reading code.
 **Phase 2 - the real game.** Under way: multiplayer sessions, per-player visibility sync and
 spectator rendering are in; the group playtest that gates the rest is not.
 
-Phases 3-4 (collection and draft, arenas) are described in the design brief, section 14.
+**Phase 3 - collection and draft.** The draft half is in: pods, pick-2 at four and five
+players, three rounds of passing, pools that stay yours, and a deck screen that builds a
+forty out of one. The collection half has its foundations rather than its game:
+
+- [x] The booster interpreter - weighted print sheets and weighted pack arrangements, which
+      is what real collation actually is, so no set needs a line of code written for it
+- [x] Real collation read from MTGJSON's published set files, following a booster into the
+      other sets its slots reach into
+- [x] A faucet coverage auditor, so a server can prove every card in a set is obtainable
+- [x] One server config file with the mode switches, written with its own explanations on
+      first start
+- [ ] Sealed product as items, opened with a ceremony
+- [ ] Shops, loot, and the rest of section 9
+
+**Phase 4 - arenas.** Described in the design brief, section 14.
+
+### The server config
+
+A server writes `config/gathering-server.toml` on its first start, with every setting at its
+default and a sentence above it saying what it does. The two that matter are at the top:
+`import_enabled` decides whether players can turn a decklist into a deck out of nothing, and
+`collection_enabled` decides whether cards are things you find and own. Everything else hangs
+off those. A setting the mod does not recognise is reported in the log rather than ignored,
+and a file it cannot read at all leaves the server running on the defaults rather than
+refusing to start.
 
 ### Playing it
 
