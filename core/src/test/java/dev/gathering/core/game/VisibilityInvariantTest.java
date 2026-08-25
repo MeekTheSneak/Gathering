@@ -2,6 +2,7 @@ package dev.gathering.core.game;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.gathering.core.card.ArtToSend;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.core.game.visibility.CardView;
@@ -13,6 +14,7 @@ import dev.gathering.core.game.visibility.ZoneView;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -93,6 +95,83 @@ class VisibilityInvariantTest {
                 GameFixtures.ALICE, null, 40, Map.of(), Map.of(), Map.of(), false, Map.of());
 
         assertThat(empty.hasABoard()).isFalse();
+    }
+
+    /**
+     * The pictures a viewer is sent name only cards that viewer was already shown.
+     *
+     * <p>A client asked what a card looked like only for cards in its own inventory, so
+     * somebody else's cards had no picture and a public graveyard opened onto empty recesses.
+     * The server pushes them instead, which is safe for exactly one reason: what it sends is
+     * read out of the view it just sent, and a card the rules turned into a count or a sleeve
+     * has no identity in that view to name. This is that reason, written down.
+     */
+    @Test
+    @DisplayName("the art sent to a viewer names nothing their own view did not show them")
+    void artSentNamesOnlyWhatTheViewShowed() {
+        GameSession session = playARepresentativeGame();
+
+        for (Viewer viewer : List.of(
+                Viewer.seat(GameFixtures.ALICE), Viewer.seat(GameFixtures.BOB),
+                Viewer.SPECTATOR)) {
+            GameView view = VisibilityRules.viewFor(session.state(), viewer);
+            Set<UUID> shown = view.allCardViews().stream()
+                    .filter(CardView.Visible.class::isInstance)
+                    .map(CardView.Visible.class::cast)
+                    .map(visible -> visible.identity().scryfallId())
+                    .collect(Collectors.toSet());
+
+            assertThat(ArtToSend.wanted(view, Set.of()))
+                    .describedAs("%s is told about a printing their view did not show", viewer)
+                    .isSubsetOf(shown);
+        }
+    }
+
+    /**
+     * A hand nobody may look at contributes no printings to anybody else's pictures.
+     *
+     * <p>The case worth stating on its own: a hand is the one zone whose cards are real, and
+     * present in the owner's own view, and must never appear in anybody else's.
+     */
+    @Test
+    @DisplayName("a rival's hand is never named in the art sent to somebody else")
+    void aRivalsHandIsNeverNamedInSomebodyElsesArt() {
+        GameSession session = playARepresentativeGame();
+        GameView mine = VisibilityRules.viewFor(session.state(), Viewer.seat(GameFixtures.ALICE));
+        Set<UUID> inAlicesHand = mine.seat(GameFixtures.ALICE).zone(Zone.HAND).cards().stream()
+                .filter(CardView.Visible.class::isInstance)
+                .map(CardView.Visible.class::cast)
+                .map(visible -> visible.identity().scryfallId())
+                .collect(Collectors.toSet());
+        assertThat(inAlicesHand).isNotEmpty();
+
+        for (Viewer other : List.of(Viewer.seat(GameFixtures.BOB), Viewer.SPECTATOR)) {
+            GameView theirs = VisibilityRules.viewFor(session.state(), other);
+            Set<UUID> onTheBattlefield = theirs.allCardViews().stream()
+                    .filter(CardView.Visible.class::isInstance)
+                    .map(CardView.Visible.class::cast)
+                    .map(visible -> visible.identity().scryfallId())
+                    .collect(Collectors.toSet());
+            // Only printings that also sit somewhere public may repeat; the hand alone never
+            // puts one into somebody else's list.
+            for (UUID printing : ArtToSend.wanted(theirs, Set.of())) {
+                assertThat(onTheBattlefield)
+                        .describedAs("%s was told about %s, which is only in a hand",
+                                other, printing)
+                        .contains(printing);
+            }
+        }
+    }
+
+    /** Told once. A board redraws on every action and a printing's picture never changes. */
+    @Test
+    void aPrintingAlreadySentIsNotSentAgain() {
+        GameSession session = playARepresentativeGame();
+        GameView view = VisibilityRules.viewFor(session.state(), Viewer.SPECTATOR);
+
+        Set<UUID> first = ArtToSend.wanted(view, Set.of());
+        assertThat(first).isNotEmpty();
+        assertThat(ArtToSend.wanted(view, first)).isEmpty();
     }
 
     @Nested

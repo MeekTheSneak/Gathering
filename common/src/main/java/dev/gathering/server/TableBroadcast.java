@@ -7,6 +7,7 @@ import dev.gathering.block.TableSessions;
 import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.persistence.ViewCodec;
+import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.VisibilityRules;
 import dev.gathering.core.game.visibility.Viewer;
 import dev.gathering.core.table.SeatAnchor;
@@ -95,10 +96,15 @@ public final class TableBroadcast {
         try {
             // The tail rather than the whole log: a long game's log is thousands of lines and
             // nobody scrolls back past the last dozen. What is kept is kept on the server.
-            byte[] view = ViewCodec.write(VisibilityRules.viewFor(
-                    session.state(), viewer, session.recentLog(LOG_LINES_SENT)));
+            GameView seen = VisibilityRules.viewFor(
+                    session.state(), viewer, session.recentLog(LOG_LINES_SENT));
             player.connection.send(new ClientboundCustomPayloadPacket(
-                    new TableViewPayload(tableOrigin, view, open)));
+                    new TableViewPayload(tableOrigin, ViewCodec.write(seen), open)));
+            // And the pictures for what is in it. A client only ever asked about cards in its
+            // own inventory, so a rival's graveyard opened onto empty recesses under a count
+            // that said there was something there. Sent from the view rather than asked for,
+            // so a viewer learns about exactly the cards the rules just showed them.
+            TableCardArt.sendFor(player, seen);
         } catch (IOException e) {
             LOGGER.error("Could not send the board at {} to {}: {}",
                     tableOrigin, player.getGameProfile().getName(), e.getMessage());

@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.34
+## Design Brief v1.35
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -74,6 +74,7 @@ Mode interactions: with both enabled, servers can gate import behind progression
 **Canonical identity is the Scryfall ID** (UUID of a specific printing). Everything else, including name, oracle text, image URIs, mana cost, and prices, is derived data fetched and cached from Scryfall.
 
 - A card item carries one data component: `{ scryfall_id, foil, custom_id? }`. Nothing else. On 1.21.1 this is a registered `DataComponentType` with a codec, not raw NBT.
+- **A client is told what a card looks like; it does not go asking.** It may ask about cards in its own inventory, which grants it nothing it did not already have, and that is where the asking stops - a request channel wide enough to cover a table would be a client asking about any card it liked, aimed at somebody else's Scryfall quota. What it needs beyond its own pockets is pushed alongside the board: every time a viewer is sent a view, the printings of the cards *in that view* are sent with it. That is the whole safety argument and it is stated in the pure layer where it is tested - a card the rules turned into a count or a sleeve has no identity in the view, so there is nothing to name. Without it, a rival's graveyard opens onto empty recesses under a count saying there is something in it, because the pictures were only ever fetched for cards the viewer was holding. Each printing is asked for once per client per session, off the server thread, and a printing this server has never heard of is not asked for again until that client reconnects.
 - The server maintains a card metadata cache (JSON on disk) populated on demand through Scryfall's API, plus per-set MTGJSON files fetched and cached the same way for booster collation (the all-sets file is enormous; per-set on demand only), using the collection endpoint for batch resolution, off the main thread, always. Rate limiting per Scryfall's guidelines (steady-state, small delay between requests, identify with a proper User-Agent).
 - Clients fetch images independently from the `image_uris` the server relays. Card identity travels the network as a UUID plus display metadata; image bytes never travel our network at all. Each client builds its own disk cache. This is the same architecture that makes TTS work and it eliminates the entire image-sync problem class.
 - **Custom cards** (collection servers will want them; the existing MTGCard mod proved demand): Cockatrice XML import for metadata plus server-hosted art upload with a size cap. Custom cards get a `custom_id` namespace so they can never collide with Scryfall IDs.
