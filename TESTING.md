@@ -182,6 +182,10 @@ and the screen closes.
 **What should happen:** the deck's tooltip count follows every edit, and a commander you set
 this way shows on the item in gold like an imported one does.
 
+- **Rename it.** The title is the name. Click it and type; it saves when you close the screen.
+  A deck put together by dropping one card onto another starts with no name at all and the
+  title says so, which is the only place that could be said.
+
 ### 5. Put some tables together
 
 Craft a **Gathering Table** (three wool over planks, two legs) or take one from the creative
@@ -347,8 +351,6 @@ In rough order of how much it would change what I build next:
   is much likelier out of an end city than out of a village. Tying a set to a structure is an
   idea and not built.
 - **No trading.** Cards move between players by dropping them.
-- **No way to name a deck after the fact.** Import names one; a deck started from two cards
-  cannot be renamed yet.
 - **No theme picker.** The GUI art is all real textures generated from one palette in
   `tools/textures.py`, so a second theme is a matter of a second palette and a place to choose
   it — but there is no such place yet, and a resource pack is the only way to swap them today.

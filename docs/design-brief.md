@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.49
+## Design Brief v1.50
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -83,6 +83,8 @@ Mode interactions: with both enabled, servers can gate import behind progression
 - The server maintains a card metadata cache (JSON on disk) populated on demand through Scryfall's API, plus per-set MTGJSON files fetched and cached the same way for booster collation (the all-sets file is enormous; per-set on demand only), using the collection endpoint for batch resolution, off the main thread, always. Rate limiting per Scryfall's guidelines (steady-state, small delay between requests, identify with a proper User-Agent).
 - Clients fetch images independently from the `image_uris` the server relays. Card identity travels the network as a UUID plus display metadata; image bytes never travel our network at all. Each client builds its own disk cache. This is the same architecture that makes TTS work and it eliminates the entire image-sync problem class.
 - **Custom cards** (collection servers will want them; the existing MTGCard mod proved demand): Cockatrice XML import for metadata plus server-hosted art upload with a size cap. Custom cards get a `custom_id` namespace so they can never collide with Scryfall IDs.
+
+**A deck's name is its title, and the title is editable.** Import names a deck and so does a precon, but a deck put together by dropping one card onto another has none - and had no way to get one, which made starting a deck something you could do and never finish. The deck screen's heading is the name: click it and type, and it saves on the way out. Blank is allowed and means the deck is called "Deck" again, because a rename that only works in one direction is not a rename.
 
 **Decklist import** accepts the common text formats (Moxfield/Archidekt export, MTGO style, plain "1 Card Name (SET) 123"). Parser is pure Java with exhaustive unit tests, because format edge cases are endless and this is the front door of the whole mod. Ambiguous lines resolve to the cheapest matching printing by default with a chooser in the import screen. Import produces a sleeved deck item bound to the importing player.
 

@@ -35,6 +35,29 @@ public final class DeckEdits {
     private DeckEdits() {
     }
 
+    /**
+     * Calls the deck in somebody's hand something else.
+     *
+     * <p>The one thing a deck could not have done to it. Import names a deck and so does a
+     * precon; a deck started by putting two cards together has no name at all and had no way
+     * to get one, which made "start a deck" a thing you could do once and never finish.
+     *
+     * <p>A blank name is allowed and means what it says: the deck goes back to being called
+     * "Deck". Refusing to clear a name would be a rename that only works in one direction.
+     */
+    public static void rename(Player player, dev.gathering.network.RenameDeckPayload asked) {
+        InteractionHand hand = asked.hand();
+        ItemStack stack = player.getItemInHand(hand);
+        if (!(stack.getItem() instanceof DeckItem) || stack.getCount() != 1) {
+            return;
+        }
+        DeckComponent deck = DeckItem.deckOf(stack).orElse(null);
+        if (deck == null || deck.name().equals(asked.name())) {
+            return;
+        }
+        stack.set(GatheringComponents.DECK.get(), deck.named(asked.name()));
+    }
+
     public static void handle(Player player, DeckEditPayload edit) {
         InteractionHand hand = edit.hand();
         ItemStack stack = player.getItemInHand(hand);

@@ -72,6 +72,18 @@ public record DeckComponent(
         sideboard = List.copyOf(sideboard);
     }
 
+    /**
+     * The same deck, called something else.
+     *
+     * <p>A blank name means the deck has none, which is what a deck started by putting two
+     * cards together has: the item falls back to "Deck" and the screen invites a name.
+     */
+    public DeckComponent named(String newName) {
+        return new DeckComponent(
+                newName == null ? "" : newName.strip(),
+                description, owner, entries, commanders, sideboard);
+    }
+
     /** Physical cards in the deck proper - mainboard plus command zone, never the sideboard. */
     public int deckSize() {
         return entries.size() + commanders.size();

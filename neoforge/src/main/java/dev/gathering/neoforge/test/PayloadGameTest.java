@@ -309,6 +309,24 @@ public final class PayloadGameTest {
     }
 
     /** Writes, reads back, and insists the buffer is fully consumed. */
+    /** A deck's new name, on the wire. */
+    @GameTest(template = "empty")
+    public static void aRenameSurvivesTheWire(GameTestHelper helper) {
+        var restored = roundTrip(
+                helper,
+                dev.gathering.network.RenameDeckPayload.of(
+                        net.minecraft.world.InteractionHand.OFF_HAND, "Bear Tribal, Actually"),
+                dev.gathering.network.RenameDeckPayload.STREAM_CODEC);
+
+        if (!restored.name().equals("Bear Tribal, Actually")) {
+            helper.fail("A deck name changed on the wire: " + restored.name());
+        }
+        if (restored.hand() != net.minecraft.world.InteractionHand.OFF_HAND) {
+            helper.fail("Which hand holds the deck changed on the wire");
+        }
+        helper.succeed();
+    }
+
     private static <T> T roundTrip(
             GameTestHelper helper, T payload, StreamCodec<RegistryFriendlyByteBuf, T> codec) {
         RegistryAccess registries = helper.getLevel().registryAccess();

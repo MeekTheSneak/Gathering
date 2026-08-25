@@ -63,6 +63,11 @@ public final class GatheringNetwork {
                 GatheringNetwork::onDeckEdit);
 
         registrar.playToServer(
+                dev.gathering.network.RenameDeckPayload.TYPE,
+                dev.gathering.network.RenameDeckPayload.STREAM_CODEC,
+                GatheringNetwork::onDeckRename);
+
+        registrar.playToServer(
                 TableActionPayload.TYPE,
                 TableActionPayload.STREAM_CODEC,
                 GatheringNetwork::onTableAction);
@@ -210,6 +215,13 @@ public final class GatheringNetwork {
     private static void onDeckEdit(DeckEditPayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
             DeckEdits.handle(player, payload);
+        }
+    }
+
+    private static void onDeckRename(
+            dev.gathering.network.RenameDeckPayload payload, IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) {
+            DeckEdits.rename(player, payload);
         }
     }
 

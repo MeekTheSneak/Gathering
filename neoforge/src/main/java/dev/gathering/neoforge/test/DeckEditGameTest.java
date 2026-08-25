@@ -481,6 +481,63 @@ public final class DeckEditGameTest {
                 .orElseThrow(() -> new GameTestAssertException("The stack stopped being a deck"));
     }
 
+    /**
+     * A deck can be called something else, including nothing.
+     *
+     * <p>The one thing a deck could not have done to it. A deck started by putting two cards
+     * together has no name and had no way to get one, which made starting a deck something
+     * you could do and never finish.
+     */
+    @GameTest(template = "empty")
+    public static void aDeckCanBeRenamed(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        ItemStack stack = DeckItem.of(new DeckComponent(
+                "", "", java.util.Optional.of(player.getUUID()),
+                java.util.List.of(CardComponent.of(dev.gathering.core.card.CardIdentity.ofPrinting(
+                        java.util.UUID.fromString("dddddddd-1111-4111-8111-111111111111")))),
+                java.util.List.of(), java.util.List.of()));
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+
+        dev.gathering.server.DeckEdits.rename(player,
+                dev.gathering.network.RenameDeckPayload.of(
+                        net.minecraft.world.InteractionHand.MAIN_HAND, "The good one"));
+        if (!DeckItem.deckOf(player.getMainHandItem())
+                .map(deck -> deck.name().equals("The good one")).orElse(false)) {
+            helper.fail("A deck could not be given a name");
+            return;
+        }
+
+        // And back, because a rename that only works in one direction is not a rename.
+        dev.gathering.server.DeckEdits.rename(player,
+                dev.gathering.network.RenameDeckPayload.of(
+                        net.minecraft.world.InteractionHand.MAIN_HAND, "  "));
+        if (!DeckItem.deckOf(player.getMainHandItem())
+                .map(deck -> deck.name().isEmpty()).orElse(false)) {
+            helper.fail("A deck's name could not be cleared");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** Renaming reaches the deck in the hand and nothing else. */
+    @GameTest(template = "empty")
+    public static void renamingNeedsADeckInHand(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(net.minecraft.world.item.Items.STICK));
+
+        // Nothing to rename, and nothing that should happen because of it.
+        dev.gathering.server.DeckEdits.rename(player,
+                dev.gathering.network.RenameDeckPayload.of(
+                        net.minecraft.world.InteractionHand.MAIN_HAND, "Not a deck"));
+
+        if (!player.getMainHandItem().is(net.minecraft.world.item.Items.STICK)) {
+            helper.fail("Renaming a deck changed something that was not a deck");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static int countCards(Player player, CardComponent card) {
         int found = 0;
         for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {

@@ -63,6 +63,9 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     private static final int TITLE_COLOUR = 0xFFFFFFFF;
 
     private final InteractionHand hand;
+
+    /** The title, which is the deck's name, which is a thing you can type into. */
+    private net.minecraft.client.gui.components.EditBox nameField;
     private final List<Row> rows = new ArrayList<>();
 
     /** What the rows were built from, so a deck the server changed rebuilds them. */
@@ -110,6 +113,41 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> this.onClose())
                 .bounds(done.x(), done.y(), done.width(), done.height())
                 .build());
+
+        // The title is the name, and the name is editable. A deck started by putting two
+        // cards together has none and had no way to get one, which made starting a deck
+        // something you could do and never finish. Borderless and in the title's own colour,
+        // so the screen still reads as a heading rather than as a form - and when it is
+        // empty it says what to do with it, which is the only place that could be said.
+        String typed = this.nameField == null ? deck.name() : this.nameField.getValue();
+        Rect title = layout.title();
+        this.nameField = new net.minecraft.client.gui.components.EditBox(this.font, title.x(), title.y(), title.width(),
+                title.height(), Component.translatable("screen.gathering.deck.name"));
+        this.nameField.setBordered(false);
+        this.nameField.setTextColor(TITLE_COLOUR);
+        this.nameField.setMaxLength(
+                dev.gathering.network.RenameDeckPayload.MOST_CHARACTERS);
+        this.nameField.setHint(Component.translatable("screen.gathering.deck.name_hint"));
+        this.nameField.setValue(typed);
+        this.addRenderableWidget(this.nameField);
+    }
+
+    /**
+     * Sends the name on the way out, and only if it changed.
+     *
+     * <p>Rather than on every keystroke, which would be a packet per letter. Closing covers
+     * the Done button, Escape and walking away from the screen, which is every way out there
+     * is.
+     */
+    @Override
+    public void onClose() {
+        DeckComponent deck = deck().orElse(null);
+        if (this.nameField != null && deck != null
+                && !this.nameField.getValue().strip().equals(deck.name())) {
+            ClientNetworking.send(
+                    dev.gathering.network.RenameDeckPayload.of(hand, this.nameField.getValue()));
+        }
+        super.onClose();
     }
 
     /** How many a shift-click asks for, which is about a third of a limited mana base. */
@@ -170,6 +208,11 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         if (!printings.isEmpty()) {
             ClientNetworking.send(new RequestCardMetadataPayload(printings));
         }
+    }
+
+    /** How many lines the list is showing, for the scripted run to check it is showing any. */
+    int listedRows() {
+        return rows.size();
     }
 
     private void rebuild(DeckComponent deck) {
@@ -257,8 +300,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         super.render(graphics, mouseX, mouseY, partialTick);
 
         DeckScreenLayout current = layout();
-        Rect title = current.title();
-        GuiText.draw(graphics, this.font, getTitle(), title.x(), title.y(), title.width(), TITLE_COLOUR);
 
         int hovered = rowAt(mouseX, mouseY);
         renderRows(graphics, hovered);
@@ -273,6 +314,16 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     private void renderRows(GuiGraphics graphics, int hovered) {
         Rect area = layout().rows();
+        if (rows.isEmpty()) {
+            // A deck with nothing in it is reachable - a draft pool nobody picked from, a
+            // deck emptied a card at a time - and it drew as a blank panel with the land
+            // buttons underneath and no word about why. Said here, where the way out of it
+            // is the row of buttons directly below.
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("screen.gathering.deck.empty"),
+                    area.x() + 2, area.y() + 2, area.width() - 4, HEADING_COLOUR);
+            return;
+        }
         graphics.enableScissor(area.x(), area.y(), area.right(), area.bottom());
 
         int y = area.y() - scroll;

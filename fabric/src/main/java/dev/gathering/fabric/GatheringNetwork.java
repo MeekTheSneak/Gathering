@@ -41,6 +41,9 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(
                 RequestCardMetadataPayload.TYPE, RequestCardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(DeckEditPayload.TYPE, DeckEditPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.RenameDeckPayload.TYPE,
+                dev.gathering.network.RenameDeckPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(TableActionPayload.TYPE, TableActionPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(UndoPayload.TYPE, UndoPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(StartTablePayload.TYPE, StartTablePayload.STREAM_CODEC);
@@ -101,6 +104,10 @@ final class GatheringNetwork {
 
         ServerPlayNetworking.registerGlobalReceiver(DeckEditPayload.TYPE, (payload, context) ->
                 DeckEdits.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.RenameDeckPayload.TYPE, (payload, context) ->
+                        DeckEdits.rename(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(TableActionPayload.TYPE, (payload, context) ->
                 TableActions.handle(context.player(), payload));

@@ -1158,10 +1158,19 @@ public final class DevScene {
             case 96 -> {
                 expectScreen(client, "opening a deck to build it", DeckContentsScreen.class);
                 everyBasicLandHasAButton(client);
+                theDeckScreenListsItsCards(client);
                 shoot(client, "37-building-a-deck");
+                // A deck put together out of two cards has no name, and the title is where
+                // one gets typed. Typed rather than assumed: a heading that turns out not to
+                // take a cursor is a dead end nobody would find by reading the code.
+                nameTheDeck(client, "Bear Tribal");
                 advance(SETTLE / 2);
             }
             case 97 -> {
+                // Taken here rather than at the end of the step that typed it: a screenshot
+                // grabs the last frame drawn, so a picture taken in the same step as the
+                // typing is a picture of the screen before it.
+                shoot(client, "37a-naming-a-deck");
                 // Out of every screen, so the picture is the hotbar and the world.
                 client.setScreen(null);
                 sealedPacksInTheHotbar(client);
@@ -1881,13 +1890,53 @@ public final class DevScene {
             }
         }
         if (holding == null) {
+            // With cards in it. A deck of nothing photographs as an empty panel, and this
+            // scene photographed exactly that for weeks under the name "building a deck":
+            // the land buttons were there, the Done button was there, and there was no
+            // evidence either way about the thing the screen is for.
             dev.gathering.item.DeckComponent made = new dev.gathering.item.DeckComponent(
-                    "Pool", "", java.util.Optional.empty(), List.of(), List.of(), List.of());
+                    "Pool", "", java.util.Optional.empty(),
+                    someCards(client, 4), someCards(client, 1), List.of());
             client.player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
                     dev.gathering.item.DeckItem.of(made));
             holding = net.minecraft.world.InteractionHand.MAIN_HAND;
         }
         dev.gathering.service.DeckScreenHook.Binding.open(holding);
+    }
+
+    /** A deck screen with a deck in it lists the deck. */
+    private static void theDeckScreenListsItsCards(Minecraft client) {
+        if (!(client.screen instanceof DeckContentsScreen deck)) {
+            fail("there was no deck screen to read");
+            return;
+        }
+        if (deck.listedRows() <= 0) {
+            fail("a deck screen with cards in the deck listed none of them");
+        }
+    }
+
+    /**
+     * A few cards this client already knows the names of.
+     *
+     * <p>Out of the cache the collection was stocked from, so the deck screen photographs as
+     * a list of card names rather than a list of "not looked up yet".
+     */
+    private static List<dev.gathering.item.CardComponent> someCards(Minecraft client, int each) {
+        List<dev.gathering.item.CardComponent> cards = new java.util.ArrayList<>();
+        var service = dev.gathering.service.CardDataService.active().orElse(null);
+        if (service == null) {
+            return cards;
+        }
+        for (String name : List.of("Lightning Bolt", "Counterspell", "Grizzly Bears")) {
+            service.findByName(name).join().ifPresent(card -> {
+                var one = dev.gathering.item.CardComponent.of(
+                        dev.gathering.core.card.CardIdentity.ofPrinting(card.scryfallId(), false));
+                for (int copy = 0; copy < each; copy++) {
+                    cards.add(one);
+                }
+            });
+        }
+        return cards;
     }
 
     /**
@@ -2222,6 +2271,37 @@ public final class DevScene {
         if (!board.pressMenuEntry(wanted)) {
             fail("the table menu offers no way to make a token");
         }
+    }
+
+    /**
+     * Types a name into the deck screen's title.
+     *
+     * <p>The only box on that screen, and the point of it: a deck started by putting two
+     * cards together has no name, and this is where it gets one.
+     */
+    private static void nameTheDeck(Minecraft client, String name) {
+        if (client.screen == null) {
+            fail("there was no deck screen to name a deck on");
+            return;
+        }
+        for (GuiEventListener child : client.screen.children()) {
+            if (child instanceof net.minecraft.client.gui.components.EditBox box) {
+                client.screen.setFocused(box);
+                box.setFocused(true);
+                // Cleared first, because the deck this scene opens is a drafted pool and
+                // already has one. Typing appends at the cursor, which is right, and made
+                // this read "PoolBear Tribal" the first time it ran.
+                box.setValue("");
+                for (char letter : name.toCharArray()) {
+                    box.charTyped(letter, 0);
+                }
+                if (!box.getValue().equals(name)) {
+                    fail("a deck's title would not take a name: " + box.getValue());
+                }
+                return;
+            }
+        }
+        fail("the deck screen has nowhere to type a name");
     }
 
     /** Types into whatever field a screen put the cursor in. */
