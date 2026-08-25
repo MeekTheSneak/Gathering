@@ -54,12 +54,26 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
      */
     private static final int CARD_HEIGHT = 84;
 
+    /** How wide the two buttons under the cards are. */
+    private static final int TAKE_BUTTON = 70;
+    private static final int POOL_BUTTON = 78;
+
     private final BlockPos pod;
 
     private DraftView view;
 
     /** Places in the pack this drafter has clicked, in the order they clicked them. */
     private final List<Integer> chosen = new ArrayList<>();
+
+    /**
+     * Whether the grid is showing what has been picked rather than what is on offer.
+     *
+     * <p>The half of drafting the screen was missing. In paper you read your picks constantly
+     * - the question a pack asks is "what am I building", and it cannot be answered by a
+     * number. The cards were already on this client, sent with the pack; there was simply no
+     * way to look at them.
+     */
+    private boolean showingPool;
 
     private Rect panel = Rect.NONE;
     private Rect grid = Rect.NONE;
@@ -121,6 +135,10 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         this.view = updated;
         if (!sameCards) {
             chosen.clear();
+            // And back to the pack, because a pack is the one with a decision attached.
+            // Left on the pool, a drafter reading their picks when the packs moved would be
+            // looking at a screen with no cards to take and nothing saying one had arrived.
+            showingPool = false;
         }
         rebuild();
     }
@@ -134,9 +152,14 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         rebuild();
     }
 
+    /** The cards the grid is laying out: the pack on offer, or the pool already taken. */
+    private List<CardIdentity> onShow() {
+        return showingPool ? view.myPool() : view.myPack().cards();
+    }
+
     private void rebuild() {
         clearWidgets();
-        int cards = Math.max(1, view.myPack().size());
+        int cards = Math.max(1, onShow().size());
 
         // Sized to fit rather than wrapped at a fixed card size. A pack is a comparison -
         // you are looking at all of it at once - so it must all be on screen, and a row of it
@@ -151,7 +174,14 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
         int gridWidth = laid.width(GAP);
         int gridHeight = laid.height(GAP);
-        int width = Math.min(this.width - MARGIN * 2, gridWidth + MARGIN * 2);
+        // As wide as the widest thing in it, not as wide as the cards. An empty pool lays out
+        // as one card, and a panel built to that came out narrower than its own sentence and
+        // its own buttons - which then drew over the edges of it and over whatever was behind.
+        int wordsWidth = Math.max(
+                this.font.width(headline()),
+                Math.max(this.font.width(footer()), buttonsWidth()));
+        int width = Math.min(this.width - MARGIN * 2,
+                Math.max(gridWidth, wordsWidth) + MARGIN * 2);
         int height = Math.min(this.height - MARGIN * 2,
                 gridHeight + MARGIN * 2 + HEADER + FOOTER);
         panel = new Rect((this.width - width) / 2, (this.height - height) / 2, width, height);
@@ -165,11 +195,50 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         // drawn over the bottom row of them however the pack came out.
         footerRow = new Rect(panel.x() + MARGIN / 2, grid.bottom() + GAP * 2,
                 panel.width() - MARGIN, 14);
-        if (canPick()) {
+        int right = footerRow.right();
+        if (canPick() && !showingPool) {
             addRenderableWidget(GatheringButtons.of(
-                    footerRow.right() - 70, footerRow.y(), 70, footerRow.height(),
+                    right - TAKE_BUTTON, footerRow.y(), TAKE_BUTTON, footerRow.height(),
                     Component.translatable("screen.gathering.draft.take"), this::take));
+            right -= TAKE_BUTTON + 4;
         }
+        // Always offered, even with nothing in the pool yet, because a button that appears
+        // after the first pick is a button nobody knows was coming.
+        addRenderableWidget(GatheringButtons.of(
+                right - POOL_BUTTON, footerRow.y(), POOL_BUTTON, footerRow.height(),
+                showingPool
+                        ? Component.translatable("screen.gathering.draft.show_pack")
+                        : Component.translatable("screen.gathering.draft.show_pool",
+                                view.myPool().size()),
+                this::togglePool));
+    }
+
+    /**
+     * How much room the row of buttons under the cards needs.
+     *
+     * <p>Asked before they are made, because the panel has to be built wide enough to hold
+     * them and they are placed from the panel. Measured from the same labels they carry, so
+     * the two cannot come apart.
+     */
+    private int buttonsWidth() {
+        int wide = POOL_BUTTON + 4 + this.font.width(footer());
+        if (canPick() && !showingPool) {
+            wide += TAKE_BUTTON + 4;
+        }
+        return wide;
+    }
+
+    /**
+     * Swaps the grid between the pack and the pool.
+     *
+     * <p>The same grid rather than a second panel. A pack and a pool are the same thing to
+     * look at - a spread of cards you are reading - and two boxes would mean deciding which
+     * one is small, which is deciding which of them does not matter.
+     */
+    private void togglePool() {
+        showingPool = !showingPool;
+        GatheringButtons.clickSound();
+        rebuild();
     }
 
     /** Whether this drafter still has a decision to make in front of them. */
@@ -197,18 +266,23 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         GuiText.draw(graphics, this.font, headline(),
                 panel.x() + MARGIN / 2, panel.y() + 5, panel.width() - MARGIN, ACCENT);
 
-        List<CardIdentity> cards = view.myPack().cards();
+        List<CardIdentity> cards = onShow();
         int hovered = cardUnder(mouseX, mouseY);
         for (int index = 0; index < cards.size(); index++) {
+            // Nothing is marked as chosen while the pool is up: a place in the pool is not a
+            // place in the pack, and lighting one up there would mark whichever card of
+            // theirs happened to sit at the same index.
             drawCard(graphics, cards.get(index), slotOf(index),
-                    index == hovered, chosen.contains(index));
+                    index == hovered, !showingPool && chosen.contains(index));
         }
         // Only while there is another pack coming. A finished pod has the headline saying so
         // and the footer saying where the pool went, and a third sentence in the middle of an
         // empty box saying it again is a box repeating itself.
-        if (cards.isEmpty() && !view.finished()) {
+        if (cards.isEmpty() && (showingPool || !view.finished())) {
             GuiText.drawCentred(graphics, this.font,
-                    Component.translatable("screen.gathering.draft.pack_coming"),
+                    showingPool
+                            ? Component.translatable("screen.gathering.draft.pool_empty")
+                            : Component.translatable("screen.gathering.draft.pack_coming"),
                     panel.x() + panel.width() / 2, grid.y() + grid.height() / 2 - 4,
                     panel.width() - MARGIN, DIM);
         }
@@ -217,7 +291,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         footerSaid = footer.getString();
         GuiText.draw(graphics, this.font, footer,
                 footerRow.x(), footerRow.y() + (footerRow.height() - this.font.lineHeight) / 2,
-                footerRow.width() - 76, DIM);
+                Math.max(1, footerRow.width() - buttonsWidth() + this.font.width(footer)), DIM);
 
         // What Alt reads, the same way every other card box here does it: the card under
         // the cursor is handed to the zoom overlay rather than drawn large by this screen.
@@ -245,6 +319,9 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
      * which is whether the hold-up is somebody else or yourself.
      */
     private Component footer() {
+        if (showingPool) {
+            return Component.translatable("screen.gathering.draft.pool_of", view.myPool().size());
+        }
         if (view.finished()) {
             return Component.translatable("screen.gathering.draft.finished");
         }
@@ -273,7 +350,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && canPick()) {
+        if (button == 0 && canPick() && !showingPool) {
             int index = cardUnder((int) mouseX, (int) mouseY);
             if (index >= 0) {
                 choose(index);
@@ -307,7 +384,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         if (!grid.contains(x, y)) {
             return -1;
         }
-        List<CardIdentity> cards = view.myPack().cards();
+        List<CardIdentity> cards = onShow();
         for (int index = 0; index < cards.size(); index++) {
             if (slotOf(index).contains(x, y)) {
                 return index;
@@ -337,7 +414,12 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /** Where a card in this pack is, so the harness can click the card and not a pixel. */
     Rect slotOfCard(int index) {
-        return index < 0 || index >= view.myPack().size() ? Rect.NONE : slotOf(index);
+        return index < 0 || index >= onShow().size() ? Rect.NONE : slotOf(index);
+    }
+
+    /** Whether the grid is showing the pool rather than the pack, for the scripted harness. */
+    boolean isShowingPool() {
+        return showingPool;
     }
 
     /** How many cards are marked to be taken, which is what pressing take would send. */

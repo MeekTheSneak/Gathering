@@ -1143,13 +1143,19 @@ public final class DevScene {
             case 93 -> {
                 theDraftIsWaitingOnTheRest(client);
                 shoot(client, "36-waiting-on-the-rest");
+                lookAtMyPicks(client);
                 advance(SETTLE / 2);
             }
             case 94 -> {
-                openTheDeckScreen(client);
+                theScreenIsShowingMyPicks(client);
+                shoot(client, "36a-my-picks-so-far");
                 advance(SETTLE / 2);
             }
             case 95 -> {
+                openTheDeckScreen(client);
+                advance(SETTLE / 2);
+            }
+            case 96 -> {
                 expectScreen(client, "opening a deck to build it", DeckContentsScreen.class);
                 everyBasicLandHasAButton(client);
                 shoot(client, "37-building-a-deck");
@@ -2852,6 +2858,59 @@ public final class DevScene {
             return;
         }
         hover(client, at);
+    }
+
+    /** Presses the button that swaps the grid over to what this drafter has picked. */
+    private static void lookAtMyPicks(Minecraft client) {
+        if (!(client.screen instanceof DraftScreen draft)) {
+            fail("there was no draft screen to look at a pool on");
+            return;
+        }
+        press(client, net.minecraft.network.chat.Component
+                .translatable("screen.gathering.draft.show_pool",
+                        draft.showing().myPool().size()).getString());
+    }
+
+    /**
+     * And it shows what has been taken, which at this moment is nothing.
+     *
+     * <p>Two things at once. The screen can show a pool at all, which is the half of drafting
+     * it was missing - the question a pack asks is "what am I building" and a number cannot
+     * answer it. And a pick that has been declared but not resolved is <em>not</em> in the
+     * pool yet, which is the simultaneous-turn rule seen from the player's side: this drafter
+     * has said what they are taking and the packs have not moved, so they have taken nothing.
+     * A pool that filled up on declaration would be the rule broken where a player can see it.
+     */
+    private static void theScreenIsShowingMyPicks(Minecraft client) {
+        if (!(client.screen instanceof DraftScreen draft)) {
+            fail("the draft screen closed when asked for a pool");
+            return;
+        }
+        if (!draft.isShowingPool()) {
+            fail("pressing the pool button did not show the pool");
+            return;
+        }
+        if (!draft.showing().iHaveDeclared()) {
+            fail("this check wants a declared pick that has not resolved yet");
+            return;
+        }
+        int picked = draft.showing().myPool().size();
+        if (picked != 0) {
+            fail("a pick that has not resolved is already in the pool: " + picked);
+            return;
+        }
+        if (!draft.slotOfCard(0).isEmpty()) {
+            fail("the empty pool has a place for a card it does not hold");
+            return;
+        }
+        String empty = net.minecraft.network.chat.Component
+                .translatable("screen.gathering.draft.pool_empty").getString();
+        if (!draft.footerSaid().contains("0") && !draft.footerSaid().contains(empty)) {
+            fail("the screen does not say the pool is empty: " + draft.footerSaid());
+            return;
+        }
+        System.out.println("[devscene] looking at my picks, the screen says: "
+                + draft.footerSaid());
     }
 
     /** Whose life counter the watcher is resting on, so the check knows whose name to want. */
