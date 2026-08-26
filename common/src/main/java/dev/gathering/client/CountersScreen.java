@@ -189,7 +189,7 @@ public final class CountersScreen extends ChildScreen {
             addRenderableWidget(GatheringButtons.of(
                     panel.x() + MARGIN + (index % 3) * (width + GAP),
                     commonTop + (index / 3) * (ROW + GAP), width, ROW,
-                    Component.literal(shortLabel(name)), () -> change(name, 1)));
+                    Component.literal(CounterText.name(name)), () -> change(name, 1)));
         }
 
         // Commander damage, one row per opponent, on a table that has commanders. A grid on
@@ -613,15 +613,6 @@ public final class CountersScreen extends ChildScreen {
     /** Which printing each card on a row is, found once - it cannot change. */
     private final java.util.Map<CardInstanceId, CardComponent> printings =
             new java.util.HashMap<>();
-
-    /** "+1/+1" is wider than the button; the button says what it does in the room it has. */
-    private static String shortLabel(String name) {
-        return switch (name) {
-            case CardInstance.Counters.PLUS_ONE_PLUS_ONE -> "+1/+1";
-            case CardInstance.Counters.MINUS_ONE_MINUS_ONE -> "-1/-1";
-            default -> name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1);
-        };
-    }
 
     /** The label for a card menu opening this, which has to name what it will act on. */
     public static Component titleFor(List<CardInstanceId> cards, Component single) {

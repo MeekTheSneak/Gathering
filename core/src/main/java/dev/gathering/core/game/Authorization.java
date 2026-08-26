@@ -55,6 +55,13 @@ public final class Authorization {
             // Naming a specific card inside a hidden zone means having seen it.
             case GameEvent.CardMoved moved -> movingOutOfHiddenZone(state, moved);
 
+            // Emptying a hidden zone into the open shows the actor everything in it, which is
+            // the same looking the four above are about - so only its owner may ask for it.
+            case GameEvent.ZoneMoved moved -> !moved.fromRef().isHidden()
+                    ? Optional.<String>empty()
+                    : ownerOnly(event.actor(), moved.seat(), "empty their "
+                            + moved.from().name().toLowerCase(java.util.Locale.ROOT));
+
             // Your own seat, and nobody else's, for the things that are simply about you.
             case GameEvent.SeatTaken ignored -> Optional.empty();
             case GameEvent.SeatReleased ignored -> Optional.empty();

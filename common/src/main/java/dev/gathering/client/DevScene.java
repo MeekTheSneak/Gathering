@@ -1371,8 +1371,272 @@ public final class DevScene {
                 shoot(client, "49-the-pot");
                 advance(SETTLE / 2);
             }
+            case 126 -> {
+                // Back in the chair. The run stood up forty steps ago to check what a
+                // spectator sees, and a spectator cannot pick anything up at all.
+                sitBackDown(client);
+                advance(SETTLE);
+            }
+            case 127 -> {
+                // The gesture a physical table has and this one did not: a hand held flat on
+                // a pile picks the pile up. The library is the hard case - nobody may name a
+                // card in it, so there is nothing in the air to name and the whole thing has
+                // to move as a pile or not at all.
+                expectScreen(client, "a table to pick a pile up from", TableScreen.class);
+                int[] at = zoneCentre(client, Zone.PILES.indexOf(Zone.LIBRARY));
+                if (at == null || !(client.screen instanceof TableScreen board)) {
+                    fail("there was no library on screen to hold: seat "
+                            + ClientTableState.seatAt(table) + ", table " + table);
+                    advance(SETTLE / 2);
+                    return;
+                }
+                if (countIn(Zone.LIBRARY) < 2) {
+                    fail("the library had nothing in it to pick up: " + countIn(Zone.LIBRARY));
+                    advance(SETTLE / 2);
+                    return;
+                }
+                hover(client, at);
+                board.mouseClicked(at[0], at[1], 0);
+                // Held, not clicked: the frames that pass here are the hold.
+                advance(SETTLE / 2);
+            }
+            case 128 -> {
+                expectScreen(client, "a pile in the air", TableScreen.class);
+                shoot(client, "50-a-pile-in-hand");
+                int[] onto = zoneCentre(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
+                if (onto == null || !(client.screen instanceof TableScreen board)) {
+                    fail("there was no graveyard on screen to drop a pile on");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                hover(client, onto);
+                board.mouseReleased(onto[0], onto[1], 0);
+                advance(SETTLE);
+            }
+            case 129 -> {
+                int left = countIn(Zone.LIBRARY);
+                if (left != 0) {
+                    fail("holding a library did not pick the whole thing up: " + left + " left");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                if (!theLogMentions("log.gathering.zone_moved_own")) {
+                    fail("a whole pile moved and the log said nothing about it");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                shoot(client, "51-the-pile-landed");
+                advance(SETTLE / 2);
+            }
+            case 130 -> {
+                // Two +1/+1 counters on a creature, which is the thing the board has to say
+                // out loud. It used to shrink them to a "+" and put the count after it, so
+                // two of them read "+2" - a different card entirely, in Magic.
+                twoCountersOnACard(client);
+                advance(SETTLE);
+            }
+            case 131 -> {
+                expectScreen(client, "a board with counters on it", TableScreen.class);
+                int on = countersOnTheCardWithCounters(client);
+                if (on != 2) {
+                    fail("two +1/+1 counters went on and the board says " + on);
+                    advance(SETTLE / 2);
+                    return;
+                }
+                shoot(client, "52-counters-on-a-card");
+                advance(SETTLE / 2);
+            }
+            case 132 -> {
+                // Two cards on the same spot, which is what a stack on a real table is.
+                aStackOfTwoOnTheFelt(client);
+                advance(SETTLE);
+            }
+            case 133 -> {
+                expectScreen(client, "a stack on the felt", TableScreen.class);
+                inExileBefore = countIn(Zone.EXILE);
+                holdTheStackAndDropItOnAZone(client);
+                advance(SETTLE / 2);
+            }
+            case 134 -> {
+                // Held rather than dragged, so the press is still down: the frames since the
+                // last step are the hold, and this step lets go.
+                letTheStackGo(client);
+                advance(SETTLE);
+            }
+            case 135 -> {
+                int now = countIn(Zone.EXILE);
+                if (now != inExileBefore + 2) {
+                    fail("a stack of two went to exile and it holds " + now
+                            + ", not " + (inExileBefore + 2));
+                    advance(SETTLE / 2);
+                    return;
+                }
+                shoot(client, "53-a-stack-went-together");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
         }
+    }
+
+    /** How much was in exile before a stack was dropped on it. */
+    private static int inExileBefore;
+
+    /** Where the stack was put, so the hold can find it again. */
+    private static TablePosition stackedAt;
+
+    /**
+     * Puts two cards on one spot on the felt, which is what a stack is.
+     *
+     * <p>There is no stack type in the game model - cards on a table are a stack when they
+     * are lying on top of each other - so this is two moves to the same position, and the
+     * gesture that picks the stack up has to work that out from where things are.
+     */
+    private static void aStackOfTwoOnTheFelt(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            fail("there was no board to build a stack on");
+            return;
+        }
+        List<CardInstanceId> hand = new ArrayList<>();
+        for (CardView card : view.seat(me).zone(Zone.HAND).cards()) {
+            if (card instanceof CardView.Visible visible) {
+                hand.add(visible.id());
+            }
+        }
+        if (hand.size() < 2) {
+            fail("there were not two cards in hand to stack: " + hand.size());
+            return;
+        }
+        stackedAt = TablePosition.of(5000, 5000);
+        for (int index = 0; index < 2; index++) {
+            ClientTableActions.send(table, new GameEvent.CardMoved(me, hand.get(index),
+                    dev.gathering.core.game.ZoneRef.of(me, Zone.BATTLEFIELD),
+                    dev.gathering.core.game.Placement.at(stackedAt)));
+        }
+        System.out.println("[devscene] two cards stacked at " + stackedAt);
+    }
+
+    /** Presses on the stack and holds, without letting go. */
+    private static void holdTheStackAndDropItOnAZone(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null || stackedAt == null || !(client.screen instanceof TableScreen board)) {
+            fail("there was no stack to hold");
+            return;
+        }
+        Rect where = board.board().rectOf(me, stackedAt);
+        if (where.isEmpty()) {
+            fail("the stack is nowhere on screen");
+            return;
+        }
+        int[] at = {(int) where.centreX(), (int) where.centreY()};
+        hover(client, at);
+        board.mouseClicked(at[0], at[1], 0);
+        System.out.println("[devscene] holding a stack at " + at[0] + "," + at[1]);
+    }
+
+    /** Lets the held stack go over exile, which is where all of it should end up. */
+    private static void letTheStackGo(Minecraft client) {
+        int[] onto = zoneCentre(client, Zone.PILES.indexOf(Zone.EXILE));
+        if (onto == null || !(client.screen instanceof TableScreen board)) {
+            fail("there was no exile to drop a stack on");
+            return;
+        }
+        hover(client, onto);
+        board.mouseReleased(onto[0], onto[1], 0);
+        System.out.println("[devscene] dropped a stack on exile");
+    }
+
+    /**
+     * Takes the seat back, so the steps after this one are a player rather than a watcher.
+     *
+     * <p>Through the session, the way {@link #seatARival} does: what is wanted is an occupied
+     * seat, and walking a scripted client back to a block to right-click it would be testing
+     * the world interaction all over again rather than the thing after this.
+     */
+    private static void sitBackDown(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null || client.player == null) {
+            fail("there was no table to sit back down at");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        String name = client.player.getGameProfile().getName();
+        BlockPos where = table;
+        server.execute(() -> {
+            GameSession session = TableSessions.sessionAt(server.overworld(), where).orElse(null);
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (session == null || player == null) {
+                fail("the table went away before anybody could sit back down at it");
+                return;
+            }
+            // A seat lives on the block entity, not in the session: the session's SeatTaken
+            // records whose board it is, and the claim on the block is what makes the server
+            // answer "that is your seat" when a payload turns up. Both, in that order, is
+            // what right-clicking a table does.
+            var cluster = dev.gathering.block.TableClusters.at(server.overworld(), where);
+            var anchor = cluster.seats().stream().findFirst().orElse(null);
+            if (anchor == null) {
+                fail("the table has no seat to sit back down in");
+                return;
+            }
+            var claim = dev.gathering.block.TableSeats.take(
+                    server.overworld(), where, anchor.cell(), anchor.side(), who);
+            System.out.println("[devscene] sitting back down: " + claim);
+            session.submit(new GameEvent.SeatTaken(new SeatId(0), new PlayerRef(who, name)));
+            dev.gathering.server.TableActions.openFor(player, where);
+            System.out.println("[devscene] sat back down at " + where + ", seat "
+                    + dev.gathering.block.TableSessions.seatIdOf(server.overworld(), where, who));
+        });
+    }
+
+    /** Puts two +1/+1 counters on whatever is on this player's battlefield. */
+    private static void twoCountersOnACard(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            fail("there was no board to put counters on");
+            return;
+        }
+        CardInstanceId target = null;
+        for (CardView card : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible) {
+                target = visible.id();
+                break;
+            }
+        }
+        if (target == null) {
+            fail("there was nothing on the battlefield to put counters on");
+            return;
+        }
+        countered = target;
+        ClientTableActions.send(table, new GameEvent.CounterChanged(
+                me, target, dev.gathering.core.game.CardInstance.Counters.PLUS_ONE_PLUS_ONE, 2));
+        System.out.println("[devscene] two +1/+1 counters onto " + target);
+    }
+
+    /** The card the last step put counters on, so the step after can read them back. */
+    private static CardInstanceId countered;
+
+    private static int countersOnTheCardWithCounters(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null || countered == null) {
+            return -1;
+        }
+        for (CardView card : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible && visible.id().equals(countered)) {
+                return card.counters().getOrDefault(
+                        dev.gathering.core.game.CardInstance.Counters.PLUS_ONE_PLUS_ONE, 0);
+            }
+        }
+        return -1;
+    }
+
+    /** The middle of one of the zone slots, in screen pixels, or null if there is none. */
+    private static int[] zoneCentre(Minecraft client, int index) {
+        Rect zone = zoneRect(client, index);
+        return zone.isEmpty() ? null : new int[] {(int) zone.centreX(), (int) zone.centreY()};
     }
 
 

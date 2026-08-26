@@ -49,6 +49,8 @@ public final class GameFold {
 
             case GameEvent.CardMoved moved -> state.place(moved.card(), moved.to(), moved.placement());
 
+            case GameEvent.ZoneMoved moved -> moveZone(state, moved);
+
             case GameEvent.CardTapSet tap ->
                     state.withCard(state.requireCard(tap.card()).withTapped(tap.tapped()));
 
@@ -246,6 +248,32 @@ public final class GameFold {
         }
         // Whatever was revealed off the top is not on top any more.
         return count > 0 ? updated.withRevealed(seat, 0) : updated;
+    }
+
+    /**
+     * Empties one zone into another, keeping the order the cards were in.
+     *
+     * <p>Read once, up front, rather than re-read each time round: the list being walked is
+     * the list being emptied, and a zone moving onto itself - which a misaimed drag can ask
+     * for - would otherwise never run out of cards to move.
+     */
+    private static GameState moveZone(GameState state, GameEvent.ZoneMoved moved) {
+        List<CardInstanceId> contents = state.contents(moved.seat(), moved.from());
+        if (contents.isEmpty() || moved.fromRef().equals(moved.to())) {
+            return state;
+        }
+        GameState updated = state;
+        // Bottom first when they are going onto a top, so the card that was on top of the
+        // graveyard is on top of the library when it gets there.
+        List<CardInstanceId> order = new ArrayList<>(contents);
+        if (moved.placement().isTop()) {
+            java.util.Collections.reverse(order);
+        }
+        for (CardInstanceId card : order) {
+            updated = updated.place(card, moved.to(), moved.placement());
+        }
+        // Whatever was face up off the top of a library has left it.
+        return moved.from() == Zone.LIBRARY ? updated.withRevealed(moved.seat(), 0) : updated;
     }
 
     private static GameState mulligan(GameState state, GameEvent.Mulliganed event, SessionSeed seed) {

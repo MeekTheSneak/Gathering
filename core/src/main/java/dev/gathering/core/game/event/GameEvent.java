@@ -156,6 +156,59 @@ public sealed interface GameEvent {
         }
     }
 
+    /**
+     * Moving every card in one zone somewhere else, in the order they were in.
+     *
+     * <p>The whole graveyard back into the library, a hand discarded, a library dumped. Its
+     * own verb rather than a run of {@link CardMoved} for the same reason milling is: nobody
+     * may name the cards in a hidden zone, so a client that had to list them could not ask
+     * for this at all - and a run of moves would also fill the log with forty lines and give
+     * undo forty steps to walk back through what was one decision.
+     *
+     * <p>Order is kept. The cards arrive in the destination in the order they left, so a
+     * graveyard put back on top of a library is the graveyard, not a shuffle of it - the
+     * shuffle is a separate thing somebody asks for separately.
+     */
+    record ZoneMoved(SeatId actor, SeatId seat, Zone from, ZoneRef to, Placement placement)
+            implements GameEvent {
+
+        public ZoneMoved {
+            if (seat == null || from == null || to == null) {
+                throw new IllegalArgumentException("A zone move needs a source and a destination");
+            }
+            if (placement == null) {
+                placement = Placement.TOP;
+            }
+        }
+
+        /** Where the cards are coming from, as a reference like any other. */
+        public ZoneRef fromRef() {
+            return ZoneRef.of(seat, from);
+        }
+
+        @Override
+        public LogLine describe(GameState before) {
+            int count = before.contents(seat, from).size();
+            // Whether it is all one player's own business is decided here rather than left to
+            // the display layer's own-line rule, which asks only whether the actor is named
+            // twice - true of somebody emptying their graveyard into an opponent's library,
+            // and that line must not read "to their library". Hence a key spelled with an
+            // underscore: it is a wording chosen here, not one the display layer may upgrade
+            // to on its own.
+            boolean allMine = actor.equals(seat) && actor.equals(to.seat());
+            String key = count == 1
+                    ? (allMine ? "log.gathering.zone_moved_one_own" : "log.gathering.zone_moved_one")
+                    : (allMine ? "log.gathering.zone_moved_own" : "log.gathering.zone_moved");
+            return LogLine.of(key, actor, seat, from, to.seat(), to.zone(), count);
+        }
+
+        @Override
+        public boolean revealsInformation(GameState before) {
+            // Out of somewhere secret into the open is a reveal, exactly as it is for one card.
+            return fromRef().isHidden() && to.zone().isPublic() && !before.contents(seat, from).isEmpty();
+        }
+    }
+
     record CardTapSet(SeatId actor, CardInstanceId card, boolean tapped) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
@@ -565,6 +618,7 @@ public sealed interface GameEvent {
             case TokenCreated token -> Optional.of(token.seat());
             case TokenCopyCreated copy -> Optional.of(copy.seat());
             case CardMoved moved -> Optional.of(moved.to().seat());
+            case ZoneMoved moved -> Optional.of(moved.seat());
             default -> Optional.empty();
         };
     }
@@ -574,6 +628,7 @@ public sealed interface GameEvent {
         return switch (event) {
             case CardMoved moved -> moved.to().zone().isHidden()
                     || before.locationOf(moved.card()).map(ZoneRef::isHidden).orElse(false);
+            case ZoneMoved moved -> moved.to().zone().isHidden() || moved.fromRef().isHidden();
             case CardsDrawn ignored -> true;
             case Mulliganed ignored -> true;
             case LibraryReordered ignored -> true;
@@ -596,6 +651,7 @@ public sealed interface GameEvent {
             case LibraryReordered ignored -> List.of(Zone.LIBRARY);
             case Surveiled ignored -> List.of(Zone.LIBRARY, Zone.GRAVEYARD);
             case CardMoved moved -> List.of(moved.to().zone());
+            case ZoneMoved moved -> List.of(moved.from(), moved.to().zone());
             default -> List.of();
         };
     }

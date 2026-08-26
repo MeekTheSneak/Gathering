@@ -263,6 +263,12 @@ first time any verb past "put your deck down" has been reachable at all.
   one to look at their board — you can move their public cards too, because that is the
   paper-Magic rule the design keeps. The log says who did it.
 - **Hold the read key** over any card, here or anywhere, and the same inspect panel opens.
+- **Hold a press on a zone** — graveyard, library, exile — for about a third of a second and
+  the whole pile lifts instead of the top card. Drop it on another zone to move the lot: the
+  graveyard onto the library is the "shuffle it all back in" gesture, in one act rather than
+  forty. The same hold on a stack of cards lying on the felt picks up everything under the
+  point. A quick click still does what a quick click did, and a press that moves is still a
+  drag — the hold only counts if the hand stays still.
 
 **Goldfishing works alone.** One person at a table is not a special mode: sit down, start,
 put a deck down, draw seven. That is the phase 1 deliverable, so it is the thing most worth
