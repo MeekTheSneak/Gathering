@@ -194,6 +194,32 @@ public final class LoanerGameTest {
         helper.succeed();
     }
 
+    /**
+     * Reading the folder again never empties the shelf while it is doing it.
+     *
+     * <p>Resolving a decklist is a network call, so a reload that cleared first and resolved
+     * afterwards would leave a window seconds wide where the server lends nothing - and
+     * somebody who sat down inside it would be told this server has no decks. The folder here
+     * has nothing readable in it, which is the worst case for the naive version: clear, find
+     * nothing, and have thrown away a working shelf for good.
+     */
+    @GameTest(template = "empty")
+    public static void readingTheFolderAgainDoesNotEmptyTheShelfWhileItRuns(
+            GameTestHelper helper) {
+        LoanerDecks.clear();
+        LoanerDecks.stock(NAME, sixtyForests());
+
+        LoanerDecks.reload();
+        // Checked on the very next instruction, which is inside any window a clear-first
+        // version would have opened.
+        if (!LoanerDecks.lends()) {
+            helper.fail("re-reading the folder emptied the shelf while it was doing it");
+            return;
+        }
+        LoanerDecks.clear();
+        helper.succeed();
+    }
+
     // ------------------------------------------------------------------ bits
 
     private static BlockPos table(GameTestHelper helper) {

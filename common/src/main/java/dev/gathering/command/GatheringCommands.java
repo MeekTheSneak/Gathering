@@ -90,11 +90,50 @@ public final class GatheringCommands {
                                 .executes(context -> auditSet(
                                         context.getSource(),
                                         StringArgumentType.getString(context, "set")))))
+                // What the server lends, and re-reading the folder without a restart. An
+                // admin who has just written a decklist should not have to bounce the server
+                // to lend it: for the one feature whose whole point is a new player's first
+                // minute, that is a poor trade.
+                .then(Commands.literal("loaners")
+                        .executes(context -> listLoaners(context.getSource()))
+                        .then(Commands.literal("reload")
+                                .requires(source -> source.hasPermission(2))
+                                .executes(context -> reloadLoaners(context.getSource()))))
                 // Ending a game is a command rather than a click, because it cannot be undone
                 // and a table is a thing people lean on.
                 .then(Commands.literal("table")
                         .then(Commands.literal("end")
                                 .executes(context -> endSession(context.getSource()))));
+    }
+
+    /** What is on the shelf, for anybody: knowing what can be borrowed is not privileged. */
+    private static int listLoaners(CommandSourceStack source) {
+        java.util.List<String> names = dev.gathering.server.LoanerDecks.names();
+        if (names.isEmpty()) {
+            source.sendSuccess(
+                    () -> Component.translatable("message.gathering.no_loaners"), false);
+            return 0;
+        }
+        source.sendSuccess(() -> Component.translatable(
+                "message.gathering.loaners_are", names.size(), String.join(", ", names)), false);
+        return names.size();
+    }
+
+    /**
+     * Reads the folder again.
+     *
+     * <p>Answers twice: once immediately, because resolving a shelf of decklists is a network
+     * call and a command that said nothing until it finished would look like it had failed,
+     * and once when the decks are actually on the shelf.
+     */
+    private static int reloadLoaners(CommandSourceStack source) {
+        source.sendSuccess(
+                () -> Component.translatable("message.gathering.loaners_reloading"), true);
+        dev.gathering.server.LoanerDecks.reload().thenAccept(lent ->
+                source.getServer().execute(() -> source.sendSuccess(
+                        () -> Component.translatable("message.gathering.loaners_reloaded", lent),
+                        true)));
+        return 1;
     }
 
     /**

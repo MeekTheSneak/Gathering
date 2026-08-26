@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -146,42 +147,77 @@ public final class LoanerDecks {
      * slower - it is one where the decks arrive on the shelf a moment after the world does.
      */
     public static void warm() {
-        clear();
-        LoanerShelf shelf = LoanerShelf.of(read(folder()));
+        read();
+    }
+
+    /**
+     * Reads the folder again, for an admin who has just added a decklist.
+     *
+     * <p>Without this, lending a new deck means restarting the server, which for the one
+     * feature whose whole point is a new player's first minute is a poor trade.
+     *
+     * <p>Nothing is taken off the shelf until the replacement is ready. Clearing first and
+     * resolving afterwards would leave a window - seconds wide, because resolving is a
+     * network call - where the server lends nothing at all, and somebody sitting down inside
+     * it is told this server has no decks.
+     *
+     * @return how many decklists the folder held, which is not yet how many are lent
+     */
+    public static java.util.concurrent.CompletableFuture<Integer> reload() {
+        return read();
+    }
+
+    private static java.util.concurrent.CompletableFuture<Integer> read() {
+        LoanerShelf shelf = LoanerShelf.of(readFolder(folder()));
         if (shelf.isEmpty()) {
-            return;
+            SHELF.clear();
+            return java.util.concurrent.CompletableFuture.completedFuture(0);
         }
         CardDataService service = CardDataService.active().orElse(null);
         if (service == null) {
             LOGGER.warn("There are {} loaner deck(s) but no card pipeline to read them with",
                     shelf.size());
-            return;
+            return java.util.concurrent.CompletableFuture.completedFuture(0);
         }
+
+        // Built beside the shelf and swapped in at the end, so a reload never empties it.
+        Map<String, DeckComponent> staging = new java.util.concurrent.ConcurrentHashMap<>();
+        List<java.util.concurrent.CompletableFuture<?>> resolving = new ArrayList<>();
         for (LoanerShelf.Loaner loaner : shelf.decks()) {
-            resolve(service, loaner);
+            resolving.add(resolve(service, loaner, staging));
         }
+        return java.util.concurrent.CompletableFuture
+                .allOf(resolving.toArray(java.util.concurrent.CompletableFuture[]::new))
+                .thenApply(ignored -> {
+                    SHELF.keySet().retainAll(staging.keySet());
+                    SHELF.putAll(staging);
+                    return staging.size();
+                });
     }
 
-    private static void resolve(CardDataService service, LoanerShelf.Loaner loaner) {
-        service.importDecklist(loaner.decklist()).whenComplete((deck, failure) -> {
+    private static java.util.concurrent.CompletableFuture<?> resolve(
+            CardDataService service, LoanerShelf.Loaner loaner,
+            Map<String, DeckComponent> staging) {
+        return service.importDecklist(loaner.decklist()).handle((deck, failure) -> {
             if (failure != null) {
                 LOGGER.warn("The loaner deck \"{}\" could not be read: {}",
                         loaner.name(), failure.getMessage());
-                return;
+                return null;
             }
             if (deck == null || deck.cards().isEmpty()) {
                 LOGGER.warn("The loaner deck \"{}\" resolved to no cards at all, so it is not"
                         + " being lent", loaner.name());
-                return;
+                return null;
             }
             // Named after the file rather than after whatever the list called itself. The
             // name on the button and the name the client sends back have to be the same
             // string, and the file is the one an admin can see.
             DeckComponent made = DecklistImport.toComponent(
                     deck, null, loaner.name(), description(deck));
-            stock(loaner.name(), made);
+            staging.put(loaner.name(), made);
             LOGGER.info("Lending \"{}\": {} cards{}", loaner.name(), made.deckSize(),
                     problems(deck));
+            return null;
         });
     }
 
@@ -208,7 +244,7 @@ public final class LoanerDecks {
      * before anybody has read about it. A folder that cannot be read at all is a warning and
      * an empty shelf: a server always starts.
      */
-    private static Map<String, String> read(Path folder) {
+    private static Map<String, String> readFolder(Path folder) {
         try {
             if (!Files.isDirectory(folder)) {
                 Files.createDirectories(folder);
