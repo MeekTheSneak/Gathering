@@ -84,13 +84,6 @@ public final class TableSetup {
     }
 
     /**
-     * The rules this payload names, if the server agrees they exist.
-     *
-     * <p>Rebuilt from the server's own preset rather than from anything in the payload beyond
-     * a name, which is the same shape as every other place the mod takes a string from a
-     * client.
-     */
-    /**
      * Whether this payload is asking for a game with no format at all.
      *
      * <p>One empty id and nothing else. A format this server does not have is not free play,
@@ -116,6 +109,13 @@ public final class TableSetup {
         return rulesFrom(payload);
     }
 
+    /**
+     * The rules this payload names, if the server agrees they exist.
+     *
+     * <p>Rebuilt from the server's own preset rather than from anything in the payload beyond
+     * a name, which is the same shape as every other place the mod takes a string from a
+     * client.
+     */
     static Optional<MatchRules> rulesFrom(StartTablePayload payload) {
         Optional<FormatPreset> preset = FormatPresets.byId(payload.formatId());
         if (preset.isEmpty() || !MatchRules.SUPPORTED_LENGTHS.contains(payload.bestOf())) {

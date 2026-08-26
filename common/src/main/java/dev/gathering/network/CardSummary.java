@@ -82,14 +82,6 @@ public record CardSummary(
     }
 
     /**
-     * The sides that are actually printed, which is what gets drawn.
-     *
-     * <p>Not the same as {@link #faces()}. A split or flip card has two faces of rules text
-     * on one piece of card, and drawing one image per face shows the same picture twice; a
-     * transform card has two of everything. The difference is whether the faces carry their
-     * own art, which {@link #of} has already sorted out.
-     */
-    /**
      * The one side to draw, given which way up the card is sitting.
      *
      * <p>A card lies on a table with one side up. A transform card has two printed sides and
@@ -114,6 +106,14 @@ public record CardSummary(
         return printedSides().size() > 1;
     }
 
+    /**
+     * The sides that are actually printed, which is what gets drawn.
+     *
+     * <p>Not the same as {@link #faces()}. A split or flip card has two faces of rules text
+     * on one piece of card, and drawing one image per face shows the same picture twice; a
+     * transform card has two of everything. The difference is whether the faces carry their
+     * own art, which {@link #of} has already sorted out.
+     */
     public List<CardFaceSummary> printedSides() {
         List<CardFaceSummary> printed = faces().stream()
                 .filter(face -> face.readableImage().isPresent())

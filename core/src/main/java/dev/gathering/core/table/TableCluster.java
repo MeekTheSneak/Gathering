@@ -73,13 +73,6 @@ public final class TableCluster {
     }
 
     /**
-     * A cluster from a known set of tables.
-     *
-     * <p>Ordered before anything is derived from it, so the same set of tables always produces
-     * the same seats in the same order however it was discovered - a seat index that depends
-     * on which table happened to load first is a seat that changes hands on a chunk reload.
-     */
-    /**
      * The shape a client should assume from nothing but a seat count.
      *
      * <p>A client is told a board, not a building: the session froze the cluster's shape when
@@ -103,6 +96,13 @@ public final class TableCluster {
         return of(row).seats();
     }
 
+    /**
+     * A cluster from a known set of tables.
+     *
+     * <p>Ordered before anything is derived from it, so the same set of tables always produces
+     * the same seats in the same order however it was discovered - a seat index that depends
+     * on which table happened to load first is a seat that changes hands on a chunk reload.
+     */
     public static TableCluster of(Set<TableCell> cells) {
         List<TableCell> ordered = new ArrayList<>(cells);
         ordered.sort(Comparator.comparingInt(TableCell::z).thenComparingInt(TableCell::x));

@@ -157,6 +157,10 @@ public final class CollectionDecks {
                         deck.name(), deck.totalCards(), shortBy));
     }
 
+    /** A built deck, and how much of the list would not fit in one. */
+    private record Assembled(DeckComponent deck, int leftBehind) {
+    }
+
     /**
      * The lines, turned into the three sections a deck item has, taking as it goes.
      *
@@ -166,10 +170,6 @@ public final class CollectionDecks {
      * a bug in either half - the difference would be cards that exist twice. Sleeving is
      * moving, so this moves them.
      */
-    /** A built deck, and how much of the list would not fit in one. */
-    private record Assembled(DeckComponent deck, int leftBehind) {
-    }
-
     private static Assembled assemble(CollectionBlockEntity collection,
             DeckFromCollection.Building built, Map<String, CardIdentity> free,
             ResolvedDeck list, UUID owner, String deckName, String description) {

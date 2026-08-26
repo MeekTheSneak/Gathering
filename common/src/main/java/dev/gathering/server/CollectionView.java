@@ -275,14 +275,12 @@ public final class CollectionView {
     }
 
     /**
-     * The collection this player is standing at, or null.
+     * The collection this player is actually standing at, or null.
      *
-     * <p>Both halves matter. A block that is not a collection is somebody pointing a payload
-     * at a wall; a collection across the world is somebody reading a stranger's binder from
-     * their own base.
-     */
-    /**
-     * The collection this player is actually standing at.
+     * <p>Three halves, and all of them matter. A block that is not a collection is somebody
+     * pointing a payload at a wall; a position in an unloaded chunk is somebody making the
+     * server go and fetch one; and a collection across the world is somebody reading a
+     * stranger's binder from their own base.
      *
      * <p>Package-visible so {@link CollectionDecks} asks the same question rather than a
      * second one that looks like it. Reading a collection is public; being in front of one is
@@ -319,8 +317,10 @@ public final class CollectionView {
      * <p>The cache only. A search that fetched what it did not know would be one search
      * making ten thousand requests, and the honest answer for a card nobody has looked up is
      * that nobody has looked it up.
+     *
+     * <p>Package-visible for the same reason {@link #at} is: one answer, asked from two
+     * places.
      */
-    /** Package-visible for the same reason {@link #at} is: one answer, asked from two places. */
     static CardMetadata known(CardDataService service, CardIdentity card) {
         if (service == null) {
             return null;

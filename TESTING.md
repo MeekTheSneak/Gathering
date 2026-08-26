@@ -470,7 +470,16 @@ The half of the mod that never appears on screen has its own gate:
 ./gradlew verify        # everything: unit tests, data generation, in-world game tests
 ./gradlew :core:test    # just the fast pure-core suite, a few seconds
 tools/smoke.sh          # boots both loaders, client and dedicated server
+python3 tools/langcheck.py  # every translation key the source asks for has an entry
+python3 tools/doccheck.py   # no paragraph left attached to the wrong method
 ```
+
+The last two run inside `smoke.sh` as well; they are listed separately because they take a
+second and catch two failures the compiler is completely blind to. A missing translation key
+draws itself on screen where a sentence should be. An orphaned javadoc — one left sitting
+above another one when its own member was renamed or moved — quietly hands a method's
+reasoning to whatever ended up underneath it, which in a codebase where the comments carry the
+*why* is worse than having no comment at all.
 
 `verify` proves the code is right. It cannot prove a *loader* was wired up right — a loader
 serving the mod's classes without its assets compiles, builds, passes every test, boots,

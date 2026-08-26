@@ -240,13 +240,6 @@ public record GatheringConfig(
     }
 
     /**
-     * A value, and a note if changing it will not have changed anything.
-     *
-     * <p>Compared against the default rather than against whether the file mentions it,
-     * because the file this mod writes mentions every setting - so "is it in the file" would
-     * mean a fresh server reporting a dozen things it has not been asked to do.
-     */
-    /**
      * The loot sources a file asked for, keeping only ones that are a place in the world.
      *
      * <p>A name nobody knows is dropped and said out loud. Silently keeping it would be a
@@ -307,6 +300,13 @@ public record GatheringConfig(
         return List.copyOf(kept);
     }
 
+    /**
+     * A value, and a note if changing it will not have changed anything.
+     *
+     * <p>Compared against the default rather than against whether the file mentions it,
+     * because the file this mod writes mentions every setting - so "is it in the file" would
+     * mean a fresh server reporting a dozen things it has not been asked to do.
+     */
     private static <T> T noted(String path, T value, T fallback, List<String> notes) {
         String missing = NOT_BUILT_YET.get(path);
         if (missing != null && !java.util.Objects.equals(value, fallback)) {

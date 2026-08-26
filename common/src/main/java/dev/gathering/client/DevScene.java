@@ -2749,13 +2749,6 @@ public final class DevScene {
     }
 
     /**
-     * Changes the interface scale and lets the game deal with it.
-     *
-     * <p>Which is a resize as far as every screen is concerned - {@code init} runs again on the
-     * instance that is already open, holding a game, a camera and whatever the player was
-     * dragging. Zero is the automatic setting.
-     */
-    /**
      * Changes the interface size, and says so only if it actually changed.
      *
      * <p>Minecraft clamps the scale to what the window can show - at the size this runs at,
@@ -3007,12 +3000,6 @@ public final class DevScene {
         System.out.println("[devscene] after picking, the screen says: " + draft.footerSaid());
     }
 
-    /**
-     * Opens the deck in this player's hand, which is where a drafted pool becomes a deck.
-     *
-     * <p>Through the hook the keybind uses rather than by constructing the screen, so a run
-     * goes on passing only while the way a player actually reaches it still works.
-     */
     /**
      * Opens the deck screen on a deck in this client's hand.
      *
@@ -4005,13 +3992,6 @@ public final class DevScene {
     }
 
     /**
-     * Gives up the seat, the way a player does: right-click your own edge of the table.
-     *
-     * <p>Through the block rather than through the seat register, because what is being
-     * checked is what a player can do to themselves - and because the board they are left
-     * holding afterwards is the whole point.
-     */
-    /**
      * Checks a player can reach the end of a game, and then does not end it.
      *
      * <p>Conceding is the only verb at this table that finishes a game. The machinery behind
@@ -4134,15 +4114,6 @@ public final class DevScene {
     }
 
     /**
-     * Every gesture the board has, aimed at somebody who has no seat.
-     *
-     * <p>Each of them is written for a player with a seat and several insist on one. Whether
-     * the ones that insist can be reached without a seat is a question about control flow, and
-     * reasoning about control flow is how an unreachable path that turns out to be reachable
-     * stays in a codebase. So: click a card, right-click a card, click every zone, drag from
-     * the hand, and press every key that does something.
-     */
-    /**
      * A graveyard is public, so somebody who is only watching the game may read one.
      *
      * <p>Guards a click that used to be swallowed: the board asked for the viewer's own seat
@@ -4232,13 +4203,6 @@ public final class DevScene {
         hover(client, new int[] {from[0] + 24, from[1] + 12});
     }
 
-    /**
-     * Presses one of the buttons printed on the player's own mat.
-     *
-     * <p>At the place the board says the button is, rather than by calling what the button
-     * calls: a box drawn where nothing listens for a click is exactly the fault worth
-     * catching, and calling the action directly would pass with no box drawn at all.
-     */
     /**
      * The life total is inside the window at the framing a player spends the game in.
      *
@@ -4556,7 +4520,6 @@ public final class DevScene {
         return held == null ? 0 : held.count();
     }
 
-    /** Puts the cursor on this player's own life counter, a frame before it is read. */
     /**
      * Rests on somebody else's life counter while holding no seat at all.
      *
@@ -4764,6 +4727,7 @@ public final class DevScene {
         System.out.println("[devscene] a watcher is told: " + said);
     }
 
+    /** Puts the cursor on this player's own life counter, a frame before it is read. */
     private static void hoverMyLifeCounter(Minecraft client) {
         if (!(client.screen instanceof TableScreen board)) {
             fail("there was no board to rest on a life counter of");
@@ -4968,6 +4932,13 @@ public final class DevScene {
         System.out.println("[devscene] the " + verb + " button says: " + all);
     }
 
+    /**
+     * Presses one of the buttons printed on the player's own mat.
+     *
+     * <p>At the place the board says the button is, rather than by calling what the button
+     * calls: a box drawn where nothing listens for a click is exactly the fault worth
+     * catching, and calling the action directly would pass with no box drawn at all.
+     */
     private static void pressAVerbButton(Minecraft client, TableVerb verb) {
         if (!(client.screen instanceof TableScreen board)) {
             fail("there was no board to press a mat button on");
@@ -5158,6 +5129,15 @@ public final class DevScene {
         board.pressMenuEntry("Undo my last action");
     }
 
+    /**
+     * Every gesture the board has, aimed at somebody who has no seat.
+     *
+     * <p>Each of them is written for a player with a seat and several insist on one. Whether
+     * the ones that insist can be reached without a seat is a question about control flow, and
+     * reasoning about control flow is how an unreachable path that turns out to be reachable
+     * stays in a codebase. So: click a card, right-click a card, click every zone, drag from
+     * the hand, and press every key that does something.
+     */
     private static void pokeEverything(Minecraft client) {
         if (!(client.screen instanceof TableScreen board)) {
             fail("there was no board left to poke at");
@@ -5303,13 +5283,6 @@ public final class DevScene {
     }
 
     /**
-     * Clicks the button with this label, wherever the layout has put it.
-     *
-     * <p>By label rather than by coordinates: a harness that clicks a fixed spot on the screen
-     * stops working the first time somebody moves a button, and does it silently - it goes on
-     * taking pictures of a screen nothing was pressed on.
-     */
-    /**
      * Draws this many cards the way a player would: one press of the draw key each.
      *
      * <p>The number row used to draw its own number, so seven cards was one press of 7. It
@@ -5327,6 +5300,13 @@ public final class DevScene {
         }
     }
 
+    /**
+     * Clicks the button with this label, wherever the layout has put it.
+     *
+     * <p>By label rather than by coordinates: a harness that clicks a fixed spot on the screen
+     * stops working the first time somebody moves a button, and does it silently - it goes on
+     * taking pictures of a screen nothing was pressed on.
+     */
     private static void press(Minecraft client, String label) {
         if (client.screen == null) {
             return;

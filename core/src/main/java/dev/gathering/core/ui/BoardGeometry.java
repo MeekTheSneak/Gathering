@@ -192,7 +192,6 @@ public final class BoardGeometry implements BoardPlacement {
         return turned;
     }
 
-    /** How much of the window is board rather than furniture, which is what it is framed into. */
     /**
      * What this geometry is currently doing, for the scripted run to write down.
      *
@@ -207,6 +206,7 @@ public final class BoardGeometry implements BoardPlacement {
                 + " scale=" + String.format("%.6f", camera.scale());
     }
 
+    /** How much of the window is board rather than furniture, which is what it is framed into. */
     private int visible() {
         return Math.max(1, height - coveredAtTheTop - coveredAtTheBottom);
     }

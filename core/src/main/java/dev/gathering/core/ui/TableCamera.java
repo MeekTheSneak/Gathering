@@ -100,13 +100,6 @@ public record TableCamera(
     }
 
     /**
-     * A camera showing the whole table in a viewport of this size.
-     *
-     * <p>What a player gets the first time they sit down: everything, at whatever size
-     * everything happens to be, rather than a close-up of a corner they have to find their way
-     * out of.
-     */
-    /**
      * How much of the view a framed table leaves clear, at each edge.
      *
      * <p>Small: enough to see that the border is there, not enough to make the board smaller
@@ -114,6 +107,13 @@ public record TableCamera(
      */
     private static final double EDGE = 0.02;
 
+    /**
+     * A camera showing the whole table in a viewport of this size.
+     *
+     * <p>What a player gets the first time they sit down: everything, at whatever size
+     * everything happens to be, rather than a close-up of a corner they have to find their way
+     * out of.
+     */
     public static TableCamera showingAll(int viewportWidth, int viewportHeight) {
         return showingAll(TablePosition.SPAN, TablePosition.SPAN, viewportWidth, viewportHeight);
     }

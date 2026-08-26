@@ -205,7 +205,6 @@ public final class ClientCardFlights {
         return shape;
     }
 
-    /** Which card, if the viewer may know, so a flight can be drawn face up. */
     /**
      * Whether this card is currently crossing the felt.
      *
@@ -226,6 +225,7 @@ public final class ClientCardFlights {
         return false;
     }
 
+    /** Which card, if the viewer may know, so a flight can be drawn face up. */
     public static Optional<CardInstanceId> nameOf(Flight flight) {
         return flight.move().card();
     }

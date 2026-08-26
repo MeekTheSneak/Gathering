@@ -463,19 +463,6 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
-     * The line across a mat that marks off the row nearest its own player.
-     *
-     * <p>Where the lands go, on every playmat ever printed. A mat with nothing on it is
-     * otherwise a rectangle, and a rectangle does not tell a player where to put their first
-     * land - which is a question every game starts with. The line is a marking, not a rule:
-     * nothing stops anybody putting anything either side of it.
-     *
-     * <p>It starts past the zone column rather than running under it, because a line through a
-     * graveyard reads as part of the graveyard.
-     *
-     * @param count how many zones the column holds, which is what sets its width
-     */
-    /**
      * One of the buttons printed on a mat for the verbs a player uses every turn.
      *
      * <p>On the player's own left, mirroring the zone column on their right, because a real
@@ -608,17 +595,6 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
-     * The end of a counter that means this way, which is where its sign is written.
-     *
-     * <p>The other half of the same rule. A view draws its minus here and takes its press
-     * from {@link #lifeWayAt}, so the two cannot end up on opposite ends - which is what they
-     * were, on the board drawn in the world, for every seat facing the other way: the sign
-     * was turned round with the mat and the press was not, so the end marked plus took a life
-     * off.
-     *
-     * @param way -1 for the end that takes one off, 1 for the end that puts one on
-     */
-    /**
      * Whether a seat's counter is drawn turned about, in a view that may already have turned
      * the felt.
      *
@@ -633,6 +609,17 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         return !cameraAlreadyTurnedTheFelt && isTurned(seat);
     }
 
+    /**
+     * The end of a counter that means this way, which is where its sign is written.
+     *
+     * <p>The other half of the same rule. A view draws its minus here and takes its press
+     * from {@link #lifeWayAt}, so the two cannot end up on opposite ends - which is what they
+     * were, on the board drawn in the world, for every seat facing the other way: the sign
+     * was turned round with the mat and the press was not, so the end marked plus took a life
+     * off.
+     *
+     * @param way -1 for the end that takes one off, 1 for the end that puts one on
+     */
     public static Rect lifeEnd(Rect box, boolean turned, int way) {
         if (box.isEmpty() || way == 0) {
             return Rect.NONE;
@@ -932,6 +919,19 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         return new Rect(pot.x() + index * step, pot.y(), cardWidth, pot.height());
     }
 
+    /**
+     * The line across a mat that marks off the row nearest its own player.
+     *
+     * <p>Where the lands go, on every playmat ever printed. A mat with nothing on it is
+     * otherwise a rectangle, and a rectangle does not tell a player where to put their first
+     * land - which is a question every game starts with. The line is a marking, not a rule:
+     * nothing stops anybody putting anything either side of it.
+     *
+     * <p>It starts past the zone column rather than running under it, because a line through a
+     * graveyard reads as part of the graveyard.
+     *
+     * @param count how many zones the column holds, which is what sets its width
+     */
     public Rect matDivider(int seat, int count) {
         Rect mat = matOf(seat);
         if (mat.isEmpty()) {

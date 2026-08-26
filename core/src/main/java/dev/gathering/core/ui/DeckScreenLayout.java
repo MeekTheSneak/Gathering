@@ -56,7 +56,6 @@ public record DeckScreenLayout(
 
     private static final int SCROLL_WIDTH = 6;
 
-    /** The printed aspect ratio, 2.5 by 3.5 inches. */
 
     /** The frame border a card or its text sits inside. */
     public static final int FRAME = 6;

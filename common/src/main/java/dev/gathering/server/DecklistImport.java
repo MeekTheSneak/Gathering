@@ -71,7 +71,6 @@ public final class DecklistImport {
         return whyNot(player.hasPermissions(OPERATOR_LEVEL));
     }
 
-    /** The same answer for somebody described only by whether they run the server. */
     /**
      * Why this player may not build a deck out of a collection, or null.
      *
@@ -87,6 +86,7 @@ public final class DecklistImport {
                 : "Collecting is turned off on this server.";
     }
 
+    /** The same answer for somebody described only by whether they run the server. */
     public static String whyNot(boolean isOperator) {
         var settings = dev.gathering.service.ServerSettings.get();
         if (!settings.modes().importEnabled()) {

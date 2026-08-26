@@ -64,13 +64,6 @@ public final class GatheringNeoForgeClient {
         event.register(ZOOM_KEY);
     }
 
-    /**
-     * Attaches the card's own renderer, so a card in hand shows its printed face.
-     *
-     * <p>Through the event rather than {@code Item#initializeClient}, which is deprecated for
-     * removal - and which would have forced a NeoForge-only subclass of an item that otherwise
-     * has no loader-specific behaviour at all.
-     */
     /** The miniature on the table top, which is what makes a table worth more than a menu. */
     @SubscribeEvent
     public static void onRegisterRenderers(
@@ -81,6 +74,13 @@ public final class GatheringNeoForgeClient {
     }
 
     @SubscribeEvent
+    /**
+     * Attaches the card's own renderer, so a card in hand shows its printed face.
+     *
+     * <p>Through the event rather than {@code Item#initializeClient}, which is deprecated for
+     * removal - and which would have forced a NeoForge-only subclass of an item that otherwise
+     * has no loader-specific behaviour at all.
+     */
     public static void onRegisterClientExtensions(RegisterClientExtensionsEvent event) {
         event.registerItem(new IClientItemExtensions() {
             @Override

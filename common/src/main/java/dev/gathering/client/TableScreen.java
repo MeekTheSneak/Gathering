@@ -356,7 +356,6 @@ public final class TableScreen extends Screen {
         }
     }
 
-    /** Whether the felt reaches this far down the window. For the harness, as below. */
     /**
      * What the hand strip wrote in itself last frame, or empty when it drew cards.
      *
@@ -381,6 +380,7 @@ public final class TableScreen extends Screen {
         return boardsDrawn;
     }
 
+    /** Whether the felt reaches this far down the window. For the harness, as below. */
     boolean feltReachesDownTo(int y) {
         return layout().isOnFelt(this.width / 2, y);
     }
@@ -506,13 +506,6 @@ public final class TableScreen extends Screen {
         }
     }
 
-    /**
-     * Whether this player's own mat is the far half of the table from the block's corner.
-     *
-     * <p>Asked of the mats rather than of the seat's side, because the mats are what is drawn
-     * and a seat that ended up on a different half than its side suggested would turn the
-     * camera the wrong way round without anything else noticing.
-     */
     /** This player's own mat on the real table, in surface units, for the camera to frame. */
     private Rect myMatOnTheBlock() {
         // The mat and the life total printed off its far edge. Framed on the mat alone, the
@@ -531,6 +524,13 @@ public final class TableScreen extends Screen {
         return this.height <= 0 ? 0 : layout.status().height() / (double) this.height;
     }
 
+    /**
+     * Whether this player's own mat is the far half of the table from the block's corner.
+     *
+     * <p>Asked of the mats rather than of the seat's side, because the mats are what is drawn
+     * and a seat that ended up on a different half than its side suggested would turn the
+     * camera the wrong way round without anything else noticing.
+     */
     private boolean myMatIsOnTheSouthHalf() {
         return mySeat()
                 .map(seat -> onBlock.matRect(seat).centreY() > onBlock.surface().height() / 2.0)
@@ -1183,7 +1183,6 @@ public final class TableScreen extends Screen {
         }
     }
 
-    /** Runs the verb whose button is under this point, if one is. */
     /**
      * Which of this seat's mat buttons a point is on, or -1.
      *
@@ -1212,6 +1211,7 @@ public final class TableScreen extends Screen {
         return -1;
     }
 
+    /** Runs the verb whose button is under this point, if one is. */
     private boolean pressVerb(SeatId me, int x, int y) {
         int index = verbSlotAt(me, x, y);
         if (index < 0) {
@@ -2087,7 +2087,6 @@ public final class TableScreen extends Screen {
         return roomForTheLog() >= (this.font.lineHeight + 1) * 3;
     }
 
-    /** How much window the log has to draw itself in, top to bottom. */
     /**
      * The first line down the window at which a panel across this span covers no life total.
      *
@@ -2109,6 +2108,7 @@ public final class TableScreen extends Screen {
         return clear;
     }
 
+    /** How much window the log has to draw itself in, top to bottom. */
     private int roomForTheLog() {
         return floorOfTheFelt() - (layout().status().bottom() + 4) - 6;
     }
@@ -2381,7 +2381,6 @@ public final class TableScreen extends Screen {
         return new Rect(middleX - width / 2, middleY - height / 2, width, height);
     }
 
-    /** A hand-sized card taken by the middle, for the view where the board is not on screen. */
     /**
      * The card in the air over the board on the block, at the size a card is on that board.
      *
@@ -3327,13 +3326,6 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * Spreads a pile out on its own screen.
-     *
-     * <p>{@code opensALibrary} is what makes the screen responsible for closing it again. A
-     * library is open because an event said so, so it stays open until an event says
-     * otherwise - not until a screen happens to go away.
-     */
-    /**
      * Asks what token, then how many.
      *
      * <p>Two questions rather than one screen with two fields, because they are answered in
@@ -3399,6 +3391,13 @@ public final class TableScreen extends Screen {
                 .setScreen(new PileScreen(table, me, Zone.LIBRARY, true, decision, this));
     }
 
+    /**
+     * Spreads a pile out on its own screen.
+     *
+     * <p>{@code opensALibrary} is what makes the screen responsible for closing it again. A
+     * library is open because an event said so, so it stays open until an event says
+     * otherwise - not until a screen happens to go away.
+     */
     private void openPile(SeatId owner, Zone pile, boolean opensALibrary) {
         net.minecraft.client.Minecraft.getInstance()
                 .setScreen(new PileScreen(table, owner, pile, opensALibrary, this));
@@ -3936,21 +3935,6 @@ public final class TableScreen extends Screen {
 
     // --------------------------------------------------------------- drawing
 
-    /**
-     * A card: its picture, turned to its own angle, and nothing drawn round it.
-     *
-     * <p>No border, anywhere. A card is a picture before it is a token, and a frame drawn
-     * round every one of them turns a hand into a row of lines with slivers of art between,
-     * and a pile into a stack of boxes. The art has its own black border printed on it - it
-     * is a card - so a second one is somebody else's idea of a card drawn over the real one.
-     *
-     * <p>What is left is feedback rather than decoration: a shadow under a card lying on the
-     * felt, so a stack reads as a stack; a tint on a tapped one; a ring on the one under the
-     * cursor.
-     *
-     * @param onTheFelt whether this is a card lying on the table, which is what earns it a
-     *     shadow and a tapped tint - a card in a hand or in a list has neither
-     */
     /** Where the pot is drawn, or nothing when there is not one. For the scene, and above. */
     Rect potOnScreen() {
         List<CardComponent> pot = ClientTableState.potOf(this.table);
@@ -4009,6 +3993,21 @@ public final class TableScreen extends Screen {
                 tray.x() + tray.width() / 2, area.bottom() + 2, tray.width() - 4, POT_LABEL);
     }
 
+    /**
+     * A card: its picture, turned to its own angle, and nothing drawn round it.
+     *
+     * <p>No border, anywhere. A card is a picture before it is a token, and a frame drawn
+     * round every one of them turns a hand into a row of lines with slivers of art between,
+     * and a pile into a stack of boxes. The art has its own black border printed on it - it
+     * is a card - so a second one is somebody else's idea of a card drawn over the real one.
+     *
+     * <p>What is left is feedback rather than decoration: a shadow under a card lying on the
+     * felt, so a stack reads as a stack; a tint on a tapped one; a ring on the one under the
+     * cursor.
+     *
+     * @param onTheFelt whether this is a card lying on the table, which is what earns it a
+     *     shadow and a tapped tint - a card in a hand or in a list has neither
+     */
     private void drawCard(
             GuiGraphics graphics, CardView card, Rect where, int angle,
             boolean hovered, boolean onTheFelt) {
@@ -4056,12 +4055,6 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * The counters on a card, along its bottom edge.
-     *
-     * <p>On the card rather than beside it, because a counter that lives next to a card stops
-     * being on that card the moment somebody moves either of them.
-     */
-    /**
      * What somebody wrote on the card, across the top of it.
      *
      * <p>At the top because the counters are along the bottom and the two must not fight over
@@ -4076,6 +4069,12 @@ public final class TableScreen extends Screen {
         CardInspectPanel.drawNote(graphics, this.font, card.writtenOn().orElse(null), art);
     }
 
+    /**
+     * The counters on a card, along its bottom edge.
+     *
+     * <p>On the card rather than beside it, because a counter that lives next to a card stops
+     * being on that card the moment somebody moves either of them.
+     */
     private void drawCounters(GuiGraphics graphics, CardView card, Rect art) {
         if (card.counters().isEmpty()) {
             return;

@@ -312,10 +312,6 @@ public final class GatheringCommands {
         return 1;
     }
 
-    /**
-     * The one-line form, for a single card or a quick test. A real decklist goes through the
-     * screen, where newlines exist.
-     */
     /** Reads the table back, one fact to a line, for whoever is standing in front of it. */
     private static int reportTable(CommandSourceStack source)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
@@ -355,6 +351,10 @@ public final class GatheringCommands {
         return filled.played();
     }
 
+    /**
+     * The one-line form, for a single card or a quick test. A real decklist goes through the
+     * screen, where newlines exist.
+     */
     private static int importInline(CommandSourceStack source, String decklist)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();

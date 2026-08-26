@@ -194,13 +194,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     private static final int BUTTON_HEIGHT = 16;
 
     /**
-     * The longest thing this screen has to write, so the box can be built to hold it.
-     *
-     * <p>Measured rather than guessed at, because a box sized to its cards is narrower than
-     * its own footer for any pile of one or two - and a hint shrunk to a third of its size to
-     * fit under two cards is a hint nobody reads.
-     */
-    /**
      * The widest thing this box has to fit, which is what sets how wide it is.
      *
      * <p>Worth knowing that this is usually the sentence under the cards rather than the
@@ -511,13 +504,11 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                 CARD_HEIGHT);
     }
 
-    /**
-     * Hooks for the scripted harness.
-     *
-     * <p>Worth asking about because the box is built to the number of cards it had when it
-     * opened, and a scry's cards arrive after it opens - so that is exactly the thing that
-     * goes wrong when the box forgets to grow.
-     */
+    // ---------------------------------------------------- the scripted harness
+    // Worth asking about because the box is built to the number of cards it had when it
+    // opened, and a scry's cards arrive after it opens - so that is exactly the thing that
+    // goes wrong when the box forgets to grow.
+
     /** Where a card in this box is, so the harness can click the card and not a pixel. */
     Rect slotOfCard(int index) {
         return index < 0 || index >= cards().size() ? Rect.NONE : slotOf(index);

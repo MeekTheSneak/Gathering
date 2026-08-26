@@ -108,6 +108,18 @@ else
     FAILED=1
 fi
 
+# And no paragraph is attached to the wrong thing. A javadoc left sitting above another one
+# is a member's reasoning stolen by whatever ended up underneath it, and nothing else in the
+# build has any opinion about it - see tools/doccheck.py.
+printf '%-24s ' "documentation"
+if DOC_OUT=$(python3 tools/doccheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$DOC_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
 if [ "$TARGET" = all ] || [ "$TARGET" = neoforge ]; then
     # "mod/gathering" is the mod's own resource pack. Without it the assets are not loaded.
     # The camera hook is a mixin, and a mixin that is never listed fails silently: the mod

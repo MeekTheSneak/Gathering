@@ -70,12 +70,6 @@ public final class CardShop {
     }
 
     /**
-     * Works out what this server sells.
-     *
-     * <p>Once at start, off every game thread, and not at all unless collecting is on and the
-     * shop is switched on with it.
-     */
-    /**
      * Whether this server's shop is open at all.
      *
      * <p>Worth asking on its own, because a shopkeeper with nothing to sell shakes their head
@@ -87,6 +81,12 @@ public final class CardShop {
         return settings.modes().collectionEnabled() && settings.collecting().sealedStoreEnabled();
     }
 
+    /**
+     * Works out what this server sells.
+     *
+     * <p>Once at start, off every game thread, and not at all unless collecting is on and the
+     * shop is switched on with it.
+     */
     public static void warm() {
         stock = Stock.NOTHING;
         if (!isStocking()) {

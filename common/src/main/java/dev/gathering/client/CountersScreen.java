@@ -334,15 +334,6 @@ public final class CountersScreen extends ChildScreen {
     }
 
     /**
-     * The cards here that a commander tax applies to.
-     *
-     * <p>A card counts as a commander while it is in somebody's command zone, and goes on
-     * counting once it has a tax recorded - because a commander that has been cast is on the
-     * battlefield, which is exactly when its owner wants to see what the next one costs.
-     * There is no permanent mark on a card saying it is a commander; where it started is all
-     * the game knows, and this asks the two questions that follow from that.
-     */
-    /**
      * How many commander taxes this screen drew last frame. For the scripted harness.
      *
      * <p>Counted while drawing rather than worked out again. Asked of the same list the
@@ -356,6 +347,15 @@ public final class CountersScreen extends ChildScreen {
     /** Set by {@link #renderCommanderTax}, so the hook above reports rather than predicts. */
     private int taxRowsDrawn;
 
+    /**
+     * The cards here that a commander tax applies to.
+     *
+     * <p>A card counts as a commander while it is in somebody's command zone, and goes on
+     * counting once it has a tax recorded - because a commander that has been cast is on the
+     * battlefield, which is exactly when its owner wants to see what the next one costs.
+     * There is no permanent mark on a card saying it is a commander; where it started is all
+     * the game knows, and this asks the two questions that follow from that.
+     */
     private List<CardInstanceId> taxedCommanders() {
         if (!(subject instanceof Subject.Cards chosen) || !tableHasACommandZone()) {
             return List.of();

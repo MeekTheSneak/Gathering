@@ -308,7 +308,6 @@ public final class PayloadGameTest {
                 java.util.Map.of(), java.util.Map.of(), "https://scryfall.com/card/ltc/284");
     }
 
-    /** Writes, reads back, and insists the buffer is fully consumed. */
     /** A deck's new name, on the wire. */
     @GameTest(template = "empty")
     public static void aRenameSurvivesTheWire(GameTestHelper helper) {
@@ -327,6 +326,7 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /** Writes, reads back, and insists the buffer is fully consumed. */
     private static <T> T roundTrip(
             GameTestHelper helper, T payload, StreamCodec<RegistryFriendlyByteBuf, T> codec) {
         RegistryAccess registries = helper.getLevel().registryAccess();

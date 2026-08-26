@@ -91,7 +91,6 @@ public final class ClientTableState {
         return Optional.ofNullable(BOARDS.get(table));
     }
 
-    /** The board of the table this player is seated at, which is the one the screen draws. */
     /**
      * The seat this client holds at a table, if any.
      *
@@ -107,6 +106,7 @@ public final class ClientTableState {
                 .map(dev.gathering.core.game.visibility.Viewer.Seated::seat);
     }
 
+    /** The board of the table this player is seated at, which is the one the screen draws. */
     public static Optional<GameView> view() {
         return Optional.ofNullable(seatedAt).flatMap(ClientTableState::viewOf);
     }

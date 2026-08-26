@@ -391,13 +391,6 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
-     * Crouching on a table: either "what shall we play" or "next game, please".
-     *
-     * <p>Which one depends on whether a set is already running here. Asking the format again
-     * between games of a best-of-three would be asking a question that has been answered, and
-     * offering to change it mid-set is offering to make the score meaningless.
-     */
-    /**
      * The crouch gesture, reachable without a click.
      *
      * <p>Named and public so a test can perform the thing a player performs rather than the
@@ -408,6 +401,13 @@ public class TableBlock extends BaseEntityBlock {
         startOrContinue(level, tableOrigin, player);
     }
 
+    /**
+     * Crouching on a table: either "what shall we play" or "next game, please".
+     *
+     * <p>Which one depends on whether a set is already running here. Asking the format again
+     * between games of a best-of-three would be asking a question that has been answered, and
+     * offering to change it mid-set is offering to make the score meaningless.
+     */
     private static void startOrContinue(Level level, BlockPos tableOrigin, Player player) {
         if (TableSessions.hasSession(level, tableOrigin)) {
             player.sendSystemMessage(Component.translatable("message.gathering.session_already_running"));
@@ -430,19 +430,6 @@ public class TableBlock extends BaseEntityBlock {
         dev.gathering.server.TableSetup.ask(asking, tableOrigin);
     }
 
-    /**
-     * Everything between holding a deck and playing with it, in one gesture.
-     *
-     * <p>It used to be four: sit at an edge, crouch to ask for a game, pick a format from a
-     * screen, then click again with the deck. Every one of them is a thing to get wrong in
-     * order, and getting them wrong in order is most of what "it doesn't work" means to
-     * somebody trying a mod for the first time. Walking up to a table holding a deck says what
-     * you want as clearly as anybody ever says anything.
-     *
-     * <p>The format prompt has not gone anywhere - crouching still asks, which is the
-     * deliberate gesture for a table that wants to be something other than the usual. It is
-     * just no longer in the way of the usual.
-     */
     /**
      * Cuts the deck in somebody's hand into packs and deals them round the tables.
      *
@@ -491,6 +478,19 @@ public class TableBlock extends BaseEntityBlock {
         }
     }
 
+    /**
+     * Everything between holding a deck and playing with it, in one gesture.
+     *
+     * <p>It used to be four: sit at an edge, crouch to ask for a game, pick a format from a
+     * screen, then click again with the deck. Every one of them is a thing to get wrong in
+     * order, and getting them wrong in order is most of what "it doesn't work" means to
+     * somebody trying a mod for the first time. Walking up to a table holding a deck says what
+     * you want as clearly as anybody ever says anything.
+     *
+     * <p>The format prompt has not gone anywhere - crouching still asks, which is the
+     * deliberate gesture for a table that wants to be something other than the usual. It is
+     * just no longer in the way of the usual.
+     */
     private static void sitDownAndPlay(
             Level level, BlockPos tableOrigin, Player player, ItemStack stack, Side side) {
         if (!sitDownIfNeeded(level, tableOrigin, player, side)) {
