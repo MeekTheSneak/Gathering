@@ -143,6 +143,8 @@
   "menu.gathering.take_a_copy": "Take a copy",
   "message.gathering.ante_agreed": "Everyone is in. Playing for keeps.",
   "message.gathering.ante_declined": "Somebody sat this one out, so nothing is at stake.",
+  "message.gathering.ante_nothing_to_stake": "Nothing in your deck could go in the pot, so you are staking nothing.",
+  "message.gathering.ante_staked": "%1$s put %2$s card(s) in the pot.",
   "message.gathering.basics_deck_full": "This deck is full.",
   "message.gathering.basics_no_service": "The card service is not running, so there are no lands to give.",
   "message.gathering.basics_not_found": "%s has not been looked up on this server.",

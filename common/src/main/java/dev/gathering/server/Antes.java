@@ -154,8 +154,7 @@ public final class Antes {
 
         tell(level, tableOrigin, "message.gathering.ante_agreed");
         close(level, tableOrigin);
-        TableSessions.Outcome outcome =
-                TableSessions.start(level, tableOrigin, asking.rules());
+        TableSessions.Outcome outcome = startForKeeps(level, tableOrigin, asking.rules());
         ASKING.remove(where);
         if (outcome == TableSessions.Outcome.STARTED) {
             TableBroadcast.sendToTable(level, tableOrigin);
@@ -204,13 +203,32 @@ public final class Antes {
         // have all said yes, so the game they agreed to starts rather than hanging.
         tell(level, tableOrigin, "message.gathering.ante_agreed");
         close(level, tableOrigin);
-        TableSessions.Outcome outcome = TableSessions.start(level, tableOrigin, asking.rules());
+        TableSessions.Outcome outcome = startForKeeps(level, tableOrigin, asking.rules());
         ASKING.remove(where);
         if (outcome == TableSessions.Outcome.STARTED) {
             TableBroadcast.sendToTable(level, tableOrigin);
         } else {
             tell(level, tableOrigin, outcome.messageKey());
         }
+    }
+
+    /**
+     * Starts the game the table agreed to, and marks it as one played for keeps.
+     *
+     * <p>Marked on the table rather than remembered here, because the decks arrive after the
+     * game starts and a stake is drawn as each one goes down. It also has to survive a
+     * restart: a deck put down tomorrow morning is staked from on the terms everybody agreed
+     * to last night, or on none at all.
+     */
+    private static TableSessions.Outcome startForKeeps(
+            ServerLevel level, BlockPos tableOrigin, MatchRules rules) {
+        TableSessions.Outcome outcome = TableSessions.start(level, tableOrigin, rules);
+        if (outcome == TableSessions.Outcome.STARTED) {
+            TableSessions.anchorOf(level, tableOrigin)
+                    .flatMap(anchor -> TableBlock.entityAt(level, anchor))
+                    .ifPresent(table -> table.playForKeeps(true));
+        }
+        return outcome;
     }
 
     // ------------------------------------------------------------------ bits

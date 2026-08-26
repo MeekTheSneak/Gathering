@@ -116,6 +116,18 @@ public final class CardDataService implements AutoCloseable {
     }
 
     /**
+     * What is already known about a printing, without going to look.
+     *
+     * <p>The one lookup a game thread may make. Everything else here is a network call
+     * wearing a cache, and a game thread that waited on one would stall the server; this
+     * reads a map. An empty answer means "not looked up yet" rather than "no such card", so
+     * the only safe thing to do with one is treat the card as unknown.
+     */
+    public java.util.Optional<CardMetadata> peek(UUID scryfallId) {
+        return store.inMemory(scryfallId);
+    }
+
+    /**
      * Several printings at once, cache first.
      *
      * <p>What answers a client opening a deck: one batched resolution rather than a hundred

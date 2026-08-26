@@ -620,6 +620,34 @@ public class TableBlock extends BaseEntityBlock {
         List<CardIdentity> library = deck.entries().stream().map(CardComponent::toIdentity).toList();
         List<CardIdentity> commanders = deck.commanders().stream().map(CardComponent::toIdentity).toList();
 
+        // The stake comes out before the game has heard of the deck. Taken as a game event it
+        // could be rewound - undo folds the game again from the beginning - and the cards
+        // would come back into the library while the pot was still holding them. Commanders
+        // are never staked, which needs no rule: they are not in the library to be drawn from.
+        TableBlockEntity holding = TableSessions.anchorOf(level, tableOrigin)
+                .flatMap(anchor -> entityAt(level, anchor))
+                .orElse(null);
+        if (holding != null && holding.playingForKeeps()
+                && level instanceof net.minecraft.server.level.ServerLevel forKeeps) {
+            dev.gathering.server.Staking.Stake stake =
+                    dev.gathering.server.Staking.from(library, level.getRandom());
+            if (stake.isEmpty()) {
+                // Nothing this deck was allowed to stake, or nothing the server could check
+                // in time. Said out loud rather than played through: a table that agreed to
+                // play for keeps and quietly did not is worse than one that says why.
+                player.sendSystemMessage(
+                        Component.translatable("message.gathering.ante_nothing_to_stake"));
+            } else {
+                holding.stake(seat, stake.staked());
+                library = stake.library();
+                dev.gathering.server.TableBroadcast.tell(forKeeps, tableOrigin,
+                        Component.translatable("message.gathering.ante_staked",
+                                dev.gathering.SeatNames.of(
+                                        session.state().seatState(seat)),
+                                stake.staked().size()));
+            }
+        }
+
         session.submit(new GameEvent.DeckLoaded(seat, library, commanders));
         session.submit(new GameEvent.LibraryShuffled(seat, seat));
 

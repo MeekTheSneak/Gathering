@@ -69,6 +69,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String DECK_KEY = "deck";
     private static final String POOL_KEY = "pool";
     private static final String ANTE_KEY = "ante";
+    private static final String FOR_KEEPS_KEY = "for_keeps";
     private static final String ANTE_SEAT_KEY = "seat";
     private static final String ANTE_CARDS_KEY = "cards";
 
@@ -147,6 +148,15 @@ public class TableBlockEntity extends BlockEntity {
      * exist. So it is escrow on the block, saved beside the decks, for the same reason.
      */
     private dev.gathering.core.ante.AntePot pot = dev.gathering.core.ante.AntePot.EMPTY;
+
+    /**
+     * Whether the game running here is being played for keeps.
+     *
+     * <p>Set when the table agreed and cleared when the session ends, so it says something
+     * about this game rather than about the server. Saved, because a deck put down after a
+     * restart has to be staked from on exactly the terms everyone agreed to before it.
+     */
+    private boolean forKeeps;
 
     public TableBlockEntity(BlockPos pos, BlockState state) {
         super(dev.gathering.item.GatheringContent.TABLE_ENTITY.get(), pos, state);
@@ -299,6 +309,17 @@ public class TableBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** Whether this game is being played for keeps. */
+    public boolean playingForKeeps() {
+        return forKeeps;
+    }
+
+    /** Said once, when the table has agreed and the game is about to start. */
+    public void playForKeeps(boolean keeps) {
+        this.forKeeps = keeps;
+        setChanged();
+    }
+
     /** Puts a seat's stake into the pot. */
     public void stake(SeatId seat, java.util.List<dev.gathering.core.card.CardIdentity> cards) {
         if (seat == null || cards == null || cards.isEmpty()) {
@@ -398,6 +419,7 @@ public class TableBlockEntity extends BlockEntity {
         this.match = null;
         this.restoreFailed = false;
         this.formatChosen = false;
+        this.forKeeps = false;
         this.decks.clear();
         setChanged();
         tellClients();
@@ -569,6 +591,7 @@ public class TableBlockEntity extends BlockEntity {
             }
         }
 
+        forKeeps = tag.getBoolean(FOR_KEEPS_KEY);
         pot = dev.gathering.core.ante.AntePot.EMPTY;
         ListTag staked = tag.getList(ANTE_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < staked.size(); index++) {
@@ -611,6 +634,9 @@ public class TableBlockEntity extends BlockEntity {
         writeMatch(tag);
         writeDecks(tag);
         writePot(tag);
+        if (forKeeps) {
+            tag.putBoolean(FOR_KEEPS_KEY, true);
+        }
         // In the open. A pod holds every pack in the ring, so it is exactly as secret as a
         // library - but it never leaves the server: what a drafter is sent is a view, built
         // fresh each time, and there is no path from these bytes to a client.

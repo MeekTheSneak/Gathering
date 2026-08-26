@@ -23,6 +23,21 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
     private final Map<String, UUID> byName = new ConcurrentHashMap<>();
     private final Map<UUID, JsonObject> raw = new ConcurrentHashMap<>();
 
+    /**
+     * What is already in memory for this printing, and never anything else.
+     *
+     * <p>Deliberately not {@link #find}: the disk-backed subclass overrides that and will read
+     * a file, which is why this class says nothing here may be called from a game thread.
+     * This one touches a map and returns, so it is the one lookup a game thread may make - a
+     * "do you happen to know" rather than a "go and find out".
+     *
+     * <p>Never final in the sense that matters: an empty answer means not looked up yet, not
+     * no such card. A caller on a game thread has to be able to live with that.
+     */
+    public final Optional<CardMetadata> inMemory(UUID scryfallId) {
+        return scryfallId == null ? Optional.empty() : Optional.ofNullable(byId.get(scryfallId));
+    }
+
     @Override
     public Optional<CardMetadata> find(CardQuery query) {
         return switch (query) {
