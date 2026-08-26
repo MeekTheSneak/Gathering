@@ -68,6 +68,9 @@ public class TableBlockEntity extends BlockEntity {
     private static final String DECK_SEAT_KEY = "seat";
     private static final String DECK_KEY = "deck";
     private static final String POOL_KEY = "pool";
+    private static final String ANTE_KEY = "ante";
+    private static final String ANTE_SEAT_KEY = "seat";
+    private static final String ANTE_CARDS_KEY = "cards";
 
     /** Two seconds. Ambience, not gameplay - moves are pushed as they happen. */
     private static final int AMBIENT_INTERVAL_TICKS = 40;
@@ -133,6 +136,17 @@ public class TableBlockEntity extends BlockEntity {
      * somebody boards a card in and a pool never changes at all.
      */
     private final Map<SeatId, DraftedPool> pools = new LinkedHashMap<>();
+
+    /**
+     * The pot, when this table is playing for keeps.
+     *
+     * <p>Held here rather than inside the game because it outlives one: a session that dies
+     * to a crash has to give its cards back, and the only thing that survives that is what
+     * was written to disk. The brief is blunt about it - a pot that could be eaten by a
+     * server restart is a pot nobody sensible puts a card into, and then the feature does not
+     * exist. So it is escrow on the block, saved beside the decks, for the same reason.
+     */
+    private dev.gathering.core.ante.AntePot pot = dev.gathering.core.ante.AntePot.EMPTY;
 
     public TableBlockEntity(BlockPos pos, BlockState state) {
         super(dev.gathering.item.GatheringContent.TABLE_ENTITY.get(), pos, state);
@@ -283,6 +297,34 @@ public class TableBlockEntity extends BlockEntity {
             pools.put(seat, pool);
         }
         setChanged();
+    }
+
+    /** Puts a seat's stake into the pot. */
+    public void stake(SeatId seat, java.util.List<dev.gathering.core.card.CardIdentity> cards) {
+        if (seat == null || cards == null || cards.isEmpty()) {
+            return;
+        }
+        pot = pot.with(seat, cards);
+        setChanged();
+    }
+
+    /** What is in the pot, and whose. */
+    public dev.gathering.core.ante.AntePot pot() {
+        return pot;
+    }
+
+    /**
+     * Hands the pot over and forgets it.
+     *
+     * <p>Emptied here rather than by the caller, so a pot cannot be paid out twice. The one
+     * arithmetic mistake this feature must not make is a card existing in two places, and a
+     * pot read without being cleared is exactly how that happens.
+     */
+    public dev.gathering.core.ante.AntePot releasePot() {
+        dev.gathering.core.ante.AntePot taken = pot;
+        pot = dev.gathering.core.ante.AntePot.EMPTY;
+        setChanged();
+        return taken;
     }
 
     public Optional<DeckComponent> deckOf(SeatId seat) {
@@ -518,6 +560,24 @@ public class TableBlockEntity extends BlockEntity {
             }
         }
 
+        pot = dev.gathering.core.ante.AntePot.EMPTY;
+        ListTag staked = tag.getList(ANTE_KEY, Tag.TAG_COMPOUND);
+        for (int index = 0; index < staked.size(); index++) {
+            CompoundTag entry = staked.getCompound(index);
+            SeatId seat = new SeatId(entry.getInt(ANTE_SEAT_KEY));
+            ListTag cards = entry.getList(ANTE_CARDS_KEY, Tag.TAG_COMPOUND);
+            java.util.List<dev.gathering.core.card.CardIdentity> read =
+                    new java.util.ArrayList<>(cards.size());
+            for (int card = 0; card < cards.size(); card++) {
+                dev.gathering.item.CardComponent.CODEC
+                        .parse(net.minecraft.nbt.NbtOps.INSTANCE, cards.get(card))
+                        .resultOrPartial(problem -> LOGGER.error(
+                                "An ante card at {} will not load: {}", worldPosition, problem))
+                        .ifPresent(component -> read.add(component.toIdentity()));
+            }
+            pot = pot.with(seat, read);
+        }
+
         claims.clear();
         ListTag seats = tag.getList(SEATS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < seats.size(); index++) {
@@ -541,6 +601,7 @@ public class TableBlockEntity extends BlockEntity {
         writeSession(tag);
         writeMatch(tag);
         writeDecks(tag);
+        writePot(tag);
         // In the open. A pod holds every pack in the ring, so it is exactly as secret as a
         // library - but it never leaves the server: what a drafter is sent is a view, built
         // fresh each time, and there is no path from these bytes to a client.
@@ -555,6 +616,38 @@ public class TableBlockEntity extends BlockEntity {
             seats.add(seat);
         });
         tag.put(SEATS_KEY, seats);
+    }
+
+    /**
+     * Writes the pot down.
+     *
+     * <p>The whole reason escrow is on the block. Losing this to a restart is losing cards
+     * that people agreed to play for and never got the chance to win back.
+     */
+    private void writePot(CompoundTag tag) {
+        if (pot.isEmpty()) {
+            return;
+        }
+        ListTag staked = new ListTag();
+        pot.stakes().forEach((seat, cards) -> {
+            ListTag written = new ListTag();
+            for (dev.gathering.core.card.CardIdentity card : cards) {
+                dev.gathering.item.CardComponent.CODEC
+                        .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE,
+                                dev.gathering.item.CardComponent.of(card))
+                        .resultOrPartial(problem -> LOGGER.error(
+                                "An ante card at {} will not save: {}", worldPosition, problem))
+                        .ifPresent(written::add);
+            }
+            if (written.isEmpty()) {
+                return;
+            }
+            CompoundTag entry = new CompoundTag();
+            entry.putInt(ANTE_SEAT_KEY, seat.index());
+            entry.put(ANTE_CARDS_KEY, written);
+            staked.add(entry);
+        });
+        tag.put(ANTE_KEY, staked);
     }
 
     /** Writes the held decks down. Losing one to a server restart is losing somebody's deck. */

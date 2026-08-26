@@ -159,6 +159,8 @@ public final class TableSessions {
         }
         table.session().ifPresent(session -> session.submit(new GameEvent.SessionEnded(actor, reason)));
         returnDecks(level, tableOrigin, table);
+        // Nobody won this one, so every card goes back to whoever staked it.
+        settlePot(level, tableOrigin, table, null);
         table.endSession();
         // Told before it is forgotten, or everyone at the table keeps looking at the last
         // board they were sent - which is worse than an empty screen, because it looks live.
@@ -192,6 +194,43 @@ public final class TableSessions {
             if (owner == null || !owner.getInventory().add(stack)) {
                 Containers.dropItemStack(level,
                         tableOrigin.getX() + 0.5, tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
+            }
+        });
+    }
+
+    /**
+     * Settles the pot: to the winner, or back to everybody who put a card in.
+     *
+     * <p>Called wherever a game stops being a game, which is two places - a match that ended
+     * with somebody ahead, and a session that was voided or ended by hand. Those are the two
+     * resolutions the pot was built to tell apart, and passing null for the winner is how the
+     * second one says so.
+     *
+     * <p>The pot is emptied by the release, before any card is handed anywhere, so a settle
+     * that runs twice pays out once. Cards go to the player if they are still here and onto
+     * the table if they are not - never nowhere, exactly as a deck does.
+     */
+    public static void settlePot(
+            Level level, BlockPos tableOrigin, TableBlockEntity table, SeatId winner) {
+        dev.gathering.core.ante.AntePot pot = table.releasePot();
+        if (pot.isEmpty()) {
+            return;
+        }
+        List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
+        dev.gathering.core.ante.AntePot.Payout payout =
+                winner == null ? pot.backToOwners() : pot.toWinner(winner);
+
+        payout.to().forEach((seat, cards) -> {
+            Player owner = seat.index() < anchors.size()
+                    ? occupantOf(level, tableOrigin, anchors.get(seat.index())).orElse(null)
+                    : null;
+            for (dev.gathering.core.card.CardIdentity card : cards) {
+                ItemStack stack = dev.gathering.item.CardItem.of(
+                        dev.gathering.item.CardComponent.of(card));
+                if (owner == null || !owner.getInventory().add(stack)) {
+                    Containers.dropItemStack(level, tableOrigin.getX() + 0.5,
+                            tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
+                }
             }
         });
     }

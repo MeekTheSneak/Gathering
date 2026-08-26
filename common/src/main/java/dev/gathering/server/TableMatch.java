@@ -75,8 +75,14 @@ public final class TableMatch {
             table.endGameKeepingMatch();
         } else {
             // The set is over. Everybody gets their deck back, which is the whole reason the
-            // table was holding them.
+            // table was holding them - and the pot goes to whoever took the match, or back to
+            // its owners if it was drawn.
             TableSessions.returnDecks(level, tableOrigin, table);
+            // The match's winner, not the last game's. A set can run out of games without
+            // anybody reaching the wins it takes - a drawn decider at one game each - and the
+            // pot belongs to whoever took the set or to nobody. Handing it to whoever happened
+            // to win the final game would pay out a match that was never won.
+            TableSessions.settlePot(level, tableOrigin, table, next.winner().orElse(null));
             table.endSession();
         }
         TableBroadcast.tell(level, tableOrigin, line);
