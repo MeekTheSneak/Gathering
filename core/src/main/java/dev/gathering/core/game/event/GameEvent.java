@@ -209,6 +209,37 @@ public sealed interface GameEvent {
         }
     }
 
+    /**
+     * Writing on a card, or rubbing out what was written.
+     *
+     * <p>The pen at a real table. A mod with no rules engine remembers "flying until end of
+     * turn" by somebody writing it on the card, and the whole table reading it is the point -
+     * so this is a public event like every other, attributed by name in the log and taken
+     * back by undo like anything else.
+     *
+     * <p>The text is a player's, so it is nobody's secret and reveals nothing the table did
+     * not already have: what it says is whatever the person holding the pen decided to say.
+     */
+    record CardNoted(SeatId actor, CardInstanceId card, String note) implements GameEvent {
+
+        public CardNoted {
+            note = dev.gathering.core.game.CardNote.clean(note);
+        }
+
+        /** Whether this rubs a note out rather than writing one. */
+        public boolean isBlank() {
+            return note == null;
+        }
+
+        @Override
+        public LogLine describe(GameState before) {
+            // What was written is not in the log line. It is drawn on the card, where it
+            // belongs, and a log that repeated every note would be a log of notes.
+            return LogLine.of(isBlank() ? "log.gathering.card_rubbed_out" : "log.gathering.card_written_on",
+                    actor, CardRef.publicRefFor(before, card));
+        }
+    }
+
     record CardTapSet(SeatId actor, CardInstanceId card, boolean tapped) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {

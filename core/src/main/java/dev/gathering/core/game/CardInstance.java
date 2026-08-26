@@ -34,7 +34,13 @@ import java.util.Optional;
  *
  * @param token tokens and copies cease to exist at end of session rather than returning to
  *              a deck, which is the only case where a card does not go home
+ * <p><b>The note is what somebody wrote on it.</b> A reminder written by a player and read
+ * by everybody, because a mod with no rules engine remembers a rule by somebody writing it
+ * down. It is text and nothing else: nothing here reads it, and nothing it says has any
+ * effect on anything.
+ *
  * @param attachedTo the card this one is on, or null for a card standing on its own
+ * @param note what a player has written on it, or null for a card nobody has written on
  */
 public record CardInstance(
         CardInstanceId id,
@@ -46,7 +52,8 @@ public record CardInstance(
         MarkerId marker,
         TablePosition position,
         boolean token,
-        CardInstanceId attachedTo) {
+        CardInstanceId attachedTo,
+        String note) {
 
     public CardInstance {
         if (id == null || identity == null || owner == null || facing == null) {
@@ -60,42 +67,47 @@ public record CardInstance(
         counters = counters == null || counters.isEmpty()
                 ? Map.of()
                 : Collections.unmodifiableMap(new LinkedHashMap<>(counters));
+        // Cleaned here rather than trusted from whoever built it, so there is one place a
+        // note can be made and one shape it can be in - a record read off a save file or a
+        // packet goes through the same door as one built by the fold.
+        note = CardNote.clean(note);
     }
 
     public static CardInstance faceUp(CardInstanceId id, CardIdentity identity, SeatId owner) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false, null);
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false, null, null);
     }
 
     public static CardInstance token(CardInstanceId id, CardIdentity identity, SeatId owner) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true, null);
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true, null, null);
     }
 
     public CardInstance withTapped(boolean newTapped) {
         return newTapped == tapped
                 ? this
-                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token, attachedTo);
+                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token, attachedTo, note);
     }
 
     /** Where a drag dropped it, or nothing once it goes back into a pile. */
     public CardInstance withPosition(TablePosition newPosition) {
         return java.util.Objects.equals(newPosition, position)
                 ? this
-                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token, attachedTo);
+                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token, attachedTo, note);
     }
 
     /** Flipping down needs a fresh marker; flipping up drops the one it had. */
     public CardInstance faceDownWith(MarkerId newMarker) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token, attachedTo);
+                id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token, attachedTo, note);
     }
 
     public CardInstance faceUp() {
         return facing == Facing.FACE_UP
                 ? this
                 : new CardInstance(
-                        id, identity, owner, Facing.FACE_UP, tapped, counters, null, position, token, attachedTo);
+                        id, identity, owner, Facing.FACE_UP, tapped, counters, null, position, token,
+                        attachedTo, note);
     }
 
     /**
@@ -112,7 +124,8 @@ public record CardInstance(
         } else {
             updated.put(name, now);
         }
-        return new CardInstance(id, identity, owner, facing, tapped, updated, marker, position, token, attachedTo);
+        return new CardInstance(
+                id, identity, owner, facing, tapped, updated, marker, position, token, attachedTo, note);
     }
 
     public int counter(String name) {
@@ -142,11 +155,33 @@ public record CardInstance(
         return java.util.Objects.equals(target, attachedTo)
                 ? this
                 : new CardInstance(
-                        id, identity, owner, facing, tapped, counters, marker, position, token, target);
+                        id, identity, owner, facing, tapped, counters, marker, position, token, target,
+                        note);
     }
 
     public Optional<CardInstanceId> host() {
         return Optional.ofNullable(attachedTo);
+    }
+
+    /**
+     * Writes on it, or rubs it out with nothing.
+     *
+     * <p>One note to a card rather than a list of them. A card with four remarks stacked up
+     * its face is a card nobody can see, and a player who wants to say two things has room
+     * to say them in one line.
+     */
+    public CardInstance withNote(String written) {
+        String tidy = CardNote.clean(written);
+        return java.util.Objects.equals(tidy, note)
+                ? this
+                : new CardInstance(
+                        id, identity, owner, facing, tapped, counters, marker, position, token,
+                        attachedTo, tidy);
+    }
+
+    /** What somebody wrote on it, if anybody has. */
+    public Optional<String> writtenOn() {
+        return Optional.ofNullable(note);
     }
 
     public boolean isAttached() {

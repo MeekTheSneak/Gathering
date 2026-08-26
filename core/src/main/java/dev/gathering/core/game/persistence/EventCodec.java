@@ -68,6 +68,11 @@ public final class EventCodec {
                 zone(out, e.to());
                 placement(out, e.placement());
             }
+            case GameEvent.CardNoted e -> {
+                seat(out, e.actor());
+                card(out, e.card());
+                out.writeUTF(e.note() == null ? "" : e.note());
+            }
             case GameEvent.CardTapSet e -> {
                 seat(out, e.actor());
                 card(out, e.card());
@@ -211,6 +216,7 @@ public final class EventCodec {
             case "CardMoved" -> new GameEvent.CardMoved(seat(in), card(in), zone(in), placement(in));
             case "ZoneMoved" -> new GameEvent.ZoneMoved(
                     seat(in), seat(in), Zone.valueOf(in.readUTF()), zone(in), placement(in));
+            case "CardNoted" -> new GameEvent.CardNoted(seat(in), card(in), in.readUTF());
             case "CardTapSet" -> new GameEvent.CardTapSet(seat(in), card(in), in.readBoolean());
             case "CardAttached" -> new GameEvent.CardAttached(
                     seat(in), card(in), in.readBoolean() ? card(in) : null);

@@ -199,6 +199,7 @@ class SessionCodecTest {
                         new Placement.At(new TablePosition(3, 4, 90))),
                 new GameEvent.ZoneMoved(a, b, Zone.GRAVEYARD, new ZoneRef(b, Zone.LIBRARY),
                         Placement.BOTTOM),
+                new GameEvent.CardNoted(a, card, "flying until end of turn"),
                 new GameEvent.CardTapSet(a, card, true),
                 new GameEvent.CardRotated(a, card, 137),
                 new GameEvent.CardAttached(a, card, new CardInstanceId(4)),

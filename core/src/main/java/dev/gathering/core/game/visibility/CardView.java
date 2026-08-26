@@ -37,21 +37,26 @@ public sealed interface CardView {
             Map<String, Integer> counters,
             TablePosition position,
             boolean token,
-            CardInstanceId attachedTo) implements CardView {
+            CardInstanceId attachedTo,
+            String note) implements CardView {
 
         public Visible {
             counters = CardView.kept(counters);
             facing = facing == null ? Facing.FACE_UP : facing;
+            note = dev.gathering.core.game.CardNote.clean(note);
         }
     }
 
     /**
      * A face-down card, as everyone else sees it.
      *
-     * <p>Carries the marker, the tap state, the counters and the spot it sits on - so an
-     * opponent can follow "that face-down creature on the left is tapped and has two +1/+1
-     * counters, and now it has moved to exile" exactly as they could across a real table -
-     * and carries no instance id, no owner, and no identity. There is nothing here to invert.
+     * <p>Carries the marker, the tap state, the counters, whatever is written on it and the
+     * spot it sits on - so an opponent can follow "that face-down creature on the left is
+     * tapped and has two +1/+1 counters, and now it has moved to exile" exactly as they could
+     * across a real table - and carries no instance id, no owner, and no identity. There is
+     * nothing here to invert. A note is a player's own words about the card and not the mod's,
+     * which is exactly why it is safe on a card whose name is a secret: the person who wrote
+     * it decided what it gave away.
      * Where a card <em>is</em> was never a secret; a face-down card is visibly present.
      */
     record Anonymous(
@@ -59,10 +64,12 @@ public sealed interface CardView {
             boolean tapped,
             Map<String, Integer> counters,
             TablePosition position,
-            CardInstanceId attachedTo) implements CardView {
+            CardInstanceId attachedTo,
+            String note) implements CardView {
 
         public Anonymous {
             counters = CardView.kept(counters);
+            note = dev.gathering.core.game.CardNote.clean(note);
         }
     }
 
@@ -127,6 +134,21 @@ public sealed interface CardView {
 
     default int counter(String name) {
         return counters().getOrDefault(name, 0);
+    }
+
+    /**
+     * What a player has written on this card, if anybody has.
+     *
+     * <p>Carried by a face-down card as well as a face-up one. A note is what somebody chose
+     * to say about a card, not what the card is, so it gives away nothing the person holding
+     * the pen did not mean to give away - and marking a face-down creature so the table
+     * remembers what everybody agreed it was is most of what the pen is for.
+     */
+    default Optional<String> writtenOn() {
+        return Optional.ofNullable(switch (this) {
+            case Visible visible -> visible.note();
+            case Anonymous anonymous -> anonymous.note();
+        });
     }
 
     /**

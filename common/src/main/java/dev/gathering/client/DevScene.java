@@ -1474,8 +1474,109 @@ public final class DevScene {
                 shoot(client, "53-a-stack-went-together");
                 advance(SETTLE / 2);
             }
+            case 136 -> {
+                // The pen. A group with no rules engine remembers a rule by writing it on the
+                // card, and every other player reading it is the whole point.
+                writeOnACard(client);
+                advance(SETTLE);
+            }
+            case 137 -> {
+                expectScreen(client, "a card with writing on it", TableScreen.class);
+                String written = whatIsWrittenOnTheCard();
+                if (!"flying until end of turn".equals(written)) {
+                    fail("a note was written and the board says \"" + written + "\"");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                // A note is longer than a card is wide, so resting on the card is how the
+                // rest of it gets read. Checked because the card itself can only ever show
+                // the first word and a half of it.
+                restOnTheWrittenCard(client);
+                advance(SETTLE / 4);
+            }
+            case 138 -> {
+                if (!(client.screen instanceof TableScreen board)) {
+                    fail("the board went away before a note could be read off it");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                String said = String.join(" ", board.tooltipShowing().stream()
+                        .map(net.minecraft.network.chat.Component::getString).toList());
+                if (!said.contains("flying until end of turn")) {
+                    fail("resting on a written card said \"" + said + "\"");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println("[devscene] resting on a written card reads: " + said);
+                // Photographed here rather than a step earlier: a tooltip is worked out while
+                // the frame is drawn, so a picture taken in the same step as the hover shows
+                // whatever the cursor was resting on before it moved.
+                shoot(client, "54-written-on-a-card");
+                advance(SETTLE / 4);
+            }
             default -> finish(client, "done");
         }
+    }
+
+    /** Writes on whatever is on this player's battlefield, the way the menu does. */
+    private static void writeOnACard(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            fail("there was no board to write on");
+            return;
+        }
+        for (CardView card : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible) {
+                written = visible.id();
+                ClientTableActions.send(table, new GameEvent.CardNoted(
+                        me, visible.id(), "flying until end of turn"));
+                System.out.println("[devscene] wrote on " + visible.id());
+                return;
+            }
+        }
+        fail("there was nothing on the battlefield to write on");
+    }
+
+    /** Puts the cursor on the card that was written on, so the note can be read off it. */
+    private static void restOnTheWrittenCard(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null || written == null
+                || !(client.screen instanceof TableScreen board)) {
+            fail("there was no written card to rest on");
+            return;
+        }
+        for (CardView card : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible && visible.id().equals(written)) {
+                TablePosition where = card.placedAt().orElse(null);
+                if (where == null) {
+                    fail("the written card is not on the table");
+                    return;
+                }
+                Rect at = board.board().rectOf(me, where);
+                hover(client, new int[] {(int) at.centreX(), (int) at.centreY()});
+                return;
+            }
+        }
+        fail("the written card left the battlefield");
+    }
+
+    /** The card the last step wrote on, so the step after can read it back. */
+    private static CardInstanceId written;
+
+    private static String whatIsWrittenOnTheCard() {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null || written == null) {
+            return null;
+        }
+        for (CardView card : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible && visible.id().equals(written)) {
+                return card.writtenOn().orElse(null);
+            }
+        }
+        return null;
     }
 
     /** How much was in exile before a stack was dropped on it. */

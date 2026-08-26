@@ -54,6 +54,9 @@ public final class GameFold {
             case GameEvent.CardTapSet tap ->
                     state.withCard(state.requireCard(tap.card()).withTapped(tap.tapped()));
 
+            case GameEvent.CardNoted noted ->
+                    state.withCard(state.requireCard(noted.card()).withNote(noted.note()));
+
             case GameEvent.CardRotated rotated -> rotate(state, rotated);
 
             case GameEvent.CardAttached attached -> attach(state, attached);

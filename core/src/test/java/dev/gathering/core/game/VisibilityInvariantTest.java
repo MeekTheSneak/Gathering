@@ -147,6 +147,7 @@ class VisibilityInvariantTest {
                 counters,
                 dev.gathering.core.game.TablePosition.of(0, 0),
                 false,
+                null,
                 null);
         assertThat(card.counters().keySet())
                 .describedAs("a card's counters came back in a different order")

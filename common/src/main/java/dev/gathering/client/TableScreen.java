@@ -116,6 +116,15 @@ public final class TableScreen extends Screen {
      */
     private static final int COUNTER_BAND = 0xC0000000;
 
+    /**
+     * What a player wrote, as against what the game counted.
+     *
+     * <p>A different colour from a counter on purpose: one of them is the mod keeping score
+     * and the other is a person talking, and a board where those look the same is a board
+     * where somebody's reminder reads as a rule.
+     */
+    private static final int WRITING_TEXT = 0xFFBFD8FF;
+
     /** The felt, and a mat on it. Mats are lighter so the table reads as somebody's space. */
     private static final int FELT = 0xFF1E3A2E;
     private static final int MAT = 0x30FFFFFF;
@@ -779,6 +788,18 @@ public final class TableScreen extends Screen {
         hoveringSomething = hovered != null;
         if (hovered != null) {
             offerToInspector(hovered.card());
+            // A note is longer than a card is wide, so the card carries the beginning of it
+            // and resting on the card reads the rest. Both views: the board on the block has
+            // no room to write on a card at all, and the seated one trims a long note to a
+            // word and a half.
+            //
+            // It takes the tooltip rather than waiting for it. The zone slots claim one from
+            // whatever the cursor is inside, before anything knows which card is under it, so
+            // a permanent lying across a graveyard was describing the graveyard - and the
+            // card is the thing in front.
+            hovered.card().writtenOn().ifPresent(written ->
+                    tooltip = List.of(Component.literal(written).withStyle(
+                            net.minecraft.ChatFormatting.ITALIC)));
         }
 
         super.render(graphics, mouseX, mouseY, partialTick);
@@ -1097,7 +1118,7 @@ public final class TableScreen extends Screen {
 
     /** What a card nobody may name looks like on its way across: the back of one. */
     private static final CardView A_SLEEVE = new CardView.Anonymous(
-            null, false, java.util.Map.of(), null, null);
+            null, false, java.util.Map.of(), null, null, null);
 
     /**
      * The cards currently crossing the felt on their way somewhere.
@@ -2928,6 +2949,10 @@ public final class TableScreen extends Screen {
             }
             entries.add(entry("counters", () -> openCounters(new CountersScreen.Subject.Cards(
                     targets, CountersScreen.titleFor(targets, nameOf(card))))));
+            // The pen. A group with no rules engine remembers "flying until end of turn" by
+            // somebody writing it on the card, and every other player reading it is the
+            // point - so it goes on every card in the selection at once, like the rest.
+            entries.add(entry("write", () -> openTheNote(card, targets)));
             if (card.host().isPresent()) {
                 entries.add(entry("detach", () -> eachTarget(board, targets, target ->
                         new GameEvent.CardAttached(me, target, null))));
@@ -3322,6 +3347,29 @@ public final class TableScreen extends Screen {
                 send(new GameEvent.CardAttached(me, card, visible.id()));
             }
         }
+    }
+
+    /**
+     * Opens the pen on this card, filled in with whatever it already says.
+     *
+     * <p>Filled in from the card that was clicked rather than from the selection, because a
+     * selection of five cards has five notes and only one of them was under the cursor.
+     * Writing goes to all of them; what is offered to edit is the one you pointed at.
+     */
+    private void openTheNote(CardView.Visible card, List<CardInstanceId> targets) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return;
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new NoteScreen(
+                Component.translatable("screen.gathering.note.title"),
+                card.writtenOn().orElse(""),
+                written -> {
+                    for (CardInstanceId target : targets) {
+                        send(new GameEvent.CardNoted(me, target, written));
+                    }
+                },
+                this));
     }
 
     private void openCounters(CountersScreen.Subject subject) {
@@ -3861,6 +3909,7 @@ public final class TableScreen extends Screen {
             // one somebody turned by hand, without a word of text over the art.
             graphics.fill(where.x(), where.y(), where.right(), where.bottom(), TAPPED_TINT);
         }
+        drawWriting(graphics, card, where);
         drawCounters(graphics, card, where);
         if (hovered) {
             graphics.renderOutline(where.x(), where.y(), where.width(), where.height(), ACCENT);
@@ -3876,6 +3925,28 @@ public final class TableScreen extends Screen {
      * <p>On the card rather than beside it, because a counter that lives next to a card stops
      * being on that card the moment somebody moves either of them.
      */
+    /**
+     * What somebody wrote on the card, across the top of it.
+     *
+     * <p>At the top because the counters are along the bottom and the two must not fight over
+     * the same band: a card with three counters and a note is a card in play that somebody is
+     * keeping track of, which is exactly when both have to be readable at once.
+     *
+     * <p>Over the name rather than over the art. A card's own name is the one thing on it a
+     * player already knows - they put it there - and the art is what makes a board readable
+     * from across the table.
+     */
+    private void drawWriting(GuiGraphics graphics, CardView card, Rect art) {
+        String written = card.writtenOn().orElse(null);
+        if (written == null || art.height() < this.font.lineHeight + 2) {
+            return;
+        }
+        graphics.fill(art.x(), art.y() + 1, art.right(), art.y() + this.font.lineHeight + 1,
+                COUNTER_BAND);
+        GuiText.draw(graphics, this.font, Component.literal(written),
+                art.x() + 2, art.y() + 2, art.width() - 4, WRITING_TEXT);
+    }
+
     private void drawCounters(GuiGraphics graphics, CardView card, Rect art) {
         if (card.counters().isEmpty()) {
             return;

@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.58
+## Design Brief v1.59
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -139,6 +139,8 @@ Pile verbs: shuffle (server-side, seeded, announced in log), search, scry N / su
 Counter and token verbs, kept in core because the reference deck demands them: **named counters on cards** - loyalty (Tevesh Szat is a planeswalker and cannot be played without them), +1/+1, -1/-1, and anything a player cares to name - create token via Scryfall token search (his +2 makes two Thrulls per activation), create copy-token of an existing card.
 
 Player verbs: life total (40 in the Commander preset), commander damage grid, **named counters beside a seat** (poison, energy, experience, and anything else), concede, end session. Command zone with commander tax tracking as a displayed number, not an enforcement.
+
+**The pen.** Any card in play can be written on: one line, typed once, drawn across the top of the card and read in full by resting on it. It is the thing a real table does with a scrap of paper - "flying until end of turn", "this is the morph", "goes back at upkeep" - and it is the only way a mod with no rules engine remembers a rule. A public event like every other: attributed by name in the log, taken back by undo, and carried by a face-down card as well as a face-up one, because marking the morph everybody agreed on is most of what the pen is for. What it says is a player's own words and never the mod's, so it gives away nothing the person holding the pen did not mean to give away - which is exactly why it is safe on a card whose name is a secret. The log says who wrote and never what, because a log of notes is not a log.
 
 Table verbs: **turn and phase marker**, a shared indicator of whose turn and which phase, advanced manually by the active player, displayed in every view including the roam HUD (zero enforcement, maximum shared clarity). **Ping**, click any public card to highlight it for everyone for a few seconds, the digital version of pointing at the table, essential for "in response to that." **Undo** (phase 2), configurable per table with a server default, three modes: **unanimous** (any rewind requires every seated player's consent, the competitive setting), **free** (a player rewinds their own most recent actions instantly, the casual setting), and **off**. In every mode, information boundaries are hard: the event log marks information-revealing events (draws, scries, reveals, searches), and no free undo can cross one, because a seen card cannot be un-seen; rewinding across an information boundary always escalates to unanimous consent. Shipped default is free-with-boundaries. Because the session is event-sourced, undo is a re-fold of the log, not a parallel bookkeeping system.
 
