@@ -3554,6 +3554,7 @@ public final class TableScreen extends Screen {
         // one that picked its worst. See DiscardAtRandomPayload.
         entries.add(entry("discard_at_random", () -> ask("discard_at_random", 1,
                 howMany -> ClientNetworking.send(new DiscardAtRandomPayload(table, howMany)))));
+        entries.add(entry("sort_hand", () -> sortMyHand(me)));
         entries.add(entry("make_token", this::askForToken));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
         view().ifPresent(board -> entries.add(entry("next_phase",
@@ -3961,6 +3962,46 @@ public final class TableScreen extends Screen {
             case 9 -> bottomOfLibraryAtRandom(me);
             default -> false;
         };
+    }
+
+    /**
+     * Puts your hand in order of what things cost.
+     *
+     * <p>Worked out here because the mana cost is card data and the client is what has it -
+     * the game itself knows a hand as a list of ids and has never heard of a mana value.
+     *
+     * <p>A card whose data has not arrived yet goes to the end rather than to the front. Both
+     * are arbitrary; the end is the one where an unsorted card is obviously unsorted instead
+     * of looking like the cheapest thing in the hand.
+     */
+    private void sortMyHand(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return;
+        }
+        List<CardView> hand = board.seat(me).zone(Zone.HAND).cards();
+        List<CardInstanceId> order = hand.stream()
+                .filter(card -> card instanceof CardView.Visible)
+                .map(card -> (CardView.Visible) card)
+                .sorted(java.util.Comparator
+                        .comparingInt((CardView.Visible card) -> costOf(card).orElse(Integer.MAX_VALUE))
+                        .thenComparing(card -> summaryOf(card)
+                                .map(CardSummary::name).orElse("")))
+                .map(CardView.Visible::id)
+                .toList();
+        if (order.isEmpty()) {
+            return;
+        }
+        send(new GameEvent.HandSorted(me, me, order));
+    }
+
+    /** What this card costs, if its data has arrived. */
+    private java.util.OptionalInt costOf(CardView card) {
+        CardSummary summary = summaryOf(card).orElse(null);
+        return summary == null
+                ? java.util.OptionalInt.empty()
+                : java.util.OptionalInt.of(dev.gathering.core.card.ManaValue.of(
+                        summary.sideShown(false).manaCost()));
     }
 
     /**

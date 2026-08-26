@@ -78,6 +78,11 @@ public final class EventCodec {
                 card(out, e.card());
                 out.writeUTF(e.note() == null ? "" : e.note());
             }
+            case GameEvent.HandSorted e -> {
+                seat(out, e.actor());
+                seat(out, e.seat());
+                cards(out, e.order());
+            }
             case GameEvent.CardFrozen e -> {
                 seat(out, e.actor());
                 card(out, e.card());
@@ -234,6 +239,7 @@ public final class EventCodec {
             case "CardTurnedOver" -> new GameEvent.CardTurnedOver(
                     seat(in), card(in), in.readBoolean());
             case "CardNoted" -> new GameEvent.CardNoted(seat(in), card(in), in.readUTF());
+            case "HandSorted" -> new GameEvent.HandSorted(seat(in), seat(in), cards(in));
             case "CardFrozen" -> new GameEvent.CardFrozen(seat(in), card(in), in.readBoolean());
             case "CardStrengthSet" -> new GameEvent.CardStrengthSet(seat(in), card(in), in.readUTF());
             case "CardTapSet" -> new GameEvent.CardTapSet(seat(in), card(in), in.readBoolean());

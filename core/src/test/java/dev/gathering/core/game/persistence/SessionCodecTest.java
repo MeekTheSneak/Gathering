@@ -202,6 +202,7 @@ class SessionCodecTest {
                 new GameEvent.CardNoted(a, card, "flying until end of turn"),
                 new GameEvent.CardStrengthSet(a, card, "6/6"),
                 new GameEvent.CardFrozen(a, card, true),
+                new GameEvent.HandSorted(a, a, List.of(card)),
                 new GameEvent.CardTurnedOver(a, card, true),
                 new GameEvent.CardTapSet(a, card, true),
                 new GameEvent.CardRotated(a, card, 137),

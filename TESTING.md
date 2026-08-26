@@ -510,6 +510,12 @@ why they cost what they do. Batch what you are checking and run them once: three
 pictures of three separate fixes tell you no more than one picture after all
 three, and cost half an hour more.
 
+**Run them one at a time.** `shots.sh`, `smoke.sh` and `runGameTestServer` all
+work out of `neoforge/run`, and two of them at once fight over the same world
+and the same lock. What that looks like is a build that fails with no test
+failure in it and passes when you run it again - which reads as a flake and is
+not one.
+
 One check is deliberately off by default. Booster collation is read out of MTGJSON's
 published set files, and a reader of somebody else's schema can only honestly be checked
 against the real thing — but four megabytes of their card data has no business living in this

@@ -60,6 +60,8 @@ public final class GameFold {
             case GameEvent.CardStrengthSet written ->
                     state.withCard(state.requireCard(written.card()).withStrength(written.strength()));
 
+            case GameEvent.HandSorted sorted -> sortHand(state, sorted);
+
             case GameEvent.CardFrozen froze ->
                     state.withCard(state.requireCard(froze.card()).frozen(froze.frozen()));
 
@@ -337,6 +339,30 @@ public final class GameFold {
         updated.addAll(event.toBottom());
         // Deciding is the end of looking: the cards have been put back and the decision made.
         return state.withZone(library, updated).withoutPeekBy(event.actor());
+    }
+
+    /**
+     * Puts a hand in the order the client asked for.
+     *
+     * <p>Asked for, not obeyed. The order arrives from a client that worked it out a moment
+     * ago, and a card can have been drawn or played since - so what is named and really there
+     * goes first, in the order named, and whatever is there but was not named keeps its place
+     * behind it. A hand cannot lose a card to a stale sort and cannot gain one from a made-up
+     * list, whatever arrives.
+     */
+    private static GameState sortHand(GameState state, GameEvent.HandSorted event) {
+        ZoneRef hand = ZoneRef.of(event.seat(), Zone.HAND);
+        List<CardInstanceId> now = state.contents(hand);
+        Set<CardInstanceId> placed = new LinkedHashSet<>();
+        for (CardInstanceId card : event.order()) {
+            if (now.contains(card)) {
+                placed.add(card);
+            }
+        }
+        for (CardInstanceId card : now) {
+            placed.add(card);
+        }
+        return state.withZone(hand, List.copyOf(placed));
     }
 
     private static GameState surveil(GameState state, GameEvent.Surveiled event) {

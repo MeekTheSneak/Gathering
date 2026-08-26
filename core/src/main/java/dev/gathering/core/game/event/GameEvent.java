@@ -273,6 +273,32 @@ public sealed interface GameEvent {
     }
 
     /**
+     * Putting a hand in a different order.
+     *
+     * <p>Cosmetic and private, and it is still an event. A hand's order is what the fan on
+     * screen is drawn from, so a client that reordered its own display would be a second
+     * answer to where a card is - and the first time somebody drew a card, or rejoined, the
+     * two answers would differ.
+     *
+     * <p>The order arrives from the client because sorting by mana value needs the card data,
+     * and the client is what has it. Nothing is given away: it is your own hand, nobody else
+     * can see into it, and the server keeps only the cards that are really in it - see the
+     * fold, which drops anything named that is not there and keeps anything there that was
+     * not named.
+     */
+    record HandSorted(SeatId actor, SeatId seat, List<CardInstanceId> order) implements GameEvent {
+
+        public HandSorted {
+            order = order == null ? List.of() : List.copyOf(order);
+        }
+
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of("log.gathering.hand_sorted", actor);
+        }
+    }
+
+    /**
      * Freezing a card, or thawing it.
      *
      * <p>A frozen card does not untap when its controller untaps everything. Nothing else
