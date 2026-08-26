@@ -9,7 +9,6 @@ import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
-import net.jqwik.api.constraints.Size;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -144,8 +143,8 @@ class TradeTableTest {
     }
 
     @Property
-    @DisplayName("a struck table is one both sides agreed to, unchanged")
-    void struckMeansAgreedToThis(@ForAll("moves") @Size(min = 1, max = 24) java.util.List<Move> moves) {
+    @net.jqwik.api.Label("a struck table is one both sides agreed to, unchanged")
+    void struckMeansAgreedToThis(@ForAll("moves") java.util.List<Move> moves) {
         TradeTable table = TradeTable.between(ANA, BEN);
         TradeTable whenLastAgreed = null;
         for (Move move : moves) {
@@ -174,8 +173,19 @@ class TradeTableTest {
         enum What { PUT, CLEAR, AGREE, UNDO }
     }
 
+    /**
+     * A run of things people do at a trade table.
+     *
+     * <p>The provider builds the whole list rather than one move: {@code @ForAll("moves")} on
+     * a list parameter is resolved against the parameter's own type, so a provider handing
+     * back a single move fails the property with an argument mismatch rather than a finding.
+     */
     @Provide
-    Arbitrary<Move> moves() {
+    Arbitrary<java.util.List<Move>> moves() {
+        return oneMove().list().ofMinSize(1).ofMaxSize(24);
+    }
+
+    private Arbitrary<Move> oneMove() {
         return Arbitraries.of(ANA, BEN).flatMap(who ->
                 Arbitraries.of(Move.What.values()).flatMap(what ->
                         Arbitraries.of(BOLT, RING).flatMap(card ->

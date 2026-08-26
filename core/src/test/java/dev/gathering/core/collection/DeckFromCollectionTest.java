@@ -191,7 +191,7 @@ class DeckFromCollectionTest {
     }
 
     @Property
-    @DisplayName("never takes more of anything than the box holds, and adds up")
+    @net.jqwik.api.Label("never takes more of anything than the box holds, and adds up")
     void takingIsBoundedAndAddsUp(
             @ForAll @Size(min = 1, max = 6) List<@IntRange(min = 0, max = 8) Integer> asked,
             @ForAll @IntRange(min = 0, max = 6) int inTheBox) {

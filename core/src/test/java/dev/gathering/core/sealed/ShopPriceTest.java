@@ -61,7 +61,7 @@ class ShopPriceTest {
     }
 
     @Property
-    @DisplayName("whatever comes back fits in two slots and comes to the price")
+    @net.jqwik.api.Label("whatever comes back fits in two slots and comes to the price")
     void everyPriceThatSellsFitsAndAddsUp(
             @ForAll @IntRange(min = 1, max = 5000) int price,
             @ForAll @IntRange(min = 1, max = 64) int perBlock) {
