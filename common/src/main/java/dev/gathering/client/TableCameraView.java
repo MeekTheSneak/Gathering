@@ -363,6 +363,39 @@ public final class TableCameraView {
         offsetZ = Math.max(-reach, Math.min(reach, offsetZ + downBlocks * sense));
     }
 
+    /**
+     * Slides the view by a drag on the window, in pixels.
+     *
+     * <p>How many blocks a pixel is worth depends entirely on how high the eye is, and this
+     * view's zoom now spans an eleven-fold range - a card is twenty-four pixels at one end
+     * and two hundred and sixty at the other. It used to convert with a fixed two hundred and
+     * twenty pixels per block, on the reasoning that nobody notices a pan being five per cent
+     * fast. Nobody does; what they notice is a drag that runs four times too slow zoomed in
+     * and two and a half times too fast zoomed out, which is what that constant came to once
+     * the zoom limits stopped being a pair of fixed heights.
+     *
+     * <p>So it is worked out rather than assumed, from the same height and the same drawn
+     * spread the framing uses. One number for both axes: pixels are square, and the window is
+     * exactly as many blocks wider than it is tall as it is pixels wider than it is tall.
+     */
+    public static void panByPixels(double pixelsX, double pixelsY) {
+        double perBlock = pixelsPerBlock();
+        pan(pixelsX / perBlock, pixelsY / perBlock);
+    }
+
+    /**
+     * How much window one block of table covers, top to bottom, at this height.
+     *
+     * <p>Package-private because the screen sizes the card in the player's hand against it
+     * too. A card lifted off the block is drawn at the size a card is <em>on</em> the block,
+     * and that is this number times how much of a block a card is - so if the two ever came
+     * from different places, picking a card up would change its size.
+     */
+    static double pixelsPerBlock() {
+        double window = Math.max(1, Minecraft.getInstance().getWindow().getGuiScaledHeight());
+        return window / Math.max(1e-6, height * spread());
+    }
+
     /** Back to the whole table, centred, and still clear of the hand. */
     public static void showEverything() {
         height = heightThatFrames(TableTop.SPAN_BLOCKS, TableTop.SPAN_BLOCKS);

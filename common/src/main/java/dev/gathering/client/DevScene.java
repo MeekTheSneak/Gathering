@@ -1638,22 +1638,36 @@ public final class DevScene {
             case 148 -> {
                 theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
-                scrollTheBoard(client, -2);
+                // Dragged here as well as at the whole-table framing, because how many blocks
+                // a pixel is worth depends on the height and on nothing else: a conversion
+                // that is right at one zoom is wrong at every other, which is the shape of
+                // the fault. Leaned all the way in is the far end of it.
+                dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
             case 149 -> {
+                theBoardFollowedTheHand("dragged while leaning all the way in");
+                dragTheBoard(client, 0, -PAN_BY);
+                advance(SETTLE / 2);
+            }
+            case 150 -> {
+                theBoardFollowedTheHand("dragged back again");
+                scrollTheBoard(client, -2);
+                advance(SETTLE / 2);
+            }
+            case 151 -> {
                 theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 150 -> {
+            case 152 -> {
                 theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 151 -> {
+            case 153 -> {
                 theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
@@ -1666,11 +1680,25 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 152 -> {
+            case 154 -> {
                 expectScreen(client, "the whole table on the block", TableScreen.class);
                 System.out.println("[devscene] camera: " + TableCameraView.report());
                 theBlockFramesLikeTheScreen(client);
                 shoot(client, "58-the-whole-table-on-the-block");
+                // And the near end of the same range: the whole table framed, where a block
+                // is worth a fraction of the pixels it is worth leaned in.
+                aimTheWheelAtAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
+                dragTheBoard(client, 0, PAN_BY);
+                advance(SETTLE / 2);
+            }
+            case 155 -> {
+                theBoardFollowedTheHand("dragged down the whole-table view");
+                dragTheBoard(client, PAN_BY, 0);
+                advance(SETTLE / 2);
+            }
+            case 156 -> {
+                theBoardFollowedTheHand("dragged across it");
+                shoot(client, "59-the-board-panned");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -3571,6 +3599,79 @@ public final class DevScene {
             }
         }
         System.out.println("[devscene] the whole table is framed, every mat whole");
+    }
+
+    /** How far each pan drag goes, in window units: unambiguous, and well short of the edge. */
+    private static final int PAN_BY = 40;
+
+    /**
+     * Drags the board with the middle button, the way a player slides a table about.
+     *
+     * <p>Through the screen's own mouse handlers rather than by calling the camera, because
+     * what is being checked is the whole path from a drag to a picture - and the step in the
+     * middle, turning pixels into blocks, is exactly the one that was wrong.
+     */
+    private static void dragTheBoard(Minecraft client, int acrossPixels, int downPixels) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to drag");
+            return;
+        }
+        int fromX = client.getWindow().getGuiScaledWidth() / 2;
+        int fromY = client.getWindow().getGuiScaledHeight() / 2;
+        board.mouseClicked(fromX, fromY, 2);
+        board.mouseDragged(fromX + acrossPixels, fromY + downPixels, 2, acrossPixels, downPixels);
+        board.mouseReleased(fromX + acrossPixels, fromY + downPixels, 2);
+        pannedBy = new int[] {acrossPixels, downPixels};
+        System.out.println("[devscene] dragged the board " + acrossPixels + "," + downPixels);
+    }
+
+    /** How far the last drag asked the board to move. */
+    private static int[] pannedBy;
+
+    /**
+     * Checks the board moved as far as the hand did, and the same way.
+     *
+     * <p>The felt under a known pixel is watched across the drag: slide the window forty
+     * units and the place that was under that pixel has to end up forty units away, in the
+     * direction the hand went. Both halves have failed. The board used to convert a drag with
+     * a fixed two hundred and twenty pixels per block, which is about right at one height and
+     * out by a factor of four at the ends of a zoom range that is now eleven-fold - so this is
+     * asked at two very different heights, because at any single one a fixed number can look
+     * perfectly correct. And it used to move the felt the opposite way from the hand.
+     */
+    private static void theBoardFollowedTheHand(String when) {
+        if (wheelAt == null || wheelWasOver == null || pannedBy == null) {
+            fail("nothing was aimed at, so a pan could not be measured " + when);
+            return;
+        }
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        double[] now = TablePointer.onScreen(top, wheelWasOver[0], wheelWasOver[1]).orElse(null);
+        if (now == null) {
+            fail("the pan took the aimed-at felt off the window entirely " + when);
+            return;
+        }
+        double movedX = now[0] - wheelAt[0];
+        double movedY = now[1] - wheelAt[1];
+        double asked = Math.hypot(pannedBy[0], pannedBy[1]);
+        double moved = Math.hypot(movedX, movedY);
+        System.out.println("[devscene] the hand moved " + Math.round(asked)
+                + " and the board moved " + Math.round(moved) + " " + when);
+        // A fifth. Room for an integer aim point and a drag measured in whole units, and
+        // nowhere near enough for a factor of four.
+        if (Math.abs(moved - asked) > asked * 0.2) {
+            fail("the board moved " + Math.round(moved) + " units for a hand that moved "
+                    + Math.round(asked) + " " + when);
+            return;
+        }
+        // And the right way. A board that slides against the hand is worse than one that
+        // slides too far, and the distance alone cannot tell them apart.
+        if (pannedBy[0] * movedX + pannedBy[1] * movedY <= 0) {
+            fail("the board moved the wrong way for a hand that went "
+                    + pannedBy[0] + "," + pannedBy[1] + " " + when);
+            return;
+        }
+        // The aim follows the felt, so the next drag or wheel measures from where this left off.
+        wheelAt = new int[] {(int) Math.round(now[0]), (int) Math.round(now[1])};
     }
 
     /**

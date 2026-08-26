@@ -231,16 +231,6 @@ public final class TableScreen extends Screen {
     /** How far one press of a pan key slides the table. */
     private static final int PAN_STEP = 60;
 
-    /**
-     * Roughly how many pixels of screen a block of table covers, for turning a drag into a
-     * slide when the table is in the world.
-     *
-     * <p>Approximate on purpose. Exact would mean the height, the field of view and the
-     * window, recomputed every frame, to decide how fast a drag scrolls - and nobody has ever
-     * noticed that a pan was five per cent fast. What people notice is the direction.
-     */
-    private static final double PIXELS_PER_BLOCK = 220.0;
-
     private final BlockPos table;
 
     private TableScreenLayout layout;
@@ -2387,11 +2377,17 @@ public final class TableScreen extends Screen {
      * <p>It used to be drawn the height of a card in your hand, which on the block is roughly
      * two and a half times the size of a card lying on the table - so picking one up made it
      * balloon, and it covered the very place it was about to be put down.
+     *
+     * <p>Asked of the camera rather than of a constant, for the same reason the drag is. How
+     * big a card is on the block depends on how high the eye is, and that now spans an
+     * eleven-fold range - so a fixed conversion drew the card in the air right at one zoom
+     * and at four times or a quarter of the cards underneath it everywhere else, which is the
+     * ballooning again by another route.
      */
     private Rect centredOnCursor(int mouseX, int mouseY, SeatId sizedFor) {
         double blocks = board().surface().cardHeightOn(sizedFor.index())
                 / (double) TableSurface.SPAN * TableTop.SPAN_BLOCKS;
-        int height = Math.max(24, (int) Math.round(blocks * PIXELS_PER_BLOCK));
+        int height = Math.max(24, (int) Math.round(blocks * TableCameraView.pixelsPerBlock()));
         int width = Math.max(16, CardShape.widthFor(height));
         return new Rect(mouseX - width / 2, mouseY - height / 2, width, height);
     }
@@ -3711,14 +3707,17 @@ public final class TableScreen extends Screen {
     /**
      * Slides the view, whichever view it is.
      *
-     * <p>Pixels on the seated screen and blocks on the table, which are not the same quantity
-     * at all - so the one that is not pixels is scaled by how far a pixel gets you at this
-     * height. Panning that moves the world by a different amount than the hand is the single
-     * most common way a drag feels wrong.
+     * <p>Pixels either way now. The seated board is already in pixels, and the camera over
+     * the real one turns them into blocks itself, from the height it is actually at - which
+     * is the only thing that knows. Panning that moves the world by a different amount than
+     * the hand is the single most common way a drag feels wrong; moving it the other way is
+     * the one worse than that, and the board on the block did exactly that. Both views grab
+     * the felt and pull it, which is what the seated one has always done and what the camera
+     * over the real table always said it did.
      */
     private void pan(double pixelsX, double pixelsY) {
         if (playingOnTheBlock) {
-            TableCameraView.pan(-pixelsX / PIXELS_PER_BLOCK, -pixelsY / PIXELS_PER_BLOCK);
+            TableCameraView.panByPixels(pixelsX, pixelsY);
         } else {
             geometry.pan(pixelsX, pixelsY);
         }
