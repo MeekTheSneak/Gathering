@@ -128,6 +128,16 @@ public final class GatheringNetwork {
                 GatheringNetwork::onCreateToken);
 
         registrar.playToServer(
+                dev.gathering.network.FetchBasicPayload.TYPE,
+                dev.gathering.network.FetchBasicPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        CardDataService.active().ifPresent(service ->
+                                dev.gathering.server.TokenCreation.fetchBasic(player, service, payload));
+                    }
+                });
+
+        registrar.playToServer(
                 dev.gathering.network.RevealUntilPayload.TYPE,
                 dev.gathering.network.RevealUntilPayload.STREAM_CODEC,
                 (payload, context) -> {

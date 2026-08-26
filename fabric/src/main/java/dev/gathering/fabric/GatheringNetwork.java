@@ -55,6 +55,9 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(
                 CreateTokenPayload.TYPE, CreateTokenPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.FetchBasicPayload.TYPE,
+                dev.gathering.network.FetchBasicPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.DraftPickPayload.TYPE,
                 dev.gathering.network.DraftPickPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
@@ -208,5 +211,11 @@ final class GatheringNetwork {
         ServerPlayNetworking.registerGlobalReceiver(CreateTokenPayload.TYPE, (payload, context) ->
                 CardDataService.active().ifPresent(service ->
                         dev.gathering.server.TokenCreation.handle(context.player(), service, payload)));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.FetchBasicPayload.TYPE, (payload, context) ->
+                        CardDataService.active().ifPresent(service ->
+                                dev.gathering.server.TokenCreation.fetchBasic(
+                                        context.player(), service, payload)));
     }
 }

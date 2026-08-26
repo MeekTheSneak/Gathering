@@ -11,6 +11,7 @@ import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.CardSummary;
 import dev.gathering.network.CreateTokenPayload;
+import dev.gathering.network.FetchBasicPayload;
 import dev.gathering.service.CardDataService;
 import java.util.List;
 import java.util.Optional;
@@ -63,13 +64,63 @@ public final class TokenCreation {
                 }));
     }
 
+    /**
+     * A basic land, put on the table as a token.
+     *
+     * <p>The same act as making a token and it goes down the same path: something that came
+     * from outside the game, is drawn as an ordinary card, and goes away with the game. What
+     * differs is only which lookup answers - a basic land is a real printing, not a token, so
+     * the token search would never find one.
+     *
+     * <p>The name is not the client's. It comes from an enum of the six basic lands, so this
+     * cannot be used to ask the server to look up an arbitrary card - see
+     * {@link FetchBasicPayload}.
+     */
+    public static void fetchBasic(
+            ServerPlayer player, CardDataService service, FetchBasicPayload payload) {
+        TableReach.Seated at = TableReach.seatedAt(player, payload.table()).orElse(null);
+        if (at == null) {
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        String name = payload.land().printedName();
+        service.findByName(name)
+                .whenComplete((found, failure) -> player.server.execute(() -> {
+                    if (player.hasDisconnected()) {
+                        return;
+                    }
+                    if (failure != null) {
+                        player.sendSystemMessage(Component.translatable(
+                                "message.gathering.card_lookup_failed", name));
+                        return;
+                    }
+                    put(player, level, at.origin(), at.seat(),
+                            found.map(List::of).orElse(List.of()), payload.count(), name);
+                }));
+    }
+
     /** Server thread only. */
     private static void place(
             ServerPlayer player, ServerLevel level, BlockPos origin, SeatId seat,
             List<CardMetadata> found, CreateTokenPayload payload) {
+        put(player, level, origin, seat, found, payload.count(), payload.name());
+    }
+
+    /**
+     * Puts whatever was found on the table, as that many tokens.
+     *
+     * <p>Shared by the token search and the basic-land button so the two cannot drift: both
+     * have to tell the client what the card is before the board arrives naming it, both have
+     * to mark the table changed, and both have to say something when nothing was found.
+     *
+     * <p>Server thread only.
+     */
+    private static void put(
+            ServerPlayer player, ServerLevel level, BlockPos origin, SeatId seat,
+            List<CardMetadata> found, int count, String asked) {
         if (found.isEmpty()) {
             player.sendSystemMessage(Component.translatable(
-                    "message.gathering.token_not_found", payload.name()));
+                    "message.gathering.token_not_found", asked));
             return;
         }
         // The most recent printing, which is what the search asked for and what somebody
@@ -86,14 +137,14 @@ public final class TokenCreation {
                 new CardMetadataPayload(List.of(CardSummary.of(token))));
 
         session.submit(new GameEvent.TokenCreated(
-                seat, seat, CardIdentity.ofPrinting(token.scryfallId()), payload.count()));
+                seat, seat, CardIdentity.ofPrinting(token.scryfallId()), count));
 
         TableSessions.anchorOf(level, origin)
                 .flatMap(anchor -> TableBlock.entityAt(level, anchor))
                 .ifPresent(table -> table.setChanged());
         TableBroadcast.sendToTable(level, origin);
         player.sendSystemMessage(Component.translatable(
-                "message.gathering.token_created", payload.count(), token.name()));
+                "message.gathering.token_created", count, token.name()));
     }
 
     /** The corner of the table, if this player is at one. One rule; see {@link TableReach}. */

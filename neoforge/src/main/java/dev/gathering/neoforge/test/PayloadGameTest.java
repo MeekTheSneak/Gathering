@@ -428,6 +428,39 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /**
+     * A basic land, on the wire.
+     *
+     * <p>The land is an enum and an enum on the wire is an ordinal, so the six values are one
+     * number apart and a codec that read them wrong would put an Island on the table for
+     * somebody who pressed Plains. The unknown-id refusal matters more than usual here: this
+     * enum is the only thing stopping the payload becoming a general card lookup.
+     */
+    @GameTest(template = "empty")
+    public static void aFetchedBasicSurvivesTheWire(GameTestHelper helper) {
+        for (var land : dev.gathering.network.FetchBasicPayload.Basic.values()) {
+            var asked = roundTrip(
+                    helper,
+                    new dev.gathering.network.FetchBasicPayload(
+                            net.minecraft.core.BlockPos.ZERO, land, 3),
+                    dev.gathering.network.FetchBasicPayload.STREAM_CODEC);
+            if (asked.land() != land) {
+                helper.fail("a " + land + " came back as a " + asked.land());
+            }
+            if (asked.count() != 3) {
+                helper.fail("how many lands changed on the wire: " + asked.count());
+            }
+        }
+
+        var silly = new dev.gathering.network.FetchBasicPayload(
+                net.minecraft.core.BlockPos.ZERO,
+                dev.gathering.network.FetchBasicPayload.Basic.FOREST, Integer.MAX_VALUE);
+        if (silly.count() != dev.gathering.network.FetchBasicPayload.MOST) {
+            helper.fail("two billion Forests were not brought back down: " + silly.count());
+        }
+        helper.succeed();
+    }
+
     /** A deck's new name, on the wire. */
     @GameTest(template = "empty")
     public static void aRenameSurvivesTheWire(GameTestHelper helper) {

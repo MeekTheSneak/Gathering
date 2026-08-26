@@ -42,6 +42,7 @@ import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
 import dev.gathering.network.CreateTokenPayload;
 import dev.gathering.network.DiscardAtRandomPayload;
+import dev.gathering.network.FetchBasicPayload;
 import dev.gathering.network.ToBottomAtRandomPayload;
 import dev.gathering.network.RevealUntilPayload;
 import dev.gathering.network.UndoPayload;
@@ -3441,6 +3442,10 @@ public final class TableScreen extends Screen {
                             wanted -> ClientNetworking.send(new RevealUntilPayload(table,
                                     RevealUntilPayload.Until.OF_TYPE, 0, wanted)),
                             this))));
+            // A land from outside the game, for the effects that put one there and for the
+            // moment somebody needs one and it is not worth stopping over. It arrives as a
+            // token because that is what it is - see FetchBasicPayload.
+            entries.add(entry("fetch_basic", this::askWhichBasic));
             entries.add(entry("search", () -> {
                 send(new GameEvent.LibrarySearched(me, me));
                 openPile(me, Zone.LIBRARY, true);
@@ -3650,6 +3655,42 @@ public final class TableScreen extends Screen {
                         send(new GameEvent.CardStrengthSet(me, target, written));
                     }
                 },
+                this));
+    }
+
+    /**
+     * Which basic land, and then how many.
+     *
+     * <p>Buttons rather than a typing box. There are six answers and they are all spellable
+     * wrongly, so a question that cannot be answered wrongly is worth a screen.
+     */
+    private void askWhichBasic() {
+        List<ChoiceScreen.Option> lands = new ArrayList<>();
+        for (FetchBasicPayload.Basic land : FetchBasicPayload.Basic.values()) {
+            lands.add(new ChoiceScreen.Option(
+                    Component.translatable(
+                            "screen.gathering.basic." + land.name().toLowerCase(java.util.Locale.ROOT)),
+                    () -> askHowManyBasics(land)));
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.basic.which"), lands, this));
+    }
+
+    /**
+     * How many of them.
+     *
+     * <p>Named, because the second question arrives after the first has gone and "How many?"
+     * on its own is a question about something the player can no longer see.
+     */
+    private void askHowManyBasics(FetchBasicPayload.Basic land) {
+        // The plural, because the question is "how many". Six strings rather than an "s" on
+        // the end of one: Plains and Wastes are already plural, and "How many Plainss?" is
+        // the sort of thing nobody fixes once it has shipped.
+        Component name = Component.translatable(
+                "screen.gathering.basic." + land.name().toLowerCase(java.util.Locale.ROOT) + ".plural");
+        net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
+                Component.translatable("screen.gathering.amount.basics", name), 1,
+                count -> ClientNetworking.send(new FetchBasicPayload(table, land, count)),
                 this));
     }
 
