@@ -71,6 +71,21 @@ public final class ContextMenu {
      */
     public static ContextMenu at(
             Font font, int pointX, int pointY, int screenWidth, int screenHeight, List<Entry> entries) {
+        return at(font, pointX, pointY, screenWidth, screenHeight, 0, entries);
+    }
+
+    /**
+     * The same, on a screen with something across the top of it that must stay readable.
+     *
+     * <p>The board has a strip along its top carrying every seat's life and whose turn it is,
+     * and a menu opened near the top of the window was clamped to the window rather than to
+     * the strip - so the first entry of a long menu sat over the life totals. Given the strip's
+     * foot, the menu starts below it and is measured against what is left.
+     */
+    public static ContextMenu at(
+            Font font, int pointX, int pointY, int screenWidth, int screenHeight,
+            int topEdge, List<Entry> entries) {
+        int highest = Math.max(SCREEN_EDGE, topEdge);
         int columnWidth = MIN_WIDTH;
         for (Entry entry : entries) {
             if (!entry.isRule()) {
@@ -87,7 +102,7 @@ public final class ContextMenu {
         // has a lot of things you can do to it, and at a GUI scale of two on a small window
         // the list is taller than the window. So it wraps into columns, which is what a long
         // menu does everywhere else and never costs an entry.
-        int room = Math.max(1, screenHeight - SCREEN_EDGE * 2 - PADDING * 2);
+        int room = Math.max(1, screenHeight - highest - SCREEN_EDGE - PADDING * 2);
         int perColumn = Math.max(1, room / ROW_HEIGHT);
         int columns = Math.max(1, (entries.size() + perColumn - 1) / perColumn);
         if (columns > 1) {
@@ -108,7 +123,7 @@ public final class ContextMenu {
         }
         return new ContextMenu(entries,
                 Math.max(SCREEN_EDGE, Math.min(left, screenWidth - SCREEN_EDGE - width)),
-                Math.max(SCREEN_EDGE, Math.min(top, screenHeight - SCREEN_EDGE - height)),
+                Math.max(highest, Math.min(top, screenHeight - SCREEN_EDGE - height)),
                 width, height, perColumn, columnWidth);
     }
 

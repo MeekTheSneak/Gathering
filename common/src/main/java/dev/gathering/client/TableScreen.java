@@ -343,8 +343,8 @@ public final class TableScreen extends Screen {
     private List<Component> tooltip = List.of();
 
     /** Measured once per screen: how much room the longest of each set needs. Nought is unasked. */
-    /** The widest word printed on a mat, measured once, so they all come and go together. */
-    private int longestWordOnAMat;
+    private int longestZoneNameWidth;
+    private int longestVerbNameWidth;
 
     /** Frames the board on this seat's own mat, or on the whole table when there is no seat. */
     private void frameTheBoard(SeatId seat) {
@@ -1496,30 +1496,26 @@ public final class TableScreen extends Screen {
      * a board too small to write on.
      */
     private boolean everyZoneNameFits(int room) {
-        return everyWordOnTheMatFits(room);
-    }
-
-    private boolean everyVerbNameFits(int room) {
-        return everyWordOnTheMatFits(room);
+        if (longestZoneNameWidth == 0) {
+            longestZoneNameWidth = this.font.width(longestOf(ZONE_NAMES));
+        }
+        return room >= Legibility.roomToWrite(longestZoneNameWidth, guiScale());
     }
 
     /**
-     * Whether a mat drawn this small still has room for the words printed on it.
+     * And the same for the buttons down the other side.
      *
-     * <p>One question for every word on the mat, not one per set. The zone names and the verb
-     * buttons were measured against their own longest word, so "Graveyard" and "Mulligan"
-     * crossed out at different sizes and a board being zoomed had its labels go in two steps -
-     * which reads as things phasing in and out rather than as a board changing detail. The two
-     * numbers on the board have appeared and disappeared together since they were added, for
-     * exactly this reason; the words now do too.
+     * <p>Measured against its own longest word rather than against the longest word anywhere
+     * on the mat. Sharing one measurement was tried, so that the labels on the two sides would
+     * come and go together: the buttons are narrower than the strip of felt the zone names are
+     * written on, so a threshold set by "Graveyard" left every button blank at a size where
+     * "Mulligan" fitted them perfectly well. Two sets of labels, two rooms, two answers.
      */
-    private boolean everyWordOnTheMatFits(int room) {
-        if (longestWordOnAMat == 0) {
-            longestWordOnAMat = Math.max(
-                    this.font.width(longestOf(ZONE_NAMES)),
-                    this.font.width(longestOf(VERB_NAMES)));
+    private boolean everyVerbNameFits(int room) {
+        if (longestVerbNameWidth == 0) {
+            longestVerbNameWidth = this.font.width(longestOf(VERB_NAMES));
         }
-        return room >= Legibility.roomToWrite(longestWordOnAMat, guiScale());
+        return room >= Legibility.roomToWrite(longestVerbNameWidth, guiScale());
     }
 
     /**
@@ -3035,7 +3031,8 @@ public final class TableScreen extends Screen {
         entries.add(ContextMenu.Entry.rule());
         entries.add(entry("ping", () -> send(new GameEvent.CardPinged(me, id))));
 
-        menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                layout().status().bottom() + 2, entries);
     }
 
     /**
@@ -3234,7 +3231,8 @@ public final class TableScreen extends Screen {
         } else {
             entries.add(entry("open_pile", () -> openPile(me, pile, false)));
         }
-        menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                layout().status().bottom() + 2, entries);
     }
 
     /**
@@ -3326,7 +3324,8 @@ public final class TableScreen extends Screen {
             List<ContextMenu.Entry> watching = ContextMenu.entries();
             watching.add(entry(showingLog ? "hide_log" : "show_log",
                     () -> showingLog = !showingLog));
-            menu = ContextMenu.at(this.font, x, y, this.width, this.height, watching);
+            menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                    layout().status().bottom() + 2, watching);
             return;
         }
         List<ContextMenu.Entry> entries = ContextMenu.entries();
@@ -3363,7 +3362,8 @@ public final class TableScreen extends Screen {
             send(new GameEvent.SeatReleased(me));
             onClose();
         }));
-        menu = ContextMenu.at(this.font, x, y, this.width, this.height, entries);
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                layout().status().bottom() + 2, entries);
     }
 
     /** Puts the waiting cards onto the one just clicked, and leaves the mode either way. */
