@@ -110,6 +110,7 @@ public final class GatheringNeoForgeClient {
                 GatheringContent.TABLE_ITEM.get());
     }
 
+
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         // Not parallel-safe work: these bind shared state, so they go on the main thread.

@@ -713,7 +713,17 @@ public final class TableScreen extends Screen {
 
             List<Placed> onTable = everythingOnTheTable(board);
             hovered = frontMostAt(onTable, mouseX, mouseY);
+            long flying = ClientCardFlights.now();
             for (Placed placed : onTable) {
+                // Not while it is still crossing. The board that started the flight already
+                // has the card at its destination, so drawing it here as well put a copy at
+                // the end of the journey the instant it began - the card appearing to
+                // teleport, with a ghost of itself trailing behind to where it had already
+                // arrived.
+                if (idOf(placed) != null
+                        && ClientCardFlights.isFlying(table, idOf(placed), flying)) {
+                    continue;
+                }
                 drawCard(graphics, placed.card(), placed.where(), placed.angle(),
                         placed == hovered || isSelected(placed.card()), true);
             }

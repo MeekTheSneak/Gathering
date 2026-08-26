@@ -206,6 +206,26 @@ public final class ClientCardFlights {
     }
 
     /** Which card, if the viewer may know, so a flight can be drawn face up. */
+    /**
+     * Whether this card is currently crossing the felt.
+     *
+     * <p>Asked by whatever draws the board, so a card in the air is drawn once. The board
+     * that started the flight already has the card at its destination, so without this it
+     * was drawn there the instant it moved and drawn again crossing to get there - the card
+     * appearing to teleport with a ghost of itself trailing behind.
+     */
+    public static boolean isFlying(BlockPos table, CardInstanceId card, long now) {
+        if (table == null || card == null) {
+            return false;
+        }
+        for (Flight flight : at(table, now)) {
+            if (flight.move().card().filter(card::equals).isPresent()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static Optional<CardInstanceId> nameOf(Flight flight) {
         return flight.move().card();
     }
