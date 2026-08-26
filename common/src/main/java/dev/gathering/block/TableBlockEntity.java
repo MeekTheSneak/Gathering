@@ -384,6 +384,15 @@ public class TableBlockEntity extends BlockEntity {
      * save rather than quietly leaving four decks inside a table forever.
      */
     public void endSession() {
+        // Loud rather than silent. Every path that ends a session settles the pot first, and
+        // the pot is deliberately not cleared here - stranded cards can still be handed back,
+        // whereas cards this quietly forgot are gone. A line in the log is how a future
+        // caller that forgot to settle gets found before somebody loses a card.
+        if (!pot.isEmpty()) {
+            LOGGER.error("The game at {} ended while still holding a pot of {} card(s);"
+                    + " they have not been handed out and are still on the table",
+                    worldPosition, pot.size());
+        }
         this.session = null;
         this.stored = null;
         this.match = null;

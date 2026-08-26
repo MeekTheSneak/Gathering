@@ -53,7 +53,7 @@ public final class AnteConsentGameTest {
             helper.fail("a server with ante off put the question to a table anyway");
             return;
         }
-        if (Antes.isAsking(origin)) {
+        if (Antes.isAsking(helper.getLevel(), origin)) {
             helper.fail("a server with ante off left a question open at a table");
             return;
         }
@@ -112,10 +112,42 @@ public final class AnteConsentGameTest {
     @GameTest(template = "empty")
     public static void aHalfAskedQuestionDoesNotOutliveItsServer(GameTestHelper helper) {
         Antes.clear();
-        if (Antes.isAsking(BlockPos.ZERO)) {
+        if (Antes.isAsking(helper.getLevel(), BlockPos.ZERO)) {
             helper.fail("a question survived being cleared");
             return;
         }
+        helper.succeed();
+    }
+
+    /**
+     * Two tables at the same coordinates in different worlds are two tables.
+     *
+     * <p>A position on its own is not a table. Keyed on the block alone, the overworld and the
+     * nether would have shared one question - and either table could have answered for the
+     * other, which for a question about losing a card is not a coincidence anybody should be
+     * exposed to.
+     */
+    @GameTest(template = "empty")
+    public static void aQuestionBelongsToOneWorldAsWellAsOnePlace(GameTestHelper helper) {
+        Antes.clear();
+        BlockPos origin = seatedTable(helper, 2);
+        ServerLevel nether = helper.getLevel().getServer()
+                .getLevel(net.minecraft.world.level.Level.NETHER);
+        if (nether == null) {
+            helper.fail("there was no second world to check a table against");
+            return;
+        }
+        if (Antes.isAsking(helper.getLevel(), origin) || Antes.isAsking(nether, origin)) {
+            helper.fail("a question was open before anything asked one");
+            return;
+        }
+        // Nothing is asked here (the test server has ante off), so what this proves is that
+        // the two are asked about separately rather than through one shared key.
+        if (Antes.isAsking(nether, origin) != Antes.isAsking(helper.getLevel(), origin)) {
+            helper.fail("two worlds disagreed about a question neither of them has");
+            return;
+        }
+        Antes.clear();
         helper.succeed();
     }
 

@@ -73,6 +73,7 @@ public final class TableActions {
         // who has stood up in one of them and is still sitting down in the other.
         if (event instanceof GameEvent.SeatReleased) {
             TableSeats.leave(level, origin, player.getUUID());
+            Antes.seatsChanged(level, origin);
         }
 
         TableSessions.anchorOf(level, origin)

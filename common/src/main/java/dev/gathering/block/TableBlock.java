@@ -327,6 +327,11 @@ public class TableBlock extends BaseEntityBlock {
             // than mentioned: a chat line saying decks exist is a thing to go and look up.
             if (claim == TableSeats.Claim.TAKEN
                     && player instanceof net.minecraft.server.level.ServerPlayer sat) {
+                // Somebody joining a table that is mid-question has to be asked too, or the
+                // rest could agree without them and stake a card of theirs.
+                if (level instanceof net.minecraft.server.level.ServerLevel joined) {
+                    dev.gathering.server.Antes.seatsChanged(joined, tableOrigin);
+                }
                 dev.gathering.server.Lending.offerIfEmptyHanded(sat, tableOrigin);
             }
             return ItemInteractionResult.SUCCESS;

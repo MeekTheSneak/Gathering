@@ -92,6 +92,27 @@ class AnteConsentTest {
     }
 
     /**
+     * Somebody who sits down after the question was asked has to be asked too.
+     *
+     * <p>The seats are fixed when the question goes out, so without rebuilding against who is
+     * actually there, a table could reach unanimity and start with a player who was never
+     * asked - a card taken off somebody who did not agree, which is the single failure this
+     * whole feature exists to prevent.
+     */
+    @Test
+    void arrivingAfterTheQuestionMeansTheTableIsWaitingAgain() {
+        AnteConsent alone = AnteConsent.asking(Set.of(ANA)).from(ANA, Answer.IN);
+        assertThat(alone.settled()).isTrue();
+
+        Set<SeatId> both = new LinkedHashSet<>(Set.of(ANA, BEN));
+        AnteConsent joined = new AnteConsent(both, alone.answers());
+        assertThat(joined.settled()).isFalse();
+        assertThat(joined.waitingOn()).containsExactly(BEN);
+        // And Ana's yes still stands - the newcomer is the only one being waited on.
+        assertThat(joined.answerFrom(ANA)).isEqualTo(Answer.IN);
+    }
+
+    /**
      * Whatever anybody says in whatever order, a table is only settled when every seat is in.
      *
      * <p>The property that matters, because the cost of getting it wrong is somebody losing a

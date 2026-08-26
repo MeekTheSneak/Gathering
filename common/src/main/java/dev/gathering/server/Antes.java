@@ -42,8 +42,24 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class Antes {
 
-    /** Tables with a question open, and what the table has said so far. */
-    private static final Map<BlockPos, Asking> ASKING = new ConcurrentHashMap<>();
+    /**
+     * Tables with a question open, and what the table has said so far.
+     *
+     * <p>Keyed by the world as well as the block. A position on its own is not a table: the
+     * overworld and the nether both have a block at every coordinate, and two tables at the
+     * same numbers in different worlds would have shared one question - with either one able
+     * to answer for the other.
+     */
+    private static final Map<Where, Asking> ASKING = new ConcurrentHashMap<>();
+
+    /** One table, anywhere in the server. */
+    private record Where(net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> world,
+            BlockPos at) {
+
+        static Where of(ServerLevel level, BlockPos at) {
+            return new Where(level.dimension(), at.immutable());
+        }
+    }
 
     /** A question in progress: the answers, and what to start if they all say yes. */
     private record Asking(AnteConsent consent, MatchRules rules) {
@@ -68,8 +84,9 @@ public final class Antes {
     }
 
     /** Whether this table is waiting on an answer from anybody. */
-    public static boolean isAsking(BlockPos tableOrigin) {
-        return tableOrigin != null && ASKING.containsKey(tableOrigin);
+    public static boolean isAsking(ServerLevel level, BlockPos tableOrigin) {
+        return level != null && tableOrigin != null
+                && ASKING.containsKey(Where.of(level, tableOrigin));
     }
 
     /**
@@ -88,15 +105,16 @@ public final class Antes {
         if (seats.isEmpty()) {
             return false;
         }
-        Asking already = ASKING.get(tableOrigin);
+        Where where = Where.of(level, tableOrigin);
+        Asking already = ASKING.get(where);
         if (already != null && already.consent().settled()) {
             // Agreed a moment ago and the game is starting now. The answer is spent here
             // rather than kept: consent is per game, so the next one asks again.
-            ASKING.remove(tableOrigin);
+            ASKING.remove(where);
             return false;
         }
 
-        ASKING.put(tableOrigin, new Asking(AnteConsent.asking(seats), rules));
+        ASKING.put(where, new Asking(AnteConsent.asking(seats), rules));
         show(level, tableOrigin);
         return true;
     }
@@ -108,7 +126,8 @@ public final class Antes {
             return;
         }
         ServerLevel level = player.serverLevel();
-        Asking asking = ASKING.get(tableOrigin);
+        Where where = Where.of(level, tableOrigin);
+        Asking asking = ASKING.get(where);
         if (asking == null) {
             return;
         }
@@ -120,10 +139,10 @@ public final class Antes {
         }
 
         AnteConsent said = asking.consent().from(seat, answer);
-        ASKING.put(tableOrigin, new Asking(said, asking.rules()));
+        ASKING.put(where, new Asking(said, asking.rules()));
 
         if (said.refused()) {
-            ASKING.remove(tableOrigin);
+            ASKING.remove(where);
             tell(level, tableOrigin, "message.gathering.ante_declined");
             close(level, tableOrigin);
             return;
@@ -137,7 +156,7 @@ public final class Antes {
         close(level, tableOrigin);
         TableSessions.Outcome outcome =
                 TableSessions.start(level, tableOrigin, asking.rules());
-        ASKING.remove(tableOrigin);
+        ASKING.remove(where);
         if (outcome == TableSessions.Outcome.STARTED) {
             TableBroadcast.sendToTable(level, tableOrigin);
         } else {
@@ -145,29 +164,59 @@ public final class Antes {
         }
     }
 
-    /** Somebody gave up their chair, or logged out, mid-question. */
-    public static void left(ServerLevel level, BlockPos tableOrigin) {
-        Asking asking = tableOrigin == null ? null : ASKING.get(tableOrigin);
+    /**
+     * Somebody sat down or stood up while the question was open.
+     *
+     * <p>Both directions, and the first is the one that matters. The seats were fixed when
+     * the question was asked, so a player who sat down afterwards was never in the set being
+     * waited on - and the game could reach unanimity and start with somebody at the table who
+     * had never been asked. That is a card taken off a person who did not agree, which is the
+     * single failure this whole feature exists to prevent.
+     *
+     * <p>The other direction is the ordinary one: a seat given up takes its answer with it,
+     * and if it was the last seat anybody was waiting on, the game the rest agreed to starts
+     * rather than hanging on a chair nobody is in.
+     */
+    public static void seatsChanged(ServerLevel level, BlockPos tableOrigin) {
+        if (level == null || tableOrigin == null) {
+            return;
+        }
+        Where where = Where.of(level, tableOrigin);
+        Asking asking = ASKING.get(where);
         if (asking == null) {
             return;
         }
         Set<SeatId> seats = seatedAt(level, tableOrigin).keySet();
         if (seats.isEmpty()) {
-            ASKING.remove(tableOrigin);
+            ASKING.remove(where);
             close(level, tableOrigin);
             return;
         }
         // Rebuilt against who is actually sitting there. A yes left behind by somebody who
         // has stood up is not a vote, and the rule in :core drops it for us.
-        ASKING.put(tableOrigin,
-                new Asking(new AnteConsent(seats, asking.consent().answers()), asking.rules()));
-        show(level, tableOrigin);
+        AnteConsent said = new AnteConsent(seats, asking.consent().answers());
+        ASKING.put(where, new Asking(said, asking.rules()));
+        if (!said.settled()) {
+            show(level, tableOrigin);
+            return;
+        }
+        // The seat that left was the one everybody was waiting for. The remaining players
+        // have all said yes, so the game they agreed to starts rather than hanging.
+        tell(level, tableOrigin, "message.gathering.ante_agreed");
+        close(level, tableOrigin);
+        TableSessions.Outcome outcome = TableSessions.start(level, tableOrigin, asking.rules());
+        ASKING.remove(where);
+        if (outcome == TableSessions.Outcome.STARTED) {
+            TableBroadcast.sendToTable(level, tableOrigin);
+        } else {
+            tell(level, tableOrigin, outcome.messageKey());
+        }
     }
 
     // ------------------------------------------------------------------ bits
 
     private static void show(ServerLevel level, BlockPos tableOrigin) {
-        Asking asking = ASKING.get(tableOrigin);
+        Asking asking = ASKING.get(Where.of(level, tableOrigin));
         if (asking == null) {
             return;
         }
