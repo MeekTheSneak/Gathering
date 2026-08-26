@@ -758,7 +758,14 @@ public final class TableScreen extends Screen {
             return;
         }
         if (!tooltip.isEmpty() && !showingLog && !showingKeys) {
-            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
+            // Pushed down far enough that it cannot land on the status bar. Vanilla clamps a
+            // tooltip to the window and knows nothing about the one row of this screen that
+            // is always there, so a card near the top had its tooltip drawn over the life
+            // totals and the turn.
+            int tall = tooltip.size() * (this.font.lineHeight + 1) + 8;
+            int lowest = layout().status().bottom() + tall + 12;
+            graphics.renderComponentTooltip(
+                    this.font, tooltip, mouseX, Math.max(mouseY, lowest));
         }
     }
 
@@ -1833,12 +1840,20 @@ public final class TableScreen extends Screen {
     private void renderLog(GuiGraphics graphics, GameView board) {
         int line = this.font.lineHeight + 1;
         int margin = Math.max(4, this.width / 24);
-        int top = layout().status().bottom() + 4;
-        // Below the life totals and inside the margin, the same as the key list. It used to
-        // start at the top of the window, which covered the one row telling you how much life
-        // everybody has with a record of how they got there.
-        int roomDown = roomForTheLog();
-        if (!theLogHasRoom()) {
+        // Below the status bar, and below the life controls that hang off the mats into the
+        // strip under it. Worked out before anything is sized, because how far down the panel
+        // starts is what decides how many lines fit in it - pushing the top down afterwards
+        // gave it the right position and one line more than it had room for, which then drew
+        // over its own footer.
+        //
+        // Measured against the widest the panel could be rather than the width it turns out
+        // to want. The width depends on the lines and the lines depend on the height, so the
+        // conservative span is the one that does not need the answer to find it.
+        int top = Math.max(layout().status().bottom() + 4,
+                clearOfTheLifeControls(board, margin, this.width - margin,
+                        layout().status().bottom() + 4));
+        int roomDown = floorOfTheFelt() - top - 6;
+        if (!theLogHasRoom() || roomDown < line * 3) {
             return;
         }
 
@@ -1849,7 +1864,11 @@ public final class TableScreen extends Screen {
         Component title = Component.translatable("screen.gathering.table.log_title");
         Component close = Component.translatable("screen.gathering.table.log_close");
         List<LogEntry> log = board.log();
-        int room = Math.max(1, (roomDown - 4 - line - 2 - line - 4) / line + 1);
+        // No + 1. The panel is a title line, the entries, and a footer line, and adding one
+        // back after dividing asked for a line more than there was room for - so the footer
+        // was drawn on top of the last thing that happened, which is the line anybody opening
+        // a log is looking for.
+        int room = Math.max(1, (roomDown - line * 2 - 10) / line);
         int from = Math.max(0, log.size() - room);
         Component[] said = new Component[log.size() - from];
         int widest = Math.max(this.font.width(title), this.font.width(close));
@@ -1864,7 +1883,8 @@ public final class TableScreen extends Screen {
 
         int width = Math.min(this.width - margin * 2, widest + 10);
         int height = 4 + line + 2 + Math.max(1, said.length) * line + line + 4;
-        Rect area = new Rect(this.width - margin - width, top, width, Math.min(height, roomDown));
+        Rect area = new Rect(
+                this.width - margin - width, top, width, Math.min(height, roomDown));
 
         GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
         GuiText.draw(graphics, this.font, title,
@@ -1921,6 +1941,27 @@ public final class TableScreen extends Screen {
     }
 
     /** How much window the log has to draw itself in, top to bottom. */
+    /**
+     * The first line down the window at which a panel across this span covers no life total.
+     *
+     * <p>A life counter is the one thing on the felt that has to stay readable while
+     * something else is open over it - it is the number the thing being read is usually
+     * about.
+     */
+    private int clearOfTheLifeControls(GameView board, int from, int to, int top) {
+        int clear = top;
+        for (SeatView seat : board.seats()) {
+            Rect life = board().lifeRect(seat.seat());
+            if (life.isEmpty() || life.right() <= from || life.x() >= to) {
+                continue;
+            }
+            if (life.bottom() > clear && life.y() < clear + this.font.lineHeight * 3) {
+                clear = life.bottom() + 4;
+            }
+        }
+        return clear;
+    }
+
     private int roomForTheLog() {
         return floorOfTheFelt() - (layout().status().bottom() + 4) - 6;
     }
