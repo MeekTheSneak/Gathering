@@ -388,6 +388,11 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                     grid.width(), DIM);
         }
 
+        // Clipped to the grid. Skipping the rows that are entirely outside it is not enough:
+        // a row scrolled half out of view is not entirely outside, so it was drawn whole and
+        // hung out over the edge of the panel - which is what "the cards escape the menu"
+        // looks like. The deck screen already clips its list; this is the same fix.
+        graphics.enableScissor(grid.x(), grid.y(), grid.right(), grid.bottom());
         for (int index = 0; index < cards.size(); index++) {
             Rect slot = slotOf(index);
             if (slot.isEmpty() || slot.bottom() < grid.y() || slot.y() > grid.bottom()) {
@@ -411,6 +416,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                 ClientHoverState.setHovered(CardItem.of(CardComponent.of(visible.identity())));
             }
         }
+        graphics.disableScissor();
 
         Component hint = footer(hiddenBelow() > 0);
         if (hint != null) {

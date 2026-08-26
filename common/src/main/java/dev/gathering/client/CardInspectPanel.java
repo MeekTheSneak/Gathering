@@ -55,20 +55,21 @@ public final class CardInspectPanel {
      * tall depending on the player's GUI scale, and a fixed size that reads as a small
      * preview on one is most of the screen on another.
      */
-    // Small enough to read a card without losing the board behind it. At 0.45 of the window
-    // with a 240 ceiling this panel covered half the width and nearly the whole height of a
-    // match, which put the zone column - the thing a player checks while reading a card -
-    // underneath it. The oracle text is drawn as text, so the picture does not have to be
-    // large for the card to be readable.
-    private static final float CURSOR_ART_FRACTION = 0.28f;
-    private static final int CURSOR_ART_MAX = 120;
-    private static final int CURSOR_ART_MIN = 64;
+    // Big enough to actually read. This was cut to 0.28 of the window with a 120 ceiling to
+    // stop the panel covering the zone column during a match - but a table screen shows its
+    // own preview in a place chosen to keep itself legible, and {@code renderAtCursor} bows
+    // out on any screen that does. So the only screens left here are inventories and chests,
+    // where there is nothing behind worth protecting and a card too small to read is a
+    // reading tool that does not work.
+    private static final float CURSOR_ART_FRACTION = 0.55f;
+    private static final int CURSOR_ART_MAX = 320;
+    private static final int CURSOR_ART_MIN = 96;
 
     /** The art may shrink this far to give a wordy card's text somewhere to go. */
     private static final int CURSOR_ART_FLOOR = 56;
 
     /** Oracle text wrapped much narrower than this stops being worth reading. */
-    private static final int CURSOR_TEXT_WIDTH = 136;
+    private static final int CURSOR_TEXT_WIDTH = 190;
 
     /** Vanilla's own tooltip offsets, so the panel lands where the tooltip it replaces was. */
     private static final int CURSOR_OFFSET_X = 12;
@@ -76,7 +77,7 @@ public final class CardInspectPanel {
     private static final int SCREEN_EDGE = 6;
 
     /** The most of the window's height the panel beside the cursor may take. */
-    private static final float MOST_OF_THE_WINDOW = 0.62f;
+    private static final float MOST_OF_THE_WINDOW = 0.8f;
 
     /**
      * How far in front of everything else a panel drawn over a screen sits.

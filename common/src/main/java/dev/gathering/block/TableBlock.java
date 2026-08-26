@@ -368,6 +368,24 @@ public class TableBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
 
+        // Your own edge, with no game to open. This is where standing up went: clicking the
+        // seat you are in used to give up the chair, which swallowed the one click a seated
+        // player most wants to make during a game, so it moved onto the board's own menu -
+        // and the board only exists while a game does. Between games, or before one, a player
+        // could take a seat and never get out of it.
+        //
+        // Both, then, decided by whether there is a board to open: during a game the click
+        // opens it and standing up is on its menu, and outside one the click is the way out.
+        if (alreadySeatedHere) {
+            TableSeats.leave(level, tableOrigin, player.getUUID());
+            player.sendSystemMessage(Component.translatable("message.gathering.seat_left"));
+            tellTheTableWhoIsSittingAtIt(level, tableOrigin);
+            if (level instanceof net.minecraft.server.level.ServerLevel stood) {
+                dev.gathering.server.Antes.seatsChanged(stood, tableOrigin);
+            }
+            return ItemInteractionResult.SUCCESS;
+        }
+
         report(level, tableOrigin, cluster, player);
         return ItemInteractionResult.SUCCESS;
     }
