@@ -420,6 +420,11 @@ public final class TableScreen extends Screen {
         return open.press(label);
     }
 
+    /** Whether a context menu is open at all. For the harness, as above. */
+    boolean hasAMenuOpen() {
+        return menu != null;
+    }
+
     /** Whether the last frame drawn had a card under the cursor. For the harness, as above. */
     boolean isHoveringSomething() {
         return hoveringSomething;

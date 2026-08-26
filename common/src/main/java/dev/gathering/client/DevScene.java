@@ -1514,8 +1514,87 @@ public final class DevScene {
                 shoot(client, "54-written-on-a-card");
                 advance(SETTLE / 4);
             }
+            case 139 -> {
+                // The user's report: "the actual table version is riddled with issues such as
+                // flipping cards doesn't work". Right-clicking a card on the block had never
+                // been in the run - the drag had, the buttons had, the menu had not.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 140 -> {
+                if (!(client.screen instanceof TableScreen board)
+                        || !(board.board() instanceof dev.gathering.core.ui.SurfaceBoard)) {
+                    fail("pressing V did not put the board on the block");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                // Aimed a step early so a frame is drawn with the cursor there: what the
+                // board thinks is under the pointer is worked out while it draws, and a
+                // right-click in the same step would be asking about the frame before.
+                hover(client, cardPoint(client));
+                advance(SETTLE / 2);
+            }
+            case 141 -> {
+                if (!(client.screen instanceof TableScreen board)) {
+                    fail("the board went away before a card could be right-clicked on it");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                if (!board.isHoveringSomething()) {
+                    fail("the run could not aim at a card on the block, so this checks nothing");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                faceDownWas = howManyAreFaceDown();
+                int[] at = cardPoint(client);
+                board.mouseClicked(at[0], at[1], 1);
+                if (!board.pressMenuEntry("Turn face down")) {
+                    // Both halves, because they fail differently: no menu at all means the
+                    // pick missed the card, and a menu without the entry means the felt's
+                    // menu opened instead of the card's.
+                    fail("right-clicking a card on the block at " + at[0] + "," + at[1]
+                            + " offered no way to turn it over: menu=" + board.hasAMenuOpen()
+                            + ", viewer=" + (table == null ? "none"
+                                    : ClientTableState.viewOf(table).map(GameView::viewer).orElse(null)));
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println("[devscene] turned a card face down from its menu on the block");
+                advance(SETTLE);
+            }
+            case 142 -> {
+                int now = howManyAreFaceDown();
+                if (now != faceDownWas + 1) {
+                    fail("turning a card face down on the block left " + now
+                            + " face down, not " + (faceDownWas + 1));
+                    advance(SETTLE / 2);
+                    return;
+                }
+                shoot(client, "55-flipped-on-the-block");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
         }
+    }
+
+    /** How many of this player's permanents were face down before the flip. */
+    private static int faceDownWas;
+
+    private static int howManyAreFaceDown() {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            return -1;
+        }
+        int down = 0;
+        for (CardView card : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card.isFaceDown()) {
+                down++;
+            }
+        }
+        return down;
     }
 
     /** Writes on whatever is on this player's battlefield, the way the menu does. */
