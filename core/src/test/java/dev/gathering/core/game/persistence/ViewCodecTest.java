@@ -117,7 +117,7 @@ class ViewCodecTest {
     /** Short scripted games, so the views under test are boards somebody could reach. */
     @Provide
     Arbitrary<GameSession> games() {
-        return Arbitraries.integers().between(0, 9).list().ofMinSize(1).ofMaxSize(18)
+        return Arbitraries.integers().between(0, 10).list().ofMinSize(1).ofMaxSize(18)
                 .map(script -> {
                     GameSession session = GameFixtures.twoPlayerTable(20);
                     script.forEach(action -> perform(session, action));
@@ -143,6 +143,8 @@ class ViewCodecTest {
                     card -> new GameEvent.CardTurnedOver(actor, card, true));
             case 8 -> onABattlefieldCard(session, actor,
                     card -> new GameEvent.CardStrengthSet(actor, card, "6/6"));
+            case 9 -> onABattlefieldCard(session, actor,
+                    card -> new GameEvent.CardFrozen(actor, card, true));
             default -> session.submit(new GameEvent.LifeChanged(actor, actor, -1));
         }
     }

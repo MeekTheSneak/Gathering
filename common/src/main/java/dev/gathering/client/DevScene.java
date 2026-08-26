@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 166;
+    private static final int LAST_STEP = 170;
 
     private static int step;
     private static int waited;
@@ -1634,6 +1634,48 @@ public final class DevScene {
                 advance(SETTLE / 4);
             }
             case 148 -> {
+                // Frozen: it stays tapped when everything else untaps. The whole feature
+                // lands on a press made next turn without looking, so the only check worth
+                // anything is the one that makes that press.
+                freezeACard(client);
+                advance(SETTLE);
+            }
+            case 149 -> {
+                if (!isFrozen(frozen)) {
+                    fail("a card was frozen and the board does not think so");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                shoot(client, "54c-frozen");
+                tapTheFrozenCard(client);
+                advance(SETTLE);
+            }
+            case 150 -> {
+                untapEverything(client);
+                // Cursor off the card here rather than in the step that photographs it. What
+                // is on screen is worked out while the frame is drawn, so a cursor moved and
+                // a picture taken in the same step gives a picture of where the cursor was.
+                lookAwayFromTheCards(client);
+                advance(SETTLE);
+            }
+            case 151 -> {
+                if (!isTapped(frozen)) {
+                    fail("untapping everything untapped the frozen card, which is the one"
+                            + " thing being frozen means");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println("[devscene] a frozen card sat out the untap step");
+                // The cursor was moved off a step ago, so this shows the frost on its own
+                // rather than the frost plus the ring the cursor draws round anything it is
+                // resting on - which is the whole thing being checked here.
+                if (client.screen instanceof TableScreen board && !board.tooltipShowing().isEmpty()) {
+                    fail("the cursor was still on a card when the frost was photographed");
+                }
+                shoot(client, "54d-still-tapped");
+                advance(SETTLE / 2);
+            }
+            case 152 -> {
                 // The user's report: "the actual table version is riddled with issues such as
                 // flipping cards doesn't work". Right-clicking a card on the block had never
                 // been in the run - the drag had, the buttons had, the menu had not.
@@ -1642,7 +1684,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 149 -> {
+            case 153 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !(board.board() instanceof dev.gathering.core.ui.SurfaceBoard)) {
                     fail("pressing V did not put the board on the block");
@@ -1655,7 +1697,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 150 -> {
+            case 154 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a card could be right-clicked on it");
                     advance(SETTLE / 2);
@@ -1683,7 +1725,7 @@ public final class DevScene {
                 System.out.println("[devscene] turned a card face down from its menu on the block");
                 advance(SETTLE);
             }
-            case 151 -> {
+            case 155 -> {
                 int now = howManyAreFaceDown();
                 if (now != faceDownWas + 1) {
                     fail("turning a card face down on the block left " + now
@@ -1694,7 +1736,7 @@ public final class DevScene {
                 shoot(client, "55-flipped-on-the-block");
                 advance(SETTLE / 2);
             }
-            case 152 -> {
+            case 156 -> {
                 // The written card, put in the graveyard and read back through the pile
                 // screen. A card looked at through one screen and lying on the felt in
                 // another has to be the same card.
@@ -1707,11 +1749,11 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 153 -> {
+            case 157 -> {
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 154 -> {
+            case 158 -> {
                 expectScreen(client, "a graveyard holding a written card", PileScreen.class);
                 if (!theGraveyardHoldsTheWrittenCard()) {
                     fail("the card written on is not in the graveyard the screen opened");
@@ -1724,7 +1766,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 155 -> {
+            case 159 -> {
                 // "Many of the elements of the table gui phase in and out as you scroll in
                 // and out." Photographed at four heights rather than reasoned about: whatever
                 // comes and goes has to be visible in the pictures side by side.
@@ -1733,7 +1775,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 156 -> {
+            case 160 -> {
                 expectScreen(client, "the board on the block to zoom", TableScreen.class);
                 // Aimed at the graveyard rather than at the middle of the window, because
                 // the middle is where the camera already is: a wheel that ignored the cursor
@@ -1743,7 +1785,7 @@ public final class DevScene {
                 scrollTheBoard(client, 6);
                 advance(SETTLE / 2);
             }
-            case 157 -> {
+            case 161 -> {
                 theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
                 // Dragged here as well as at the whole-table framing, because how many blocks
@@ -1753,29 +1795,29 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 158 -> {
+            case 162 -> {
                 theBoardFollowedTheHand("dragged while leaning all the way in");
                 dragTheBoard(client, 0, -PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 159 -> {
+            case 163 -> {
                 theBoardFollowedTheHand("dragged back again");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 160 -> {
+            case 164 -> {
                 theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 161 -> {
+            case 165 -> {
                 theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 162 -> {
+            case 166 -> {
                 theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
@@ -1788,7 +1830,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 163 -> {
+            case 167 -> {
                 expectScreen(client, "the whole table on the block", TableScreen.class);
                 System.out.println("[devscene] camera: " + TableCameraView.report());
                 theBlockFramesLikeTheScreen(client);
@@ -1799,12 +1841,12 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 164 -> {
+            case 168 -> {
                 theBoardFollowedTheHand("dragged down the whole-table view");
                 dragTheBoard(client, PAN_BY, 0);
                 advance(SETTLE / 2);
             }
-            case 165 -> {
+            case 169 -> {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
                 // Dyed with the board still open and nothing else touching the world, which
@@ -1815,7 +1857,7 @@ public final class DevScene {
                 dyeTheTable(client);
                 advance(SETTLE);
             }
-            case 166 -> {
+            case 170 -> {
                 shoot(client, "60-the-felt-dyed");
                 advance(SETTLE / 2);
             }
@@ -2092,6 +2134,99 @@ public final class DevScene {
     private static int inTheHandBefore;
 
     private static int inTheGraveyardBefore;
+
+    /**
+     * Freezes a card on the battlefield, off its own menu.
+     *
+     * <p>Through the menu rather than by sending the event, because the entry is half the
+     * feature: a freeze nobody can find is a freeze that does not exist.
+     */
+    private static void freezeACard(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null || !(client.screen instanceof TableScreen board)) {
+            fail("there was no board to freeze a card on");
+            return;
+        }
+        for (CardView card : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (!(card instanceof CardView.Visible visible)) {
+                continue;
+            }
+            TablePosition where = card.placedAt().orElse(null);
+            if (where == null) {
+                continue;
+            }
+            frozen = visible.id();
+            Rect at = board.board().rectOf(me, where);
+            hover(client, new int[] {(int) at.centreX(), (int) at.centreY()});
+            board.mouseClicked(at.centreX(), at.centreY(), 1);
+            if (!board.pressMenuEntry("Freeze (won't untap)")) {
+                fail("a card's menu offers no way to freeze it");
+            }
+            return;
+        }
+        fail("there was nothing on the battlefield to freeze");
+    }
+
+    /** Taps the frozen card, so the untap step has something to leave alone. */
+    private static void tapTheFrozenCard(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null || frozen == null) {
+            fail("there was no frozen card to tap");
+            return;
+        }
+        ClientTableActions.send(table, new GameEvent.CardTapSet(me, frozen, true));
+    }
+
+    /** The untap-everything press, which is the one thing being frozen changes. */
+    private static void untapEverything(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null) {
+            fail("there was no seat to untap");
+            return;
+        }
+        ClientTableActions.send(table, new GameEvent.SeatUntappedAll(me, me));
+    }
+
+    /** Whether the board says that card is frozen. */
+    private static boolean isFrozen(CardInstanceId card) {
+        return findOnTheBattlefield(card).map(CardView::frozen).orElse(false);
+    }
+
+    /** Whether the board says that card is tapped. */
+    private static boolean isTapped(CardInstanceId card) {
+        return findOnTheBattlefield(card).map(CardView::tapped).orElse(false);
+    }
+
+    private static java.util.Optional<CardView> findOnTheBattlefield(CardInstanceId card) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null || card == null) {
+            return java.util.Optional.empty();
+        }
+        for (CardView seen : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (seen instanceof CardView.Visible visible && visible.id().equals(card)) {
+                return java.util.Optional.of(seen);
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    /**
+     * Moves the cursor onto bare felt.
+     *
+     * <p>So a picture shows what a card looks like rather than what a card under the cursor
+     * looks like. The two differ by a ring, and a mark that only reads next to that ring is a
+     * mark that is not doing its job.
+     */
+    private static void lookAwayFromTheCards(Minecraft client) {
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        hover(client, new int[] {width / 4, height / 2});
+    }
+
+    /** The card the last step froze, so the steps after can watch it sit out an untap. */
+    private static CardInstanceId frozen;
 
     /** The card the last step wrote on, so the step after can read it back. */
     private static CardInstanceId written;

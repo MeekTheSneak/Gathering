@@ -140,7 +140,7 @@ public final class VisibilityRules {
             return new CardView.Visible(
                     card.id(), card.identity(), card.owner(), card.facing(), card.tapped(),
                     card.counters(), card.position(), card.token(), card.attachedTo(),
-                    card.note(), card.turnedOver(), card.strength());
+                    card.note(), card.turnedOver(), card.strength(), card.frozen());
         }
         // The spot goes to everyone: where a card sits was never a secret, and an opponent
         // who cannot see which card it is still has to be able to see that it is there.
@@ -156,6 +156,9 @@ public final class VisibilityRules {
                 card.note(),
                 // And the same for the numbers written in the corner: typed by a player,
                 // never worked out from a card nobody else may name.
-                card.strength());
+                card.strength(),
+                // Freezing is something done to an opponent, and its whole value is that
+                // they can see it. It says nothing about what the card is.
+                card.frozen());
     }
 }

@@ -273,6 +273,29 @@ public sealed interface GameEvent {
     }
 
     /**
+     * Freezing a card, or thawing it.
+     *
+     * <p>A frozen card does not untap when its controller untaps everything. Nothing else
+     * about it changes: it taps, takes counters, gets written on and goes to a graveyard like
+     * any other card.
+     *
+     * <p>It is on the card rather than in somebody's head because untapping is one press,
+     * made every turn without looking, and that is the press that forgets. An effect that
+     * costs a card to play should not be undone by a habit.
+     *
+     * <p>Nothing decides when it ends. A player takes it off with the same menu they put it
+     * on with - no rules engine, section 16.
+     */
+    record CardFrozen(SeatId actor, CardInstanceId card, boolean frozen) implements GameEvent {
+
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of(frozen ? "log.gathering.card_frozen" : "log.gathering.card_unfrozen",
+                    actor, CardRef.publicRefFor(before, card));
+        }
+    }
+
+    /**
      * Turning a card to its other printed face, or back.
      *
      * <p>Not the same as turning it face down. A transformed permanent is public on both

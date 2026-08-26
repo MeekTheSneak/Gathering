@@ -52,6 +52,9 @@ import java.util.Optional;
  * @param strength a power and toughness written over the printed ones, or null for a card
  *     showing what it was printed as - typed by a player and never worked out, see
  *     {@link CardStrength}
+ * @param frozen whether it stays tapped through its controller's untap step, because
+ *     something froze it. Recorded on the card because untapping everything is one press
+ *     done every turn without looking, and that is the press that forgets
  */
 public record CardInstance(
         CardInstanceId id,
@@ -66,7 +69,8 @@ public record CardInstance(
         CardInstanceId attachedTo,
         String note,
         boolean turnedOver,
-        String strength) {
+        String strength,
+        boolean frozen) {
 
     public CardInstance {
         if (id == null || identity == null || owner == null || facing == null) {
@@ -91,31 +95,31 @@ public record CardInstance(
 
     public static CardInstance faceUp(CardInstanceId id, CardIdentity identity, SeatId owner) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false, null, null, false, null);
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false, null, null, false, null, false);
     }
 
     public static CardInstance token(CardInstanceId id, CardIdentity identity, SeatId owner) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true, null, null, false, null);
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true, null, null, false, null, false);
     }
 
     public CardInstance withTapped(boolean newTapped) {
         return newTapped == tapped
                 ? this
-                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token, attachedTo, note, turnedOver, strength);
+                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token, attachedTo, note, turnedOver, strength, frozen);
     }
 
     /** Where a drag dropped it, or nothing once it goes back into a pile. */
     public CardInstance withPosition(TablePosition newPosition) {
         return java.util.Objects.equals(newPosition, position)
                 ? this
-                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token, attachedTo, note, turnedOver, strength);
+                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token, attachedTo, note, turnedOver, strength, frozen);
     }
 
     /** Flipping down needs a fresh marker; flipping up drops the one it had. */
     public CardInstance faceDownWith(MarkerId newMarker) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token, attachedTo, note, turnedOver, strength);
+                id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token, attachedTo, note, turnedOver, strength, frozen);
     }
 
     public CardInstance faceUp() {
@@ -123,7 +127,7 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, Facing.FACE_UP, tapped, counters, null, position, token,
-                        attachedTo, note, turnedOver, strength);
+                        attachedTo, note, turnedOver, strength, frozen);
     }
 
     /**
@@ -141,7 +145,7 @@ public record CardInstance(
             updated.put(name, now);
         }
         return new CardInstance(
-                id, identity, owner, facing, tapped, updated, marker, position, token, attachedTo, note, turnedOver, strength);
+                id, identity, owner, facing, tapped, updated, marker, position, token, attachedTo, note, turnedOver, strength, frozen);
     }
 
     public int counter(String name) {
@@ -172,7 +176,7 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, facing, tapped, counters, marker, position, token, target,
-                        note, turnedOver, strength);
+                        note, turnedOver, strength, frozen);
     }
 
     public Optional<CardInstanceId> host() {
@@ -192,7 +196,7 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, facing, tapped, counters, marker, position, token,
-                        attachedTo, tidy, turnedOver, strength);
+                        attachedTo, tidy, turnedOver, strength, frozen);
     }
 
     /** What somebody wrote on it, if anybody has. */
@@ -212,12 +216,31 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, facing, tapped, counters, marker, position, token,
-                        attachedTo, note, turnedOver, tidy);
+                        attachedTo, note, turnedOver, tidy, frozen);
     }
 
     /** The power and toughness somebody wrote over the printed ones, if anybody did. */
     public Optional<String> writtenStrength() {
         return Optional.ofNullable(strength);
+    }
+
+    /**
+     * Freezes it, or thaws it.
+     *
+     * <p>A frozen card does not untap when its controller untaps everything. That is the only
+     * thing frozen does, and it is enough: untapping is one press made every turn without
+     * looking, so it is the press that quietly undoes what an opponent spent a card on.
+     *
+     * <p>Nothing here knows when a freeze ends. A player takes it off with the same menu they
+     * put it on with - no rules engine, section 16 - and a frozen card is otherwise an
+     * ordinary card that can be tapped, moved, written on and binned like any other.
+     */
+    public CardInstance frozen(boolean stunned) {
+        return stunned == frozen
+                ? this
+                : new CardInstance(
+                        id, identity, owner, facing, tapped, counters, marker, position, token,
+                        attachedTo, note, turnedOver, strength, stunned);
     }
 
     /**
@@ -234,7 +257,7 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, facing, tapped, counters, marker, position, token,
-                        attachedTo, note, showingTheOtherSide, strength);
+                        attachedTo, note, showingTheOtherSide, strength, frozen);
     }
 
     public boolean isAttached() {

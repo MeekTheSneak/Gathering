@@ -176,6 +176,18 @@ public final class TableScreen extends Screen {
      */
     private static final int LANDING = 0xBFFFD479;
 
+    /**
+     * What is drawn over a card that will not untap.
+     *
+     * <p>A pale blue wash, and rime caked along the top and bottom edges rather than a ring
+     * round the whole card - because a ring is what the cursor draws. Nearly white, so it
+     * separates from the cursor's cyan as well as from the warm gold of a written power and
+     * toughness: three marks on one card have to be three things or a player reads them as
+     * one.
+     */
+    private static final int FROZEN_TINT = 0x3899D9F2;
+    private static final int FROZEN_EDGE = 0xFFE8F7FF;
+
     /** The badge on a pile, saying how many cards are in it. */
     private static final int PILE_BADGE = 0xE0141210;
     private static final int PILE_TEXT = 0xFFF2EEE6;
@@ -1195,7 +1207,7 @@ public final class TableScreen extends Screen {
 
     /** What a card nobody may name looks like on its way across: the back of one. */
     private static final CardView A_SLEEVE = new CardView.Anonymous(
-            null, false, java.util.Map.of(), null, null, null, null);
+            null, false, java.util.Map.of(), null, null, null, null, false);
 
     /**
      * The cards currently crossing the felt on their way somewhere.
@@ -3118,15 +3130,18 @@ public final class TableScreen extends Screen {
                 send(new GameEvent.CardFacingSet(me, id, Facing.FACE_DOWN));
             }));
         } else {
-            boolean tapping = !card.tapped();
-            entries.add(entry(card.tapped() ? "untap" : "tap",
-                    () -> eachTarget(board, targets, target ->
-                            new GameEvent.CardTapSet(me, target, tapping))));
-            // Tapping is E and untapping is Q; these rows exist to say so. A menu entry that
+            // Tapping is E and untapping is Q; this row exists to say so. A menu entry that
             // names its key teaches the key, where a second gesture would only compete with
             // it - which is what the plain left click used to do.
             entries.add(entry(card.tapped() ? "untap" : "tap",
                     () -> setTap(board, targets, !card.tapped())));
+            // Frozen means it stays tapped through the untap step. Next to tap because that
+            // is the pair a player is thinking about, and because the one press this changes
+            // is the one two rows down on the felt's own menu.
+            boolean thawing = card.frozen();
+            entries.add(entry(thawing ? "thaw" : "freeze",
+                    () -> eachTarget(board, targets, target ->
+                            new GameEvent.CardFrozen(me, target, !thawing))));
             entries.add(entry("turn_right", () -> eachCard(board, targets, seen ->
                     new GameEvent.CardRotated(me, seen.id(), restingAngle(seen) + NUDGE_DEGREES))));
             entries.add(entry("turn_left", () -> eachCard(board, targets, seen ->
@@ -4204,6 +4219,12 @@ public final class TableScreen extends Screen {
             // one somebody turned by hand, without a word of text over the art.
             graphics.fill(where.x(), where.y(), where.right(), where.bottom(), TAPPED_TINT);
         }
+        if (onTheFelt && card.frozen()) {
+            // A frozen card looks frozen. Everything about this feature happens on a press
+            // made next turn, without looking, so a freeze that is only in the log is a
+            // freeze that gets untapped by habit and argued about afterwards.
+            drawFrost(graphics, where);
+        }
         drawWriting(graphics, card, where);
         // The numbers first, because they sit in the corner and the counters stack up off
         // the top of them. A power and toughness under a pile of counters is a card whose
@@ -4247,6 +4268,28 @@ public final class TableScreen extends Screen {
     private int drawStrength(GuiGraphics graphics, CardView card, Rect art) {
         return CardInspectPanel.drawStrength(
                 graphics, this.font, card.writtenStrength().orElse(null), art);
+    }
+
+    /**
+     * What a frozen card looks like: a rime along its edges.
+     *
+     * <p>Round the outside rather than over the art, because a card can already be carrying a
+     * note across its top, counters up its bottom and numbers in its corner, and the frame is
+     * the last piece of it nothing else has claimed. It reads at any size the board draws a
+     * card at, which a mark in a corner does not.
+     *
+     * <p>Cold on purpose against the warm gold of a written power and toughness and the cyan
+     * of the cursor: three marks on one card have to be three colours or they are one mark.
+     */
+    private void drawFrost(GuiGraphics graphics, Rect where) {
+        graphics.fill(where.x(), where.y(), where.right(), where.bottom(), FROZEN_TINT);
+        // Caked along the top and bottom rather than ringing the card. A full outline is what
+        // the cursor draws, in a blue close enough to this one that a frozen card under the
+        // cursor had two rings nobody could tell apart - and the one that matters is the one
+        // that is still there when you look away.
+        int rime = Math.max(1, where.height() / 16);
+        graphics.fill(where.x(), where.y(), where.right(), where.y() + rime, FROZEN_EDGE);
+        graphics.fill(where.x(), where.bottom() - rime, where.right(), where.bottom(), FROZEN_EDGE);
     }
 
     /**

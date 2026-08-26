@@ -40,7 +40,8 @@ public sealed interface CardView {
             CardInstanceId attachedTo,
             String note,
             boolean turnedOver,
-            String strength) implements CardView {
+            String strength,
+            boolean frozen) implements CardView {
 
         public Visible {
             counters = CardView.kept(counters);
@@ -69,7 +70,8 @@ public sealed interface CardView {
             TablePosition position,
             CardInstanceId attachedTo,
             String note,
-            String strength) implements CardView {
+            String strength,
+            boolean frozen) implements CardView {
 
         public Anonymous {
             counters = CardView.kept(counters);
@@ -179,6 +181,22 @@ public sealed interface CardView {
             case Visible visible -> visible.strength();
             case Anonymous anonymous -> anonymous.strength();
         });
+    }
+
+    /**
+     * Whether it stays tapped through its controller's untap step.
+     *
+     * <p>Everyone sees it, on a face-down card too, and that is the point rather than a leak.
+     * Freezing something is a thing you do <em>to</em> an opponent, and the whole value of it
+     * is that they can see it - a freeze only that player knows about is a card that mistakes
+     * itself for untapped next turn and an argument nobody can settle. It says nothing about
+     * what the card is.
+     */
+    default boolean frozen() {
+        return switch (this) {
+            case Visible visible -> visible.frozen();
+            case Anonymous anonymous -> anonymous.frozen();
+        };
     }
 
     /**

@@ -339,6 +339,7 @@ public final class ViewCodec {
                 out.writeUTF(visible.note() == null ? "" : visible.note());
                 out.writeBoolean(visible.turnedOver());
                 out.writeUTF(visible.strength() == null ? "" : visible.strength());
+                out.writeBoolean(visible.frozen());
 
             }
             case CardView.Anonymous anonymous -> {
@@ -350,6 +351,7 @@ public final class ViewCodec {
                 host(out, anonymous.attachedTo());
                 out.writeUTF(anonymous.note() == null ? "" : anonymous.note());
                 out.writeUTF(anonymous.strength() == null ? "" : anonymous.strength());
+                out.writeBoolean(anonymous.frozen());
             }
         }
     }
@@ -368,12 +370,14 @@ public final class ViewCodec {
                     host(in),
                     in.readUTF(),
                     in.readBoolean(),
-                    in.readUTF());
+                    in.readUTF(),
+                    in.readBoolean());
         }
         return new CardView.Anonymous(
                 new MarkerId(in.readUTF()), in.readBoolean(), counters(in), position(in), host(in),
                 in.readUTF(),
-                in.readUTF());
+                in.readUTF(),
+                in.readBoolean());
     }
 
     private static void host(DataOutput out, CardInstanceId host) throws IOException {

@@ -60,6 +60,9 @@ public final class GameFold {
             case GameEvent.CardStrengthSet written ->
                     state.withCard(state.requireCard(written.card()).withStrength(written.strength()));
 
+            case GameEvent.CardFrozen froze ->
+                    state.withCard(state.requireCard(froze.card()).frozen(froze.frozen()));
+
             case GameEvent.CardTurnedOver turned -> state.withCard(
                     state.requireCard(turned.card()).turnedOver(turned.showingTheOtherSide()));
 
@@ -199,11 +202,21 @@ public final class GameFold {
         return state.withCard(card.attachedToCard(host.id()));
     }
 
+    /**
+     * Untap everything, except what somebody has said does not untap.
+     *
+     * <p>The one place frozen means anything. A card is frozen because an effect said it does
+     * not untap during its controller's untap step, and the whole reason to record that on the
+     * card is this moment - untapping everything is one press, done every turn without
+     * looking, and it is exactly the press that forgets. Nothing here decides when a card
+     * stops being frozen: a player took the freeze off with the same menu they put it on with,
+     * because there is no rules engine and there never will be.
+     */
     private static GameState untapAll(GameState state, SeatId seat) {
         GameState updated = state;
         for (CardInstanceId id : state.contents(seat, Zone.BATTLEFIELD)) {
             CardInstance card = state.requireCard(id);
-            if (card.tapped()) {
+            if (card.tapped() && !card.frozen()) {
                 updated = updated.withCard(card.withTapped(false));
             }
         }
