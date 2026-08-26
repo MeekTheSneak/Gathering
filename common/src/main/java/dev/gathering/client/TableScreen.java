@@ -343,8 +343,8 @@ public final class TableScreen extends Screen {
     private List<Component> tooltip = List.of();
 
     /** Measured once per screen: how much room the longest of each set needs. Nought is unasked. */
-    private int longestZoneNameWidth;
-    private int longestVerbNameWidth;
+    /** The widest word printed on a mat, measured once, so they all come and go together. */
+    private int longestWordOnAMat;
 
     /** Frames the board on this seat's own mat, or on the whole table when there is no seat. */
     private void frameTheBoard(SeatId seat) {
@@ -1492,17 +1492,30 @@ public final class TableScreen extends Screen {
      * a board too small to write on.
      */
     private boolean everyZoneNameFits(int room) {
-        if (longestZoneNameWidth == 0) {
-            longestZoneNameWidth = this.font.width(longestOf(ZONE_NAMES));
-        }
-        return room >= Legibility.roomToWrite(longestZoneNameWidth, guiScale());
+        return everyWordOnTheMatFits(room);
     }
 
     private boolean everyVerbNameFits(int room) {
-        if (longestVerbNameWidth == 0) {
-            longestVerbNameWidth = this.font.width(longestOf(VERB_NAMES));
+        return everyWordOnTheMatFits(room);
+    }
+
+    /**
+     * Whether a mat drawn this small still has room for the words printed on it.
+     *
+     * <p>One question for every word on the mat, not one per set. The zone names and the verb
+     * buttons were measured against their own longest word, so "Graveyard" and "Mulligan"
+     * crossed out at different sizes and a board being zoomed had its labels go in two steps -
+     * which reads as things phasing in and out rather than as a board changing detail. The two
+     * numbers on the board have appeared and disappeared together since they were added, for
+     * exactly this reason; the words now do too.
+     */
+    private boolean everyWordOnTheMatFits(int room) {
+        if (longestWordOnAMat == 0) {
+            longestWordOnAMat = Math.max(
+                    this.font.width(longestOf(ZONE_NAMES)),
+                    this.font.width(longestOf(VERB_NAMES)));
         }
-        return room >= Legibility.roomToWrite(longestVerbNameWidth, guiScale());
+        return room >= Legibility.roomToWrite(longestWordOnAMat, guiScale());
     }
 
     /**
