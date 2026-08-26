@@ -14,6 +14,12 @@ import java.util.Locale;
  * that renamed it would be describing a different card to its player than to everybody else.
  * All that happens here is that a name is capitalised for the start of a label - and a name
  * that already reads as a symbol, "+1/+1" or "-1/-1", is left exactly as it is.
+ *
+ * <p>Never shortened. It used to be: a card wrote "+1/+1" as a "+" with the count after it,
+ * because the full name is wider than most cards are - so three of them read "+3", which in
+ * Magic is a different thing entirely. How many there are is written separately by whatever
+ * draws it, which is what lets the count drop to its own line rather than the name losing
+ * its end.
  */
 public final class CounterText {
 
@@ -27,18 +33,5 @@ public final class CounterText {
         return Character.isLetter(counter.charAt(0))
                 ? counter.substring(0, 1).toUpperCase(Locale.ROOT) + counter.substring(1)
                 : counter;
-    }
-
-    /**
-     * The name and how many there are, the way it is said out loud.
-     *
-     * <p>The name is never shortened to fit. It used to be - a card with three +1/+1 counters
-     * on it wrote "+3", because the full name is wider than most cards are - and in Magic
-     * "+3" is a different thing entirely. Whatever draws this trims it to the room it has,
-     * so a narrow card loses the end of a long name rather than the sign that says what it is.
-     */
-    public static String withCount(String counter, int amount) {
-        String written = name(counter);
-        return amount == 1 ? written : written + " x" + amount;
     }
 }

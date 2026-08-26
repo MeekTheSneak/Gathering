@@ -117,7 +117,7 @@ class ViewCodecTest {
     /** Short scripted games, so the views under test are boards somebody could reach. */
     @Provide
     Arbitrary<GameSession> games() {
-        return Arbitraries.integers().between(0, 6).list().ofMinSize(1).ofMaxSize(18)
+        return Arbitraries.integers().between(0, 8).list().ofMinSize(1).ofMaxSize(18)
                 .map(script -> {
                     GameSession session = GameFixtures.twoPlayerTable(20);
                     script.forEach(action -> perform(session, action));
@@ -134,6 +134,13 @@ class ViewCodecTest {
             case 3 -> moveFromHand(session, actor, Zone.GRAVEYARD);
             case 4 -> moveFromHand(session, actor, Zone.EXILE);
             case 5 -> flip(session, actor);
+            // Both of these put state on a card that crosses the wire, and one of them
+            // deliberately survives a card going face down - so a codec that dropped either
+            // has to fail here rather than in somebody's game.
+            case 6 -> onABattlefieldCard(session, actor,
+                    card -> new GameEvent.CardNoted(actor, card, "written on"));
+            case 7 -> onABattlefieldCard(session, actor,
+                    card -> new GameEvent.CardTurnedOver(actor, card, true));
             default -> session.submit(new GameEvent.LifeChanged(actor, actor, -1));
         }
     }
@@ -143,6 +150,15 @@ class ViewCodecTest {
         if (!hand.isEmpty()) {
             session.submit(new GameEvent.CardMoved(
                     seat, hand.get(0), ZoneRef.of(seat, destination), Placement.BOTTOM));
+        }
+    }
+
+    private static void onABattlefieldCard(
+            GameSession session, SeatId seat,
+            java.util.function.Function<CardInstanceId, GameEvent> what) {
+        List<CardInstanceId> onTheTable = session.state().contents(seat, Zone.BATTLEFIELD);
+        if (!onTheTable.isEmpty()) {
+            session.submit(what.apply(onTheTable.get(0)));
         }
     }
 

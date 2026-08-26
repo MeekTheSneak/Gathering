@@ -338,6 +338,7 @@ public final class ViewCodec {
                 host(out, visible.attachedTo());
                 out.writeUTF(visible.note() == null ? "" : visible.note());
                 out.writeBoolean(visible.turnedOver());
+
             }
             case CardView.Anonymous anonymous -> {
                 out.writeBoolean(false);
