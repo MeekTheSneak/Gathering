@@ -38,7 +38,8 @@ public sealed interface CardView {
             TablePosition position,
             boolean token,
             CardInstanceId attachedTo,
-            String note) implements CardView {
+            String note,
+            boolean turnedOver) implements CardView {
 
         public Visible {
             counters = CardView.kept(counters);
@@ -134,6 +135,17 @@ public sealed interface CardView {
 
     default int counter(String name) {
         return counters().getOrDefault(name, 0);
+    }
+
+    /**
+     * Whether it is showing its second printed face.
+     *
+     * <p>Only a card whose name the viewer may read: which side of a transforming card is up
+     * is only meaningful to somebody who can see that it is a transforming card at all, and a
+     * face-down one is a sleeve either way.
+     */
+    default boolean turnedOver() {
+        return this instanceof Visible visible && visible.turnedOver();
     }
 
     /**

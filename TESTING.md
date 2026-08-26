@@ -263,6 +263,10 @@ first time any verb past "put your deck down" has been reachable at all.
   one to look at their board — you can move their public cards too, because that is the
   paper-Magic rule the design keeps. The log says who did it.
 - **Hold the read key** over any card, here or anywhere, and the same inspect panel opens.
+- **Right-click a transforming card and pick "Turn it over"** to show its other face. That is
+  not the same as turning it face down: both sides of a transformed card are public, and a
+  card turned face down is a sleeve. Turning one face down and back up keeps whichever side
+  it was on.
 - **Right-click a card and pick "Write on it"** to put a line of text on it — a keyword, a
   reminder, what the face-down card is. Everyone at the table can read it: the first words
   show on the card and resting on it reads the whole thing. Rub it out from the same panel.

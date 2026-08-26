@@ -140,7 +140,7 @@ public final class VisibilityRules {
             return new CardView.Visible(
                     card.id(), card.identity(), card.owner(), card.facing(), card.tapped(),
                     card.counters(), card.position(), card.token(), card.attachedTo(),
-                    card.note());
+                    card.note(), card.turnedOver());
         }
         // The spot goes to everyone: where a card sits was never a secret, and an opponent
         // who cannot see which card it is still has to be able to see that it is there.

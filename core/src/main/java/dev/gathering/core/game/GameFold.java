@@ -57,6 +57,9 @@ public final class GameFold {
             case GameEvent.CardNoted noted ->
                     state.withCard(state.requireCard(noted.card()).withNote(noted.note()));
 
+            case GameEvent.CardTurnedOver turned -> state.withCard(
+                    state.requireCard(turned.card()).turnedOver(turned.showingTheOtherSide()));
+
             case GameEvent.CardRotated rotated -> rotate(state, rotated);
 
             case GameEvent.CardAttached attached -> attach(state, attached);

@@ -240,6 +240,30 @@ public sealed interface GameEvent {
         }
     }
 
+    /**
+     * Turning a card to its other printed face, or back.
+     *
+     * <p>Not the same as turning it face down. A transformed permanent is public on both
+     * sides - everybody at the table can read the werewolf and the wolf - and a face-down one
+     * is a sleeve nobody may name. Keeping them apart is what lets a card be both: turn a
+     * transformed creature face down for a trick and it comes back up transformed, the way it
+     * would on a real table.
+     *
+     * <p>Whether the card has a second face at all is not asked here. That is a fact about a
+     * printing and lives in the card data a client holds, not in the game - so the game
+     * records which side is being shown and the drawing decides what that means.
+     */
+    record CardTurnedOver(SeatId actor, CardInstanceId card, boolean showingTheOtherSide)
+            implements GameEvent {
+
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of(
+                    showingTheOtherSide ? "log.gathering.card_turned_over" : "log.gathering.card_turned_back",
+                    actor, CardRef.publicRefFor(before, card));
+        }
+    }
+
     record CardTapSet(SeatId actor, CardInstanceId card, boolean tapped) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {

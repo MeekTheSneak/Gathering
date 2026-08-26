@@ -40,7 +40,15 @@ import java.util.Optional;
  * effect on anything.
  *
  * @param attachedTo the card this one is on, or null for a card standing on its own
+ * <p><b>Turned over is not face down.</b> A transforming card has two printed faces and both
+ * of them are public; turning one over shows the table its other side. A card that is face
+ * down is showing a sleeve and nobody may name it at all. The two are separate because a
+ * werewolf that flips at dusk and a morph played for three are different acts, and a card can
+ * be in both states at once - a transformed permanent that somebody then turns face down
+ * comes back up transformed, the way it would on a real table.
+ *
  * @param note what a player has written on it, or null for a card nobody has written on
+ * @param turnedOver whether it is showing its second printed face, for a card that has one
  */
 public record CardInstance(
         CardInstanceId id,
@@ -53,7 +61,8 @@ public record CardInstance(
         TablePosition position,
         boolean token,
         CardInstanceId attachedTo,
-        String note) {
+        String note,
+        boolean turnedOver) {
 
     public CardInstance {
         if (id == null || identity == null || owner == null || facing == null) {
@@ -75,31 +84,31 @@ public record CardInstance(
 
     public static CardInstance faceUp(CardInstanceId id, CardIdentity identity, SeatId owner) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false, null, null);
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false, null, null, false);
     }
 
     public static CardInstance token(CardInstanceId id, CardIdentity identity, SeatId owner) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true, null, null);
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true, null, null, false);
     }
 
     public CardInstance withTapped(boolean newTapped) {
         return newTapped == tapped
                 ? this
-                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token, attachedTo, note);
+                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token, attachedTo, note, turnedOver);
     }
 
     /** Where a drag dropped it, or nothing once it goes back into a pile. */
     public CardInstance withPosition(TablePosition newPosition) {
         return java.util.Objects.equals(newPosition, position)
                 ? this
-                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token, attachedTo, note);
+                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token, attachedTo, note, turnedOver);
     }
 
     /** Flipping down needs a fresh marker; flipping up drops the one it had. */
     public CardInstance faceDownWith(MarkerId newMarker) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token, attachedTo, note);
+                id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token, attachedTo, note, turnedOver);
     }
 
     public CardInstance faceUp() {
@@ -107,7 +116,7 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, Facing.FACE_UP, tapped, counters, null, position, token,
-                        attachedTo, note);
+                        attachedTo, note, turnedOver);
     }
 
     /**
@@ -125,7 +134,7 @@ public record CardInstance(
             updated.put(name, now);
         }
         return new CardInstance(
-                id, identity, owner, facing, tapped, updated, marker, position, token, attachedTo, note);
+                id, identity, owner, facing, tapped, updated, marker, position, token, attachedTo, note, turnedOver);
     }
 
     public int counter(String name) {
@@ -156,7 +165,7 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, facing, tapped, counters, marker, position, token, target,
-                        note);
+                        note, turnedOver);
     }
 
     public Optional<CardInstanceId> host() {
@@ -176,12 +185,29 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, facing, tapped, counters, marker, position, token,
-                        attachedTo, tidy);
+                        attachedTo, tidy, turnedOver);
     }
 
     /** What somebody wrote on it, if anybody has. */
     public Optional<String> writtenOn() {
         return Optional.ofNullable(note);
+    }
+
+    /**
+     * Turns it to its other printed face, or back.
+     *
+     * <p>Nothing here knows whether the card has a second face. Whether a transform exists is
+     * a fact about a printing, which lives in the card data the client holds and not in the
+     * game - so the game records which side is being shown and the drawing decides what that
+     * means. A card with one face turned over shows the same face, which is what a table full
+     * of people turning the wrong card over would produce anyway.
+     */
+    public CardInstance turnedOver(boolean showingTheOtherSide) {
+        return showingTheOtherSide == turnedOver
+                ? this
+                : new CardInstance(
+                        id, identity, owner, facing, tapped, counters, marker, position, token,
+                        attachedTo, note, showingTheOtherSide);
     }
 
     public boolean isAttached() {

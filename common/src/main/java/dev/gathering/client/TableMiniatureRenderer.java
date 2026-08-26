@@ -909,8 +909,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         }
         Optional<dev.gathering.network.CardSummary> summary =
                 ClientCardCache.get().summary(CardComponent.of(visible.identity()));
+        // Whichever side the table has it turned to. A transformed permanent drawn front-up
+        // on the block and back-up on the screen is two boards disagreeing about one card.
         return summary
-                .map(found -> found.front().smallImage())
+                .map(found -> found.sideShown(visible.turnedOver()).smallImage())
                 .filter(url -> !url.isEmpty())
                 .flatMap(url -> ClientCardImages.get().texture(url))
                 .orElse(CardFaceRenderer.CARD_BACK);

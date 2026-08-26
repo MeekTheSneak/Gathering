@@ -337,6 +337,7 @@ public final class ViewCodec {
                 out.writeBoolean(visible.token());
                 host(out, visible.attachedTo());
                 out.writeUTF(visible.note() == null ? "" : visible.note());
+                out.writeBoolean(visible.turnedOver());
             }
             case CardView.Anonymous anonymous -> {
                 out.writeBoolean(false);
@@ -362,7 +363,8 @@ public final class ViewCodec {
                     position(in),
                     in.readBoolean(),
                     host(in),
-                    in.readUTF());
+                    in.readUTF(),
+                    in.readBoolean());
         }
         return new CardView.Anonymous(
                 new MarkerId(in.readUTF()), in.readBoolean(), counters(in), position(in), host(in),

@@ -2937,6 +2937,17 @@ public final class TableScreen extends Screen {
             entries.add(entry(card.facing() == Facing.FACE_UP ? "turn_face_down" : "turn_face_up",
                     () -> eachTarget(board, targets, target ->
                             new GameEvent.CardFacingSet(me, target, turnTo))));
+            // Its other printed face, which is a different act from turning it face down: a
+            // transformed permanent is public on both sides and a face-down one is a sleeve.
+            // Offered only where there is a second face to turn to, because a menu entry that
+            // does nothing on nine cards in ten is a menu entry nobody trusts.
+            if (hasAnotherSide(card)) {
+                boolean showOther = !card.turnedOver();
+                entries.add(entry(showOther ? "turn_over" : "turn_back",
+                        () -> eachCard(board, targets, seen -> hasAnotherSide(seen)
+                                ? new GameEvent.CardTurnedOver(me, seen.id(), showOther)
+                                : null)));
+            }
             // The single most common one keeps its own line, because a menu that makes you
             // open a screen to put a +1/+1 on something is a menu nobody uses for counters.
             entries.add(entry("add_counter", () -> eachTarget(board, targets, target ->
@@ -3375,6 +3386,17 @@ public final class TableScreen extends Screen {
     private void openCounters(CountersScreen.Subject subject) {
         net.minecraft.client.Minecraft.getInstance()
                 .setScreen(new CountersScreen(table, subject, this));
+    }
+
+    /**
+     * Whether this card is printed with a second face to turn to.
+     *
+     * <p>A question about a printing, not about the game, so it is answered out of the card
+     * data this client has been sent. A card whose data has not arrived yet answers no: an
+     * entry that appears a second after the menu opens is worse than one that is not there.
+     */
+    private boolean hasAnotherSide(CardView card) {
+        return summaryOf(card).map(CardSummary::hasAnotherSide).orElse(false);
     }
 
     /** What to call a card on a screen that has to name what it is about to change. */
@@ -3900,7 +3922,8 @@ public final class TableScreen extends Screen {
         } else {
             summaryOf(card).ifPresentOrElse(
                     summary -> CardInspectPanel.renderArt(
-                            graphics, summary, where.x(), where.y(), where.width(), where.height()),
+                            graphics, summary, card.turnedOver(),
+                            where.x(), where.y(), where.width(), where.height()),
                     () -> GatheringSprites.inset(
                             graphics, where.x(), where.y(), where.width(), where.height()));
         }
@@ -4010,7 +4033,12 @@ public final class TableScreen extends Screen {
     /** Lets the read key show this card, exactly as it does over an inventory slot. */
     private void offerToInspector(CardView card) {
         if (card instanceof CardView.Visible visible) {
-            ClientHoverState.setHovered(CardItem.of(CardComponent.of(visible.identity())));
+            // Turned over if the table has turned it over. Reading a transformed permanent
+            // and being shown its front is the read key describing a different card from the
+            // one under the cursor.
+            CardComponent held = CardComponent.of(visible.identity());
+            ClientHoverState.setHovered(CardItem.of(
+                    visible.turnedOver() ? held.flip() : held));
         }
     }
 
