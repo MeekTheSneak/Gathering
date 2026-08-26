@@ -97,6 +97,7 @@ public final class GatheringNeoForge {
         dev.gathering.server.CurrentSet.clear();
         dev.gathering.server.TradeSessions.clear();
         dev.gathering.server.LoanerDecks.clear();
+        dev.gathering.server.Antes.clear();
         if (cardData != null) {
             cardData.close();
             cardData = null;

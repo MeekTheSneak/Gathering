@@ -67,6 +67,12 @@ final class GatheringNetwork {
                 dev.gathering.network.CollectionTakePayload.TYPE,
                 dev.gathering.network.CollectionTakePayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.AnteAnswerPayload.TYPE,
+                dev.gathering.network.AnteAnswerPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.AnteConsentPayload.TYPE,
+                dev.gathering.network.AnteConsentPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.TakeLoanerPayload.TYPE,
                 dev.gathering.network.TakeLoanerPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
@@ -154,6 +160,13 @@ final class GatheringNetwork {
                         dev.gathering.server.CollectionView.take(
                                 context.player(), payload.where(), payload.card(),
                                 payload.howMany()));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.AnteAnswerPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.Antes.answer(context.player(), payload.table(),
+                                payload.in()
+                                        ? dev.gathering.core.ante.AnteConsent.Answer.IN
+                                        : dev.gathering.core.ante.AnteConsent.Answer.OUT));
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.TakeLoanerPayload.TYPE, (payload, context) ->

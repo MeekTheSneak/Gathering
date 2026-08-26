@@ -484,8 +484,15 @@ public class TableBlock extends BaseEntityBlock {
                 dev.gathering.server.TableMatch.startNextGame(server, tableOrigin, asking);
                 return;
             }
-            TableSessions.Outcome outcome = TableSessions.start(
-                    level, tableOrigin, MatchRules.single(FormatPresets.COMMANDER));
+            MatchRules walkUp = MatchRules.single(FormatPresets.COMMANDER);
+            // The same question the setup screen's path asks. Both ways into a game go
+            // through it, because a gate on one of two doors is not a gate.
+            if (level instanceof net.minecraft.server.level.ServerLevel asking
+                    && dev.gathering.server.Antes.askedFirst(asking, tableOrigin, walkUp)) {
+                return;
+            }
+            TableSessions.Outcome outcome =
+                    TableSessions.start(level, tableOrigin, walkUp);
             if (outcome != TableSessions.Outcome.STARTED) {
                 player.sendSystemMessage(Component.translatable(outcome.messageKey()));
                 return;

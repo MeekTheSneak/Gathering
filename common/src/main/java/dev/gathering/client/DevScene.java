@@ -1316,6 +1316,31 @@ public final class DevScene {
                 shoot(client, "47-between-games");
                 advance(SETTLE / 2);
             }
+            case 120 -> {
+                client.setScreen(null);
+                theQuestionBeforePlayingForKeeps(client, false);
+                advance(SETTLE);
+            }
+            case 121 -> {
+                expectScreen(client, "being asked to play for keeps",
+                        AnteConsentScreen.class);
+                theQuestionNamesTheStakesAndOffersBothAnswers(client);
+                shoot(client, "48-playing-for-keeps");
+                // Said yes, so the picture after this is the half of the screen nobody sees
+                // until they have committed: waiting on everybody else.
+                theQuestionBeforePlayingForKeeps(client, true);
+                advance(SETTLE);
+            }
+            case 122 -> {
+                expectScreen(client, "having agreed to play for keeps",
+                        AnteConsentScreen.class);
+                if (!(client.screen instanceof AnteConsentScreen said) || !said.saidYes()) {
+                    fail("a player who agreed was still being asked");
+                }
+                shoot(client, "48a-waiting-on-the-rest");
+                client.setScreen(null);
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
         }
     }
@@ -1402,6 +1427,45 @@ public final class DevScene {
         }
         if (board.listedSideboard() <= 0) {
             fail("a sideboard screen listed none of the sideboard");
+        }
+    }
+
+
+    /**
+     * The question a table playing for keeps is asked.
+     *
+     * <p>Delivered the way the server delivers it. The scene's server has ante off - it has
+     * collection off, and ante needs collection - so the path that puts this on screen cannot
+     * run here. What is being looked at is the screen: the one place in the mod that stands
+     * between somebody and losing a card, which had better read at a glance.
+     */
+    private static void theQuestionBeforePlayingForKeeps(Minecraft client, boolean agreed) {
+        BlockPos where = client.player == null
+                ? BlockPos.ZERO
+                : client.player.blockPosition();
+        AnteConsentScreen.accept(new dev.gathering.network.AnteConsentPayload(
+                where, 1, agreed ? 2 : 3, agreed, false));
+    }
+
+    /** It says what it costs, and both answers are there to press. */
+    private static void theQuestionNamesTheStakesAndOffersBothAnswers(Minecraft client) {
+        if (!(client.screen instanceof AnteConsentScreen ask)) {
+            fail("there was no ante question to read");
+            return;
+        }
+        java.util.Set<String> answers = new java.util.LinkedHashSet<>();
+        for (net.minecraft.client.gui.components.events.GuiEventListener child : ask.children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
+                answers.add(widget.getMessage().getString());
+            }
+        }
+        if (answers.size() < 2) {
+            fail("the ante question offered " + answers.size() + " answer(s): " + answers);
+        }
+        // Escape must not answer it either way: a card changing hands because somebody
+        // reached for the wrong key is the exact mistake this screen exists to prevent.
+        if (ask.shouldCloseOnEsc()) {
+            fail("the ante question could be answered by pressing Escape");
         }
     }
 

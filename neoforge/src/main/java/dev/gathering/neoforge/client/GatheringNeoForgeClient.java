@@ -166,6 +166,10 @@ public final class GatheringNeoForgeClient {
                             opened.setCode(), opened.kind(), opened.cards())));
             return;
         }
+        if (payload instanceof dev.gathering.network.AnteConsentPayload ante) {
+            context.enqueueWork(() -> dev.gathering.client.AnteConsentScreen.accept(ante));
+            return;
+        }
         if (payload instanceof dev.gathering.network.OpenLoanersPayload loaners) {
             context.enqueueWork(() -> dev.gathering.client.LoanerScreen.accept(loaners));
             return;

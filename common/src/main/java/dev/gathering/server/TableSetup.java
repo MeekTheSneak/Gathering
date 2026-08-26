@@ -62,6 +62,13 @@ public final class TableSetup {
             return;
         }
 
+        // A table playing for keeps asks everybody first, and the game starts when the last
+        // seat answers rather than now. Nothing is staked until they have all said yes; this
+        // is only the question.
+        if (Antes.askedFirst(level, origin, rules)) {
+            return;
+        }
+
         TableSessions.Outcome outcome = TableSessions.start(level, origin, rules);
         player.sendSystemMessage(Component.translatable(outcome.messageKey()));
         if (outcome == TableSessions.Outcome.STARTED) {

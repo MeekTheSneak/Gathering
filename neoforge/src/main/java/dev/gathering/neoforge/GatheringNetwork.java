@@ -82,6 +82,18 @@ public final class GatheringNetwork {
                 }));
 
         registrar.playToServer(
+                dev.gathering.network.AnteAnswerPayload.TYPE,
+                dev.gathering.network.AnteAnswerPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.Antes.answer(player, payload.table(),
+                                payload.in()
+                                        ? dev.gathering.core.ante.AnteConsent.Answer.IN
+                                        : dev.gathering.core.ante.AnteConsent.Answer.OUT);
+                    }
+                }));
+
+        registrar.playToServer(
                 TableActionPayload.TYPE,
                 TableActionPayload.STREAM_CODEC,
                 GatheringNetwork::onTableAction);
@@ -179,6 +191,10 @@ public final class GatheringNetwork {
         registrar.playToClient(
                 dev.gathering.network.OpenLoanersPayload.TYPE,
                 dev.gathering.network.OpenLoanersPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.AnteConsentPayload.TYPE,
+                dev.gathering.network.AnteConsentPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
                 OpenSideboardPayload.TYPE,
