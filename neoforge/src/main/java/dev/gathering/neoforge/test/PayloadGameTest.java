@@ -361,6 +361,38 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /**
+     * A random discard, on the wire.
+     *
+     * <p>The count is the whole payload, so the clamping is the whole test. This is the one
+     * number a client sends that the server acts on without the player naming any cards, and
+     * a hand does not survive a request for two billion of them.
+     */
+    @GameTest(template = "empty")
+    public static void aRandomDiscardSurvivesTheWire(GameTestHelper helper) {
+        var asked = roundTrip(
+                helper,
+                new dev.gathering.network.DiscardAtRandomPayload(
+                        net.minecraft.core.BlockPos.ZERO, 3),
+                dev.gathering.network.DiscardAtRandomPayload.STREAM_CODEC);
+        if (asked.howMany() != 3) {
+            helper.fail("how many to discard changed on the wire: " + asked.howMany());
+        }
+
+        var silly = new dev.gathering.network.DiscardAtRandomPayload(
+                net.minecraft.core.BlockPos.ZERO, Integer.MAX_VALUE);
+        if (silly.howMany() != dev.gathering.core.game.RandomPick.MOST_AT_ONCE) {
+            helper.fail("a discard of two billion was not brought back down: "
+                    + silly.howMany());
+        }
+        var none = new dev.gathering.network.DiscardAtRandomPayload(
+                net.minecraft.core.BlockPos.ZERO, -5);
+        if (none.howMany() != 1) {
+            helper.fail("a discard of minus five was not brought back up: " + none.howMany());
+        }
+        helper.succeed();
+    }
+
     /** A deck's new name, on the wire. */
     @GameTest(template = "empty")
     public static void aRenameSurvivesTheWire(GameTestHelper helper) {

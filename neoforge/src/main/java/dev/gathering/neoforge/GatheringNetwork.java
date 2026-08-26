@@ -137,6 +137,15 @@ public final class GatheringNetwork {
                 });
 
         registrar.playToServer(
+                dev.gathering.network.DiscardAtRandomPayload.TYPE,
+                dev.gathering.network.DiscardAtRandomPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.RandomDiscards.handle(player, payload);
+                    }
+                });
+
+        registrar.playToServer(
                 dev.gathering.network.DraftPickPayload.TYPE,
                 dev.gathering.network.DraftPickPayload.STREAM_CODEC,
                 GatheringNetwork::onDraftPick);

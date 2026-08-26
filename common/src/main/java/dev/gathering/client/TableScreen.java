@@ -41,6 +41,7 @@ import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
 import dev.gathering.network.CreateTokenPayload;
+import dev.gathering.network.DiscardAtRandomPayload;
 import dev.gathering.network.RevealUntilPayload;
 import dev.gathering.network.UndoPayload;
 import java.util.ArrayList;
@@ -3531,6 +3532,12 @@ public final class TableScreen extends Screen {
         }
         List<ContextMenu.Entry> entries = ContextMenu.entries();
         entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
+        // The one verb here the server decides. Everything else on this menu is a move you
+        // make and the table writes down; a discard at random is only worth anything because
+        // you did not choose, and a client that picked its own cards would look exactly like
+        // one that picked its worst. See DiscardAtRandomPayload.
+        entries.add(entry("discard_at_random", () -> ask("discard_at_random", 1,
+                howMany -> ClientNetworking.send(new DiscardAtRandomPayload(table, howMany)))));
         entries.add(entry("make_token", this::askForToken));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
         view().ifPresent(board -> entries.add(entry("next_phase",

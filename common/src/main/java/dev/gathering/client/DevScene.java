@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 163;
+    private static final int LAST_STEP = 166;
 
     private static int step;
     private static int waited;
@@ -1577,6 +1577,43 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 144 -> {
+                // Discard at random, which is the one verb here the server decides. What is
+                // being proved is not that it is random - a run cannot prove that - but that
+                // the press reaches the server at all and that cards actually move. A menu
+                // entry that opens a box and then quietly does nothing would pass every other
+                // check in this file.
+                inTheHandBefore = countIn(Zone.HAND);
+                inTheGraveyardBefore = countIn(Zone.GRAVEYARD);
+                discardAtRandom(client);
+                advance(SETTLE / 2);
+            }
+            case 145 -> {
+                expectScreen(client, "asking how many to discard", AmountScreen.class);
+                shoot(client, "54b-how-many-at-random");
+                press(client, "OK");
+                advance(SETTLE);
+            }
+            case 146 -> {
+                expectScreen(client, "back from a random discard", TableScreen.class);
+                int hand = countIn(Zone.HAND);
+                int graveyard = countIn(Zone.GRAVEYARD);
+                if (hand != inTheHandBefore - 1) {
+                    fail("one card was discarded at random and the hand went from "
+                            + inTheHandBefore + " to " + hand);
+                    advance(SETTLE / 2);
+                    return;
+                }
+                if (graveyard != inTheGraveyardBefore + 1) {
+                    fail("one card was discarded at random and the graveyard went from "
+                            + inTheGraveyardBefore + " to " + graveyard);
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println(
+                        "[devscene] a card left the hand at random and landed in the graveyard");
+                advance(SETTLE / 2);
+            }
+            case 147 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a note could be read off it");
                     advance(SETTLE / 2);
@@ -1596,7 +1633,7 @@ public final class DevScene {
                 shoot(client, "54-written-on-a-card");
                 advance(SETTLE / 4);
             }
-            case 145 -> {
+            case 148 -> {
                 // The user's report: "the actual table version is riddled with issues such as
                 // flipping cards doesn't work". Right-clicking a card on the block had never
                 // been in the run - the drag had, the buttons had, the menu had not.
@@ -1605,7 +1642,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 146 -> {
+            case 149 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !(board.board() instanceof dev.gathering.core.ui.SurfaceBoard)) {
                     fail("pressing V did not put the board on the block");
@@ -1618,7 +1655,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 147 -> {
+            case 150 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a card could be right-clicked on it");
                     advance(SETTLE / 2);
@@ -1646,7 +1683,7 @@ public final class DevScene {
                 System.out.println("[devscene] turned a card face down from its menu on the block");
                 advance(SETTLE);
             }
-            case 148 -> {
+            case 151 -> {
                 int now = howManyAreFaceDown();
                 if (now != faceDownWas + 1) {
                     fail("turning a card face down on the block left " + now
@@ -1657,7 +1694,7 @@ public final class DevScene {
                 shoot(client, "55-flipped-on-the-block");
                 advance(SETTLE / 2);
             }
-            case 149 -> {
+            case 152 -> {
                 // The written card, put in the graveyard and read back through the pile
                 // screen. A card looked at through one screen and lying on the felt in
                 // another has to be the same card.
@@ -1670,11 +1707,11 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 150 -> {
+            case 153 -> {
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 151 -> {
+            case 154 -> {
                 expectScreen(client, "a graveyard holding a written card", PileScreen.class);
                 if (!theGraveyardHoldsTheWrittenCard()) {
                     fail("the card written on is not in the graveyard the screen opened");
@@ -1687,7 +1724,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 152 -> {
+            case 155 -> {
                 // "Many of the elements of the table gui phase in and out as you scroll in
                 // and out." Photographed at four heights rather than reasoned about: whatever
                 // comes and goes has to be visible in the pictures side by side.
@@ -1696,7 +1733,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 153 -> {
+            case 156 -> {
                 expectScreen(client, "the board on the block to zoom", TableScreen.class);
                 // Aimed at the graveyard rather than at the middle of the window, because
                 // the middle is where the camera already is: a wheel that ignored the cursor
@@ -1706,7 +1743,7 @@ public final class DevScene {
                 scrollTheBoard(client, 6);
                 advance(SETTLE / 2);
             }
-            case 154 -> {
+            case 157 -> {
                 theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
                 // Dragged here as well as at the whole-table framing, because how many blocks
@@ -1716,29 +1753,29 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 155 -> {
+            case 158 -> {
                 theBoardFollowedTheHand("dragged while leaning all the way in");
                 dragTheBoard(client, 0, -PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 156 -> {
+            case 159 -> {
                 theBoardFollowedTheHand("dragged back again");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 157 -> {
+            case 160 -> {
                 theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 158 -> {
+            case 161 -> {
                 theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 159 -> {
+            case 162 -> {
                 theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
@@ -1751,7 +1788,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 160 -> {
+            case 163 -> {
                 expectScreen(client, "the whole table on the block", TableScreen.class);
                 System.out.println("[devscene] camera: " + TableCameraView.report());
                 theBlockFramesLikeTheScreen(client);
@@ -1762,12 +1799,12 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 161 -> {
+            case 164 -> {
                 theBoardFollowedTheHand("dragged down the whole-table view");
                 dragTheBoard(client, PAN_BY, 0);
                 advance(SETTLE / 2);
             }
-            case 162 -> {
+            case 165 -> {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
                 // Dyed with the board still open and nothing else touching the world, which
@@ -1778,7 +1815,7 @@ public final class DevScene {
                 dyeTheTable(client);
                 advance(SETTLE);
             }
-            case 163 -> {
+            case 166 -> {
                 shoot(client, "60-the-felt-dyed");
                 advance(SETTLE / 2);
             }
@@ -2031,6 +2068,30 @@ public final class DevScene {
         }
         return null;
     }
+
+    /**
+     * Asks the table to throw away a card, without saying which.
+     *
+     * <p>Off the player's own menu, the way a player reaches it - not by sending the payload
+     * straight, which would prove the handler works and leave an entry nobody can find still
+     * unreachable.
+     */
+    private static void discardAtRandom(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to discard from");
+            return;
+        }
+        if (!openTheTableMenu(client, board, "Discard at random...")) {
+            fail("the table menu offers no way to discard at random");
+            return;
+        }
+        board.pressMenuEntry("Discard at random...");
+    }
+
+    /** What the hand and the graveyard held before the random discard, to compare after. */
+    private static int inTheHandBefore;
+
+    private static int inTheGraveyardBefore;
 
     /** The card the last step wrote on, so the step after can read it back. */
     private static CardInstanceId written;
