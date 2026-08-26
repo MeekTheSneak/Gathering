@@ -1333,14 +1333,7 @@ public final class TableScreen extends Screen {
                 ? Rect.NONE
                 : TableSurface.taxBand(art);
         if (taxBand.isEmpty()) {
-            if (roomForANumber(art)) {
-                Component label = Component.literal(Integer.toString(count));
-                int labelWidth = this.font.width(label) + 4;
-                graphics.fill(art.right() - labelWidth, art.bottom() - this.font.lineHeight - 1,
-                        art.right(), art.bottom(), GHOST_TINT);
-                GuiText.draw(graphics, this.font, label, art.right() - labelWidth + 2,
-                        art.bottom() - this.font.lineHeight, labelWidth, LABEL);
-            }
+            drawCountInTheCorner(graphics, art, count);
         } else {
             drawTaxBand(graphics, taxBand,
                     CommandSlots.taxFor(view.commanderTax().getOrDefault(commander, 0)),
@@ -1479,14 +1472,46 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * Whether a box this tall has room for a line of writing in it.
+     * How many cards are in this slot, written in its own corner.
+     *
+     * <p>Shrunk rather than dropped on a board drawn small. A number is not a word: "24" at
+     * six-tenths is still twenty-four, and how many cards are left in a library is something
+     * a player reads constantly and cannot get at any other way once the board is framed
+     * whole. The zone's *name* still crosses out at that size, because the shape of a column
+     * of boxes carries the order and a five-pixel word carries nothing.
+     */
+    private void drawCountInTheCorner(GuiGraphics graphics, Rect art, int count) {
+        if (!roomForANumber(art)) {
+            return;
+        }
+        float scale = numberScale(art);
+        Component label = Component.literal(Integer.toString(count));
+        int width = Math.round(this.font.width(label) * scale) + 4;
+        // GuiText keeps a shrunken line on the baseline a full-size one would have used, so
+        // the backing has to be measured the same way or a shrunk number sits with its head
+        // out over the card art it is supposed to be legible against.
+        int top = Math.round(art.bottom() - this.font.lineHeight * (1 + scale) / 2f) - 1;
+        graphics.fill(art.right() - width, top, art.right(), art.bottom(), GHOST_TINT);
+        GuiText.drawFlushLeft(graphics, this.font, label, art.right() - width + 2,
+                art.bottom() - this.font.lineHeight, scale, LABEL);
+    }
+
+    /**
+     * Whether a box this tall has room for a number at all.
      *
      * <p>The same question for a pile's count and for a commander's tax, so the two numbers
      * on the board appear and disappear together rather than one of them outlasting the
-     * other on a board being zoomed out.
+     * other on a board being zoomed out. The floor is where the box stops being a box rather
+     * than where a full-size line stops fitting: below that the number is shrunk to suit.
      */
     private boolean roomForANumber(Rect slot) {
-        return slot.height() > this.font.lineHeight + 2;
+        return slot.height() > Math.round(this.font.lineHeight * SMALLEST_LIFE_SCALE) + 2;
+    }
+
+    /** How far a number in a box that size has to shrink, down to the usual floor. */
+    private float numberScale(Rect slot) {
+        return Math.max(SMALLEST_LIFE_SCALE,
+                Math.min(1f, (slot.height() - 2f) / this.font.lineHeight));
     }
 
     /**
@@ -1505,8 +1530,8 @@ public final class TableScreen extends Screen {
                 lit ? TAX_LIT : TAX_BACKING);
         Component label = Component.literal("+" + tax);
         int baseline = (int) band.centreY() - this.font.lineHeight / 2;
-        GuiText.drawCentred(graphics, this.font, label, (int) band.centreX(), baseline,
-                band.width() - 2, lit ? ACCENT : LABEL);
+        GuiText.drawCentredAt(graphics, this.font, label, (int) band.centreX(), baseline,
+                numberScale(band), lit ? ACCENT : LABEL);
     }
 
     /**
@@ -2342,14 +2367,7 @@ public final class TableScreen extends Screen {
             graphics.blit(CardFaceRenderer.CARD_BACK, airborne.x(), airborne.y(), 0f, 0f,
                     airborne.width(), airborne.height(), airborne.width(), airborne.height());
         }
-        if (roomForANumber(airborne)) {
-            Component label = Component.literal(Integer.toString(count));
-            int labelWidth = this.font.width(label) + 4;
-            graphics.fill(airborne.right() - labelWidth, airborne.bottom() - this.font.lineHeight - 1,
-                    airborne.right(), airborne.bottom(), GHOST_TINT);
-            GuiText.draw(graphics, this.font, label, airborne.right() - labelWidth + 2,
-                    airborne.bottom() - this.font.lineHeight, labelWidth, LABEL);
-        }
+        drawCountInTheCorner(graphics, airborne, count);
     }
 
     private static Rect centred(int middleX, int middleY, int width, int height) {
