@@ -128,6 +128,15 @@ public final class GatheringNetwork {
                 GatheringNetwork::onCreateToken);
 
         registrar.playToServer(
+                dev.gathering.network.RevealUntilPayload.TYPE,
+                dev.gathering.network.RevealUntilPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.LibraryReveals.handle(player, payload);
+                    }
+                });
+
+        registrar.playToServer(
                 dev.gathering.network.DraftPickPayload.TYPE,
                 dev.gathering.network.DraftPickPayload.STREAM_CODEC,
                 GatheringNetwork::onDraftPick);

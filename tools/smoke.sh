@@ -120,6 +120,18 @@ else
     FAILED=1
 fi
 
+# And the dev scene runs all the way to the end. Its dispatcher reads a missing step number
+# as "finished", so a renumbering that loses one turns a full run into a third of a run that
+# still reports zero failures - see tools/scenecheck.py.
+printf '%-24s ' "dev scene steps"
+if SCENE_OUT=$(python3 tools/scenecheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$SCENE_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
 if [ "$TARGET" = all ] || [ "$TARGET" = neoforge ]; then
     # "mod/gathering" is the mod's own resource pack. Without it the assets are not loaded.
     # The camera hook is a mixin, and a mixin that is never listed fails silently: the mod

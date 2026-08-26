@@ -47,3 +47,19 @@ if grep -q '^\[devscene\] FAIL' /tmp/gathering-shots.log; then
     grep '^\[devscene\] FAIL' /tmp/gathering-shots.log | sort -u
     exit 1
 fi
+
+# And it got all the way to the end. The scene's dispatcher reads a step it has no case for
+# as "finished", so a run that stops in the middle still prints "failures: 0" - which is true
+# and worthless. tools/scenecheck.py stops the usual cause; this catches every other one,
+# including the run simply timing out with the client still up.
+REACHED=$(grep -o '^\[devscene\] reached step [0-9]* of [0-9]*' /tmp/gathering-shots.log | tail -1)
+if [ -z "$REACHED" ]; then
+    echo
+    echo "the scripted run never finished; see /tmp/gathering-shots.log"
+    exit 1
+fi
+if [ "$(echo "$REACHED" | awk '{print $4}')" != "$(echo "$REACHED" | awk '{print $6}')" ]; then
+    echo
+    echo "the scripted run stopped early: $REACHED"
+    exit 1
+fi

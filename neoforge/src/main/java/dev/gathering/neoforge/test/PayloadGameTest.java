@@ -308,6 +308,59 @@ public final class PayloadGameTest {
                 java.util.Map.of(), java.util.Map.of(), "https://scryfall.com/card/ltc/284");
     }
 
+    /**
+     * A cascade, on the wire.
+     *
+     * <p>Worth a test of its own because this one carries an enum, and an enum on the wire is
+     * an ordinal: the two questions this payload can ask are one number apart, and a codec
+     * that read them the wrong way round would turn somebody's library over looking for the
+     * wrong thing. The clamping is checked here too - the numbers arrive from a client.
+     */
+    @GameTest(template = "empty")
+    public static void aRevealUntilSurvivesTheWire(GameTestHelper helper) {
+        var asked = roundTrip(
+                helper,
+                new dev.gathering.network.RevealUntilPayload(
+                        net.minecraft.core.BlockPos.ZERO,
+                        dev.gathering.network.RevealUntilPayload.Until.OF_TYPE, 0, "Creature"),
+                dev.gathering.network.RevealUntilPayload.STREAM_CODEC);
+
+        if (asked.until() != dev.gathering.network.RevealUntilPayload.Until.OF_TYPE) {
+            helper.fail("which question a reveal was asking changed on the wire: " + asked.until());
+        }
+        if (!"Creature".equals(asked.wanted())) {
+            helper.fail("the type asked for changed on the wire: " + asked.wanted());
+        }
+
+        var cascade = roundTrip(
+                helper,
+                new dev.gathering.network.RevealUntilPayload(
+                        net.minecraft.core.BlockPos.ZERO,
+                        dev.gathering.network.RevealUntilPayload.Until.CHEAPER_THAN, 4, ""),
+                dev.gathering.network.RevealUntilPayload.STREAM_CODEC);
+        if (cascade.until() != dev.gathering.network.RevealUntilPayload.Until.CHEAPER_THAN
+                || cascade.manaValue() != 4) {
+            helper.fail("a cascade changed on the wire: " + cascade.until()
+                    + " at " + cascade.manaValue());
+        }
+
+        // A client is where these numbers come from, so the ceiling is part of the payload
+        // rather than part of whatever reads it.
+        var silly = new dev.gathering.network.RevealUntilPayload(
+                net.minecraft.core.BlockPos.ZERO,
+                dev.gathering.network.RevealUntilPayload.Until.CHEAPER_THAN,
+                Integer.MAX_VALUE, "x".repeat(200));
+        if (silly.manaValue() != dev.gathering.network.RevealUntilPayload.MOST_MANA) {
+            helper.fail("a mana value of two billion was not brought back down: "
+                    + silly.manaValue());
+        }
+        if (silly.wanted().length() != dev.gathering.network.RevealUntilPayload.LONGEST_TYPE) {
+            helper.fail("a two hundred character type was not cut down: "
+                    + silly.wanted().length());
+        }
+        helper.succeed();
+    }
+
     /** A deck's new name, on the wire. */
     @GameTest(template = "empty")
     public static void aRenameSurvivesTheWire(GameTestHelper helper) {

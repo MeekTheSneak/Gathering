@@ -41,6 +41,7 @@ import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
 import dev.gathering.network.CreateTokenPayload;
+import dev.gathering.network.RevealUntilPayload;
 import dev.gathering.network.UndoPayload;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -165,6 +166,14 @@ public final class TableScreen extends Screen {
      * the player to aim at something they cannot see.
      */
     private static final int CAST = 0x59000000;
+
+    /**
+     * The line round where a carried card will come down.
+     *
+     * <p>The same amber the scry box draws its landing bar in, because it is the same
+     * sentence: this is where the thing in your hand goes if you let go now.
+     */
+    private static final int LANDING = 0xBFFFD479;
 
     /** The badge on a pile, saying how many cards are in it. */
     private static final int PILE_BADGE = 0xE0141210;
@@ -2400,9 +2409,15 @@ public final class TableScreen extends Screen {
         // card teleporting to the cursor, and the shadow is the footprint - so the answer to
         // "where is this going" is drawn on the felt, at the size and shape it will be, while
         // the question is still being asked.
-        int lift = Math.max(2, comingDownOn.height() / 12);
+        int lift = Math.max(3, comingDownOn.height() / 8);
         graphics.fill(comingDownOn.x(), comingDownOn.y(),
                 comingDownOn.right(), comingDownOn.bottom(), CAST);
+        // And the footprint's own edge, drawn over the shadow so the two sides the card is
+        // lifted away from say where it lands as well as the two the shadow shows on. A
+        // shadow alone is only ever visible down one corner - which is a drop shadow, which
+        // is the thing this is not.
+        graphics.renderOutline(comingDownOn.x(), comingDownOn.y(),
+                comingDownOn.width(), comingDownOn.height(), LANDING);
 
         Rect airborne = new Rect(comingDownOn.x() - lift, comingDownOn.y() - lift,
                 comingDownOn.width(), comingDownOn.height());
@@ -3391,6 +3406,20 @@ public final class TableScreen extends Screen {
                     ? entry("stop_revealing", () -> send(new GameEvent.LibraryRevealed(me, me, 0)))
                     : entry("reveal", () -> ask("reveal", 1,
                             count -> send(new GameEvent.LibraryRevealed(me, me, count)))));
+            // Turn cards over until one of them is the one. Both of these ask the server how
+            // far down it is, because nobody may know their own library's order - see
+            // RevealUntilPayload. What comes back is an ordinary reveal.
+            entries.add(entry("cascade", () -> ask("cascade", 3, manaValue ->
+                    ClientNetworking.send(new RevealUntilPayload(table,
+                            RevealUntilPayload.Until.CHEAPER_THAN, manaValue, "")))));
+            entries.add(entry("reveal_until_type", () ->
+                    net.minecraft.client.Minecraft.getInstance().setScreen(new TextPromptScreen(
+                            Component.translatable("screen.gathering.reveal_until.type"),
+                            Component.translatable("screen.gathering.reveal_until.hint"),
+                            RevealUntilPayload.LONGEST_TYPE,
+                            wanted -> ClientNetworking.send(new RevealUntilPayload(table,
+                                    RevealUntilPayload.Until.OF_TYPE, 0, wanted)),
+                            this))));
             entries.add(entry("search", () -> {
                 send(new GameEvent.LibrarySearched(me, me));
                 openPile(me, Zone.LIBRARY, true);

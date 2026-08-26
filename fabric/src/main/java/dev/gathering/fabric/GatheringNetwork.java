@@ -97,6 +97,9 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.PackOpenedPayload.TYPE,
                 dev.gathering.network.PackOpenedPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.RevealUntilPayload.TYPE,
+                dev.gathering.network.RevealUntilPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CloseTablePayload.TYPE, CloseTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(ImportResultPayload.TYPE, ImportResultPayload.STREAM_CODEC);
@@ -139,6 +142,10 @@ final class GatheringNetwork {
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.TradeActionPayload.TYPE, (payload, context) ->
                         dev.gathering.server.TradeSessions.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.RevealUntilPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.LibraryReveals.handle(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(TableActionPayload.TYPE, (payload, context) ->
                 TableActions.handle(context.player(), payload));
