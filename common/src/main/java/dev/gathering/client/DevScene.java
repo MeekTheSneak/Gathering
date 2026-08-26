@@ -1449,9 +1449,15 @@ public final class DevScene {
                     return;
                 }
                 shoot(client, "52-counters-on-a-card");
-                advance(SETTLE / 2);
+                // And straighten it, so the next step can photograph the same counters on a
+                // card that is not lying on its side. A tapped card turns its writing with
+                // it, which is right, and it means one picture cannot say where the counters
+                // sit on a card.
+                straightenTheCounteredCard();
+                advance(SETTLE);
             }
             case 132 -> {
+                shoot(client, "52a-counters-straight");
                 // Two cards on the same spot, which is what a stack on a real table is.
                 aStackOfTwoOnTheFelt(client);
                 advance(SETTLE);
@@ -1990,6 +1996,17 @@ public final class DevScene {
 
     /** The card the last step put counters on, so the step after can read them back. */
     private static CardInstanceId countered;
+
+    /** Untaps that card, so its counters can be photographed the right way up. */
+    private static void straightenTheCounteredCard() {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null || countered == null) {
+            fail("there was no countered card to straighten");
+            return;
+        }
+        ClientTableActions.send(table, new GameEvent.CardTapSet(me, countered, false));
+        System.out.println("[devscene] straightened the card with counters on it");
+    }
 
     private static int countersOnTheCardWithCounters(Minecraft client) {
         SeatId me = ClientTableState.seatAt(table).orElse(null);
