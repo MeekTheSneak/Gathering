@@ -106,6 +106,11 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playS2C().register(
                 OpenSideboardPayload.TYPE, OpenSideboardPayload.STREAM_CODEC);
 
+        // Every receiver below runs on the server thread. Fabric's networking-api-v1 states it
+        // in ServerPlayNetworking itself - "this handler executes the callback in the server
+        // thread, ensuring thread safety" - which is the same guarantee NeoForge gives through
+        // HandlerThread.MAIN, so the handlers on both sides are free to touch the world
+        // directly and neither loader needs a hop.
         ServerPlayNetworking.registerGlobalReceiver(ImportDecklistPayload.TYPE, (payload, context) -> {
             CardDataService service = CardDataService.active().orElse(null);
             if (service == null) {
@@ -113,8 +118,9 @@ final class GatheringNetwork {
                         Component.translatable("message.gathering.pipeline_unavailable"));
                 return;
             }
-            // Import is asynchronous by construction; nothing here touches the network thread
-            // beyond handing the text over.
+            // Import itself is asynchronous by construction: this hands the text to the card
+            // pipeline's own executor and returns, so the server thread is not held while
+            // Scryfall is asked about a hundred and forty cards.
             DecklistImport.importFor(context.player(), service, payload.decklist(),
                     payload.deckName(), payload.description(), payload.from().orElse(null));
         });

@@ -45,7 +45,16 @@ public final class GatheringNetwork {
 
     @SubscribeEvent
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar(PROTOCOL_VERSION);
+        // Said out loud rather than inherited. NeoForge 21.1.248's PayloadRegistrar starts at
+        // HandlerThread.MAIN and wraps every handler in MainThreadPayloadHandler, so a handler
+        // is already on the server thread - or the render thread, going the other way - before
+        // its first line runs. Half of these used to hop again with enqueueWork and half did
+        // not, which read as the unwrapped half being unsafe. Neither is: enqueueWork runs the
+        // task straight through when it is already on the main thread, so the hops were inert.
+        // One statement here, and no per-handler ceremony - and nothing depending on a default
+        // that a later NeoForge is free to change.
+        var registrar = event.registrar(PROTOCOL_VERSION)
+                .executesOn(net.neoforged.neoforge.network.registration.HandlerThread.MAIN);
 
         registrar.playToServer(
                 ImportDecklistPayload.TYPE,
@@ -75,23 +84,23 @@ public final class GatheringNetwork {
         registrar.playToServer(
                 dev.gathering.network.TakeLoanerPayload.TYPE,
                 dev.gathering.network.TakeLoanerPayload.STREAM_CODEC,
-                (payload, context) -> context.enqueueWork(() -> {
+                (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         dev.gathering.server.Lending.handle(player, payload);
                     }
-                }));
+                });
 
         registrar.playToServer(
                 dev.gathering.network.AnteAnswerPayload.TYPE,
                 dev.gathering.network.AnteAnswerPayload.STREAM_CODEC,
-                (payload, context) -> context.enqueueWork(() -> {
+                (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         dev.gathering.server.Antes.answer(player, payload.table(),
                                 payload.in()
                                         ? dev.gathering.core.ante.AnteConsent.Answer.IN
                                         : dev.gathering.core.ante.AnteConsent.Answer.OUT);
                     }
-                }));
+                });
 
         registrar.playToServer(
                 TableActionPayload.TYPE,
@@ -241,11 +250,9 @@ public final class GatheringNetwork {
     }
 
     private static void onUndo(UndoPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
-                dev.gathering.server.TableActions.handleUndo(player, payload);
-            }
-        });
+        if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+            dev.gathering.server.TableActions.handleUndo(player, payload);
+        }
     }
 
     private static void onTableAction(TableActionPayload payload, IPayloadContext context) {
@@ -263,8 +270,7 @@ public final class GatheringNetwork {
     private static void onTradeAction(
             dev.gathering.network.TradeActionPayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
-            context.enqueueWork(() ->
-                    dev.gathering.server.TradeSessions.handle(player, payload));
+            dev.gathering.server.TradeSessions.handle(player, payload);
         }
     }
 
@@ -277,20 +283,16 @@ public final class GatheringNetwork {
 
     private static void onAddBasics(
             dev.gathering.network.AddBasicsPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
-                dev.gathering.server.BasicLands.handle(player, payload);
-            }
-        });
+        if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+            dev.gathering.server.BasicLands.handle(player, payload);
+        }
     }
 
     private static void onDraftPick(
             dev.gathering.network.DraftPickPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
-                dev.gathering.server.DraftActions.handle(player, payload.pod(), payload.positions());
-            }
-        });
+        if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+            dev.gathering.server.DraftActions.handle(player, payload.pod(), payload.positions());
+        }
     }
 
     private static void onMetadataRequest(RequestCardMetadataPayload payload, IPayloadContext context) {

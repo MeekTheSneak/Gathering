@@ -24,13 +24,19 @@ public final class ClientCardCache implements CardNameLookup {
     private static final ClientCardCache INSTANCE = new ClientCardCache();
 
     /**
-     * Concurrent because it is written from the network thread and read from the render one.
+     * Concurrent as insurance, not because anything crosses a thread today.
      *
-     * <p>Card summaries are taken straight off the wire rather than being handed to the game
-     * thread first, which is worth a frame of latency on a screen full of cards and costs
-     * nothing here - but only while this stays a map that can take it. An ordinary
-     * {@link java.util.HashMap} would be an intermittent, unreproducible corruption on a
-     * client that happened to be drawing while a packet arrived.
+     * <p>It used to say the opposite - written from the network thread, read from the render
+     * one - and that was never true on either loader. NeoForge wraps every payload handler in
+     * {@code MainThreadPayloadHandler} unless a registrar asks otherwise, and Fabric's
+     * {@code ClientPlayNetworking} says in as many words that a handler "is called on the
+     * render thread". Summaries arrive on the same thread that draws them.
+     *
+     * <p>It stays a {@link java.util.concurrent.ConcurrentHashMap} anyway. The cost is
+     * nothing at this size, and the failure it would guard against - a handler moved onto the
+     * network thread by somebody chasing a frame of latency - is an intermittent,
+     * unreproducible corruption on a client that happened to be drawing when a packet landed.
+     * That is the worst kind of bug to trade for the fastest kind of map.
      */
     private final Map<UUID, CardSummary> summaries = new ConcurrentHashMap<>();
 
