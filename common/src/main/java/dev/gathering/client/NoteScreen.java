@@ -1,6 +1,7 @@
 package dev.gathering.client;
 
 import dev.gathering.core.game.CardNote;
+import dev.gathering.core.game.CardStrength;
 import dev.gathering.core.ui.Rect;
 import java.util.function.Consumer;
 import net.minecraft.client.gui.GuiGraphics;
@@ -31,15 +32,46 @@ public final class NoteScreen extends ChildScreen {
     private static final int ROW = 18;
     private static final int GAP = 4;
 
+    /**
+     * Which pen this is: how much fits, what the strings are called, and what counts as
+     * unchanged.
+     *
+     * <p>Two things are written on a card - a reminder across it, and a power and toughness
+     * in the corner - and they are the same screen because they are the same act. What
+     * differs between them is only the length and the words, so that is all this carries.
+     */
+    public record Pen(
+            int longest,
+            String rubOut,
+            String hint,
+            java.util.function.BiPredicate<String, String> unchanged) {
+
+        /** A reminder written across the card. */
+        public static final Pen NOTE = new Pen(CardNote.LONGEST,
+                "screen.gathering.note.rub_out", "screen.gathering.note.hint", CardNote::same);
+
+        /** A power and toughness written over the printed ones. */
+        public static final Pen STRENGTH = new Pen(CardStrength.LONGEST,
+                "screen.gathering.strength.rub_out", "screen.gathering.strength.hint",
+                CardStrength::same);
+    }
+
     private final Component question;
     private final String before;
     private final Consumer<String> answer;
+    private final Pen pen;
 
     private Rect panel = Rect.NONE;
     private EditBox note;
 
     public NoteScreen(Component question, String before, Consumer<String> answer, Screen back) {
+        this(Pen.NOTE, question, before, answer, back);
+    }
+
+    public NoteScreen(
+            Pen pen, Component question, String before, Consumer<String> answer, Screen back) {
         super(question, back);
+        this.pen = pen;
         this.question = question;
         this.before = before == null ? "" : before;
         this.answer = answer;
@@ -58,7 +90,7 @@ public final class NoteScreen extends ChildScreen {
         note = new EditBox(this.font, panel.x() + MARGIN, top,
                 panel.width() - MARGIN * 2, ROW, question);
         note.setValue(before);
-        note.setMaxLength(CardNote.LONGEST);
+        note.setMaxLength(pen.longest());
         addRenderableWidget(note);
         setInitialFocus(note);
 
@@ -72,7 +104,7 @@ public final class NoteScreen extends ChildScreen {
                 Component.translatable("gui.cancel"), this::onClose));
         addRenderableWidget(GatheringButtons.of(
                 panel.x() + MARGIN + third + GAP, decideTop, third, ROW,
-                Component.translatable("screen.gathering.note.rub_out"), () -> confirm("")));
+                Component.translatable(pen.rubOut()), () -> confirm("")));
         addRenderableWidget(GatheringButtons.of(
                 panel.right() - MARGIN - third, decideTop, third, ROW,
                 Component.translatable("gui.ok"), this::confirmTyped));
@@ -91,7 +123,7 @@ public final class NoteScreen extends ChildScreen {
      */
     private void confirm(String written) {
         this.onClose();
-        if (!CardNote.same(written, before)) {
+        if (!pen.unchanged().test(written, before)) {
             answer.accept(written);
         }
     }
@@ -118,7 +150,7 @@ public final class NoteScreen extends ChildScreen {
         GuiText.drawCentred(graphics, this.font, question,
                 panel.x() + panel.width() / 2, panel.y() + 5, panel.width() - MARGIN * 2, LABEL);
         GuiText.drawCentred(graphics, this.font,
-                Component.translatable("screen.gathering.note.hint"),
+                Component.translatable(pen.hint()),
                 panel.x() + panel.width() / 2, panel.bottom() - MARGIN + 1,
                 panel.width() - MARGIN * 2, HINT);
     }

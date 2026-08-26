@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 161;
+    private static final int LAST_STEP = 163;
 
     private static int step;
     private static int waited;
@@ -1558,6 +1558,25 @@ public final class DevScene {
                 advance(SETTLE / 4);
             }
             case 142 -> {
+                // The other pen: a power and toughness written over the printed ones. Typed,
+                // never worked out - the mod does not know what the card was printed as and
+                // deliberately never will.
+                writeStrengthOnACard(client);
+                advance(SETTLE);
+            }
+            case 143 -> {
+                expectScreen(client, "a card with numbers written on it", TableScreen.class);
+                String numbers = whatStrengthIsOnTheCard();
+                if (!"6/6".equals(numbers)) {
+                    fail("6/6 was written on a card and the board says \"" + numbers + "\"");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println("[devscene] a card says " + numbers + " because somebody typed it");
+                shoot(client, "54a-power-and-toughness");
+                advance(SETTLE / 2);
+            }
+            case 144 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a note could be read off it");
                     advance(SETTLE / 2);
@@ -1577,7 +1596,7 @@ public final class DevScene {
                 shoot(client, "54-written-on-a-card");
                 advance(SETTLE / 4);
             }
-            case 143 -> {
+            case 145 -> {
                 // The user's report: "the actual table version is riddled with issues such as
                 // flipping cards doesn't work". Right-clicking a card on the block had never
                 // been in the run - the drag had, the buttons had, the menu had not.
@@ -1586,7 +1605,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 144 -> {
+            case 146 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !(board.board() instanceof dev.gathering.core.ui.SurfaceBoard)) {
                     fail("pressing V did not put the board on the block");
@@ -1599,7 +1618,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 145 -> {
+            case 147 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a card could be right-clicked on it");
                     advance(SETTLE / 2);
@@ -1627,7 +1646,7 @@ public final class DevScene {
                 System.out.println("[devscene] turned a card face down from its menu on the block");
                 advance(SETTLE);
             }
-            case 146 -> {
+            case 148 -> {
                 int now = howManyAreFaceDown();
                 if (now != faceDownWas + 1) {
                     fail("turning a card face down on the block left " + now
@@ -1638,7 +1657,7 @@ public final class DevScene {
                 shoot(client, "55-flipped-on-the-block");
                 advance(SETTLE / 2);
             }
-            case 147 -> {
+            case 149 -> {
                 // The written card, put in the graveyard and read back through the pile
                 // screen. A card looked at through one screen and lying on the felt in
                 // another has to be the same card.
@@ -1651,11 +1670,11 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 148 -> {
+            case 150 -> {
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 149 -> {
+            case 151 -> {
                 expectScreen(client, "a graveyard holding a written card", PileScreen.class);
                 if (!theGraveyardHoldsTheWrittenCard()) {
                     fail("the card written on is not in the graveyard the screen opened");
@@ -1668,7 +1687,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 150 -> {
+            case 152 -> {
                 // "Many of the elements of the table gui phase in and out as you scroll in
                 // and out." Photographed at four heights rather than reasoned about: whatever
                 // comes and goes has to be visible in the pictures side by side.
@@ -1677,7 +1696,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 151 -> {
+            case 153 -> {
                 expectScreen(client, "the board on the block to zoom", TableScreen.class);
                 // Aimed at the graveyard rather than at the middle of the window, because
                 // the middle is where the camera already is: a wheel that ignored the cursor
@@ -1687,7 +1706,7 @@ public final class DevScene {
                 scrollTheBoard(client, 6);
                 advance(SETTLE / 2);
             }
-            case 152 -> {
+            case 154 -> {
                 theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
                 // Dragged here as well as at the whole-table framing, because how many blocks
@@ -1697,29 +1716,29 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 153 -> {
+            case 155 -> {
                 theBoardFollowedTheHand("dragged while leaning all the way in");
                 dragTheBoard(client, 0, -PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 154 -> {
+            case 156 -> {
                 theBoardFollowedTheHand("dragged back again");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 155 -> {
+            case 157 -> {
                 theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 156 -> {
+            case 158 -> {
                 theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 157 -> {
+            case 159 -> {
                 theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
@@ -1732,7 +1751,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 158 -> {
+            case 160 -> {
                 expectScreen(client, "the whole table on the block", TableScreen.class);
                 System.out.println("[devscene] camera: " + TableCameraView.report());
                 theBlockFramesLikeTheScreen(client);
@@ -1743,12 +1762,12 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 159 -> {
+            case 161 -> {
                 theBoardFollowedTheHand("dragged down the whole-table view");
                 dragTheBoard(client, PAN_BY, 0);
                 advance(SETTLE / 2);
             }
-            case 160 -> {
+            case 162 -> {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
                 // Dyed with the board still open and nothing else touching the world, which
@@ -1759,7 +1778,7 @@ public final class DevScene {
                 dyeTheTable(client);
                 advance(SETTLE);
             }
-            case 161 -> {
+            case 163 -> {
                 shoot(client, "60-the-felt-dyed");
                 advance(SETTLE / 2);
             }
@@ -1979,6 +1998,38 @@ public final class DevScene {
             }
         }
         fail("the written card left the battlefield");
+    }
+
+    /**
+     * Writes a power and toughness on the same card the pen wrote on.
+     *
+     * <p>The same card on purpose. A note across the top and numbers in the corner are the
+     * two things a player writes, and the one arrangement worth photographing is both at
+     * once - which is also the one where they could be drawn over each other.
+     */
+    private static void writeStrengthOnACard(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null || written == null) {
+            fail("there was no written card to put numbers on");
+            return;
+        }
+        ClientTableActions.send(table, new GameEvent.CardStrengthSet(me, written, "6/6"));
+        System.out.println("[devscene] wrote 6/6 on " + written);
+    }
+
+    /** What the board says is written in the corner of that card, or null. */
+    private static String whatStrengthIsOnTheCard() {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null || written == null) {
+            return null;
+        }
+        for (CardView card : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible && visible.id().equals(written)) {
+                return visible.writtenStrength().orElse(null);
+            }
+        }
+        return null;
     }
 
     /** The card the last step wrote on, so the step after can read it back. */

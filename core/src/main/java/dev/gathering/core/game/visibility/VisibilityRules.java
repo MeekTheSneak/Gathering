@@ -140,7 +140,7 @@ public final class VisibilityRules {
             return new CardView.Visible(
                     card.id(), card.identity(), card.owner(), card.facing(), card.tapped(),
                     card.counters(), card.position(), card.token(), card.attachedTo(),
-                    card.note(), card.turnedOver());
+                    card.note(), card.turnedOver(), card.strength());
         }
         // The spot goes to everyone: where a card sits was never a secret, and an opponent
         // who cannot see which card it is still has to be able to see that it is there.
@@ -153,6 +153,9 @@ public final class VisibilityRules {
                 card.attachedTo(),
                 // A note is what somebody wrote about the card, not what the card is. The
                 // person who picked up the pen decided what it gave away.
-                card.note());
+                card.note(),
+                // And the same for the numbers written in the corner: typed by a player,
+                // never worked out from a card nobody else may name.
+                card.strength());
     }
 }

@@ -338,6 +338,7 @@ public final class ViewCodec {
                 host(out, visible.attachedTo());
                 out.writeUTF(visible.note() == null ? "" : visible.note());
                 out.writeBoolean(visible.turnedOver());
+                out.writeUTF(visible.strength() == null ? "" : visible.strength());
 
             }
             case CardView.Anonymous anonymous -> {
@@ -348,6 +349,7 @@ public final class ViewCodec {
                 position(out, anonymous.position());
                 host(out, anonymous.attachedTo());
                 out.writeUTF(anonymous.note() == null ? "" : anonymous.note());
+                out.writeUTF(anonymous.strength() == null ? "" : anonymous.strength());
             }
         }
     }
@@ -365,10 +367,12 @@ public final class ViewCodec {
                     in.readBoolean(),
                     host(in),
                     in.readUTF(),
-                    in.readBoolean());
+                    in.readBoolean(),
+                    in.readUTF());
         }
         return new CardView.Anonymous(
                 new MarkerId(in.readUTF()), in.readBoolean(), counters(in), position(in), host(in),
+                in.readUTF(),
                 in.readUTF());
     }
 

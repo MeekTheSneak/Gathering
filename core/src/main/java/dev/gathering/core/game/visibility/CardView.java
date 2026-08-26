@@ -39,12 +39,14 @@ public sealed interface CardView {
             boolean token,
             CardInstanceId attachedTo,
             String note,
-            boolean turnedOver) implements CardView {
+            boolean turnedOver,
+            String strength) implements CardView {
 
         public Visible {
             counters = CardView.kept(counters);
             facing = facing == null ? Facing.FACE_UP : facing;
             note = dev.gathering.core.game.CardNote.clean(note);
+            strength = dev.gathering.core.game.CardStrength.clean(strength);
         }
     }
 
@@ -66,11 +68,13 @@ public sealed interface CardView {
             Map<String, Integer> counters,
             TablePosition position,
             CardInstanceId attachedTo,
-            String note) implements CardView {
+            String note,
+            String strength) implements CardView {
 
         public Anonymous {
             counters = CardView.kept(counters);
             note = dev.gathering.core.game.CardNote.clean(note);
+            strength = dev.gathering.core.game.CardStrength.clean(strength);
         }
     }
 
@@ -160,6 +164,20 @@ public sealed interface CardView {
         return Optional.ofNullable(switch (this) {
             case Visible visible -> visible.note();
             case Anonymous anonymous -> anonymous.note();
+        });
+    }
+
+    /**
+     * The power and toughness a player has written over the printed ones, if anybody has.
+     *
+     * <p>Carried by a face-down card too, and for the same reason a note is: it is something
+     * a person typed about the card, not something the mod worked out from what the card is.
+     * A morph everybody has agreed is a 4/4 says 4/4 without saying what it is.
+     */
+    default Optional<String> writtenStrength() {
+        return Optional.ofNullable(switch (this) {
+            case Visible visible -> visible.strength();
+            case Anonymous anonymous -> anonymous.strength();
         });
     }
 

@@ -200,6 +200,7 @@ class SessionCodecTest {
                 new GameEvent.ZoneMoved(a, b, Zone.GRAVEYARD, new ZoneRef(b, Zone.LIBRARY),
                         Placement.BOTTOM),
                 new GameEvent.CardNoted(a, card, "flying until end of turn"),
+                new GameEvent.CardStrengthSet(a, card, "6/6"),
                 new GameEvent.CardTurnedOver(a, card, true),
                 new GameEvent.CardTapSet(a, card, true),
                 new GameEvent.CardRotated(a, card, 137),

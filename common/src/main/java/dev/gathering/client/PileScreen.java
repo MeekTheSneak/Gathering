@@ -505,6 +505,10 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         // And what somebody wrote on it, across the top, drawn by the same method the felt
         // uses so the two can never come to look like different features.
         CardInspectPanel.drawNote(graphics, this.font, card.writtenOn().orElse(null), art);
+        // And the numbers in the corner, for the same reason: a card looked at through this
+        // screen and the same card on the felt have to be the same card.
+        CardInspectPanel.drawStrength(
+                graphics, this.font, card.writtenStrength().orElse(null), art);
         if (away) {
             // Greyed rather than moved. A card that jumped to another row every time somebody
             // changed their mind would make a scry of three a puzzle about where things went.

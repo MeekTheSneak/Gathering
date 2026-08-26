@@ -49,6 +49,9 @@ import java.util.Optional;
  *
  * @param note what a player has written on it, or null for a card nobody has written on
  * @param turnedOver whether it is showing its second printed face, for a card that has one
+ * @param strength a power and toughness written over the printed ones, or null for a card
+ *     showing what it was printed as - typed by a player and never worked out, see
+ *     {@link CardStrength}
  */
 public record CardInstance(
         CardInstanceId id,
@@ -62,7 +65,8 @@ public record CardInstance(
         boolean token,
         CardInstanceId attachedTo,
         String note,
-        boolean turnedOver) {
+        boolean turnedOver,
+        String strength) {
 
     public CardInstance {
         if (id == null || identity == null || owner == null || facing == null) {
@@ -80,35 +84,38 @@ public record CardInstance(
         // note can be made and one shape it can be in - a record read off a save file or a
         // packet goes through the same door as one built by the fold.
         note = CardNote.clean(note);
+        // Same door for the same reason: an override read off a save file or a packet is
+        // cleaned exactly as one typed into the box is.
+        strength = CardStrength.clean(strength);
     }
 
     public static CardInstance faceUp(CardInstanceId id, CardIdentity identity, SeatId owner) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false, null, null, false);
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, false, null, null, false, null);
     }
 
     public static CardInstance token(CardInstanceId id, CardIdentity identity, SeatId owner) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true, null, null, false);
+                id, identity, owner, Facing.FACE_UP, false, Map.of(), null, null, true, null, null, false, null);
     }
 
     public CardInstance withTapped(boolean newTapped) {
         return newTapped == tapped
                 ? this
-                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token, attachedTo, note, turnedOver);
+                : new CardInstance(id, identity, owner, facing, newTapped, counters, marker, position, token, attachedTo, note, turnedOver, strength);
     }
 
     /** Where a drag dropped it, or nothing once it goes back into a pile. */
     public CardInstance withPosition(TablePosition newPosition) {
         return java.util.Objects.equals(newPosition, position)
                 ? this
-                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token, attachedTo, note, turnedOver);
+                : new CardInstance(id, identity, owner, facing, tapped, counters, marker, newPosition, token, attachedTo, note, turnedOver, strength);
     }
 
     /** Flipping down needs a fresh marker; flipping up drops the one it had. */
     public CardInstance faceDownWith(MarkerId newMarker) {
         return new CardInstance(
-                id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token, attachedTo, note, turnedOver);
+                id, identity, owner, Facing.FACE_DOWN, tapped, counters, newMarker, position, token, attachedTo, note, turnedOver, strength);
     }
 
     public CardInstance faceUp() {
@@ -116,7 +123,7 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, Facing.FACE_UP, tapped, counters, null, position, token,
-                        attachedTo, note, turnedOver);
+                        attachedTo, note, turnedOver, strength);
     }
 
     /**
@@ -134,7 +141,7 @@ public record CardInstance(
             updated.put(name, now);
         }
         return new CardInstance(
-                id, identity, owner, facing, tapped, updated, marker, position, token, attachedTo, note, turnedOver);
+                id, identity, owner, facing, tapped, updated, marker, position, token, attachedTo, note, turnedOver, strength);
     }
 
     public int counter(String name) {
@@ -165,7 +172,7 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, facing, tapped, counters, marker, position, token, target,
-                        note, turnedOver);
+                        note, turnedOver, strength);
     }
 
     public Optional<CardInstanceId> host() {
@@ -185,12 +192,32 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, facing, tapped, counters, marker, position, token,
-                        attachedTo, tidy, turnedOver);
+                        attachedTo, tidy, turnedOver, strength);
     }
 
     /** What somebody wrote on it, if anybody has. */
     public Optional<String> writtenOn() {
         return Optional.ofNullable(note);
+    }
+
+    /**
+     * Writes a power and toughness over the printed ones, or takes the writing off.
+     *
+     * <p>What is typed is what is shown. Nothing here adds counters up or looks at what the
+     * card was printed as - see {@link CardStrength}.
+     */
+    public CardInstance withStrength(String written) {
+        String tidy = CardStrength.clean(written);
+        return java.util.Objects.equals(tidy, strength)
+                ? this
+                : new CardInstance(
+                        id, identity, owner, facing, tapped, counters, marker, position, token,
+                        attachedTo, note, turnedOver, tidy);
+    }
+
+    /** The power and toughness somebody wrote over the printed ones, if anybody did. */
+    public Optional<String> writtenStrength() {
+        return Optional.ofNullable(strength);
     }
 
     /**
@@ -207,7 +234,7 @@ public record CardInstance(
                 ? this
                 : new CardInstance(
                         id, identity, owner, facing, tapped, counters, marker, position, token,
-                        attachedTo, note, showingTheOtherSide);
+                        attachedTo, note, showingTheOtherSide, strength);
     }
 
     public boolean isAttached() {

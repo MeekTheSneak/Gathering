@@ -57,6 +57,9 @@ public final class GameFold {
             case GameEvent.CardNoted noted ->
                     state.withCard(state.requireCard(noted.card()).withNote(noted.note()));
 
+            case GameEvent.CardStrengthSet written ->
+                    state.withCard(state.requireCard(written.card()).withStrength(written.strength()));
+
             case GameEvent.CardTurnedOver turned -> state.withCard(
                     state.requireCard(turned.card()).turnedOver(turned.showingTheOtherSide()));
 

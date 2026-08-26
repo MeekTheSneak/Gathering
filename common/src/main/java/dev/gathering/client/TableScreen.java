@@ -1194,7 +1194,7 @@ public final class TableScreen extends Screen {
 
     /** What a card nobody may name looks like on its way across: the back of one. */
     private static final CardView A_SLEEVE = new CardView.Anonymous(
-            null, false, java.util.Map.of(), null, null, null);
+            null, false, java.util.Map.of(), null, null, null, null);
 
     /**
      * The cards currently crossing the felt on their way somewhere.
@@ -3165,6 +3165,10 @@ public final class TableScreen extends Screen {
             // somebody writing it on the card, and every other player reading it is the
             // point - so it goes on every card in the selection at once, like the rest.
             entries.add(entry("write", () -> openTheNote(card, targets)));
+            // The other pen, in the corner where the numbers are. Typed, never worked out -
+            // see CardStrength. A creature that is a 6/6 this turn says 6/6 because somebody
+            // said so, which is how it works across a table with no computer on it.
+            entries.add(entry("strength", () -> openTheStrength(card, targets)));
             if (card.host().isPresent()) {
                 entries.add(entry("detach", () -> eachTarget(board, targets, target ->
                         new GameEvent.CardAttached(me, target, null))));
@@ -3597,6 +3601,29 @@ public final class TableScreen extends Screen {
                 written -> {
                     for (CardInstanceId target : targets) {
                         send(new GameEvent.CardNoted(me, target, written));
+                    }
+                },
+                this));
+    }
+
+    /**
+     * The box for typing a power and toughness over the printed ones.
+     *
+     * <p>The same screen the pen uses, because it is the same act: something a player writes
+     * on a card and everybody reads. What differs is how much fits and what the words say.
+     */
+    private void openTheStrength(CardView.Visible card, List<CardInstanceId> targets) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null) {
+            return;
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new NoteScreen(
+                NoteScreen.Pen.STRENGTH,
+                Component.translatable("screen.gathering.strength.title"),
+                card.writtenStrength().orElse(""),
+                written -> {
+                    for (CardInstanceId target : targets) {
+                        send(new GameEvent.CardStrengthSet(me, target, written));
                     }
                 },
                 this));
@@ -4171,7 +4198,10 @@ public final class TableScreen extends Screen {
             graphics.fill(where.x(), where.y(), where.right(), where.bottom(), TAPPED_TINT);
         }
         drawWriting(graphics, card, where);
-        drawCounters(graphics, card, where);
+        // The numbers first, because they sit in the corner and the counters stack up off
+        // the top of them. A power and toughness under a pile of counters is a card whose
+        // most important number is the one you cannot see.
+        drawCounters(graphics, card, where, drawStrength(graphics, card, where));
         if (hovered) {
             graphics.renderOutline(where.x(), where.y(), where.width(), where.height(), ACCENT);
         }
@@ -4196,12 +4226,29 @@ public final class TableScreen extends Screen {
     }
 
     /**
+     * The power and toughness somebody wrote on it, in the corner where the printed ones are.
+     *
+     * <p>Where the card already puts them, so a board reads the same whether the numbers are
+     * printed or written. Right-hand corner, one line, on a badge dark enough to be read over
+     * whatever the art is doing down there.
+     *
+     * <p>Nothing is worked out here. What is drawn is exactly what somebody typed - see
+     * {@link dev.gathering.core.game.CardStrength}, and section 16 of the brief.
+     *
+     * @return the line the counters may stack up from, which is above this when there is one
+     */
+    private int drawStrength(GuiGraphics graphics, CardView card, Rect art) {
+        return CardInspectPanel.drawStrength(
+                graphics, this.font, card.writtenStrength().orElse(null), art);
+    }
+
+    /**
      * The counters on a card, along its bottom edge.
      *
      * <p>On the card rather than beside it, because a counter that lives next to a card stops
      * being on that card the moment somebody moves either of them.
      */
-    private void drawCounters(GuiGraphics graphics, CardView card, Rect art) {
+    private void drawCounters(GuiGraphics graphics, CardView card, Rect art, int floor) {
         if (card.counters().isEmpty()) {
             return;
         }
@@ -4241,7 +4288,7 @@ public final class TableScreen extends Screen {
                 counts.add(null);
             }
         }
-        int line = art.bottom() - 2 - this.font.lineHeight * lines.size();
+        int line = floor - this.font.lineHeight * lines.size();
         for (int index = 0; index < lines.size(); index++) {
             Component amount = counts.get(index);
             int amountRoom = amount == null ? 0 : this.font.width(amount) + 3;

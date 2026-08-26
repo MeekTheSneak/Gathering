@@ -149,7 +149,8 @@ class VisibilityInvariantTest {
                 false,
                 null,
                 null,
-                false);
+                false,
+                null);
         assertThat(card.counters().keySet())
                 .describedAs("a card's counters came back in a different order")
                 .containsExactlyElementsOf(names);

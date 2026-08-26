@@ -467,4 +467,45 @@ public final class CardInspectPanel {
         GuiText.draw(graphics, font, Component.literal(note),
                 art.x() + 2, art.y() + 2, art.width() - 4, WRITING_TEXT);
     }
+
+    /**
+     * The box a written power and toughness is drawn in.
+     *
+     * <p>Warm rather than the cool grey the rest of the board uses, because it is the one
+     * number on a card that somebody put there by hand, and the difference between "printed"
+     * and "we agreed this" should be visible from across the table.
+     */
+    private static final int STRENGTH_BADGE = 0xE02A1B12;
+    private static final int STRENGTH_EDGE = 0xFFD9A441;
+    private static final int STRENGTH_TEXT = 0xFFFFE6B0;
+
+    /**
+     * The power and toughness somebody wrote on it, in the corner where the printed ones are.
+     *
+     * <p>Where the card already puts them, so a board reads the same whether the numbers are
+     * printed or written - and here rather than in either screen, so a card in a graveyard
+     * and the same card on the felt can never come to look like different features.
+     *
+     * <p>Nothing is worked out. What is drawn is exactly what somebody typed - see
+     * {@link dev.gathering.core.game.CardStrength}, and section 16 of the brief.
+     *
+     * @return the line anything stacking up the card may start from, which is above this
+     *     when there is something written and the card's own bottom edge when there is not
+     */
+    public static int drawStrength(GuiGraphics graphics, Font font, String strength, Rect art) {
+        int floor = art.bottom() - 2;
+        if (strength == null || strength.isBlank() || art.height() < font.lineHeight + 4) {
+            return floor;
+        }
+        Component numbers = Component.literal(strength);
+        int room = Math.max(1, art.width() - 4);
+        int wide = Math.min(room, font.width(numbers) + 4);
+        int high = font.lineHeight + 1;
+        int left = art.right() - 2 - wide;
+        int top = floor - high;
+        graphics.fill(left, top, left + wide, top + high, STRENGTH_BADGE);
+        graphics.renderOutline(left, top, wide, high, STRENGTH_EDGE);
+        GuiText.drawCentredAt(graphics, font, numbers, left + wide / 2, top + 1, 1f, STRENGTH_TEXT);
+        return top - 1;
+    }
 }

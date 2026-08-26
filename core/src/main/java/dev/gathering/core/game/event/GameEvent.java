@@ -241,6 +241,38 @@ public sealed interface GameEvent {
     }
 
     /**
+     * Writing a power and toughness over the printed ones, or taking the writing off.
+     *
+     * <p>The same pen as {@link CardNoted}, in the corner of the card where the numbers are.
+     * A separate event rather than a note that happens to look like numbers, because the two
+     * are drawn in different places and a reminder that reads "4/5" is a reminder, not a
+     * creature that is a 4/5.
+     *
+     * <p>Typed, never worked out. Nothing in the mod adds counters to printed numbers - see
+     * {@link dev.gathering.core.game.CardStrength} for why that is deliberate.
+     */
+    record CardStrengthSet(SeatId actor, CardInstanceId card, String strength) implements GameEvent {
+
+        public CardStrengthSet {
+            strength = dev.gathering.core.game.CardStrength.clean(strength);
+        }
+
+        /** Whether this takes the writing off rather than putting it on. */
+        public boolean isBlank() {
+            return strength == null;
+        }
+
+        @Override
+        public LogLine describe(GameState before) {
+            // The numbers are on the card, so the line says whose card changed and not to
+            // what. A log that repeated every pump would be a log of pumps.
+            return LogLine.of(
+                    isBlank() ? "log.gathering.card_strength_cleared" : "log.gathering.card_strength_set",
+                    actor, CardRef.publicRefFor(before, card));
+        }
+    }
+
+    /**
      * Turning a card to its other printed face, or back.
      *
      * <p>Not the same as turning it face down. A transformed permanent is public on both
