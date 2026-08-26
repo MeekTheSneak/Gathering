@@ -5800,6 +5800,15 @@ public final class DevScene {
     }
 
     private static void finish(Minecraft client, String why) {
+        // Anything drawn at a scale nobody asked for, anywhere in the whole run. A power and
+        // toughness meant for the corner of a card was once drawn eighteen times too big,
+        // covering the board in letterforms too large to read as letters - and the build was
+        // green, the game tests passed, and the only evidence was the colour histogram of a
+        // screenshot. This is the check that would have failed. See GuiText.wrongScales.
+        if (GuiText.wrongScales() > 0) {
+            fail("text was drawn at a scale nobody asked for " + GuiText.wrongScales()
+                    + " times - an int width handed to a float scale, almost certainly");
+        }
         System.out.println("[devscene] " + why + "; took " + TAKEN);
         // How far it actually got, on its own line, because "failures: 0" is only worth
         // anything alongside it. A run that stopped a third of the way through and found

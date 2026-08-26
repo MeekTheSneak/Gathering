@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.core.ui.TextScale;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.locale.Language;
@@ -21,7 +22,21 @@ import net.minecraft.util.FormattedCharSequence;
 public final class GuiText {
 
     /** Below this the font stops being legible, so trimming beats shrinking. */
-    private static final float MINIMUM_SCALE = 0.6f;
+    private static final float MINIMUM_SCALE = TextScale.SMALLEST;
+
+    /**
+     * How many times something has been drawn at a scale nobody asked for.
+     *
+     * <p>Not a log line: a mistake like this happens every frame, and a log that says so a
+     * hundred times a second is a log nobody reads. It is a number the scripted run reads at
+     * the end and fails on, which is the only place that can see the whole mod being drawn.
+     */
+    private static int wrongScales;
+
+    /** How many times text has been drawn at a scale outside the range anything here uses. */
+    public static int wrongScales() {
+        return wrongScales;
+    }
 
     private static final String ELLIPSIS = "...";
 
@@ -112,6 +127,15 @@ public final class GuiText {
     private static void drawAt(
             GuiGraphics graphics, Font font, Component text, float x, int y,
             float scale, int colour) {
+        if (!TextScale.isSane(scale)) {
+            // Almost always an int width handed to the float scale parameter - the two ways
+            // of drawing text here take the same number of arguments and differ in one
+            // position, and Java widens the int without a word. Drawing carries on at a size
+            // somebody can read, because a crash in a render loop is worse than a label an
+            // eighth too small; the count is what the scripted run fails on. See TextScale.
+            wrongScales++;
+            scale = TextScale.sane(scale);
+        }
         FormattedCharSequence sequence = Language.getInstance().getVisualOrder(text);
         graphics.pose().pushPose();
         graphics.pose().translate(
