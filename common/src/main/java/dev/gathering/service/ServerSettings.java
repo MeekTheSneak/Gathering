@@ -1,5 +1,6 @@
 package dev.gathering.service;
 
+import dev.gathering.core.config.ConfigEdit;
 import dev.gathering.core.config.GatheringConfig;
 import dev.gathering.core.config.Toml;
 import dev.gathering.core.config.TomlException;
@@ -46,6 +47,45 @@ public final class ServerSettings {
         Path file = platform.configDirectory().resolve(FILE_NAME);
         active = readOrDefault(file);
         return active;
+    }
+
+    /**
+     * Changes one setting, in the file and in memory.
+     *
+     * <p>The file first, because the file is what the server comes back up on: a setting
+     * changed in game that a restart forgot would be worse than one that could not be changed
+     * at all. Then the whole file is read again rather than the one value patched into what is
+     * held, so what the server is running on is always what somebody would read off the disk.
+     *
+     * <p>What has to be re-read after a change - the shop's shelf, the loot pool, which set is
+     * current - is the caller's, because those live in a layer this one knows nothing about.
+     *
+     * @return what went wrong, or null if it worked
+     */
+    public static String set(Platform platform, String path, String value) {
+        Path file = platform.configDirectory().resolve(FILE_NAME);
+        String text;
+        try {
+            text = Files.isRegularFile(file)
+                    ? Files.readString(file, StandardCharsets.UTF_8)
+                    : GatheringConfig.defaultFileText();
+        } catch (IOException couldNotRead) {
+            return "Could not read " + FILE_NAME + ": " + couldNotRead.getMessage();
+        }
+
+        ConfigEdit.Edited edited = ConfigEdit.set(text, path, value);
+        if (!edited.worked()) {
+            return edited.problem();
+        }
+        try {
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, edited.text(), StandardCharsets.UTF_8);
+        } catch (IOException couldNotWrite) {
+            return "Could not write " + FILE_NAME + ": " + couldNotWrite.getMessage();
+        }
+        active = readOrDefault(file);
+        LOGGER.info("{} was set to {}", path, value);
+        return null;
     }
 
     /** Back to the defaults between servers, rather than one world's settings in the next. */

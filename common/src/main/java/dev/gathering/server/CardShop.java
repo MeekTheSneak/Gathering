@@ -75,12 +75,24 @@ public final class CardShop {
      * <p>Once at start, off every game thread, and not at all unless collecting is on and the
      * shop is switched on with it.
      */
+    /**
+     * Whether this server's shop is open at all.
+     *
+     * <p>Worth asking on its own, because a shopkeeper with nothing to sell shakes their head
+     * at everybody and looks like a broken villager rather than a shut shop - so anything
+     * that hires one, or explains one, needs to be able to tell those apart.
+     */
+    public static boolean isStocking() {
+        var settings = ServerSettings.get();
+        return settings.modes().collectionEnabled() && settings.collecting().sealedStoreEnabled();
+    }
+
     public static void warm() {
         stock = Stock.NOTHING;
-        var settings = ServerSettings.get();
-        if (!settings.modes().collectionEnabled() || !settings.collecting().sealedStoreEnabled()) {
+        if (!isStocking()) {
             return;
         }
+        var settings = ServerSettings.get();
         CollationService collation = CollationService.active().orElse(null);
         if (collation == null) {
             return;

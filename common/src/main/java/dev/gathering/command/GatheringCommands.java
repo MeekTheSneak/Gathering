@@ -90,6 +90,27 @@ public final class GatheringCommands {
                                 .executes(context -> auditSet(
                                         context.getSource(),
                                         StringArgumentType.getString(context, "set")))))
+                // Every setting, readable by anybody and changeable by whoever runs the
+                // server. Settings used to need a restart, which meant nobody could try
+                // limited play without shutting the server down to turn collecting on.
+                .then(Commands.literal("config")
+                        .executes(context -> listSettings(context.getSource()))
+                        .then(Commands.argument("setting", StringArgumentType.word())
+                                .suggests((context, builder) -> {
+                                    for (String name : dev.gathering.server.Settings.names()) {
+                                        builder.suggest(name);
+                                    }
+                                    return builder.buildFuture();
+                                })
+                                .executes(context -> showSetting(
+                                        context.getSource(),
+                                        StringArgumentType.getString(context, "setting")))
+                                .then(Commands.argument("value", StringArgumentType.greedyString())
+                                        .requires(source -> source.hasPermission(2))
+                                        .executes(context -> setSetting(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "setting"),
+                                                StringArgumentType.getString(context, "value"))))))
                 // What the server lends, and re-reading the folder without a restart. An
                 // admin who has just written a decklist should not have to bounce the server
                 // to lend it: for the one feature whose whole point is a new player's first
@@ -104,6 +125,50 @@ public final class GatheringCommands {
                 .then(Commands.literal("table")
                         .then(Commands.literal("end")
                                 .executes(context -> endSession(context.getSource()))));
+    }
+
+    /** Every setting and what it is currently set to. */
+    private static int listSettings(CommandSourceStack source) {
+        java.util.List<String> names = dev.gathering.server.Settings.names();
+        source.sendSuccess(() -> Component.translatable(
+                "message.gathering.config_count", names.size()), false);
+        for (String name : names) {
+            source.sendSuccess(() -> Component.literal(
+                    "  " + name + " = " + dev.gathering.server.Settings.valueOf(name)), false);
+        }
+        return names.size();
+    }
+
+    private static int showSetting(CommandSourceStack source, String name) {
+        if (!dev.gathering.server.Settings.names().contains(name)) {
+            source.sendFailure(Component.translatable("message.gathering.config_unknown", name));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(
+                name + " = " + dev.gathering.server.Settings.valueOf(name)), false);
+        return 1;
+    }
+
+    /**
+     * Changes one, writes it to the file, and brings the server back into step with it.
+     *
+     * <p>Announced to the whole server rather than to whoever typed it: what a server is for
+     * is not a private setting, and somebody midway through opening a booster deserves to
+     * know the rules changed underneath them.
+     */
+    private static int setSetting(CommandSourceStack source, String name, String value) {
+        var changed = dev.gathering.server.Settings.set(name, value);
+        if (!changed.worked()) {
+            source.sendFailure(Component.literal(changed.problem()));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.translatable(
+                "message.gathering.config_set", name,
+                dev.gathering.server.Settings.valueOf(name)), true);
+        for (String note : changed.notes()) {
+            source.sendSuccess(() -> Component.literal("  " + note), false);
+        }
+        return 1;
     }
 
     /** What is on the shelf, for anybody: knowing what can be borrowed is not privileged. */
