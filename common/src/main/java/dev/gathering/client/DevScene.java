@@ -1605,8 +1605,55 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
+            case 146 -> {
+                // "Many of the elements of the table gui phase in and out as you scroll in
+                // and out." Photographed at four heights rather than reasoned about: whatever
+                // comes and goes has to be visible in the pictures side by side.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 147 -> {
+                expectScreen(client, "the board on the block to zoom", TableScreen.class);
+                scrollTheBoard(client, 6);
+                advance(SETTLE / 2);
+            }
+            case 148 -> {
+                shoot(client, "57-zoom-1-closest");
+                scrollTheBoard(client, -2);
+                advance(SETTLE / 2);
+            }
+            case 149 -> {
+                shoot(client, "57-zoom-2");
+                scrollTheBoard(client, -2);
+                advance(SETTLE / 2);
+            }
+            case 150 -> {
+                shoot(client, "57-zoom-3");
+                scrollTheBoard(client, -2);
+                advance(SETTLE / 2);
+            }
+            case 151 -> {
+                shoot(client, "57-zoom-4-furthest");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
         }
+    }
+
+    /** Turns the wheel over the middle of the board, in whichever direction. */
+    private static void scrollTheBoard(Minecraft client, int notches) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to zoom");
+            return;
+        }
+        int x = client.getWindow().getGuiScaledWidth() / 2;
+        int y = client.getWindow().getGuiScaledHeight() / 2;
+        for (int turn = 0; turn < Math.abs(notches); turn++) {
+            board.mouseScrolled(x, y, 0, Math.signum(notches));
+        }
+        System.out.println("[devscene] turned the wheel " + notches + " on the block");
     }
 
     /** Turns the written card back up and bins it, so a pile screen can be opened over it. */

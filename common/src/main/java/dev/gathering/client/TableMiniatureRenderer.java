@@ -174,6 +174,31 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     public TableMiniatureRenderer(BlockEntityRendererProvider.Context context) {
     }
 
+    /**
+     * How far from its own block this renderer draws, so the board is not culled away.
+     *
+     * <p>The default is the block's own cube, and the board is not: it is drawn across the
+     * whole cluster from the corner block that holds the session, which is up to four tables
+     * of two blocks each. Zoom the in-world view right in and the corner block leaves the
+     * frustum while the middle of the board fills the window - and the whole board vanishes,
+     * felt and cards and all, because the one block its renderer was measured against is off
+     * screen. Photographed at four heights: at the closest one there was nothing on the table
+     * at all.
+     *
+     * <p>Sized to the largest cluster rather than to this one, both ways from the corner. A
+     * cluster is at most four tables in a line and this is asked while the world is being
+     * culled, so a box that is a little generous costs nothing and a box worked out from the
+     * live board would be asking the session a question during culling.
+     *
+     * <p>Not an {@code @Override}: this is NeoForge's own extension to the renderer interface
+     * and the same class is loaded on Fabric, where nothing calls it and vanilla culls by
+     * chunk section instead. The signature is what matters - NeoForge finds it by name.
+     */
+    public net.minecraft.world.phys.AABB getRenderBoundingBox(TableBlockEntity table) {
+        int reach = TableCluster.MAX_TABLES * dev.gathering.core.table.TableCell.BLOCKS_PER_TABLE;
+        return new net.minecraft.world.phys.AABB(table.getBlockPos()).inflate(reach, 1, reach);
+    }
+
     @Override
     public void render(
             TableBlockEntity table, float partialTick, PoseStack poseStack,
