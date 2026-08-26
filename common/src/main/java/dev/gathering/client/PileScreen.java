@@ -47,6 +47,10 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     /** Over a card the player has said they do not want on top. */
     private static final int SENT_AWAY = 0xB0101418;
 
+    /** What a player wrote on a card, and the band it is written on. Same as the board's. */
+    private static final int WRITING_TEXT = 0xFFBFD8FF;
+    private static final int WRITING_BAND = 0xC0000000;
+
     private static final int MARGIN = 14;
     private static final int GAP = 4;
     private static final int HEADER = 16;
@@ -479,11 +483,21 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             graphics.blit(CardFaceRenderer.CARD_BACK, art.x(), art.y(), 0f, 0f,
                     art.width(), art.height(), art.width(), art.height());
         } else {
+            // Whichever side the table has it turned to. A card looked at through this
+            // screen and the same card on the felt have to be the same card.
             summaryOf(card).ifPresentOrElse(
                     summary -> CardInspectPanel.renderArt(
-                            graphics, summary, art.x(), art.y(), art.width(), art.height()),
+                            graphics, summary, card.turnedOver(),
+                            art.x(), art.y(), art.width(), art.height()),
                     () -> GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height()));
         }
+        // And what somebody wrote on it, across the top, the way the board writes it.
+        card.writtenOn().ifPresent(written -> {
+            graphics.fill(art.x(), art.y() + 1, art.right(), art.y() + this.font.lineHeight + 1,
+                    WRITING_BAND);
+            GuiText.draw(graphics, this.font, net.minecraft.network.chat.Component.literal(written),
+                    art.x() + 2, art.y() + 2, art.width() - 4, WRITING_TEXT);
+        });
         if (away) {
             // Greyed rather than moved. A card that jumped to another row every time somebody
             // changed their mind would make a scry of three a puzzle about where things went.

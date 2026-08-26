@@ -836,7 +836,11 @@ public final class TableScreen extends Screen {
         // Nothing is described while something is in the air. A tooltip saying what a click
         // on a library does is an answer to a question nobody is asking any more once the
         // library is being carried - and it is drawn right where the thing being carried is.
-        if (!tooltip.isEmpty() && !showingLog && !showingKeys && held == null) {
+        //
+        // Nor while the read key is down: that draws the card full size at the cursor, and a
+        // tooltip under it is a second answer to a question already being answered better.
+        if (!tooltip.isEmpty() && !showingLog && !showingKeys && held == null
+                && !CardZoomOverlay.isActive()) {
             // Pushed down far enough that it cannot land on the status bar. Vanilla clamps a
             // tooltip to the window and knows nothing about the one row of this screen that
             // is always there, so a card near the top had its tooltip drawn over the life

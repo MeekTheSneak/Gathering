@@ -1575,8 +1575,68 @@ public final class DevScene {
                 shoot(client, "55-flipped-on-the-block");
                 advance(SETTLE / 2);
             }
+            case 143 -> {
+                // The written card, put in the graveyard and read back through the pile
+                // screen. A card looked at through one screen and lying on the felt in
+                // another has to be the same card.
+                sendTheWrittenCardToTheGraveyard(client);
+                // And back off the block. The zone slots on the real table are measured on
+                // the felt rather than on the window, so a harness aiming at one with a
+                // screen coordinate is aiming at nothing.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 144 -> {
+                clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
+                advance(SETTLE);
+            }
+            case 145 -> {
+                expectScreen(client, "a graveyard holding a written card", PileScreen.class);
+                if (!theGraveyardHoldsTheWrittenCard()) {
+                    fail("the card written on is not in the graveyard the screen opened");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                shoot(client, "56-a-note-in-the-graveyard");
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
         }
+    }
+
+    /** Turns the written card back up and bins it, so a pile screen can be opened over it. */
+    private static void sendTheWrittenCardToTheGraveyard(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null || written == null) {
+            fail("there was no written card to bin");
+            return;
+        }
+        ClientTableActions.send(table, new GameEvent.CardFacingSet(
+                me, written, dev.gathering.core.game.Facing.FACE_UP));
+        ClientTableActions.send(table, new GameEvent.CardMoved(
+                me, written, dev.gathering.core.game.ZoneRef.of(me, Zone.GRAVEYARD),
+                dev.gathering.core.game.Placement.TOP));
+        System.out.println("[devscene] binned the written card");
+    }
+
+    /** Whether the note reached the client on the card now sitting in the graveyard. */
+    private static boolean theGraveyardHoldsTheWrittenCard() {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null || written == null) {
+            return false;
+        }
+        for (CardView card : view.seat(me).zone(Zone.GRAVEYARD).cards()) {
+            if (card instanceof CardView.Visible visible && visible.id().equals(written)) {
+                return card.writtenOn().isPresent();
+            }
+        }
+        return false;
     }
 
     /** How many of this player's permanents were face down before the flip. */
