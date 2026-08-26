@@ -48,6 +48,11 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      * <p>Two pixels. The surface is the table's whole footprint, so a pixel is a sixteenth of
      * a block and the whole span is two blocks across: two pixels is a two-thirty-second of
      * the span, and a playmat comes out a fraction under the two-by-one it sits in.
+     *
+     * <p>Not less than two, and the reason is the life totals rather than the felt. Each seat's
+     * life sits on the table just past the far edge of its own mat, so the strip between two
+     * facing mats has to hold two of them back to back: at one pixel they overlap, and there
+     * is a test that says so.
      */
     private static final int MAT_INSET_PIXELS = 2;
 

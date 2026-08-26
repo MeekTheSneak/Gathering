@@ -50,8 +50,16 @@ public final class TableCameraView {
     private static final double HIGHEST = 4.5;
     private static final double STARTING_HEIGHT = 2.2;
 
-    /** A little air around whatever is being framed, so nothing sits against the edge. */
-    private static final double BREATHING_ROOM = 1.12;
+    /**
+     * A little air around whatever is being framed, so nothing sits against the edge.
+     *
+     * <p>Nearly none. The seated view frames the same rectangle with none at all - it already
+     * knows the status row and the hand are not table - and the two views are supposed to
+     * differ only in whether a point is a pixel or a place on the felt. A tenth of air here
+     * and none there made the board on the block a tenth smaller than the same board on the
+     * screen, which is a difference a player reads as the real table being the worse one.
+     */
+    private static final double BREATHING_ROOM = 1.03;
 
     /**
      * How much of the window the screen's own furniture covers, top and bottom.
