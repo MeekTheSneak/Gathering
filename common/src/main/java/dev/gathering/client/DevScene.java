@@ -1699,6 +1699,16 @@ public final class DevScene {
             case 156 -> {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
+                // Dyed with the board still open and nothing else touching the world, which
+                // is the case that was broken: the colour is a tint baked into the chunk's
+                // mesh, and being told the block entity changed does not rebuild a mesh. The
+                // two pictures either side of this are the whole check - a table that only
+                // goes purple when something else happens nearby is a dye that looks broken.
+                dyeTheTable(client);
+                advance(SETTLE);
+            }
+            case 157 -> {
+                shoot(client, "60-the-felt-dyed");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -3599,6 +3609,29 @@ public final class DevScene {
             }
         }
         System.out.println("[devscene] the whole table is framed, every mat whole");
+    }
+
+    /**
+     * Dyes the felt on the server, with nothing else touching the world.
+     *
+     * <p>Through the block entity rather than by putting dye in a hand and clicking, because
+     * what is being photographed is whether the client redraws - and a right-click on a table
+     * is a block update in its own right, which would rebuild the chunk anyway and hide the
+     * exact fault this is here for.
+     */
+    private static void dyeTheTable(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            fail("there was no server to dye a table on");
+            return;
+        }
+        BlockPos origin = table;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            dev.gathering.block.TableBlock.entityAt(level, origin)
+                    .ifPresent(felt -> felt.dye(net.minecraft.world.item.DyeColor.PURPLE));
+            System.out.println("[devscene] dyed the felt purple");
+        });
     }
 
     /** How far each pan drag goes, in window units: unambiguous, and well short of the edge. */

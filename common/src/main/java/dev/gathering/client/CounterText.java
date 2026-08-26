@@ -34,4 +34,20 @@ public final class CounterText {
                 ? counter.substring(0, 1).toUpperCase(Locale.ROOT) + counter.substring(1)
                 : counter;
     }
+
+    /**
+     * What a pile of this many of this counter says on a card, if it says one thing.
+     *
+     * <p>Two +1/+1 counters are a +2/+2 creature, and that is what goes on the card: nobody
+     * at a table reads "+1/+1, times two" and does the multiplication in their head every
+     * time they look at the board. Charge, stun and loyalty have no arithmetic to do, so
+     * they get nothing back here and the caller writes the name with a count beside it.
+     *
+     * <p>The rule itself is {@link dev.gathering.core.game.CardInstance.Counters}', not this
+     * class's - it is a fact about Magic rather than a way of drawing - and it is tested
+     * there.
+     */
+    public static String addedUp(String counter, int howMany) {
+        return dev.gathering.core.game.CardInstance.Counters.addedUp(counter, howMany);
+    }
 }

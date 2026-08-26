@@ -220,7 +220,61 @@ public record CardInstance(
         public static final String PLUS_ONE_PLUS_ONE = "+1/+1";
         public static final String MINUS_ONE_MINUS_ONE = "-1/-1";
 
+        /**
+         * A counter whose name is a power and toughness, so that several of them add up.
+         *
+         * <p>Two +1/+1 counters are +2/+2. That is not a way of writing it, it is what the
+         * creature is - it is the number a player reads off the board and adds to the
+         * printed one, and nobody at a table says "plus one plus one, times two". Written
+         * out as a count beside a name, the way charge and stun and loyalty counters are,
+         * it makes the reader do the multiplication every time they look at the board.
+         *
+         * <p>Matched rather than listed, so a card that arrives with +2/+2 counters on it -
+         * they exist - adds up the same way without anybody adding a constant for it.
+         */
+        private static final java.util.regex.Pattern POWER_AND_TOUGHNESS =
+                java.util.regex.Pattern.compile("([+-])(\\d+)/([+-])(\\d+)");
+
         private Counters() {
+        }
+
+        /** Whether several of this counter are read as one bigger counter. */
+        public static boolean addUp(String counter) {
+            return counter != null && POWER_AND_TOUGHNESS.matcher(counter).matches();
+        }
+
+        /**
+         * What a pile of this many of this counter says on the card.
+         *
+         * <p>{@code "+2/+2"} for two +1/+1 counters, and {@code null} for everything else -
+         * a charge counter has no arithmetic to do, and the caller writes its name with the
+         * count beside it instead. Null rather than the name itself so a caller cannot
+         * accidentally lose the count by treating every counter as though it added up.
+         */
+        public static String addedUp(String counter, int howMany) {
+            if (howMany <= 0 || !addUp(counter)) {
+                return null;
+            }
+            java.util.regex.Matcher parts = POWER_AND_TOUGHNESS.matcher(counter);
+            if (!parts.matches()) {
+                return null;
+            }
+            return side(parts.group(1), parts.group(2), howMany)
+                    + "/" + side(parts.group(3), parts.group(4), howMany);
+        }
+
+        /**
+         * One half of it, multiplied out.
+         *
+         * <p>{@code long} on the way through because a player who has been pressing the plus
+         * button all game can get a counter into the millions, and a card reading a negative
+         * power because the arithmetic wrapped would be worse than one reading a silly
+         * number. Clamped to what an int holds, which is far past any real board.
+         */
+        private static String side(String sign, String size, int howMany) {
+            long total = Long.parseLong(size) * howMany;
+            long capped = Math.min(total, Integer.MAX_VALUE);
+            return sign + capped;
         }
     }
 }

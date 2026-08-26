@@ -4085,6 +4085,14 @@ public final class TableScreen extends Screen {
         // that gets trimmed off - it is written separately so it is fitted separately.
         List<Component> counts = new ArrayList<>();
         for (Map.Entry<String, Integer> counter : card.counters().entrySet()) {
+            // Several +1/+1 counters are one bigger counter rather than a count of small
+            // ones, so they are written that way: "+2/+2", not "+1/+1 x2".
+            String together = CounterText.addedUp(counter.getKey(), counter.getValue());
+            if (together != null) {
+                lines.add(Component.literal(together));
+                counts.add(null);
+                continue;
+            }
             Component name = Component.literal(CounterText.name(counter.getKey()));
             if (counter.getValue() == 1) {
                 lines.add(name);

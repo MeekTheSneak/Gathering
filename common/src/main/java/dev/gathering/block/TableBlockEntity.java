@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import dev.gathering.core.table.TableCell;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -483,6 +484,37 @@ public class TableBlockEntity extends BlockEntity {
         return true;
     }
 
+    /**
+     * Asks the client to draw this table again, because its colour has changed.
+     *
+     * <p>The felt is a tint on a texture rather than sixteen textures, and a tint is baked
+     * into the chunk's mesh when it is built. Telling the client the block entity's data has
+     * changed does not rebuild that mesh - so a table dyed while somebody was looking at it
+     * stayed the old colour until something else happened nearby that rebuilt the chunk,
+     * which is a fix nobody can find and looks exactly like the dye not working.
+     *
+     * <p>All four quarters, not just this one. One block entity owns a two-by-two table and
+     * every quarter's tint asks it for the colour, so all four meshes are out of date.
+     *
+     * <p>Done here rather than in a packet handler because {@code onDataPacket} is a NeoForge
+     * extension and this class is loader-free. Both loaders arrive at {@code loadAdditional}
+     * for a block entity update, so this catches the update either way - and catches a
+     * chunk-load with a colour on it, where the mesh is being built anyway and marking it
+     * dirty costs nothing.
+     */
+    private void redrawTheFelt() {
+        if (level == null || !level.isClientSide) {
+            return;
+        }
+        BlockState state = getBlockState();
+        for (int acrossX = 0; acrossX < TableCell.BLOCKS_PER_TABLE; acrossX++) {
+            for (int acrossZ = 0; acrossZ < TableCell.BLOCKS_PER_TABLE; acrossZ++) {
+                BlockPos quarter = worldPosition.offset(acrossX, 0, acrossZ);
+                level.setBlocksDirty(quarter, state, level.getBlockState(quarter));
+            }
+        }
+    }
+
     public Optional<UUID> occupantOf(Side side) {
         return Optional.ofNullable(claims.get(side));
     }
@@ -546,7 +578,11 @@ public class TableBlockEntity extends BlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
+        DyeColor was = felt;
         felt = tag.contains(FELT_KEY) ? DyeColor.byName(tag.getString(FELT_KEY), null) : null;
+        if (was != felt) {
+            redrawTheFelt();
+        }
         commandZone = tag.getBoolean(COMMAND_ZONE_KEY);
         formatChosen = tag.getBoolean(FORMAT_CHOSEN_KEY);
 
