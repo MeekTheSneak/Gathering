@@ -89,6 +89,31 @@ public record CardSummary(
      * transform card has two of everything. The difference is whether the faces carry their
      * own art, which {@link #of} has already sorted out.
      */
+    /**
+     * The one side to draw, given which way up the card is sitting.
+     *
+     * <p>A card lies on a table with one side up. A transform card has two printed sides and
+     * shows whichever is up; a split or flip card has two faces of rules text on one piece of
+     * card and shows that one piece whichever way it is read. Drawing every printed side at
+     * once - which is what asking for {@link #printedSides()} and laying them out in a row
+     * amounts to - turns a transform card into two half-size cards side by side, which is
+     * neither of those things and is not how the card exists.
+     *
+     * @param flipped whether this card is showing its other side
+     */
+    public CardFaceSummary sideShown(boolean flipped) {
+        List<CardFaceSummary> printed = printedSides();
+        if (printed.size() < 2) {
+            return printed.get(0);
+        }
+        return flipped ? printed.get(1) : printed.get(0);
+    }
+
+    /** Whether this card has a second printed side to turn over to. */
+    public boolean hasAnotherSide() {
+        return printedSides().size() > 1;
+    }
+
     public List<CardFaceSummary> printedSides() {
         List<CardFaceSummary> printed = faces().stream()
                 .filter(face -> face.readableImage().isPresent())

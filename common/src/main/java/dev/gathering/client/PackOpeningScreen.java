@@ -217,8 +217,8 @@ public final class PackOpeningScreen extends Screen {
             int y = gridTop + row * (laid.cardHeight() + GAP);
             CardComponent card = revealed.get(index);
             ClientCardCache.get().summary(card).ifPresentOrElse(
-                    summary -> CardInspectPanel.renderArt(
-                            graphics, summary, x, y, laid.cardWidth(), laid.cardHeight()),
+                    summary -> CardInspectPanel.renderArt(graphics, summary, card.flipped(),
+                            x, y, laid.cardWidth(), laid.cardHeight()),
                     () -> GatheringSprites.inset(
                             graphics, x, y, laid.cardWidth(), laid.cardHeight()));
             // Held over a card, the read-a-card key shows it here exactly as it does over a

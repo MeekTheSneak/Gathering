@@ -443,7 +443,8 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         }
 
         Rect art = card.shrink(DeckScreenLayout.FRAME);
-        CardInspectPanel.renderArt(graphics, summary.get(), art.x(), art.y(), art.width(), art.height());
+        CardInspectPanel.renderArt(graphics, summary.get(), row.card().flipped(),
+                art.x(), art.y(), art.width(), art.height());
         if (!info.isEmpty()) {
             Rect text = info.shrink(DeckScreenLayout.FRAME);
             CardInspectPanel.renderText(graphics, summary.get(), text.x(), text.y(), text.width(), text.height());

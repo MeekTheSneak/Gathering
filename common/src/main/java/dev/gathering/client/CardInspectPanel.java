@@ -113,7 +113,7 @@ public final class CardInspectPanel {
             GuiGraphics graphics, CardSummary summary, int anchorX, int anchorY, int screenWidth, int screenHeight) {
         // Art per printed side, text per face: a split card is one picture and two rules
         // boxes.
-        List<CardFaceSummary> faces = summary.printedSides();
+        List<CardFaceSummary> faces = List.of(summary.sideShown(false));
         Font font = Minecraft.getInstance().font;
 
         int artHeight = Mth.clamp(
@@ -183,8 +183,21 @@ public final class CardInspectPanel {
      */
     public static void renderArt(
             GuiGraphics graphics, CardSummary summary, int x, int y, int width, int height) {
-        List<CardFaceSummary> faces = summary.printedSides();
-        int count = Math.max(1, faces.size());
+        renderArt(graphics, summary, false, x, y, width, height);
+    }
+
+    /**
+     * The same, showing the side this card is currently sitting on.
+     *
+     * <p>One side, not all of them. A transform card drawn as both its printed sides side by
+     * side comes out as two half-size cards, which is not a thing that exists - a card lies
+     * on a table one way up. Which way up is the caller's, because it is state about that
+     * particular card rather than about the printing.
+     */
+    public static void renderArt(GuiGraphics graphics, CardSummary summary, boolean flipped,
+            int x, int y, int width, int height) {
+        List<CardFaceSummary> faces = List.of(summary.sideShown(flipped));
+        int count = 1;
         if (width <= 0 || height <= 0) {
             return;
         }
@@ -247,7 +260,7 @@ public final class CardInspectPanel {
             GuiGraphics graphics, CardSummary summary, int screenWidth, int screenHeight) {
         graphics.fill(0, 0, screenWidth, screenHeight, BACKDROP);
 
-        List<CardFaceSummary> faces = summary.printedSides();
+        List<CardFaceSummary> faces = List.of(summary.sideShown(false));
         int cardHeight = Math.round(screenHeight * FULL_SCREEN_HEIGHT_FRACTION);
         int cardWidth = CardShape.widthFor(cardHeight);
 
