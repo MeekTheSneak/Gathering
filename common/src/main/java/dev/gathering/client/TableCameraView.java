@@ -150,8 +150,11 @@ public final class TableCameraView {
         Minecraft client = Minecraft.getInstance();
         double perBlock = spread();
         double visible = visibleShare();
-        double aspect = Math.max(0.1, client.getWindow().getWidth()
-                / (double) Math.max(1, client.getWindow().getHeight()));
+        // The frame's own ratio where there is one, for the same reason as the spread: what
+        // was drawn beats what was configured.
+        double aspect = Math.max(0.1, TablePointer.aspect().orElseGet(() ->
+                client.getWindow().getWidth()
+                        / (double) Math.max(1, client.getWindow().getHeight())));
         double forDepth = downBlocks * BREATHING_ROOM / (visible * perBlock);
         double forWidth = acrossBlocks * BREATHING_ROOM / (aspect * perBlock);
         return heightBounded(Math.max(forDepth, forWidth));
@@ -184,10 +187,13 @@ public final class TableCameraView {
     /**
      * How many blocks of table one block of eye height shows, top to bottom of the window.
      *
-     * <p>The field of view the player chose, not a constant: somebody playing at thirty
-     * degrees and somebody playing at a hundred are looking at very different amounts of
-     * table from the same height, and framing a mat for one of them frames nothing for the
-     * other.
+     * <p>Read off the frame the game actually drew wherever there is one, and only worked
+     * out from the field-of-view setting before the first frame. The setting is not the
+     * effective angle: it goes through a private method, a sprint modifier, a potion and a
+     * loader hook, so a camera that framed from the setting alone would frame the board
+     * wrongly for exactly the players whose view is not the default one - and only while the
+     * modifier lasted. That is the same mistake the picker exists not to make, and there is
+     * no reason for the framing to make it when the answer is already captured.
      *
      * <p>Package-private rather than private because the scripted run builds a camera ray by
      * hand to check the board's picker against, and the half-angle is the one thing such a
@@ -195,6 +201,11 @@ public final class TableCameraView {
      * again is what stops the check and the framing from disagreeing about the same camera.
      */
     static double spread() {
+        return TablePointer.verticalSpread().orElseGet(TableCameraView::spreadFromTheSetting);
+    }
+
+    /** What the setting says, for the first frame, before there is a drawn one to read. */
+    private static double spreadFromTheSetting() {
         double fov = Minecraft.getInstance().options.fov().get();
         return 2 * Math.tan(Math.toRadians(Math.max(30, Math.min(110, fov)) / 2));
     }
@@ -208,8 +219,7 @@ public final class TableCameraView {
     static String report() {
         return "height=" + height
                 + " spread=" + String.format("%.4f", spread())
-                + " drawn=" + String.format("%.4f",
-                        TablePointer.verticalSpread().orElse(Double.NaN))
+                + " fromTheSetting=" + String.format("%.4f", spreadFromTheSetting())
                 + " aspect=" + String.format("%.4f",
                         TablePointer.aspect().orElse(Double.NaN))
                 + " coveredTop=" + String.format("%.4f", coveredAtTheTop)
