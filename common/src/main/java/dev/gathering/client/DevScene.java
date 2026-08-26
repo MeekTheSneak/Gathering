@@ -1341,6 +1341,36 @@ public final class DevScene {
                 client.setScreen(null);
                 advance(SETTLE / 2);
             }
+            case 123 -> {
+                client.setScreen(null);
+                aPotOnTheTable(client);
+                advance(SETTLE);
+            }
+            case 124 -> {
+                // Back at the board this run has been playing on all along, which is where
+                // the pot has to be visible if it is visible anywhere.
+                MinecraftServer server = client.getSingleplayerServer();
+                if (server == null || table == null || client.player == null) {
+                    fail("there was no table to reopen with a pot on it");
+                    return;
+                }
+                java.util.UUID who = client.player.getUUID();
+                BlockPos at = table;
+                server.execute(() -> {
+                    ServerPlayer player = server.getPlayerList().getPlayer(who);
+                    if (player != null) {
+                        dev.gathering.server.TableActions.openFor(player, at);
+                    }
+                });
+                advance(SETTLE);
+            }
+            case 125 -> {
+                expectScreen(client, "looking at a table with a pot on it",
+                        TableScreen.class);
+                thePotIsDrawnInTheMiddle(client);
+                shoot(client, "49-the-pot");
+                advance(SETTLE / 2);
+            }
             default -> finish(client, "done");
         }
     }
@@ -1430,6 +1460,72 @@ public final class DevScene {
         }
     }
 
+
+
+    /**
+     * Cards in the pot at the table this run has been playing on.
+     *
+     * <p>Put there on the server and sent out the way a real stake would be, so what is being
+     * looked at is the drawing: whether a row of cards in the middle of a table reads as a
+     * pot rather than as somebody having dropped their hand.
+     */
+    private static void aPotOnTheTable(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            fail("there was no table to put a pot on");
+            return;
+        }
+        List<dev.gathering.item.CardComponent> cards = someCards(client, 1);
+        if (cards.isEmpty()) {
+            fail("there were no looked-up cards to make a pot out of");
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            var holding = dev.gathering.block.TableSessions.anchorOf(level, where)
+                    .flatMap(anchor -> dev.gathering.block.TableBlock.entityAt(level, anchor))
+                    .orElse(null);
+            if (holding == null) {
+                fail("the table went away before a pot could go on it");
+                return;
+            }
+            for (int seat = 0; seat < 2; seat++) {
+                holding.stake(new SeatId(seat), List.of(
+                        cards.get(seat % cards.size()).toIdentity()));
+            }
+            dev.gathering.server.TableBroadcast.sendPot(level, where);
+            System.out.println("[devscene] the pot holds " + holding.pot().size() + " card(s)");
+        });
+    }
+
+    /** A pot that has been sent is a pot that is drawn, in the middle, on the table. */
+    private static void thePotIsDrawnInTheMiddle(Minecraft client) {
+        if (table == null) {
+            fail("there was no table to look for a pot on");
+            return;
+        }
+        List<dev.gathering.item.CardComponent> pot = ClientTableState.potOf(table);
+        if (pot.isEmpty()) {
+            fail("the client was never told what was in the pot");
+            return;
+        }
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to draw a pot on");
+            return;
+        }
+        Rect where = board.potOnScreen();
+        if (where.isEmpty()) {
+            fail("a table with " + pot.size() + " card(s) in the pot drew none of them");
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        if (where.x() < 0 || where.y() < 0 || where.right() > width
+                || where.bottom() > height) {
+            fail("the pot was drawn off the screen: " + where + " in " + width + "x" + height);
+        }
+    }
 
     /**
      * The question a table playing for keeps is asked.
@@ -4538,9 +4634,66 @@ public final class DevScene {
     }
 
     private static void shoot(Minecraft client, String name) {
+        nothingOverlapsAnythingElse(client, name);
         Screenshot.grab(
                 client.gameDirectory, name + ".png", client.getMainRenderTarget(), message -> { });
         TAKEN.add(name);
+    }
+
+    /**
+     * Every control on screen is on the screen, and no two are on top of each other.
+     *
+     * <p>Run at every photograph rather than left to somebody looking at the picture, which
+     * is how a pot ended up drawn across a life total: a thing checked on its own reads
+     * perfectly and still lands on top of its neighbour, and the only reliable way to catch
+     * that is to check it against everything else that can be on screen at the same time.
+     *
+     * <p>Widgets only. What is drawn rather than added - felt, mats, the pot - has its
+     * geometry checked where the geometry lives, in the pure layer, for the same reason.
+     */
+    private static void nothingOverlapsAnythingElse(Minecraft client, String name) {
+        Screen screen = client.screen;
+        if (screen == null) {
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+
+        List<AbstractWidget> shown = new ArrayList<>();
+        for (GuiEventListener child : screen.children()) {
+            if (child instanceof AbstractWidget widget && widget.visible
+                    && widget.getWidth() > 0 && widget.getHeight() > 0) {
+                shown.add(widget);
+            }
+        }
+        for (AbstractWidget widget : shown) {
+            if (widget.getX() < 0 || widget.getY() < 0
+                    || widget.getX() + widget.getWidth() > width
+                    || widget.getY() + widget.getHeight() > height) {
+                fail(name + ": \"" + widget.getMessage().getString() + "\" is off screen at "
+                        + widget.getX() + "," + widget.getY() + " "
+                        + widget.getWidth() + "x" + widget.getHeight()
+                        + " in " + width + "x" + height);
+            }
+        }
+        for (int one = 0; one < shown.size(); one++) {
+            for (int two = one + 1; two < shown.size(); two++) {
+                AbstractWidget first = shown.get(one);
+                AbstractWidget second = shown.get(two);
+                if (overlap(first, second)) {
+                    fail(name + ": \"" + first.getMessage().getString() + "\" and \""
+                            + second.getMessage().getString() + "\" are drawn on top of"
+                            + " each other");
+                }
+            }
+        }
+    }
+
+    private static boolean overlap(AbstractWidget one, AbstractWidget two) {
+        return one.getX() < two.getX() + two.getWidth()
+                && two.getX() < one.getX() + one.getWidth()
+                && one.getY() < two.getY() + two.getHeight()
+                && two.getY() < one.getY() + one.getHeight();
     }
 
     private static void finish(Minecraft client, String why) {

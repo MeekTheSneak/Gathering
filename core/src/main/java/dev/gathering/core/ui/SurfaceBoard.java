@@ -30,6 +30,13 @@ public final class SurfaceBoard implements BoardPlacement {
     }
 
     @Override
+    public Rect fromSurface(Rect onSurface) {
+        // This board draws the surface at its own size, so a rectangle on it is already a
+        // rectangle on the screen.
+        return onSurface;
+    }
+
+    @Override
     public TableSurface surface() {
         return surface;
     }

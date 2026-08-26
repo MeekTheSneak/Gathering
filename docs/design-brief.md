@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.56
+## Design Brief v1.57
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -213,6 +213,21 @@ number to leave off the top of the window.
 One key toggles between this and roam mode; a second, smaller **roam HUD** (hand strip, life totals, turn indicator, ping alerts) keeps you in the game while you walk around. All manipulation happens in the play view; the in-world view and roam HUD are read-only.
 
 **The spectator view:** any non-seated player near a table can open a read-only GUI of the full public state, and arena tables broadcast a joinable spectate camera. Spectator clients receive exactly the public payload set defined by the visibility table, nothing more, so a spectating client is incapable of leaking a hand even if modified.
+
+**Say it plainly, or don't say it.** Every word the player reads is a button, a label, or a
+statement of fact. No chat, no personality, no sentences explaining how to feel about what
+just happened. "Take it all back" is a button; "Nothing in your deck could go in the pot, so
+you are staking nothing" is a paragraph doing a label's job. The test is whether the words
+could be replaced by a shorter noun phrase or a number without losing information - if they
+could, they should be. Comments in the source are where the reasoning lives; the interface
+is where the facts live, and the two must not swap places. This applies to chat messages,
+tooltips, screen text, button labels and command output alike.
+
+**Nothing overlaps anything.** Every element drawn on the table has to be checked against
+every other element that can be on screen at the same time, not just against the empty
+felt - a thing that reads perfectly on its own and lands on top of a life total is a bug,
+and "it looked fine in the picture I took of it" is not a check. A new element either gets
+room reserved for it in the layout or it is not drawn.
 
 **The look, and themes.** Every piece of GUI art is a real texture under `assets/gathering/textures/gui/sprites`, generated from a single palette by `tools/gui_textures.py` — so the whole set stays coherent, a resource pack can replace any of it, and a second theme is a second palette rather than a second afternoon in an image editor. A player-facing theme picker ships with the settings screen. The house style, set by the deck screen: a panel flush against the left edge of the screen with its right side tapering inward and a scrollbar running down that tapered edge, and the content it describes in heavy-bordered frames to the right of it. The taper angle is baked into the texture and repeated as one constant in the layout, so a theme replacing the texture keeps the angle the scrollbar is drawn along.
 

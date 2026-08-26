@@ -357,6 +357,11 @@ public final class BoardGeometry implements BoardPlacement {
      * subtracting gave a rectangle with negative width, which draws as nothing and contains no
      * point - a mat that was simply not there for half the players.
      */
+    @Override
+    public Rect fromSurface(Rect onSurface) {
+        return surfaceRect(onSurface);
+    }
+
     private Rect surfaceRect(Rect onSurface) {
         if (onSurface.isEmpty()) {
             return Rect.NONE;

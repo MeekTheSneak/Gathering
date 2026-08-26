@@ -101,4 +101,14 @@ public interface BoardPlacement {
 
     /** The table this is a placement for, so callers can ask it how many seats there are. */
     TableSurface surface();
+
+    /**
+     * A rectangle in the table's own coordinates, as one on the screen.
+     *
+     * <p>The two boards differ in exactly this: one draws the surface at its own size and the
+     * other looks at it through a camera. Anything laid out on the surface - the pot, and
+     * whatever comes after it - goes through here rather than each board growing its own
+     * accessor for it, which is how the two ended up disagreeing about card sizes before.
+     */
+    Rect fromSurface(Rect onSurface);
 }

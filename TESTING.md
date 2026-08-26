@@ -1,8 +1,13 @@
 # Testing Gathering by hand
 
-What's built so far is **Phase 0** — the card pipeline — plus the **pure core of Phase 1**,
-which has no in-world presence yet. So: you can import decks and read cards. There is no
-table to sit at yet.
+Phases 0 to 3 are built: the card pipeline, the table and a playable game, and collection
+mode. So you can import a deck, put a table down, sit at it and play; find and buy sealed
+product, open it, and build a deck out of what you own; trade with somebody; and borrow a
+deck the server lends out.
+
+The sections below are in the order they were built rather than the order you'd try them.
+If you only have twenty minutes, do **1** (import), **5** (tables) and **6** (start a game) —
+that is the mod's spine, and everything else hangs off it.
 
 ## Setup
 
@@ -44,7 +49,7 @@ cd Gathering
 The first build pulls and decompiles Minecraft — expect **5–10 minutes**, once. After that
 it's seconds. A launch window will open; make a creative world.
 
-## The Phase 0 checklist
+## The checklist
 
 This is the deliverable from the design brief: *paste the list, get a deck, read every card
 in full resolution.*
@@ -323,6 +328,44 @@ more than eight blocks apart and it ends.
 - **Prices are in emeralds**, derived from what is inside rather than typed per product
   (`collection.sealed_price_booster` is the one number). Anything dear enough to need more than
   a stack is paid for in emerald blocks and change.
+
+### 9. Borrow a deck, and play for keeps
+
+**Loaner decks work whatever else is switched off.** They need neither import permission nor a
+collection, which is the point: a new player on a locked-down server can still play in their
+first minute.
+
+- The server writes `config/gathering-loaners/` on first start with one deck already in it.
+  Drop more decklists in there, one file each — **the file name is what players see**, so
+  `mono-red_burn.txt` shows up as "Mono Red Burn".
+- **Sit down at a table carrying no deck** and you are offered the shelf. That is the whole
+  flow; there is nothing to find. Pick one and, if a game is waiting for a deck, it goes
+  straight down.
+- `/gathering loaners` lists what is lent. `/gathering loaners reload` re-reads the folder, so
+  writing a decklist does not mean restarting the server.
+
+**Ante is off by default and needs collection mode.** Turn it on:
+
+```toml
+[ante]
+enabled = true
+cards_per_player = 1
+exclusions = ["basic lands"]
+```
+
+- **Everybody at the table is asked before the game starts**, by name, every game. It does not
+  begin until they have all said yes, and one "Not tonight" stops it. Worth trying to break:
+  sit down at a table that is mid-question and check you are asked too rather than the others
+  agreeing without you.
+- **A card the server cannot look up is never staked**, so the first for-keeps game after a
+  restart may stake nothing and say so. That is the safe direction on purpose.
+- **The pot sits face up in the middle of the table** for the whole game, and goes to whoever
+  takes the match. A drawn set gives every card back to whoever staked it, and so does ending
+  the game by hand — the pot is saved with the table, so killing the server mid-game does not
+  eat it.
+- `exclusions` understands `basic lands`, `lands`, `rares`, `mythics` and `foils`. A word it
+  does not know protects nothing **and says so in the log**, rather than silently protecting
+  everything or nothing.
 
 **What I would most like to know** is whether the ladder is paced right - whether a display box
 arrives too early or too late - and whether a few hours is the right turnover.

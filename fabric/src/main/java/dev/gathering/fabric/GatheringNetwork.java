@@ -70,6 +70,9 @@ final class GatheringNetwork {
                 dev.gathering.network.AnteAnswerPayload.TYPE,
                 dev.gathering.network.AnteAnswerPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.AntePotPayload.TYPE,
+                dev.gathering.network.AntePotPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.AnteConsentPayload.TYPE,
                 dev.gathering.network.AnteConsentPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(

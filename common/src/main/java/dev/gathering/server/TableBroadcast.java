@@ -1,5 +1,6 @@
 package dev.gathering.server;
 
+import dev.gathering.network.AntePotPayload;
 import dev.gathering.network.Sending;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableClusters;
@@ -63,6 +64,10 @@ public final class TableBroadcast {
             send(player.player(), tableOrigin, session, Optional.of(player.seat()), false);
         }
         sendAmbient(level, tableOrigin, session, seated);
+        // With the board, always. Two things that are drawn together and sent separately are
+        // two things that can disagree, and the one anybody would notice is a pot still
+        // showing on a table whose game has moved on.
+        sendPot(level, tableOrigin);
     }
 
     /**
@@ -85,6 +90,40 @@ public final class TableBroadcast {
                 continue;
             }
             send(nearby, tableOrigin, session, Optional.empty(), false);
+        }
+    }
+
+    /**
+     * Sends the pot to everybody who can see this table.
+     *
+     * <p>Alongside the board rather than inside it. Every card in a pot is face up to the
+     * room by definition, so this needs none of the visibility machinery the board needs -
+     * and the pictures go out through the same channel a public zone's do, for the same
+     * reason: a row of sleeves under a count is not a pot anybody can look at.
+     */
+    public static void sendPot(ServerLevel level, BlockPos tableOrigin) {
+        dev.gathering.core.ante.AntePot pot = TableSessions.anchorOf(level, tableOrigin)
+                .flatMap(anchor -> dev.gathering.block.TableBlock.entityAt(level, anchor))
+                .map(dev.gathering.block.TableBlockEntity::pot)
+                .orElse(dev.gathering.core.ante.AntePot.EMPTY);
+
+        List<dev.gathering.item.CardComponent> cards = new java.util.ArrayList<>(pot.size());
+        java.util.Set<java.util.UUID> printings = new java.util.LinkedHashSet<>();
+        for (dev.gathering.core.card.CardIdentity card : pot.everything()) {
+            cards.add(dev.gathering.item.CardComponent.of(card));
+            card.printing().ifPresent(printings::add);
+        }
+
+        AntePotPayload payload = new AntePotPayload(tableOrigin, cards);
+        for (ServerPlayer nearby : level.players()) {
+            if (nearby.distanceToSqr(tableOrigin.getX() + 1.0, tableOrigin.getY() + 1.0,
+                    tableOrigin.getZ() + 1.0) > AMBIENT_RANGE * AMBIENT_RANGE) {
+                continue;
+            }
+            dev.gathering.network.Sending.to(nearby, payload);
+            if (!printings.isEmpty()) {
+                CardArtPush.send(nearby, printings);
+            }
         }
     }
 

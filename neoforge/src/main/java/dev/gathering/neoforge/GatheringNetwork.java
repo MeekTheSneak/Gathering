@@ -193,6 +193,10 @@ public final class GatheringNetwork {
                 dev.gathering.network.OpenLoanersPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
+                dev.gathering.network.AntePotPayload.TYPE,
+                dev.gathering.network.AntePotPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
                 dev.gathering.network.AnteConsentPayload.TYPE,
                 dev.gathering.network.AnteConsentPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));

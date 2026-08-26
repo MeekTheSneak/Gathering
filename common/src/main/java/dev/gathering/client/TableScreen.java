@@ -82,6 +82,9 @@ public final class TableScreen extends Screen {
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
     private static final int ACCENT = 0xFF6FD3E8;
+
+    /** The pot's own colour: the stakes gold the consent screen uses, not a board accent. */
+    private static final int POT_LABEL = 0xFFE0B15A;
     private static final int TAPPED_TINT = 0x60000000;
     private static final int GHOST_TINT = 0x50000000;
 
@@ -703,6 +706,10 @@ public final class TableScreen extends Screen {
             renderMats(graphics, board);
             renderVerbs(graphics, mouseX, mouseY);
             renderPiles(graphics, board, mouseX, mouseY);
+            // Under the cards in play, over the mats. The pot is on the table rather than in
+            // the game, and it should read that way: something lying in the middle that the
+            // game goes on on top of.
+            renderPot(graphics, mouseX, mouseY);
 
             List<Placed> onTable = everythingOnTheTable(board);
             hovered = frontMostAt(onTable, mouseX, mouseY);
@@ -3472,6 +3479,64 @@ public final class TableScreen extends Screen {
      * @param onTheFelt whether this is a card lying on the table, which is what earns it a
      *     shadow and a tapped tint - a card in a hand or in a list has neither
      */
+    /** Where the pot is drawn, or nothing when there is not one. For the scene, and above. */
+    Rect potOnScreen() {
+        List<CardComponent> pot = ClientTableState.potOf(this.table);
+        if (pot.isEmpty()) {
+            return Rect.NONE;
+        }
+        return board().fromSurface(board().surface().pot(pot.size()));
+    }
+
+    /**
+     * The pot, face up in the middle of the table.
+     *
+     * <p>The one thing on the felt that belongs to nobody, which is why it sits where the
+     * mats meet rather than on anybody's side. Drawn whenever there is one and taking no room
+     * at all when there is not, so a table not playing for keeps looks exactly as it did.
+     *
+     * <p>Face up, always, with no face-down case to get wrong: a pot everybody agreed to play
+     * for is a pot everybody can see, and that is the whole drama of the thing.
+     */
+    private void renderPot(GuiGraphics graphics, int mouseX, int mouseY) {
+        List<CardComponent> pot = ClientTableState.potOf(this.table);
+        Rect area = potOnScreen();
+        if (pot.isEmpty() || area.isEmpty()) {
+            return;
+        }
+        Rect where = board().surface().pot(pot.size());
+        // The tray the surface reserved, drawn at exactly the size it was checked for room
+        // at. Working one out here instead is how a thing that fits in the layout ends up
+        // drawn over somebody's life total.
+        Rect tray = board().fromSurface(TableSurface.potTray(where));
+        GatheringSprites.inset(graphics, tray.x(), tray.y(), tray.width(), tray.height());
+
+        for (int index = 0; index < pot.size(); index++) {
+            Rect slot = board().fromSurface(
+                    TableSurface.potSlot(where, index, pot.size()));
+            if (slot.isEmpty()) {
+                continue;
+            }
+            CardComponent card = pot.get(index);
+            ClientCardCache.get().summary(card).ifPresentOrElse(
+                    summary -> CardInspectPanel.renderArt(
+                            graphics, summary, slot.x(), slot.y(), slot.width(), slot.height()),
+                    () -> GatheringSprites.inset(
+                            graphics, slot.x(), slot.y(), slot.width(), slot.height()));
+            if (mouseX >= slot.x() && mouseX < slot.right()
+                    && mouseY >= slot.y() && mouseY < slot.bottom()) {
+                ClientHoverState.setHovered(CardItem.of(card));
+                graphics.renderOutline(slot.x(), slot.y(), slot.width(), slot.height(), ACCENT);
+            }
+        }
+        // Said rather than assumed, and inside the tray. A row of cards in the middle of a
+        // table is not obviously a pot, and somebody who missed the message when it was
+        // staked has nothing else to tell them what they are looking at or what it is for.
+        GuiText.drawCentred(graphics, this.font,
+                Component.translatable("screen.gathering.table.the_pot", pot.size()),
+                tray.x() + tray.width() / 2, area.bottom() + 2, tray.width() - 4, POT_LABEL);
+    }
+
     private void drawCard(
             GuiGraphics graphics, CardView card, Rect where, int angle,
             boolean hovered, boolean onTheFelt) {

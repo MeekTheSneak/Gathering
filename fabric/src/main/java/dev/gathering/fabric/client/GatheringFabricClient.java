@@ -122,6 +122,11 @@ public final class GatheringFabricClient implements ClientModInitializer {
                                 new dev.gathering.client.PackOpeningScreen(
                                         payload.setCode(), payload.kind(), payload.cards()))));
         ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.AntePotPayload.TYPE, (payload, context) ->
+                        context.client().execute(() ->
+                                dev.gathering.client.ClientTableState.acceptPot(
+                                        payload.table(), payload.cards())));
+        ClientPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.AnteConsentPayload.TYPE, (payload, context) ->
                         context.client().execute(() ->
                                 dev.gathering.client.AnteConsentScreen.accept(payload)));
