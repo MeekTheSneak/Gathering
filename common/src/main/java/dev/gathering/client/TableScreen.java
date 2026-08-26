@@ -197,7 +197,6 @@ public final class TableScreen extends Screen {
                 "screen.gathering.table.key_pick",
                 "screen.gathering.table.key_zones",
                 "screen.gathering.table.key_whole_pile",
-                "screen.gathering.table.key_tap",
                 "screen.gathering.table.key_menu",
                 "screen.gathering.table.key_flip",
                 "screen.gathering.table.key_turn",
@@ -2695,11 +2694,12 @@ public final class TableScreen extends Screen {
             return true;
         }
 
-        // A press that never moved is a click, and a click on a card already on the table taps
-        // it - the most common thing anyone does, and the one gesture worth the plain left click.
+        // A press that never moved is a card picked up and put back, and that is all it is.
+        // It used to tap, which made the plainest gesture on the table mean two things at
+        // once: every mis-click tapped something, and a card could not be picked up and
+        // reconsidered without turning it sideways. Tapping is E, untapping is Q, and the
+        // card's own menu says so - one gesture per verb, and the menu is where you learn it.
         if (!dropped.fromHand() && dropped.fromPile() == null && !dropped.hasMoved(x, y)) {
-            findCard(view().orElse(null), dropped.card())
-                    .ifPresent(card -> send(new GameEvent.CardTapSet(me, dropped.card(), !card.tapped())));
             return true;
         }
 
@@ -3029,6 +3029,11 @@ public final class TableScreen extends Screen {
             entries.add(entry(card.tapped() ? "untap" : "tap",
                     () -> eachTarget(board, targets, target ->
                             new GameEvent.CardTapSet(me, target, tapping))));
+            // Tapping is E and untapping is Q; these rows exist to say so. A menu entry that
+            // names its key teaches the key, where a second gesture would only compete with
+            // it - which is what the plain left click used to do.
+            entries.add(entry(card.tapped() ? "untap" : "tap",
+                    () -> setTap(board, targets, !card.tapped())));
             entries.add(entry("turn_right", () -> eachCard(board, targets, seen ->
                     new GameEvent.CardRotated(me, seen.id(), restingAngle(seen) + NUDGE_DEGREES))));
             entries.add(entry("turn_left", () -> eachCard(board, targets, seen ->
@@ -3837,10 +3842,21 @@ public final class TableScreen extends Screen {
             return false;
         }
         List<CardInstanceId> targets = underCursorOrSelected();
-        eachCard(board, targets, seen -> seen.tapped() == tapped
-                ? null
-                : new GameEvent.CardTapSet(me, seen.id(), tapped));
+        setTap(board, targets, tapped);
         return !targets.isEmpty();
+    }
+
+    /**
+     * Turns these cards sideways, or back, whichever they are now.
+     *
+     * <p>One method for the key and for the menu row, so the two can never come to mean
+     * slightly different things - which is the failure the whole "one gesture per verb" pass
+     * is about. A card already the way it is asked for sends nothing.
+     */
+    private void setTap(GameView board, List<CardInstanceId> targets, boolean tapped) {
+        mySeat().ifPresent(me -> eachCard(board, targets, seen -> seen.tapped() == tapped
+                ? null
+                : new GameEvent.CardTapSet(me, seen.id(), tapped)));
     }
 
     /**

@@ -257,7 +257,11 @@ first time any verb past "put your deck down" has been reachable at all.
 
 - **Your hand** runs along the bottom. **Drag a card onto the table** to play it; drag it back
   to your hand to pick it up; drag one already on the table to move it.
-- **Left-click a card on the table** to pick it up, **right-click** to turn it over.
+- **Left-click a card on the table** to pick it up, **right-click** for everything it can do.
+  A left click does that one thing and nothing else: it used to also tap, so every mis-click
+  turned something sideways and a card could not be picked up and reconsidered.
+- **E taps and Q untaps** whatever is under the cursor, or the whole selection. The card's own
+  menu carries both rows and writes the key beside them, which is where you learn it.
 - **D** draws, **S** shuffles, **U** untaps everything, **+** and **-** change your life.
 - **The strip along the top** is every seat: who, life, and how many cards in each zone. Click
   one to look at their board — you can move their public cards too, because that is the

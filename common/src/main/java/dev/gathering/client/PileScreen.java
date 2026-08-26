@@ -51,6 +51,16 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     private static final int GAP = 4;
     private static final int HEADER = 16;
 
+    /**
+     * The room above the cards on this screen, which is the title and sometimes a line more.
+     *
+     * <p>A scry writes a number on every card and the numbers are an order with no stated
+     * direction, so it also writes what the order means - and that line needs room reserved
+     * for it or it lands on the title. Every other pile has nothing to say there and gets the
+     * title's height and no more.
+     */
+    private int header = HEADER;
+
     /** Room under the cards for the hint and the Done button, stacked. */
     private static final int FOOTER = 40;
 
@@ -143,18 +153,19 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     @Override
     protected void init() {
+        header = HEADER + (decision == null ? 0 : this.font.lineHeight + 2);
         int cardWidth = Math.max(8, CardShape.widthFor(CARD_HEIGHT));
         sizedFor = cards().size();
         int held = Math.max(1, sizedFor);
 
         int roomAcross = Math.max(cardWidth + MARGIN * 2, (int) (this.width * MOST_OF_THE_WINDOW));
-        int roomDown = Math.max(CARD_HEIGHT + MARGIN * 2 + HEADER + FOOTER,
+        int roomDown = Math.max(CARD_HEIGHT + MARGIN * 2 + header + FOOTER,
                 (int) (this.height * MOST_OF_THE_WINDOW));
 
         columns = Math.max(1, Math.min(held, (roomAcross - MARGIN * 2 + GAP) / (cardWidth + GAP)));
         int rows = (held + columns - 1) / columns;
         int shown = Math.max(1, Math.min(rows,
-                (roomDown - MARGIN * 2 - HEADER - FOOTER + GAP) / (CARD_HEIGHT + GAP)));
+                (roomDown - MARGIN * 2 - header - FOOTER + GAP) / (CARD_HEIGHT + GAP)));
         // A pile with nothing in it needs room for a sentence, not for a card. Reserving a
         // card row for a card that is not there gave an empty graveyard a box the size of a
         // full one, which is the whole window's worth of nothing this screen was shrunk to
@@ -167,7 +178,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         int inTheGrid = sizedFor == 0
                 ? this.font.lineHeight * 2
                 : shown * (CARD_HEIGHT + GAP) - GAP;
-        int tall = inTheGrid + MARGIN * 2 + HEADER + FOOTER;
+        int tall = inTheGrid + MARGIN * 2 + header + FOOTER;
         panel = new Rect(
                 (this.width - wanted) / 2, Math.max(0, (this.height - tall) / 2), wanted, tall);
         // Centred rather than packed to the left. The box is usually as wide as the sentence
@@ -175,8 +186,8 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         // card in the top-left corner of a box four times its width, and read as a panel that
         // had failed to draw the rest of itself.
         int across = columns * (cardWidth + GAP) - GAP;
-        grid = new Rect(panel.x() + (panel.width() - across) / 2, panel.y() + MARGIN + HEADER,
-                across, panel.height() - MARGIN * 2 - HEADER - FOOTER);
+        grid = new Rect(panel.x() + (panel.width() - across) / 2, panel.y() + MARGIN + header,
+                across, panel.height() - MARGIN * 2 - header - FOOTER);
         scroll = Math.min(scroll, hiddenBelow());
 
         // At the bottom, centred, like the Done on every other screen in the mod. Beside the
@@ -385,6 +396,16 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         // a row scrolled half out of view is not entirely outside, so it was drawn whole and
         // hung out over the edge of the panel - which is what "the cards escape the menu"
         // looks like. The deck screen already clips its list; this is the same fix.
+        // What the numbers on the cards mean, written where the numbers are. "1, 2, 3" on a
+        // row of cards is an order and says nothing about which end of the library it runs
+        // to - so a player deciding a scry has to guess whether 1 is the card they draw next
+        // or the one that goes back first. One short line removes the guess.
+        if (decision != null && !cards.isEmpty()) {
+            GuiText.drawCentred(graphics, this.font,
+                    Component.translatable("screen.gathering.pile.order_hint"),
+                    panel.x() + panel.width() / 2, grid.y() - this.font.lineHeight - 1,
+                    panel.width() - MARGIN * 2, DIM);
+        }
         graphics.enableScissor(grid.x(), grid.y(), grid.right(), grid.bottom());
         for (int index = 0; index < cards.size(); index++) {
             Rect slot = slotOf(index);
@@ -409,6 +430,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                 ClientHoverState.setHovered(CardItem.of(CardComponent.of(visible.identity())));
             }
         }
+        drawWhereItWouldLand(graphics, cards.size());
         graphics.disableScissor();
 
         Component hint = footer(hiddenBelow() > 0);
@@ -625,6 +647,10 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         if (pressed >= 0 && Math.abs(mouseX - pressedX) > A_REAL_DRAG) {
             dragged = true;
         }
+        if (dragged) {
+            draggingAtX = (int) mouseX;
+            draggingAtY = (int) mouseY;
+        }
         return pressed >= 0 || super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -659,6 +685,46 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /** How far a press has to travel sideways before it counts as a drag. */
     private static final int A_REAL_DRAG = 4;
+
+    /** Where a drag in progress is, so the row can show where the card would go. */
+    private int draggingAtX;
+
+    private int draggingAtY;
+
+    /** The bar marking the gap a dragged card would drop into. */
+    private static final int LANDING = 0xFFFFD479;
+
+    private static final int LANDING_WIDTH = 3;
+
+    /**
+     * Where the card being dragged would land, drawn while it is still being dragged.
+     *
+     * <p>Without it the player is aiming at something they cannot see: the row does not move
+     * under the cursor, so a drag looks like nothing at all until it is let go and the
+     * numbers jump. A bar in the gap the card would drop into answers the question while it
+     * is still being asked, which is the only time the answer is any use.
+     *
+     * <p>Drawn in the gap rather than over a card on purpose. This reorders - the card goes
+     * <em>between</em> two others - and a highlight on a card would read as "swap with this
+     * one", which is a different move and not the one that happens.
+     */
+    private void drawWhereItWouldLand(GuiGraphics graphics, int howMany) {
+        if (!dragged || howMany == 0) {
+            return;
+        }
+        int landing = Math.max(0, Math.min(howMany - 1, slotUnder(draggingAtX, draggingAtY)));
+        Rect slot = slotOf(landing);
+        if (slot.isEmpty()) {
+            return;
+        }
+        // Past the card it is over when the cursor is on its right-hand half, because that is
+        // the gap the card is being aimed at - dropping "on" the last card has to be able to
+        // mean after it, or the far end of the row is unreachable.
+        boolean after = draggingAtX > slot.centreX() && landing == howMany - 1;
+        int edge = after ? slot.right() + GAP / 2 : slot.x() - GAP / 2;
+        graphics.fill(edge - LANDING_WIDTH / 2, slot.y() - 2,
+                edge - LANDING_WIDTH / 2 + LANDING_WIDTH, slot.bottom() + 2, LANDING);
+    }
 
     /** Which slot of the grid a point is over, whether or not a card is in it. */
     private int slotUnder(int x, int y) {
