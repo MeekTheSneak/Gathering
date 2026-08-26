@@ -123,6 +123,15 @@ public final class TableScreen extends Screen {
     /** The line round a group of zones: a marking on the mat rather than a piece of interface. */
     private static final int ZONE_BORDER = 0x66FFFFFF;
 
+    /**
+     * Behind the zone a card in the air would drop into.
+     *
+     * <p>Behind rather than over, so whatever is already sitting in the slot stays readable:
+     * the question being answered is "which box", and the box is the thing that has to
+     * change.
+     */
+    private static final int AIMED = 0x996FD3E8;
+
     /** Zone names printed on the felt: quieter than a card, loud enough to read. */
     private static final int ZONE_LABEL = 0xFFB9C4C0;
 
@@ -135,9 +144,27 @@ public final class TableScreen extends Screen {
      *
      * <p>Nothing here has thickness, so without this a card lying across another one is two
      * flat pictures sharing an edge and you cannot tell which is on top.
+     *
+     * <p>A contact shadow rather than a drop shadow, which is the difference between a card
+     * lying on the felt and a card hovering over it. It used to be the whole card again in
+     * black, moved down and right, so what showed was a two-pixel band along two sides -
+     * which is what a thing casts when it is some way off the surface, and read as exactly
+     * that. What a card resting on a table casts is a hard line right where its edge meets
+     * the cloth: one pixel, no daylight under it, and darker to make up for being thin.
      */
-    private static final int SHADOW = 0x70000000;
-    private static final int SHADOW_OFFSET = 2;
+    private static final int SHADOW = 0x99000000;
+
+    private static final int SHADOW_OFFSET = 1;
+
+    /**
+     * What a card being carried casts on the table underneath it.
+     *
+     * <p>Softer and wider than the line a resting card casts, because it is further away -
+     * and the whole footprint rather than an edge, because this one is doing a second job:
+     * it is where the card will come down. A drag that shows nothing until it is let go asks
+     * the player to aim at something they cannot see.
+     */
+    private static final int CAST = 0x59000000;
 
     /** The badge on a pile, saying how many cards are in it. */
     private static final int PILE_BADGE = 0xE0141210;
@@ -383,6 +410,19 @@ public final class TableScreen extends Screen {
     List<Component> tooltipShowing() {
         return tooltip;
     }
+
+    /**
+     * What the last frame made of the card in the air. For the harness, as above.
+     *
+     * <p>Written from inside the frame because that is the only place the answer exists: the
+     * aim is computed while drawing, from the cursor the game passed in, and a harness asking
+     * afterwards can only see whether it agreed - not which of the three steps said no.
+     */
+    String aimReport() {
+        return aimReport;
+    }
+
+    private String aimReport = "no frame drawn yet";
 
     /** How many zones this board is drawing per seat. For the harness, as above. */
     int pilesShowing() {
@@ -1274,6 +1314,24 @@ public final class TableScreen extends Screen {
             // Whatever is in the air is out of the pile as far as anybody looking is
             // concerned - the top card, or on a long hold the whole thing.
             count = held.whole() ? 0 : Math.max(0, count - (held.card() == null ? 0 : 1));
+        }
+
+        // Lit when the card in the air would land in this one. The board has always worked
+        // out which slot a drag is aimed at - the board on the block has drawn it since it
+        // had one - and the seated board computed the same answer every frame and then never
+        // looked at it. So a player dragging towards a column of four or five slots had the
+        // whole mat outlined and nothing saying which of them they were about to hit, which
+        // is a question you could only answer by letting go and reading the log.
+        if (ClientTableHighlight.isAimedAt(view.seat(), Zone.PILES.indexOf(zone))) {
+            // Two rings and a wash rather than one thin outline. This is answering "which of
+            // five", and the slots are a stack of boxes that already have borders - a single
+            // line one shade brighter than the ones above and below it is a difference you
+            // have to go looking for, which is the opposite of what a player mid-drag needs.
+            graphics.fill(pile.x() - 2, pile.y() - 2, pile.right() + 2, pile.bottom() + 2, AIMED);
+            graphics.renderOutline(pile.x() - 2, pile.y() - 2,
+                    pile.width() + 4, pile.height() + 4, ACCENT);
+            graphics.renderOutline(pile.x() - 1, pile.y() - 1,
+                    pile.width() + 2, pile.height() + 2, ACCENT);
         }
 
         // The slot itself, and then whatever is sitting in it. No frame round the card: an
@@ -2291,6 +2349,7 @@ public final class TableScreen extends Screen {
      */
     private void renderHeldCard(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         if (held == null) {
+            aimReport = "nothing held";
             ClientTableHighlight.aimAt(null, -1);
             ClientTableHighlight.landingOn(null);
             return;
@@ -2298,14 +2357,20 @@ public final class TableScreen extends Screen {
         checkLongHold(board);
         CardView card = held.card() == null ? null : findCard(board, held.card()).orElse(null);
         if (card == null && !held.whole()) {
+            aimReport = "held a card the view has no answer for";
             return;
         }
         double[] at = pointer(mouseX, mouseY);
         SeatId landing = at == null ? null : board().seatAt(at[0], at[1]);
 
         if (landing != null && at != null) {
-            ClientTableHighlight.aimAt(landing, board().pileAt(landing, pileCount(), at[0], at[1]));
+            int slot = board().pileAt(landing, pileCount(), at[0], at[1]);
+            aimReport = "cursor " + mouseX + "," + mouseY
+                    + " -> board " + Math.round(at[0]) + "," + Math.round(at[1])
+                    + " seat " + landing.index() + " slot " + slot + " of " + pileCount();
+            ClientTableHighlight.aimAt(landing, slot);
         } else {
+            aimReport = "cursor " + mouseX + "," + mouseY + " is on nobody's mat";
             ClientTableHighlight.aimAt(null, -1);
         }
         // Whose side of the table it would land on, which the board on the block draws as a
@@ -2325,10 +2390,22 @@ public final class TableScreen extends Screen {
         // screen. It is the one thing that is genuinely in the player's hand rather than on
         // the table, and a card held over a table is not lying on it.
         SeatId sizedFor = landing != null ? landing : held.from();
-        Rect airborne = playingOnTheBlock
+        Rect comingDownOn = playingOnTheBlock
                 ? centredOnCursor(mouseX, mouseY, sizedFor)
                 : centred(mouseX - held.grabX(), mouseY - held.grabY(),
                         board().cardWidth(sizedFor), board().cardHeight(sizedFor));
+
+        // Where it would come down, cast on the table, and the card itself held up off it.
+        // Two things at once: picking a card up looks like picking it up rather than like the
+        // card teleporting to the cursor, and the shadow is the footprint - so the answer to
+        // "where is this going" is drawn on the felt, at the size and shape it will be, while
+        // the question is still being asked.
+        int lift = Math.max(2, comingDownOn.height() / 12);
+        graphics.fill(comingDownOn.x(), comingDownOn.y(),
+                comingDownOn.right(), comingDownOn.bottom(), CAST);
+
+        Rect airborne = new Rect(comingDownOn.x() - lift, comingDownOn.y() - lift,
+                comingDownOn.width(), comingDownOn.height());
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, LIFT);
         if (held.whole() && held.fromPile() != null) {
@@ -4037,9 +4114,14 @@ public final class TableScreen extends Screen {
             graphics.pose().translate((float) -where.centreX(), (float) -where.centreY(), 0f);
         }
         if (onTheFelt) {
-            // Cast first, under everything, so the card above reads as being above.
-            graphics.fill(where.x() + SHADOW_OFFSET, where.y() + SHADOW_OFFSET,
+            // Cast first, under everything, so the card above reads as being above. Only the
+            // two edges that would show: filling the whole card again and moving it is the
+            // same picture with far more of it hidden under the card, and the part that is
+            // not hidden is the part that made it look airborne.
+            graphics.fill(where.x() + SHADOW_OFFSET, where.bottom(),
                     where.right() + SHADOW_OFFSET, where.bottom() + SHADOW_OFFSET, SHADOW);
+            graphics.fill(where.right(), where.y() + SHADOW_OFFSET,
+                    where.right() + SHADOW_OFFSET, where.bottom(), SHADOW);
         }
         if (card.isFaceDown()) {
             // Even to the player who knows what it is. Their board has to look to them the

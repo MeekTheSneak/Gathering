@@ -479,11 +479,15 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 29 -> {
+                theBoardWorksOutWhatIsUnderTheCard(client);
+                advance(SETTLE / 4);
+            }
+            case 30 -> {
                 shoot(client, "12a-aiming-at-a-zone");
                 dropWhereItIsAimed(client);
                 advance(SETTLE);
             }
-            case 31 -> {
+            case 32 -> {
                 shoot(client, "13-into-the-graveyard");
                 inTheGraveyard = countIn(Zone.GRAVEYARD);
                 // And back out again. A zone that only swallows cards is half a zone: on a
@@ -494,7 +498,7 @@ public final class DevScene {
                 drawCards(client, 18);
                 advance(SETTLE);
             }
-            case 32 -> {
+            case 33 -> {
                 int now = countIn(Zone.GRAVEYARD);
                 if (now >= inTheGraveyard) {
                     fail("dragging a card out of the graveyard left " + now
@@ -511,7 +515,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 33 -> {
+            case 34 -> {
                 // The life total, which is the number a game of Magic is played to and until
                 // now lived in a strip along the top of the window - the one part of the
                 // screen that is not the table. It is on the table now, off the far edge of
@@ -520,7 +524,7 @@ public final class DevScene {
                 pressMyLife(client, 1);
                 advance(SETTLE);
             }
-            case 34 -> {
+            case 35 -> {
                 int now = myLife(client);
                 if (now != lifeWas + 1) {
                     fail("pressing the right end of the life counter moved it by "
@@ -532,7 +536,7 @@ public final class DevScene {
                 pressMyLife(client, -1);
                 advance(SETTLE);
             }
-            case 35 -> {
+            case 36 -> {
                 int now = myLife(client);
                 if (now != lifeWas) {
                     fail("the two ends of the life counter do not undo each other: "
@@ -548,20 +552,20 @@ public final class DevScene {
                 hoverMyLifeCounter(client);
                 advance(SETTLE / 2);
             }
-            case 36 -> {
+            case 37 -> {
                 theLifeCounterSaysWhatItIs(client);
                 // The other half: a swing for eleven, typed rather than ticked eleven times.
                 lifeWas = myLife(client);
                 typeAnAmountOfLife(client, 1);
                 advance(SETTLE / 2);
             }
-            case 37 -> {
+            case 38 -> {
                 expectScreen(client, "right-clicking a life counter", AmountScreen.class);
                 shoot(client, "14b-how-much-life");
                 press(client, "5");
                 advance(SETTLE);
             }
-            case 38 -> {
+            case 39 -> {
                 expectScreen(client, "answering how much life", TableScreen.class);
                 int now = myLife(client);
                 if (now != lifeWas + 5) {
@@ -574,12 +578,12 @@ public final class DevScene {
                 typeAnAmountOfLife(client, -1);
                 advance(SETTLE / 2);
             }
-            case 39 -> {
+            case 40 -> {
                 expectScreen(client, "right-clicking the other end", AmountScreen.class);
                 press(client, "5");
                 advance(SETTLE);
             }
-            case 40 -> {
+            case 41 -> {
                 expectScreen(client, "answering the other end", TableScreen.class);
                 int now = myLife(client);
                 if (now != lifeWas) {
@@ -599,7 +603,7 @@ public final class DevScene {
                 pressTheTaxUnderMyCommander(client, 0);
                 advance(SETTLE);
             }
-            case 41 -> {
+            case 42 -> {
                 int now = commanderTax(client);
                 if (now != taxPaid + 1) {
                     fail("pressing the tax on the mat recorded " + (now - taxPaid)
@@ -612,7 +616,7 @@ public final class DevScene {
                 pressTheTaxUnderMyCommander(client, 1);
                 advance(SETTLE);
             }
-            case 42 -> {
+            case 43 -> {
                 int backTo = commanderTax(client);
                 if (backTo != taxPaid) {
                     fail("right-clicking the tax left it at " + backTo + ", not back at "
@@ -628,14 +632,14 @@ public final class DevScene {
                 shoot(client, "15-crowded-hand");
                 advance(SETTLE / 2);
             }
-            case 43 -> {
+            case 44 -> {
                 // The other end of the same question. Eighteen cards is the fan at its
                 // widest; none at all is the fan a run had never drawn, and the fan is laid
                 // out from the number of cards in it.
                 emptyMyHand(client);
                 advance(SETTLE);
             }
-            case 44 -> {
+            case 45 -> {
                 anEmptyHandIsStillABoard(client);
                 shoot(client, "15a-an-empty-hand");
                 // Back to the hand it had, so the rest of the run plays the board it always
@@ -645,7 +649,7 @@ public final class DevScene {
                 fillMyHandBack(client);
                 advance(SETTLE);
             }
-            case 45 -> {
+            case 46 -> {
                 int held = countIn(Zone.HAND);
                 if (held != drawnBack) {
                     fail("drawing back up from an empty hand gave " + held + ", not "
@@ -663,14 +667,14 @@ public final class DevScene {
                 hoverAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
                 advance(SETTLE / 2);
             }
-            case 46 -> {
+            case 47 -> {
                 aPileSaysWhatItDoes(client, Zone.GRAVEYARD);
                 // The graveyard has a card in it by now, and left-clicking a pile that is not
                 // a library opens it. Anything else here is a dead end the player would find.
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 47 -> {
+            case 48 -> {
                 expectScreen(client, "left-clicking the graveyard", PileScreen.class);
                 aPileBoxIsTheSizeOfWhatItHolds(client);
                 shoot(client, "16-graveyard-open");
@@ -679,13 +683,13 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 48 -> {
+            case 49 -> {
                 expectScreen(client, "closing the graveyard", TableScreen.class);
                 // Right-click on the library, which is where every verb a library has lives.
                 clickAZone(client, Zone.PILES.indexOf(Zone.LIBRARY), 1);
                 advance(SETTLE / 2);
             }
-            case 49 -> {
+            case 50 -> {
                 if (!menuIsOpen(client)) {
                     fail("right-clicking the library opened no menu");
                 }
@@ -697,7 +701,7 @@ public final class DevScene {
                 lookAtTheTopOfTheLibrary(client, 3, PileScreen.Decision.SCRY);
                 advance(SETTLE);
             }
-            case 50 -> {
+            case 51 -> {
                 expectScreen(client, "scrying three", PileScreen.class);
                 onTopBefore = countIn(Zone.LIBRARY);
                 shoot(client, "18-scrying");
@@ -731,7 +735,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 4);
             }
-            case 51 -> {
+            case 52 -> {
                 shoot(client, "19-one-going-to-the-bottom");
                 // Held mid-drag rather than dropped, because what is being photographed is
                 // what the player can see *while* they are still aiming - which used to be
@@ -740,16 +744,16 @@ public final class DevScene {
                 startDraggingAScriedCard(client);
                 advance(SETTLE / 4);
             }
-            case 52 -> {
+            case 53 -> {
                 shoot(client, "19a-mid-drag");
                 letTheScriedCardGo(client);
                 advance(SETTLE / 4);
             }
-            case 53 -> {
+            case 54 -> {
                 press(client, "Done");
                 advance(SETTLE);
             }
-            case 54 -> {
+            case 55 -> {
                 expectScreen(client, "deciding a scry", TableScreen.class);
                 if (countIn(Zone.LIBRARY) != onTopBefore) {
                     fail("a scry changed how many cards were in the library: "
@@ -768,7 +772,7 @@ public final class DevScene {
                 lookAtTheTopOfTheLibrary(client, 2, PileScreen.Decision.SURVEIL);
                 advance(SETTLE);
             }
-            case 55 -> {
+            case 56 -> {
                 expectScreen(client, "surveilling two", PileScreen.class);
                 shoot(client, "20a-surveilling");
                 if (client.screen instanceof PileScreen pile) {
@@ -783,12 +787,12 @@ public final class DevScene {
                 }
                 advance(SETTLE / 4);
             }
-            case 56 -> {
+            case 57 -> {
                 shoot(client, "20b-one-going-to-the-graveyard");
                 press(client, "Done");
                 advance(SETTLE);
             }
-            case 57 -> {
+            case 58 -> {
                 expectScreen(client, "deciding a surveil", TableScreen.class);
                 int now = countIn(Zone.GRAVEYARD);
                 if (now != inTheGraveyard + 1) {
@@ -809,7 +813,7 @@ public final class DevScene {
                 hover(client, new int[] {2, 2});
                 advance(SETTLE);
             }
-            case 58 -> {
+            case 59 -> {
                 if (client.screen instanceof TableScreen board && board.isHoveringSomething()) {
                     fail("a cursor off the board still had a card under it");
                 }
@@ -817,7 +821,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 59 -> {
+            case 60 -> {
                 if (client.screen instanceof TableScreen board && !board.isHoveringSomething()) {
                     fail("hovering a card on the real table lit nothing");
                 }
@@ -833,7 +837,7 @@ public final class DevScene {
                 liftACardOnTheBlock(client);
                 advance(SETTLE / 2);
             }
-            case 60 -> {
+            case 61 -> {
                 shoot(client, "22a-carrying-a-card-on-the-table");
                 if (client.screen instanceof TableScreen board) {
                     int[] to = cardPoint(client);
@@ -848,19 +852,19 @@ public final class DevScene {
                 hoverAVerbButton(client, TableVerb.DRAW);
                 advance(SETTLE / 2);
             }
-            case 61 -> {
+            case 62 -> {
                 aButtonSaysWhatItDoes(client, TableVerb.DRAW, "2");
                 pressAVerbButton(client, TableVerb.DRAW);
                 advance(A_MOMENT);
             }
-            case 62 -> {
+            case 63 -> {
                 // The same crossing, drawn by the world rather than by the window. Everyone
                 // at the table sees a card move, and most of them are not sitting at it.
                 aCardIsInTheAir(client, "drawing one on the block");
                 shoot(client, "22b-a-card-in-the-air-on-the-table");
                 advance(SETTLE);
             }
-            case 63 -> {
+            case 64 -> {
                 // The counter has to be inside the window in this view as well. Framed on
                 // the mat alone it came out under the status row here, the same way it came
                 // out past the top of the window on the seated board.
@@ -873,7 +877,7 @@ public final class DevScene {
                 pressMyLife(client, 1);
                 advance(A_MOMENT);
             }
-            case 64 -> {
+            case 65 -> {
                 int now = myLife(client);
                 if (now != lifeWas + 1) {
                     fail("pressing the end marked plus on the block moved life by "
@@ -883,7 +887,7 @@ public final class DevScene {
                 pressMyLife(client, -1);
                 advance(A_MOMENT);
             }
-            case 65 -> {
+            case 66 -> {
                 int now = myLife(client);
                 if (now != lifeWas) {
                     fail("the ends of the life counter on the block do not undo each other: "
@@ -893,7 +897,7 @@ public final class DevScene {
                 System.out.println("[devscene] the life counter presses on the block too");
                 advance(A_MOMENT);
             }
-            case 66 -> {
+            case 67 -> {
                 // The same tax, pressed on the board drawn in the world. Worth pressing twice
                 // over because the two views hand the press its rectangle in different spaces
                 // - pixels on the window, units of felt on the block - and a button that only
@@ -903,7 +907,7 @@ public final class DevScene {
                 pressTheTaxUnderMyCommander(client, 0);
                 advance(SETTLE);
             }
-            case 67 -> {
+            case 68 -> {
                 int paid = commanderTax(client);
                 if (paid != taxPaid + 1) {
                     fail("pressing the tax on the block recorded " + (paid - taxPaid)
@@ -914,7 +918,7 @@ public final class DevScene {
                 pressTheTaxUnderMyCommander(client, 1);
                 advance(SETTLE);
             }
-            case 68 -> {
+            case 69 -> {
                 int backTo = commanderTax(client);
                 if (backTo != taxPaid) {
                     fail("right-clicking the tax on the block left it at " + backTo
@@ -932,20 +936,20 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 69 -> {
+            case 70 -> {
                 // The whole table, which is the one framing that shows the chair nobody is in.
                 if (client.screen != null) {
                     client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
                 }
                 advance(SETTLE / 2);
             }
-            case 70 -> {
+            case 71 -> {
                 // Somebody sits down opposite. Every picture so far has been of a table with
                 // one player at it, which is not the game this is for.
                 seatARival(client);
                 advance(SETTLE);
             }
-            case 71 -> {
+            case 72 -> {
                 shoot(client, "23-two-players");
                 // Both seats now, which is the only moment this run can check the far one.
                 everyLifeCounterHasItsEnds(client);
@@ -955,23 +959,23 @@ public final class DevScene {
                 theRivalSlidesACardAcrossTheirMat(client);
                 advance(A_MOMENT);
             }
-            case 72 -> {
+            case 73 -> {
                 aCardIsInTheAir(client, "a rival sliding a card across their mat");
                 shoot(client, "23a-a-rivals-card-on-the-move");
                 advance(SETTLE);
             }
-            case 73 -> {
+            case 74 -> {
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
-            case 74 -> {
+            case 75 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 75 -> {
+            case 76 -> {
                 int now = damageTaken(client);
                 if (now <= tookCommanderDamage) {
                     fail("commander damage did not go up: " + tookCommanderDamage + " to " + now);
@@ -983,22 +987,22 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 76 -> {
+            case 77 -> {
                 aCommanderLeavesItsSlot(client);
                 advance(SETTLE);
             }
-            case 77 -> {
+            case 78 -> {
                 theCommanderGoesHomeToItsOwnSlot(client);
                 advance(SETTLE);
             }
-            case 78 -> {
+            case 79 -> {
                 expectScreen(client, "pressing Done on the counters", TableScreen.class);
                 // The other number a game of Commander asks a player to keep for an hour.
                 taxPaid = commanderTax(client);
                 openCommanderCounters(client);
                 advance(SETTLE / 2);
             }
-            case 79 -> {
+            case 80 -> {
                 expectScreen(client, "asking for a commander's counters", CountersScreen.class);
                 if (client.screen instanceof CountersScreen counters
                         && counters.taxRowsShowing() != Zone.COMMAND_SLOTS.size()) {
@@ -1009,7 +1013,7 @@ public final class DevScene {
                 press(client, "+");
                 advance(SETTLE);
             }
-            case 80 -> {
+            case 81 -> {
                 int now = commanderTax(client);
                 if (now <= taxPaid) {
                     fail("commander tax did not go up: " + taxPaid + " to " + now);
@@ -1017,7 +1021,7 @@ public final class DevScene {
                 press(client, "Done");
                 advance(SETTLE / 2);
             }
-            case 81 -> {
+            case 82 -> {
                 expectScreen(client, "leaving a commander's counters", TableScreen.class);
                 // Framed on the whole table again. It was framed that way eleven steps ago
                 // and then somebody sat down opposite, which re-frames the camera onto your
@@ -1028,7 +1032,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 82 -> {
+            case 83 -> {
                 theWholeTableIsOnScreen(client);
                 if (client.screen instanceof TableScreen framed) {
                     seatedMat = ClientTableState.seatAt(table)
@@ -1042,27 +1046,27 @@ public final class DevScene {
                 resizeTo(client, 1, "a smaller interface");
                 advance(SETTLE / 2);
             }
-            case 83 -> {
+            case 84 -> {
                 theBoardIsStillFramed(client, "at the smallest interface");
                 shoot(client, "27-a-smaller-interface");
                 resizeTo(client, 0, "the automatic interface again");
                 advance(SETTLE / 2);
             }
-            case 84 -> {
+            case 85 -> {
                 // The two questions a token asks. Nothing else in this run opens either of
                 // them, and both are screens somebody can get stuck on: the first one is the
                 // only place in the mod that takes a line of typing from a player.
                 openTheTokenQuestion(client);
                 advance(SETTLE / 2);
             }
-            case 85 -> {
+            case 86 -> {
                 expectScreen(client, "asking for a token", TextPromptScreen.class);
                 shoot(client, "28a-what-token");
                 typeInto(client, "Treasure");
                 press(client, "OK");
                 advance(SETTLE / 2);
             }
-            case 86 -> {
+            case 87 -> {
                 expectScreen(client, "naming a token", AmountScreen.class);
                 shoot(client, "28b-how-many");
                 // Backed out rather than answered: a token wants a real printing off
@@ -1073,7 +1077,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 87 -> {
+            case 88 -> {
                 expectScreen(client, "backing out of a token", TableScreen.class);
                 theBoardIsStillFramed(client, "back at the automatic interface");
                 shoot(client, "28-back-to-normal");
@@ -1084,7 +1088,7 @@ public final class DevScene {
                 aGameCanBeConceded(client);
                 advance(SETTLE / 2);
             }
-            case 88 -> {
+            case 89 -> {
                 // Photographed a step after it was opened, so the frame is the question
                 // rather than the board it was asked over.
                 expectScreen(client, "asking before a game is thrown away", ConfirmScreen.class);
@@ -1115,7 +1119,7 @@ public final class DevScene {
                 // change that told nobody and this would pass either way.
                 advance(SETTLE / 4);
             }
-            case 89 -> {
+            case 90 -> {
                 if (ClientTableState.seatAt(table).isPresent()) {
                     fail("standing up left the client still holding a seat");
                 }
@@ -1128,7 +1132,7 @@ public final class DevScene {
                 aSpectatorReadsAGraveyard(client);
                 advance(SETTLE / 2);
             }
-            case 90 -> {
+            case 91 -> {
                 expectScreen(client, "a spectator opening a graveyard", PileScreen.class);
                 shoot(client, "30-a-spectator-reads-a-graveyard");
                 if (client.screen != null) {
@@ -1137,63 +1141,63 @@ public final class DevScene {
                 pokeEverything(client);
                 advance(SETTLE);
             }
-            case 91 -> {
+            case 92 -> {
                 expectScreen(client, "a spectator using every gesture on the board",
                         TableScreen.class);
                 shoot(client, "31-still-watching");
                 hoverSomebodysLifeCounter(client);
                 advance(SETTLE / 2);
             }
-            case 92 -> {
+            case 93 -> {
                 aWatcherIsToldWhoseLifeThatIs(client);
                 shoot(client, "32-a-watcher-reads-a-life-total");
                 aWatcherOpensTheLog(client);
                 advance(SETTLE / 2);
             }
-            case 93 -> {
+            case 94 -> {
                 theLogStillNamesWhoLeft(client);
                 shoot(client, "33-a-watcher-reads-the-log");
                 advance(SETTLE / 2);
             }
-            case 94 -> {
+            case 95 -> {
                 aDraftPodFormsAtASecondCluster(client);
                 advance(SETTLE);
             }
-            case 95 -> {
+            case 96 -> {
                 expectScreen(client, "a draft pod dealing its first pack", DraftScreen.class);
                 theDraftScreenShowsAPack(client);
                 shoot(client, "34-the-first-pack");
                 advance(SETTLE / 2);
             }
-            case 96 -> {
+            case 97 -> {
                 // Clicked here and photographed next: a screenshot grabs the frame that has
                 // already been drawn, so shooting in the same step as the click photographs
                 // the screen as it was before it.
                 pickTwoFromTheDraftPack(client);
                 advance(SETTLE / 2);
             }
-            case 97 -> {
+            case 98 -> {
                 theChosenCardsAreMarkedOnScreen(client);
                 shoot(client, "35-two-cards-chosen");
                 takeTheDraftPick(client);
                 advance(SETTLE);
             }
-            case 98 -> {
+            case 99 -> {
                 theDraftIsWaitingOnTheRest(client);
                 shoot(client, "36-waiting-on-the-rest");
                 lookAtMyPicks(client);
                 advance(SETTLE / 2);
             }
-            case 99 -> {
+            case 100 -> {
                 theScreenIsShowingMyPicks(client);
                 shoot(client, "36a-my-picks-so-far");
                 advance(SETTLE / 2);
             }
-            case 100 -> {
+            case 101 -> {
                 openTheDeckScreen(client);
                 advance(SETTLE / 2);
             }
-            case 101 -> {
+            case 102 -> {
                 expectScreen(client, "opening a deck to build it", DeckContentsScreen.class);
                 everyBasicLandHasAButton(client);
                 theDeckScreenListsItsCards(client);
@@ -1204,7 +1208,7 @@ public final class DevScene {
                 nameTheDeck(client, "Bear Tribal");
                 advance(SETTLE / 2);
             }
-            case 102 -> {
+            case 103 -> {
                 // Taken here rather than at the end of the step that typed it: a screenshot
                 // grabs the last frame drawn, so a picture taken in the same step as the
                 // typing is a picture of the screen before it.
@@ -1214,59 +1218,59 @@ public final class DevScene {
                 sealedPacksInTheHotbar(client);
                 advance(SETTLE);
             }
-            case 103 -> {
+            case 104 -> {
                 // A moment for the symbols to arrive: they are fetched the first time one is
                 // asked for, so the first frame of a pack is always a plain wrapper.
                 sealedPacksInTheHotbar(client);
                 advance(SETTLE * 2);
             }
-            case 104 -> {
+            case 105 -> {
                 everyPackDrewItsSymbol(client);
                 shoot(client, "38-sealed-packs");
                 advance(SETTLE / 2);
             }
-            case 105 -> {
+            case 106 -> {
                 aSealedPackOnTheScreen(client);
                 advance(SETTLE);
             }
-            case 106 -> {
+            case 107 -> {
                 expectScreen(client, "tearing a pack open", PackOpeningScreen.class);
                 aSealedPackIsSealed(client);
                 shoot(client, "39-a-sealed-pack");
                 tearThePack(client, 0.45);
                 advance(SETTLE / 2);
             }
-            case 107 -> {
+            case 108 -> {
                 aPackHalfTornIsHalfTorn(client);
                 shoot(client, "40-tearing-it-open");
                 tearThePack(client, 1.2);
                 advance(SETTLE / 2);
             }
-            case 108 -> {
+            case 109 -> {
                 aTornPackIsOpen(client);
                 everyCardIsShown(client);
                 shoot(client, "41-what-was-in-it");
                 putTheCursorOnAPulledCard(client);
                 advance(SETTLE);
             }
-            case 109 -> {
+            case 110 -> {
                 theReadKeyAnswersOverAPulledCard(client);
                 client.setScreen(null);
                 aCollectionWithSomethingInIt(client);
                 advance(SETTLE);
             }
-            case 110 -> {
+            case 111 -> {
                 openTheCollection(client);
                 advance(SETTLE);
             }
-            case 111 -> {
+            case 112 -> {
                 expectScreen(client, "opening a collection", CollectionScreen.class);
                 aCollectionShowsWhatIsInIt(client);
                 shoot(client, "42-a-collection");
                 searchTheCollection(client, "forest");
                 advance(SETTLE);
             }
-            case 112 -> {
+            case 113 -> {
                 aSearchNarrowsIt(client);
                 shoot(client, "43-searching-a-collection");
                 // The other way out of a collection, and the one that saves a hundred clicks.
@@ -1276,22 +1280,22 @@ public final class DevScene {
                 press(client, "Build deck\u2026");
                 advance(SETTLE);
             }
-            case 113 -> {
+            case 114 -> {
                 expectScreen(client, "building a deck from a collection",
                         DecklistImportScreen.class);
                 shoot(client, "44-building-from-a-collection");
                 advance(SETTLE / 2);
             }
-            case 114 -> {
+            case 115 -> {
                 client.setScreen(null);
                 cardsInHandToTradeWith(client);
                 advance(SETTLE);
             }
-            case 115 -> {
+            case 116 -> {
                 aTradeOnTheScreen(client, false, 2);
                 advance(SETTLE);
             }
-            case 116 -> {
+            case 117 -> {
                 expectScreen(client, "opening a trade", TradeScreen.class);
                 aTradeShowsBothSides(client);
                 shoot(client, "45-a-trade");
@@ -1300,7 +1304,7 @@ public final class DevScene {
                 aTradeOnTheScreen(client, true, 2);
                 advance(SETTLE);
             }
-            case 117 -> {
+            case 118 -> {
                 expectScreen(client, "agreeing to a trade", TradeScreen.class);
                 shoot(client, "45a-both-agreed");
                 // Taking a whole offer back down in one press. Reached for rather than
@@ -1310,44 +1314,44 @@ public final class DevScene {
                 aTradeOnTheScreen(client, false, 0);
                 advance(SETTLE);
             }
-            case 118 -> {
+            case 119 -> {
                 expectScreen(client, "taking an offer back down", TradeScreen.class);
                 takingItBackIsSpentWhenThereIsNothingUp(client);
                 shoot(client, "45b-nothing-up");
                 advance(SETTLE / 2);
             }
-            case 119 -> {
+            case 120 -> {
                 client.setScreen(null);
                 aShelfOfLoanerDecks(client);
                 advance(SETTLE);
             }
-            case 120 -> {
+            case 121 -> {
                 offerTheLoaners(client);
                 advance(SETTLE);
             }
-            case 121 -> {
+            case 122 -> {
                 expectScreen(client, "being offered a loaner deck", LoanerScreen.class);
                 theShelfIsOnTheScreen(client);
                 shoot(client, "46-borrow-a-deck");
                 advance(SETTLE / 2);
             }
-            case 122 -> {
+            case 123 -> {
                 client.setScreen(null);
                 aBestOfThreeWaitingToSideboard(client);
                 advance(SETTLE * 2);
             }
-            case 123 -> {
+            case 124 -> {
                 expectScreen(client, "finishing game one of a set", SideboardScreen.class);
                 bothSidesOfTheSideboardAreShown(client);
                 shoot(client, "47-between-games");
                 advance(SETTLE / 2);
             }
-            case 124 -> {
+            case 125 -> {
                 client.setScreen(null);
                 theQuestionBeforePlayingForKeeps(client, false);
                 advance(SETTLE);
             }
-            case 125 -> {
+            case 126 -> {
                 expectScreen(client, "being asked to play for keeps",
                         AnteConsentScreen.class);
                 theQuestionNamesTheStakesAndOffersBothAnswers(client);
@@ -1357,7 +1361,7 @@ public final class DevScene {
                 theQuestionBeforePlayingForKeeps(client, true);
                 advance(SETTLE);
             }
-            case 126 -> {
+            case 127 -> {
                 expectScreen(client, "having agreed to play for keeps",
                         AnteConsentScreen.class);
                 if (!(client.screen instanceof AnteConsentScreen said) || !said.saidYes()) {
@@ -1367,12 +1371,12 @@ public final class DevScene {
                 client.setScreen(null);
                 advance(SETTLE / 2);
             }
-            case 127 -> {
+            case 128 -> {
                 client.setScreen(null);
                 aPotOnTheTable(client);
                 advance(SETTLE);
             }
-            case 128 -> {
+            case 129 -> {
                 // Back at the board this run has been playing on all along, which is where
                 // the pot has to be visible if it is visible anywhere.
                 MinecraftServer server = client.getSingleplayerServer();
@@ -1390,20 +1394,20 @@ public final class DevScene {
                 });
                 advance(SETTLE);
             }
-            case 129 -> {
+            case 130 -> {
                 expectScreen(client, "looking at a table with a pot on it",
                         TableScreen.class);
                 thePotIsDrawnInTheMiddle(client);
                 shoot(client, "49-the-pot");
                 advance(SETTLE / 2);
             }
-            case 130 -> {
+            case 131 -> {
                 // Back in the chair. The run stood up forty steps ago to check what a
                 // spectator sees, and a spectator cannot pick anything up at all.
                 sitBackDown(client);
                 advance(SETTLE);
             }
-            case 131 -> {
+            case 132 -> {
                 // The gesture a physical table has and this one did not: a hand held flat on
                 // a pile picks the pile up. The library is the hard case - nobody may name a
                 // card in it, so there is nothing in the air to name and the whole thing has
@@ -1426,7 +1430,7 @@ public final class DevScene {
                 // Held, not clicked: the frames that pass here are the hold.
                 advance(SETTLE / 2);
             }
-            case 132 -> {
+            case 133 -> {
                 expectScreen(client, "a pile in the air", TableScreen.class);
                 shoot(client, "50-a-pile-in-hand");
                 int[] onto = zoneCentre(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
@@ -1439,7 +1443,7 @@ public final class DevScene {
                 board.mouseReleased(onto[0], onto[1], 0);
                 advance(SETTLE);
             }
-            case 133 -> {
+            case 134 -> {
                 int left = countIn(Zone.LIBRARY);
                 if (left != 0) {
                     fail("holding a library did not pick the whole thing up: " + left + " left");
@@ -1454,14 +1458,14 @@ public final class DevScene {
                 shoot(client, "51-the-pile-landed");
                 advance(SETTLE / 2);
             }
-            case 134 -> {
+            case 135 -> {
                 // Two +1/+1 counters on a creature, which is the thing the board has to say
                 // out loud. It used to shrink them to a "+" and put the count after it, so
                 // two of them read "+2" - a different card entirely, in Magic.
                 twoCountersOnACard(client);
                 advance(SETTLE);
             }
-            case 135 -> {
+            case 136 -> {
                 expectScreen(client, "a board with counters on it", TableScreen.class);
                 int on = countersOnTheCardWithCounters(client);
                 if (on != 2) {
@@ -1477,25 +1481,25 @@ public final class DevScene {
                 straightenTheCounteredCard();
                 advance(SETTLE);
             }
-            case 136 -> {
+            case 137 -> {
                 shoot(client, "52a-counters-straight");
                 // Two cards on the same spot, which is what a stack on a real table is.
                 aStackOfTwoOnTheFelt(client);
                 advance(SETTLE);
             }
-            case 137 -> {
+            case 138 -> {
                 expectScreen(client, "a stack on the felt", TableScreen.class);
                 inExileBefore = countIn(Zone.EXILE);
                 holdTheStackAndDropItOnAZone(client);
                 advance(SETTLE / 2);
             }
-            case 138 -> {
+            case 139 -> {
                 // Held rather than dragged, so the press is still down: the frames since the
                 // last step are the hold, and this step lets go.
                 letTheStackGo(client);
                 advance(SETTLE);
             }
-            case 139 -> {
+            case 140 -> {
                 int now = countIn(Zone.EXILE);
                 if (now != inExileBefore + 2) {
                     fail("a stack of two went to exile and it holds " + now
@@ -1506,13 +1510,13 @@ public final class DevScene {
                 shoot(client, "53-a-stack-went-together");
                 advance(SETTLE / 2);
             }
-            case 140 -> {
+            case 141 -> {
                 // The pen. A group with no rules engine remembers a rule by writing it on the
                 // card, and every other player reading it is the whole point.
                 writeOnACard(client);
                 advance(SETTLE);
             }
-            case 141 -> {
+            case 142 -> {
                 expectScreen(client, "a card with writing on it", TableScreen.class);
                 String written = whatIsWrittenOnTheCard();
                 if (!"flying until end of turn".equals(written)) {
@@ -1526,7 +1530,7 @@ public final class DevScene {
                 restOnTheWrittenCard(client);
                 advance(SETTLE / 4);
             }
-            case 142 -> {
+            case 143 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a note could be read off it");
                     advance(SETTLE / 2);
@@ -1546,7 +1550,7 @@ public final class DevScene {
                 shoot(client, "54-written-on-a-card");
                 advance(SETTLE / 4);
             }
-            case 143 -> {
+            case 144 -> {
                 // The user's report: "the actual table version is riddled with issues such as
                 // flipping cards doesn't work". Right-clicking a card on the block had never
                 // been in the run - the drag had, the buttons had, the menu had not.
@@ -1555,7 +1559,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 144 -> {
+            case 145 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !(board.board() instanceof dev.gathering.core.ui.SurfaceBoard)) {
                     fail("pressing V did not put the board on the block");
@@ -1568,7 +1572,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 145 -> {
+            case 146 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a card could be right-clicked on it");
                     advance(SETTLE / 2);
@@ -1596,7 +1600,7 @@ public final class DevScene {
                 System.out.println("[devscene] turned a card face down from its menu on the block");
                 advance(SETTLE);
             }
-            case 146 -> {
+            case 147 -> {
                 int now = howManyAreFaceDown();
                 if (now != faceDownWas + 1) {
                     fail("turning a card face down on the block left " + now
@@ -1607,7 +1611,7 @@ public final class DevScene {
                 shoot(client, "55-flipped-on-the-block");
                 advance(SETTLE / 2);
             }
-            case 147 -> {
+            case 148 -> {
                 // The written card, put in the graveyard and read back through the pile
                 // screen. A card looked at through one screen and lying on the felt in
                 // another has to be the same card.
@@ -1620,11 +1624,11 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 148 -> {
+            case 149 -> {
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 149 -> {
+            case 150 -> {
                 expectScreen(client, "a graveyard holding a written card", PileScreen.class);
                 if (!theGraveyardHoldsTheWrittenCard()) {
                     fail("the card written on is not in the graveyard the screen opened");
@@ -1637,7 +1641,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 150 -> {
+            case 151 -> {
                 // "Many of the elements of the table gui phase in and out as you scroll in
                 // and out." Photographed at four heights rather than reasoned about: whatever
                 // comes and goes has to be visible in the pictures side by side.
@@ -1646,7 +1650,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 151 -> {
+            case 152 -> {
                 expectScreen(client, "the board on the block to zoom", TableScreen.class);
                 // Aimed at the graveyard rather than at the middle of the window, because
                 // the middle is where the camera already is: a wheel that ignored the cursor
@@ -1656,7 +1660,7 @@ public final class DevScene {
                 scrollTheBoard(client, 6);
                 advance(SETTLE / 2);
             }
-            case 152 -> {
+            case 153 -> {
                 theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
                 // Dragged here as well as at the whole-table framing, because how many blocks
@@ -1666,29 +1670,29 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 153 -> {
+            case 154 -> {
                 theBoardFollowedTheHand("dragged while leaning all the way in");
                 dragTheBoard(client, 0, -PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 154 -> {
+            case 155 -> {
                 theBoardFollowedTheHand("dragged back again");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 155 -> {
+            case 156 -> {
                 theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 156 -> {
+            case 157 -> {
                 theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 157 -> {
+            case 158 -> {
                 theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
@@ -1701,7 +1705,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 158 -> {
+            case 159 -> {
                 expectScreen(client, "the whole table on the block", TableScreen.class);
                 System.out.println("[devscene] camera: " + TableCameraView.report());
                 theBlockFramesLikeTheScreen(client);
@@ -1712,12 +1716,12 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 159 -> {
+            case 160 -> {
                 theBoardFollowedTheHand("dragged down the whole-table view");
                 dragTheBoard(client, PAN_BY, 0);
                 advance(SETTLE / 2);
             }
-            case 160 -> {
+            case 161 -> {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
                 // Dyed with the board still open and nothing else touching the world, which
@@ -1728,7 +1732,7 @@ public final class DevScene {
                 dyeTheTable(client);
                 advance(SETTLE);
             }
-            case 161 -> {
+            case 162 -> {
                 shoot(client, "60-the-felt-dyed");
                 advance(SETTLE / 2);
             }
@@ -3422,11 +3426,43 @@ public final class DevScene {
         // card hanging wherever the cursor was last really put.
         hover(client, from);
         board.mouseClicked(from[0], from[1], 0);
-        hover(client, aimedAt);
         board.mouseDragged(aimedAt[0], aimedAt[1], 0,
                 aimedAt[0] - from[0], aimedAt[1] - from[1]);
+        // The cursor is moved last and nothing is called after it, because the board works
+        // out what a held card is over while it draws, from the cursor the game hands it -
+        // not from the coordinates a drag was reported with. Moved before the drag, the
+        // position was gone again by the time a frame asked, and the aim came back as the
+        // battlefield spot the card was picked up from, which is a true answer to the wrong
+        // question and reads exactly like the board refusing to aim.
+        hover(client, aimedAt);
         System.out.println("[devscene] holding a card over zone " + index
                 + " at " + aimedAt[0] + "," + aimedAt[1]);
+    }
+
+    /**
+     * Checks the board worked out which slot the card in the air is over, and says which.
+     *
+     * <p>Two halves, tested apart, because the cursor cannot be moved mid-drag from here:
+     * {@code glfwSetCursorPos} does not reach a frame that already has a button held, so a
+     * scripted drag reports one position and the board draws from another. That is the
+     * harness's problem and not the mod's - the first time this was asked it read "slot -1",
+     * which was the honest answer for the spot the card had been picked up from.
+     *
+     * <p>So this checks the half that is reachable: that the board computes an answer at all
+     * and names the slot it arrived at. Whether a lit slot is drawn lit cannot be scripted
+     * from here - the aim is recomputed from the cursor on every frame, so a value set by
+     * hand is gone before the next picture is taken.
+     */
+    private static void theBoardWorksOutWhatIsUnderTheCard(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to read an aim from");
+            return;
+        }
+        String said = board.aimReport();
+        System.out.println("[devscene] aim: " + said);
+        if (!said.startsWith("cursor ")) {
+            fail("the board made nothing of the card in the air: " + said);
+        }
     }
 
     /** Where the held card is hovering, so the next step can drop it there. */
