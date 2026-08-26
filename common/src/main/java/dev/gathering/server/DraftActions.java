@@ -27,9 +27,6 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class DraftActions {
 
-    /** How far a drafter may be from the tables and still be picking at them. */
-    private static final double REACH = 12.0d;
-
     private DraftActions() {
     }
 
@@ -164,9 +161,8 @@ public final class DraftActions {
         return true;
     }
 
+    /** Whether this player is at that table. One rule; see {@link TableReach}. */
     private static boolean within(ServerPlayer player, BlockPos tableOrigin) {
-        return player.distanceToSqr(
-                tableOrigin.getX() + 0.5d, tableOrigin.getY() + 0.5d, tableOrigin.getZ() + 0.5d)
-                <= REACH * REACH;
+        return TableReach.within(player, tableOrigin);
     }
 }

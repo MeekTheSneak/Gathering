@@ -35,9 +35,6 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class TokenCreation {
 
-    /** How far a player may be from a table and still be making tokens at it. */
-    private static final double REACH = 12.0d;
-
     private TokenCreation() {
     }
 
@@ -99,15 +96,8 @@ public final class TokenCreation {
                 "message.gathering.token_created", payload.count(), token.name()));
     }
 
+    /** The corner of the table, if this player is at one. One rule; see {@link TableReach}. */
     private static Optional<BlockPos> originFor(ServerPlayer player, BlockPos clicked, ServerLevel level) {
-        if (player.distanceToSqr(clicked.getX() + 0.5, clicked.getY() + 0.5, clicked.getZ() + 0.5)
-                > REACH * REACH) {
-            return Optional.empty();
-        }
-        BlockState state = level.getBlockState(clicked);
-        if (!(state.getBlock() instanceof TableBlock)) {
-            return Optional.empty();
-        }
-        return Optional.of(TableBlock.originOf(state, clicked));
+        return TableReach.originFor(player, clicked);
     }
 }

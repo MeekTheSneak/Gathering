@@ -199,6 +199,7 @@
   "message.gathering.deck_needs_seat": "You need a seat at this table before putting a deck down.",
   "message.gathering.deck_odd": "This deck would not be legal for %s:",
   "message.gathering.discard_none": "Your hand is empty, so nothing was discarded.",
+  "message.gathering.discard_partial": "%1$s of %2$s cards were discarded. The rest could not be: %3$s",
   "message.gathering.draft_already_drafting": "There is already a draft running here.",
   "message.gathering.draft_cube_too_small": "This cube needs %1$s cards for a pod this size, and has %2$s.",
   "message.gathering.draft_finished": "The draft is over. You drafted %s cards.",

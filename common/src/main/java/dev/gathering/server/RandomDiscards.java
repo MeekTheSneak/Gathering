@@ -17,7 +17,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Discarding at random, decided here because it cannot honestly be decided anywhere else.
@@ -36,29 +35,18 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class RandomDiscards {
 
-    /** How far a player may be from a table and still be playing at it. Same as every verb. */
-    private static final double REACH = 12.0d;
-
     private RandomDiscards() {
     }
 
     public static void handle(ServerPlayer player, DiscardAtRandomPayload payload) {
+        TableReach.Seated at = TableReach.seatedAt(player, payload.table()).orElse(null);
+        if (at == null) {
+            return;
+        }
         ServerLevel level = player.serverLevel();
-        BlockPos clicked = payload.table();
-        if (player.distanceToSqr(clicked.getX() + 0.5, clicked.getY() + 0.5, clicked.getZ() + 0.5)
-                > REACH * REACH) {
-            return;
-        }
-        BlockState state = level.getBlockState(clicked);
-        if (!(state.getBlock() instanceof TableBlock)) {
-            return;
-        }
-        BlockPos origin = TableBlock.originOf(state, clicked);
-        GameSession session = TableSessions.sessionAt(level, origin).orElse(null);
-        SeatId seat = TableSessions.seatIdOf(level, origin, player.getUUID()).orElse(null);
-        if (session == null || seat == null) {
-            return;
-        }
+        BlockPos origin = at.origin();
+        GameSession session = at.session();
+        SeatId seat = at.seat();
 
         List<CardInstanceId> hand = session.state().contents(seat, Zone.HAND);
         List<CardInstanceId> going = RandomPick.some(
@@ -70,17 +58,34 @@ public final class RandomDiscards {
             return;
         }
 
+        // One event per card, and a refusal partway through has to be told rather than
+        // returned from. Whatever went before it has already gone: leaving without the
+        // broadcast would put those cards in the graveyard on the server and leave every
+        // client drawing them in a hand they are no longer in, until something unrelated
+        // happened to send the board again.
+        String refused = null;
+        int moved = 0;
         for (CardInstanceId card : going) {
             GameSession.Result result = session.submit(new GameEvent.CardMoved(
                     seat, card, ZoneRef.of(seat, Zone.GRAVEYARD), Placement.TOP));
             if (result instanceof GameSession.Result.Rejected rejected) {
-                player.sendSystemMessage(Component.literal(rejected.reason()));
-                return;
+                refused = rejected.reason();
+                break;
             }
+            moved++;
         }
-        TableSessions.anchorOf(level, origin)
-                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
-                .ifPresent(TableBlockEntity::setChanged);
-        TableBroadcast.sendToTable(level, origin);
+        if (moved > 0) {
+            TableSessions.anchorOf(level, origin)
+                    .flatMap(anchor -> TableBlock.entityAt(level, anchor))
+                    .ifPresent(TableBlockEntity::setChanged);
+            TableBroadcast.sendToTable(level, origin);
+        }
+        if (refused != null) {
+            // How many really went, not just why the rest did not. A player told only "no"
+            // after two of their three cards have gone has been told the wrong thing.
+            player.sendSystemMessage(Component.translatable(
+                    "message.gathering.discard_partial", moved, going.size(),
+                    Component.literal(refused)));
+        }
     }
 }

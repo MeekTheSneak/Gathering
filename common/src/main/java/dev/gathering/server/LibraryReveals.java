@@ -20,7 +20,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Turning a library over until something turns up: cascade, and reveal until type.
@@ -41,29 +40,18 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class LibraryReveals {
 
-    /** How far a player may be from a table and still be playing at it. Same as every verb. */
-    private static final double REACH = 12.0d;
-
     private LibraryReveals() {
     }
 
     public static void handle(ServerPlayer player, RevealUntilPayload payload) {
+        TableReach.Seated at = TableReach.seatedAt(player, payload.table()).orElse(null);
+        if (at == null) {
+            return;
+        }
         ServerLevel level = player.serverLevel();
-        BlockPos clicked = payload.table();
-        if (player.distanceToSqr(clicked.getX() + 0.5, clicked.getY() + 0.5, clicked.getZ() + 0.5)
-                > REACH * REACH) {
-            return;
-        }
-        BlockState state = level.getBlockState(clicked);
-        if (!(state.getBlock() instanceof TableBlock)) {
-            return;
-        }
-        BlockPos origin = TableBlock.originOf(state, clicked);
-        GameSession session = TableSessions.sessionAt(level, origin).orElse(null);
-        SeatId seat = TableSessions.seatIdOf(level, origin, player.getUUID()).orElse(null);
-        if (session == null || seat == null) {
-            return;
-        }
+        BlockPos origin = at.origin();
+        GameSession session = at.session();
+        SeatId seat = at.seat();
 
         int found = howFar(session, seat, payload);
         if (found <= 0) {

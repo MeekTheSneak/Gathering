@@ -28,9 +28,6 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class Lending {
 
-    /** How far a player may be from a table and still be borrowing at it. Setup's reach. */
-    private static final double REACH = 12.0d;
-
     private Lending() {
     }
 
@@ -69,7 +66,7 @@ public final class Lending {
             return;
         }
         BlockPos table = asked.table();
-        if (table != null && player.blockPosition().distSqr(table) > REACH * REACH) {
+        if (table != null && !TableReach.within(player, table)) {
             // The offer named a table and the deck goes down at one. Somewhere else is either
             // a client that has wandered off with the screen open or one that is making the
             // request up, and both get the same nothing.

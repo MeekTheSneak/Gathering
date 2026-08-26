@@ -35,9 +35,6 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class TableActions {
 
-    /** How far a player may be from a table and still be playing at it. */
-    private static final double REACH = 12.0d;
-
     private TableActions() {
     }
 
@@ -45,15 +42,10 @@ public final class TableActions {
         ServerLevel level = player.serverLevel();
         BlockPos clicked = payload.table();
 
-        if (player.distanceToSqr(clicked.getX() + 0.5, clicked.getY() + 0.5, clicked.getZ() + 0.5)
-                > REACH * REACH) {
+        BlockPos origin = TableReach.originFor(player, clicked).orElse(null);
+        if (origin == null) {
             return;
         }
-        BlockState state = level.getBlockState(clicked);
-        if (!(state.getBlock() instanceof TableBlock)) {
-            return;
-        }
-        BlockPos origin = TableBlock.originOf(state, clicked);
 
         GameEvent event = accept(level, origin, player.getUUID(), payload.event()).orElse(null);
         if (event == null) {
@@ -133,15 +125,10 @@ public final class TableActions {
     public static void handleUndo(ServerPlayer player, UndoPayload payload) {
         ServerLevel level = player.serverLevel();
         BlockPos clicked = payload.table();
-        if (player.distanceToSqr(clicked.getX() + 0.5, clicked.getY() + 0.5, clicked.getZ() + 0.5)
-                > REACH * REACH) {
+        BlockPos origin = TableReach.originFor(player, clicked).orElse(null);
+        if (origin == null) {
             return;
         }
-        BlockState state = level.getBlockState(clicked);
-        if (!(state.getBlock() instanceof TableBlock)) {
-            return;
-        }
-        BlockPos origin = TableBlock.originOf(state, clicked);
         GameSession session = TableSessions.sessionAt(level, origin).orElse(null);
         SeatId seat = TableSessions.seatIdOf(level, origin, player.getUUID()).orElse(null);
         if (session == null || seat == null) {
