@@ -50,7 +50,9 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     private static final int MARGIN = 14;
     private static final int GAP = 4;
     private static final int HEADER = 16;
-    private static final int FOOTER = 14;
+
+    /** Room under the cards for the hint and the Done button, stacked. */
+    private static final int FOOTER = 40;
 
     /** Big enough to read the name off the art without opening the inspector. */
     private static final int CARD_HEIGHT = 84;
@@ -168,19 +170,28 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         int tall = inTheGrid + MARGIN * 2 + HEADER + FOOTER;
         panel = new Rect(
                 (this.width - wanted) / 2, Math.max(0, (this.height - tall) / 2), wanted, tall);
-        grid = new Rect(panel.x() + MARGIN, panel.y() + MARGIN + HEADER,
-                panel.width() - MARGIN * 2, panel.height() - MARGIN * 2 - HEADER - FOOTER);
+        // Centred rather than packed to the left. The box is usually as wide as the sentence
+        // under it rather than as wide as its cards, so a graveyard holding one card put that
+        // card in the top-left corner of a box four times its width, and read as a panel that
+        // had failed to draw the rest of itself.
+        int across = columns * (cardWidth + GAP) - GAP;
+        grid = new Rect(panel.x() + (panel.width() - across) / 2, panel.y() + MARGIN + HEADER,
+                across, panel.height() - MARGIN * 2 - HEADER - FOOTER);
         scroll = Math.min(scroll, hiddenBelow());
 
-        // Escape closes it, but a screen whose only way out is a key you have to know is a
-        // screen somebody gets stuck in.
+        // At the bottom, centred, like the Done on every other screen in the mod. Beside the
+        // title it was a second thing competing with the heading for the same line, and it
+        // was the only screen here that put its way out at the top.
         addRenderableWidget(GatheringButtons.of(
-                panel.right() - MARGIN - DONE_WIDTH, panel.y() + MARGIN - 4, DONE_WIDTH, 16,
+                panel.x() + (panel.width() - DONE_WIDTH) / 2,
+                panel.bottom() - MARGIN - BUTTON_HEIGHT, DONE_WIDTH, BUTTON_HEIGHT,
                 Component.translatable("gui.done"),
                 decision == null ? this::onClose : this::decide));
     }
 
-    private static final int DONE_WIDTH = 54;
+    private static final int DONE_WIDTH = 60;
+
+    private static final int BUTTON_HEIGHT = 16;
 
     /**
      * The longest thing this screen has to write, so the box can be built to hold it.
@@ -199,7 +210,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
      * than anything else in here.
      */
     private int widestLine(boolean scrolls) {
-        int widest = this.font.width(heading()) + DONE_WIDTH + MARGIN;
+        int widest = this.font.width(heading());
         Component hint = footer(scrolls);
         return hint == null ? widest : Math.max(widest, this.font.width(hint));
     }
@@ -363,9 +374,9 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         super.render(graphics, mouseX, mouseY, partialTick);
 
         List<CardView> cards = inOrder();
-        GuiText.draw(graphics, this.font, heading(),
-                panel.x() + MARGIN, panel.y() + MARGIN,
-                panel.width() - MARGIN * 2 - DONE_WIDTH, LABEL);
+        GuiText.drawCentred(graphics, this.font, heading(),
+                panel.x() + panel.width() / 2, panel.y() + MARGIN,
+                panel.width() - MARGIN * 2, LABEL);
 
         ClientHoverState.clear();
         if (cards.isEmpty()) {
@@ -403,8 +414,9 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
         Component hint = footer(hiddenBelow() > 0);
         if (hint != null) {
-            GuiText.draw(graphics, this.font, hint,
-                    panel.x() + MARGIN, panel.bottom() - MARGIN - FOOTER + 3,
+            GuiText.drawCentred(graphics, this.font, hint,
+                    panel.x() + panel.width() / 2,
+                    panel.bottom() - MARGIN - BUTTON_HEIGHT - this.font.lineHeight - 4,
                     panel.width() - MARGIN * 2, DIM);
         }
 
