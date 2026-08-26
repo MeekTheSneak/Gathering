@@ -2125,6 +2125,11 @@ public final class TableScreen extends Screen {
                 area.x() + 5, top, area.width() - 10, ACCENT);
         top += line + 2;
 
+        // One size for the whole list, taken from its longest line. Fitting each line to the
+        // column on its own gave a list in as many sizes as it had lengths - three lines
+        // shrunk and twenty-two not - which reads as unfinished however correct each line is.
+        float scale = keyListScale(columnWidth - 12);
+
         int column = 0;
         int y = top;
         for (String[] section : KEY_HELP) {
@@ -2134,8 +2139,7 @@ public final class TableScreen extends Screen {
                 y = top;
             }
             int x = area.x() + 5 + column * columnWidth;
-            GuiText.draw(graphics, this.font, keyLine(section[0]),
-                    x, y, columnWidth - 6, ACCENT);
+            GuiText.drawFlushLeft(graphics, this.font, keyLine(section[0]), x, y, scale, ACCENT);
             y += line;
             for (int index = 1; index < section.length; index++) {
                 if (y + line > bottom && column + 1 < columns) {
@@ -2143,8 +2147,8 @@ public final class TableScreen extends Screen {
                     y = top;
                     x = area.x() + 5 + column * columnWidth;
                 }
-                GuiText.draw(graphics, this.font, keyLine(section[index]),
-                        x + 6, y, columnWidth - 12, LABEL);
+                GuiText.drawFlushLeft(
+                        graphics, this.font, keyLine(section[index]), x + 6, y, scale, LABEL);
                 y += line;
             }
             y += 2;
@@ -2153,6 +2157,37 @@ public final class TableScreen extends Screen {
                 Component.translatable("screen.gathering.table.keys_close"),
                 area.x() + 5, area.bottom() - line - 2, area.width() - 10, DIM);
     }
+
+    /**
+     * The one size every line of the key list is drawn at.
+     *
+     * <p>Measured off the longest line rather than off each in turn, which is the rule the
+     * mat's own labels have followed since they were added. Remembered against the width it
+     * was worked out for, because the list is redrawn every frame it is open and the answer
+     * only changes when the window does.
+     */
+    private float keyListScale(int room) {
+        if (room != keyListRoom) {
+            keyListRoom = room;
+            Component longest = null;
+            int widest = -1;
+            for (String[] section : KEY_HELP) {
+                for (String name : section) {
+                    Component line = keyLine(name);
+                    int width = this.font.width(line);
+                    if (width > widest) {
+                        widest = width;
+                        longest = line;
+                    }
+                }
+            }
+            keyListScale = longest == null ? 1f : GuiText.scaleForTheSet(this.font, longest, room);
+        }
+        return keyListScale;
+    }
+
+    private int keyListRoom = -1;
+    private float keyListScale = 1f;
 
     /**
      * One line of the key list.
