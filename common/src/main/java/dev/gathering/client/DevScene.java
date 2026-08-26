@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 170;
+    private static final int LAST_STEP = 175;
 
     private static int step;
     private static int waited;
@@ -528,8 +528,11 @@ public final class DevScene {
                 // the cursor is while it is drawing, so a key pressed in the same step as the
                 // move is aimed at wherever the cursor was last frame - which is empty felt,
                 // and a verb key over empty felt does nothing quietly.
+                //
+                // 8 rather than 7: the reference table bins on 8 and exiles on 7, and this
+                // mod had them the other way round until the bindings were checked against it.
                 if (client.screen != null) {
-                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_7, 0, 0);
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_8, 0, 0);
                 }
                 // That was the only card on the battlefield, and it is in the graveyard now -
                 // which is the point of the check, and would leave the rest of the scene with
@@ -1676,6 +1679,57 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 152 -> {
+                // The other two destinations on the number row, checked because they were
+                // wrong: 7 exiles and 9 puts cards back under the library. Everything else
+                // about the row was right, which is exactly why nobody noticed these.
+                inExileBefore = countIn(Zone.EXILE);
+                inTheLibraryBefore = countIn(Zone.LIBRARY);
+                hover(client, cardPoint(client));
+                advance(SETTLE / 2);
+            }
+            case 153 -> {
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_7, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 154 -> {
+                int now = countIn(Zone.EXILE);
+                if (now != inExileBefore + 1) {
+                    fail("7 is the exile key and exile went from " + inExileBefore
+                            + " to " + now);
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println("[devscene] 7 exiles, the way the reference table has it");
+                // And 9, which asks the server to put it back under the library in an order
+                // nobody chose - so what is checked is that the card arrived, not where.
+                playACard(client);
+                advance(SETTLE);
+            }
+            case 155 -> {
+                inTheLibraryBefore = countIn(Zone.LIBRARY);
+                hover(client, cardPoint(client));
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_9, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 156 -> {
+                int now = countIn(Zone.LIBRARY);
+                if (now != inTheLibraryBefore + 1) {
+                    fail("9 puts a card under the library and it went from "
+                            + inTheLibraryBefore + " to " + now);
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println("[devscene] 9 puts a card back under the library");
+                // That was the last card on the battlefield, and the block view is next.
+                // Every check over there needs something to aim at, so another one goes down.
+                playACard(client);
+                advance(SETTLE);
+            }
+            case 157 -> {
                 // The user's report: "the actual table version is riddled with issues such as
                 // flipping cards doesn't work". Right-clicking a card on the block had never
                 // been in the run - the drag had, the buttons had, the menu had not.
@@ -1684,7 +1738,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 153 -> {
+            case 158 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !(board.board() instanceof dev.gathering.core.ui.SurfaceBoard)) {
                     fail("pressing V did not put the board on the block");
@@ -1697,7 +1751,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 154 -> {
+            case 159 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a card could be right-clicked on it");
                     advance(SETTLE / 2);
@@ -1725,7 +1779,7 @@ public final class DevScene {
                 System.out.println("[devscene] turned a card face down from its menu on the block");
                 advance(SETTLE);
             }
-            case 155 -> {
+            case 160 -> {
                 int now = howManyAreFaceDown();
                 if (now != faceDownWas + 1) {
                     fail("turning a card face down on the block left " + now
@@ -1736,7 +1790,7 @@ public final class DevScene {
                 shoot(client, "55-flipped-on-the-block");
                 advance(SETTLE / 2);
             }
-            case 156 -> {
+            case 161 -> {
                 // The written card, put in the graveyard and read back through the pile
                 // screen. A card looked at through one screen and lying on the felt in
                 // another has to be the same card.
@@ -1749,11 +1803,11 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 157 -> {
+            case 162 -> {
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 158 -> {
+            case 163 -> {
                 expectScreen(client, "a graveyard holding a written card", PileScreen.class);
                 if (!theGraveyardHoldsTheWrittenCard()) {
                     fail("the card written on is not in the graveyard the screen opened");
@@ -1766,7 +1820,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 159 -> {
+            case 164 -> {
                 // "Many of the elements of the table gui phase in and out as you scroll in
                 // and out." Photographed at four heights rather than reasoned about: whatever
                 // comes and goes has to be visible in the pictures side by side.
@@ -1775,7 +1829,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 160 -> {
+            case 165 -> {
                 expectScreen(client, "the board on the block to zoom", TableScreen.class);
                 // Aimed at the graveyard rather than at the middle of the window, because
                 // the middle is where the camera already is: a wheel that ignored the cursor
@@ -1785,7 +1839,7 @@ public final class DevScene {
                 scrollTheBoard(client, 6);
                 advance(SETTLE / 2);
             }
-            case 161 -> {
+            case 166 -> {
                 theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
                 // Dragged here as well as at the whole-table framing, because how many blocks
@@ -1795,29 +1849,29 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 162 -> {
+            case 167 -> {
                 theBoardFollowedTheHand("dragged while leaning all the way in");
                 dragTheBoard(client, 0, -PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 163 -> {
+            case 168 -> {
                 theBoardFollowedTheHand("dragged back again");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 164 -> {
+            case 169 -> {
                 theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 165 -> {
+            case 170 -> {
                 theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 166 -> {
+            case 171 -> {
                 theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
@@ -1830,7 +1884,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 167 -> {
+            case 172 -> {
                 expectScreen(client, "the whole table on the block", TableScreen.class);
                 System.out.println("[devscene] camera: " + TableCameraView.report());
                 theBlockFramesLikeTheScreen(client);
@@ -1841,12 +1895,12 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 168 -> {
+            case 173 -> {
                 theBoardFollowedTheHand("dragged down the whole-table view");
                 dragTheBoard(client, PAN_BY, 0);
                 advance(SETTLE / 2);
             }
-            case 169 -> {
+            case 174 -> {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
                 // Dyed with the board still open and nothing else touching the world, which
@@ -1857,7 +1911,7 @@ public final class DevScene {
                 dyeTheTable(client);
                 advance(SETTLE);
             }
-            case 170 -> {
+            case 175 -> {
                 shoot(client, "60-the-felt-dyed");
                 advance(SETTLE / 2);
             }
@@ -2129,6 +2183,9 @@ public final class DevScene {
         }
         board.pressMenuEntry("Discard at random...");
     }
+
+    /** What the library held before the number row put something back under it. */
+    private static int inTheLibraryBefore;
 
     /** What the hand and the graveyard held before the random discard, to compare after. */
     private static int inTheHandBefore;

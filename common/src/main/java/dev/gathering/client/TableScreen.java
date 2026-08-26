@@ -42,6 +42,7 @@ import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
 import dev.gathering.network.CreateTokenPayload;
 import dev.gathering.network.DiscardAtRandomPayload;
+import dev.gathering.network.ToBottomAtRandomPayload;
 import dev.gathering.network.RevealUntilPayload;
 import dev.gathering.network.UndoPayload;
 import java.util.ArrayList;
@@ -3914,10 +3915,15 @@ public final class TableScreen extends Screen {
     /**
      * The number row: one press does one thing to the game, or to the card being pointed at.
      *
-     * <p>The same nine verbs the reference table binds them to, because they are the nine
-     * things a game of Magic asks for over and over and because somebody arriving from that
-     * table already knows them. It used to be "draw that many cards", which spent the whole
-     * row on one verb and left the other eight behind a right-click and a menu.
+     * <p>Matched to the reference table, key for key, because somebody arriving from that
+     * table already knows them and a row that is nearly the same is worse than one that is
+     * different: 0 passes, 1 untaps, 2 draws, 3 scries, 4 mills, 5 reveals, 7 exiles, 8 bins
+     * and 9 puts cards under the library in a random order.
+     *
+     * <p>Six is the one deliberate difference. That table splits revealing into a fan and a
+     * stack, which is a choice about how the cards it has already turned over are laid out;
+     * this one draws revealed cards one way and spends the key on surveil instead, which is a
+     * verb rather than a display and comes up in a real game far more often.
      *
      * <p>Drawing a named number of cards is still on the library's menu, where a thing done
      * once a game belongs.
@@ -3946,11 +3952,32 @@ public final class TableScreen extends Screen {
                 decideOnLibrary(me, PileScreen.Decision.SURVEIL);
                 yield true;
             }
-            case 7 -> sendUnderCursorTo(me, Zone.GRAVEYARD, Placement.TOP);
-            case 8 -> sendUnderCursorTo(me, Zone.EXILE, Placement.TOP);
-            case 9 -> sendUnderCursorTo(me, Zone.LIBRARY, Placement.BOTTOM);
+            // 7 is exile and 8 is the graveyard, which is the way round the reference table
+            // has them. They were the other way round here for no reason but the order they
+            // were written in, and a player arriving from that table would have binned two
+            // cards before noticing.
+            case 7 -> sendUnderCursorTo(me, Zone.EXILE, Placement.TOP);
+            case 8 -> sendUnderCursorTo(me, Zone.GRAVEYARD, Placement.TOP);
+            case 9 -> bottomOfLibraryAtRandom(me);
             default -> false;
         };
+    }
+
+    /**
+     * Puts whatever the keys are pointing at back under the library, in no order.
+     *
+     * <p>Asked of the server rather than done here, because the order cards go back in is a
+     * fact about the bottom of a library and a client that chose it would be the only thing
+     * at the table that knew it - see {@link ToBottomAtRandomPayload}.
+     */
+    private boolean bottomOfLibraryAtRandom(SeatId me) {
+        List<CardInstanceId> targets = underCursorOrSelected();
+        if (targets.isEmpty()) {
+            return false;
+        }
+        ClientNetworking.send(new ToBottomAtRandomPayload(table, targets));
+        selected.clear();
+        return true;
     }
 
     /**

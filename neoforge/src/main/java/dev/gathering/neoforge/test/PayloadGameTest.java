@@ -393,6 +393,41 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /**
+     * Cards going back under a library, on the wire.
+     *
+     * <p>The list is what a box-drag produced, so its ceiling is the guard that stops a
+     * misdrag putting every permanent on the table under somebody's deck.
+     */
+    @GameTest(template = "empty")
+    public static void aRandomReturnSurvivesTheWire(GameTestHelper helper) {
+        var asked = roundTrip(
+                helper,
+                new dev.gathering.network.ToBottomAtRandomPayload(
+                        net.minecraft.core.BlockPos.ZERO,
+                        java.util.List.of(
+                                new dev.gathering.core.game.CardInstanceId(4),
+                                new dev.gathering.core.game.CardInstanceId(9))),
+                dev.gathering.network.ToBottomAtRandomPayload.STREAM_CODEC);
+        if (asked.cards().size() != 2
+                || asked.cards().get(0).value() != 4
+                || asked.cards().get(1).value() != 9) {
+            helper.fail("the cards going under a library changed on the wire: " + asked.cards());
+        }
+
+        java.util.List<dev.gathering.core.game.CardInstanceId> lots = new java.util.ArrayList<>();
+        for (int card = 0; card < dev.gathering.network.ToBottomAtRandomPayload.MOST + 40; card++) {
+            lots.add(new dev.gathering.core.game.CardInstanceId(card));
+        }
+        var trimmed = new dev.gathering.network.ToBottomAtRandomPayload(
+                net.minecraft.core.BlockPos.ZERO, lots);
+        if (trimmed.cards().size() != dev.gathering.network.ToBottomAtRandomPayload.MOST) {
+            helper.fail("a hundred cards were not cut down to the ceiling: "
+                    + trimmed.cards().size());
+        }
+        helper.succeed();
+    }
+
     /** A deck's new name, on the wire. */
     @GameTest(template = "empty")
     public static void aRenameSurvivesTheWire(GameTestHelper helper) {
