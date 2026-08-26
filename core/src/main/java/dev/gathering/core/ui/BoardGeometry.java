@@ -193,6 +193,20 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     /** How much of the window is board rather than furniture, which is what it is framed into. */
+    /**
+     * What this geometry is currently doing, for the scripted run to write down.
+     *
+     * <p>Diagnostic. The two views are supposed to frame the same table the same size, and
+     * the only way to tell whether they do is to read the numbers off both at once.
+     */
+    public String report() {
+        return "window=" + width + "x" + height
+                + " coveredTop=" + coveredAtTheTop + " coveredBottom=" + coveredAtTheBottom
+                + " visible=" + visible()
+                + " surface=" + surface.width() + "x" + surface.height()
+                + " scale=" + String.format("%.6f", camera.scale());
+    }
+
     private int visible() {
         return Math.max(1, height - coveredAtTheTop - coveredAtTheBottom);
     }

@@ -41,6 +41,22 @@ public record TableCamera(
     private static final double MAX_CARD_PIXELS = 260.0;
 
     /**
+     * The same two limits, for the view that measures its zoom in blocks rather than pixels.
+     *
+     * <p>How far in and out a board may go is a statement about reading cards, not about
+     * cameras, so both views have to reach the same answer or the same key gives two
+     * different boards. The in-world one had its own pair of numbers and framed the whole
+     * table a fifth smaller because of it.
+     */
+    public static double smallestCardPixels() {
+        return MIN_CARD_PIXELS;
+    }
+
+    public static double largestCardPixels() {
+        return MAX_CARD_PIXELS;
+    }
+
+    /**
      * <b>Turned</b> is the difference between watching a game and playing in one.
      *
      * <p>A surface is laid out once, against the table: north is north for everybody. Half the

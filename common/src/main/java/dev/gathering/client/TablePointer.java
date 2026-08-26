@@ -56,6 +56,75 @@ public final class TablePointer {
         ready = true;
     }
 
+    /**
+     * How many blocks of table one block of eye height shows, top to bottom of the window.
+     *
+     * <p>Read off the projection the game actually drew with, for the same reason the picker
+     * is: the effective field of view is the setting through a private method, a sprint
+     * modifier, a potion and a loader hook, and a camera that framed the table from the
+     * setting alone would frame it wrongly for exactly the players whose view is not the
+     * default one. Empty until a frame has been drawn, which is the first frame of the view.
+     */
+    public static java.util.OptionalDouble verticalSpread() {
+        // A perspective projection's m11 is 1 / tan(half the vertical angle), so twice its
+        // reciprocal is the height of what is visible one unit in front of the eye.
+        return ready && projection.m11() > 0
+                ? java.util.OptionalDouble.of(2.0 / projection.m11())
+                : java.util.OptionalDouble.empty();
+    }
+
+    /**
+     * How much wider than tall the drawn frame is, by the same reading.
+     *
+     * <p>The window's own ratio in every ordinary case, and read from the projection anyway
+     * so that the two halves of a framing decision come from one place.
+     */
+    public static java.util.OptionalDouble aspect() {
+        return ready && projection.m00() > 0
+                ? java.util.OptionalDouble.of(projection.m11() / (double) projection.m00())
+                : java.util.OptionalDouble.empty();
+    }
+
+    /**
+     * Where a place on the felt lands on the window, which is the picker run forwards.
+     *
+     * <p>The one way to ask how big the in-world board is actually drawn. Everything else
+     * about it is measured in surface units, which say where a mat is on the felt and nothing
+     * at all about whether a player can read it - and "the board on the block is smaller than
+     * the same board on the screen" is a complaint about pixels.
+     *
+     * <p>In GUI coordinates, the same ones a mouse arrives in, so a caller can compare what
+     * it gets back against a rectangle on the seated board without converting anything.
+     * Empty when the point is behind the eye or no frame has been drawn yet.
+     */
+    public static Optional<double[]> onScreen(TableTop top, double surfaceX, double surfaceY) {
+        if (!ready) {
+            return Optional.empty();
+        }
+        Minecraft client = Minecraft.getInstance();
+        int width = Math.max(1, client.getWindow().getGuiScaledWidth());
+        int height = Math.max(1, client.getWindow().getGuiScaledHeight());
+        int pixelsWide = Math.max(1, client.getWindow().getWidth());
+        int pixelsHigh = Math.max(1, client.getWindow().getHeight());
+
+        Matrix4f viewProjection = new Matrix4f(projection).mul(view);
+        // Camera-relative, because that is the space the world was drawn in.
+        Vector3f point = new Vector3f(
+                (float) (top.worldX(surfaceX) - eye.x),
+                (float) (top.topY() - eye.y),
+                (float) (top.worldZ(surfaceY) - eye.z));
+        Vector3f window = viewProjection.project(
+                point.x(), point.y(), point.z(),
+                new int[] {0, 0, pixelsWide, pixelsHigh}, new Vector3f());
+        if (window.z() < 0 || window.z() > 1) {
+            return Optional.empty();
+        }
+        // Back to GUI units, and back to counting down the screen.
+        return Optional.of(new double[] {
+                window.x() / pixelsWide * width,
+                (pixelsHigh - window.y()) / pixelsHigh * height});
+    }
+
     /** Forgotten when the view closes, so a stale frame can never answer for a live one. */
     public static void forget() {
         ready = false;

@@ -277,6 +277,13 @@ first time any verb past "put your deck down" has been reachable at all.
   point. A quick click still does what a quick click did, and a press that moves is still a
   drag — the hold only counts if the hand stays still.
 
+- **V swaps to playing on the real table**, seen from straight above, and **Home frames the
+  whole table** in either view. Press Home in one, press V, press Home again: the board should
+  be the same size both times. It was a fifth smaller on the block until the two views were
+  made to share one rule about how far out either may go, and the scripted run now fails if
+  they ever drift more than a tenth apart. The wheel stops in the same place in both, too:
+  when a card would be too small to recognise.
+
 **Goldfishing works alone.** One person at a table is not a special mode: sit down, start,
 put a deck down, draw seven. That is the phase 1 deliverable, so it is the thing most worth
 half an hour of your time and a verdict.

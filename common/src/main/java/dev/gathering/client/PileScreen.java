@@ -47,10 +47,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     /** Over a card the player has said they do not want on top. */
     private static final int SENT_AWAY = 0xB0101418;
 
-    /** What a player wrote on a card, and the band it is written on. Same as the board's. */
-    private static final int WRITING_TEXT = 0xFFBFD8FF;
-    private static final int WRITING_BAND = 0xC0000000;
-
     private static final int MARGIN = 14;
     private static final int GAP = 4;
     private static final int HEADER = 16;
@@ -491,13 +487,9 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                             art.x(), art.y(), art.width(), art.height()),
                     () -> GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height()));
         }
-        // And what somebody wrote on it, across the top, the way the board writes it.
-        card.writtenOn().ifPresent(written -> {
-            graphics.fill(art.x(), art.y() + 1, art.right(), art.y() + this.font.lineHeight + 1,
-                    WRITING_BAND);
-            GuiText.draw(graphics, this.font, net.minecraft.network.chat.Component.literal(written),
-                    art.x() + 2, art.y() + 2, art.width() - 4, WRITING_TEXT);
-        });
+        // And what somebody wrote on it, across the top, drawn by the same method the felt
+        // uses so the two can never come to look like different features.
+        CardInspectPanel.drawNote(graphics, this.font, card.writtenOn().orElse(null), art);
         if (away) {
             // Greyed rather than moved. A card that jumped to another row every time somebody
             // changed their mind would make a scry of three a puzzle about where things went.

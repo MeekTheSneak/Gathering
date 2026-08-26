@@ -1009,6 +1009,11 @@ public final class DevScene {
             }
             case 78 -> {
                 theWholeTableIsOnScreen(client);
+                if (client.screen instanceof TableScreen framed) {
+                    seatedMat = ClientTableState.seatAt(table)
+                            .map(seat -> framed.board().matRect(seat)).orElse(Rect.NONE);
+                    System.out.println("[devscene] seated: " + framed.framingReport());
+                }
                 shoot(client, "26-the-whole-table");
                 // A window somebody has resized, which is the one path that re-runs a screen's
                 // init on an instance that is already holding a game. Two sizes: one where
@@ -1636,6 +1641,21 @@ public final class DevScene {
             }
             case 151 -> {
                 shoot(client, "57-zoom-4-furthest");
+                // And the same key the seated board has for it, on the block. Shot 26 is the
+                // seated answer to "show me everything"; without this one there was no
+                // picture of the in-world board's answer to compare it against, and the two
+                // views are supposed to differ only in whether a point is a pixel or a place
+                // on the felt.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
+                }
+                advance(SETTLE);
+            }
+            case 152 -> {
+                expectScreen(client, "the whole table on the block", TableScreen.class);
+                System.out.println("[devscene] camera: " + TableCameraView.report());
+                theBlockFramesLikeTheScreen(client);
+                shoot(client, "58-the-whole-table-on-the-block");
                 advance(SETTLE / 2);
             }
             default -> finish(client, "done");
@@ -3482,6 +3502,63 @@ public final class DevScene {
         }
         System.out.println("[devscene] the whole table is framed, every mat whole");
     }
+
+    /**
+     * Checks that "show me everything" shows the same amount of table in both views.
+     *
+     * <p>The claim the whole two-view design rests on is that they differ only in whether a
+     * point is a pixel or a place on the felt. A player who presses the same key in both and
+     * gets a board a fifth smaller on the real table has been told, without anybody saying
+     * it, that the real table is the worse one - and that is exactly what "the card images
+     * render so tiny" is a report of.
+     *
+     * <p>Measured through the projection the game drew with, because the board on the block
+     * has no screen rectangle of its own: everything it knows about itself is in surface
+     * units, which say where a mat is and nothing about how big it comes out.
+     */
+    private static void theBlockFramesLikeTheScreen(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to measure");
+            return;
+        }
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null) {
+            fail("nobody was sitting down to measure a mat for");
+            return;
+        }
+        Rect mat = board.board().matRect(me);
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        double[] topLeft = TablePointer.onScreen(top, mat.x(), mat.y()).orElse(null);
+        double[] bottomRight = TablePointer.onScreen(top, mat.right(), mat.bottom())
+                .orElse(null);
+        if (topLeft == null || bottomRight == null) {
+            fail("the mat on the block did not land on the window at all");
+            return;
+        }
+        double wide = Math.abs(bottomRight[0] - topLeft[0]);
+        double deep = Math.abs(bottomRight[1] - topLeft[1]);
+        System.out.println("[devscene] the mat on the block is drawn "
+                + Math.round(wide) + " by " + Math.round(deep)
+                + ", against " + seatedMat + " on the screen");
+        if (seatedMat == null || seatedMat.isEmpty()) {
+            fail("the seated framing was never measured to compare against");
+            return;
+        }
+        // A tenth. Enough room for the two views rounding differently and for the block's
+        // own edge of air, and nowhere near enough for one of them to look like the poor
+        // relation of the other.
+        double slack = 0.10;
+        if (Math.abs(wide - seatedMat.width()) > seatedMat.width() * slack
+                || Math.abs(deep - seatedMat.height()) > seatedMat.height() * slack) {
+            fail("framing the whole table gives a mat " + Math.round(wide) + " by "
+                    + Math.round(deep) + " on the block and " + seatedMat.width() + " by "
+                    + seatedMat.height() + " on the screen: the two views disagree about how"
+                    + " big the same table is");
+        }
+    }
+
+    /** How big the seated view drew this player's mat when it was framing the whole table. */
+    private static Rect seatedMat = Rect.NONE;
 
     /** Rests the cursor on a zone, so the next step can read what it says about itself. */
     private static void hoverAZone(Minecraft client, int index) {

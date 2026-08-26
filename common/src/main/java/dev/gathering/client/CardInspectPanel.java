@@ -1,6 +1,7 @@
 package dev.gathering.client;
 
 import dev.gathering.core.ui.CardShape;
+import dev.gathering.core.ui.Rect;
 import dev.gathering.Gathering;
 import dev.gathering.network.CardFaceSummary;
 import dev.gathering.network.CardSummary;
@@ -40,6 +41,15 @@ public final class CardInspectPanel {
     private static final int PLACEHOLDER_BORDER = 0xFF3A3A44;
     private static final int TEXT = 0xFFE8E4DC;
     private static final int DIM_TEXT = 0xFF9A9690;
+
+    /**
+     * What somebody wrote on a card, across the top of it, and the band it is written on.
+     *
+     * <p>Pale blue rather than the card's own ink so a note reads as somebody's handwriting
+     * and not as printed text, and on a backing because a card's own name is light on dark as
+     * often as it is dark on light and a note has to be readable over either.
+     */
+    private static final int WRITING_TEXT = 0xFFBFD8FF;
 
     private static final int GAP = 8;
     private static final int PADDING = 8;
@@ -435,5 +445,26 @@ public final class CardInspectPanel {
         int height(Font font) {
             return text == null ? RULE_HEIGHT : font.lineHeight + 1;
         }
+    }
+
+    /**
+     * Writes a card's note across the top of the art it is drawn on.
+     *
+     * <p>One method rather than one per screen. The felt draws notes and so does every pile
+     * screen opened off it, and a note that read one way on the table and another way in a
+     * graveyard would be two features wearing the same name. It was two copies until one of
+     * them grew a guard about slots too short to write in and the other did not.
+     *
+     * <p>At the top because counters go along the bottom and the two must not fight over the
+     * same band: a card with three counters and a note is a card somebody is keeping careful
+     * track of, which is exactly when both have to be readable at once.
+     */
+    public static void drawNote(GuiGraphics graphics, Font font, String note, Rect art) {
+        if (note == null || note.isBlank() || art.height() < font.lineHeight + 2) {
+            return;
+        }
+        graphics.fill(art.x(), art.y() + 1, art.right(), art.y() + font.lineHeight + 1, BACKDROP);
+        GuiText.draw(graphics, font, Component.literal(note),
+                art.x() + 2, art.y() + 2, art.width() - 4, WRITING_TEXT);
     }
 }

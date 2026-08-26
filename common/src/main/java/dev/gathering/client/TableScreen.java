@@ -116,15 +116,6 @@ public final class TableScreen extends Screen {
      */
     private static final int COUNTER_BAND = 0xC0000000;
 
-    /**
-     * What a player wrote, as against what the game counted.
-     *
-     * <p>A different colour from a counter on purpose: one of them is the mod keeping score
-     * and the other is a person talking, and a board where those look the same is a board
-     * where somebody's reminder reads as a rule.
-     */
-    private static final int WRITING_TEXT = 0xFFBFD8FF;
-
     /** The felt, and a mat on it. Mats are lighter so the table reads as somebody's space. */
     private static final int FELT = 0xFF1E3A2E;
     private static final int MAT = 0x30FFFFFF;
@@ -553,6 +544,22 @@ public final class TableScreen extends Screen {
     // whole project keeps having.
     BoardPlacement board() {
         return playingOnTheBlock ? onBlock : geometry;
+    }
+
+    /**
+     * What the seated view is framing, for the scripted run to write down beside the block's.
+     *
+     * <p>The two views are supposed to differ only in whether a point is a pixel or a place
+     * on the felt, and the only way to know whether they do is to read the same numbers off
+     * both of them at the same moment.
+     */
+    String framingReport() {
+        Rect mine = mySeat().map(seat -> geometry.matRect(seat)).orElse(Rect.NONE);
+        return "window=" + this.width + "x" + this.height
+                + " status=" + layout.status().height()
+                + " hand=" + layout.hand().height()
+                + " mat=" + mine
+                + " || " + geometry.report();
     }
 
     /** The table's surface in the world, for turning a cursor into a place on the felt. */
@@ -4057,14 +4064,7 @@ public final class TableScreen extends Screen {
      * from across the table.
      */
     private void drawWriting(GuiGraphics graphics, CardView card, Rect art) {
-        String written = card.writtenOn().orElse(null);
-        if (written == null || art.height() < this.font.lineHeight + 2) {
-            return;
-        }
-        graphics.fill(art.x(), art.y() + 1, art.right(), art.y() + this.font.lineHeight + 1,
-                COUNTER_BAND);
-        GuiText.draw(graphics, this.font, Component.literal(written),
-                art.x() + 2, art.y() + 2, art.width() - 4, WRITING_TEXT);
+        CardInspectPanel.drawNote(graphics, this.font, card.writtenOn().orElse(null), art);
     }
 
     private void drawCounters(GuiGraphics graphics, CardView card, Rect art) {

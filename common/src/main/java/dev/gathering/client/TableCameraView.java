@@ -1,6 +1,7 @@
 package dev.gathering.client;
 
 import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.TableCamera;
 import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableTop;
 import java.util.Optional;
@@ -45,9 +46,13 @@ public final class TableCameraView {
     public record Placement(double x, double y, double z, float yaw, float pitch) {
     }
 
-    /** Far enough up to see the whole table, and close enough to read a card. */
-    private static final double LOWEST = 0.4;
-    private static final double HIGHEST = 4.5;
+    /**
+     * Where the eye starts, before anything has been framed.
+     *
+     * <p>How far up it may go and how far down are not constants here: they are the seated
+     * board's own zoom limits, which are stated as how big a card comes out rather than as a
+     * distance - see {@link #heightBounded}.
+     */
     private static final double STARTING_HEIGHT = 2.2;
 
     /**
@@ -101,7 +106,7 @@ public final class TableCameraView {
         hideTheHud();
         table = corner;
         facing = southHalf ? FACING_FROM_SOUTH : FACING_FROM_NORTH;
-        height = STARTING_HEIGHT;
+        height = heightBounded(STARTING_HEIGHT);
         offsetX = 0;
         offsetZ = 0;
     }
@@ -149,7 +154,31 @@ public final class TableCameraView {
                 / (double) Math.max(1, client.getWindow().getHeight()));
         double forDepth = downBlocks * BREATHING_ROOM / (visible * perBlock);
         double forWidth = acrossBlocks * BREATHING_ROOM / (aspect * perBlock);
-        return Math.max(LOWEST, Math.min(HIGHEST, Math.max(forDepth, forWidth)));
+        return heightBounded(Math.max(forDepth, forWidth));
+    }
+
+    /**
+     * How high the eye may go, said in the only units that mean anything: card pixels.
+     *
+     * <p>This view used to bound itself with a pair of distances of its own, and the seated
+     * board bounds itself by how tall a reference card comes out. Two rules for one decision,
+     * so the same key gave two different boards: "show me everything" on the screen stopped
+     * at a card twenty-four pixels tall, and on the block carried on going, framing the same
+     * table a fifth smaller. A player reads that as the real table being the worse one.
+     *
+     * <p>So the limits are the seated board's, converted. A reference card is a fixed share
+     * of one table, a table is a known number of blocks, and at eye height {@code h} the
+     * window shows {@code h * spread} blocks over its own height in pixels - which turns "a
+     * card is twenty-four pixels" into a height and back.
+     */
+    private static double heightBounded(double wanted) {
+        double cardBlocks = TableSurface.CARD_HEIGHT_UNITS / (double) TableSurface.SPAN
+                * TableTop.SPAN_BLOCKS;
+        double window = Math.max(1, Minecraft.getInstance().getWindow().getGuiScaledHeight());
+        double perBlock = spread();
+        double furthest = cardBlocks * window / (TableCamera.smallestCardPixels() * perBlock);
+        double closest = cardBlocks * window / (TableCamera.largestCardPixels() * perBlock);
+        return Math.max(closest, Math.min(furthest, wanted));
     }
 
     /**
@@ -168,6 +197,23 @@ public final class TableCameraView {
     static double spread() {
         double fov = Minecraft.getInstance().options.fov().get();
         return 2 * Math.tan(Math.toRadians(Math.max(30, Math.min(110, fov)) / 2));
+    }
+
+    /**
+     * What the camera is doing, for the scripted run to write down.
+     *
+     * <p>Both spreads, because the whole point is whether the one the framing is built on
+     * matches the one the frame was drawn with.
+     */
+    static String report() {
+        return "height=" + height
+                + " spread=" + String.format("%.4f", spread())
+                + " drawn=" + String.format("%.4f",
+                        TablePointer.verticalSpread().orElse(Double.NaN))
+                + " aspect=" + String.format("%.4f",
+                        TablePointer.aspect().orElse(Double.NaN))
+                + " coveredTop=" + String.format("%.4f", coveredAtTheTop)
+                + " coveredBottom=" + String.format("%.4f", coveredAtTheBottom);
     }
 
     /** Tells the camera how much of the window, top and bottom, it cannot use. */
@@ -240,7 +286,7 @@ public final class TableCameraView {
      */
     public static void zoom(double factor) {
         if (factor > 0) {
-            height = Math.max(LOWEST, Math.min(HIGHEST, height / factor));
+            height = heightBounded(height / factor);
         }
     }
 
