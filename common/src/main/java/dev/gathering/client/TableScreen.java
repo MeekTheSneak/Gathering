@@ -162,6 +162,16 @@ public final class TableScreen extends Screen {
     /** An opening hand, for the mulligan the library menu offers. */
     private static final int MULLIGAN_HAND = 7;
 
+    /**
+     * The smallest a life counter is drawn at, and the smallest box worth drawing one in.
+     *
+     * <p>Six-tenths is where the font stops being letters, which is the floor everything else
+     * that shrinks in this mod uses. Four pixels is where the box itself stops being a box.
+     */
+    private static final float SMALLEST_LIFE_SCALE = 0.6f;
+
+    private static final int SMALLEST_LIFE_BOX = 4;
+
     /** How far the cursor must travel before a press becomes a drag rather than a click. */
     private static final int DRAG_THRESHOLD = 3;
 
@@ -922,9 +932,17 @@ public final class TableScreen extends Screen {
      */
     private void drawLife(GuiGraphics graphics, SeatView seat) {
         Rect box = board().lifeRect(seat.seat());
-        if (box.isEmpty() || box.height() < this.font.lineHeight) {
+        // Drawn at whatever size there is, down to a hard floor where the box is a smear.
+        // It used to stop at a full line of text, so framing the whole table - which is one
+        // key - took every life total off the felt and left two mats with no numbers on them
+        // anywhere. Everything else printed on a mat is a label and the shapes still read
+        // without it; this is the number the game is played to, and there is nothing else on
+        // the table that says whose forty is whose.
+        if (box.isEmpty() || box.height() < SMALLEST_LIFE_BOX) {
             return;
         }
+        float scale = Math.max(SMALLEST_LIFE_SCALE,
+                Math.min(1f, (box.height() - 2f) / this.font.lineHeight));
         int way = mySeat().isEmpty() ? 0 : lifeWayUnder(seat.seat(), cursorX, cursorY);
         graphics.fill(box.x(), box.y(), box.right(), box.bottom(), LIFE_BACKING);
         // In its own seat's colour, the same way the mat is - and brighter under the cursor,
@@ -938,22 +956,26 @@ public final class TableScreen extends Screen {
         // into both signs.
         Rect middle = TableSurface.lifeMiddle(box);
         Component total = Component.literal(Integer.toString(seat.life()));
-        GuiText.drawCentred(graphics, this.font, total, (int) middle.centreX(),
-                (int) box.centreY() - this.font.lineHeight / 2, middle.width(), LABEL);
+        GuiText.drawCentredAt(graphics, this.font, total, (int) middle.centreX(),
+                (int) box.centreY() - this.font.lineHeight / 2, scale, LABEL);
         // A minus over the end that takes one off and a plus over the end that puts one on,
         // asked of the same function the press is, so the two cannot end up disagreeing.
-        drawLifeEnd(graphics, seat.seat(), box, -1, way);
-        drawLifeEnd(graphics, seat.seat(), box, 1, way);
+        drawLifeEnd(graphics, seat.seat(), box, -1, way, scale);
+        drawLifeEnd(graphics, seat.seat(), box, 1, way, scale);
     }
 
-    private void drawLifeEnd(GuiGraphics graphics, SeatId seat, Rect box, int way, int lit) {
+    private void drawLifeEnd(GuiGraphics graphics, SeatId seat, Rect box, int way, int lit,
+            float scale) {
         Rect end = TableSurface.lifeEnd(box, lifeIsTurned(seat), way);
-        if (end.isEmpty()) {
+        // A sign narrower than the mark itself is a smudge beside a number, so at that size
+        // the counter is the number alone. It is still pressable at both ends - the halves
+        // are worked out from the box and not from what is written on it.
+        if (end.isEmpty() || end.width() < this.font.width("+") * scale) {
             return;
         }
-        GuiText.drawCentred(graphics, this.font, Component.literal(way < 0 ? "-" : "+"),
+        GuiText.drawCentredAt(graphics, this.font, Component.literal(way < 0 ? "-" : "+"),
                 (int) end.centreX(), (int) box.centreY() - this.font.lineHeight / 2,
-                end.width(), lit == way ? ACCENT : ZONE_LABEL);
+                scale, lit == way ? ACCENT : ZONE_LABEL);
     }
 
     /**
