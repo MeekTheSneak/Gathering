@@ -428,6 +428,22 @@ The layout maths is checked at every size from 320x240 up to 3840x2160 by
 `DeckScreenLayoutTest`, so what I most want to know is whether it *looks* right, not whether
 it fits.
 
+## Commands worth knowing
+
+Everything below works in single player and on a server. `<>` marks an argument.
+
+| command | who | what |
+|---|---|---|
+| `/gathering table info` | anyone | What the server thinks is at the table you are looking at: the cluster's shape, who is in which chair, whether a session is running, whose turn it is, and how many cards are in each zone. It never names a card. This is the thing to paste when something looks wrong. |
+| `/gathering table fill <cards>` | op | Plays that many cards off the top of your own library onto your own mat, spread out on a grid. For looking at a full board without playing forty cards by hand. Defaults to 12. |
+| `/gathering table end` | anyone at it | Ends the game at the table you are looking at. |
+| `/gathering config` | anyone | Every setting and what it is set to. Add a setting name to read one, and a value after that (op) to change it — no restart. |
+| `/gathering import <decklist>` | as configured | Imports a list without opening the screen. `/gathering import 60 Forest` is a legal deck in one line. |
+| `/gathering card <name>` | as configured | One named card in your hand. `/gathering foil <name>` for the foil. |
+| `/gathering pack give <set>` | op | Sealed product from nothing. `open` opens one instead, `list` says what a set was sold as. |
+| `/gathering coverage <set>` | op | Whether that set's own packs can produce all of it. |
+| `/gathering loaners` | anyone | What the server lends. `reload` (op) re-reads the folder without a restart. |
+
 ## Checking the parts you can't see
 
 The half of the mod that never appears on screen has its own gate:

@@ -241,6 +241,7 @@
   "message.gathering.session_seat": "  Seat %s - %s | %s life | library %s | hand %s | battlefield %s",
   "message.gathering.session_started": "A game has begun at this table.",
   "message.gathering.session_unknown_format": "This server does not know that format.",
+  "message.gathering.table_filled": "Played %1$s cards onto the table.",
   "message.gathering.table_full": "Every seat at this table is taken.",
   "message.gathering.table_in_use": "Somebody is seated at this table.",
   "message.gathering.table_status": "Table cluster: %s table(s), %s of %s seats taken.",

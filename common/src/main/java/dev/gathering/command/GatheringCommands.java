@@ -124,7 +124,26 @@ public final class GatheringCommands {
                 // and a table is a thing people lean on.
                 .then(Commands.literal("table")
                         .then(Commands.literal("end")
-                                .executes(context -> endSession(context.getSource()))));
+                                .executes(context -> endSession(context.getSource())))
+                        // What the server thinks is happening at the table you are looking
+                        // at. Every line of it is something the clients at that table already
+                        // hold, so it needs no permission - and "it does not work" is a
+                        // sentence anybody might have to say.
+                        .then(Commands.literal("info")
+                                .executes(context -> reportTable(context.getSource())))
+                        // A board with a real game's worth of cards on it, in one command.
+                        // How a crowded table reads is a question that used to cost forty
+                        // clicks to ask.
+                        .then(Commands.literal("fill")
+                                .requires(source -> source.hasPermission(2))
+                                .executes(context -> fillTable(context.getSource(), 12))
+                                .then(Commands.argument("cards",
+                                                com.mojang.brigadier.arguments.IntegerArgumentType
+                                                        .integer(1, dev.gathering.server.TableReport.MOST_AT_ONCE))
+                                        .executes(context -> fillTable(
+                                                context.getSource(),
+                                                com.mojang.brigadier.arguments.IntegerArgumentType
+                                                        .getInteger(context, "cards"))))));
     }
 
     /** Every setting and what it is currently set to. */
@@ -297,6 +316,45 @@ public final class GatheringCommands {
      * The one-line form, for a single card or a quick test. A real decklist goes through the
      * screen, where newlines exist.
      */
+    /** Reads the table back, one fact to a line, for whoever is standing in front of it. */
+    private static int reportTable(CommandSourceStack source)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        net.minecraft.core.BlockPos origin =
+                dev.gathering.server.TableReport.lookedAt(player).orElse(null);
+        if (origin == null) {
+            source.sendFailure(Component.translatable("message.gathering.session_no_table"));
+            return 0;
+        }
+        java.util.List<String> lines =
+                dev.gathering.server.TableReport.describe(player.serverLevel(), origin);
+        for (String line : lines) {
+            source.sendSuccess(() -> Component.literal(line), false);
+        }
+        return lines.size();
+    }
+
+    /** Plays cards off your own library onto your own mat, so a full board can be looked at. */
+    private static int fillTable(CommandSourceStack source, int cards)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        net.minecraft.core.BlockPos origin =
+                dev.gathering.server.TableReport.lookedAt(player).orElse(null);
+        if (origin == null) {
+            source.sendFailure(Component.translatable("message.gathering.session_no_table"));
+            return 0;
+        }
+        dev.gathering.server.TableReport.Filled filled =
+                dev.gathering.server.TableReport.fill(player.serverLevel(), origin, player, cards);
+        if (!filled.worked()) {
+            source.sendFailure(Component.literal(filled.problem()));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.translatable(
+                "message.gathering.table_filled", filled.played()), true);
+        return filled.played();
+    }
+
     private static int importInline(CommandSourceStack source, String decklist)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
