@@ -291,6 +291,54 @@ public final class TableCameraView {
     }
 
     /**
+     * The same, keeping whatever is under the cursor under the cursor.
+     *
+     * <p>This used to just lower the eye towards the middle of the view, on the reasoning
+     * that leaning towards a table is what moving your head does. Looking at the pictures
+     * said otherwise: six notches in from the opening framing gave a screen of bare felt,
+     * because what the player was pointing at slid out of the frame while they zoomed
+     * towards a spot that happened to be empty. Leaning towards a table is leaning towards
+     * the thing you are looking at, and the seated board has anchored its wheel to the
+     * cursor since it had one.
+     *
+     * <p>Straight down at a plane, a ground point's distance from the middle of the screen is
+     * its distance from the eye's ground point divided by the height - so holding it still
+     * means moving the eye's ground point in by the same ratio the height changed.
+     */
+    public static void zoomAt(double factor, double anchorWorldX, double anchorWorldZ) {
+        BlockPos corner = table;
+        if (corner == null || factor <= 0) {
+            return;
+        }
+        double was = height;
+        height = heightBounded(height / factor);
+        if (height == was) {
+            return;
+        }
+        double ratio = height / was;
+        TableTop top = TableTop.forCorner(corner.getX(), corner.getY(), corner.getZ());
+        double baseX = top.worldX(TableSurface.SPAN / 2.0);
+        double baseZ = top.worldZ(TableSurface.SPAN / 2.0);
+        double wantedX = anchorWorldX - (anchorWorldX - (baseX + offsetX)) * ratio;
+        double wantedZ = anchorWorldZ
+                - (anchorWorldZ - (baseZ + offsetZ + lift(was))) * ratio;
+        double reach = TableTop.SPAN_BLOCKS / 2;
+        offsetX = Math.max(-reach, Math.min(reach, wantedX - baseX));
+        offsetZ = Math.max(-reach, Math.min(reach, wantedZ - baseZ - lift(height)));
+    }
+
+    /**
+     * How far the picture is slid along the table to clear the hand and the status strip.
+     *
+     * <p>Screen-up is north for one player and south for the other, so lifting the picture
+     * clear of the hand is a step in opposite world directions for the two of them.
+     */
+    private static double lift(double eyeHeight) {
+        return (coveredAtTheTop - coveredAtTheBottom) / 2.0 * eyeHeight * spread()
+                * (facing == FACING_FROM_SOUTH ? -1 : 1);
+    }
+
+    /**
      * Slides the view across the table, in blocks.
      *
      * <p>Clamped to the table itself rather than to nothing: panning until the board is off
@@ -325,10 +373,7 @@ public final class TableCameraView {
             return Optional.empty();
         }
         TableTop top = TableTop.forCorner(corner.getX(), corner.getY(), corner.getZ());
-        // Screen-up is north for one player and south for the other, so lifting the picture
-        // clear of the hand is a step in opposite world directions for the two of them.
-        double lift = (coveredAtTheTop - coveredAtTheBottom) / 2.0 * height * spread()
-                * (facing == FACING_FROM_SOUTH ? -1 : 1);
+        double lift = lift(height);
         return Optional.of(new Placement(
                 top.worldX(TableSurface.SPAN / 2.0) + offsetX,
                 top.topY() + height,

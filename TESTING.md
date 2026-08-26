@@ -283,6 +283,10 @@ first time any verb past "put your deck down" has been reachable at all.
   made to share one rule about how far out either may go, and the scripted run now fails if
   they ever drift more than a tenth apart. The wheel stops in the same place in both, too:
   when a card would be too small to recognise.
+- **Scroll on the block with the cursor over a zone.** Whatever is under the pointer stays
+  under the pointer, the same as the wheel on the seated board. It used to lower the eye
+  towards the middle of the view instead, so six notches in from the opening framing landed
+  on a screen of bare felt with everything the player was looking at off the edge.
 
 **Goldfishing works alone.** One person at a table is not a special mode: sit down, start,
 put a deck down, draw seven. That is the phase 1 deliverable, so it is the thing most worth

@@ -2842,10 +2842,19 @@ public final class TableScreen extends Screen {
         }
         double factor = scrollY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
         if (playingOnTheBlock) {
-            // Looking straight down, zoom is height. There is no cursor anchoring here: the
-            // eye comes down towards the middle of what it is already looking at, which is
-            // what moving your head towards a table does.
-            TableCameraView.zoom(factor);
+            // Looking straight down, zoom is height - and anchored on what the cursor is
+            // pointing at, the same as the seated board's wheel, so leaning in keeps the
+            // thing being leaned towards. The cursor is off the felt often enough to matter
+            // here in a way it never is on the seated screen: over the hand, over the strip,
+            // over the floor beside the table. Then there is nothing to anchor to and the
+            // eye simply comes down.
+            double[] at = pointer(mouseX, mouseY);
+            if (at == null) {
+                TableCameraView.zoom(factor);
+            } else {
+                TableTop top = tableTop();
+                TableCameraView.zoomAt(factor, top.worldX(at[0]), top.worldZ(at[1]));
+            }
         } else {
             geometry.zoom(factor, mouseX, mouseY);
         }

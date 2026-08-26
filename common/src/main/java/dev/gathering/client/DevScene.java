@@ -1621,25 +1621,34 @@ public final class DevScene {
             }
             case 147 -> {
                 expectScreen(client, "the board on the block to zoom", TableScreen.class);
+                // Aimed at the graveyard rather than at the middle of the window, because
+                // the middle is where the camera already is: a wheel that ignored the cursor
+                // would hold the middle still by accident and the check would pass for the
+                // wrong reason.
+                aimTheWheelAtAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
                 scrollTheBoard(client, 6);
                 advance(SETTLE / 2);
             }
             case 148 -> {
+                theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
             case 149 -> {
+                theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
             case 150 -> {
+                theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
             case 151 -> {
+                theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
                 // seated answer to "show me everything"; without this one there was no
@@ -1662,18 +1671,75 @@ public final class DevScene {
         }
     }
 
-    /** Turns the wheel over the middle of the board, in whichever direction. */
+    /** Turns the wheel where it was aimed, or over the middle of the board, in either direction. */
     private static void scrollTheBoard(Minecraft client, int notches) {
         if (!(client.screen instanceof TableScreen board)) {
             fail("there was no board to zoom");
             return;
         }
-        int x = client.getWindow().getGuiScaledWidth() / 2;
-        int y = client.getWindow().getGuiScaledHeight() / 2;
+        int x = wheelAt == null ? client.getWindow().getGuiScaledWidth() / 2 : wheelAt[0];
+        int y = wheelAt == null ? client.getWindow().getGuiScaledHeight() / 2 : wheelAt[1];
         for (int turn = 0; turn < Math.abs(notches); turn++) {
             board.mouseScrolled(x, y, 0, Math.signum(notches));
         }
         System.out.println("[devscene] turned the wheel " + notches + " on the block");
+    }
+
+    /** The pixel the wheel is being turned over, and what the felt had under it to begin with. */
+    private static int[] wheelAt;
+
+    private static double[] wheelWasOver;
+
+    /**
+     * Points the wheel at one of this seat's zones and remembers what is under it.
+     *
+     * <p>Off the middle of the window on purpose - see the caller.
+     */
+    private static void aimTheWheelAtAZone(Minecraft client, int index) {
+        wheelAt = null;
+        wheelWasOver = null;
+        Rect zone = zoneRect(client, index);
+        if (zone.isEmpty()) {
+            fail("no zone to aim the wheel at");
+            return;
+        }
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        double[] pixel = TablePointer.onScreen(top, zone.centreX(), zone.centreY())
+                .orElse(null);
+        if (pixel == null) {
+            fail("the zone the wheel was aimed at is not on the window");
+            return;
+        }
+        wheelAt = new int[] {(int) Math.round(pixel[0]), (int) Math.round(pixel[1])};
+        wheelWasOver = new double[] {zone.centreX(), zone.centreY()};
+        System.out.println("[devscene] the wheel is aimed at " + wheelAt[0] + "," + wheelAt[1]);
+    }
+
+    /**
+     * Checks the felt did not run out from under the cursor while the wheel turned.
+     *
+     * <p>A card is a thousand surface units wide. Holding the anchor to a third of that
+     * across a whole sweep is a board that stays where the player put it; the same sweep
+     * before the wheel was anchored walked the graveyard clean off the window.
+     */
+    private static void theWheelHeldItsPlace(String when) {
+        if (wheelAt == null || wheelWasOver == null) {
+            fail("the wheel was never aimed, so nothing could be checked " + when);
+            return;
+        }
+        TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        TableTop.Spot now = TablePointer.at(top, wheelAt[0], wheelAt[1]).orElse(null);
+        if (now == null) {
+            fail("the wheel turned the felt out from under the cursor entirely " + when);
+            return;
+        }
+        double drift = Math.hypot(now.x() - wheelWasOver[0], now.y() - wheelWasOver[1]);
+        System.out.println("[devscene] the felt under the wheel moved "
+                + Math.round(drift) + " units " + when);
+        if (drift > 300) {
+            fail("the wheel moved the felt " + Math.round(drift)
+                    + " units out from under the cursor " + when);
+        }
     }
 
     /** Turns the written card back up and bins it, so a pile screen can be opened over it. */
