@@ -105,19 +105,31 @@ public final class GameSession {
      * Runs a verb.
      *
      * <p>Rejection means the action was not permitted - which, per {@link Authorization},
-     * only ever means it would have revealed hidden information to the actor. It never means
-     * the play was illegal, because the mod has no opinion about that.
+     * means it would have revealed hidden information to the actor - or that it named a card
+     * or seat this session no longer has, which is what a lagged click on a just-removed
+     * token looks like by the time it arrives. It never means the play was illegal, because
+     * the mod has no opinion about that.
      */
     public Result submit(GameEvent event) {
         Optional<String> denial = Authorization.denialFor(state, event);
         if (denial.isPresent()) {
             return new Result.Rejected(denial.get());
         }
+        // Folded before anything is appended. The log is the game: an event that had already
+        // been written down when its fold threw was a record nothing could ever fold again -
+        // undo broke, restore broke, and the save carried the poison into the next launch.
+        // Now a stale event is an answer, not a wound.
+        GameState folded;
+        try {
+            folded = GameFold.apply(state, event, seed);
+        } catch (IllegalArgumentException stale) {
+            return new Result.Rejected(stale.getMessage());
+        }
         SessionRecord.EventRecord record = new SessionRecord.EventRecord(nextSequence++, event, false);
         records.add(record);
-        // Described first: the line is about the board this event is about to change.
+        // Described against the board this event is about to change, not the one it made.
         log.add(LogEntry.of(record.sequence(), event.describe(state), false));
-        state = GameFold.apply(state, event, seed);
+        state = folded;
         return new Result.Accepted(record, state);
     }
 

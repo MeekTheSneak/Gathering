@@ -39,6 +39,26 @@ class GameSessionTest {
         }
 
         @Test
+        @DisplayName("a stale event is refused, not written down - the log must always fold")
+        void aStaleEventCannotPoisonTheLog() {
+            // The lagged-click shape: one player taps a token in the same breath as its
+            // owner removes it. By the time the tap arrives the card is gone. The submit
+            // used to append the record first and fold second, so the fold's refusal left
+            // a standing record nothing could ever fold again - undo broke, restore threw
+            // out of the block entity's ticker on every launch, and the save carried it.
+            GameSession session = GameFixtures.twoPlayerTable(10);
+            int recordsBefore = session.records().size();
+
+            GameSession.Result result = session.submit(new GameEvent.CardTapSet(
+                    GameFixtures.ALICE, new CardInstanceId(999_999), true));
+
+            assertThat(result.isAccepted()).isFalse();
+            assertThat(session.records()).hasSize(recordsBefore);
+            // And the whole log still folds, which is the property the order exists for.
+            assertThat(session.refold()).isNotNull();
+        }
+
+        @Test
         @DisplayName("drawing from an empty library draws nothing rather than failing")
         void drawingFromAnEmptyLibraryIsNotAnError() {
             GameSession session = GameFixtures.twoPlayerTable(2);

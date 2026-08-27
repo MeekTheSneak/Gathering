@@ -174,10 +174,13 @@ public class TableBlockEntity extends BlockEntity {
                 try {
                     session = stored.restore(key);
                     restoreFailed = false;
-                } catch (IOException | SessionCipher.SealedStreamException e) {
+                } catch (IOException | SessionCipher.SealedStreamException | RuntimeException e) {
                     // The table keeps the bytes: an unopenable session is still somebody's
                     // game, and overwriting it with nothing would be the one irreversible
-                    // thing to do about it.
+                    // thing to do about it. RuntimeException is here for a log that will
+                    // not fold - before submits were transactional a stale event could be
+                    // written down mid-crash, and a save like that must not take the whole
+                    // ticking block entity down with it on every launch.
                     LOGGER.error("The session at {} will not open: {}", worldPosition, e.getMessage());
                 }
             });
