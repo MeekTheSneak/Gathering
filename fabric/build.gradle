@@ -28,7 +28,17 @@ loom {
     accessWidenerPath = file('src/main/resources/gathering.accesswidener')
 
     runs {
-        client { client() }
+        client {
+            client()
+            // Armed only when asked for, exactly as NeoForge's is: -Pdevscene drives the
+            // client through the scripted session and photographs it. Both loaders read the
+            // same property because the scene itself lives in :common - the whole point of
+            // running it here is to find out whether the second loader plays the same game,
+            // which booting proves nothing about.
+            if (project.hasProperty('devscene')) {
+                property 'gathering.devscene', '1'
+            }
+        }
         server { server() }
     }
 

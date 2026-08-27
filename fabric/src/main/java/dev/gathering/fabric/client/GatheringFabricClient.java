@@ -206,6 +206,10 @@ public final class GatheringFabricClient implements ClientModInitializer {
                 ClientHoverState.clear();
             }
             ClientCardRequests.tick();
+            // The scripted run, on this loader too. It does nothing at all unless the
+            // property is set, and it is the only thing that tells us whether Fabric plays
+            // the game rather than merely starting it.
+            dev.gathering.client.DevScene.tick(client);
         });
 
         HudRenderCallback.EVENT.register((graphics, tickDelta) -> CardZoomOverlay.render(
