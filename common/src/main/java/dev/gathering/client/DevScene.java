@@ -1322,7 +1322,7 @@ public final class DevScene {
                 // Pressed rather than assumed: a button that fits on a wide window and sits
                 // under another one on a narrow window is a button nobody can find, and the
                 // only way to know is to reach for it.
-                press(client, "Build deck\u2026");
+                press(client, "Build deck...");
                 advance(SETTLE);
             }
             case 113 -> {
@@ -1909,7 +1909,7 @@ public final class DevScene {
                 // The other half of writing something is rubbing it out, and it has its own
                 // button because selecting a line and deleting it is a pen that is easier to
                 // pick up than to put down.
-                press(client, "Printed");
+                press(client, "Use printed");
                 advance(SETTLE);
             }
             case 174 -> {
