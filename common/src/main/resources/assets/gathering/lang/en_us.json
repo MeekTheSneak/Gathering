@@ -443,7 +443,7 @@
   "screen.gathering.sideboard.point_at_one": "Point at a card.",
   "screen.gathering.sideboard.title": "Sideboarding before game %s of %s",
   "screen.gathering.strength.hint": "Typed, not worked out - \"4/5\" shows 4/5",
-  "screen.gathering.strength.rub_out": "Back to printed",
+  "screen.gathering.strength.rub_out": "Printed",
   "screen.gathering.strength.title": "Power and toughness?",
   "screen.gathering.table": "Table",
   "screen.gathering.table.attaching": "Click the card to put these %s on - Esc to cancel",

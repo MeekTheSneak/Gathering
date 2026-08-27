@@ -2,6 +2,7 @@ package dev.gathering.client;
 
 import java.util.function.BooleanSupplier;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -35,7 +36,33 @@ public final class GatheringButtons {
     }
 
     public static Button of(int x, int y, int width, int height, Component label, Runnable action) {
-        return Button.builder(label, ignored -> action.run()).bounds(x, y, width, height).build();
+        return new Fitting(x, y, width, height, label, ignored -> action.run());
+    }
+
+    /**
+     * A button whose label fits inside it.
+     *
+     * <p>Vanilla scrolls a label too wide for its button, back and forth, forever. On a button
+     * you press once that is not reading - it is a word arriving in instalments, and the
+     * moment you look at it you are as likely to see "ack to printe" as anything. A screenshot
+     * of this mod's own pen showed exactly that.
+     *
+     * <p>So it shrinks to fit and then trims, which is what every other piece of text here
+     * does. The one thing it must never do is show a fragment that reads as a different word.
+     */
+    private static class Fitting extends Button {
+
+        private Fitting(int x, int y, int width, int height, Component label, OnPress onPress) {
+            super(x, y, width, height, label, onPress, DEFAULT_NARRATION);
+        }
+
+        @Override
+        public void renderString(GuiGraphics graphics, Font font, int colour) {
+            GuiText.drawCentred(graphics, font, getMessage(),
+                    getX() + getWidth() / 2,
+                    getY() + (getHeight() - font.lineHeight) / 2 + 1,
+                    getWidth() - TEXT_MARGIN * 2, colour);
+        }
     }
 
     /**
@@ -51,13 +78,13 @@ public final class GatheringButtons {
     }
 
     /** Named rather than anonymous only because a subclass may reach {@code DEFAULT_NARRATION}. */
-    private static final class Toggle extends Button {
+    private static final class Toggle extends Fitting {
 
         private final BooleanSupplier chosen;
 
         private Toggle(
                 int x, int y, int width, int height, Component label, OnPress onPress, BooleanSupplier chosen) {
-            super(x, y, width, height, label, onPress, DEFAULT_NARRATION);
+            super(x, y, width, height, label, onPress);
             this.chosen = chosen;
         }
 
