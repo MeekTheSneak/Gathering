@@ -84,11 +84,7 @@ public record GatheringConfig(
     private static final java.util.Map<String, String> NOT_BUILT_YET = java.util.Map.ofEntries(
             java.util.Map.entry("table.max_tables_loaded", "a limit on tables kept loaded"),
             java.util.Map.entry("table.max_cluster_tables", "a cluster cap other than four"),
-            java.util.Map.entry("table.max_cards_per_session", "a limit on cards in a session"),
-            java.util.Map.entry("ante.enabled", "playing for keeps"),
-            java.util.Map.entry("ante.cards_per_player", "playing for keeps"),
-            java.util.Map.entry("ante.exclusions", "playing for keeps"),
-            java.util.Map.entry("ante.allow_per_table_opt_out", "playing for keeps"));
+            java.util.Map.entry("table.max_cards_per_session", "a limit on cards in a session"));
 
     /**
      * Where sealed product turns up on a server that has not said otherwise.
@@ -158,10 +154,16 @@ public record GatheringConfig(
         List<String> notes = new ArrayList<>();
 
         boolean importEnabled = toml.flag("modes.import_enabled", true);
-        boolean collectionEnabled = toml.flag("modes.collection_enabled", false);
+        // Collecting is what a default server is. A card conjured out of a decklist and a
+        // card opened out of a pack cannot both be ordinary at the same table - the first
+        // makes the second pointless - so out of the box cards are things you find, and
+        // importing is the operator's tool for testing, running an event, or handing
+        // somebody a deck. A server that would rather everyone typed their own says so in
+        // one line: import.allow_all_players.
+        boolean collectionEnabled = toml.flag("modes.collection_enabled", true);
 
         Importing importing = new Importing(
-                toml.flag("import.allow_all_players", true),
+                toml.flag("import.allow_all_players", false),
                 List.copyOf(toml.strings("import.formats", List.of("commander"))));
 
         Collecting collecting = new Collecting(
@@ -337,28 +339,37 @@ public record GatheringConfig(
         return """
                 # Gathering server settings.
                 #
-                # Two master switches decide what this server is. With import on, players turn
-                # decklists into decks out of nothing and the mod is a pure play client. With
-                # collection on, cards are things you find, open, buy and trade. With both on,
-                # gate import behind a rank if you want collecting to still mean something.
+                # Two master switches decide what this server is.
+                #
+                # As it ships: collecting is on and importing is an operator's tool. Cards are
+                # things you find, open, buy and trade, and nobody types a deck into existence
+                # - which is what makes a pack worth opening. Operators can still import, for
+                # testing, for running an event, or for handing somebody a deck.
+                #
+                # For a pure play server - everybody brings their own decklist, no economy -
+                # set allow_all_players to true, and collection_enabled to false if you would
+                # rather not have packs about at all.
                 #
                 # Delete this file to get it back with the defaults.
 
                 [modes]
                 import_enabled = true
-                collection_enabled = false
+                collection_enabled = true
 
                 [import]
-                # false restricts importing to server operators.
-                allow_all_players = true
+                # true lets every player import a decklist. false keeps it to operators, which
+                # is the default, because a deck out of nothing beside a deck out of packs
+                # makes the packs pointless.
+                allow_all_players = false
                 # Informational only. The mod never enforces a format during play; a deck check
                 # before a formatted game is offered, and that is the whole of it.
                 formats = ["commander"]
 
                 [collection]
-                # Some of this section describes where collecting is going rather than where it
-                # is: the shop is not built yet, and changing a setting for it says so in the
-                # log rather than doing nothing quietly.
+                # Collecting is built: packs are found and sold, opened, collected, drafted
+                # and traded. Where a setting still describes where this is going rather than
+                # where it is, changing it says so in the log rather than doing nothing
+                # quietly.
                 #
                 # Where sealed product turns up: any of "fishing", "structures", "archaeology".
                 # Needs collection_enabled.

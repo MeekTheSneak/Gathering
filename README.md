@@ -2,7 +2,7 @@
 
 **Sit down at a table in Minecraft and play a real card game with your real decks.**
 
-Gathering turns a wooden table into a full tabletop card surface: your own decklists, actual
+Gathering turns a wooden table into a full tabletop card surface: decks that are yours, actual
 cards you can pick up and read, hidden hands, and four friends round one board. It works the
 way a table works — you move the cards, you decide what happens. Nothing is automated and
 nothing tells you no.
@@ -29,9 +29,12 @@ nothing tells you no.
 two-by-two table you can walk around. Put four tables together and they merge into one
 surface seating up to eight.
 
-**Bring a deck.** Type `/gathering import`, paste a decklist, and you get a deck item you can
-hold. It reads exports from Moxfield, Archidekt, MTG Arena, MTGO and deckstats, or plain
-`1 Sol Ring` lines — or paste an Archidekt link and it fetches the exact printings for you.
+**Get a deck.** Two ways in, and a server picks which. **Out of the box you earn your cards:**
+open packs, keep a collection, and build a deck from what you own. **Or a server can let
+everyone import instead** — `/gathering import`, paste a decklist, and you hold the deck a
+moment later. It reads exports from Moxfield, Archidekt, MTG Arena, MTGO and deckstats, or
+plain `1 Sol Ring` lines, and an Archidekt link fetches the exact printings for you.
+(Operators can always import, whatever the setting.)
 
 **Sit down and play.** Walk up holding the deck and right-click. You're seated, shuffled and
 holding seven. From there it's a table: drag cards where you want them, tap them, put them in
@@ -58,8 +61,9 @@ the one security property of the mod and it has its own test suite.
 
 ## Collecting, drafting and playing for keeps
 
-Off by default. A server that turns it on gets a second game where the cards are things you
-own rather than things you type:
+**On by default**, because a card conjured out of a decklist and a card opened out of a pack
+cannot both be ordinary at the same table — the first makes the second pointless. So unless
+your server says otherwise, cards are things you own rather than things you type:
 
 - **Find and buy sealed product.** Packs turn up in loot, and a shopkeeper villager sells
   boosters, boxes, Commander decks and cases from behind a shop counter.
@@ -74,6 +78,8 @@ own rather than things you type:
   with an ante — which only ever happens when everyone at the table agrees to it.
 
 Servers control all of it in one config file the mod writes and explains on first start.
+A server that would rather everybody just brought a decklist sets `allow_all_players = true`
+under `[import]`, and can switch collecting off entirely if it wants nothing but the table.
 
 ## Where the cards come from
 
@@ -91,8 +97,7 @@ makes the hidden-information promise above hold up.
 ## Multiplayer
 
 Install the mod on the server and on every client — the same version, and Fabric players also
-need Fabric API. Everyone imports their own decks. Any table seats two; four tables merged seat
-eight. People who aren't playing can watch: the board renders on the table block itself, so a
+need Fabric API. Any table seats two; four tables merged seat eight. People who aren't playing can watch: the board renders on the table block itself, so a
 game is something you can walk past and see.
 
 ## Status

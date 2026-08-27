@@ -25,14 +25,29 @@ class GatheringConfigTest {
     }
 
     @Test
-    @DisplayName("a server that never opens the file plays but does not collect")
-    void defaultsArePlayOnly() {
+    @DisplayName("a server that never opens the file collects, and only operators import")
+    void defaultsAreCollecting() {
+        // A card conjured from a decklist and a card opened out of a pack cannot both be
+        // ordinary at one table - the first makes the second pointless - so the shipped
+        // server collects, and importing is the operator's tool until a server says
+        // otherwise with import.allow_all_players.
         GatheringConfig config = GatheringConfig.defaults();
 
+        assertThat(config.modes().collectionEnabled()).isTrue();
         assertThat(config.modes().importEnabled()).isTrue();
-        assertThat(config.modes().collectionEnabled()).isFalse();
+        assertThat(config.mayImport(false)).isFalse();
+        assertThat(config.mayImport(true)).isTrue();
+        // Playing for keeps still waits to be asked for, whatever else is on.
         assertThat(config.ante().enabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a server can hand importing back to everybody in one line")
+    void importCanBeOpenedToEverybody() throws Exception {
+        GatheringConfig config = read("[import]\nallow_all_players = true\n");
+
         assertThat(config.mayImport(false)).isTrue();
+        assertThat(config.mayImport(true)).isTrue();
     }
 
     @Test
@@ -56,7 +71,11 @@ class GatheringConfigTest {
     @Test
     @DisplayName("ante without collection is corrected and said out loud")
     void anteNeedsCollection() throws Exception {
-        GatheringConfig config = read("[ante]\nenabled = true\n");
+        // Collecting is the default now, so this has to be switched off to be the case
+        // the rule is about: ante is cards changing hands, and cards are only property
+        // where collecting is on.
+        GatheringConfig config = read(
+                "[modes]\ncollection_enabled = false\n[ante]\nenabled = true\n");
 
         assertThat(config.ante().enabled()).isFalse();
         assertThat(config.notes()).anySatisfy(note ->
@@ -76,11 +95,10 @@ class GatheringConfigTest {
 
         assertThat(config.ante().enabled()).isTrue();
         assertThat(config.ante().cardsPerPlayer()).isEqualTo(2);
-        // Nothing plays for keeps yet, and a server owner who turned it on is told
-        // rather than left to find out at a table.
-        assertThat(config.notes()).containsExactlyInAnyOrder(
-                "'ante.enabled' is set, but playing for keeps is not built yet",
-                "'ante.cards_per_player' is set, but playing for keeps is not built yet");
+        // Playing for keeps is built, so turning it on is not worth a word. It was
+        // warned about while it did not exist, and a warning left standing after the
+        // thing works teaches a server owner to ignore the log.
+        assertThat(config.notes()).isEmpty();
     }
 
     @Test
@@ -108,9 +126,11 @@ class GatheringConfigTest {
     @Test
     @DisplayName("a setting nobody recognizes is reported rather than ignored")
     void unknownSettingsAreReported() throws Exception {
-        GatheringConfig config = read("[modes]\ncollection_enabeld = true\n");
+        // Spelled so the typo would change something if it were read: collecting is on by
+        // default, and this misspelling asks for it off. It stays on, and says why.
+        GatheringConfig config = read("[modes]\ncollection_enabeld = false\n");
 
-        assertThat(config.modes().collectionEnabled()).isFalse();
+        assertThat(config.modes().collectionEnabled()).isTrue();
         assertThat(config.notes()).anySatisfy(note ->
                 assertThat(note).contains("modes.collection_enabeld").contains("not a setting"));
     }
