@@ -116,11 +116,20 @@ public final class TokenCreation {
      * <p>Server thread only.
      */
     private static void put(
-            ServerPlayer player, ServerLevel level, BlockPos origin, SeatId seat,
+            ServerPlayer player, ServerLevel level, BlockPos origin, SeatId seatWhenAsked,
             List<CardMetadata> found, int count, String asked) {
         if (found.isEmpty()) {
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.token_not_found", asked));
+            return;
+        }
+        // The seat again, not the one from before the lookup. A card lookup is a network
+        // round trip to somebody else's host, and a player can stand up during one - at
+        // which point the seat they asked from may be empty, or may be somebody else's.
+        // Putting tokens on a board that is no longer yours is a small hole and an easy one:
+        // ask, stand up, and the cards land on whoever sat down.
+        SeatId seat = seatWhenAsked;
+        if (!TableReach.stillSeated(player, origin, seat)) {
             return;
         }
         // The most recent printing, which is what the search asked for and what somebody

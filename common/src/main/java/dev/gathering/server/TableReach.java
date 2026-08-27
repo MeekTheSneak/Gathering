@@ -70,6 +70,27 @@ public final class TableReach {
         return Optional.of(TableBlock.originOf(state, clicked));
     }
 
+    /**
+     * Whether this player still holds that seat at that table.
+     *
+     * <p>For asking <em>again</em>, after a wait. Anything that looks a card up goes to
+     * somebody else's host and comes back later, and a player can stand up in between - at
+     * which point the seat they asked from may be empty, or may be somebody else's. Whatever
+     * was going to land on that board has to be checked against the table as it is now, not
+     * as it was when the question was asked.
+     *
+     * <p>The same shape as the rule the collection blocks follow: a position is re-checked
+     * after every round trip, never trusted across one.
+     */
+    public static boolean stillSeated(ServerPlayer player, BlockPos origin, SeatId seat) {
+        if (player == null || origin == null || seat == null) {
+            return false;
+        }
+        return TableSessions.seatIdOf(player.serverLevel(), origin, player.getUUID())
+                .filter(seat::equals)
+                .isPresent();
+    }
+
     /** A player at a table, in a seat, with a game going on. */
     public record Seated(BlockPos origin, GameSession session, SeatId seat) {
     }

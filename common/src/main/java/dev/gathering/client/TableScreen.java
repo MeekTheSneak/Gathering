@@ -4537,9 +4537,13 @@ public final class TableScreen extends Screen {
         // the lines rather than folded into them, because the count must never be the part
         // that gets trimmed off - it is written separately so it is fitted separately.
         List<Component> counts = new ArrayList<>();
+        // Asked once rather than once per counter. This runs for every card on the table
+        // every frame, and writtenStrength answers with an Optional - a cheap thing to make
+        // and a silly thing to make thirty times a frame for an answer that cannot change
+        // between two counters on the same card.
+        boolean loyaltyIsInTheCorner = card.writtenStrength().isEmpty();
         for (Map.Entry<String, Integer> counter : card.counters().entrySet()) {
-            if (CardInstance.Counters.LOYALTY.equals(counter.getKey())
-                    && card.writtenStrength().isEmpty()) {
+            if (CardInstance.Counters.LOYALTY.equals(counter.getKey()) && loyaltyIsInTheCorner) {
                 // Already in the corner, where the card prints it. Saying it twice on one
                 // card is the sort of thing that makes a board look busier than it is.
                 continue;

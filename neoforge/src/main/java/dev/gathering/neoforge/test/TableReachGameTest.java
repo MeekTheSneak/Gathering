@@ -72,6 +72,35 @@ public final class TableReachGameTest {
         helper.succeed();
     }
 
+    /**
+     * Standing up between asking and being answered.
+     *
+     * <p>Anything that looks a card up waits on somebody else's host, and a player can leave
+     * their chair while it does. Whatever comes back has to land on the table as it is now:
+     * a seat nobody holds is not a seat to put cards on, and a seat somebody else has taken
+     * is worse.
+     */
+    @GameTest(template = "empty")
+    public static void aSeatNobodyHoldsIsNotASeat(GameTestHelper helper) {
+        BlockPos origin = helper.absolutePos(new BlockPos(1, 1, 1));
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setPos(origin.getX() + 0.5, origin.getY(), origin.getZ() + 1.5);
+        helper.getLevel().setBlockAndUpdate(
+                origin, GatheringContent.TABLE.get().defaultBlockState());
+
+        // Nobody has sat down at all, which is the state a player who stood up leaves behind.
+        if (TableReach.stillSeated(player, origin, new dev.gathering.core.game.SeatId(0))) {
+            helper.fail("a player who is not sitting there was counted as still seated");
+        }
+        if (TableReach.stillSeated(player, origin, null)) {
+            helper.fail("a missing seat was counted as still seated");
+        }
+        if (TableReach.stillSeated(null, origin, new dev.gathering.core.game.SeatId(0))) {
+            helper.fail("a missing player was counted as still seated");
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void anythingThatIsNotATableIsNotOne(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
