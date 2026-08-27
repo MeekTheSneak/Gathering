@@ -398,10 +398,52 @@ exclusions = ["basic lands"]
 **What I would most like to know** is whether the ladder is paced right - whether a display box
 arrives too early or too late - and whether a few hours is the right turnover.
 
+### 10. Play with somebody else
+
+**The one thing nothing here has ever done.** Every check in this repository runs against
+mock players or a scripted client driving one window. The visibility rules have a test suite
+that must never regress, multiplayer sync and spectators are built and exercised - but no two
+real people have ever sat at this table over a network, so this section is the gap.
+
+Open to LAN is enough for two, and a dedicated server is the honest test: run
+`./gradlew :neoforge:runServer` once to generate `run/`, accept the EULA, drop the built jar
+from `neoforge/build/libs/` into a normal server's `mods/`, and have everyone join.
+
+Four players at one table needs a cluster: place four tables adjacent and they merge into one
+eight-seat surface. Everyone imports their own deck first (`/gathering import`), then walks up
+holding it and right-clicks.
+
+What is worth watching, in the order it would hurt:
+
+- **Does anybody see anything they should not?** Open your hand, look at somebody's face-down
+  morph, watch a scry happen from across the table. The rule is that a client is never *sent*
+  what it may not know, so nothing here should be recoverable by any means - but this is the
+  property worth staring at, and the one where a report is most valuable.
+- **Does the board agree?** Everybody is looking at the same felt from a different chair. A
+  card dragged by one player should land in the same spot on everybody's screen, at the same
+  angle, in the same order in its pile.
+- **How does lag feel?** Every action is a round trip and the client predicts nothing on
+  purpose, so a card follows your cursor and then settles where the server put it. If that
+  reads as sluggish rather than as deliberate, say so - that is a design decision worth
+  revisiting with evidence, and it is the sort of thing only real play can show.
+- **Two people grabbing the same card.** Somebody will. The later one should be refused
+  quietly rather than the card ending up in two places.
+- **Does the log read like a game?** It is the only account of what happened and the whole
+  substitute for a rules engine. After an hour, scroll it back: does it say who did what, in
+  words, in an order a person can follow?
+- **Standing up and sitting down mid-game**, disconnecting mid-turn, and reconnecting. A board
+  outlasts its player, and a restart mid-game should bring back the same table.
+
+If something goes wrong, the world save is enough to reproduce it: the session is an event
+log, so a copy of the save carries the whole game and the exact way it broke.
+
 ## What I'd most like to know
 
 In rough order of how much it would change what I build next:
 
+0. **Everything in section 10.** A four-player game that is enjoyed start to finish is the
+   deliverable phase 2 was always gated on, and it is the only check left that no machine can
+   run. Every question below is smaller than that one.
 1. **How does a card sit in your hand?** The display transforms in
    `assets/gathering/models/item/card.json` are guesses — I cannot see the result. Angle,
    scale and position are all plain model data in that file, so they are editable, but tell

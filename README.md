@@ -22,7 +22,7 @@ Two fantasies, one card system:
   real decklists. The mod is the table, the cards, and the hands. The rules live in your
   heads — there is **no in-game rules enforcement, ever**.
 - **Collect.** On a configured server, cards are also things you find, open, buy, and trade,
-  with gym nights at arena tables.
+  draft with, and play for keeps.
 
 And a short list of things it is deliberately **not**: a rules engine, an AI opponent, a
 real-money anything, a card-art redistribution vehicle, or a physics sandbox.
@@ -60,16 +60,23 @@ build fails early with instructions if you forget. Everything else is pinned in
 `verify` is the bar. Every stage of it has been confirmed capable of failing, because a gate
 that cannot fail manufactures confidence rather than providing it.
 
-Four more checks sit beside it, and each exists because something got through the others:
+Six more checks sit beside it, and each exists because something got through the others:
 
 ```bash
 python3 tools/langcheck.py     # every translation key written out exists, and none is stale
+python3 tools/doccheck.py      # no javadoc block left stranded above the wrong thing
+python3 tools/scenecheck.py    # the scripted run's steps are contiguous and all reachable
 tools/smoke.sh                 # boot all four targets: both loaders, client and server
 tools/shots.sh                 # drive a real client through a scripted game, photograph it
 tools/preview                  # render the pure layout arithmetic straight to PNG
 ```
 
 `langcheck.py` reads the source and `sounds.json` rather than a list somebody maintains.
+`doccheck.py` exists because a javadoc block orphaned by an edit reads as documentation of
+whatever now sits below it, which is worse than none. `scenecheck.py` catches the scripted
+run's commonest failure: a step number that skips, so the run finishes early and reports a
+clean sweep of the half it did.
+
 `smoke.sh` exists because a loader can serve every class without its assets: it compiles,
 builds, passes every test, boots, registers everything, logs happily, and then draws missing
 textures and raw translation keys. Fabric shipped exactly that until somebody read the
@@ -116,9 +123,9 @@ looking at its output rather than by reading code.
 **Phase 2 - the real game.** Under way: multiplayer sessions, per-player visibility sync and
 spectator rendering are in; the group playtest that gates the rest is not.
 
-**Phase 3 - collection and draft.** The draft half is in: pods, pick-2 at four and five
-players, three rounds of passing, pools that stay yours, and a deck screen that builds a
-forty out of one. The collection half has its foundations rather than its game:
+**Phase 3 - collection and draft.** In. Draft is pods, pick-2 at four and five players,
+three rounds of passing, pools that stay yours, and a deck screen that builds a forty out of
+one. The collection half has both its foundations and its game:
 
 - [x] The booster interpreter - weighted print sheets and weighted pack arrangements, which
       is what real collation actually is, so no set needs a line of code written for it
@@ -127,10 +134,23 @@ forty out of one. The collection half has its foundations rather than its game:
 - [x] A faucet coverage auditor, so a server can prove every card in a set is obtainable
 - [x] One server config file with the mode switches, written with its own explanations on
       first start
-- [ ] Sealed product as items, opened with a ceremony
-- [ ] Shops, loot, and the rest of section 9
+- [x] Sealed product as items - packs, boxes, cases and precons - opened with the ceremony:
+      the tear follows the cursor and the torn edge glows before a card is shown
+- [x] The shop: a villager with its own job behind a counter, selling sealed and never
+      singles, every shop in the world stocking the same shelf on the same clock
+- [x] Loot: packs found in the world on the server's chosen tables, richer chests carrying
+      the rarer boosters, and nothing bigger than a booster ever found rather than bought
+- [x] Collections, trading between players, loaner decks, and ante behind unanimous consent
 
-**Phase 4 - arenas.** Described in the design brief, section 14.
+**Phase 4 - arenas.** Closed without building it, and the design brief's section 11 says
+why: a gym night is a social structure rather than a feature, and every tool one needs is
+already here. Any table is the arena, anybody can spectate, the log is public and attributes
+every action by name, matches record their own winner, and ante covers stakes. Badges,
+queues, leader lists and scheduling belong to the server's own plugins and culture, which do
+all five better than we would.
+
+What is left before this is a release is not code: **a real multiplayer session with four
+humans**, block models, and textures.
 
 ### The server config
 
@@ -146,13 +166,20 @@ refusing to start.
 
 Craft a table, place it, and it builds itself into a two-by-two multiblock. Import a deck
 with `/gathering import` - paste a decklist in any of the six formats above, or an Archidekt
-link - then walk up to the table holding the deck and right-click it. That deals: you are sat down, shuffled, and
-holding seven. Crouch and right-click instead to choose a format first, or free play if you
-would rather nobody's deck be checked.
+link - then walk up to the table holding the deck and right-click it. That deals: you are
+sat down, shuffled, and holding seven. Crouch and right-click instead to choose a format
+first, or free play if you would rather nobody's deck be checked.
 
 Hold **Left Alt** over any card, anywhere, to read it full size with its oracle text. Press
 **F1** at the table for every key. Press **V** to swap between playing on the window and
 playing on the table itself.
+
+With `collection_enabled` on, decks are built out of cards you own rather than typed into
+existence: find or buy sealed product, right-click a pack to open it, and store what you pull
+in a collection block, which searches and sorts and will build a whole deck from a list in
+one go. A shopkeeper villager sells sealed from behind a shop counter. Trading, loaner decks
+for a guest with no collection, draft pods and ante all start from a table or the block
+beside it.
 
 ## Two rules the code is built around
 
