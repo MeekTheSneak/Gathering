@@ -43,13 +43,43 @@ final class GatheringRegistration {
                 BuiltInRegistries.ITEM, Gathering.id(GatheringContent.TABLE_ID),
                 GatheringContent.createTableItem()));
 
+        // The same table in other materials. Separate blocks that merge into one another's
+        // clusters anyway, because every rule in the mod asks "is this a TableBlock".
+        net.minecraft.world.level.block.Block cobblestoneTable = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.COBBLESTONE_TABLE_ID),
+                GatheringContent.createCobblestoneTable());
+        GatheringContent.COBBLESTONE_TABLE.bindValue(cobblestoneTable);
+        GatheringContent.COBBLESTONE_TABLE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.COBBLESTONE_TABLE_ID),
+                GatheringContent.createCobblestoneTableItem()));
+
+        net.minecraft.world.level.block.Block blackstoneTable = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.BLACKSTONE_TABLE_ID),
+                GatheringContent.createBlackstoneTable());
+        GatheringContent.BLACKSTONE_TABLE.bindValue(blackstoneTable);
+        GatheringContent.BLACKSTONE_TABLE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.BLACKSTONE_TABLE_ID),
+                GatheringContent.createBlackstoneTableItem()));
+
+        net.minecraft.world.level.block.Block cryingObsidianTable = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.CRYING_OBSIDIAN_TABLE_ID),
+                GatheringContent.createCryingObsidianTable());
+        GatheringContent.CRYING_OBSIDIAN_TABLE.bindValue(cryingObsidianTable);
+        GatheringContent.CRYING_OBSIDIAN_TABLE_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.CRYING_OBSIDIAN_TABLE_ID),
+                GatheringContent.createCryingObsidianTableItem()));
+
         // Fabric's own builder, because BlockEntityType.Builder's supplier interface is
         // package-private in vanilla and only NeoForge access-transforms it.
         GatheringContent.TABLE_ENTITY.bindValue(Registry.register(
                 BuiltInRegistries.BLOCK_ENTITY_TYPE,
                 Gathering.id(dev.gathering.block.TableBlockEntity.ID),
                 net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
-                        .create(GatheringContent::createTableEntity, table)
+                        // Every table, or a stone one placed down has no block entity and
+                        // therefore no session: vanilla's own valid-blocks check refuses
+                        // the ones it was not told about.
+                        .create(GatheringContent::createTableEntity, table,
+                                cobblestoneTable, blackstoneTable, cryingObsidianTable)
                         .build()));
 
         Item card = Registry.register(
@@ -149,6 +179,12 @@ final class GatheringRegistration {
                             output.accept(new ItemStack(sealed));
                             output.accept(new ItemStack(counterItem));
                             output.accept(new ItemStack(GatheringContent.TABLE_ITEM.get()));
+                            output.accept(new ItemStack(
+                                    GatheringContent.COBBLESTONE_TABLE_ITEM.get()));
+                            output.accept(new ItemStack(
+                                    GatheringContent.BLACKSTONE_TABLE_ITEM.get()));
+                            output.accept(new ItemStack(
+                                    GatheringContent.CRYING_OBSIDIAN_TABLE_ITEM.get()));
                             output.accept(
                                     new ItemStack(GatheringContent.COLLECTION_ITEM.get()));
                         })

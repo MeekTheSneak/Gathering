@@ -1,5 +1,8 @@
 {
+  "block.gathering.blackstone_table": "Blackstone Table",
+  "block.gathering.cobblestone_table": "Cobblestone Table",
   "block.gathering.collection": "Collection",
+  "block.gathering.crying_obsidian_table": "Crying Obsidian Table",
   "block.gathering.shop_counter": "Shop Counter",
   "block.gathering.table": "Gathering Table",
   "confirm.gathering.concede": "Concede this game?",

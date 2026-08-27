@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 193;
+    private static final int LAST_STEP = 195;
 
     private static int step;
     private static int waited;
@@ -2106,6 +2106,19 @@ public final class DevScene {
             }
             case 193 -> {
                 shoot(client, "60-the-felt-dyed");
+                // The rest of the family, stood in a row where they can be compared. A
+                // cosmetic table that is the wooden one with a different texture is a recolor
+                // rather than a table somebody would build with, and the only way to know
+                // which of the two was built is to look at them side by side.
+                standTheOtherTablesUp(client);
+                advance(SETTLE);
+            }
+            case 194 -> {
+                lookAtTheOtherTables(client);
+                advance(SETTLE);
+            }
+            case 195 -> {
+                shoot(client, "61-a-table-in-every-material");
                 advance(SETTLE / 2);
             }
             default -> {
@@ -3650,6 +3663,74 @@ public final class DevScene {
             // Deliberately not seated or started here. The whole point is that walking up
             // holding a deck is enough, so the scene has to actually walk up holding a deck.
             System.out.println("[devscene] table placed, nobody seated");
+        });
+    }
+
+    /** Where the row of stone tables was stood up, so the camera can be pointed at it. */
+    private static BlockPos otherTables;
+
+    /**
+     * One of each other material, in a row.
+     *
+     * <p>Placed rather than crafted: what is being checked is how they look, and the recipe
+     * is checked by the recipe file existing. Three tables two apart, so each is whole and
+     * none of them merge into a cluster - a row of separate tables reads as a catalogue,
+     * where four merged ones read as one large table.
+     */
+    private static void standTheOtherTablesUp(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            return;
+        }
+        // On the ground rather than in it: the main table is placed a block down because the
+        // scene stands on the block above it, and copying that here buried three tables up to
+        // their felt - which photographed as three green squares lying in a field.
+        BlockPos where = client.player.blockPosition().offset(-8, 0, 6);
+        otherTables = where;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            int along = 0;
+            for (dev.gathering.registry.Registered<net.minecraft.world.level.block.Block> which
+                    : List.of(GatheringContent.COBBLESTONE_TABLE,
+                            GatheringContent.BLACKSTONE_TABLE,
+                            GatheringContent.CRYING_OBSIDIAN_TABLE)) {
+                BlockState state = which.get().defaultBlockState();
+                BlockPos corner = where.offset(along, 0, 0);
+                for (TablePart part : TablePart.values()) {
+                    level.setBlock(
+                            part.offsetFrom(corner), state.setValue(TableBlock.PART, part), 3);
+                }
+                along += 4;
+            }
+            System.out.println("[devscene] a cobblestone, a blackstone and a crying obsidian table");
+        });
+    }
+
+    /** Stands the camera back from the row and looks at it. */
+    private static void lookAtTheOtherTables(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || otherTables == null || client.player == null) {
+            return;
+        }
+        client.setScreen(null);
+        BlockPos where = otherTables;
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream()
+                    .findFirst().orElse(null);
+            if (player == null) {
+                return;
+            }
+            // Off to one side and above, which is how anybody looks at furniture they are
+            // deciding between rather than the flat-on view the board is drawn at.
+            // Far enough back that the whole row sits above the cards the scene is holding:
+            // the first framing put a crying obsidian table behind a Lightning Bolt.
+            double atX = where.getX() + 4.5;
+            double atY = where.getY() + 3.2;
+            double atZ = where.getZ() + 11.5;
+            player.teleportTo(atX, atY, atZ);
+            player.setYRot(180f);
+            player.setXRot(12f);
+            player.connection.teleport(atX, atY, atZ, 180f, 12f);
         });
     }
 

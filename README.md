@@ -29,6 +29,13 @@ nothing tells you no.
 two-by-two table you can walk around. Put four tables together and they merge into one
 surface seating up to eight.
 
+Stone ones too, for builds the wooden one does not suit: **cobblestone** on stout legs for a
+cellar or a rubble hall, **polished blackstone** with a chiseled course for somewhere formal,
+and **crying obsidian** standing on a single plinth that glows. They are the same table in
+every way that matters — the felt dyes, the game plays, and any of them cluster into any
+other — so mixing materials in one eight-seat table is a decision about the room, not about
+the game.
+
 **Get a deck.** Two ways in, and a server picks which. **Out of the box you earn your cards:**
 open packs, keep a collection, and build a deck from what you own. **Or a server can let
 everyone import instead** — `/gathering import`, paste a decklist, and you hold the deck a

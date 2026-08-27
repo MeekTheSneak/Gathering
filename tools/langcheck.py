@@ -36,6 +36,9 @@ EXPECTED_UNREFERENCED = {
     "item.gathering.pack",
     "item.gathering.sealed",
     "block.gathering.shop_counter",
+    "block.gathering.cobblestone_table",
+    "block.gathering.blackstone_table",
+    "block.gathering.crying_obsidian_table",
     # Vanilla builds this one from the profession's registry id, with the namespace in the
     # middle because the profession is not minecraft's.
     "entity.minecraft.villager.gathering.shopkeeper",

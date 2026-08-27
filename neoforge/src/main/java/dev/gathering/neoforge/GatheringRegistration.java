@@ -101,13 +101,37 @@ final class GatheringRegistration {
     private static final Supplier<Item> TABLE_ITEM =
             ITEMS.register(GatheringContent.TABLE_ID, GatheringContent::createTableItem);
 
+    // The same table in other materials. Registered beside the wooden one rather than
+    // through it: they are separate blocks, they merge into one another's clusters anyway
+    // because every rule in the mod asks "is this a TableBlock", and a build that wants a
+    // stone table gets one without the wooden one having to know it exists.
+    private static final Supplier<Block> COBBLESTONE_TABLE = BLOCKS.register(
+            GatheringContent.COBBLESTONE_TABLE_ID, GatheringContent::createCobblestoneTable);
+    private static final Supplier<Item> COBBLESTONE_TABLE_ITEM = ITEMS.register(
+            GatheringContent.COBBLESTONE_TABLE_ID, GatheringContent::createCobblestoneTableItem);
+    private static final Supplier<Block> BLACKSTONE_TABLE = BLOCKS.register(
+            GatheringContent.BLACKSTONE_TABLE_ID, GatheringContent::createBlackstoneTable);
+    private static final Supplier<Item> BLACKSTONE_TABLE_ITEM = ITEMS.register(
+            GatheringContent.BLACKSTONE_TABLE_ID, GatheringContent::createBlackstoneTableItem);
+    private static final Supplier<Block> CRYING_OBSIDIAN_TABLE = BLOCKS.register(
+            GatheringContent.CRYING_OBSIDIAN_TABLE_ID,
+            GatheringContent::createCryingObsidianTable);
+    private static final Supplier<Item> CRYING_OBSIDIAN_TABLE_ITEM = ITEMS.register(
+            GatheringContent.CRYING_OBSIDIAN_TABLE_ID,
+            GatheringContent::createCryingObsidianTableItem);
+
     // BlockEntityType.Builder is only reachable here: its supplier interface is
     // package-private in vanilla and NeoForge access-transforms it. The null is the data
     // fixer type, which a mod has no business supplying.
     private static final Supplier<BlockEntityType<dev.gathering.block.TableBlockEntity>> TABLE_ENTITY =
             BLOCK_ENTITIES.register(dev.gathering.block.TableBlockEntity.ID, () ->
                     BlockEntityType.Builder
-                            .of(GatheringContent::createTableEntity, TABLE.get())
+                            // Every table, or a stone one placed down has no block entity
+                            // and therefore no session: "valid blocks" is vanilla's own
+                            // check and it refuses the ones it was not told about.
+                            .of(GatheringContent::createTableEntity,
+                                    TABLE.get(), COBBLESTONE_TABLE.get(),
+                                    BLACKSTONE_TABLE.get(), CRYING_OBSIDIAN_TABLE.get())
                             .build(null));
 
     private static final Supplier<DataComponentType<CardComponent>> CARD_COMPONENT =
@@ -143,6 +167,9 @@ final class GatheringRegistration {
                 output.accept(new ItemStack(SEALED.get()));
                 output.accept(new ItemStack(SHOP_COUNTER_ITEM.get()));
                 output.accept(new ItemStack(TABLE_ITEM.get()));
+                output.accept(new ItemStack(COBBLESTONE_TABLE_ITEM.get()));
+                output.accept(new ItemStack(BLACKSTONE_TABLE_ITEM.get()));
+                output.accept(new ItemStack(CRYING_OBSIDIAN_TABLE_ITEM.get()));
                 output.accept(new ItemStack(COLLECTION_ITEM.get()));
             })
             .build());
@@ -178,6 +205,12 @@ final class GatheringRegistration {
         GatheringContent.PACK.bind(PACK);
         GatheringContent.TABLE.bind(TABLE);
         GatheringContent.TABLE_ITEM.bind(TABLE_ITEM);
+        GatheringContent.COBBLESTONE_TABLE.bind(COBBLESTONE_TABLE);
+        GatheringContent.COBBLESTONE_TABLE_ITEM.bind(COBBLESTONE_TABLE_ITEM);
+        GatheringContent.BLACKSTONE_TABLE.bind(BLACKSTONE_TABLE);
+        GatheringContent.BLACKSTONE_TABLE_ITEM.bind(BLACKSTONE_TABLE_ITEM);
+        GatheringContent.CRYING_OBSIDIAN_TABLE.bind(CRYING_OBSIDIAN_TABLE);
+        GatheringContent.CRYING_OBSIDIAN_TABLE_ITEM.bind(CRYING_OBSIDIAN_TABLE_ITEM);
         GatheringContent.TABLE_ENTITY.bind(TABLE_ENTITY);
         GatheringComponents.CARD.bind(CARD_COMPONENT);
         GatheringComponents.DECK.bind(DECK_COMPONENT);

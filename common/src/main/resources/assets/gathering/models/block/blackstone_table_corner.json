@@ -1,0 +1,293 @@
+{
+  "__comment": "One quarter of a blackstone table: a polished apron over a chiseled course, on a slim leg set further in. Where the cobblestone one is heavy this is cut - the same table for a hall rather than a cellar.",
+  "parent": "block/block",
+  "textures": {
+    "particle": "minecraft:block/polished_blackstone",
+    "felt": "gathering:block/table_felt",
+    "frame": "minecraft:block/polished_blackstone",
+    "accent": "minecraft:block/chiseled_polished_blackstone"
+  },
+  "elements": [
+    {
+      "__comment": "Felt surface. Tinted, so every table dyes the same way.",
+      "from": [
+        0,
+        13,
+        0
+      ],
+      "to": [
+        16,
+        15,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "tintindex": 0
+        },
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#felt",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "__comment": "Polished apron.",
+      "from": [
+        0,
+        11,
+        0
+      ],
+      "to": [
+        16,
+        13,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        },
+        "south": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        },
+        "east": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        },
+        "west": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ]
+        }
+      }
+    },
+    {
+      "__comment": "Chiseled course, inset so it reads as moulding rather than as more apron.",
+      "from": [
+        1,
+        10,
+        1
+      ],
+      "to": [
+        15,
+        11,
+        15
+      ],
+      "faces": {
+        "down": {
+          "texture": "#accent",
+          "uv": [
+            1,
+            1,
+            15,
+            15
+          ]
+        },
+        "up": {
+          "texture": "#accent",
+          "uv": [
+            1,
+            1,
+            15,
+            15
+          ]
+        },
+        "north": {
+          "texture": "#accent",
+          "uv": [
+            1,
+            5,
+            15,
+            6
+          ]
+        },
+        "south": {
+          "texture": "#accent",
+          "uv": [
+            1,
+            5,
+            15,
+            6
+          ]
+        },
+        "east": {
+          "texture": "#accent",
+          "uv": [
+            1,
+            5,
+            15,
+            6
+          ]
+        },
+        "west": {
+          "texture": "#accent",
+          "uv": [
+            1,
+            5,
+            15,
+            6
+          ]
+        }
+      }
+    },
+    {
+      "__comment": "Slim leg, set in from the corner.",
+      "from": [
+        2,
+        0,
+        2
+      ],
+      "to": [
+        5,
+        10,
+        5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            3,
+            3
+          ]
+        },
+        "up": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            0,
+            3,
+            3
+          ]
+        },
+        "north": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            6,
+            3,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            6,
+            3,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            6,
+            3,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#frame",
+          "uv": [
+            0,
+            6,
+            3,
+            16
+          ]
+        }
+      }
+    }
+  ]
+}

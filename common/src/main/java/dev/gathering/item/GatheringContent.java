@@ -28,6 +28,20 @@ public final class GatheringContent {
     public static final String DECK_ID = "deck";
     public static final String PACK_ID = "pack";
     public static final String TABLE_ID = "table";
+
+    /**
+     * The tables that are not wooden.
+     *
+     * <p>A cosmetic family with identical function, which the brief has always asked for: a
+     * table is a table whatever it is made of, they cluster into one another regardless of
+     * skin, and nothing in the game asks which one it is sitting at. Only the look changes -
+     * and the look changes properly, in the shape as well as the material, because a stone
+     * table that is the wooden one with a different texture is a recolor rather than a table
+     * somebody would choose for a build.
+     */
+    public static final String COBBLESTONE_TABLE_ID = "cobblestone_table";
+    public static final String BLACKSTONE_TABLE_ID = "blackstone_table";
+    public static final String CRYING_OBSIDIAN_TABLE_ID = "crying_obsidian_table";
     public static final String COLLECTION_ID = "collection";
     public static final String SEALED_ID = "sealed";
     public static final String SHOP_COUNTER_ID = "shop_counter";
@@ -37,6 +51,26 @@ public final class GatheringContent {
     public static final Registered<Item> PACK = new Registered<>(PACK_ID);
     public static final Registered<Block> TABLE = new Registered<>(TABLE_ID);
     public static final Registered<Item> TABLE_ITEM = new Registered<>(TABLE_ID);
+    public static final Registered<Block> COBBLESTONE_TABLE = new Registered<>(COBBLESTONE_TABLE_ID);
+    public static final Registered<Item> COBBLESTONE_TABLE_ITEM = new Registered<>(COBBLESTONE_TABLE_ID);
+    public static final Registered<Block> BLACKSTONE_TABLE = new Registered<>(BLACKSTONE_TABLE_ID);
+    public static final Registered<Item> BLACKSTONE_TABLE_ITEM = new Registered<>(BLACKSTONE_TABLE_ID);
+    public static final Registered<Block> CRYING_OBSIDIAN_TABLE =
+            new Registered<>(CRYING_OBSIDIAN_TABLE_ID);
+    public static final Registered<Item> CRYING_OBSIDIAN_TABLE_ITEM =
+            new Registered<>(CRYING_OBSIDIAN_TABLE_ID);
+
+    /** Every table, in the order they are offered. What one hand needs, the others need. */
+    public static java.util.List<Registered<Block>> tables() {
+        return java.util.List.of(TABLE, COBBLESTONE_TABLE, BLACKSTONE_TABLE, CRYING_OBSIDIAN_TABLE);
+    }
+
+    /** Every table's item, in the same order. */
+    public static java.util.List<Registered<Item>> tableItems() {
+        return java.util.List.of(
+                TABLE_ITEM, COBBLESTONE_TABLE_ITEM, BLACKSTONE_TABLE_ITEM,
+                CRYING_OBSIDIAN_TABLE_ITEM);
+    }
     public static final Registered<BlockEntityType<TableBlockEntity>> TABLE_ENTITY =
             new Registered<>(TableBlockEntity.ID);
     public static final Registered<Item> SEALED = new Registered<>(SEALED_ID);
@@ -120,6 +154,57 @@ public final class GatheringContent {
 
     public static Item createTableItem() {
         return new TableBlockItem(TABLE.get(), new Item.Properties());
+    }
+
+    /**
+     * A table cut from stone rather than built from planks.
+     *
+     * <p>Everything that makes a table a table is in {@link TableBlock} and none of it is
+     * here: this only says how heavy it is, what it sounds like, and what color it is on a
+     * map. The rest - clustering, seats, the session, the dyeable felt - a stone table gets
+     * by being a {@code TableBlock}, which is how every rule in the mod already asks.
+     */
+    private static Block createStoneTable(MapColor color, float strength, int light) {
+        return new TableBlock(BlockBehaviour.Properties.of()
+                .mapColor(color)
+                .strength(strength)
+                .sound(SoundType.STONE)
+                .lightLevel(state -> light)
+                .noOcclusion()
+                .pushReaction(PushReaction.BLOCK));
+    }
+
+    /** Rough and heavy: the table in a tavern, a dungeon, or anywhere built out of rubble. */
+    public static Block createCobblestoneTable() {
+        return createStoneTable(MapColor.STONE, 2.5f, 0);
+    }
+
+    /** Cut and polished, with a chiseled course under the top. For somewhere formal. */
+    public static Block createBlackstoneTable() {
+        return createStoneTable(MapColor.COLOR_BLACK, 3.0f, 0);
+    }
+
+    /**
+     * One block of stone on a single plinth, and it glows.
+     *
+     * <p>Dimmer than the vanilla block it is cut from: crying obsidian lights a room at ten,
+     * and four quarters of a table doing that would be a lamp somebody plays cards on. Seven
+     * reads as a glow at the table without lighting the building it is in.
+     */
+    public static Block createCryingObsidianTable() {
+        return createStoneTable(MapColor.COLOR_BLACK, 5.0f, 7);
+    }
+
+    public static Item createCobblestoneTableItem() {
+        return new TableBlockItem(COBBLESTONE_TABLE.get(), new Item.Properties());
+    }
+
+    public static Item createBlackstoneTableItem() {
+        return new TableBlockItem(BLACKSTONE_TABLE.get(), new Item.Properties());
+    }
+
+    public static Item createCryingObsidianTableItem() {
+        return new TableBlockItem(CRYING_OBSIDIAN_TABLE.get(), new Item.Properties());
     }
 
     /**

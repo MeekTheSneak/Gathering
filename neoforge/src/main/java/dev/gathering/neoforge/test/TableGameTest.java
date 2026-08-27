@@ -544,9 +544,49 @@ public final class TableGameTest {
     }
 
     /** Places a whole table with its corner at these relative coordinates. */
+    @GameTest(template = "empty")
+    public static void everyMaterialOfTableIsStillATable(GameTestHelper helper) {
+        // The block entity type names the blocks it will attach to, and a table missing from
+        // that list is not an error - it is a table that silently has no block entity, and so
+        // no session, no seats and no game. Nothing says why. So every material gets asked.
+        int x = 1;
+        for (var material : GatheringContent.tables()) {
+            BlockPos origin = placeOf(helper, material.get(), x, 2, 1);
+            if (!(helper.getLevel().getBlockEntity(origin) instanceof TableBlockEntity)) {
+                helper.fail("A " + material.entryName() + " has no block entity, so it can "
+                        + "never hold a game");
+                return;
+            }
+            x += 3;
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void tablesOfDifferentMaterialsShareOneCluster(GameTestHelper helper) {
+        // The brief's promise, and the reason none of the mod's rules ask what a table is
+        // made of: push a stone table against a wooden one and it is one table for four.
+        BlockPos wooden = placeOf(helper, GatheringContent.TABLE.get(), 1, 2, 1);
+        placeOf(helper, GatheringContent.CRYING_OBSIDIAN_TABLE.get(), 3, 2, 1);
+
+        TableCluster cluster = TableClusters.at(helper.getLevel(), wooden);
+
+        if (cluster.tableCount() != 2 || cluster.capacity() != 4) {
+            helper.fail("A wooden table and a stone one should seat four across two tables, got "
+                    + cluster.capacity() + " across " + cluster.tableCount());
+        }
+        helper.succeed();
+    }
+
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
+        return placeOf(helper, GatheringContent.TABLE.get(), x, y, z);
+    }
+
+    private static BlockPos placeOf(
+            GameTestHelper helper, net.minecraft.world.level.block.Block block,
+            int x, int y, int z) {
         BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
-        BlockState table = GatheringContent.TABLE.get().defaultBlockState();
+        BlockState table = block.defaultBlockState();
         for (TablePart part : TablePart.values()) {
             helper.getLevel().setBlock(
                     part.offsetFrom(origin), table.setValue(TableBlock.PART, part), 3);

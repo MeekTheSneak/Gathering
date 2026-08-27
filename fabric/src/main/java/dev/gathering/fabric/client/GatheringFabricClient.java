@@ -82,11 +82,17 @@ public final class GatheringFabricClient implements ClientModInitializer {
                 dev.gathering.client.TableMiniatureRenderer::new);
 
         // The felt is one texture tinted per table, so the tint needs a handler on each loader.
-        net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.BLOCK.register(
-                TableColors::tintOf, GatheringContent.TABLE.get());
-        net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.ITEM.register(
-                (stack, tintIndex) -> TableColors.itemTintOf(tintIndex),
-                GatheringContent.TABLE_ITEM.get());
+        // Every table, not only the wooden one: the felt is the same dyeable surface on all
+        // of them, and a table left off this list keeps its undyed texture forever with no
+        // error to say why.
+        for (var table : GatheringContent.tables()) {
+            net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.BLOCK.register(
+                    TableColors::tintOf, table.get());
+        }
+        for (var item : GatheringContent.tableItems()) {
+            net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.ITEM.register(
+                    (stack, tintIndex) -> TableColors.itemTintOf(tintIndex), item.get());
+        }
 
         ClientPlayNetworking.registerGlobalReceiver(CardMetadataPayload.TYPE, (payload, context) ->
                 ClientCardCache.get().accept(payload.cards()));

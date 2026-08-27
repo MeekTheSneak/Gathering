@@ -100,14 +100,20 @@ public final class GatheringNeoForgeClient {
     @SubscribeEvent
     public static void onRegisterBlockColors(
             net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Block event) {
-        event.register(TableColors::tintOf, GatheringContent.TABLE.get());
+        // Every table, not only the wooden one: the felt is the same dyeable surface on all
+        // of them, and a table left off this list keeps its undyed texture forever with no
+        // error to say why.
+        for (var table : GatheringContent.tables()) {
+            event.register(TableColors::tintOf, table.get());
+        }
     }
 
     @SubscribeEvent
     public static void onRegisterItemColors(
             net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Item event) {
-        event.register((stack, tintIndex) -> TableColors.itemTintOf(tintIndex),
-                GatheringContent.TABLE_ITEM.get());
+        for (var item : GatheringContent.tableItems()) {
+            event.register((stack, tintIndex) -> TableColors.itemTintOf(tintIndex), item.get());
+        }
     }
 
 
