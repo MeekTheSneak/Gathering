@@ -504,6 +504,7 @@ Two of these are cheap and two are not, and the cheap two catch most of it.
 | `:neoforge:runGameTestServer` | ~20s | every change |
 | `tools/smoke.sh` | ~10 min | a new registration, a new model or texture, or a loader entry point - the things that can boot wrong. Not for a string added to the language file. |
 | `tools/shots.sh` | ~11 min | on demand, and once at the end of a piece of visual work rather than after each fix |
+| `LOADER=fabric tools/shots.sh` | ~6 min | when anything crosses the loader boundary - a payload, a registration, an entry point. The scene lives in `:common`, so both loaders drive it; smoke.sh proves Fabric boots, and only this proves Fabric plays. |
 
 The two slow ones boot real game instances under software rendering, which is
 why they cost what they do. Batch what you are checking and run them once: three
