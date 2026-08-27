@@ -118,7 +118,7 @@ class TableClusterTest {
 
     @Test
     @DisplayName("diagonally touching tables are two clusters: a corner is not an edge")
-    void diagonalNeighboursDoNotMerge() {
+    void diagonalNeighborsDoNotMerge() {
         Set<TableCell> diagonal = Set.of(cell(0, 0), cell(1, 1));
 
         assertThat(TableCluster.around(cell(0, 0), diagonal::contains).tableCount()).isEqualTo(1);

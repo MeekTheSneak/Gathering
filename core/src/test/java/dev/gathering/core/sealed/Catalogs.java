@@ -4,22 +4,22 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** A catalogue built from a handful of products and decks, for the tests that need one. */
-final class Catalogues {
+/** A catalog built from a handful of products and decks, for the tests that need one. */
+final class Catalogs {
 
-    private Catalogues() {
+    private Catalogs() {
     }
 
-    static SealedCatalogue of(SealedProduct... products) {
+    static SealedCatalog of(SealedProduct... products) {
         return of(List.of(), products);
     }
 
-    static SealedCatalogue of(List<SealedDeck> decks, SealedProduct... products) {
+    static SealedCatalog of(List<SealedDeck> decks, SealedProduct... products) {
         Map<String, SealedProduct> byId = new LinkedHashMap<>();
         for (SealedProduct product : products) {
             byId.put(product.productId(), product);
         }
-        return new SealedCatalogue() {
+        return new SealedCatalog() {
 
             @Override
             public SealedProduct byId(String productId) {

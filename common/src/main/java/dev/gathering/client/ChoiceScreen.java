@@ -91,7 +91,7 @@ public final class ChoiceScreen extends ChildScreen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        GuiText.drawCentred(graphics, this.font, question,
+        GuiText.drawCentered(graphics, this.font, question,
                 panel.x() + panel.width() / 2, panel.y() + 5, panel.width() - MARGIN * 2, LABEL);
     }
 }

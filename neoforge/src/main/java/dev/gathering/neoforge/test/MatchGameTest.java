@@ -288,7 +288,7 @@ public final class MatchGameTest {
     }
 
     /**
-     * Plays a game out to a result the only way the mod recognises one: everybody else scoops.
+     * Plays a game out to a result the only way the mod recognizes one: everybody else scoops.
      *
      * <p>Goes through the same settle step the network handler uses, so what is being tested
      * is the path a real concession takes rather than a shortcut around it.

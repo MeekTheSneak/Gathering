@@ -23,7 +23,7 @@ public final class CardNote {
      */
     public static final int LONGEST = 48;
 
-    /** Minecraft's formatting escape. Player text carrying one would colour the board. */
+    /** Minecraft's formatting escape. Player text carrying one would color the board. */
     private static final char FORMATTING = '§';
 
     private CardNote() {
@@ -35,7 +35,7 @@ public final class CardNote {
      * <p>One line: newlines and tabs become spaces and runs of space collapse, because a note
      * is drawn on a band across a card and a second line has nowhere to go. Control characters
      * and the formatting escape are dropped outright rather than replaced - they are not
-     * writing, and a card whose note recolours the board is a card somebody used as a paint
+     * writing, and a card whose note recolors the board is a card somebody used as a paint
      * brush.
      */
     public static String clean(String written) {

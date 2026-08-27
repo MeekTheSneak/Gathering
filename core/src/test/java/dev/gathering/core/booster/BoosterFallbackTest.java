@@ -157,7 +157,7 @@ class BoosterFallbackTest {
         }
     }
 
-    /** A card listed twice in a catalogue is still one card, not one that is twice as common. */
+    /** A card listed twice in a catalog is still one card, not one that is twice as common. */
     @Test
     void aCardListedTwiceIsStillOneCard() {
         UUID only = printing("only");

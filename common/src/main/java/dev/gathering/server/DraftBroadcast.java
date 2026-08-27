@@ -38,7 +38,7 @@ public final class DraftBroadcast {
      *
      * @param open whether this should open the pack screen, or only update one already
      *             showing - so a drafter who closed it to look something up is not dragged
-     *             back to it every time a neighbour picks
+     *             back to it every time a neighbor picks
      */
     public static void sendToPod(ServerLevel level, BlockPos tableOrigin, boolean open) {
         DraftPod pod = DraftPods.podAt(level, tableOrigin).orElse(null);

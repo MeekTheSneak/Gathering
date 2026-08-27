@@ -115,7 +115,7 @@ public final class TableActions {
     /**
      * Takes back a player's own most recent actions, if this table lets them.
      *
-     * <p>Every judgement is the session's and is made here rather than trusted from the
+     * <p>Every judgment is the session's and is made here rather than trusted from the
      * packet: who is asking comes from the player it arrived from, and whether the rewind is
      * allowed - their own actions, this table's undo mode, and the hard rule that a rewind
      * never crosses an action that let somebody see something - is decided by the same code

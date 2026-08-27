@@ -33,7 +33,7 @@ public final class DeckValidator {
         checkCommanders(deck, preset, issues);
         checkCopyLimits(deck, preset, issues);
         checkLegality(deck, preset, issues);
-        checkColourIdentity(deck, preset, issues);
+        checkColorIdentity(deck, preset, issues);
         checkSideboard(deck, preset, issues);
 
         return new ValidationResult(preset, issues);
@@ -163,11 +163,11 @@ public final class DeckValidator {
         }
     }
 
-    // ------------------------------------------------------- colour identity
+    // ------------------------------------------------------- color identity
 
-    private static void checkColourIdentity(
+    private static void checkColorIdentity(
             ValidatableDeck deck, FormatPreset preset, List<ValidationIssue> issues) {
-        if (!preset.checksColourIdentity() || deck.commanders().isEmpty()) {
+        if (!preset.checksColorIdentity() || deck.commanders().isEmpty()) {
             return;
         }
 
@@ -179,9 +179,9 @@ public final class DeckValidator {
             Set<String> outside = new LinkedHashSet<>(card.colorIdentity());
             outside.removeAll(allowed);
             if (!outside.isEmpty() && reported.add(card.name())) {
-                issues.add(ValidationIssue.error("colour_identity",
-                        card.name() + " is outside the commander's colour identity (" + String.join("", outside)
-                                + " not in " + (allowed.isEmpty() ? "colourless" : String.join("", allowed)) + ")."));
+                issues.add(ValidationIssue.error("color_identity",
+                        card.name() + " is outside the commander's color identity (" + String.join("", outside)
+                                + " not in " + (allowed.isEmpty() ? "colorless" : String.join("", allowed)) + ")."));
             }
         }
     }

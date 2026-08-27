@@ -44,7 +44,7 @@ public record SealedShelf(List<Item> items) {
 
 
     /**
-     * The shelf for one set's catalogue.
+     * The shelf for one set's catalog.
      *
      * <p>Ordered rather than left as the file wrote it: packs first, then everything else by
      * price. Within each, by price and then by name, so two shelves built from the same file
@@ -54,23 +54,23 @@ public record SealedShelf(List<Item> items) {
      * @param perBooster what this server charges for one booster
      */
     public static SealedShelf of(MtgjsonProducts.Reading products, int perBooster) {
-        return of(products, SealedCatalogue.of(products), perBooster);
+        return of(products, SealedCatalog.of(products), perBooster);
     }
 
     /**
-     * The shelf for one set, looked up in a catalogue that may span several.
+     * The shelf for one set, looked up in a catalog that may span several.
      *
      * <p>Which is what a precon needs: the box is published in the Commander set and the deck
      * it names is published there too, but a starter kit names decks belonging to the set it
      * came out beside.
      */
-    public static SealedShelf of(MtgjsonProducts.Reading products, SealedCatalogue catalogue,
+    public static SealedShelf of(MtgjsonProducts.Reading products, SealedCatalog catalog,
             int perBooster) {
         if (products == null) {
             return EMPTY;
         }
-        SealedCatalogue lookup = catalogue == null
-                ? SealedCatalogue.of(products) : catalogue;
+        SealedCatalog lookup = catalog == null
+                ? SealedCatalog.of(products) : catalog;
         List<Item> items = new ArrayList<>();
         for (SealedProduct product : products.products()) {
             // Sellable and giveable, and the second is the real question. Anything the mod

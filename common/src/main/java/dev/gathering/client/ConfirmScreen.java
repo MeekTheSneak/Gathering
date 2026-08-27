@@ -82,7 +82,7 @@ public final class ConfirmScreen extends ChildScreen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        GuiText.drawCentred(graphics, this.font, question,
+        GuiText.drawCentered(graphics, this.font, question,
                 panel.x() + panel.width() / 2, panel.y() + MARGIN, panel.width() - MARGIN * 2, TEXT);
         GuiText.drawWrapped(graphics, this.font, detail,
                 panel.x() + MARGIN, panel.y() + MARGIN + ROW,

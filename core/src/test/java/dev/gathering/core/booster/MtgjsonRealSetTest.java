@@ -126,7 +126,7 @@ class MtgjsonRealSetTest {
                         .isFalse();
                 var names = booster.asBooster();
                 if (!names.setCode().equalsIgnoreCase(collation.setCode())) {
-                    // A pack of another set, sold in this one's catalogue. Openable, but
+                    // A pack of another set, sold in this one's catalog. Openable, but
                     // out of the file that would say so.
                     continue;
                 }
@@ -164,13 +164,13 @@ class MtgjsonRealSetTest {
             JsonObject json = read(file);
             var products = dev.gathering.core.sealed.MtgjsonProducts.read(
                     json, MtgjsonCollation.printings(json));
-            dev.gathering.core.sealed.SealedCatalogue catalogue =
-                    dev.gathering.core.sealed.SealedCatalogue.of(products);
+            dev.gathering.core.sealed.SealedCatalog catalog =
+                    dev.gathering.core.sealed.SealedCatalog.of(products);
             for (var product : products.products()) {
                 if (!dev.gathering.core.sealed.SealedPrice.isSellable(product)) {
                     continue;
                 }
-                int worth = dev.gathering.core.sealed.SealedPrice.inBoosters(product, catalogue);
+                int worth = dev.gathering.core.sealed.SealedPrice.inBoosters(product, catalog);
                 System.out.println("    " + worth + " boosters - " + product.name());
                 assertThat(worth)
                         .as(product.name() + " is worth " + worth + " boosters")

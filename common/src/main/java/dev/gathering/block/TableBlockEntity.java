@@ -81,7 +81,7 @@ public class TableBlockEntity extends BlockEntity {
 
     private final Map<Side, UUID> claims = new EnumMap<>(Side.class);
 
-    /** Empty for the felt's own colour; a dye replaces it. */
+    /** Empty for the felt's own color; a dye replaces it. */
     private DyeColor felt;
 
     /**
@@ -466,18 +466,18 @@ public class TableBlockEntity extends BlockEntity {
     /**
      * Dyes the felt, and says whether anything changed.
      *
-     * <p>Colour is a property of the table rather than of its blockstate, which is what keeps
+     * <p>Color is a property of the table rather than of its blockstate, which is what keeps
      * a dyeable surface from multiplying the blockstate count by sixteen for something that
      * is never asked about except when drawing.
      */
-    public boolean dye(DyeColor colour) {
-        if (colour == felt) {
+    public boolean dye(DyeColor color) {
+        if (color == felt) {
             return false;
         }
-        felt = colour;
+        felt = color;
         setChanged();
         if (level != null) {
-            // Colour lives in the block entity, so a blockstate change will not tell the
+            // Color lives in the block entity, so a blockstate change will not tell the
             // client about it; this is what does.
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
         }
@@ -485,21 +485,21 @@ public class TableBlockEntity extends BlockEntity {
     }
 
     /**
-     * Asks the client to draw this table again, because its colour has changed.
+     * Asks the client to draw this table again, because its color has changed.
      *
      * <p>The felt is a tint on a texture rather than sixteen textures, and a tint is baked
      * into the chunk's mesh when it is built. Telling the client the block entity's data has
      * changed does not rebuild that mesh - so a table dyed while somebody was looking at it
-     * stayed the old colour until something else happened nearby that rebuilt the chunk,
+     * stayed the old color until something else happened nearby that rebuilt the chunk,
      * which is a fix nobody can find and looks exactly like the dye not working.
      *
      * <p>All four quarters, not just this one. One block entity owns a two-by-two table and
-     * every quarter's tint asks it for the colour, so all four meshes are out of date.
+     * every quarter's tint asks it for the color, so all four meshes are out of date.
      *
      * <p>Done here rather than in a packet handler because {@code onDataPacket} is a NeoForge
      * extension and this class is loader-free. Both loaders arrive at {@code loadAdditional}
      * for a block entity update, so this catches the update either way - and catches a
-     * chunk-load with a colour on it, where the mesh is being built anyway and marking it
+     * chunk-load with a color on it, where the mesh is being built anyway and marking it
      * dirty costs nothing.
      */
     private void redrawTheFelt() {
@@ -554,7 +554,7 @@ public class TableBlockEntity extends BlockEntity {
     /**
      * What a joining client is told.
      *
-     * <p>Only the felt colour: seat claims are player identity and nothing on a client draws
+     * <p>Only the felt color: seat claims are player identity and nothing on a client draws
      * them yet, so sending them would be data leaving the server for no reason.
      */
     @Override

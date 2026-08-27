@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Whether a struck trade can actually be honoured, and what moves if it can.
+ * Whether a struck trade can actually be honored, and what moves if it can.
  *
  * <p>Asked at the moment of the swap and not before, however carefully the table was filled
  * in. A card can be put up and then dropped, spent, or lost in lava while the other side is

@@ -220,7 +220,7 @@ def shell(build, style, height):
                 elif edge:
                     build.put(x, y, z, style.wall)
 
-    # The way in, at the south end of the west wall. Off centre because the middle of that
+    # The way in, at the south end of the west wall. Off center because the middle of that
     # wall is where somebody sitting at a table would be, and a door opening into a chair is
     # a door nobody can use.
     for half, y in (("lower", 1), ("upper", 2)):

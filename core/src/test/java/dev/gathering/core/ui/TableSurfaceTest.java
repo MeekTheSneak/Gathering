@@ -54,14 +54,14 @@ class TableSurfaceTest {
 
         for (int seat = 0; seat < anchors.size(); seat++) {
             Rect mat = surface.matOf(seat);
-            boolean nearTheTop = mat.centreY() < TableSurface.SPAN / 2.0;
+            boolean nearTheTop = mat.centerY() < TableSurface.SPAN / 2.0;
             switch (anchors.get(seat).side()) {
                 case NORTH -> assertThat(nearTheTop)
                         .describedAs("north seat's mat is on the north half").isTrue();
                 case SOUTH -> assertThat(nearTheTop)
                         .describedAs("south seat's mat is on the south half").isFalse();
                 default -> {
-                    boolean nearTheLeft = mat.centreX() < TableSurface.SPAN / 2.0;
+                    boolean nearTheLeft = mat.centerX() < TableSurface.SPAN / 2.0;
                     assertThat(nearTheLeft)
                             .describedAs("%s seat's mat", anchors.get(seat).side())
                             .isEqualTo(anchors.get(seat).side() == dev.gathering.core.table.Side.WEST);
@@ -205,8 +205,8 @@ class TableSurfaceTest {
         for (int seat = 0; seat < 2; seat++) {
             Rect mat = surface.matOf(seat);
             double nearEdge = surface.isTurned(seat) ? mat.y() : mat.bottom();
-            double first = surface.pileSlot(seat, 0, 4).centreY();
-            double last = surface.pileSlot(seat, 3, 4).centreY();
+            double first = surface.pileSlot(seat, 0, 4).centerY();
+            double last = surface.pileSlot(seat, 3, 4).centerY();
 
             assertThat(Math.abs(first - nearEdge))
                     .describedAs("seat %s keeps its library to hand", seat)
@@ -231,10 +231,10 @@ class TableSurfaceTest {
 
             double nearEdge = surface.isTurned(seat) ? mat.y() : mat.bottom();
             double farEdge = surface.isTurned(seat) ? mat.bottom() : mat.y();
-            assertThat(Math.abs(line.centreY() - nearEdge))
+            assertThat(Math.abs(line.centerY() - nearEdge))
                     .describedAs("seat %s marks the row off nearest itself", seat)
-                    .isLessThan(Math.abs(line.centreY() - farEdge));
-            assertThat(line.centreY())
+                    .isLessThan(Math.abs(line.centerY() - farEdge));
+            assertThat(line.centerY())
                     .describedAs("seat %s keeps the line on its own mat", seat)
                     .isBetween((double) mat.y(), (double) mat.bottom());
             assertThat(line.overlaps(column))
@@ -273,16 +273,16 @@ class TableSurfaceTest {
             // column the command zone is furthest from.
             double nearEdge = surface.isTurned(seat)
                     ? surface.matOf(seat).y() : surface.matOf(seat).bottom();
-            assertThat(Math.abs(surface.pileSlot(seat, graveyard, count).centreY() - nearEdge))
+            assertThat(Math.abs(surface.pileSlot(seat, graveyard, count).centerY() - nearEdge))
                     .describedAs("seat %s keeps its graveyard to hand", seat)
-                    .isLessThan(Math.abs(surface.pileSlot(seat, command, count).centreY() - nearEdge));
+                    .isLessThan(Math.abs(surface.pileSlot(seat, command, count).centerY() - nearEdge));
         }
     }
 
     @Test
     @DisplayName("a format with no commanders draws three zones and no gap")
     void withoutACommandZoneTheColumnIsThree() {
-        // An empty box labelled with a zone the format does not have is a question every
+        // An empty box labeled with a zone the format does not have is a question every
         // player asks once and nobody asks twice.
         TableSurface surface = surfaceFor(new TableCell(0, 0));
         int three = Zone.PILES_WITHOUT_A_COMMAND_ZONE;
@@ -301,7 +301,7 @@ class TableSurfaceTest {
     private static double gapBetween(TableSurface surface, int seat, int one, int other, int count) {
         Rect first = surface.pileSlot(seat, one, count);
         Rect second = surface.pileSlot(seat, other, count);
-        return Math.abs(second.centreY() - first.centreY()) - first.height();
+        return Math.abs(second.centerY() - first.centerY()) - first.height();
     }
 
     @Test
@@ -319,7 +319,7 @@ class TableSurfaceTest {
 
             // A turned seat is the one at the north edge, looking south, whose right hand is
             // the table's west - so its column is on the low-x side of its own mat.
-            assertThat(zone.centreX() < mat.centreX())
+            assertThat(zone.centerX() < mat.centerX())
                     .describedAs("seat %s keeps its zones on its own right", seat)
                     .isEqualTo(surface.isTurned(seat));
         }
@@ -349,7 +349,7 @@ class TableSurfaceTest {
                     assertThat(mat.contains(named.x(), named.y())).isTrue();
                     assertThat(mat.contains(named.right(), named.bottom())).isTrue();
                     // Inward, so the writing runs across the table rather than off the edge.
-                    assertThat(named.centreX() < slot.centreX())
+                    assertThat(named.centerX() < slot.centerX())
                             .describedAs("%s seats: seat %s zone %s is named towards the mat",
                                     seats, seat, index)
                             .isEqualTo(!surface.isTurned(seat));
@@ -359,12 +359,12 @@ class TableSurfaceTest {
     }
 
     @Test
-    @DisplayName("every zone in a column is written in the same space as its neighbours")
+    @DisplayName("every zone in a column is written in the same space as its neighbors")
     void zoneNamesShareOneColumnOfFelt() {
         // Whether there is room to write a name is a question about the column, not about one
         // zone in it. Asking it of each label's own height meant rounding a different y for
         // each: on a real board one zone in four came out a pixel shorter than its
-        // neighbours, failed the "is this legible" test on its own, and was the only zone left
+        // neighbors, failed the "is this legible" test on its own, and was the only zone left
         // unnamed - which reads as that zone being special rather than as a rounding error.
         for (int seats : new int[] {2, 4}) {
             TableSurface surface = TableSurface.forSeats(TableCluster.assumedSeating(seats));
@@ -458,7 +458,7 @@ class TableSurfaceTest {
 
         for (int index = 0; index < 4; index++) {
             Rect pile = surface.pileSlot(0, index, 4);
-            assertThat(surface.pileAt(0, 4, pile.centreX(), pile.centreY()))
+            assertThat(surface.pileAt(0, 4, pile.centerX(), pile.centerY()))
                     .describedAs("the middle of pile %s", index)
                     .isEqualTo(index);
         }
@@ -522,7 +522,7 @@ class TableSurfaceTest {
 
         for (int seat = 0; seat < surface.seatCount(); seat++) {
             Rect mat = surface.matOf(seat);
-            assertThat(surface.seatAt(mat.centreX(), mat.centreY()))
+            assertThat(surface.seatAt(mat.centerX(), mat.centerY()))
                     .describedAs("the middle of seat %s's mat", seat)
                     .isEqualTo(seat);
         }
@@ -644,7 +644,7 @@ class TableSurfaceTest {
      *
      * <p>Naming each slot wrote "Command" twice down the same column, which reads as two
      * zones somebody forgot to tell apart rather than as one zone with room for a partner.
-     * The one name is centred against the pair, so it points at both.
+     * The one name is centered against the pair, so it points at both.
      */
     @Test
     @DisplayName("the command zone is named once, between its two slots")
@@ -667,8 +667,8 @@ class TableSurfaceTest {
                 Rect bottom = surface.pileSlot(seat, second, count);
                 double middle = (Math.min(top.y(), bottom.y())
                         + Math.max(top.bottom(), bottom.bottom())) / 2.0;
-                assertThat(named.centreY())
-                        .describedAs("%s seats: seat %s centres the name on both slots",
+                assertThat(named.centerY())
+                        .describedAs("%s seats: seat %s centers the name on both slots",
                                 seats, seat)
                         .isCloseTo(middle, within(1.0));
             }
@@ -698,7 +698,7 @@ class TableSurfaceTest {
             assertThat(band.bottom()).isEqualTo(slot.bottom());
             assertThat((double) band.y())
                     .describedAs("the band on %s is in the lower half of its slot", slot)
-                    .isGreaterThan(slot.centreY());
+                    .isGreaterThan(slot.centerY());
             assertThat(band.height()).isGreaterThan(0);
         }
         assertThat(TableSurface.taxBand(Rect.NONE)).isEqualTo(Rect.NONE);
@@ -835,7 +835,7 @@ class TableSurfaceTest {
                         .describedAs("%s seats: seat %s writes its life on its far side",
                                 seats, seat)
                         .isTrue();
-                assertThat(life.centreX()).isCloseTo(mat.centreX(), within(1.0));
+                assertThat(life.centerX()).isCloseTo(mat.centerX(), within(1.0));
                 for (int other = 0; other < seats; other++) {
                     if (other != seat) {
                         assertThat(life.overlaps(surface.lifeBox(other)))
@@ -865,12 +865,12 @@ class TableSurfaceTest {
         TableSurface surface = surfaceFor(new TableCell(0, 0));
         for (int seat = 0; seat < 2; seat++) {
             Rect life = surface.lifeBox(seat);
-            assertThat(TableSurface.lifeWayAt(life, false, life.x() + 1, life.centreY()))
+            assertThat(TableSurface.lifeWayAt(life, false, life.x() + 1, life.centerY()))
                     .isEqualTo(-1);
-            assertThat(TableSurface.lifeWayAt(life, false, life.right() - 1, life.centreY()))
+            assertThat(TableSurface.lifeWayAt(life, false, life.right() - 1, life.centerY()))
                     .isEqualTo(1);
-            assertThat(TableSurface.lifeWayAt(life, false, life.x() - 5, life.centreY())).isZero();
-            assertThat(TableSurface.lifeWayAt(life, false, life.centreX(), life.y() - 5)).isZero();
+            assertThat(TableSurface.lifeWayAt(life, false, life.x() - 5, life.centerY())).isZero();
+            assertThat(TableSurface.lifeWayAt(life, false, life.centerX(), life.y() - 5)).isZero();
             // Whatever space the box is handed in - a view that has moved and scaled it still
             // gets the same answer about which end of it a point is on.
             Rect moved = new Rect(40, 80, 120, 30);
@@ -902,7 +902,7 @@ class TableSurfaceTest {
                     assertThat(life.contains(end.x(), end.y())).isTrue();
                     assertThat(life.contains(end.right() - 1, end.bottom() - 1)).isTrue();
                     assertThat(TableSurface.lifeWayAt(
-                            life, turned, end.centreX(), end.centreY()))
+                            life, turned, end.centerX(), end.centerY()))
                             .describedAs("turned %s: seat %s presses its %s end the other way",
                                     turned, seat, way)
                             .isEqualTo(way);

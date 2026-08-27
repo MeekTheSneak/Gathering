@@ -25,7 +25,7 @@ import net.minecraft.world.level.Level;
  * two hundred and sixteen items.
  *
  * <p>Like a pack, this is a pointer rather than a container: what is inside is looked up in the
- * server's catalogue when it is opened, so there is nothing on the stack to read early and
+ * server's catalog when it is opened, so there is nothing on the stack to read early and
  * nothing for a client to lie about.
  */
 public class SealedItem extends Item {
@@ -46,7 +46,7 @@ public class SealedItem extends Item {
 
     @Override
     public Component getName(ItemStack stack) {
-        // What it said on the front. A row of unlabelled brown boxes on a shelf is a row
+        // What it said on the front. A row of unlabeled brown boxes on a shelf is a row
         // nobody can tell apart, and the name is the one thing the client has.
         return boxOf(stack)
                 .filter(box -> box.isReal() && !box.name().isEmpty())

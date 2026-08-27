@@ -135,7 +135,7 @@ public enum Zone {
      * How many of those a table without a command zone lays out.
      *
      * <p>The command slots are last precisely so that a format with no commanders can leave
-     * them off by drawing fewer. An empty box labelled with a zone the format does not have
+     * them off by drawing fewer. An empty box labeled with a zone the format does not have
      * is a question every player asks once and nobody asks twice.
      */
     public static final int PILES_WITHOUT_A_COMMAND_ZONE = PILES.size() - COMMAND_SLOTS.size();

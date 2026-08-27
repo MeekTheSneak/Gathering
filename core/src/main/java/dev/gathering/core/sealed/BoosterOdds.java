@@ -21,7 +21,7 @@ import java.util.Map;
  */
 public final class BoosterOdds {
 
-    /** What an ordinary booster weighs - draft, set, play, and anything unrecognised. */
+    /** What an ordinary booster weighs - draft, set, play, and anything unrecognized. */
     public static final int ORDINARY = 24;
 
     /** A collector booster out of a village chest. */

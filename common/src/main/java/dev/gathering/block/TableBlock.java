@@ -178,11 +178,11 @@ public class TableBlock extends BaseEntityBlock {
         // Joining a cluster reshapes its perimeter, which moves its seats. Somebody
         // registered at an edge should not find that edge is now the middle of the surface.
         for (Side side : Side.values()) {
-            BlockPos neighbour = origin.offset(
+            BlockPos neighbor = origin.offset(
                     side.stepX() * TableCell.BLOCKS_PER_TABLE, 0, side.stepZ() * TableCell.BLOCKS_PER_TABLE);
             if (context.getLevel() instanceof Level level
-                    && TableBlock.entityAt(level, neighbour).isPresent()
-                    && TableSeats.isShapeFrozen(level, neighbour)) {
+                    && TableBlock.entityAt(level, neighbor).isPresent()
+                    && TableSeats.isShapeFrozen(level, neighbor)) {
                 return false;
             }
         }
@@ -192,7 +192,7 @@ public class TableBlock extends BaseEntityBlock {
     /**
      * Takes the rest of the table with it.
      *
-     * <p>Guarded by checking the neighbour really is the rest of this table: without that,
+     * <p>Guarded by checking the neighbor really is the rest of this table: without that,
      * removing one table's corner would take a bite out of the table pushed up against it.
      */
     @Override

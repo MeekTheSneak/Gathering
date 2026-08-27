@@ -100,11 +100,11 @@ public final class BoardGeometry implements BoardPlacement {
         // same number of pixels of it: a player who had their own mat filling the screen and
         // then turned their interface scale down should have a bigger mat, not the same mat
         // adrift in a bigger window with somebody else's board coming into view above it.
-        // The point the view is centred on does not move, so nothing slides out from under
+        // The point the view is centered on does not move, so nothing slides out from under
         // whoever is mid-turn - which is the thing this method exists not to do.
         if (visible() != wasVisible) {
             camera = new TableCamera(
-                    camera.centreX(), camera.centreY(),
+                    camera.centerX(), camera.centerY(),
                     camera.scale() * visible() / (double) wasVisible,
                     surface.width(), surface.height(), turned);
         }
@@ -124,11 +124,11 @@ public final class BoardGeometry implements BoardPlacement {
      *
      * <p>Not the whole table. Fitting everything in sounds like the friendly default and plays
      * terribly - a two-seat table squeezed into a short window draws a card twenty-seven pixels
-     * wide, which is a coloured smudge, while the same card in the player's hand is ninety. You
+     * wide, which is a colored smudge, while the same card in the player's hand is ninety. You
      * cannot play on a board you cannot read, and the board you need to read is your own.
      *
      * <p>So: fitted across the width, which is the dimension a widescreen window has to spare,
-     * and centred on this seat's own mat. The opponent's board is still there, just above or
+     * and centered on this seat's own mat. The opponent's board is still there, just above or
      * below - and Home still steps back to show all of it.
      */
     public void focusOn(SeatId seat) {
@@ -154,7 +154,7 @@ public final class BoardGeometry implements BoardPlacement {
         double fit = Math.min(
                 width / (double) Math.max(1, own.width()),
                 visible() / (double) Math.max(1, own.height()));
-        camera = new TableCamera(own.centreX(), own.centreY(), fit,
+        camera = new TableCamera(own.centerX(), own.centerY(), fit,
                 surface.width(), surface.height(), turned);
 
         // Leaned towards the middle of the table, so the board opposite comes into view as
@@ -165,10 +165,10 @@ public final class BoardGeometry implements BoardPlacement {
         // else's. Both boards at once and a readable card are not both possible on a small
         // window, and of the two it is your own board that has to win.
         double slack = Math.max(0, visible() - own.height() * camera.scale()) / 2.0;
-        double wanted = (surface.height() / 2.0 - own.centreY()) * LEAN_TOWARDS_THE_TABLE;
+        double wanted = (surface.height() / 2.0 - own.centerY()) * LEAN_TOWARDS_THE_TABLE;
         double lean = Math.max(-slack, Math.min(slack, wanted * camera.scale())) / camera.scale();
         camera = new TableCamera(
-                camera.centreX(), camera.centreY() + lean,
+                camera.centerX(), camera.centerY() + lean,
                 camera.scale(), surface.width(), surface.height(), turned);
     }
 
@@ -214,7 +214,7 @@ public final class BoardGeometry implements BoardPlacement {
     /**
      * The viewport the camera is told about vertically, which is not the window.
      *
-     * <p>A camera puts what it is centred on in the middle of the viewport it is handed. The
+     * <p>A camera puts what it is centered on in the middle of the viewport it is handed. The
      * middle of the <em>window</em> is the wrong place: there is a status row across the top
      * and a hand across the bottom, and the middle of what is left is lower than the middle of
      * the window by half the difference. Handing over a viewport whose midpoint is the strip's

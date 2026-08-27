@@ -41,17 +41,17 @@ class SealedContentsTest {
             List.of(card(2), card(2), card(3)),
             List.of());
 
-    private static final SealedCatalogue CATALOGUE =
-            Catalogues.of(List.of(DECK), PACK, BOX, CASE, BUNDLE, PRECON);
+    private static final SealedCatalog CATALOG =
+            Catalogs.of(List.of(DECK), PACK, BOX, CASE, BUNDLE, PRECON);
 
-    /** The same catalogue with the deck lists never read, which is what an old file gives. */
-    private static final SealedCatalogue WITHOUT_DECKS =
-            Catalogues.of(PACK, BOX, CASE, BUNDLE, PRECON);
+    /** The same catalog with the deck lists never read, which is what an old file gives. */
+    private static final SealedCatalog WITHOUT_DECKS =
+            Catalogs.of(PACK, BOX, CASE, BUNDLE, PRECON);
 
     @Test
     @DisplayName("a pack is one booster")
     void aPackIsOneBooster() {
-        SealedContents.Bag bag = SealedContents.of(PACK, CATALOGUE).orElseThrow();
+        SealedContents.Bag bag = SealedContents.of(PACK, CATALOG).orElseThrow();
 
         assertThat(bag.boosters()).hasSize(1);
         assertThat(bag.cards()).isEmpty();
@@ -61,19 +61,19 @@ class SealedContentsTest {
     @Test
     @DisplayName("a box is thirty of the pack it names")
     void aBoxIsItsPacks() {
-        assertThat(SealedContents.of(BOX, CATALOGUE).orElseThrow().boosters()).hasSize(30);
+        assertThat(SealedContents.of(BOX, CATALOG).orElseThrow().boosters()).hasSize(30);
     }
 
     @Test
     @DisplayName("and a case is six boxes of them")
     void aCaseIsBoxesOfPacks() {
-        assertThat(SealedContents.of(CASE, CATALOGUE).orElseThrow().boosters()).hasSize(180);
+        assertThat(SealedContents.of(CASE, CATALOG).orElseThrow().boosters()).hasSize(180);
     }
 
     @Test
     @DisplayName("a bundle is its packs and its promo, and not its die")
     void aBundleIsPacksAndAPromo() {
-        SealedContents.Bag bag = SealedContents.of(BUNDLE, CATALOGUE).orElseThrow();
+        SealedContents.Bag bag = SealedContents.of(BUNDLE, CATALOG).orElseThrow();
 
         assertThat(bag.boosters()).hasSize(2);
         assertThat(bag.cards()).containsExactly(PROMO);
@@ -82,7 +82,7 @@ class SealedContentsTest {
     @Test
     @DisplayName("a precon is its deck and the sample pack that came in the box")
     void aPreconIsItsDeck() {
-        SealedContents.Bag bag = SealedContents.of(PRECON, CATALOGUE).orElseThrow();
+        SealedContents.Bag bag = SealedContents.of(PRECON, CATALOG).orElseThrow();
 
         assertThat(bag.decks()).containsExactly(DECK);
         assertThat(bag.boosters()).as("the sample pack is in the box too").hasSize(1);
@@ -103,7 +103,7 @@ class SealedContentsTest {
     @Test
     @DisplayName("opening goes one level down, not all the way")
     void openingIsOneLevel() {
-        SealedContents.Layer layer = SealedContents.opening(CASE, CATALOGUE);
+        SealedContents.Layer layer = SealedContents.opening(CASE, CATALOG);
 
         assertThat(layer.boxes()).hasSize(1);
         assertThat(layer.boxes().get(0).product()).isEqualTo(BOX);
@@ -112,7 +112,7 @@ class SealedContentsTest {
                 .isEqualTo(6);
         assertThat(layer.boosters()).isEmpty();
 
-        SealedContents.Layer box = SealedContents.opening(BOX, CATALOGUE);
+        SealedContents.Layer box = SealedContents.opening(BOX, CATALOG);
         assertThat(box.boxes()).hasSize(1);
         assertThat(box.boxes().get(0).product()).isEqualTo(PACK);
         assertThat(box.boxes().get(0).count()).isEqualTo(30);
@@ -121,7 +121,7 @@ class SealedContentsTest {
     @Test
     @DisplayName("opening a precon gives the deck and the pack")
     void openingAPreconGivesTheDeck() {
-        SealedContents.Layer layer = SealedContents.opening(PRECON, CATALOGUE);
+        SealedContents.Layer layer = SealedContents.opening(PRECON, CATALOG);
 
         assertThat(layer.decks()).containsExactly(DECK);
         assertThat(layer.boxes()).hasSize(1);
@@ -130,8 +130,8 @@ class SealedContentsTest {
     @Test
     @DisplayName("a booster has nothing to open into; the opener does that")
     void aBoosterDoesNotOpenHere() {
-        assertThat(SealedContents.opening(PACK, CATALOGUE).isEmpty()).isTrue();
-        assertThat(SealedContents.opening(null, CATALOGUE).isEmpty()).isTrue();
+        assertThat(SealedContents.opening(PACK, CATALOG).isEmpty()).isTrue();
+        assertThat(SealedContents.opening(null, CATALOG).isEmpty()).isTrue();
     }
 
     @Test
@@ -139,17 +139,17 @@ class SealedContentsTest {
     void openingIsWholeOrNothing() {
         SealedProduct strange = holding("strange", "Box of nothing", 12, "nobody");
 
-        assertThat(SealedContents.opening(strange, CATALOGUE).isEmpty()).isTrue();
+        assertThat(SealedContents.opening(strange, CATALOG).isEmpty()).isTrue();
         assertThat(SealedContents.opening(PRECON, WITHOUT_DECKS).isEmpty()).isTrue();
     }
 
     @Test
-    @DisplayName("a box whose pack this catalogue has never heard of is sold whole or not at all")
+    @DisplayName("a box whose pack this catalog has never heard of is sold whole or not at all")
     void halfABoxIsWorseThanNoBox() {
         SealedProduct strange = holding("strange", "Box of nothing", 12, "nobody");
 
-        assertThat(SealedContents.of(strange, CATALOGUE)).isEmpty();
-        assertThat(SealedContents.of(BOX, SealedCatalogue.EMPTY)).isEmpty();
+        assertThat(SealedContents.of(strange, CATALOG)).isEmpty();
+        assertThat(SealedContents.of(BOX, SealedCatalog.EMPTY)).isEmpty();
     }
 
     @Test
@@ -157,7 +157,7 @@ class SealedContentsTest {
     void nestingIsBounded() {
         SealedProduct itself = holding("loop", "A box of itself", 2, "loop");
 
-        assertThat(SealedContents.of(itself, Catalogues.of(itself))).isEmpty();
+        assertThat(SealedContents.of(itself, Catalogs.of(itself))).isEmpty();
     }
 
     @Test
@@ -165,7 +165,7 @@ class SealedContentsTest {
     void aPurchaseIsBounded() {
         SealedProduct pallet = holding("pallet", "A pallet", 40, "case");
 
-        assertThat(SealedContents.of(pallet, Catalogues.of(PACK, BOX, CASE, pallet))).isEmpty();
+        assertThat(SealedContents.of(pallet, Catalogs.of(PACK, BOX, CASE, pallet))).isEmpty();
     }
 
     @Test
@@ -174,8 +174,8 @@ class SealedContentsTest {
         SealedProduct empty = new SealedProduct(
                 "empty", "An empty box", "tst", "booster_pack", "play", 0, null);
 
-        assertThat(SealedContents.of(empty, CATALOGUE)).isEmpty();
-        assertThat(SealedContents.of(null, CATALOGUE)).isEmpty();
+        assertThat(SealedContents.of(empty, CATALOG)).isEmpty();
+        assertThat(SealedContents.of(null, CATALOG)).isEmpty();
     }
 
     // ------------------------------------------------------------------ bits

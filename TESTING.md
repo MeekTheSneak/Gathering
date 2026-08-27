@@ -69,7 +69,7 @@ Into the box you can paste either:
 **An Archidekt link** — `https://archidekt.com/decks/1234567/whatever`. The deck is read
 straight from Archidekt, which hands over exact printings, so nothing is guessed.
 
-Moxfield links are recognised but can't be read: their API refuses other tools, and working
+Moxfield links are recognized but can't be read: their API refuses other tools, and working
 around that isn't something the mod will do. Use Moxfield's More → Export → Text and paste
 that instead.
 
@@ -207,7 +207,7 @@ tab. It is a 2x2 multiblock: the block you click becomes its north-west corner.
 - **Break any quarter** and the whole table comes up. Try it with somebody seated: it should
   refuse, and refuse to let you extend the cluster too, because reshaping moves the seats.
 
-- **Right-click with a dye** to colour the felt. The colour is stored on the table rather
+- **Right-click with a dye** to color the felt. The color is stored on the table rather
   than in its blockstate, so it survives a restart and a chunk reload, and it does not
   multiply the block's state count by sixteen.
 
@@ -286,7 +286,7 @@ first time any verb past "put your deck down" has been reachable at all.
   be the same size both times. It was a fifth smaller on the block until the two views were
   made to share one rule about how far out either may go, and the scripted run now fails if
   they ever drift more than a tenth apart. The wheel stops in the same place in both, too:
-  when a card would be too small to recognise.
+  when a card would be too small to recognize.
 - **Scroll on the block with the cursor over a zone.** Whatever is under the pointer stays
   under the pointer, the same as the wheel on the seated board. It used to lower the eye
   towards the middle of the view instead, so six notches in from the opening framing landed

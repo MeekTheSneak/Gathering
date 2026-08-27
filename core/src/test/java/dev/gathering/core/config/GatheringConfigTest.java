@@ -106,7 +106,7 @@ class GatheringConfigTest {
     }
 
     @Test
-    @DisplayName("a setting nobody recognises is reported rather than ignored")
+    @DisplayName("a setting nobody recognizes is reported rather than ignored")
     void unknownSettingsAreReported() throws Exception {
         GatheringConfig config = read("[modes]\ncollection_enabeld = true\n");
 

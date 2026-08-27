@@ -45,7 +45,7 @@ class RoundedCornersTest {
     }
 
     @Test
-    @DisplayName("colour is kept, so a cleared corner is transparent rather than black")
+    @DisplayName("color is kept, so a cleared corner is transparent rather than black")
     void onlyAlphaChanges() {
         // Clearing the whole pixel leaves black corners anywhere the blend does not apply,
         // which is exactly where a cutout render type puts them.

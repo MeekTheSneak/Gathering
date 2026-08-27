@@ -47,7 +47,7 @@ public final class GatheringVillagers {
      * The counter, as somewhere a villager can work.
      *
      * <p>One ticket, so one villager per counter: two shopkeepers sharing a till is not a shop
-     * anybody would recognise. Searched from a block away, like every other workstation.
+     * anybody would recognize. Searched from a block away, like every other workstation.
      */
     public static PoiType createCounterPoi() {
         return new PoiType(

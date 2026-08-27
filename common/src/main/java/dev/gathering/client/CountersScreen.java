@@ -498,7 +498,7 @@ public final class CountersScreen extends ChildScreen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        GuiText.drawCentred(graphics, this.font, subject.name(),
+        GuiText.drawCentered(graphics, this.font, subject.name(),
                 panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);
 
         Map<String, Integer> counters = current();
@@ -517,7 +517,7 @@ public final class CountersScreen extends ChildScreen {
             index++;
         }
         if (counters.isEmpty()) {
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.counters.none"),
                     panel.x() + panel.width() / 2, y + 5, panel.width() - MARGIN * 2, DIM);
         }

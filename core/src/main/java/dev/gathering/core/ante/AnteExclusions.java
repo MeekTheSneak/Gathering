@@ -16,7 +16,7 @@ import java.util.Set;
  * a query. A short vocabulary answers every reason anybody has for protecting a category:
  * lands nobody would miss, cards too good to lose, or a set an era server is built around.
  *
- * <p>An unrecognised word protects nothing and says so. It never protects everything and
+ * <p>An unrecognized word protects nothing and says so. It never protects everything and
  * never protects nothing silently: a typo that quietly turned the exclusion list off would
  * be a server where somebody loses a card they were told was safe, which is the one failure
  * this list exists to prevent.

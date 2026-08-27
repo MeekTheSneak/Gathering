@@ -4,7 +4,7 @@ import dev.gathering.core.card.Rarity;
 import java.util.Collection;
 
 /**
- * What colour comes out of a pack as it is torn open.
+ * What color comes out of a pack as it is torn open.
  *
  * <p>The whole of the ceremony's suspense, in one number. A pack is opened for one moment -
  * the one where you find out whether there is anything in it - and every real ritual around
@@ -34,7 +34,7 @@ public final class PackGlow {
     }
 
     /**
-     * The colour for the best card in a pack, or {@link #NO_LIGHT} if there is nothing to say.
+     * The color for the best card in a pack, or {@link #NO_LIGHT} if there is nothing to say.
      *
      * <p>Special and bonus - The List, a Special Guest - glow as rares. They are the card the
      * pack was opened for as surely as a rare is, and a slot that produced the most exciting
@@ -44,7 +44,7 @@ public final class PackGlow {
         return forRarity(best(rarities));
     }
 
-    /** The colour one rarity glows, on its own. */
+    /** The color one rarity glows, on its own. */
     public static int forRarity(Rarity rarity) {
         if (rarity == null) {
             return NO_LIGHT;

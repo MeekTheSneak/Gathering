@@ -7,9 +7,9 @@ package dev.gathering.core.ui;
  * being teleported in instalments. It leaves gently, crosses quickly and settles - which is
  * how a hand puts a card down, and is the whole reason for drawing the journey at all.
  */
-public final class Travelling {
+public final class Traveling {
 
-    private Travelling() {
+    private Traveling() {
     }
 
     /**

@@ -8,7 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * The whole of what the mod needs to ask the loader.
  *
- * <p>Deliberately tiny. If this interface grows, loader-specific behaviour is leaking into
+ * <p>Deliberately tiny. If this interface grows, loader-specific behavior is leaking into
  * common code and the answer is almost always to move the logic down into the pure core
  * rather than to add a method here.
  *

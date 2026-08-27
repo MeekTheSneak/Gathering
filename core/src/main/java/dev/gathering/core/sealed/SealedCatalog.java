@@ -15,10 +15,10 @@ package dev.gathering.core.sealed;
  *
  * <p>Pure.
  */
-public interface SealedCatalogue {
+public interface SealedCatalog {
 
     /** Nothing was published: every lookup misses. */
-    SealedCatalogue EMPTY = new SealedCatalogue() {
+    SealedCatalog EMPTY = new SealedCatalog() {
 
         @Override
         public SealedProduct byId(String productId) {
@@ -37,12 +37,12 @@ public interface SealedCatalogue {
     /** The deck of this set with this name, or null. */
     SealedDeck deck(String setCode, String name);
 
-    /** The catalogue for one set file, from what was read out of it. */
-    static SealedCatalogue of(MtgjsonProducts.Reading products, MtgjsonDecks.Reading decks) {
+    /** The catalog for one set file, from what was read out of it. */
+    static SealedCatalog of(MtgjsonProducts.Reading products, MtgjsonDecks.Reading decks) {
         if (products == null && decks == null) {
             return EMPTY;
         }
-        return new SealedCatalogue() {
+        return new SealedCatalog() {
 
             @Override
             public SealedProduct byId(String productId) {
@@ -56,31 +56,31 @@ public interface SealedCatalogue {
         };
     }
 
-    /** A catalogue of products alone, for a set whose decks were never read. */
-    static SealedCatalogue of(MtgjsonProducts.Reading products) {
+    /** A catalog of products alone, for a set whose decks were never read. */
+    static SealedCatalog of(MtgjsonProducts.Reading products) {
         return of(products, null);
     }
 
     /**
-     * Several sets' catalogues, asked in turn.
+     * Several sets' catalogs, asked in turn.
      *
      * <p>What a shop selling more than one set looks things up in, and what makes a starter
      * kit whose decks belong to another set resolvable at all.
      */
-    static SealedCatalogue of(java.util.List<SealedCatalogue> catalogues) {
-        java.util.List<SealedCatalogue> all = catalogues == null
-                ? java.util.List.of() : java.util.List.copyOf(catalogues);
+    static SealedCatalog of(java.util.List<SealedCatalog> catalogs) {
+        java.util.List<SealedCatalog> all = catalogs == null
+                ? java.util.List.of() : java.util.List.copyOf(catalogs);
         if (all.isEmpty()) {
             return EMPTY;
         }
         if (all.size() == 1) {
             return all.get(0);
         }
-        return new SealedCatalogue() {
+        return new SealedCatalog() {
 
             @Override
             public SealedProduct byId(String productId) {
-                for (SealedCatalogue one : all) {
+                for (SealedCatalog one : all) {
                     SealedProduct found = one.byId(productId);
                     if (found != null) {
                         return found;
@@ -91,7 +91,7 @@ public interface SealedCatalogue {
 
             @Override
             public SealedDeck deck(String setCode, String name) {
-                for (SealedCatalogue one : all) {
+                for (SealedCatalog one : all) {
                     SealedDeck found = one.deck(setCode, name);
                     if (found != null) {
                         return found;

@@ -3,12 +3,12 @@ package dev.gathering.core.ui;
 import java.util.Locale;
 
 /**
- * What colour a pack's set symbol is printed in.
+ * What color a pack's set symbol is printed in.
  *
  * <p>Which product a pack is has to be readable at a glance in an inventory full of them, and
  * paper solves this the same way: the wrapper of a collector booster does not look like the
  * wrapper of a draft booster. The mod ships no wrapper photographs and may not take one from
- * anywhere, so the symbol carries it - one shape, printed in the colour of the product.
+ * anywhere, so the symbol carries it - one shape, printed in the color of the product.
  *
  * <p>Black for a draft booster, gold for a set or play booster, and the mythic's own orange
  * for a collector booster. Anything else is black, which is the plainest thing a pack can be
@@ -31,7 +31,7 @@ public final class PackWrapper {
     }
 
     /**
-     * The colour for a kind of pack, as the published data names it.
+     * The color for a kind of pack, as the published data names it.
      *
      * <p>Play boosters take the set booster's gold: they replaced both it and the draft
      * booster in 2024, no set publishes both, and gold is the one that means "opened rather
@@ -39,7 +39,7 @@ public final class PackWrapper {
      *
      * @param kind a booster kind - "draft", "set", "play", "collector"
      */
-    public static int symbolColour(String kind) {
+    public static int symbolColor(String kind) {
         String named = kind == null ? "" : kind.trim().toLowerCase(Locale.ROOT);
         return switch (named) {
             case "set", "play", "play-arena" -> GOLD;

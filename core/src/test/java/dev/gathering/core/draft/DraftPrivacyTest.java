@@ -93,13 +93,13 @@ class DraftPrivacyTest {
         DraftPack mine = pod.packHeldBy(DrafterId.of(0));
         DraftState waiting = pod.declare(DrafterId.of(0), List.of(3));
 
-        DraftView neighbour = DraftVisibility.viewFor(waiting, DrafterId.of(1));
+        DraftView neighbor = DraftVisibility.viewFor(waiting, DrafterId.of(1));
 
         assertThat(waiting.isFinished()).isFalse();
-        assertThat(everythingNamedIn(neighbour))
-                .describedAs("a neighbour can see which card was taken")
+        assertThat(everythingNamedIn(neighbor))
+                .describedAs("a neighbor can see which card was taken")
                 .doesNotContainAnyElementsOf(mine.cards());
-        assertThat(neighbour.waitingOn())
+        assertThat(neighbor.waitingOn())
                 .describedAs("only that the pod is no longer waiting on them")
                 .doesNotContain(DrafterId.of(0));
     }

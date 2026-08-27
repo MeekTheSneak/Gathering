@@ -55,12 +55,12 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     private static final int ROW_HEIGHT = 12;
     private static final int COUNT_COLUMN = 22;
 
-    private static final int HEADING_COLOUR = 0xFFC49E4A;
-    private static final int NAME_COLOUR = 0xFFE8E4DC;
-    private static final int COUNT_COLOUR = 0xFF9A9690;
-    private static final int PENDING_COLOUR = 0xFF6E6A66;
-    private static final int FOIL_COLOUR = 0xFF6FD3E8;
-    private static final int TITLE_COLOUR = 0xFFFFFFFF;
+    private static final int HEADING_COLOR = 0xFFC49E4A;
+    private static final int NAME_COLOR = 0xFFE8E4DC;
+    private static final int COUNT_COLOR = 0xFF9A9690;
+    private static final int PENDING_COLOR = 0xFF6E6A66;
+    private static final int FOIL_COLOR = 0xFF6FD3E8;
+    private static final int TITLE_COLOR = 0xFFFFFFFF;
 
     private final InteractionHand hand;
 
@@ -117,7 +117,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
         // The title is the name, and the name is editable. A deck started by putting two
         // cards together has none and had no way to get one, which made starting a deck
-        // something you could do and never finish. Borderless and in the title's own colour,
+        // something you could do and never finish. Borderless and in the title's own color,
         // so the screen still reads as a heading rather than as a form - and when it is
         // empty it says what to do with it, which is the only place that could be said.
         String typed = this.nameField == null ? deck.name() : this.nameField.getValue();
@@ -125,7 +125,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         this.nameField = new net.minecraft.client.gui.components.EditBox(this.font, title.x(), title.y(), title.width(),
                 title.height(), Component.translatable("screen.gathering.deck.name"));
         this.nameField.setBordered(false);
-        this.nameField.setTextColor(TITLE_COLOUR);
+        this.nameField.setTextColor(TITLE_COLOR);
         this.nameField.setMaxLength(
                 dev.gathering.network.RenameDeckPayload.MOST_CHARACTERS);
         this.nameField.setHint(Component.translatable("screen.gathering.deck.name_hint"));
@@ -322,7 +322,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
             // is the row of buttons directly below.
             GuiText.draw(graphics, this.font,
                     Component.translatable("screen.gathering.deck.empty"),
-                    area.x() + 2, area.y() + 2, area.width() - 4, HEADING_COLOUR);
+                    area.x() + 2, area.y() + 2, area.width() - 4, HEADING_COLOR);
             return;
         }
         graphics.enableScissor(area.x(), area.y(), area.right(), area.bottom());
@@ -339,7 +339,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     private void renderRow(GuiGraphics graphics, Row row, Rect area, int y, boolean hovered) {
         if (row.card() == null) {
-            GuiText.draw(graphics, this.font, row.heading(), area.x() + 2, y + 2, area.width() - 4, HEADING_COLOUR);
+            GuiText.draw(graphics, this.font, row.heading(), area.x() + 2, y + 2, area.width() - 4, HEADING_COLOR);
             return;
         }
         if (hovered) {
@@ -356,12 +356,12 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         int foilWidth = row.card().foil() ? this.font.width(foil) + 4 : 0;
 
         GuiText.draw(graphics, this.font, Component.literal(row.count() + "x"),
-                area.x() + 2, y + 2, COUNT_COLUMN - 2, COUNT_COLOUR);
+                area.x() + 2, y + 2, COUNT_COLUMN - 2, COUNT_COLOR);
         GuiText.draw(graphics, this.font, name, area.x() + COUNT_COLUMN, y + 2,
-                area.width() - COUNT_COLUMN - foilWidth - 2, summary.isPresent() ? NAME_COLOUR : PENDING_COLOUR);
+                area.width() - COUNT_COLUMN - foilWidth - 2, summary.isPresent() ? NAME_COLOR : PENDING_COLOR);
         if (row.card().foil()) {
             GuiText.draw(graphics, this.font, foil,
-                    area.right() - foilWidth, y + 2, foilWidth, FOIL_COLOUR);
+                    area.right() - foilWidth, y + 2, foilWidth, FOIL_COLOR);
         }
     }
 
@@ -408,9 +408,9 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         }
         Rect hint = layout().hint();
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.deck.hint_move"),
-                hint.x(), hint.y(), hint.width(), PENDING_COLOUR);
+                hint.x(), hint.y(), hint.width(), PENDING_COLOR);
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.deck.hint_menu"),
-                hint.x(), hint.y() + this.font.lineHeight, hint.width(), PENDING_COLOUR);
+                hint.x(), hint.y() + this.font.lineHeight, hint.width(), PENDING_COLOR);
     }
 
     /**

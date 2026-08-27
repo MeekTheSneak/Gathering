@@ -26,7 +26,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * <p>Tokens are real printings from Scryfall, not invented cards. That is the whole reason
  * this goes through the card pipeline rather than making something up locally: a Thrull token
  * has art, a type line and a power and toughness that somebody printed, and a table that drew
- * a grey rectangle saying "1/1 Thrull" would be the one place in the mod that lies about what
+ * a gray rectangle saying "1/1 Thrull" would be the one place in the mod that lies about what
  * a card is.
  *
  * <p>The client sends a name. The server does the lookup and builds the identity, so nothing

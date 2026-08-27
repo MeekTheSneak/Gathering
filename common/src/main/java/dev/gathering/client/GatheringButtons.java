@@ -14,7 +14,7 @@ import net.minecraft.sounds.SoundEvents;
  *
  * <p>Everything clickable in this mod used to be a rectangle that happened to react to a
  * click. That is not the same thing: a real button lights up when the cursor is over it, dips
- * when you press it, clicks when it takes, greys out when it will not, and can be reached with
+ * when you press it, clicks when it takes, grays out when it will not, and can be reached with
  * the keyboard. Losing any of those makes a screen feel broken even when it works, because you
  * cannot tell whether anything happened.
  *
@@ -57,11 +57,11 @@ public final class GatheringButtons {
         }
 
         @Override
-        public void renderString(GuiGraphics graphics, Font font, int colour) {
-            GuiText.drawCentred(graphics, font, getMessage(),
+        public void renderString(GuiGraphics graphics, Font font, int color) {
+            GuiText.drawCentered(graphics, font, getMessage(),
                     getX() + getWidth() / 2,
                     getY() + (getHeight() - font.lineHeight) / 2 + 1,
-                    getWidth() - TEXT_MARGIN * 2, colour);
+                    getWidth() - TEXT_MARGIN * 2, color);
         }
     }
 

@@ -51,8 +51,8 @@ public final class ShopCounter {
      * every server that read the same sets.
      */
     public static List<SealedShelf.Item> at(
-            SealedShelf shelf, SealedCatalogue catalogue, int level) {
-        return at(shelf, catalogue, level, 0);
+            SealedShelf shelf, SealedCatalog catalog, int level) {
+        return at(shelf, catalog, level, 0);
     }
 
     /**
@@ -65,8 +65,8 @@ public final class ShopCounter {
      * @param rotation which turnover this is, counted from when the world began
      */
     public static List<SealedShelf.Item> at(
-            SealedShelf shelf, SealedCatalogue catalogue, int level, long rotation) {
-        return pick(ShopTier.at(shelf, catalogue, level), PER_LEVEL, rotation);
+            SealedShelf shelf, SealedCatalog catalog, int level, long rotation) {
+        return pick(ShopTier.at(shelf, catalog, level), PER_LEVEL, rotation);
     }
 
     /**

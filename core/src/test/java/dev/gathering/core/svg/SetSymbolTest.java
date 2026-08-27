@@ -69,7 +69,7 @@ class SetSymbolTest {
         byte[] mask = SetSymbol.read(svg("0 0 30 10",
                 "<path d='M0 0 L30 0 L30 10 L0 10 Z'/>")).mask(SIZE);
 
-        // A third as tall as it is wide, centred: the top and bottom thirds are empty and the
+        // A third as tall as it is wide, centered: the top and bottom thirds are empty and the
         // middle is full across.
         assertThat(alphaAt(mask, SIZE / 2, 1)).isZero();
         assertThat(alphaAt(mask, SIZE / 2, SIZE - 2)).isZero();

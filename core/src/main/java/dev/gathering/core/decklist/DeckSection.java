@@ -13,7 +13,7 @@ public enum DeckSection {
     TOKENS;
 
     /**
-     * Recognises the section headers the common exporters write. Returns empty for anything
+     * Recognizes the section headers the common exporters write. Returns empty for anything
      * that is not a header, which is how the parser tells "Deck" the header from a card line.
      */
     public static Optional<DeckSection> fromHeader(String raw) {

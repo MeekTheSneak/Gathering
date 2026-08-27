@@ -13,7 +13,7 @@ package dev.gathering.core.ui;
  * running off the table. What matters is that the strip is big enough to see and to click,
  * not that the cards are clear of each other.
  *
- * <p>Deliberately not centred on the host. A card drawn on top of another one hides it, and
+ * <p>Deliberately not centered on the host. A card drawn on top of another one hides it, and
  * the whole reason to have this rather than letting people stack cards by hand is that a
  * stacked aura is an aura nobody can see.
  */

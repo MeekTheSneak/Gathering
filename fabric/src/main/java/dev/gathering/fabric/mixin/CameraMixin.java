@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * is no.
  *
  * <p>The twin of the NeoForge one, and identical on purpose. Two loaders needing the same
- * reach is not a reason for two behaviours, so both defer to {@link TableCameraView} and
+ * reach is not a reason for two behaviors, so both defer to {@link TableCameraView} and
  * neither decides anything itself.
  */
 @Mixin(Camera.class)

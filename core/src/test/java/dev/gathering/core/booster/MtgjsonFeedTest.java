@@ -24,10 +24,10 @@ class MtgjsonFeedTest {
     @TempDir
     Path cache;
 
-    // Real time plus however far this test wants to have travelled. A frozen "now" would be
+    // Real time plus however far this test wants to have traveled. A frozen "now" would be
     // earlier than the timestamp the file system puts on a file written a moment later, and
     // every cached file would look like it came from the future.
-    private long travelled = 0;
+    private long traveled = 0;
 
     @Test
     @DisplayName("a set is fetched once and read from the cache after that")
@@ -119,7 +119,7 @@ class MtgjsonFeedTest {
         MtgjsonFeed feed = feed(transport);
 
         feed.collationFor("tst");
-        travelled += MtgjsonFeed.DEFAULT_MAX_AGE_MILLIS + 1;
+        traveled += MtgjsonFeed.DEFAULT_MAX_AGE_MILLIS + 1;
         feed.collationFor("tst");
 
         assertThat(transport.requestCount()).isEqualTo(2);
@@ -166,7 +166,7 @@ class MtgjsonFeedTest {
     }
 
     private long clock() {
-        return System.currentTimeMillis() + travelled;
+        return System.currentTimeMillis() + traveled;
     }
 
     private static String setFile(String code, String uuid, String printing) {

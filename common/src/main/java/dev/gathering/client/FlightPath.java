@@ -6,7 +6,7 @@ import dev.gathering.core.game.Zone;
 import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.CardTravel;
 import dev.gathering.core.ui.Rect;
-import dev.gathering.core.ui.Travelling;
+import dev.gathering.core.ui.Traveling;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 
@@ -35,7 +35,7 @@ final class FlightPath {
         if (from.isEmpty() && to.isEmpty()) {
             return Rect.NONE;
         }
-        return Travelling.between(from, to, flight.progress(now));
+        return Traveling.between(from, to, flight.progress(now));
     }
 
     /**

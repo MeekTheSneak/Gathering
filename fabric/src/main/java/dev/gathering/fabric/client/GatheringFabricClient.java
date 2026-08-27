@@ -9,7 +9,7 @@ import dev.gathering.client.ClientFetching;
 import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientCardRequests;
 import dev.gathering.client.ClientNetworking;
-import dev.gathering.client.TableColours;
+import dev.gathering.client.TableColors;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
 import dev.gathering.client.ZoomKeyState;
@@ -104,9 +104,9 @@ public final class GatheringFabricClient implements ClientModInitializer {
 
         // The felt is one texture tinted per table, so the tint needs a handler on each loader.
         net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.BLOCK.register(
-                TableColours::tintOf, GatheringContent.TABLE.get());
+                TableColors::tintOf, GatheringContent.TABLE.get());
         net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.ITEM.register(
-                (stack, tintIndex) -> TableColours.itemTintOf(tintIndex),
+                (stack, tintIndex) -> TableColors.itemTintOf(tintIndex),
                 GatheringContent.TABLE_ITEM.get());
 
         ClientPlayNetworking.registerGlobalReceiver(CardMetadataPayload.TYPE, (payload, context) ->

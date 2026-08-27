@@ -52,13 +52,13 @@ class SealedPriceTest {
                     List.of(new SealedProduct.InDeck("Test Commander Deck", "tst")),
                     List.of()));
 
-    private static final SealedCatalogue CATALOGUE = Catalogues.of(PACK, COLLECTOR, BOX, CASE);
+    private static final SealedCatalog CATALOG = Catalogs.of(PACK, COLLECTOR, BOX, CASE);
 
     @Test
     @DisplayName("a booster is the unit")
     void aBoosterIsOne() {
-        assertThat(SealedPrice.inBoosters(PACK, CATALOGUE)).isEqualTo(1);
-        assertThat(SealedPrice.inBoosters(COLLECTOR, CATALOGUE))
+        assertThat(SealedPrice.inBoosters(PACK, CATALOG)).isEqualTo(1);
+        assertThat(SealedPrice.inBoosters(COLLECTOR, CATALOG))
                 .as("a collector booster is one booster to buy; being the rare one is what "
                         + "opening it is for, not what it costs")
                 .isEqualTo(1);
@@ -67,7 +67,7 @@ class SealedPriceTest {
     @Test
     @DisplayName("a box of thirty costs thirty of them")
     void aBoxIsWhatItHolds() {
-        assertThat(SealedPrice.inBoosters(BOX, CATALOGUE)).isEqualTo(30);
+        assertThat(SealedPrice.inBoosters(BOX, CATALOG)).isEqualTo(30);
     }
 
     @Test
@@ -75,21 +75,21 @@ class SealedPriceTest {
     void aCaseIsBoxesOfPacks() {
         // Two levels down. Nothing is cheaper for being bought in bulk: a box is one click
         // instead of thirty, not a saving.
-        assertThat(SealedPrice.inBoosters(CASE, CATALOGUE)).isEqualTo(180);
+        assertThat(SealedPrice.inBoosters(CASE, CATALOG)).isEqualTo(180);
     }
 
     @Test
     @DisplayName("a bundle is its packs plus what else is in the box")
     void aBundleIsPacksAndExtras() {
         // Nine packs and a foil promo. The die is not a card and costs nothing.
-        assertThat(SealedPrice.inBoosters(BUNDLE, CATALOGUE)).isEqualTo(10);
+        assertThat(SealedPrice.inBoosters(BUNDLE, CATALOG)).isEqualTo(10);
     }
 
     @Test
     @DisplayName("a deck is priced by what is in it, because it has no packs")
     void aDeckIsPricedByItsCards() {
         // A hundred cards at fifteen to a booster is seven.
-        assertThat(SealedPrice.inBoosters(PRECON, CATALOGUE)).isEqualTo(7);
+        assertThat(SealedPrice.inBoosters(PRECON, CATALOG)).isEqualTo(7);
     }
 
     @Test
@@ -101,8 +101,8 @@ class SealedPriceTest {
                         List.of(), List.of(new SealedProduct.Held("nobody", "?", 12)),
                         List.of(), List.of(), List.of()));
 
-        assertThat(SealedPrice.inBoosters(strange, CATALOGUE)).isEqualTo(12);
-        assertThat(SealedPrice.inBoosters(strange, SealedCatalogue.EMPTY)).isEqualTo(12);
+        assertThat(SealedPrice.inBoosters(strange, CATALOG)).isEqualTo(12);
+        assertThat(SealedPrice.inBoosters(strange, SealedCatalog.EMPTY)).isEqualTo(12);
     }
 
     @Test
@@ -114,7 +114,7 @@ class SealedPriceTest {
                         List.of(), List.of(new SealedProduct.Held("loop", "itself", 2)),
                         List.of(), List.of(), List.of()));
 
-        int worth = SealedPrice.inBoosters(itself, Catalogues.of(itself));
+        int worth = SealedPrice.inBoosters(itself, Catalogs.of(itself));
 
         assertThat(worth).isPositive();
         assertThat(worth).isLessThan(1000);
@@ -126,18 +126,18 @@ class SealedPriceTest {
         SealedProduct nothing = new SealedProduct(
                 "empty", "An empty box", "tst", "booster_pack", "play", 0, null);
 
-        assertThat(SealedPrice.inBoosters(nothing, CATALOGUE)).isEqualTo(SealedPrice.CHEAPEST);
-        assertThat(SealedPrice.inBoosters(null, CATALOGUE)).isEqualTo(SealedPrice.CHEAPEST);
-        assertThat(SealedPrice.of(nothing, CATALOGUE, 0)).isGreaterThanOrEqualTo(1);
-        assertThat(SealedPrice.of(nothing, CATALOGUE, -5)).isGreaterThanOrEqualTo(1);
+        assertThat(SealedPrice.inBoosters(nothing, CATALOG)).isEqualTo(SealedPrice.CHEAPEST);
+        assertThat(SealedPrice.inBoosters(null, CATALOG)).isEqualTo(SealedPrice.CHEAPEST);
+        assertThat(SealedPrice.of(nothing, CATALOG, 0)).isGreaterThanOrEqualTo(1);
+        assertThat(SealedPrice.of(nothing, CATALOG, -5)).isGreaterThanOrEqualTo(1);
     }
 
     @Test
     @DisplayName("the money is the boosters times what a booster costs")
     void theMoneyIsJustMultiplication() {
-        assertThat(SealedPrice.of(PACK, CATALOGUE, 2)).isEqualTo(2);
-        assertThat(SealedPrice.of(BOX, CATALOGUE, 2)).isEqualTo(60);
-        assertThat(SealedPrice.of(PRECON, CATALOGUE, 3)).isEqualTo(21);
+        assertThat(SealedPrice.of(PACK, CATALOG, 2)).isEqualTo(2);
+        assertThat(SealedPrice.of(BOX, CATALOG, 2)).isEqualTo(60);
+        assertThat(SealedPrice.of(PRECON, CATALOG, 3)).isEqualTo(21);
     }
 
     @Test
@@ -154,7 +154,7 @@ class SealedPriceTest {
                         List.of(), List.of(new SealedProduct.InDeck("Test Commander Deck", "tst")),
                         List.of("spinning life counter", "paper deck box")));
 
-        assertThat(SealedPrice.inBoosters(precon, CATALOGUE)).isEqualTo(8);
+        assertThat(SealedPrice.inBoosters(precon, CATALOG)).isEqualTo(8);
     }
 
     @Test

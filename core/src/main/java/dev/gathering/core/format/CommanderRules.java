@@ -11,7 +11,7 @@ import java.util.List;
  */
 public enum CommanderRules {
 
-    /** Sixty-card formats. No command zone, no colour identity restriction. */
+    /** Sixty-card formats. No command zone, no color identity restriction. */
     NONE(0, 0),
 
     /** One commander, or two that say Partner. */

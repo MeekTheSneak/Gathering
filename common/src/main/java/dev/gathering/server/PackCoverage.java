@@ -95,26 +95,26 @@ public final class PackCoverage {
     }
 
     /**
-     * The catalogue: every printing in the set a pack could ever have held.
+     * The catalog: every printing in the set a pack could ever have held.
      *
      * <p>The same rule the fallback pack is built to, asked once in one place, because an
-     * audit measuring a different catalogue from the one packs are cut from would report
+     * audit measuring a different catalog from the one packs are cut from would report
      * holes that are not there.
      */
-    public static List<UUID> catalogueOf(List<CardMetadata> inTheSet) {
-        List<UUID> catalogue = new ArrayList<>();
+    public static List<UUID> catalogOf(List<CardMetadata> inTheSet) {
+        List<UUID> catalog = new ArrayList<>();
         for (CardMetadata card : inTheSet) {
             if (PackOpening.wasEverInABooster(card)) {
-                catalogue.add(card.scryfallId());
+                catalog.add(card.scryfallId());
             }
         }
-        return List.copyOf(catalogue);
+        return List.copyOf(catalog);
     }
 
     /** Server thread only. */
     private static void tell(ServerPlayer player, String set, Audited audited) {
-        List<UUID> catalogue = catalogueOf(audited.inTheSet());
-        if (catalogue.isEmpty()) {
+        List<UUID> catalog = catalogOf(audited.inTheSet());
+        if (catalog.isEmpty()) {
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.coverage_nothing", set));
             return;
@@ -122,19 +122,19 @@ public final class PackCoverage {
         List<Faucet> faucets = faucetsFor(audited.reading());
         if (faucets.isEmpty()) {
             player.sendSystemMessage(Component.translatable(
-                    "message.gathering.coverage_no_packs", set, catalogue.size()));
+                    "message.gathering.coverage_no_packs", set, catalog.size()));
             return;
         }
-        CoverageReport report = CoverageAudit.of(catalogue, faucets);
+        CoverageReport report = CoverageAudit.of(catalog, faucets);
 
         player.sendSystemMessage(Component.translatable("message.gathering.coverage_counted",
-                set, report.covered(), report.catalogue(),
+                set, report.covered(), report.catalog(),
                 Math.round(report.fraction() * 100.0d)));
         report.byFaucet().forEach((name, reached) -> player.sendSystemMessage(
                 Component.translatable("message.gathering.coverage_from", name, reached)));
         for (String idle : report.reachingNothing()) {
             // Not called a mistake. A prerelease pack holds a promo printed in its own little
-            // set, so against one set's catalogue it correctly reaches nothing - and telling
+            // set, so against one set's catalog it correctly reaches nothing - and telling
             // an admin that their prerelease product is misconfigured would send them looking
             // for a fault that is not there.
             player.sendSystemMessage(Component.translatable(

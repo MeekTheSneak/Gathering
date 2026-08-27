@@ -145,12 +145,12 @@ public final class ContextMenu {
             }
             // The row under the cursor brightens as well as lighting up, so a menu read at a
             // glance still says which line a click would take.
-            int colour = entry.enabled() ? (hovered ? HOVERED : TEXT) : DISABLED;
+            int color = entry.enabled() ? (hovered ? HOVERED : TEXT) : DISABLED;
             int shortcutWidth = entry.shortcut() == null
                     ? 0
                     : font.width(entry.shortcut()) + SHORTCUT_GAP;
             GuiText.draw(graphics, font, entry.label(),
-                    left + PADDING, row + 2, columnWidth - PADDING * 2 - shortcutWidth, colour);
+                    left + PADDING, row + 2, columnWidth - PADDING * 2 - shortcutWidth, color);
             if (entry.shortcut() != null) {
                 GuiText.draw(graphics, font, entry.shortcut(),
                         left + columnWidth - PADDING - shortcutWidth + SHORTCUT_GAP, row + 2,

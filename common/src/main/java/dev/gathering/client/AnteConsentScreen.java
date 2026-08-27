@@ -120,31 +120,31 @@ public final class AnteConsentScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         int inner = panelWidth() - PADDING * 2;
-        int centre = panelLeft() + panelWidth() / 2;
+        int center = panelLeft() + panelWidth() / 2;
         int line = panelTop() + PADDING;
 
-        GuiText.drawCentred(graphics, this.font, getTitle(), centre, line, inner, TEXT);
+        GuiText.drawCentered(graphics, this.font, getTitle(), center, line, inner, TEXT);
         line += this.font.lineHeight + GAP;
 
-        // The cost, in the first line, in its own colour. A question about ante that made
+        // The cost, in the first line, in its own color. A question about ante that made
         // somebody go and look up what ante means is a question answered by guessing.
         // One card and several cards are two sentences, not one with a bracket in it. The
         // game's translation format has no plural rule, so the screen picks the wording.
-        GuiText.drawCentred(graphics, this.font,
+        GuiText.drawCentered(graphics, this.font,
                 Component.translatable(asked.cardsEach() == 1
                         ? "screen.gathering.ante.stakes_one"
                         : "screen.gathering.ante.stakes", asked.cardsEach()),
-                centre, line, inner, STAKE);
+                center, line, inner, STAKE);
         line += this.font.lineHeight + 2;
-        GuiText.drawCentred(graphics, this.font,
-                Component.translatable("screen.gathering.ante.detail"), centre, line, inner, DIM);
+        GuiText.drawCentered(graphics, this.font,
+                Component.translatable("screen.gathering.ante.detail"), center, line, inner, DIM);
         line += this.font.lineHeight + 2;
 
-        GuiText.drawCentred(graphics, this.font,
+        GuiText.drawCentered(graphics, this.font,
                 asked.iAmIn()
                         ? Component.translatable("screen.gathering.ante.waiting", asked.waitingOn())
                         : Component.translatable("screen.gathering.ante.your_call"),
-                centre, line, inner, DIM);
+                center, line, inner, DIM);
     }
 
     @Override

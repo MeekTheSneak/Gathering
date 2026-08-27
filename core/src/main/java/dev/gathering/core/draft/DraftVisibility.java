@@ -7,7 +7,7 @@ import java.util.Map;
  * Turns a pod into what one drafter is allowed to know about it.
  *
  * <p>The single place a pod becomes something that goes to a client, so there is one
- * function to read when the question is "could a drafter learn what their neighbour took".
+ * function to read when the question is "could a drafter learn what their neighbor took".
  * It is deliberately the only way to build a {@link DraftView}: a screen that reached into
  * the state instead would be a screen holding every pack in the pod.
  */

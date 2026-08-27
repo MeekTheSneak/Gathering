@@ -34,11 +34,11 @@ class RectTest {
         }
 
         @Test
-        @DisplayName("the centre is on the card at every angle, because turning is about the centre")
-        void theCentreNeverMoves() {
+        @DisplayName("the center is on the card at every angle, because turning is about the center")
+        void theCenterNeverMoves() {
             for (int degrees = 0; degrees < 360; degrees += 7) {
                 assertThat(CARD.containsTurned(degrees, 120, 128))
-                        .describedAs("centre at %s degrees", degrees)
+                        .describedAs("center at %s degrees", degrees)
                         .isTrue();
             }
         }
@@ -46,7 +46,7 @@ class RectTest {
         @Test
         @DisplayName("a tapped card covers what is beside it and not what is above it")
         void aQuarterTurnSwapsTheAxes() {
-            // Turned ninety degrees, the card is 56 wide and 40 tall about the same centre.
+            // Turned ninety degrees, the card is 56 wide and 40 tall about the same center.
             assertThat(CARD.containsTurned(90, 145, 128)).isTrue();
             assertThat(CARD.containsTurned(90, 120, 105)).isFalse();
             assertThat(CARD.contains(145, 128)).isFalse();
@@ -71,12 +71,12 @@ class RectTest {
             // table whose clicks land on the mirror image of where the cards are drawn is
             // exactly the kind of wrong that looks fine until somebody angles a card.
             //
-            // This point sits up and to the right of the centre, on the card once it has been
+            // This point sits up and to the right of the center, on the card once it has been
             // turned forty degrees clockwise and off it when turned the other way. Positive
             // degrees are clockwise on screen, matching the y-down pose the renderer turns
             // the card in.
-            int pointX = (int) CARD.centreX() + 24;
-            int pointY = (int) CARD.centreY() - 10;
+            int pointX = (int) CARD.centerX() + 24;
+            int pointY = (int) CARD.centerY() - 10;
 
             assertThat(CARD.contains(pointX, pointY)).isFalse();
             assertThat(CARD.containsTurned(40, pointX, pointY)).isTrue();

@@ -122,7 +122,7 @@ class BoardGeometryTest {
 
             for (int index = 0; index < 2; index++) {
                 Rect mat = geometry.matRect(new SeatId(index));
-                assertThat(geometry.seatAt(mat.centreX(), mat.centreY()))
+                assertThat(geometry.seatAt(mat.centerX(), mat.centerY()))
                         .describedAs("middle of seat %s's mat", index)
                         .isEqualTo(new SeatId(index));
             }
@@ -167,7 +167,7 @@ class BoardGeometryTest {
         void moreSeatsMeansSmallerCards() {
             // A mat is a share of the table and a card is a share of a mat, so eight players
             // get smaller cards - the same thing that happens when eight people sit at a real
-            // table. Getting this wrong overlaps every board with its neighbours.
+            // table. Getting this wrong overlaps every board with its neighbors.
             BoardGeometry two = twoSeats();
             BoardGeometry many = geometryFor(new TableCell(0, 0), new TableCell(1, 0));
 
@@ -274,17 +274,17 @@ class BoardGeometryTest {
 
         @Test
         @DisplayName("opening on your own board puts your own board in front of you")
-        void openingOnYourOwnBoardCentresIt() {
+        void openingOnYourOwnBoardCentersIt() {
             BoardGeometry geometry = new BoardGeometry(
                     seatsOf(new TableCell(0, 0)), WIDTH, HEIGHT, 130);
 
             for (int seat = 0; seat < 2; seat++) {
                 geometry.focusOn(new SeatId(seat));
                 Rect mat = geometry.matRect(new SeatId(seat));
-                assertThat(mat.centreX())
-                        .describedAs("seat %s is centred across", seat)
+                assertThat(mat.centerX())
+                        .describedAs("seat %s is centered across", seat)
                         .isCloseTo(WIDTH / 2.0, org.assertj.core.data.Offset.offset(4.0));
-                assertThat(mat.centreY())
+                assertThat(mat.centerY())
                         .describedAs("seat %s is in the visible part, not behind the hand", seat)
                         .isBetween(0.0, (double) (HEIGHT - 130));
             }
@@ -396,15 +396,15 @@ class BoardGeometryTest {
                 Rect library = geometry.pileRect(me, 0, 4);
                 Rect furthest = geometry.pileRect(me, 3, 4);
 
-                assertThat(theirs.centreY())
+                assertThat(theirs.centerY())
                         .describedAs("seat %s's opponent is across the table, not behind them", seat)
-                        .isLessThan(mine.centreY());
-                assertThat(library.centreX())
+                        .isLessThan(mine.centerY());
+                assertThat(library.centerX())
                         .describedAs("seat %s's zones are on their own right", seat)
-                        .isGreaterThan(mine.centreX());
-                assertThat(library.centreY())
+                        .isGreaterThan(mine.centerX());
+                assertThat(library.centerY())
                         .describedAs("seat %s's library is the zone nearest their hand", seat)
-                        .isGreaterThan(furthest.centreY());
+                        .isGreaterThan(furthest.centerY());
             }
         }
 
@@ -499,7 +499,7 @@ class BoardGeometryTest {
     void everyBoardMeasuresACardFromItsMiddle() {
         // The contract BoardPlacement states, and the one thing both views have to agree on.
         // The board drawn on the block used to take the same number as the card's corner and
-        // then add half a card to centre it, which put every card there half a card down and
+        // then add half a card to center it, which put every card there half a card down and
         // right of where the seated board drew the same card - so a permanent on the edge of
         // a mat in one view was off the mat in the other.
         for (int seats : new int[] {2, 4}) {
@@ -513,11 +513,11 @@ class BoardGeometryTest {
                         TablePosition.of(TablePosition.SPAN / 4, TablePosition.SPAN / 3),
                         TablePosition.of(TablePosition.SPAN, TablePosition.SPAN))) {
                     Rect card = board.rectOf(seat, where);
-                    assertThat(card.centreX())
-                            .describedAs("%s seats: seat %s centres %s across", seats, index, where)
+                    assertThat(card.centerX())
+                            .describedAs("%s seats: seat %s centers %s across", seats, index, where)
                             .isCloseTo(surface.surfaceX(index, where.x()), within(1.0));
-                    assertThat(card.centreY())
-                            .describedAs("%s seats: seat %s centres %s down", seats, index, where)
+                    assertThat(card.centerY())
+                            .describedAs("%s seats: seat %s centers %s down", seats, index, where)
                             .isCloseTo(surface.surfaceY(index, where.y()), within(1.0));
                 }
             }

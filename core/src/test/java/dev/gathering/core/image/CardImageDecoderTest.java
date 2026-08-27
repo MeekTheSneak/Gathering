@@ -28,8 +28,8 @@ class CardImageDecoderTest {
     void theImageHasRealContent() throws IOException {
         CardImageDecoder.DecodedImage image = CardImageDecoder.decode(fixture("progressive_card.jpg"));
 
-        long distinctColours = java.util.Arrays.stream(image.pixels()).distinct().count();
-        assertThat(distinctColours).as("a real card has many colours").isGreaterThan(500);
+        long distinctColors = java.util.Arrays.stream(image.pixels()).distinct().count();
+        assertThat(distinctColors).as("a real card has many colors").isGreaterThan(500);
         assertThat(java.util.Arrays.stream(image.pixels()).allMatch(pixel -> (pixel >>> 24) == 0xFF))
                 .as("a JPEG has no transparency").isTrue();
     }
@@ -60,7 +60,7 @@ class CardImageDecoderTest {
         assertThatThrownBy(() -> CardImageDecoder.decode(new byte[0])).isInstanceOf(IOException.class);
         assertThatThrownBy(() -> CardImageDecoder.decode("<html>not an image</html>".getBytes()))
                 .isInstanceOf(IOException.class)
-                .hasMessageContaining("Unrecognised image format");
+                .hasMessageContaining("Unrecognized image format");
     }
 
     private static byte[] fixture(String name) throws IOException {

@@ -3,7 +3,7 @@ package dev.gathering.core.ui;
 /**
  * The cards in your hand, fanned along the bottom of the screen.
  *
- * <p>Modelled on what every digital card game has settled on, because it settles two problems
+ * <p>Modeled on what every digital card game has settled on, because it settles two problems
  * at once. A hand has no fixed size - it is three cards on turn ten and fifteen after a
  * Windfall - so the cards overlap rather than shrink, which keeps a card the size of a card.
  * And overlapping hides most of each one, so the card under the cursor rises out of the fan at
@@ -35,7 +35,7 @@ public final class HandFan {
      * <p>A hand sits in the middle of the screen and stays there. Letting it spread to the
      * full width - which is what happens if the cards are simply shared out evenly across the
      * space - draws fifteen cards as a wall from edge to edge, which looks like a card
-     * catalogue rather than a hand somebody is holding.
+     * catalog rather than a hand somebody is holding.
      */
     private static final double FAN_SHARE_OF_WIDTH = 0.7;
 

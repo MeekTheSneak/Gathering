@@ -36,8 +36,8 @@ import java.util.UUID;
  * printings from as many set files as you have, and what could not be bridged is reported
  * rather than quietly dropped, along with the set codes to go and fetch.
  *
- * <p><b>Colour balancing.</b> Real common sheets are cut so a pack is not five cards of one
- * colour. MTGJSON says which sheets that applies to; this reproduces the sheet and the odds
+ * <p><b>Color balancing.</b> Real common sheets are cut so a pack is not five cards of one
+ * color. MTGJSON says which sheets that applies to; this reproduces the sheet and the odds
  * but not the balancing, and says so in the reading's notes rather than pretending otherwise.
  *
  * <p>Strict where the file makes a claim it can check. MTGJSON writes down both a sheet's
@@ -230,7 +230,7 @@ public final class MtgjsonCollation {
                         + " cards are printed in another set and were left off");
             }
             if (flag(json, "balanceColors")) {
-                notes.add(here + ": colours are balanced in the real sheet, and are not here");
+                notes.add(here + ": colors are balanced in the real sheet, and are not here");
             }
             if (weights.isEmpty()) {
                 notes.add(here + ": dropped, because none of its cards could be identified");

@@ -13,7 +13,7 @@ import java.util.Optional;
  * something the mod can put in a hand.
  *
  * <p>And decks. A Commander precon names its hundred cards rather than listing them, so what
- * comes out depends on the catalogue having read the list: where it has, the buyer gets the
+ * comes out depends on the catalog having read the list: where it has, the buyer gets the
  * deck sleeved up with its commander already in the command zone, which is the whole of what
  * was in that box. Where it has not, the product is not something this can hand over and it
  * comes back empty - taking somebody's diamonds and giving them the sample pack that came in
@@ -111,13 +111,13 @@ public final class SealedContents {
      * {@link #of} gives and for the same reason: a box that opens into eleven packs and a
      * hole is worse than a box that will not open.
      */
-    public static Layer opening(SealedProduct product, SealedCatalogue catalogue) {
+    public static Layer opening(SealedProduct product, SealedCatalog catalog) {
         if (product == null || product.isOneBooster()) {
             return Layer.NOTHING;
         }
         List<Layer.Inside> boxes = new ArrayList<>();
         for (SealedProduct.Held held : product.contents().holds()) {
-            SealedProduct inside = catalogue == null ? null : catalogue.byId(held.productId());
+            SealedProduct inside = catalog == null ? null : catalog.byId(held.productId());
             if (inside == null || held.count() <= 0) {
                 return Layer.NOTHING;
             }
@@ -125,8 +125,8 @@ public final class SealedContents {
         }
         List<SealedDeck> decks = new ArrayList<>();
         for (SealedProduct.InDeck named : product.contents().decks()) {
-            SealedDeck deck = catalogue == null
-                    ? null : catalogue.deck(named.setCode(), named.name());
+            SealedDeck deck = catalog == null
+                    ? null : catalog.deck(named.setCode(), named.name());
             if (deck == null || deck.isEmpty()) {
                 return Layer.NOTHING;
             }
@@ -139,13 +139,13 @@ public final class SealedContents {
     /**
      * What is in a product, or nothing where it is not something a shop can hand over.
      *
-     * @param catalogue where the products a box holds are looked up
+     * @param catalog where the products a box holds are looked up
      */
-    public static Optional<Bag> of(SealedProduct product, SealedCatalogue catalogue) {
+    public static Optional<Bag> of(SealedProduct product, SealedCatalog catalog) {
         List<SealedProduct.Booster> boosters = new ArrayList<>();
         List<CardIdentity> cards = new ArrayList<>();
         List<SealedDeck> decks = new ArrayList<>();
-        if (!gather(product, catalogue, MOST_NESTING, boosters, cards, decks)) {
+        if (!gather(product, catalog, MOST_NESTING, boosters, cards, decks)) {
             return Optional.empty();
         }
         Bag bag = new Bag(boosters, cards, decks);
@@ -156,12 +156,12 @@ public final class SealedContents {
     }
 
     /** Whether a shop could hand this over at all. */
-    public static boolean canBeHandedOver(SealedProduct product, SealedCatalogue catalogue) {
-        return of(product, catalogue).isPresent();
+    public static boolean canBeHandedOver(SealedProduct product, SealedCatalog catalog) {
+        return of(product, catalog).isPresent();
     }
 
     /** @return false where something in here is not a booster, a card or a deck it could read */
-    private static boolean gather(SealedProduct product, SealedCatalogue catalogue,
+    private static boolean gather(SealedProduct product, SealedCatalog catalog,
             int depth, List<SealedProduct.Booster> boosters, List<CardIdentity> cards,
             List<SealedDeck> decks) {
         if (product == null) {
@@ -170,8 +170,8 @@ public final class SealedContents {
         boosters.addAll(product.contents().boosters());
         cards.addAll(product.contents().cards());
         for (SealedProduct.InDeck named : product.contents().decks()) {
-            SealedDeck deck = catalogue == null
-                    ? null : catalogue.deck(named.setCode(), named.name());
+            SealedDeck deck = catalog == null
+                    ? null : catalog.deck(named.setCode(), named.name());
             if (deck == null || deck.isEmpty()) {
                 // Named in the box and nowhere this could read. Sold whole or not at all.
                 return false;
@@ -182,13 +182,13 @@ public final class SealedContents {
         if (product.contents().holds().isEmpty()) {
             return true;
         }
-        if (depth <= 0 || catalogue == null) {
+        if (depth <= 0 || catalog == null) {
             return false;
         }
         for (SealedProduct.Held held : product.contents().holds()) {
-            SealedProduct inside = catalogue.byId(held.productId());
+            SealedProduct inside = catalog.byId(held.productId());
             if (inside == null) {
-                // A box naming a pack out of another set's catalogue. Sold whole or not at
+                // A box naming a pack out of another set's catalog. Sold whole or not at
                 // all: half a box is worse than no box.
                 return false;
             }
@@ -196,7 +196,7 @@ public final class SealedContents {
                 if (boosters.size() + cards.size() + decks.size() > MOST_PIECES) {
                     return false;
                 }
-                if (!gather(inside, catalogue, depth - 1, boosters, cards, decks)) {
+                if (!gather(inside, catalog, depth - 1, boosters, cards, decks)) {
                     return false;
                 }
             }

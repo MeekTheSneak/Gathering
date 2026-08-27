@@ -20,7 +20,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  *
  * @param open whether this opens the pack screen or updates one already showing, so a
  *             drafter who closed the screen to look at something is not dragged back to it
- *             every time a neighbour picks
+ *             every time a neighbor picks
  */
 public record DraftViewPayload(BlockPos pod, byte[] view, boolean open)
         implements CustomPacketPayload {

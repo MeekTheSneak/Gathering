@@ -10,7 +10,7 @@ import java.util.List;
  * pack art; a set's symbol is fetched from Scryfall like everything else, and Scryfall
  * publishes symbols as SVG. The alternative was a general-purpose SVG toolkit, which is
  * several megabytes of somebody else's code, most of it about text layout, gradients, filters
- * and scripting that a one-colour silhouette will never touch.
+ * and scripting that a one-color silhouette will never touch.
  *
  * <p>So this reads the part that is actually used: the path commands, flattened to lines.
  * Curves become chords at a tolerance the caller sets from the size it is about to draw at,
@@ -211,7 +211,7 @@ public final class SvgPathReader {
      * An elliptical arc, as cubics.
      *
      * <p>Converted rather than drawn directly, so everything downstream sees curves of one
-     * kind. The centre and the sweep come from the endpoint form SVG writes arcs in, which is
+     * kind. The center and the sweep come from the endpoint form SVG writes arcs in, which is
      * a different parameterisation from the one the maths wants.
      */
     private void arc(boolean relative) throws SvgException {
@@ -262,8 +262,8 @@ public final class SvgPathReader {
         }
         double cx1 = factor * rx * y1 / ry;
         double cy1 = -factor * ry * x1 / rx;
-        double centreX = cos * cx1 - sin * cy1 + (x + toX) / 2.0;
-        double centreY = sin * cx1 + cos * cy1 + (y + toY) / 2.0;
+        double centerX = cos * cx1 - sin * cy1 + (x + toX) / 2.0;
+        double centerY = sin * cx1 + cos * cy1 + (y + toY) / 2.0;
 
         double start = angleBetween(1, 0, (x1 - cx1) / rx, (y1 - cy1) / ry);
         double sweepAngle = angleBetween(
@@ -293,23 +293,23 @@ public final class SvgPathReader {
             double p2y = toUnitY - control * toUnitX;
 
             flattenCubic(
-                    onEllipse(centreX, rx, ry, cos, sin, p1x, p1y, true),
-                    onEllipse(centreY, rx, ry, cos, sin, p1x, p1y, false),
-                    onEllipse(centreX, rx, ry, cos, sin, p2x, p2y, true),
-                    onEllipse(centreY, rx, ry, cos, sin, p2x, p2y, false),
-                    onEllipse(centreX, rx, ry, cos, sin, toUnitX, toUnitY, true),
-                    onEllipse(centreY, rx, ry, cos, sin, toUnitX, toUnitY, false));
+                    onEllipse(centerX, rx, ry, cos, sin, p1x, p1y, true),
+                    onEllipse(centerY, rx, ry, cos, sin, p1x, p1y, false),
+                    onEllipse(centerX, rx, ry, cos, sin, p2x, p2y, true),
+                    onEllipse(centerY, rx, ry, cos, sin, p2x, p2y, false),
+                    onEllipse(centerX, rx, ry, cos, sin, toUnitX, toUnitY, true),
+                    onEllipse(centerY, rx, ry, cos, sin, toUnitX, toUnitY, false));
         }
     }
 
     private static double onEllipse(
-            double centre, double rx, double ry, double cos, double sin,
+            double center, double rx, double ry, double cos, double sin,
             double unitX, double unitY, boolean horizontal) {
         double scaledX = unitX * rx;
         double scaledY = unitY * ry;
         return horizontal
-                ? centre + cos * scaledX - sin * scaledY
-                : centre + sin * scaledX + cos * scaledY;
+                ? center + cos * scaledX - sin * scaledY
+                : center + sin * scaledX + cos * scaledY;
     }
 
     private static double angleBetween(double ux, double uy, double vx, double vy) {

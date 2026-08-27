@@ -8,7 +8,7 @@ package dev.gathering.core.ui;
  * number of arguments and differ in one position - an {@code int} width against a
  * {@code float} scale - and Java widens an int to a float without a word. Pass the width
  * where the scale goes and the text is drawn twenty times too big, silently, in whatever
- * colour it was already using.
+ * color it was already using.
  *
  * <p>That happened: a power and toughness meant for the corner of a card was drawn at
  * eighteen times its size, covering the whole board in letterforms so large they did not read

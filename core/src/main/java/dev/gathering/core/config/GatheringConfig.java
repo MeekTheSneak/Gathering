@@ -18,7 +18,7 @@ import java.util.Set;
  *
  * <p>What it will not do is fail quietly. A value out of range is clamped and said out loud,
  * a combination that cannot work is corrected and said out loud, and a setting nobody
- * recognises is reported. All three go in {@link #notes}, because a server owner reading
+ * recognizes is reported. All three go in {@link #notes}, because a server owner reading
  * their config file and a server behaving differently from it is the one problem no amount of
  * in-game polish can rescue.
  *

@@ -4,7 +4,7 @@ import dev.gathering.core.booster.MtgjsonCollation;
 import dev.gathering.core.booster.MtgjsonFeed;
 import dev.gathering.core.sealed.MtgjsonProducts;
 import dev.gathering.core.sealed.MtgjsonDecks;
-import dev.gathering.core.sealed.SealedCatalogue;
+import dev.gathering.core.sealed.SealedCatalog;
 import com.google.gson.JsonObject;
 import java.util.List;
 import dev.gathering.core.net.JdkHttpTransport;
@@ -52,7 +52,7 @@ public final class CollationService implements AutoCloseable {
     private final Map<String, MtgjsonCollation.Reading> alreadyRead = new ConcurrentHashMap<>();
 
     /** The same, for what the set sold rather than what its packs hold. */
-    private final Map<String, Catalogue> cataloguesRead = new ConcurrentHashMap<>();
+    private final Map<String, Catalog> catalogsRead = new ConcurrentHashMap<>();
 
     /**
      * One set's file, read for everything a shop needs out of it.
@@ -62,11 +62,11 @@ public final class CollationService implements AutoCloseable {
      * published in {@code decks}, and reading the file twice to get them would be a second
      * parse of thirty megabytes for a join.
      */
-    public record Catalogue(MtgjsonProducts.Reading products, MtgjsonDecks.Reading decks) {
+    public record Catalog(MtgjsonProducts.Reading products, MtgjsonDecks.Reading decks) {
 
         /** Both lookups, as the pure rules want them. */
-        public SealedCatalogue lookup() {
-            return SealedCatalogue.of(products, decks);
+        public SealedCatalog lookup() {
+            return SealedCatalog.of(products, decks);
         }
     }
 
@@ -129,7 +129,7 @@ public final class CollationService implements AutoCloseable {
      * reading with nothing in it and a note saying why.
      */
     public CompletableFuture<MtgjsonProducts.Reading> productsFor(String setCode) {
-        return catalogueFor(setCode).thenApply(Catalogue::products);
+        return catalogFor(setCode).thenApply(Catalog::products);
     }
 
     /**
@@ -139,25 +139,25 @@ public final class CollationService implements AutoCloseable {
      * a set that simply sold nothing sealed: that comes back as a reading with nothing in it
      * and a note saying why.
      */
-    public CompletableFuture<Catalogue> catalogueFor(String setCode) {
+    public CompletableFuture<Catalog> catalogFor(String setCode) {
         String set = setCode == null ? "" : setCode.trim().toLowerCase(java.util.Locale.ROOT);
-        Catalogue known = cataloguesRead.get(set);
+        Catalog known = catalogsRead.get(set);
         if (known != null) {
             return CompletableFuture.completedFuture(known);
         }
         return CompletableFuture.supplyAsync(() -> {
-            Catalogue cached = cataloguesRead.get(set);
+            Catalog cached = catalogsRead.get(set);
             if (cached != null) {
                 return cached;
             }
             try {
                 JsonObject file = feed.setFile(set).orElse(null);
                 if (file == null) {
-                    Catalogue nothing = new Catalogue(
+                    Catalog nothing = new Catalog(
                             new MtgjsonProducts.Reading(
                                     set, List.of(), List.of(set + " is not a set with a file")),
                             MtgjsonDecks.Reading.NOTHING);
-                    cataloguesRead.put(set, nothing);
+                    catalogsRead.put(set, nothing);
                     return nothing;
                 }
                 Map<String, java.util.UUID> printings = MtgjsonCollation.printings(file);
@@ -169,8 +169,8 @@ public final class CollationService implements AutoCloseable {
                 for (String note : decks.notes()) {
                     LOGGER.info("Decks in {}: {}", set, note);
                 }
-                Catalogue read = new Catalogue(reading, decks);
-                cataloguesRead.put(set, read);
+                Catalog read = new Catalog(reading, decks);
+                catalogsRead.put(set, read);
                 return read;
             } catch (Exception couldNotRead) {
                 throw new java.util.concurrent.CompletionException(couldNotRead);

@@ -63,7 +63,7 @@ public final class TextPromptScreen extends ChildScreen {
         addRenderableWidget(field);
         setInitialFocus(field);
 
-        // Ok commits, so cancelling needed a button of its own rather than a key the player
+        // Ok commits, so canceling needed a button of its own rather than a key the player
         // has to already know about.
         // Under the examples, which are under the field they are examples for. They used to
         // sit below the buttons, where a line explaining what to type is read after the
@@ -107,9 +107,9 @@ public final class TextPromptScreen extends ChildScreen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        GuiText.drawCentred(graphics, this.font, question,
+        GuiText.drawCentered(graphics, this.font, question,
                 panel.x() + panel.width() / 2, panel.y() + 5, panel.width() - MARGIN * 2, LABEL);
-        GuiText.drawCentred(graphics, this.font, hint,
+        GuiText.drawCentered(graphics, this.font, hint,
                 panel.x() + panel.width() / 2, hintTop, panel.width() - MARGIN * 2, DIM);
     }
 

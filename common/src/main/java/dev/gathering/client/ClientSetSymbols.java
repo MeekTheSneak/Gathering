@@ -28,7 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Set symbols, fetched by this client from Scryfall and drawn at whatever size and colour a
+ * Set symbols, fetched by this client from Scryfall and drawn at whatever size and color a
  * pack needs.
  *
  * <p>The same architecture as card art next door and for the same reason: the mod ships no
@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Two things are different from card art, and both make this simpler. A symbol is shapes
  * rather than pixels, so one download serves every size: what is kept is the outline, and a
- * texture is drawn from it whenever a size or a colour is first wanted. And there are a
+ * texture is drawn from it whenever a size or a color is first wanted. And there are a
  * handful of sets in play at once rather than hundreds of cards, so nothing here needs an
  * eviction policy that card art cannot do without.
  *
@@ -71,7 +71,7 @@ public final class ClientSetSymbols {
     private final Map<String, SetSymbol> outlines = new ConcurrentHashMap<>();
 
     /**
-     * Textures already drawn, by set, colour and size. Client thread only.
+     * Textures already drawn, by set, color and size. Client thread only.
      *
      * <p>Bounded, and thrown away whole rather than one at a time when it fills. A symbol is
      * a few kilobytes and there are a handful in play, so this is a backstop against a
@@ -83,7 +83,7 @@ public final class ClientSetSymbols {
     /** As many drawn symbols as are kept before the lot are released and drawn again. */
     private static final int MOST_DRAWN = 64;
 
-    /** Sizes and colours that would not draw. Client thread only, like {@link #drawn}. */
+    /** Sizes and colors that would not draw. Client thread only, like {@link #drawn}. */
     private final Set<String> undrawable = new java.util.HashSet<>();
 
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
@@ -105,19 +105,19 @@ public final class ClientSetSymbols {
     }
 
     /**
-     * The symbol for a set, in this colour and this many pixels across, if it is ready.
+     * The symbol for a set, in this color and this many pixels across, if it is ready.
      *
      * <p>Returns empty and starts fetching otherwise, so a caller draws a plain wrapper this
      * frame and a wrapper with a symbol on it a moment later. Never blocks.
      *
-     * @param colour packed ARGB; the symbol is a silhouette and this is what it is printed in
+     * @param color packed ARGB; the symbol is a silhouette and this is what it is printed in
      */
-    public Optional<ResourceLocation> symbol(String setCode, int colour, int size) {
+    public Optional<ResourceLocation> symbol(String setCode, int color, int size) {
         String code = checked(setCode);
         if (code == null || failed.contains(code)) {
             return Optional.empty();
         }
-        String key = code + "/" + Integer.toHexString(colour) + "/" + size;
+        String key = code + "/" + Integer.toHexString(color) + "/" + size;
         if (undrawable.contains(key)) {
             return Optional.empty();
         }
@@ -132,7 +132,7 @@ public final class ClientSetSymbols {
             }
             return Optional.empty();
         }
-        return draw(key, outline, colour, size);
+        return draw(key, outline, color, size);
     }
 
     /** Whether this set has been tried and will not be tried again this session. */
@@ -196,15 +196,15 @@ public final class ClientSetSymbols {
     // ------------------------------------------------------------------ draw
 
     /** Client thread only: registering a texture touches GL. */
-    private Optional<ResourceLocation> draw(String key, SetSymbol outline, int colour, int size) {
+    private Optional<ResourceLocation> draw(String key, SetSymbol outline, int color, int size) {
         int across = Math.max(1, size);
         try {
             byte[] mask = outline.mask(across);
             NativeImage image = new NativeImage(NativeImage.Format.RGBA, across, across, false);
-            int red = (colour >> 16) & 0xFF;
-            int green = (colour >> 8) & 0xFF;
-            int blue = colour & 0xFF;
-            int tint = (colour >>> 24) & 0xFF;
+            int red = (color >> 16) & 0xFF;
+            int green = (color >> 8) & 0xFF;
+            int blue = color & 0xFF;
+            int tint = (color >>> 24) & 0xFF;
             for (int y = 0; y < across; y++) {
                 for (int x = 0; x < across; x++) {
                     int alpha = (mask[y * across + x] & 0xFF) * tint / 255;

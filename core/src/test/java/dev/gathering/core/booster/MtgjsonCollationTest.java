@@ -178,8 +178,8 @@ class MtgjsonCollationTest {
     }
 
     @Test
-    @DisplayName("colour balancing is reported rather than pretended")
-    void colourBalancingIsReported() throws Exception {
+    @DisplayName("color balancing is reported rather than pretended")
+    void colorBalancingIsReported() throws Exception {
         MtgjsonCollation.Reading reading = MtgjsonCollation.read(file("""
                 {"data": {
                   "code": "TST",
@@ -195,7 +195,7 @@ class MtgjsonCollationTest {
 
         assertThat(reading.packs()).containsOnlyKeys("draft");
         assertThat(reading.notes()).anySatisfy(note ->
-                assertThat(note).contains("colours are balanced in the real sheet"));
+                assertThat(note).contains("colors are balanced in the real sheet"));
     }
 
     @Test

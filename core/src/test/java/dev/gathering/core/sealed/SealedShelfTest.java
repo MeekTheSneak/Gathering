@@ -28,13 +28,13 @@ class SealedShelfTest {
     private static final SealedProduct ART = new SealedProduct(
             "art", "Test Art Series", "tst", "art_series", "default", 0, null);
 
-    private static final MtgjsonProducts.Reading CATALOGUE = new MtgjsonProducts.Reading(
+    private static final MtgjsonProducts.Reading CATALOG = new MtgjsonProducts.Reading(
             "tst", List.of(BOX, ART, PRECON, COLLECTOR, PACK), List.of());
 
     @Test
     @DisplayName("packs come first, and the cheapest of them first of all")
     void packsLeadTheShelf() {
-        SealedShelf shelf = SealedShelf.of(CATALOGUE, 2);
+        SealedShelf shelf = SealedShelf.of(CATALOG, 2);
 
         assertThat(shelf.items()).extracting(SealedShelf.Item::name)
                 .containsExactly("Test collector", "Test play", "Test Play Booster Box");
@@ -43,7 +43,7 @@ class SealedShelfTest {
     @Test
     @DisplayName("and everything is priced by what is in it")
     void everythingIsPriced() {
-        SealedShelf shelf = SealedShelf.of(CATALOGUE, 2);
+        SealedShelf shelf = SealedShelf.of(CATALOG, 2);
 
         assertThat(priceOf(shelf, "Test play")).isEqualTo(2);
         assertThat(priceOf(shelf, "Test Play Booster Box")).isEqualTo(60);
@@ -52,7 +52,7 @@ class SealedShelfTest {
     @Test
     @DisplayName("nothing that is not a product anybody published is on it")
     void onlyRealProducts() {
-        SealedShelf shelf = SealedShelf.of(CATALOGUE, 2);
+        SealedShelf shelf = SealedShelf.of(CATALOG, 2);
 
         assertThat(shelf.items()).extracting(SealedShelf.Item::name)
                 .doesNotContain("Test Art Series");
@@ -65,24 +65,24 @@ class SealedShelfTest {
         // A Commander precon is a real product a real shop stocks, and MTGJSON names its deck
         // rather than listing it. Taking somebody's diamonds and handing them the sample pack
         // that came in the box would be worse than not stocking it at all.
-        SealedShelf shelf = SealedShelf.of(CATALOGUE, 2);
+        SealedShelf shelf = SealedShelf.of(CATALOG, 2);
 
         assertThat(shelf.items()).extracting(SealedShelf.Item::name)
                 .doesNotContain("Test Commander Deck");
     }
 
     @Test
-    @DisplayName("the same catalogue is the same shelf twice")
+    @DisplayName("the same catalog is the same shelf twice")
     void theShelfDoesNotWander() {
         // A shop whose rows moved between two visits is a shop nobody can learn.
-        assertThat(SealedShelf.of(CATALOGUE, 2)).isEqualTo(SealedShelf.of(CATALOGUE, 2));
+        assertThat(SealedShelf.of(CATALOG, 2)).isEqualTo(SealedShelf.of(CATALOG, 2));
     }
 
     @Test
     @DisplayName("what a booster costs moves everything on it")
     void theOneNumberMovesTheShelf() {
-        SealedShelf cheap = SealedShelf.of(CATALOGUE, 1);
-        SealedShelf dear = SealedShelf.of(CATALOGUE, 4);
+        SealedShelf cheap = SealedShelf.of(CATALOG, 1);
+        SealedShelf dear = SealedShelf.of(CATALOG, 4);
 
         assertThat(priceOf(cheap, "Test Play Booster Box")).isEqualTo(30);
         assertThat(priceOf(dear, "Test Play Booster Box")).isEqualTo(120);
@@ -95,7 +95,7 @@ class SealedShelfTest {
                 "oth", List.of(booster("pack-other", "draft")), List.of());
 
         SealedShelf both = SealedShelf.of(List.of(
-                SealedShelf.of(CATALOGUE, 2), SealedShelf.of(other, 2)));
+                SealedShelf.of(CATALOG, 2), SealedShelf.of(other, 2)));
 
         assertThat(both.items()).hasSize(4);
         assertThat(both.items().subList(0, 3)).allMatch(SealedShelf.Item::isBooster);

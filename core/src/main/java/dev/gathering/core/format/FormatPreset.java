@@ -48,8 +48,8 @@ public record FormatPreset(
         return maximumSideboard > 0;
     }
 
-    /** Commander formats check that every card fits inside the commander's colours. */
-    public boolean checksColourIdentity() {
+    /** Commander formats check that every card fits inside the commander's colors. */
+    public boolean checksColorIdentity() {
         return commanderRules.inUse();
     }
 

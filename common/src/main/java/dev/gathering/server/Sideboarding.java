@@ -23,7 +23,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * checking that nobody did.
  *
  * <p>Only between games, and only in a format that has a sideboard. Neither is a rules
- * judgement the mod is making up: a deck arrives at the table as its owner built it, and a
+ * judgment the mod is making up: a deck arrives at the table as its owner built it, and a
  * singleton format has no fifteen cards to swap.
  */
 public final class Sideboarding {

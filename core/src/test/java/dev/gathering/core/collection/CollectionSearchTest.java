@@ -65,8 +65,8 @@ class CollectionSearchTest {
     }
 
     @Test
-    @DisplayName("a colour means at least that colour")
-    void colourIsAtLeast() {
+    @DisplayName("a color means at least that color")
+    void colorIsAtLeast() {
         // Asking for white and blue finds the Azorius card and not the mono-white ones,
         // which is what every Magic player already means by it.
         assertThat(names(run(query(Set.of("U"), null, "")))).
@@ -77,8 +77,8 @@ class CollectionSearchTest {
     }
 
     @Test
-    @DisplayName("colourless is the absence of every colour, not a colour")
-    void colourlessIsItsOwnQuestion() {
+    @DisplayName("colorless is the absence of every color, not a color")
+    void colorlessIsItsOwnQuestion() {
         assertThat(names(run(query(Set.of("C"), null, "")))).containsExactly("Sol Ring");
     }
 
@@ -132,13 +132,13 @@ class CollectionSearchTest {
     }
 
     @Test
-    @DisplayName("by colour reads in the order a player reads colours in")
-    void byColour() {
-        // WUBRG rather than alphabetical, mono-coloured before gold, colourless at the end -
+    @DisplayName("by color reads in the order a player reads colors in")
+    void byColor() {
+        // WUBRG rather than alphabetical, mono-colored before gold, colorless at the end -
         // which is how anybody lays a collection out.
         List<CollectionSearch.Row> found = CollectionSearch.run(BINDER,
                 CollectionSearch.Query.everything()
-                        .orderedBy(CollectionSearch.Sort.COLOUR, false));
+                        .orderedBy(CollectionSearch.Sort.COLOR, false));
 
         assertThat(names(found)).containsExactly("Counterspell", "Lightning Bolt",
                 "Teferi, Hero of Dominaria", "Sol Ring", "");
@@ -211,21 +211,21 @@ class CollectionSearchTest {
         return CollectionSearch.run(BINDER, query);
     }
 
-    private static CollectionSearch.Query query(Set<String> colours, Rarity rarity, String type) {
+    private static CollectionSearch.Query query(Set<String> colors, Rarity rarity, String type) {
         return new CollectionSearch.Query(
-                "", "", colours, rarity, type, CollectionSearch.Sort.NAME, false);
+                "", "", colors, rarity, type, CollectionSearch.Sort.NAME, false);
     }
 
     private static List<String> names(List<CollectionSearch.Row> rows) {
         return rows.stream().map(CollectionSearch.Row::name).toList();
     }
 
-    private static CollectionSearch.Row row(String name, String typeLine, Set<String> colours,
+    private static CollectionSearch.Row row(String name, String typeLine, Set<String> colors,
             String setCode, String collectorNumber, Rarity rarity, int count) {
         UUID id = UUID.nameUUIDFromBytes(
                 (setCode + collectorNumber).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         CardMetadata about = new CardMetadata(
-                id, id, name, "", 0.0, typeLine, "", colours, colours, List.of(), "normal",
+                id, id, name, "", 0.0, typeLine, "", colors, colors, List.of(), "normal",
                 setCode, setCode.equals("dom") ? "Dominaria" : "Limited Edition Alpha",
                 collectorNumber, rarity, false, true, true, false, false,
                 List.of("paper"), Map.of(), Map.of(), "");

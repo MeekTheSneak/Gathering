@@ -234,7 +234,7 @@ public final class TableGameTest {
     }
 
     @GameTest(template = "empty")
-    public static void feltColourIsKeptAndIsToldToClients(GameTestHelper helper) {
+    public static void feltColorIsKeptAndIsToldToClients(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
 
@@ -242,7 +242,7 @@ public final class TableGameTest {
             helper.fail("Dyeing an undyed table changed nothing");
         }
         if (table.dye(DyeColor.PURPLE)) {
-            helper.fail("Dyeing a table the colour it already is counted as a change");
+            helper.fail("Dyeing a table the color it already is counted as a change");
         }
 
         // Saved with the world...
@@ -250,14 +250,14 @@ public final class TableGameTest {
         TableBlockEntity reloaded = new TableBlockEntity(origin, helper.getLevel().getBlockState(origin));
         reloaded.loadWithComponents(saved, helper.getLevel().registryAccess());
         if (!reloaded.felt().equals(java.util.Optional.of(DyeColor.PURPLE))) {
-            helper.fail("The felt colour did not survive a save and load: " + reloaded.felt());
+            helper.fail("The felt color did not survive a save and load: " + reloaded.felt());
         }
 
         // ...and told to a client that joins later, which is a separate tag and so a
         // separate way to lose it.
         CompoundTag update = table.getUpdateTag(helper.getLevel().registryAccess());
         if (!DyeColor.PURPLE.getSerializedName().equals(update.getString("felt"))) {
-            helper.fail("A joining client is not told the felt colour: " + update);
+            helper.fail("A joining client is not told the felt color: " + update);
         }
         helper.succeed();
     }
@@ -265,7 +265,7 @@ public final class TableGameTest {
     @GameTest(template = "empty")
     public static void whetherThereIsACommandZoneIsToldToClients(GameTestHelper helper) {
         // A client never receives the match, so it cannot work out whether this game has a
-        // command zone - and it has to know, because it draws the box. An empty box labelled
+        // command zone - and it has to know, because it draws the box. An empty box labeled
         // with a zone the format does not have is a question every player asks once.
         BlockPos origin = place(helper, 1, 2, 1);
         TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();

@@ -45,14 +45,14 @@ public final class GuiText {
 
     /** Draws left-aligned at {@code x}, shrinking or trimming to sit inside {@code maxWidth}. */
     public static void draw(
-            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int colour) {
-        drawFitted(graphics, font, text, x, y, maxWidth, colour);
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int color) {
+        drawFitted(graphics, font, text, x, y, maxWidth, color);
     }
 
-    /** Draws centred on {@code centreX}, shrinking or trimming to sit inside {@code maxWidth}. */
-    public static void drawCentred(
-            GuiGraphics graphics, Font font, Component text, int centreX, int y, int maxWidth, int colour) {
-        drawFitted(graphics, font, text, centreX - width(font, text, maxWidth) / 2, y, maxWidth, colour);
+    /** Draws centered on {@code centerX}, shrinking or trimming to sit inside {@code maxWidth}. */
+    public static void drawCentered(
+            GuiGraphics graphics, Font font, Component text, int centerX, int y, int maxWidth, int color) {
+        drawFitted(graphics, font, text, centerX - width(font, text, maxWidth) / 2, y, maxWidth, color);
     }
 
     /** How wide this text will actually be drawn, once fitted. */
@@ -72,10 +72,10 @@ public final class GuiText {
 
     /** Draws text over as many lines as it needs, breaking on words. */
     public static void drawWrapped(
-            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int colour) {
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int color) {
         int line = y;
         for (FormattedCharSequence row : font.split(text, Math.max(1, maxWidth))) {
-            graphics.drawString(font, row, x, line, colour, false);
+            graphics.drawString(font, row, x, line, color, false);
             line += font.lineHeight + 1;
         }
     }
@@ -96,11 +96,11 @@ public final class GuiText {
         return Math.max(MINIMUM_SCALE, (float) room / width);
     }
 
-    /** Draws centred on {@code centreX} at exactly this scale, whatever the text's own width. */
-    public static void drawCentredAt(
-            GuiGraphics graphics, Font font, Component text, int centreX, int y,
-            float scale, int colour) {
-        drawAt(graphics, font, text, centreX - font.width(text) * scale / 2f, y, scale, colour);
+    /** Draws centered on {@code centerX} at exactly this scale, whatever the text's own width. */
+    public static void drawCenteredAt(
+            GuiGraphics graphics, Font font, Component text, int centerX, int y,
+            float scale, int color) {
+        drawAt(graphics, font, text, centerX - font.width(text) * scale / 2f, y, scale, color);
     }
 
     /**
@@ -108,25 +108,25 @@ public final class GuiText {
      *
      * <p>For a column of labels that belongs to something to one side of it. Centring each
      * one in its own box gives a column with a ragged edge against the thing it names, and
-     * the shorter the word the further it sits from what it is labelling - which reads as
+     * the shorter the word the further it sits from what it is labeling - which reads as
      * the words having been dropped in rather than laid out.
      */
     public static void drawFlushRight(
             GuiGraphics graphics, Font font, Component text, int rightX, int y,
-            float scale, int colour) {
-        drawAt(graphics, font, text, rightX - font.width(text) * scale, y, scale, colour);
+            float scale, int color) {
+        drawAt(graphics, font, text, rightX - font.width(text) * scale, y, scale, color);
     }
 
     /** Draws with its left-hand end at {@code leftX}, at exactly this scale. */
     public static void drawFlushLeft(
             GuiGraphics graphics, Font font, Component text, int leftX, int y,
-            float scale, int colour) {
-        drawAt(graphics, font, text, leftX, y, scale, colour);
+            float scale, int color) {
+        drawAt(graphics, font, text, leftX, y, scale, color);
     }
 
     private static void drawAt(
             GuiGraphics graphics, Font font, Component text, float x, int y,
-            float scale, int colour) {
+            float scale, int color) {
         if (!TextScale.isSane(scale)) {
             // Almost always an int width handed to the float scale parameter - the two ways
             // of drawing text here take the same number of arguments and differ in one
@@ -141,17 +141,17 @@ public final class GuiText {
         graphics.pose().translate(
                 x, y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
         graphics.pose().scale(scale, scale, 1f);
-        graphics.drawString(font, sequence, 0, 0, colour, false);
+        graphics.drawString(font, sequence, 0, 0, color, false);
         graphics.pose().popPose();
     }
 
     /**
-     * Works in {@link FormattedText} rather than in plain strings, so a bold or coloured
-     * component still arrives bold or coloured after being shrunk or trimmed - flattening to
+     * Works in {@link FormattedText} rather than in plain strings, so a bold or colored
+     * component still arrives bold or colored after being shrunk or trimmed - flattening to
      * a string here would quietly drop the styling a caller went to the trouble of adding.
      */
     private static void drawFitted(
-            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int colour) {
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int color) {
         if (maxWidth <= 0) {
             return;
         }
@@ -160,7 +160,7 @@ public final class GuiText {
             return;
         }
         if (width <= maxWidth) {
-            graphics.drawString(font, text, x, y, colour, false);
+            graphics.drawString(font, text, x, y, color, false);
             return;
         }
 
@@ -176,10 +176,10 @@ public final class GuiText {
 
         graphics.pose().pushPose();
         // Keep the shrunken line on the same baseline the full-size one would have used,
-        // so a shrunk row does not sit visibly higher than its neighbours.
+        // so a shrunk row does not sit visibly higher than its neighbors.
         graphics.pose().translate(x, y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
         graphics.pose().scale(scale, scale, 1f);
-        graphics.drawString(font, sequence, 0, 0, colour, false);
+        graphics.drawString(font, sequence, 0, 0, color, false);
         graphics.pose().popPose();
     }
 }

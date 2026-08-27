@@ -39,16 +39,16 @@ class ShopTierTest {
         SealedProduct box = holding("box", "Box", "pack", 36);
         SealedShelf shelf = new SealedShelf(List.of(
                 new SealedShelf.Item(pack, 2), new SealedShelf.Item(box, 72)));
-        SealedCatalogue catalogue = Catalogues.of(pack, box);
+        SealedCatalog catalog = Catalogs.of(pack, box);
 
-        assertThat(ShopTier.at(shelf, catalogue, 1))
+        assertThat(ShopTier.at(shelf, catalog, 1))
                 .extracting(SealedShelf.Item::name).containsExactly("Pack");
-        assertThat(ShopTier.at(shelf, catalogue, 4))
+        assertThat(ShopTier.at(shelf, catalog, 4))
                 .extracting(SealedShelf.Item::name).containsExactly("Box");
-        assertThat(ShopTier.at(shelf, catalogue, 3))
+        assertThat(ShopTier.at(shelf, catalog, 3))
                 .as("a level with nothing at it has nothing at it").isEmpty();
-        assertThat(ShopTier.at(shelf, catalogue, 0)).isEmpty();
-        assertThat(ShopTier.at(shelf, catalogue, ShopTier.LEVELS + 1)).isEmpty();
+        assertThat(ShopTier.at(shelf, catalog, 0)).isEmpty();
+        assertThat(ShopTier.at(shelf, catalog, ShopTier.LEVELS + 1)).isEmpty();
     }
 
     private static SealedProduct booster(String id, String name) {

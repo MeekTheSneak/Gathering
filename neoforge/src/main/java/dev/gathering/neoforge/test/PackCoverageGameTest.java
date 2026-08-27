@@ -26,7 +26,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * What the coverage report measures, and against what.
  *
  * <p>The arithmetic is checked where it is pure. What is here is the pair of decisions this
- * layer makes and could get wrong quietly: which printings count as the catalogue, and which
+ * layer makes and could get wrong quietly: which printings count as the catalog, and which
  * packs count as the ways out of it. Either one measured against the wrong thing gives a
  * report that is confidently the wrong number.
  */
@@ -35,21 +35,21 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class PackCoverageGameTest {
 
     @GameTest(template = "empty")
-    public static void theCatalogueIsWhatAPackCouldEverHaveHeld(GameTestHelper helper) {
+    public static void theCatalogIsWhatAPackCouldEverHaveHeld(GameTestHelper helper) {
         List<CardMetadata> set = List.of(
                 card("ordinary", Rarity.COMMON, false, false),
                 card("digital", Rarity.COMMON, true, false),
                 card("oversized", Rarity.MYTHIC, false, true));
 
-        List<UUID> catalogue = PackCoverage.catalogueOf(set);
+        List<UUID> catalog = PackCoverage.catalogOf(set);
 
-        if (catalogue.size() != 1) {
+        if (catalog.size() != 1) {
             helper.fail("A set of one real card and two that were never on a print sheet "
-                    + "came to a catalogue of " + catalogue.size());
+                    + "came to a catalog of " + catalog.size());
             return;
         }
-        if (!catalogue.get(0).equals(idOf("ordinary"))) {
-            helper.fail("The wrong card survived into the catalogue");
+        if (!catalog.get(0).equals(idOf("ordinary"))) {
+            helper.fail("The wrong card survived into the catalog");
             return;
         }
         helper.succeed();
@@ -66,11 +66,11 @@ public final class PackCoverageGameTest {
                 basic("Plains"),
                 basic("Island"));
 
-        List<UUID> catalogue = PackCoverage.catalogueOf(set);
+        List<UUID> catalog = PackCoverage.catalogOf(set);
 
-        if (catalogue.size() != 1 || !catalogue.get(0).equals(idOf("real"))) {
-            helper.fail("A set of one spell and two basics came to a catalogue of "
-                    + catalogue.size());
+        if (catalog.size() != 1 || !catalog.get(0).equals(idOf("real"))) {
+            helper.fail("A set of one spell and two basics came to a catalog of "
+                    + catalog.size());
             return;
         }
         helper.succeed();
@@ -89,7 +89,7 @@ public final class PackCoverageGameTest {
                 card("two", Rarity.RARE, false, false));
 
         List<Faucet> faucets = PackCoverage.faucetsFor(reading);
-        CoverageReport report = CoverageAudit.of(PackCoverage.catalogueOf(set), faucets);
+        CoverageReport report = CoverageAudit.of(PackCoverage.catalogOf(set), faucets);
 
         if (faucets.size() != 2) {
             helper.fail("A set with two kinds of pack gave " + faucets.size() + " ways in");
@@ -114,7 +114,7 @@ public final class PackCoverageGameTest {
                 card("two", Rarity.RARE, false, false));
 
         CoverageReport report = CoverageAudit.of(
-                PackCoverage.catalogueOf(set), PackCoverage.faucetsFor(reading));
+                PackCoverage.catalogOf(set), PackCoverage.faucetsFor(reading));
 
         if (report.isComplete()) {
             helper.fail("A card no pack of the set holds was reported as obtainable");

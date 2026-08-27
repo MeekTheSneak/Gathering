@@ -43,7 +43,7 @@ public final class CardImageDecoder {
             throw new IOException("Could not decode image (" + bytes.length + " bytes)", e);
         }
         if (source == null) {
-            throw new IOException("Unrecognised image format (" + bytes.length + " bytes)");
+            throw new IOException("Unrecognized image format (" + bytes.length + " bytes)");
         }
 
         int width = source.getWidth();

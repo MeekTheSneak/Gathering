@@ -57,7 +57,7 @@ class ManaValueTest {
     }
 
     @Test
-    @DisplayName("colourless and snow are one each")
+    @DisplayName("colorless and snow are one each")
     void theOddPipsAreOne() {
         assertThat(ManaValue.of("{C}")).isEqualTo(1);
         assertThat(ManaValue.of("{S}{S}")).isEqualTo(2);

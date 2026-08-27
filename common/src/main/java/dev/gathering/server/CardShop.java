@@ -1,7 +1,7 @@
 package dev.gathering.server;
 
 import dev.gathering.core.card.CardIdentity;
-import dev.gathering.core.sealed.SealedCatalogue;
+import dev.gathering.core.sealed.SealedCatalog;
 import dev.gathering.core.sealed.SealedContents;
 import dev.gathering.core.sealed.SealedDeck;
 import dev.gathering.core.sealed.SealedProduct;
@@ -50,14 +50,14 @@ public final class CardShop {
     private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
 
     /**
-     * The shelf and the catalogue it was built from, in one object.
+     * The shelf and the catalog it was built from, in one object.
      *
      * <p>Two fields would be two halves of one answer: a sale that read the new shelf and the
-     * old catalogue would find a product it could not look up and hand over nothing.
+     * old catalog would find a product it could not look up and hand over nothing.
      */
-    private record Stock(SealedShelf shelf, SealedCatalogue catalogue) {
+    private record Stock(SealedShelf shelf, SealedCatalog catalog) {
 
-        static final Stock NOTHING = new Stock(SealedShelf.EMPTY, SealedCatalogue.EMPTY);
+        static final Stock NOTHING = new Stock(SealedShelf.EMPTY, SealedCatalog.EMPTY);
 
         boolean isEmpty() {
             return shelf.isEmpty();
@@ -134,7 +134,7 @@ public final class CardShop {
      */
     public static List<SealedShelf.Item> counterAt(int level, long rotation) {
         Stock now = stock;
-        return ShopCounter.at(now.shelf(), now.catalogue(), level, rotation);
+        return ShopCounter.at(now.shelf(), now.catalog(), level, rotation);
     }
 
     /** The item somebody is handed when they buy this. */
@@ -166,11 +166,11 @@ public final class CardShop {
             return List.of();
         }
         Stock now = stock;
-        SealedProduct product = now.catalogue().byId(box.productId());
+        SealedProduct product = now.catalog().byId(box.productId());
         if (product == null) {
             return List.of();
         }
-        SealedContents.Layer layer = SealedContents.opening(product, now.catalogue());
+        SealedContents.Layer layer = SealedContents.opening(product, now.catalog());
         if (layer.isEmpty()) {
             return List.of();
         }
@@ -223,18 +223,18 @@ public final class CardShop {
     // ------------------------------------------------------------------ bits
 
     /**
-     * Every set's catalogue, read one set at a time.
+     * Every set's catalog, read one set at a time.
      *
      * <p>On the collation worker, one after another, because every set is a file to fetch and
      * a server asking for a dozen of them at once is a server asking somebody else's host for
      * forty megabytes at once.
      */
-    private static CompletableFuture<Map<String, CollationService.Catalogue>> readAll(
+    private static CompletableFuture<Map<String, CollationService.Catalog>> readAll(
             CollationService collation, List<String> codes) {
-        CompletableFuture<Map<String, CollationService.Catalogue>> reading =
+        CompletableFuture<Map<String, CollationService.Catalog>> reading =
                 CompletableFuture.completedFuture(new LinkedHashMap<>());
         for (String code : codes) {
-            reading = reading.thenCompose(read -> collation.catalogueFor(code)
+            reading = reading.thenCompose(read -> collation.catalogFor(code)
                     .handle((found, failure) -> {
                         if (failure != null) {
                             LOGGER.warn("Could not read what {} was sold as, so the shop does "
@@ -251,25 +251,25 @@ public final class CardShop {
     /**
      * One shelf out of every set that was read.
      *
-     * <p>The catalogue spans all of them before any shelf is built, because a product can name
+     * <p>The catalog spans all of them before any shelf is built, because a product can name
      * something published beside it: a Commander box holds a booster from the set it came out
      * with, and a starter kit names decks from another file entirely. Building each set's
      * shelf against only its own file would drop those - correctly, and needlessly.
      */
-    private static Stock build(Map<String, CollationService.Catalogue> read, int perBooster) {
+    private static Stock build(Map<String, CollationService.Catalog> read, int perBooster) {
         if (read.isEmpty()) {
             return Stock.NOTHING;
         }
-        List<SealedCatalogue> lookups = new ArrayList<>();
-        for (CollationService.Catalogue one : read.values()) {
+        List<SealedCatalog> lookups = new ArrayList<>();
+        for (CollationService.Catalog one : read.values()) {
             lookups.add(one.lookup());
         }
-        SealedCatalogue catalogue = SealedCatalogue.of(lookups);
+        SealedCatalog catalog = SealedCatalog.of(lookups);
 
         List<SealedShelf> shelves = new ArrayList<>();
-        for (CollationService.Catalogue one : read.values()) {
-            shelves.add(SealedShelf.of(one.products(), catalogue, perBooster));
+        for (CollationService.Catalog one : read.values()) {
+            shelves.add(SealedShelf.of(one.products(), catalog, perBooster));
         }
-        return new Stock(SealedShelf.of(shelves), catalogue);
+        return new Stock(SealedShelf.of(shelves), catalog);
     }
 }

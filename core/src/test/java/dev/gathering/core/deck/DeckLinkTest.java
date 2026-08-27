@@ -35,7 +35,7 @@ class DeckLinkTest {
         }
 
         @Test
-        void moxfieldLinksAreRecognisedButNotFetchable() {
+        void moxfieldLinksAreRecognizedButNotFetchable() {
             DeckLink link = DeckLink.parse("https://www.moxfield.com/decks/AbCdEf123456").orElseThrow();
 
             assertThat(link.provider()).isEqualTo(DeckLink.Provider.MOXFIELD);

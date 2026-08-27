@@ -19,7 +19,7 @@ import org.joml.Matrix4f;
  *
  * <p>A wrapper and a symbol printed on it. The wrapper is the mod's own artwork - the one
  * thing in this picture that ships in the jar - and the symbol is fetched by this client from
- * Scryfall like card art is, then printed in the colour of the product: black for a draft
+ * Scryfall like card art is, then printed in the color of the product: black for a draft
  * booster, gold for a set or play booster, the mythic's orange for a collector.
  *
  * <p>A symbol that has not arrived yet is simply not drawn, so a pack looks like a plain
@@ -54,7 +54,7 @@ public final class PackFaceRenderer {
         PackComponent pack = PackItem.packOf(stack).orElse(null);
 
         poseStack.pushPose();
-        // Item models are drawn in a 1x1 space with the origin at a corner; centre the pack.
+        // Item models are drawn in a 1x1 space with the origin at a corner; center the pack.
         poseStack.translate(0.5f, 0.5f, 0.5f);
         Matrix4f pose = poseStack.last().pose();
 
@@ -64,11 +64,11 @@ public final class PackFaceRenderer {
         quad(buffers, pose, WRAPPER, packedLight, -HALF_THICKNESS, SIDE, 0f, 0xFFFFFFFF);
 
         symbolFor(pack).ifPresent(symbol -> {
-            int colour = PackWrapper.symbolColour(pack.kind());
+            int color = PackWrapper.symbolColor(pack.kind());
             quad(buffers, pose, symbol, packedLight, HALF_THICKNESS * 2f,
-                    SYMBOL_SIDE, -SYMBOL_DROP, colour);
+                    SYMBOL_SIDE, -SYMBOL_DROP, color);
             quad(buffers, pose, symbol, packedLight, -HALF_THICKNESS * 2f,
-                    SYMBOL_SIDE, -SYMBOL_DROP, colour);
+                    SYMBOL_SIDE, -SYMBOL_DROP, color);
         });
 
         poseStack.popPose();
@@ -85,7 +85,7 @@ public final class PackFaceRenderer {
             return Optional.empty();
         }
         return ClientSetSymbols.get().symbol(
-                pack.setCode(), PackWrapper.symbolColour(pack.kind()), SYMBOL_PIXELS);
+                pack.setCode(), PackWrapper.symbolColor(pack.kind()), SYMBOL_PIXELS);
     }
 
     /**
@@ -96,7 +96,7 @@ public final class PackFaceRenderer {
      */
     private static void quad(
             MultiBufferSource buffers, Matrix4f pose, ResourceLocation texture, int packedLight,
-            float z, float side, float dropY, int colour) {
+            float z, float side, float dropY, int color) {
         VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutout(texture));
 
         float half = side / 2f;
@@ -107,25 +107,25 @@ public final class PackFaceRenderer {
         float normal = z >= 0 ? 1f : -1f;
 
         if (z >= 0) {
-            vertex(consumer, pose, left, bottom, z, 0f, 1f, packedLight, normal, colour);
-            vertex(consumer, pose, right, bottom, z, 1f, 1f, packedLight, normal, colour);
-            vertex(consumer, pose, right, top, z, 1f, 0f, packedLight, normal, colour);
-            vertex(consumer, pose, left, top, z, 0f, 0f, packedLight, normal, colour);
+            vertex(consumer, pose, left, bottom, z, 0f, 1f, packedLight, normal, color);
+            vertex(consumer, pose, right, bottom, z, 1f, 1f, packedLight, normal, color);
+            vertex(consumer, pose, right, top, z, 1f, 0f, packedLight, normal, color);
+            vertex(consumer, pose, left, top, z, 0f, 0f, packedLight, normal, color);
         } else {
             // Wound the other way so the back face is not culled, and mirrored so what is
             // printed on it reads the right way round rather than as a mirror image.
-            vertex(consumer, pose, right, bottom, z, 0f, 1f, packedLight, normal, colour);
-            vertex(consumer, pose, left, bottom, z, 1f, 1f, packedLight, normal, colour);
-            vertex(consumer, pose, left, top, z, 1f, 0f, packedLight, normal, colour);
-            vertex(consumer, pose, right, top, z, 0f, 0f, packedLight, normal, colour);
+            vertex(consumer, pose, right, bottom, z, 0f, 1f, packedLight, normal, color);
+            vertex(consumer, pose, left, bottom, z, 1f, 1f, packedLight, normal, color);
+            vertex(consumer, pose, left, top, z, 1f, 0f, packedLight, normal, color);
+            vertex(consumer, pose, right, top, z, 0f, 0f, packedLight, normal, color);
         }
     }
 
     private static void vertex(
             VertexConsumer consumer, Matrix4f pose, float x, float y, float z, float u, float v,
-            int packedLight, float normal, int colour) {
+            int packedLight, float normal, int color) {
         consumer.addVertex(pose, x, y, z)
-                .setColor(colour)
+                .setColor(color)
                 .setUv(u, v)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(packedLight)

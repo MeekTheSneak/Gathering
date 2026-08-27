@@ -141,7 +141,7 @@ class DecklistParserTest {
             "1 Sol Ring (LTC) 284 *E*",
             "1 Sol Ring (LTC) 284 *Foil*",
         })
-        void foilMarkersAreRecognised(String line) {
+        void foilMarkersAreRecognized(String line) {
             DecklistEntry entry = onlyEntry(line);
             assertThat(entry.foil()).isTrue();
             assertThat(entry.name()).isEqualTo("Sol Ring");
@@ -340,7 +340,7 @@ class DecklistParserTest {
 
         @Test
         @DisplayName("pasting a deck link says what to do instead of hunting for a card called https")
-        void deckLinksAreRecognisedAndExplained() {
+        void deckLinksAreRecognizedAndExplained() {
             ParsedDecklist archidekt = DecklistParser.parse("https://archidekt.com/decks/1234567/my_deck");
             ParsedDecklist moxfield = DecklistParser.parse("https://www.moxfield.com/decks/AbCdEf123456");
             ParsedDecklist bare = DecklistParser.parse("archidekt.com/decks/1234567");

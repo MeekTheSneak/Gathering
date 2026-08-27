@@ -211,7 +211,7 @@ public record DraftState(
         }
 
         // Round nought goes left, round one goes right, and so on: a pod that always passed
-        // the same way would spend the whole draft reading one neighbour and being read by
+        // the same way would spend the whole draft reading one neighbor and being read by
         // the other.
         int way = DraftRules.passing(round);
         List<DraftPack> passed = new ArrayList<>(java.util.Collections.nCopies(drafters, null));

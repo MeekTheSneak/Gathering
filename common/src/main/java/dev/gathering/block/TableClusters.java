@@ -16,7 +16,7 @@ import net.minecraft.world.phys.Vec3;
  * <p>Everything about which tables join up, how many seats that makes and where they go is
  * decided in {@code :core}, where it is checked against every shape a player can build. This
  * translates block positions into that vocabulary and back, and does nothing else - so a
- * table's behaviour in the world and the rules that were tested are the same rules.
+ * table's behavior in the world and the rules that were tested are the same rules.
  */
 public final class TableClusters {
 
@@ -32,7 +32,7 @@ public final class TableClusters {
      * Whether a table placed with its corner here would be able to join what is already
      * there.
      *
-     * <p>Asked before the table exists, so it counts the neighbouring clusters rather than
+     * <p>Asked before the table exists, so it counts the neighboring clusters rather than
      * its own. Two separate clusters either side of the gap merge into one when it is filled,
      * which is why this cannot just look at the biggest of them.
      */
@@ -55,12 +55,12 @@ public final class TableClusters {
         java.util.Set<TableCell> joined = new java.util.LinkedHashSet<>();
         joined.add(new TableCell(0, 0));
         for (Side side : Side.values()) {
-            TableCell neighbour = new TableCell(0, 0).step(side);
-            if (!isTableOrigin(level, blockPos(origin, neighbour))) {
+            TableCell neighbor = new TableCell(0, 0).step(side);
+            if (!isTableOrigin(level, blockPos(origin, neighbor))) {
                 continue;
             }
             joined.addAll(TableCluster.around(
-                    neighbour, cell -> isTableOrigin(level, blockPos(origin, cell))).cells());
+                    neighbor, cell -> isTableOrigin(level, blockPos(origin, cell))).cells());
         }
         return joined;
     }

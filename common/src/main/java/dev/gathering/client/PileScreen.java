@@ -181,7 +181,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         int tall = inTheGrid + MARGIN * 2 + header + FOOTER;
         panel = new Rect(
                 (this.width - wanted) / 2, Math.max(0, (this.height - tall) / 2), wanted, tall);
-        // Centred rather than packed to the left. The box is usually as wide as the sentence
+        // Centered rather than packed to the left. The box is usually as wide as the sentence
         // under it rather than as wide as its cards, so a graveyard holding one card put that
         // card in the top-left corner of a box four times its width, and read as a panel that
         // had failed to draw the rest of itself.
@@ -190,7 +190,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                 across, panel.height() - MARGIN * 2 - header - FOOTER);
         scroll = Math.min(scroll, hiddenBelow());
 
-        // At the bottom, centred, like the Done on every other screen in the mod. Beside the
+        // At the bottom, centered, like the Done on every other screen in the mod. Beside the
         // title it was a second thing competing with the heading for the same line, and it
         // was the only screen here that put its way out at the top.
         addRenderableWidget(GatheringButtons.of(
@@ -378,13 +378,13 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         super.render(graphics, mouseX, mouseY, partialTick);
 
         List<CardView> cards = inOrder();
-        GuiText.drawCentred(graphics, this.font, heading(),
+        GuiText.drawCentered(graphics, this.font, heading(),
                 panel.x() + panel.width() / 2, panel.y() + MARGIN,
                 panel.width() - MARGIN * 2, LABEL);
 
         ClientHoverState.clear();
         if (cards.isEmpty()) {
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     Component.translatable(count() == 0
                             ? "screen.gathering.pile.empty"
                             : "screen.gathering.pile.not_yours"),
@@ -401,7 +401,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         // to - so a player deciding a scry has to guess whether 1 is the card they draw next
         // or the one that goes back first. One short line removes the guess.
         if (decision != null && !cards.isEmpty()) {
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.pile.order_hint"),
                     panel.x() + panel.width() / 2, grid.y() - this.font.lineHeight - 1,
                     panel.width() - MARGIN * 2, DIM);
@@ -423,7 +423,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                 int badge = this.font.width(said) + 4;
                 graphics.fill(slot.x() + 2, slot.y() + 2,
                         slot.x() + 2 + badge, slot.y() + 2 + this.font.lineHeight + 1, SENT_AWAY);
-                GuiText.drawCentred(graphics, this.font, said,
+                GuiText.drawCentered(graphics, this.font, said,
                         slot.x() + 2 + badge / 2, slot.y() + 3, badge, LABEL);
             }
             if (hovered && cards.get(index) instanceof CardView.Visible visible) {
@@ -435,7 +435,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
         Component hint = footer(hiddenBelow() > 0);
         if (hint != null) {
-            GuiText.drawCentred(graphics, this.font, hint,
+            GuiText.drawCentered(graphics, this.font, hint,
                     panel.x() + panel.width() / 2,
                     panel.bottom() - MARGIN - BUTTON_HEIGHT - this.font.lineHeight - 4,
                     panel.width() - MARGIN * 2, DIM);
@@ -510,7 +510,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         CardInspectPanel.drawStrength(
                 graphics, this.font, card.writtenStrength().orElse(null), art);
         if (away) {
-            // Greyed rather than moved. A card that jumped to another row every time somebody
+            // Grayed rather than moved. A card that jumped to another row every time somebody
             // changed their mind would make a scry of three a puzzle about where things went.
             graphics.fill(art.x(), art.y(), art.right(), art.bottom(), SENT_AWAY);
         }
@@ -724,7 +724,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         // Past the card it is over when the cursor is on its right-hand half, because that is
         // the gap the card is being aimed at - dropping "on" the last card has to be able to
         // mean after it, or the far end of the row is unreachable.
-        boolean after = draggingAtX > slot.centreX() && landing == howMany - 1;
+        boolean after = draggingAtX > slot.centerX() && landing == howMany - 1;
         int edge = after ? slot.right() + GAP / 2 : slot.x() - GAP / 2;
         graphics.fill(edge - LANDING_WIDTH / 2, slot.y() - 2,
                 edge - LANDING_WIDTH / 2 + LANDING_WIDTH, slot.bottom() + 2, LANDING);

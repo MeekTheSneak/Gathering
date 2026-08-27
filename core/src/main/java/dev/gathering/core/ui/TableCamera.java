@@ -6,7 +6,7 @@ import dev.gathering.core.game.TablePosition;
  * Where the table is being looked at from.
  *
  * <p>The whole screen is the felt now, so something has to say which part of the table is
- * on it: a point the view is centred on and how many pixels a table unit is worth. Everything
+ * on it: a point the view is centered on and how many pixels a table unit is worth. Everything
  * that draws a card or works out what the cursor is pointing at goes through here, which is
  * what keeps them agreeing.
  *
@@ -16,14 +16,14 @@ import dev.gathering.core.game.TablePosition;
  * is never sent anywhere, never stored, and never compared against anybody else's, so the
  * reason to avoid float does not apply and the arithmetic is nicer without it.
  *
- * @param centreX the table point in the middle of the screen, in {@link TablePosition} units
+ * @param centerX the table point in the middle of the screen, in {@link TablePosition} units
  * @param scale   screen pixels per table unit
  * @param spanX   how wide the surface is, so the view cannot be panned off the end of it
  * @param spanY   and how deep
  * @param turned  whether the viewer is sitting at the far side of it - see below
  */
 public record TableCamera(
-        double centreX, double centreY, double scale, int spanX, int spanY, boolean turned) {
+        double centerX, double centerY, double scale, int spanX, int spanY, boolean turned) {
 
     /**
      * A card on a table with one mat on it, which is what the zoom limits are stated against.
@@ -73,8 +73,8 @@ public record TableCamera(
     public TableCamera {
         spanX = Math.max(1, spanX);
         spanY = Math.max(1, spanY);
-        centreX = Math.max(0, Math.min(spanX, centreX));
-        centreY = Math.max(0, Math.min(spanY, centreY));
+        centerX = Math.max(0, Math.min(spanX, centerX));
+        centerY = Math.max(0, Math.min(spanY, centerY));
         scale = clampScale(scale);
     }
 
@@ -85,13 +85,13 @@ public record TableCamera(
      * spread through the arithmetic rather than stated. It is stated now, and this is the
      * common case rather than the only one.
      */
-    public TableCamera(double centreX, double centreY, double scale) {
-        this(centreX, centreY, scale, TablePosition.SPAN, TablePosition.SPAN, false);
+    public TableCamera(double centerX, double centerY, double scale) {
+        this(centerX, centerY, scale, TablePosition.SPAN, TablePosition.SPAN, false);
     }
 
     /** The same view, seen from the chair on the other side of the table. */
     public TableCamera seenFrom(boolean farSide) {
-        return turned == farSide ? this : new TableCamera(centreX, centreY, scale, spanX, spanY, farSide);
+        return turned == farSide ? this : new TableCamera(centerX, centerY, scale, spanX, spanY, farSide);
     }
 
     /** Which way the surface runs against the screen: forwards, or turned around. */
@@ -142,19 +142,19 @@ public record TableCamera(
     // ------------------------------------------------------------- the maths
 
     public double toScreenX(double tableX, int viewportWidth) {
-        return viewportWidth / 2.0 + (tableX - centreX) * scale * sense();
+        return viewportWidth / 2.0 + (tableX - centerX) * scale * sense();
     }
 
     public double toScreenY(double tableY, int viewportHeight) {
-        return viewportHeight / 2.0 + (tableY - centreY) * scale * sense();
+        return viewportHeight / 2.0 + (tableY - centerY) * scale * sense();
     }
 
     public double toTableX(double screenX, int viewportWidth) {
-        return centreX + (screenX - viewportWidth / 2.0) / scale * sense();
+        return centerX + (screenX - viewportWidth / 2.0) / scale * sense();
     }
 
     public double toTableY(double screenY, int viewportHeight) {
-        return centreY + (screenY - viewportHeight / 2.0) / scale * sense();
+        return centerY + (screenY - viewportHeight / 2.0) / scale * sense();
     }
 
     /**
@@ -172,7 +172,7 @@ public record TableCamera(
     /** Drags the view by a number of screen pixels, which is what a pan gesture produces. */
     public TableCamera pannedBy(double pixelsX, double pixelsY) {
         return new TableCamera(
-                centreX - pixelsX / scale * sense(), centreY - pixelsY / scale * sense(),
+                centerX - pixelsX / scale * sense(), centerY - pixelsY / scale * sense(),
                 scale, spanX, spanY, turned);
     }
 
@@ -190,7 +190,7 @@ public record TableCamera(
         if (zoomed == scale) {
             return this;
         }
-        // Solve for the centre that keeps the anchor under the same pixel at the new scale.
+        // Solve for the center that keeps the anchor under the same pixel at the new scale.
         return new TableCamera(
                 anchorX - (screenX - width / 2.0) / zoomed * sense(),
                 anchorY - (screenY - height / 2.0) / zoomed * sense(),

@@ -21,7 +21,7 @@ import net.minecraft.network.codec.StreamCodec;
  * caps exist so a client cannot make the server search a megabyte-long word.
  */
 public record CollectionQuery(
-        String text, String setCode, String colours, String type, Rarity rarity,
+        String text, String setCode, String colors, String type, Rarity rarity,
         CollectionSearch.Sort sort) {
 
     /** Longer than any card name, and short enough that nothing is worth doing with it. */
@@ -33,7 +33,7 @@ public record CollectionQuery(
     public CollectionQuery {
         text = clipped(text);
         setCode = clipped(setCode);
-        colours = clipped(colours).toUpperCase(Locale.ROOT);
+        colors = clipped(colors).toUpperCase(Locale.ROOT);
         type = clipped(type);
         sort = sort == null ? CollectionSearch.Sort.NAME : sort;
     }
@@ -42,7 +42,7 @@ public record CollectionQuery(
             StreamCodec.composite(
                     ByteBufCodecs.stringUtf8(MOST_CHARACTERS), CollectionQuery::text,
                     ByteBufCodecs.stringUtf8(MOST_CHARACTERS), CollectionQuery::setCode,
-                    ByteBufCodecs.stringUtf8(MOST_CHARACTERS), CollectionQuery::colours,
+                    ByteBufCodecs.stringUtf8(MOST_CHARACTERS), CollectionQuery::colors,
                     ByteBufCodecs.stringUtf8(MOST_CHARACTERS), CollectionQuery::type,
                     ByteBufCodecs.idMapper(
                             id -> id <= 0 || id > Rarity.values().length
@@ -60,28 +60,28 @@ public record CollectionQuery(
     /** The search this asks for. */
     public CollectionSearch.Query asSearch(boolean descending) {
         Set<String> wanted = new LinkedHashSet<>();
-        for (char colour : colours.toCharArray()) {
-            if (colour != ' ') {
-                wanted.add(String.valueOf(colour));
+        for (char color : colors.toCharArray()) {
+            if (color != ' ') {
+                wanted.add(String.valueOf(color));
             }
         }
         return new CollectionSearch.Query(text, setCode, wanted, rarity, type, sort, descending);
     }
 
     public CollectionQuery searchingFor(String newText) {
-        return new CollectionQuery(newText, setCode, colours, type, rarity, sort);
+        return new CollectionQuery(newText, setCode, colors, type, rarity, sort);
     }
 
     public CollectionQuery orderedBy(CollectionSearch.Sort newSort) {
-        return new CollectionQuery(text, setCode, colours, type, rarity, newSort);
+        return new CollectionQuery(text, setCode, colors, type, rarity, newSort);
     }
 
-    public CollectionQuery inColours(String newColours) {
-        return new CollectionQuery(text, setCode, newColours, type, rarity, sort);
+    public CollectionQuery inColors(String newColors) {
+        return new CollectionQuery(text, setCode, newColors, type, rarity, sort);
     }
 
     public CollectionQuery ofRarity(Rarity newRarity) {
-        return new CollectionQuery(text, setCode, colours, type, newRarity, sort);
+        return new CollectionQuery(text, setCode, colors, type, newRarity, sort);
     }
 
     private static String clipped(String value) {

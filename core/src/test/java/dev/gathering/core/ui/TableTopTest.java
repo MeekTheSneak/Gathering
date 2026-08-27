@@ -59,7 +59,7 @@ class TableTopTest {
 
             assertThat(spot).isPresent();
             assertThat(spot.get().y())
-                    .describedAs("travelled forward as far as it fell")
+                    .describedAs("traveled forward as far as it fell")
                     .isCloseTo(TableSurface.SPAN * (height / TABLE.span()), within(0.5));
         }
 

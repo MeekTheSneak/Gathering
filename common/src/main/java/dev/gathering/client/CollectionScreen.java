@@ -128,14 +128,14 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
                 Component.literal(">"), () -> turnTo(page + 1));
         addRenderableWidget(nextButton);
 
-        // Colour and rarity are buttons rather than something to type, because a search box
+        // Color and rarity are buttons rather than something to type, because a search box
         // that understands "c:wu" is a query language, and a query language is a thing to
         // learn. Six pips and a cycle say the same and can be found by looking.
         int pipsX = MARGIN;
         int pipsY = MARGIN + 42;
-        for (String colour : COLOURS) {
+        for (String color : COLORS) {
             addRenderableWidget(GatheringButtons.of(pipsX, pipsY, 18, 16,
-                    Component.literal(colour), () -> toggleColour(colour)));
+                    Component.literal(color), () -> toggleColor(color)));
             pipsX += 20;
         }
         rarityButton = GatheringButtons.of(pipsX + 6, pipsY, 92, 16, rarityLabel(), this::nextRarity);
@@ -163,24 +163,24 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         askFor(page);
     }
 
-    /** WUBRG and colourless, in the order a player reads them. */
-    private static final String[] COLOURS = {"W", "U", "B", "R", "G", "C"};
+    /** WUBRG and colorless, in the order a player reads them. */
+    private static final String[] COLORS = {"W", "U", "B", "R", "G", "C"};
 
     /** The rarities worth filtering by, and off. */
     private static final Rarity[] RARITIES = {
             null, Rarity.COMMON, Rarity.UNCOMMON, Rarity.RARE, Rarity.MYTHIC};
 
     /**
-     * Turns one colour on or off.
+     * Turns one color on or off.
      *
-     * <p>Several on means at least all of them, which is how anybody already reads a colour
+     * <p>Several on means at least all of them, which is how anybody already reads a color
      * filter: white and blue finds the Azorius card, not the mono-white ones.
      */
-    private void toggleColour(String colour) {
-        String now = query.colours();
-        query = query.inColours(now.contains(colour)
-                ? now.replace(colour, "")
-                : now + colour);
+    private void toggleColor(String color) {
+        String now = query.colors();
+        query = query.inColors(now.contains(color)
+                ? now.replace(color, "")
+                : now + color);
         askFor(0);
     }
 
@@ -306,22 +306,22 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
                 Component.translatable("screen.gathering.collection.holding", total, distinct),
                 MARGIN + this.font.width(title) + 8, MARGIN, DIM, false);
 
-        drawColoursOn(graphics);
+        drawColorsOn(graphics);
         drawRows(graphics, mouseX, mouseY);
         drawFooter(graphics);
     }
 
     /**
-     * A line under the colours that are on.
+     * A line under the colors that are on.
      *
      * <p>A vanilla button has no on state, and six buttons that all look the same whether
      * they are doing anything is a filter nobody can read.
      */
-    private void drawColoursOn(GuiGraphics graphics) {
+    private void drawColorsOn(GuiGraphics graphics) {
         int x = MARGIN;
         int y = MARGIN + 42 + 15;
-        for (String colour : COLOURS) {
-            if (query.colours().contains(colour)) {
+        for (String color : COLORS) {
+            if (query.colors().contains(color)) {
                 graphics.fill(x + 2, y, x + 16, y + 1, 0xFFE8C86A);
             }
             x += 20;

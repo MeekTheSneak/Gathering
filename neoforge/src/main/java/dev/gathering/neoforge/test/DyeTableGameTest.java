@@ -52,9 +52,9 @@ public final class DyeTableGameTest {
         helper.succeed();
     }
 
-    /** The same colour, whichever cell it is read back from. */
+    /** The same color, whichever cell it is read back from. */
     @GameTest(template = "empty")
-    public static void everyCellReadsTheSameColour(GameTestHelper helper) {
+    public static void everyCellReadsTheSameColor(GameTestHelper helper) {
         BlockPos origin = table(helper);
         TableBlock.entityAt(helper.getLevel(), origin).orElseThrow().dye(DyeColor.LIME);
 
@@ -72,14 +72,14 @@ public final class DyeTableGameTest {
     }
 
     /**
-     * The colour is in what the client is sent, not only in what is saved.
+     * The color is in what the client is sent, not only in what is saved.
      *
-     * <p>Colour lives on the block entity rather than in the blockstate, so nothing tells a
+     * <p>Color lives on the block entity rather than in the blockstate, so nothing tells a
      * client about it unless the update tag carries it - and a dyed table that only the
      * server knows about is a table that is not dyed as far as anybody can see.
      */
     @GameTest(template = "empty")
-    public static void theColourIsInWhatTheClientIsSent(GameTestHelper helper) {
+    public static void theColorIsInWhatTheClientIsSent(GameTestHelper helper) {
         BlockPos origin = table(helper);
         TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
         table.dye(DyeColor.ORANGE);
@@ -87,7 +87,7 @@ public final class DyeTableGameTest {
         HolderLookup.Provider registries = helper.getLevel().registryAccess();
         CompoundTag sent = table.getUpdateTag(registries);
         if (!sent.contains("felt") || !"orange".equals(sent.getString("felt"))) {
-            helper.fail("the update sent to clients does not carry the felt colour");
+            helper.fail("the update sent to clients does not carry the felt color");
             return;
         }
         helper.succeed();
@@ -95,7 +95,7 @@ public final class DyeTableGameTest {
 
     /** And it survives being written down. */
     @GameTest(template = "empty")
-    public static void theColourSurvivesARestart(GameTestHelper helper) {
+    public static void theColorSurvivesARestart(GameTestHelper helper) {
         BlockPos origin = table(helper);
         TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
         table.dye(DyeColor.PURPLE);
@@ -112,9 +112,9 @@ public final class DyeTableGameTest {
         helper.succeed();
     }
 
-    /** Dyeing it the colour it already is changes nothing, so the dye is not eaten. */
+    /** Dyeing it the color it already is changes nothing, so the dye is not eaten. */
     @GameTest(template = "empty")
-    public static void dyeingItTheSameColourTwiceIsNotAChange(GameTestHelper helper) {
+    public static void dyeingItTheSameColorTwiceIsNotAChange(GameTestHelper helper) {
         BlockPos origin = table(helper);
         TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
         if (!table.dye(DyeColor.RED)) {

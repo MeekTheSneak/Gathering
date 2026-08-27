@@ -46,7 +46,7 @@ public sealed interface LogArg {
     /**
      * Sorts one of {@link LogLine}'s raw arguments into its shape.
      *
-     * <p>Anything unrecognised becomes its own text rather than an exception. A log line that
+     * <p>Anything unrecognized becomes its own text rather than an exception. A log line that
      * renders a little bluntly is a far better failure than a session that will not broadcast,
      * and the alternative is that adding an argument type to one event breaks every table.
      */

@@ -10,7 +10,7 @@ import java.util.Objects;
  * <p>One request at a time behind a {@link RateLimiter}, a bounded number of attempts, a
  * backoff that grows between them, and one rule about which failures are worth trying again:
  * a 429 or a 5xx is the far end having a moment, while a 404 is an answer and a 400 is this
- * mod's mistake. Interruption is honoured rather than swallowed, because these calls sit on a
+ * mod's mistake. Interruption is honored rather than swallowed, because these calls sit on a
  * pool that gets shut down when a world closes.
  *
  * <p>Here rather than inside one API's client because the mod talks to three different places

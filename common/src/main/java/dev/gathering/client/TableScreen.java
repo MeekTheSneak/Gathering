@@ -28,7 +28,7 @@ import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Legibility;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.Shaking;
-import dev.gathering.core.ui.SeatColour;
+import dev.gathering.core.ui.SeatColor;
 import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
 import dev.gathering.core.ui.TableScreenLayout;
@@ -87,7 +87,7 @@ public final class TableScreen extends Screen {
     private static final int DIM = 0xFF9A9690;
     private static final int ACCENT = 0xFF6FD3E8;
 
-    /** The pot's own colour: the stakes gold the consent screen uses, not a board accent. */
+    /** The pot's own color: the stakes gold the consent screen uses, not a board accent. */
     private static final int POT_LABEL = 0xFFE0B15A;
     private static final int TAPPED_TINT = 0x60000000;
     private static final int GHOST_TINT = 0x50000000;
@@ -599,7 +599,7 @@ public final class TableScreen extends Screen {
      */
     private boolean myMatIsOnTheSouthHalf() {
         return mySeat()
-                .map(seat -> onBlock.matRect(seat).centreY() > onBlock.surface().height() / 2.0)
+                .map(seat -> onBlock.matRect(seat).centerY() > onBlock.surface().height() / 2.0)
                 .orElse(false);
     }
 
@@ -897,7 +897,7 @@ public final class TableScreen extends Screen {
         renderHeldCard(graphics, board, mouseX, mouseY);
 
         if (!attaching.isEmpty()) {
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.table.attaching", attaching.size()),
                     this.width / 2, 6, this.width - 16, ACCENT);
         }
@@ -973,10 +973,10 @@ public final class TableScreen extends Screen {
                 boolean mine = me != null && me.equals(seat.seat());
                 graphics.fill(mat.x(), mat.y(), mat.right(), mat.bottom(), mine ? MAT_MINE : MAT);
             }
-            // The seat's own colour, which is how four identical rectangles become four
+            // The seat's own color, which is how four identical rectangles become four
             // boards. Brighter for whoever's turn it is, faint for a chair nobody is in.
             graphics.renderOutline(mat.x(), mat.y(), mat.width(), mat.height(),
-                    SeatColour.at(seat.seat().index(), !taken ? FREE_SEAT_EDGE
+                    SeatColor.at(seat.seat().index(), !taken ? FREE_SEAT_EDGE
                             : seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
             if (!taken) {
                 continue;
@@ -1018,19 +1018,19 @@ public final class TableScreen extends Screen {
                 Math.min(1f, (box.height() - 2f) / this.font.lineHeight));
         int way = mySeat().isEmpty() ? 0 : lifeWayUnder(seat.seat(), cursorX, cursorY);
         graphics.fill(box.x(), box.y(), box.right(), box.bottom(), LIFE_BACKING);
-        // In its own seat's colour, the same way the mat is - and brighter under the cursor,
+        // In its own seat's color, the same way the mat is - and brighter under the cursor,
         // the same way everything pressable here is. Two boards facing each other put their
-        // counters in the same strip of table between them, back to back, and in one grey
+        // counters in the same strip of table between them, back to back, and in one gray
         // the pair read as a single control with neither saying which board it was for.
         graphics.renderOutline(box.x(), box.y(), box.width(), box.height(),
-                SeatColour.at(seat.seat().index(), way == 0 ? 0xAA : 0xFF));
+                SeatColor.at(seat.seat().index(), way == 0 ? 0xAA : 0xFF));
         // In what the two ends leave, not in half the box: half the box plus two ends better
         // than a quarter each comes to more than there is, and two figures filling it ran
         // into both signs.
         Rect middle = TableSurface.lifeMiddle(box);
         Component total = Component.literal(Integer.toString(seat.life()));
-        GuiText.drawCentredAt(graphics, this.font, total, (int) middle.centreX(),
-                (int) box.centreY() - this.font.lineHeight / 2, scale, LABEL);
+        GuiText.drawCenteredAt(graphics, this.font, total, (int) middle.centerX(),
+                (int) box.centerY() - this.font.lineHeight / 2, scale, LABEL);
         // A minus over the end that takes one off and a plus over the end that puts one on,
         // asked of the same function the press is, so the two cannot end up disagreeing.
         drawLifeEnd(graphics, seat.seat(), box, -1, way, scale);
@@ -1046,8 +1046,8 @@ public final class TableScreen extends Screen {
         if (end.isEmpty() || end.width() < this.font.width("+") * scale) {
             return;
         }
-        GuiText.drawCentredAt(graphics, this.font, Component.literal(way < 0 ? "-" : "+"),
-                (int) end.centreX(), (int) box.centreY() - this.font.lineHeight / 2,
+        GuiText.drawCenteredAt(graphics, this.font, Component.literal(way < 0 ? "-" : "+"),
+                (int) end.centerX(), (int) box.centerY() - this.font.lineHeight / 2,
                 scale, lit == way ? ACCENT : ZONE_LABEL);
     }
 
@@ -1211,8 +1211,8 @@ public final class TableScreen extends Screen {
                 tooltip = tipFor(VERB_NAMES[index], VERB_KEY_NAMES[index]);
             }
             if (everyVerbNameFits(where.width() - 2)) {
-                GuiText.drawCentredAt(graphics, this.font, VERB_NAMES[index],
-                        (int) where.centreX(), (int) where.centreY() - this.font.lineHeight / 2,
+                GuiText.drawCenteredAt(graphics, this.font, VERB_NAMES[index],
+                        (int) where.centerX(), (int) where.centerY() - this.font.lineHeight / 2,
                         GuiText.scaleForTheSet(
                                 this.font, longestOf(VERB_NAMES), where.width() - 2),
                         hovered ? LABEL : ZONE_LABEL);
@@ -1388,19 +1388,19 @@ public final class TableScreen extends Screen {
                     art.width(), art.height(), art.width(), art.height());
         }
 
-        // Name on the felt beside the slot, count in the slot's own corner. Four unlabelled
+        // Name on the felt beside the slot, count in the slot's own corner. Four unlabeled
         // boxes stacked in a column are only readable by somebody who already knows the order
         // they come in, and the order is the one thing a player coming from a physical table
         // has no reason to know.
         Rect named = board().pileLabelRect(view.seat(), Zone.PILES.indexOf(zone), pileCount());
         if (!named.isEmpty() && everyZoneNameFits(named.width())) {
-            // Flush against the slot column rather than centred in its own box, so the
+            // Flush against the slot column rather than centered in its own box, so the
             // names line up with each other and with the boxes they name. Which side the
             // column is on is read off the two rectangles: a mat is mirrored for the player
             // opposite, and asking the mat again here would be a second copy of that rule.
             float scale = GuiText.scaleForTheSet(
                     this.font, longestOf(ZONE_NAMES), named.width());
-            int baseline = (int) named.centreY() - this.font.lineHeight / 2;
+            int baseline = (int) named.centerY() - this.font.lineHeight / 2;
             if (named.x() < art.x()) {
                 GuiText.drawFlushRight(graphics, this.font, ZoneText.name(zone),
                         named.right(), baseline, scale, ZONE_LABEL);
@@ -1620,8 +1620,8 @@ public final class TableScreen extends Screen {
         graphics.fill(band.x(), band.y(), band.right(), band.bottom(),
                 lit ? TAX_LIT : TAX_BACKING);
         Component label = Component.literal("+" + tax);
-        int baseline = (int) band.centreY() - this.font.lineHeight / 2;
-        GuiText.drawCentredAt(graphics, this.font, label, (int) band.centreX(), baseline,
+        int baseline = (int) band.centerY() - this.font.lineHeight / 2;
+        GuiText.drawCenteredAt(graphics, this.font, label, (int) band.centerX(), baseline,
                 numberScale(band), lit ? ACCENT : LABEL);
     }
 
@@ -1667,7 +1667,7 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * A name, and under it in grey the key that does the same thing.
+     * A name, and under it in gray the key that does the same thing.
      *
      * <p>The key is on the tooltip rather than only in the key list because the moment a
      * player wants to know it is the moment they are already pointing at the button, and a
@@ -1927,7 +1927,7 @@ public final class TableScreen extends Screen {
         int left = where.right() - width - 1;
         int top = where.y() + 1;
         graphics.fill(left, top, left + width, top + high, PILE_BADGE);
-        GuiText.drawCentredAt(
+        GuiText.drawCenteredAt(
                 graphics, this.font, label, left + width / 2, top + 1, scale, PILE_TEXT);
     }
 
@@ -1971,7 +1971,7 @@ public final class TableScreen extends Screen {
         SeatId seat = mySeat().orElse(null);
         if (seat == null) {
             handSaid = Component.translatable("screen.gathering.table.spectating").getString();
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.table.spectating"),
                     area.x() + area.width() / 2, area.bottom() - 14, area.width(), DIM);
             return;
@@ -1984,7 +1984,7 @@ public final class TableScreen extends Screen {
             // window that has failed rather than as a hand you have played out. A spectator
             // has been told why their strip is empty since the day they had one; a player who
             // has just emptied theirs deserves the same sentence.
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.table.hand_empty"),
                     area.x() + area.width() / 2, area.bottom() - 14, area.width(), DIM);
             return;
@@ -2067,7 +2067,7 @@ public final class TableScreen extends Screen {
             }
             GuiText.draw(graphics, this.font, text,
                     area.x() + 4 + index * column, line, column - 8,
-                    SeatColour.at(seat.seat().index(), 0xFF));
+                    SeatColor.at(seat.seat().index(), 0xFF));
         }
 
         // A chair nobody is in is named by its number rather than called "(empty)". The
@@ -2164,7 +2164,7 @@ public final class TableScreen extends Screen {
         }
         logSaid = wrote.toString();
         if (log.isEmpty()) {
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.table.log_empty"),
                     area.x() + area.width() / 2, (first + last) / 2, area.width() - 10, DIM);
         }
@@ -2455,8 +2455,8 @@ public final class TableScreen extends Screen {
         // the table, and a card held over a table is not lying on it.
         SeatId sizedFor = landing != null ? landing : held.from();
         Rect comingDownOn = playingOnTheBlock
-                ? centredOnCursor(mouseX, mouseY, sizedFor)
-                : centred(mouseX - held.grabX(), mouseY - held.grabY(),
+                ? centeredOnCursor(mouseX, mouseY, sizedFor)
+                : centered(mouseX - held.grabX(), mouseY - held.grabY(),
                         board().cardWidth(sizedFor), board().cardHeight(sizedFor));
 
         // Where it would come down, cast on the table, and the card itself held up off it.
@@ -2513,7 +2513,7 @@ public final class TableScreen extends Screen {
         drawCountInTheCorner(graphics, airborne, count);
     }
 
-    private static Rect centred(int middleX, int middleY, int width, int height) {
+    private static Rect centered(int middleX, int middleY, int width, int height) {
         return new Rect(middleX - width / 2, middleY - height / 2, width, height);
     }
 
@@ -2530,7 +2530,7 @@ public final class TableScreen extends Screen {
      * and at four times or a quarter of the cards underneath it everywhere else, which is the
      * ballooning again by another route.
      */
-    private Rect centredOnCursor(int mouseX, int mouseY, SeatId sizedFor) {
+    private Rect centeredOnCursor(int mouseX, int mouseY, SeatId sizedFor) {
         double blocks = board().surface().cardHeightOn(sizedFor.index())
                 / (double) TableSurface.SPAN * TableTop.SPAN_BLOCKS;
         int height = Math.max(24, (int) Math.round(blocks * TableCameraView.pixelsPerBlock()));
@@ -2681,8 +2681,8 @@ public final class TableScreen extends Screen {
             return new Held(card, seat, fromHand, fromPile, 0, 0, x, y, now, false);
         }
         return new Held(card, seat, fromHand, fromPile,
-                (int) Math.round(at[0] - where.centreX()),
-                (int) Math.round(at[1] - where.centreY()), x, y, now, false);
+                (int) Math.round(at[0] - where.centerX()),
+                (int) Math.round(at[1] - where.centerY()), x, y, now, false);
     }
 
     /**
@@ -4366,7 +4366,7 @@ public final class TableScreen extends Screen {
         // Said rather than assumed, and inside the tray. A row of cards in the middle of a
         // table is not obviously a pot, and somebody who missed the message when it was
         // staked has nothing else to tell them what they are looking at or what it is for.
-        GuiText.drawCentred(graphics, this.font,
+        GuiText.drawCentered(graphics, this.font,
                 Component.translatable("screen.gathering.table.the_pot", pot.size()),
                 tray.x() + tray.width() / 2, area.bottom() + 2, tray.width() - 4, POT_LABEL);
     }
@@ -4395,9 +4395,9 @@ public final class TableScreen extends Screen {
         boolean turned = Math.floorMod(angle, 360) != 0;
         if (turned) {
             graphics.pose().pushPose();
-            graphics.pose().translate((float) where.centreX(), (float) where.centreY(), 0f);
+            graphics.pose().translate((float) where.centerX(), (float) where.centerY(), 0f);
             graphics.pose().mulPose(Axis.ZP.rotationDegrees(angle));
-            graphics.pose().translate((float) -where.centreX(), (float) -where.centreY(), 0f);
+            graphics.pose().translate((float) -where.centerX(), (float) -where.centerY(), 0f);
         }
         if (onTheFelt) {
             // Cast first, under everything, so the card above reads as being above. Only the
@@ -4508,7 +4508,7 @@ public final class TableScreen extends Screen {
      * card at, which a mark in a corner does not.
      *
      * <p>Cold on purpose against the warm gold of a written power and toughness and the cyan
-     * of the cursor: three marks on one card have to be three colours or they are one mark.
+     * of the cursor: three marks on one card have to be three colors or they are one mark.
      */
     private void drawFrost(GuiGraphics graphics, Rect where) {
         graphics.fill(where.x(), where.y(), where.right(), where.bottom(), FROZEN_TINT);

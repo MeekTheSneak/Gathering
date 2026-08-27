@@ -6,7 +6,7 @@ import dev.gathering.core.testing.Fixtures;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** Behaviour the pre-game validator will lean on, checked against real printings. */
+/** Behavior the pre-game validator will lean on, checked against real printings. */
 class CardMetadataTest {
 
     @Test

@@ -11,7 +11,7 @@ import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientCardRequests;
 import dev.gathering.client.DevScene;
 import dev.gathering.client.ClientNetworking;
-import dev.gathering.client.TableColours;
+import dev.gathering.client.TableColors;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
 import dev.gathering.client.ZoomKeyState;
@@ -79,7 +79,7 @@ public final class GatheringNeoForgeClient {
      *
      * <p>Through the event rather than {@code Item#initializeClient}, which is deprecated for
      * removal - and which would have forced a NeoForge-only subclass of an item that otherwise
-     * has no loader-specific behaviour at all.
+     * has no loader-specific behavior at all.
      */
     public static void onRegisterClientExtensions(RegisterClientExtensionsEvent event) {
         event.registerItem(new IClientItemExtensions() {
@@ -98,15 +98,15 @@ public final class GatheringNeoForgeClient {
 
     /** The felt is one texture tinted per table, so the tint needs a handler on each loader. */
     @SubscribeEvent
-    public static void onRegisterBlockColours(
+    public static void onRegisterBlockColors(
             net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Block event) {
-        event.register(TableColours::tintOf, GatheringContent.TABLE.get());
+        event.register(TableColors::tintOf, GatheringContent.TABLE.get());
     }
 
     @SubscribeEvent
-    public static void onRegisterItemColours(
+    public static void onRegisterItemColors(
             net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.Item event) {
-        event.register((stack, tintIndex) -> TableColours.itemTintOf(tintIndex),
+        event.register((stack, tintIndex) -> TableColors.itemTintOf(tintIndex),
                 GatheringContent.TABLE_ITEM.get());
     }
 

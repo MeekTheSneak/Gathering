@@ -68,7 +68,7 @@ public final class RandomPick {
     /**
      * Keeps a number inside the range it was asked for.
      *
-     * <p>Nothing here trusts the source to honour its own bound. It is a function passed in,
+     * <p>Nothing here trusts the source to honor its own bound. It is a function passed in,
      * and one that answered out of range would read past the end of a hand - an exception in
      * the middle of somebody's turn, on the server, over a discard.
      */

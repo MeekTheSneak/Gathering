@@ -31,12 +31,12 @@ class TableCameraTest {
     class TheTransform {
 
         @Test
-        @DisplayName("the point the camera is centred on is drawn in the middle of the screen")
-        void theCentreIsTheCentre() {
+        @DisplayName("the point the camera is centered on is drawn in the middle of the screen")
+        void theCenterIsTheCenter() {
             TableCamera camera = TableCamera.showingAll(WIDTH, HEIGHT);
 
-            assertThat(camera.toScreenX(camera.centreX(), WIDTH)).isCloseTo(WIDTH / 2.0, within(0.001));
-            assertThat(camera.toScreenY(camera.centreY(), HEIGHT)).isCloseTo(HEIGHT / 2.0, within(0.001));
+            assertThat(camera.toScreenX(camera.centerX(), WIDTH)).isCloseTo(WIDTH / 2.0, within(0.001));
+            assertThat(camera.toScreenY(camera.centerY(), HEIGHT)).isCloseTo(HEIGHT / 2.0, within(0.001));
         }
 
         @Test
@@ -133,11 +133,11 @@ class TableCameraTest {
             // Grab the felt and pull right: the table comes right. The inverse of this is the
             // single most common way a pan feels wrong.
             TableCamera camera = new TableCamera(5000, 5000, 0.05);
-            double wasAtCentre = camera.toTableX(WIDTH / 2.0, WIDTH);
+            double wasAtCenter = camera.toTableX(WIDTH / 2.0, WIDTH);
 
             TableCamera panned = camera.pannedBy(100, 0);
 
-            assertThat(panned.toTableX(WIDTH / 2.0, WIDTH)).isLessThan(wasAtCentre);
+            assertThat(panned.toTableX(WIDTH / 2.0, WIDTH)).isLessThan(wasAtCenter);
         }
 
         @Test
@@ -147,8 +147,8 @@ class TableCameraTest {
 
             TableCamera far = camera.pannedBy(-100000, -100000);
 
-            assertThat(far.centreX()).isBetween(0.0, (double) TablePosition.SPAN);
-            assertThat(far.centreY()).isBetween(0.0, (double) TablePosition.SPAN);
+            assertThat(far.centerX()).isBetween(0.0, (double) TablePosition.SPAN);
+            assertThat(far.centerY()).isBetween(0.0, (double) TablePosition.SPAN);
         }
     }
 
@@ -156,12 +156,12 @@ class TableCameraTest {
     void screenAndTableAgreeInBothDirections(
             @ForAll @IntRange(min = 320, max = 3840) int width,
             @ForAll @IntRange(min = 240, max = 2160) int height,
-            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int centre,
+            @ForAll @IntRange(min = 0, max = TablePosition.SPAN) int center,
             @ForAll @DoubleRange(min = 0.01, max = 0.4) double scale,
             @ForAll @IntRange(min = -4000, max = 4000) int screenX) {
         // The property the whole screen rests on. A card is drawn by going one way and clicked
         // by going the other, so a camera where those disagree is a table you cannot use.
-        TableCamera camera = new TableCamera(centre, centre, scale);
+        TableCamera camera = new TableCamera(center, center, scale);
 
         double table = camera.toTableX(screenX, width);
         double andBack = camera.toScreenX(table, width);

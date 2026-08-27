@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  * <p>Which means editing a pool the game has already loaded, because a data pack can only replace
  * one of those whole - and a mod that replaced {@code village/plains/houses} would be a mod that
  * quietly deleted every other mod's village building. Adding to the list is the only version of
- * this that is a good neighbour.
+ * this that is a good neighbor.
  *
  * <p>Everything about the shop itself is published data: the buildings are structure files and
  * the pool entry that names one is a template pool of this mod's own, so what is added here is

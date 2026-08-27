@@ -24,7 +24,7 @@ import java.util.Set;
  *       unload and a server restart without a bespoke save format.</li>
  * </ul>
  *
- * <p>Mutable at the edges, immutable at the centre: this object holds a growing log and a
+ * <p>Mutable at the edges, immutable at the center: this object holds a growing log and a
  * cached {@link GameState}, and the state itself is a value that is never modified.
  *
  * <p>Not thread-safe, and not meant to be. A session belongs to the server thread; the card

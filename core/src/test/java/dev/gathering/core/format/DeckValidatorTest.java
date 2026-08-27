@@ -245,11 +245,11 @@ class DeckValidatorTest {
     }
 
     @Nested
-    @DisplayName("colour identity")
-    class ColourIdentity {
+    @DisplayName("color identity")
+    class ColorIdentity {
 
         @Test
-        @DisplayName("a card outside the commander's colours is rejected")
+        @DisplayName("a card outside the commander's colors is rejected")
         void containmentIsChecked() {
             List<CardMetadata> deck = new ArrayList<>(List.of(FOREST));
             deck.addAll(Collections.nCopies(98, swampish(FOREST)));
@@ -257,7 +257,7 @@ class DeckValidatorTest {
             ValidationResult result = DeckValidator.validate(
                     commanderDeck(List.of(TEVESH_SZAT), deck), FormatPresets.COMMANDER);
 
-            assertThat(codes(result)).contains("colour_identity");
+            assertThat(codes(result)).contains("color_identity");
             assertThat(result.errors()).anySatisfy(issue ->
                     assertThat(issue.message()).contains("Forest"));
         }
@@ -268,7 +268,7 @@ class DeckValidatorTest {
                     commanderDeck(List.of(HALANA_AND_ALENA), Collections.nCopies(99, FOREST)),
                     FormatPresets.COMMANDER);
 
-            assertThat(codes(result)).doesNotContain("colour_identity");
+            assertThat(codes(result)).doesNotContain("color_identity");
         }
 
         @Test
@@ -276,7 +276,7 @@ class DeckValidatorTest {
         void nonCommanderFormatsSkipTheCheck() {
             ValidationResult result = DeckValidator.validate(sixtyCardDeck(pad(60)), FormatPresets.MODERN);
 
-            assertThat(codes(result)).doesNotContain("colour_identity");
+            assertThat(codes(result)).doesNotContain("color_identity");
         }
     }
 
@@ -334,7 +334,7 @@ class DeckValidatorTest {
         return new ValidatableDeck("Test deck", mainboard, List.of(), List.of());
     }
 
-    /** Filler that never trips a copy limit or a colour check: basic lands, in two colours. */
+    /** Filler that never trips a copy limit or a color check: basic lands, in two colors. */
     private static List<CardMetadata> pad(int count) {
         List<CardMetadata> cards = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
@@ -343,7 +343,7 @@ class DeckValidatorTest {
         return cards;
     }
 
-    /** A colourless stand-in, so a mono-black commander's deck has something legal in it. */
+    /** A colorless stand-in, so a mono-black commander's deck has something legal in it. */
     private static CardMetadata swampish(CardMetadata basic) {
         JsonObject json = Fixtures.json("forest");
         json.addProperty("id", "00000000-0000-4000-8000-0000000000aa");

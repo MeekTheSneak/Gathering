@@ -75,7 +75,7 @@ public final class PackOpeningScreen extends Screen {
     private int packHeight;
 
     /**
-     * What colour comes out of the tear, and whether that answer is final.
+     * What color comes out of the tear, and whether that answer is final.
      *
      * <p>Worked out from the summaries this client holds, which arrive in the packets just
      * ahead of the pack - so almost always before the screen opens, and not always. Until
@@ -228,7 +228,7 @@ public final class PackOpeningScreen extends Screen {
                     && mouseY >= y && mouseY < y + laid.cardHeight()) {
                 over = card;
             }
-            // The one the pack was opened for, ringed in its own colour.
+            // The one the pack was opened for, ringed in its own color.
             if (index == revealed.size() - 1 && glow != PackGlow.NO_LIGHT) {
                 graphics.renderOutline(x - 1, y - 1, laid.cardWidth() + 2, laid.cardHeight() + 2,
                         glow);
@@ -319,11 +319,11 @@ public final class PackOpeningScreen extends Screen {
         }
     }
 
-    /** The set's symbol, printed on the wrapper in the product's colour. */
+    /** The set's symbol, printed on the wrapper in the product's color. */
     private void drawSymbol(GuiGraphics graphics, int crimp) {
         int side = (int) (packWidth * 0.42);
-        int colour = PackWrapper.symbolColour(kind);
-        ClientSetSymbols.get().symbol(setCode, colour, 128).ifPresent(symbol -> {
+        int color = PackWrapper.symbolColor(kind);
+        ClientSetSymbols.get().symbol(setCode, color, 128).ifPresent(symbol -> {
             int x = packX + (packWidth - side) / 2;
             int y = crimp + (packY + packHeight - crimp - side) / 2;
             graphics.blit(symbol, x, y, 0f, 0f, side, side, side, side);

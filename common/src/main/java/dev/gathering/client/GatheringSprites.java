@@ -13,7 +13,7 @@ import net.minecraft.resources.ResourceLocation;
  * reskin the whole mod. Nine-slice also means one small texture stretches to any panel size
  * without the border smearing, so screens can be laid out freely.
  *
- * <p>Colours come from the design brief's GUI note: readability-first dark felt with an
+ * <p>Colors come from the design brief's GUI note: readability-first dark felt with an
  * accent, rather than a theme inherited from anything.
  */
 public final class GatheringSprites {
@@ -25,7 +25,7 @@ public final class GatheringSprites {
     public static final ResourceLocation PANEL_INSET =
             ResourceLocation.fromNamespaceAndPath(Gathering.MOD_ID, "panel_inset");
 
-    /** Selection and hover, in the accent colour. */
+    /** Selection and hover, in the accent color. */
     public static final ResourceLocation ROW_HIGHLIGHT =
             ResourceLocation.fromNamespaceAndPath(Gathering.MOD_ID, "row_highlight");
 

@@ -57,7 +57,7 @@ class DraftStateTest {
         DraftState afterOne = pod.declare(DrafterId.of(0), List.of(0, 1));
 
         assertThat(afterOne.packHeldBy(DrafterId.of(1)))
-                .describedAs("a neighbour's pack has not moved")
+                .describedAs("a neighbor's pack has not moved")
                 .isEqualTo(first);
         assertThat(afterOne.poolOf(DrafterId.of(0)))
                 .describedAs("and nothing has reached a pool yet either")

@@ -8,12 +8,12 @@ import java.util.Locale;
  * Turns {@code {T}: Add {C}{C}} into something that can be drawn as symbols.
  *
  * <p>Oracle text writes mana and tap symbols as braced codes, and read as literal text they
- * are noise in the middle of every sentence a card says. Each recognised code maps to a
+ * are noise in the middle of every sentence a card says. Each recognized code maps to a
  * private-use character in the mod's own symbol font, so the text can be handed to the game's
  * ordinary text layout - which then does wrapping, width and styling for symbols exactly as
  * it does for letters, instead of this having to reimplement all three.
  *
- * <p>Anything unrecognised is left exactly as written, braces and all. A symbol nobody has
+ * <p>Anything unrecognized is left exactly as written, braces and all. A symbol nobody has
  * drawn yet should read as {@code {W/P}} rather than disappear or become a blank box.
  *
  * <p>The symbols are the mod's own art - lettered discs, not Wizards' pictographs - for the
@@ -32,7 +32,7 @@ public final class ManaSymbols {
      * inserting, which would renumber every glyph after it.
      */
     public static final List<String> NAMES = List.of(
-            // Colours, colourless, snow.
+            // Colors, colorless, snow.
             "w", "u", "b", "r", "g", "c", "s",
             // Generic costs.
             "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
@@ -51,7 +51,7 @@ public final class ManaSymbols {
      * Codes whose letter is not their texture name.
      *
      * <p>Oracle text writes the tap symbol as {@code {T}}, and a texture called {@code t}
-     * next to {@code w} and {@code u} would read as a colour. The alias keeps the file names
+     * next to {@code w} and {@code u} would read as a color. The alias keeps the file names
      * saying what they are.
      */
     private static final java.util.Map<String, String> ALIASES = java.util.Map.of(

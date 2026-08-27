@@ -81,10 +81,10 @@ EDGE_FRACTION = 0.010
 SUPERSAMPLE = 4
 
 
-def rgba(colour, alpha=255):
-    if len(colour) == 4:
-        return colour
-    return colour + (alpha,)
+def rgba(color, alpha=255):
+    if len(color) == 4:
+        return color
+    return color + (alpha,)
 
 
 def write_png(path, width, height, pixels):
@@ -133,12 +133,12 @@ def nine_slice(name, fill, edge, lip=None, size=32, border=8):
         for x in range(size):
             depth = min(x, y, size - 1 - x, size - 1 - y)
             if depth == 0:
-                colour = edge
+                color = edge
             elif depth == 1 and lip is not None:
-                colour = lip
+                color = lip
             else:
-                colour = fill
-            px[y][x] = rgba(colour)
+                color = fill
+            px[y][x] = rgba(color)
     path = f"{OUT}/{name}.png"
     write_png(path, size, size, px)
     write_mcmeta(path, border, size, size)
@@ -218,14 +218,14 @@ def scrollbar():
 # Mana and tap symbols.
 #
 # Our own art: lettered discs, not Wizards' pictographs, for the same reason the card back
-# is our own. The colours are the conventional five because which colour a cost is happens
+# is our own. The colors are the conventional five because which color a cost is happens
 # to be the information the symbol carries.
 #
 # Order must match ManaSymbols.NAMES exactly - the index is the glyph's codepoint.
 # ---------------------------------------------------------------------------
 SYMBOL_SIZE = 32
 
-MANA_COLOURS = {
+MANA_COLORS = {
     "w": (0xFF, 0xFB, 0xD5),
     "u": (0x9A, 0xD9, 0xF7),
     "b": (0xA9, 0x9F, 0x9C),
@@ -281,23 +281,23 @@ def over(under, above):
 
 
 def disc_sample(fx, fy, size, left, right, split):
-    """The disc's colour at one point, or transparent outside it.
+    """The disc's color at one point, or transparent outside it.
 
-    `split` picks how the two colours are divided: None for a plain disc, "diagonal" for a
+    `split` picks how the two colors are divided: None for a plain disc, "diagonal" for a
     hybrid, "slash" for the Phyrexian bar.
     """
-    centre = size / 2.0
-    radius = centre - 1.0
-    dx = fx - centre
-    dy = fy - centre
+    center = size / 2.0
+    radius = center - 1.0
+    dx = fx - center
+    dy = fy - center
     distance = (dx * dx + dy * dy) ** 0.5
     if distance > radius:
         return (0, 0, 0, 0)
 
-    colour = left
+    color = left
     if split == "diagonal" and (dx - dy) > 0:
-        colour = right
-    body = colour + (255,)
+        color = right
+    body = color + (255,)
     if distance > radius - 1.5:
         # A dark rim so a pale disc still reads against a pale background.
         return over(body, SYMBOL_RIM)
@@ -332,8 +332,8 @@ def symbol(name):
     split = None
     glyphs = []
 
-    if name in MANA_COLOURS:
-        left = right = MANA_COLOURS[name]
+    if name in MANA_COLORS:
+        left = right = MANA_COLORS[name]
         glyphs = [name.upper()]
     elif name in ("tap", "untap", "energy"):
         glyphs = [{"tap": "T", "untap": "Q", "energy": "E"}[name]]
@@ -342,14 +342,14 @@ def symbol(name):
     elif name.isdigit():
         glyphs = list(name)
     elif len(name) == 2 and name[1] == "p":
-        left = right = MANA_COLOURS[name[0]]
+        left = right = MANA_COLORS[name[0]]
         glyphs = ["P"]
     elif len(name) == 2 and name[0] == "2":
-        left, right = GENERIC, MANA_COLOURS[name[1]]
+        left, right = GENERIC, MANA_COLORS[name[1]]
         split = "diagonal"
         glyphs = []
     elif len(name) == 2:
-        left, right = MANA_COLOURS[name[0]], MANA_COLOURS[name[1]]
+        left, right = MANA_COLORS[name[0]], MANA_COLORS[name[1]]
         split = "diagonal"
         glyphs = []
 
@@ -456,11 +456,11 @@ def collection(size=16):
     dark = PALETTE["cabinet_dark"]
     lip = PALETTE["cabinet_lip"]
 
-    def grained(x, y, colour):
+    def grained(x, y, color):
         h = (x * 73856093) ^ (y * 19349663)
         h = (h ^ (h >> 13)) & 0xFFFF
         grain = (h % 5) - 2
-        return tuple(max(0, min(255, c + grain)) for c in colour) + (255,)
+        return tuple(max(0, min(255, c + grain)) for c in color) + (255,)
 
     side = blank(size, size)
     for y in range(size):
@@ -497,11 +497,11 @@ def shop_counter(size=16):
     top_wood = PALETTE["counter_top"]
     glass = PALETTE["counter_glass"]
 
-    def grained(x, y, colour):
+    def grained(x, y, color):
         h = (x * 83492791) ^ (y * 29863331)
         h = (h ^ (h >> 13)) & 0xFFFF
         grain = (h % 5) - 2
-        return tuple(max(0, min(255, c + grain)) for c in colour) + (255,)
+        return tuple(max(0, min(255, c + grain)) for c in color) + (255,)
 
     def panelled(window):
         px = blank(size, size)

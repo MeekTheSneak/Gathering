@@ -186,9 +186,9 @@ public final class CardInspectPanel {
     /**
      * The printed face, or both of them, filling a box a screen has set aside.
      *
-     * <p>The art keeps its proportions and is centred in whatever is left, so a box that is
+     * <p>The art keeps its proportions and is centered in whatever is left, so a box that is
      * not exactly card-shaped - or a double-faced card sharing one box - letterboxes rather
-     * than stretching. A stretched card looks like a rendering bug; a centred one looks like
+     * than stretching. A stretched card looks like a rendering bug; a centered one looks like
      * a layout.
      */
     public static void renderArt(
@@ -312,7 +312,7 @@ public final class CardInspectPanel {
         // cards either side, which reads as the interface being broken rather than as the art
         // not having arrived.
         int room = Math.max(1, width - PADDING * 2);
-        GuiText.drawCentred(graphics, font, Component.literal(face.name()),
+        GuiText.drawCentered(graphics, font, Component.literal(face.name()),
                 x + width / 2, y + PADDING, room, TEXT);
 
         Component message = url.isEmpty()
@@ -393,7 +393,7 @@ public final class CardInspectPanel {
         }
     }
 
-    private static void wrap(List<Line> into, Font font, String text, int width, int colour) {
+    private static void wrap(List<Line> into, Font font, String text, int width, int color) {
         if (text == null || text.isEmpty()) {
             return;
         }
@@ -401,7 +401,7 @@ public final class CardInspectPanel {
             // Through ManaText, so {T} and {1}{W} arrive as symbols - and, because they are
             // just styled characters, wrap and measure like any other text.
             for (FormattedCharSequence sequence : font.split(ManaText.of(paragraph), width)) {
-                into.add(new Line(sequence, colour));
+                into.add(new Line(sequence, color));
             }
         }
     }
@@ -423,7 +423,7 @@ public final class CardInspectPanel {
                 break;
             }
             if (item.text() != null) {
-                graphics.drawString(font, item.text(), x, line, item.colour(), false);
+                graphics.drawString(font, item.text(), x, line, item.color(), false);
             }
             line += height;
         }
@@ -434,7 +434,7 @@ public final class CardInspectPanel {
     }
 
     /** One drawn line, or - with no text - the gap that separates two blocks of them. */
-    private record Line(FormattedCharSequence text, int colour) {
+    private record Line(FormattedCharSequence text, int color) {
 
         private static final int RULE_HEIGHT = 4;
 
@@ -471,7 +471,7 @@ public final class CardInspectPanel {
     /**
      * The box a written power and toughness is drawn in.
      *
-     * <p>Warm rather than the cool grey the rest of the board uses, because it is the one
+     * <p>Warm rather than the cool gray the rest of the board uses, because it is the one
      * number on a card that somebody put there by hand, and the difference between "printed"
      * and "we agreed this" should be visible from across the table.
      */
@@ -505,7 +505,7 @@ public final class CardInspectPanel {
         int top = floor - high;
         graphics.fill(left, top, left + wide, top + high, STRENGTH_BADGE);
         graphics.renderOutline(left, top, wide, high, STRENGTH_EDGE);
-        GuiText.drawCentredAt(graphics, font, numbers, left + wide / 2, top + 1, 1f, STRENGTH_TEXT);
+        GuiText.drawCenteredAt(graphics, font, numbers, left + wide / 2, top + 1, 1f, STRENGTH_TEXT);
         return top - 1;
     }
 }

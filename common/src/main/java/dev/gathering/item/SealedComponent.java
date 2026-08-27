@@ -15,7 +15,7 @@ import net.minecraft.network.codec.StreamCodec;
  * thirty-six boosters - and a box in a chest is one slot rather than a slot per pack.
  *
  * <p>The name is carried because it is the only part a client can read on its own. Everything
- * else about the product lives in a catalogue the server holds and the client has never seen,
+ * else about the product lives in a catalog the server holds and the client has never seen,
  * so a box with no name on it would be a nameless brown box on every shelf and in every hand.
  *
  * @param setCode   which set, lower case as Scryfall writes it

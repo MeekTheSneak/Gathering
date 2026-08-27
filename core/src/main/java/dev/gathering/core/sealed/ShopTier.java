@@ -35,8 +35,8 @@ public final class ShopTier {
     }
 
     /** Which level of shopkeeper stocks this, from one to {@link #LEVELS}. */
-    public static int of(SealedProduct product, SealedCatalogue catalogue) {
-        return ofBoosters(SealedPrice.inBoosters(product, catalogue));
+    public static int of(SealedProduct product, SealedCatalog catalog) {
+        return ofBoosters(SealedPrice.inBoosters(product, catalog));
     }
 
     /** Which level stocks something worth this many boosters. */
@@ -56,13 +56,13 @@ public final class ShopTier {
      * cases, and a player who wants a single booster buys it from any of the other four.
      */
     public static List<SealedShelf.Item> at(
-            SealedShelf shelf, SealedCatalogue catalogue, int level) {
+            SealedShelf shelf, SealedCatalog catalog, int level) {
         List<SealedShelf.Item> stock = new ArrayList<>();
         if (shelf == null || level < 1 || level > LEVELS) {
             return List.of();
         }
         for (SealedShelf.Item item : shelf.items()) {
-            if (of(item.product(), catalogue) == level) {
+            if (of(item.product(), catalog) == level) {
                 stock.add(item);
             }
         }

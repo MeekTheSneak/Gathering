@@ -38,7 +38,7 @@ public record DeckScreenLayout(
      *
      * <p>The top is deliberately short of the full width. The edge line and the shadow
      * outside it need somewhere to go, and at 1.0 they fall off the right of the texture -
-     * which is not a subtle artefact, it is the top corner of the panel arriving unfinished.
+     * which is not a subtle artifact, it is the top corner of the panel arriving unfinished.
      */
     public static final float TAPER_TOP = 0.90f;
     public static final float TAPER_BOTTOM = 0.74f;
@@ -72,7 +72,7 @@ public record DeckScreenLayout(
 
     /**
      * Six, one per basic land, Wastes included. This was five, which was the layout quietly
-     * deciding a colourless deck could not have its lands - the list itself lives in
+     * deciding a colorless deck could not have its lands - the list itself lives in
      * {@link dev.gathering.core.card.BasicLand} and this only has to match its length.
      */
     public static final int LAND_BUTTONS = dev.gathering.core.card.BasicLand.values().length;

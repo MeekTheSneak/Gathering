@@ -22,7 +22,7 @@ import net.minecraft.network.chat.Component;
  */
 public abstract class ChildScreen extends Screen {
 
-    /** Where closing goes. Null means out, which is the ordinary behaviour. */
+    /** Where closing goes. Null means out, which is the ordinary behavior. */
     private final Screen back;
 
     protected ChildScreen(Component title, Screen back) {

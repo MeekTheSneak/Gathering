@@ -42,7 +42,7 @@ which is:
 ```
 ./gradlew build                       # compile, JUnit + jqwik, module fences
 ./gradlew :neoforge:runData           # datagen; catches generated-resource drift
-./gradlew :neoforge:runGameTestServer # headless in-world behaviour; exit code = failed tests
+./gradlew :neoforge:runGameTestServer # headless in-world behavior; exit code = failed tests
 ```
 
 Nothing is done until these exit zero. A passing read-through is not a substitute.
@@ -53,7 +53,7 @@ Client rendering is not mechanically checkable and the gate does not pretend oth
 it does cover on the client side is everything below the pixels: payload codecs round-trip
 against real registries in game tests, and `runClient` boots headless under Xvfb with
 software GL, which proves the client classes load, the events register, and the models and
-textures resolve. Whether the overlay *reads well* is a judgement call - play it.
+textures resolve. Whether the overlay *reads well* is a judgment call - play it.
 
 ```
 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./gradlew :neoforge:runClient
@@ -158,7 +158,7 @@ cannot be inferred from reading the code.
   in `:core`, tested against a real progressive fixture). Never route card art back through
   `NativeImage.read`.
 - **`setPixelRGBA` wants ABGR** (`0xAABBGGRR`) despite the name, while Java's `BufferedImage`
-  gives ARGB. Getting it backwards renders plausible, wrong colours - blue lands come out
+  gives ARGB. Getting it backwards renders plausible, wrong colors - blue lands come out
   orange - rather than failing.
 - **Client image failures log at WARN, on purpose.** Each URL is attempted once, so it is one
   line per card, and art that will not draw is the most visible way this mod can look broken.
@@ -168,7 +168,7 @@ cannot be inferred from reading the code.
 - **Attach item renderers with `RegisterClientExtensionsEvent`** (in
   `neoforge.client.extensions.common`, not `client.event`). `Item#initializeClient` still
   works on 21.1.248 but is deprecated for removal, and using it would force a NeoForge-only
-  subclass of an item that has no other loader-specific behaviour.
+  subclass of an item that has no other loader-specific behavior.
 - **A custom item renderer is only consulted if the item's model is `builtin/entity`.**
   `card.json` is hand-authored for that reason and deliberately excluded from datagen; its
   display transforms are meant to be edited by hand.
@@ -234,7 +234,7 @@ cannot be inferred from reading the code.
   server applied, and there is no packet pushing a fresh copy at it - held-item sync already
   does that.
 - **The carried stack's `overrideStackedOnOther` runs before the slot stack's
-  `overrideOtherStackedOnMe`.** Both fire from `tryItemClickBehaviourOverride`, first match
+  `overrideOtherStackedOnMe`.** Both fire from `tryItemClickBehaviorOverride`, first match
   wins, so which item implements which hook decides who handles a click. Card-onto-card is
   handled by the card *in the slot*, which is also the only one of the two hooks handed a
   `SlotAccess` for the cursor.
@@ -268,7 +268,7 @@ cannot be inferred from reading the code.
   names are arbitrary text of arbitrary length and the font has one size, so text shrinks to
   fit and only trims when shrinking further would stop it being readable.
 - **The GUI sprites are generated from a palette** by `tools/gui_textures.py`, so a whole
-  coherent set - and later a whole theme - comes from one block of colours rather than from
+  coherent set - and later a whole theme - comes from one block of colors rather than from
   editing seven PNGs by hand. The PNGs are still the source of truth: repaint one and the
   screens change, and a resource pack can replace any of them.
 - **An empty deck deletes itself.** `DeckEdits` removes it when the edit that emptied it is
@@ -280,24 +280,24 @@ cannot be inferred from reading the code.
   width and drawing for symbols exactly as it does for letters. Writing a token-aware layout
   pass instead means reimplementing all three and having them disagree with the rest of the
   text.
-- **Three artefacts have to agree on which glyph is which**: `ManaSymbols.NAMES`, the
+- **Three artifacts have to agree on which glyph is which**: `ManaSymbols.NAMES`, the
   generator that draws the textures, and `font/mana.json`. Nothing connects them at compile
   time and getting it wrong does not fail - it draws a different mana symbol, which on a card
   is a different cost. `ManaFontGameTest` reads the font back and matches it against the
   list. Append to `NAMES`, never insert: inserting renumbers every glyph after it.
 - **The mana symbols are the mod's own art**, lettered discs rather than Wizards'
-  pictographs, for the same reason the card back is. The five colours are the conventional
-  ones because which colour a cost is happens to be the information the symbol carries.
+  pictographs, for the same reason the card back is. The five colors are the conventional
+  ones because which color a cost is happens to be the information the symbol carries.
 - **`TAPER_TOP` is 0.90 and not 1.0 on purpose.** The panel's edge line and the shadow
   outside it need somewhere to go, and at 1.0 they run off the right of the texture - which
-  is not a subtle artefact, it is the top corner of the panel arriving unfinished.
+  is not a subtle artifact, it is the top corner of the panel arriving unfinished.
 - **The scrollbar is anchored to the edge at the *top* of the panel.** The shear carries it
   the rest of the way in. Anchoring it to the narrow end and then shearing it as well tapers
   it twice and walks it off the panel.
 - **Card art gets its corners rounded at decode, not by drawing over them.** What sits behind
   a card is different everywhere it appears - a frame, a panel, a dimmed world - so a corner
-  mask painted in one background colour is right in exactly one place. Only the alpha is
-  cleared, never the colour, because `entityCutout` in the world does not blend and a
+  mask painted in one background color is right in exactly one place. Only the alpha is
+  cleared, never the color, because `entityCutout` in the world does not blend and a
   zeroed pixel would leave black corners.
 - **`GuiText` works in `FormattedText`, never in `String`.** Flattening to a string to
   measure or trim silently drops the styling the caller added - a bold title comes out plain
@@ -341,7 +341,7 @@ cannot be inferred from reading the code.
   platform surface.
 - **A table is four blocks and one of them is real.** The north-west corner carries the block
   entity and owns the table; the other three know where it is. Breaking any quarter takes the
-  whole table, guarded by checking the neighbour really is this table's quarter - without
+  whole table, guarded by checking the neighbor really is this table's quarter - without
   that, breaking a corner takes a bite out of the table pushed up against it.
 - **Seat claims live on the table whose edge they are.** A seat is (table, edge), so storing
   the claim there means it is saved with that table and comes back with it, and reshaping a
@@ -357,7 +357,7 @@ cannot be inferred from reading the code.
   on it would put somebody inside the furniture and one would make a four-table cluster seat
   seven. So the count is per cluster and the seats are placed around its perimeter, facing
   pairs first. The property tests caught this; the first implementation seated seven.
-- **Colour lives in the block entity, not the blockstate.** A dyeable surface in the
+- **Color lives in the block entity, not the blockstate.** A dyeable surface in the
   blockstate multiplies a block's state count by sixteen to answer a question only the
   renderer ever asks. The cost is that a blockstate change will not sync it, so the block
   entity has to say so itself: `sendBlockUpdated` on change, plus `getUpdateTag` and

@@ -14,7 +14,7 @@ import dev.gathering.core.game.visibility.SeatView;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.Shaking;
-import dev.gathering.core.ui.SeatColour;
+import dev.gathering.core.ui.SeatColor;
 import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
@@ -43,7 +43,7 @@ import org.joml.Matrix4f;
  * the room that a game is happening and roughly how it is going, and you can walk over and
  * watch. It draws the <b>public</b> board and nothing else - the spectator view, the same one
  * anybody standing at the table would get - so a face-down card is a card back here for the
- * same reason it is one on the table it is modelled on.
+ * same reason it is one on the table it is modeled on.
  *
  * <p><b>The same board the screen draws, through the same arithmetic.</b> This used to squash
  * each seat's region into a band of its own, which was a second layout: a card sat in one
@@ -102,7 +102,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
 
     /** The line round a group of zones, and how thick it is drawn. */
-    private static final int GROUP_EDGE_COLOUR = 0x66FFFFFF;
+    private static final int GROUP_EDGE_COLOR = 0x66FFFFFF;
     /**
      * As a share of the box's narrow side, which is a zone's width and not its height.
      *
@@ -113,8 +113,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private static final float GROUP_EDGE_THICKNESS = 0.08f;
 
     /** An empty zone, and the line round it. Dark, because it is a recess in the mat. */
-    private static final int SLOT_COLOUR = 0x55000000;
-    private static final int SLOT_EDGE_COLOUR = 0x99000000;
+    private static final int SLOT_COLOR = 0x55000000;
+    private static final int SLOT_EDGE_COLOR = 0x99000000;
 
     /** And the same zone with a card being held over it, waiting to be let go. */
     private static final int SLOT_AIMED = 0x664FA4CF;
@@ -139,20 +139,20 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** The patch a count is written on, so it reads over a card's art rather than into it. */
     private static final int COUNT_BACKING = 0xC0000000;
 
-    private static final int WRITING_COLOUR = 0xFFE8E4DC;
+    private static final int WRITING_COLOR = 0xFFE8E4DC;
 
     /** How much of a slot's width a line of writing may take up. */
     private static final float WRITING_ROOM = 0.86f;
 
     /** The halo under the card the cursor is on, and how far it sticks out past it. */
-    private static final int RING_COLOUR = 0xCC7FD4FF;
+    private static final int RING_COLOR = 0xCC7FD4FF;
     private static final float RING_THICKNESS = 0.09f;
 
     /** Just under the card, so the halo shows around the edges and not through the art. */
     private static final float RING_DROP = 0.0003f;
 
     /** A taken seat's mat, and the darker line around it. Read from above, in a lit room. */
-    private static final int MAT_COLOUR = 0x30000000;
+    private static final int MAT_COLOR = 0x30000000;
 
     /** The wash over the mat a card in the air would land on. */
     private static final int MAT_LANDING = 0x334FA4CF;
@@ -160,7 +160,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /**
      * How solid a mat's border is drawn.
      *
-     * <p>The border carries the seat's own colour, which is the whole of how four boards laid
+     * <p>The border carries the seat's own color, which is the whole of how four boards laid
      * out on one surface are told apart. Everything else about them is identical.
      */
     private static final int MAT_EDGE_ALPHA = 0xCC;
@@ -231,7 +231,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // A free chair keeps its outline and loses everything else - the same answer the
             // seated screen gives, because the two are the same board.
             drawMat(poseStack, buffers, surface.matOf(index), span,
-                    SeatColour.at(index, taken ? MAT_EDGE_ALPHA : FREE_SEAT_ALPHA), taken,
+                    SeatColor.at(index, taken ? MAT_EDGE_ALPHA : FREE_SEAT_ALPHA), taken,
                     taken && ClientTableHighlight.isLandingOn(board.seats().get(index).seat()));
             if (taken) {
                 // The same buttons the seated board prints, in the same places, because they
@@ -247,7 +247,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                     flat(buffers.getBuffer(RenderType.debugQuads()), poseStack.last().pose(),
                             onSurface(divider.x(), span), onSurface(divider.y(), span),
                             onSurface(divider.right(), span), onSurface(divider.bottom(), span),
-                            GROUP_EDGE_COLOUR);
+                            GROUP_EDGE_COLOR);
                 }
             }
         }
@@ -365,7 +365,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         Matrix4f pose = poseStack.last().pose();
 
         if (filled) {
-            flat(consumer, pose, left, top, right, bottom, MAT_COLOUR);
+            flat(consumer, pose, left, top, right, bottom, MAT_COLOR);
         }
         if (landing) {
             // The side of the table a card in the air would come down on. Lit across the
@@ -497,7 +497,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 // it here - and why a band measured against the surface's bottom edge came
                 // out across the top of the card. Measured from the far edge instead, the
                 // tax lands at the same end of the slot as every count beside it.
-                float bandZ = z + onSurface(slot.bottom() - taxBand.centreY(), span);
+                float bandZ = z + onSurface(slot.bottom() - taxBand.centerY(), span);
                 // Written to the band rather than to a count's line, because that is what it
                 // has: a count is a badge in a corner and gets a corner's worth of room, and
                 // a tax is a band across the whole slot. Given the count's height it came out
@@ -521,7 +521,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                         ? onSurface(named.right(), span) - half
                         : onSurface(named.x(), span) + half;
                 writing(poseStack, buffers, packedLight, zoneName,
-                        middle, onSurface(named.centreY(), span), nameHeight, room, angle, 0);
+                        middle, onSurface(named.centerY(), span), nameHeight, room, angle, 0);
             }
         }
     }
@@ -569,7 +569,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     }
 
     /**
-     * A line of writing lying flat on the surface, centred on a point and turned to face the
+     * A line of writing lying flat on the surface, centered on a point and turned to face the
      * seat it belongs to.
      *
      * <p>The font draws into the XY plane facing the camera, so it is tipped a quarter turn
@@ -578,7 +578,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private void writing(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
-            Component text, float centreX, float centreZ, float lineHeight, float maxWidth,
+            Component text, float centerX, float centerZ, float lineHeight, float maxWidth,
             int angle, int backing) {
         if (lineHeight <= 0f) {
             return;
@@ -590,13 +590,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         }
         float scale = writingScale(text, lineHeight, maxWidth);
         poseStack.pushPose();
-        poseStack.translate(centreX, WRITING_LIFT, centreZ);
+        poseStack.translate(centerX, WRITING_LIFT, centerZ);
         if (Math.floorMod(angle, 360) != 0) {
             poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-angle));
         }
         poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(90f));
         poseStack.scale(scale, scale, scale);
-        font.drawInBatch(text, -drawn / 2f, -font.lineHeight / 2f, WRITING_COLOUR,
+        font.drawInBatch(text, -drawn / 2f, -font.lineHeight / 2f, WRITING_COLOR,
                 false, poseStack.last().pose(), buffers, Font.DisplayMode.NORMAL,
                 backing, packedLight);
         poseStack.popPose();
@@ -658,12 +658,12 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         float bottom = onSurface(box.bottom(), span);
         flat(buffers.getBuffer(RenderType.debugQuads()), poseStack.last().pose(),
                 left, top, right, bottom, LIFE_BACKING);
-        // In its own seat's colour, the same way the mat is. Two boards facing each other
+        // In its own seat's color, the same way the mat is. Two boards facing each other
         // put their counters in the same strip of table between them, back to back; drawn in
-        // the one grey every other marking uses, the pair read as a single control and
+        // the one gray every other marking uses, the pair read as a single control and
         // neither said which board it belonged to.
         drawGroup(poseStack, buffers, box, span,
-                dev.gathering.core.ui.SeatColour.at(seatIndex, 0xAA));
+                dev.gathering.core.ui.SeatColor.at(seatIndex, 0xAA));
         // Turned to face its own player, like everything else printed for one seat, so both
         // players read their own total the right way up.
         int angle = surface.facingDegrees(seatIndex);
@@ -672,7 +672,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         Rect middle = TableSurface.lifeMiddle(box);
         writing(poseStack, buffers, packedLight,
                 Component.literal(Integer.toString(seat.life())),
-                onSurface(middle.centreX(), span), (top + bottom) / 2f, lineHeight,
+                onSurface(middle.centerX(), span), (top + bottom) / 2f, lineHeight,
                 onSurface(middle.width(), span), angle, 0);
         // The same minus and plus the seated board prints on the ends, because the ends are
         // buttons here too - the screen casts its ray at this board and presses them. A pair
@@ -696,7 +696,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             return;
         }
         writing(poseStack, buffers, packedLight, Component.literal(way < 0 ? "-" : "+"),
-                onSurface(end.centreX(), span), onSurface(end.centreY(), span),
+                onSurface(end.centerX(), span), onSurface(end.centerY(), span),
                 lineHeight, onSurface(end.width(), span) * LIFE_END_WRITING, angle, 0);
     }
 
@@ -717,11 +717,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private void drawGroup(
             PoseStack poseStack, MultiBufferSource buffers, Rect group, float span) {
-        drawGroup(poseStack, buffers, group, span, GROUP_EDGE_COLOUR);
+        drawGroup(poseStack, buffers, group, span, GROUP_EDGE_COLOR);
     }
 
     private void drawGroup(
-            PoseStack poseStack, MultiBufferSource buffers, Rect group, float span, int colour) {
+            PoseStack poseStack, MultiBufferSource buffers, Rect group, float span, int color) {
         if (group.isEmpty()) {
             return;
         }
@@ -733,10 +733,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
         VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
         Matrix4f pose = poseStack.last().pose();
-        flat(consumer, pose, left, top, right, top + edge, colour);
-        flat(consumer, pose, left, bottom - edge, right, bottom, colour);
-        flat(consumer, pose, left, top, left + edge, bottom, colour);
-        flat(consumer, pose, right - edge, top, right, bottom, colour);
+        flat(consumer, pose, left, top, right, top + edge, color);
+        flat(consumer, pose, left, bottom - edge, right, bottom, color);
+        flat(consumer, pose, left, top, left + edge, bottom, color);
+        flat(consumer, pose, right - edge, top, right, bottom, color);
     }
 
     /**
@@ -752,9 +752,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         float edge = Math.min(width, depth) * SLOT_EDGE_THICKNESS;
         VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
         Matrix4f pose = poseStack.last().pose();
-        int border = aimed ? RING_COLOUR : SLOT_EDGE_COLOUR;
+        int border = aimed ? RING_COLOR : SLOT_EDGE_COLOR;
 
-        flat(consumer, pose, x, z, x + width, z + depth, aimed ? SLOT_AIMED : SLOT_COLOUR);
+        flat(consumer, pose, x, z, x + width, z + depth, aimed ? SLOT_AIMED : SLOT_COLOR);
         flat(consumer, pose, x, z, x + width, z + edge, border);
         flat(consumer, pose, x, z + depth - edge, x + width, z + depth, border);
         flat(consumer, pose, x, z, x + edge, z + depth, border);
@@ -856,7 +856,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
         flat(consumer, poseStack.last().pose(),
                 -width / 2f - grow, -depth / 2f - grow,
-                width / 2f + grow, depth / 2f + grow, RING_COLOUR);
+                width / 2f + grow, depth / 2f + grow, RING_COLOR);
         poseStack.popPose();
     }
 
@@ -911,7 +911,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 .setNormal(0f, 1f, 0f);
     }
 
-    /** A flat coloured rectangle on the surface, wound to face the sky. */
+    /** A flat colored rectangle on the surface, wound to face the sky. */
     private static void flat(
             VertexConsumer consumer, Matrix4f pose,
             float left, float top, float right, float bottom, int argb) {

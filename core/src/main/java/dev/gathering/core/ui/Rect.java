@@ -43,16 +43,16 @@ public record Rect(int x, int y, int width, int height) {
         return new Rect(x + inset, y + inset, width - inset * 2, height - inset * 2);
     }
 
-    public double centreX() {
+    public double centerX() {
         return x + width / 2.0;
     }
 
-    public double centreY() {
+    public double centerY() {
         return y + height / 2.0;
     }
 
     /**
-     * Whether a point is on this rectangle after it has been turned about its centre.
+     * Whether a point is on this rectangle after it has been turned about its center.
      *
      * <p>A card lying at an angle is still a card-shaped thing, so clicking it means clicking
      * the card and not its bounding box: turn a card forty-five degrees and a quarter of that
@@ -68,12 +68,12 @@ public record Rect(int x, int y, int width, int height) {
             return contains(pointX, pointY);
         }
         double radians = Math.toRadians(-Math.floorMod(degrees, 360));
-        double offsetX = pointX - centreX();
-        double offsetY = pointY - centreY();
+        double offsetX = pointX - centerX();
+        double offsetY = pointY - centerY();
         double cos = Math.cos(radians);
         double sin = Math.sin(radians);
-        double localX = offsetX * cos - offsetY * sin + centreX();
-        double localY = offsetX * sin + offsetY * cos + centreY();
+        double localX = offsetX * cos - offsetY * sin + centerX();
+        double localY = offsetX * sin + offsetY * cos + centerY();
         return localX >= x && localX < right() && localY >= y && localY < bottom();
     }
 }

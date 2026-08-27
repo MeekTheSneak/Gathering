@@ -90,7 +90,7 @@ looking at its output rather than by reading code.
 - [x] Card identity (`{scryfall_id, foil, custom_id?}`) and card metadata
 - [x] Decklist parser - Moxfield, Archidekt, Arena, MTGO, deckstats, plain
 - [x] Scryfall client: batched collection resolution, rate limiting, retry, disk cache
-- [x] Deck import from pasted text, or from an Archidekt link. Moxfield is recognised and
+- [x] Deck import from pasted text, or from an Archidekt link. Moxfield is recognized and
       deliberately never fetched - it refuses third-party readers, so the mod says so and
       tells you where its export button is rather than hammering it
 - [x] Card and deck items carrying the data component, on both loaders
@@ -138,7 +138,7 @@ A server writes `config/gathering-server.toml` on its first start, with every se
 default and a sentence above it saying what it does. The two that matter are at the top:
 `import_enabled` decides whether players can turn a decklist into a deck out of nothing, and
 `collection_enabled` decides whether cards are things you find and own. Everything else hangs
-off those. A setting the mod does not recognise is reported in the log rather than ignored,
+off those. A setting the mod does not recognize is reported in the log rather than ignored,
 and a file it cannot read at all leaves the server running on the defaults rather than
 refusing to start.
 

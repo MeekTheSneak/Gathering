@@ -15,7 +15,7 @@ import java.util.Set;
  *
  * <p>Keyed by identity, which already means printing and finish together - so a foil Lightning
  * Bolt and an ordinary one are two entries, as they are two cards. Nothing here knows a card's
- * name, colour or rarity; those are looked up, and looking them up is the job of whatever is
+ * name, color or rarity; those are looked up, and looking them up is the job of whatever is
  * showing the collection.
  *
  * <p>Immutable, and its order is the order things were first put in. That matters more than it

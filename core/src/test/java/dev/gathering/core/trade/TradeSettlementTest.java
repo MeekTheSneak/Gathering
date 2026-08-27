@@ -8,7 +8,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("Whether a struck trade can be honoured")
+@DisplayName("Whether a struck trade can be honored")
 class TradeSettlementTest {
 
     private static final UUID ANA = UUID.fromString("11111111-1111-4111-8111-111111111111");

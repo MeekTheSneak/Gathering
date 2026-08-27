@@ -12,17 +12,17 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 /**
- * A set's symbol, as a shape that can be drawn at any size in any colour.
+ * A set's symbol, as a shape that can be drawn at any size in any color.
  *
  * <p>Scryfall publishes one of these per set and it is the only picture of a set that exists
  * anywhere the mod is allowed to take one from. There is no booster wrapper photograph in any
  * API this mod may use, and a shop's product shot is a shop's product shot - so the symbol on
  * a plain wrapper is what a pack looks like, which is also what a pack looks like in a
- * catalogue and on the back of a box.
+ * catalog and on the back of a box.
  *
  * <p>Kept as shapes rather than as a picture, so one download serves every size a screen ever
- * wants and every colour a product comes in. What comes out is coverage - how much of each
- * pixel the symbol fills - and the colour is the caller's business.
+ * wants and every color a product comes in. What comes out is coverage - how much of each
+ * pixel the symbol fills - and the color is the caller's business.
  *
  * <p>Everything about the shapes that is not filled area is deliberately ignored: stroke,
  * gradients, opacity. A set symbol is a silhouette and this reads it as one.
@@ -99,8 +99,8 @@ public record SetSymbol(double width, double height, List<Outline> outlines) {
             throws SvgException {
         String rule = element.getAttribute("fill-rule");
         boolean here = rule.isBlank() ? evenOdd : "evenodd".equalsIgnoreCase(rule.trim());
-        String colour = element.getAttribute("fill");
-        String inherited = colour.isBlank() ? fill : colour.trim();
+        String color = element.getAttribute("fill");
+        String inherited = color.isBlank() ? fill : color.trim();
 
         NodeList children = element.getChildNodes();
         for (int index = 0; index < children.getLength(); index++) {
@@ -165,9 +165,9 @@ public record SetSymbol(double width, double height, List<Outline> outlines) {
     /**
      * How much of each pixel the symbol covers, in a square of this many pixels a side.
      *
-     * <p>Fitted to the square with its shape kept and centred in whichever direction it does
+     * <p>Fitted to the square with its shape kept and centered in whichever direction it does
      * not fill, because set symbols are every proportion from nearly square to three times as
-     * wide as they are tall, and one stretched to fit is a symbol nobody recognises.
+     * wide as they are tall, and one stretched to fit is a symbol nobody recognizes.
      *
      * @return one byte a pixel, row by row from the top: nought outside, 255 fully covered
      */

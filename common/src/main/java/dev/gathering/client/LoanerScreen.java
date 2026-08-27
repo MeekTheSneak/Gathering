@@ -15,7 +15,7 @@ import net.minecraft.network.chat.Component;
  *
  * <p>The first screen a lot of players will ever see in this mod, and very likely the first
  * thing they do on the server: sit down at a table with nothing, and be asked which deck they
- * would like. So it is a list of names and nothing else - no card counts, no colours, no
+ * would like. So it is a list of names and nothing else - no card counts, no colors, no
  * preview - because somebody who has been here ninety seconds cannot use any of that, and a
  * screen that asked them to weigh it up would be a screen they close.
  *
@@ -73,7 +73,7 @@ public final class LoanerScreen extends Screen {
      * The space between the last deck and the way out.
      *
      * <p>Not decoration. Drawn flush against the list, "No thanks" is a sixth button the same
-     * size and colour as the five above it, which makes it read as a deck with an odd name.
+     * size and color as the five above it, which makes it read as a deck with an odd name.
      */
     private static final int BREAK = GAP * 3;
 
@@ -106,7 +106,7 @@ public final class LoanerScreen extends Screen {
 
         // The way out that is not taking a deck. A screen whose only buttons all commit you
         // to something is a screen somebody feels trapped by, and Escape alone is not an
-        // answer if you have not learnt yet that it is one.
+        // answer if you have not learned yet that it is one.
         addRenderableWidget(GatheringButtons.of(
                 left, listTop() + showing * (ROW_HEIGHT + GAP) + BREAK - GAP, width, ROW_HEIGHT,
                 Component.translatable("screen.gathering.loaners.no_thanks"), this::onClose));
@@ -142,15 +142,15 @@ public final class LoanerScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         int inner = panelWidth() - PADDING * 2;
-        GuiText.drawCentred(graphics, this.font, getTitle(),
+        GuiText.drawCentered(graphics, this.font, getTitle(),
                 panelLeft() + panelWidth() / 2, panelTop() + PADDING, inner, 0xFFFFFF);
-        GuiText.drawCentred(graphics, this.font,
+        GuiText.drawCentered(graphics, this.font,
                 Component.translatable("screen.gathering.loaners.note"),
                 panelLeft() + panelWidth() / 2,
                 panelTop() + PADDING + this.font.lineHeight + 1, inner, DIM);
 
         if (names.size() > rowsThatFit()) {
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.loaners.more",
                             names.size() - rowsThatFit()),
                     panelLeft() + panelWidth() / 2,

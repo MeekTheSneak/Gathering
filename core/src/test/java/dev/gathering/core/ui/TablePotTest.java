@@ -29,10 +29,10 @@ class TablePotTest {
     void thePotIsInTheMiddleBandOfTheTable() {
         TableSurface surface = twoSeats();
         Rect pot = surface.pot(2);
-        int centreY = pot.y() + pot.height() / 2;
+        int centerY = pot.y() + pot.height() / 2;
         // Vertically it is where the mats meet. Horizontally it goes wherever there is room,
         // which is not the exact middle when somebody's life total is sitting there.
-        assertThat(Math.abs(centreY - surface.height() / 2))
+        assertThat(Math.abs(centerY - surface.height() / 2))
                 .isLessThanOrEqualTo(pot.height());
     }
 
@@ -40,7 +40,7 @@ class TablePotTest {
      * The pot never covers anything anybody has to read.
      *
      * <p>The fault this exists for: a life box sits on the edge of a mat facing the middle of
-     * the table, which is the same strip of table the pot wants, so a pot drawn centred lands
+     * the table, which is the same strip of table the pot wants, so a pot drawn centered lands
      * straight on top of one. Checked at every seat count and every size, against the whole
      * tray rather than just the cards - a tray checked at one size and drawn at another is a
      * tray nobody tested.
@@ -89,7 +89,7 @@ class TablePotTest {
     }
 
     @Test
-    void oneCardIsCentredRatherThanPushedToOneEnd() {
+    void oneCardIsCenteredRatherThanPushedToOneEnd() {
         TableSurface surface = twoSeats();
         Rect pot = surface.pot(1);
         Rect only = TableSurface.potSlot(pot, 0, 1);

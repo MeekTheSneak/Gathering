@@ -32,9 +32,9 @@ public final class DecklistImportScreen extends Screen {
 
     /** The decklist box never gets smaller than this: below it, paste is unreadable. */
     private static final int MIN_LIST_HEIGHT = 40;
-    private static final int PROBLEM_COLOUR = 0xFFE08A5A;
-    private static final int STATUS_COLOUR = 0xFFB8B4AC;
-    private static final int LABEL_COLOUR = 0xFF9A9690;
+    private static final int PROBLEM_COLOR = 0xFFE08A5A;
+    private static final int STATUS_COLOR = 0xFFB8B4AC;
+    private static final int LABEL_COLOR = 0xFF9A9690;
     private static final int MAX_VISIBLE_PROBLEMS = 6;
 
     private EditBox nameField;
@@ -203,17 +203,17 @@ public final class DecklistImportScreen extends Screen {
         int width = panelWidth();
 
         int inner = width - PADDING * 2;
-        GuiText.drawCentred(graphics, this.font, this.title, left + width / 2, MARGIN + PADDING - 1, inner, 0xFFFFFF);
+        GuiText.drawCentered(graphics, this.font, this.title, left + width / 2, MARGIN + PADDING - 1, inner, 0xFFFFFF);
 
         // Field labels, drawn against the panel rather than as widgets, so the layout above
         // stays a simple stack of boxes.
         int labelLeft = left + PADDING;
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.import.name"),
-                labelLeft, this.nameField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOUR);
+                labelLeft, this.nameField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOR);
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.import.description"),
-                labelLeft, this.descriptionField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOUR);
+                labelLeft, this.descriptionField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOR);
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.import.decklist"),
-                labelLeft, this.decklistField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOUR);
+                labelLeft, this.decklistField.getY() - this.font.lineHeight - 1, inner, LABEL_COLOR);
 
         renderStatus(graphics, labelLeft, inner);
     }
@@ -228,7 +228,7 @@ public final class DecklistImportScreen extends Screen {
 
         int line = top;
         if (!this.status.getString().isEmpty()) {
-            GuiText.draw(graphics, this.font, this.status, left, line, width, STATUS_COLOUR);
+            GuiText.draw(graphics, this.font, this.status, left, line, width, STATUS_COLOR);
             line += this.font.lineHeight + 1;
         }
         for (Component problem : this.problems) {
@@ -236,7 +236,7 @@ public final class DecklistImportScreen extends Screen {
                 if (line + this.font.lineHeight > top + problemAreaHeight()) {
                     return;
                 }
-                graphics.drawString(this.font, wrapped, left, line, PROBLEM_COLOUR, false);
+                graphics.drawString(this.font, wrapped, left, line, PROBLEM_COLOR, false);
                 line += this.font.lineHeight;
             }
         }

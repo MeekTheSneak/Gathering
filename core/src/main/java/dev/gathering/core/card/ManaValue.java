@@ -51,7 +51,7 @@ public final class ManaValue {
      *
      * <p>A number is that number: "{3}" is three. X, Y and Z are nothing, because a spell on
      * the stack has an X but a card in a hand has not been cast yet. Anything else is one -
-     * one coloured pip, one colourless, one snow.
+     * one colored pip, one colorless, one snow.
      *
      * <p>A symbol with a slash in it is one symbol that can be paid two ways, and it counts as
      * the more expensive half: "{2/W}" is two, because it can cost two. "{W/U}" and "{U/P}"

@@ -8,7 +8,7 @@ import java.util.Locale;
  * <p>Worked out from what is inside rather than typed in per product. A server owner sets one
  * number - what a booster costs - and everything else follows: a box of thirty costs thirty,
  * a bundle costs its packs plus what else is in it, a Commander deck costs what a hundred
- * cards would cost to open. A catalogue with a price per product would be a thousand numbers
+ * cards would cost to open. A catalog with a price per product would be a thousand numbers
  * nobody will ever finish filling in, and a thousand places for one of them to be wrong.
  *
  * <p><strong>No real-world price is used anywhere.</strong> Not to set this, not to weight it,
@@ -52,8 +52,8 @@ public final class SealedPrice {
     }
 
     /** What a product is worth, in the item a server prices in. */
-    public static int of(SealedProduct product, SealedCatalogue catalogue, int perBooster) {
-        return Math.max(CHEAPEST, inBoosters(product, catalogue) * Math.max(1, perBooster));
+    public static int of(SealedProduct product, SealedCatalog catalog, int perBooster) {
+        return Math.max(CHEAPEST, inBoosters(product, catalog) * Math.max(1, perBooster));
     }
 
     /**
@@ -62,11 +62,11 @@ public final class SealedPrice {
      * <p>The unit, kept apart from the money so it can be argued about without anybody having
      * to agree on what a diamond is worth.
      */
-    public static int inBoosters(SealedProduct product, SealedCatalogue catalogue) {
-        return inBoosters(product, catalogue, MOST_NESTING);
+    public static int inBoosters(SealedProduct product, SealedCatalog catalog) {
+        return inBoosters(product, catalog, MOST_NESTING);
     }
 
-    private static int inBoosters(SealedProduct product, SealedCatalogue catalogue, int depth) {
+    private static int inBoosters(SealedProduct product, SealedCatalog catalog, int depth) {
         if (product == null) {
             return CHEAPEST;
         }
@@ -80,28 +80,28 @@ public final class SealedPrice {
         worth += product.contents().boosters().size();
 
         // And boxes of them, by the id of the pack they hold rather than by copying it.
-        if (depth > 0 && catalogue != null) {
+        if (depth > 0 && catalog != null) {
             for (SealedProduct.Held held : product.contents().holds()) {
-                SealedProduct inside = catalogue.byId(held.productId());
+                SealedProduct inside = catalog.byId(held.productId());
                 worth += held.count() * (inside == null
-                        // A box whose pack is not in this set's catalogue: it names another
+                        // A box whose pack is not in this set's catalog: it names another
                         // set's product, or the data is short. A booster each is the honest
                         // guess and it is never zero.
                         ? 1
-                        : inBoosters(inside, catalogue, depth - 1));
+                        : inBoosters(inside, catalog, depth - 1));
             }
         }
 
         // Exact cards - a bundle's foil promo, a Secret Lair's four.
         worth += asBoosters(product.contents().cards().size());
 
-        // And decks. Their real length where the catalogue has read them, and the product's
+        // And decks. Their real length where the catalog has read them, and the product's
         // own card count where it has not - which is close, because that count is mostly the
         // deck. Added to what else is in the box rather than instead of it: a Commander deck
         // that comes with a sample pack is a deck and a sample pack, and pricing it as one of
         // them had a hundred cards going for two boosters.
         if (!product.contents().decks().isEmpty()) {
-            worth += asBoosters(deckCards(product, catalogue));
+            worth += asBoosters(deckCards(product, catalog));
         }
 
         // Nothing said about what is inside at all. Its card count is the last thing to go on,
@@ -113,11 +113,11 @@ public final class SealedPrice {
     }
 
     /** How long the decks in a box are, or the box's own card count where they are unread. */
-    private static int deckCards(SealedProduct product, SealedCatalogue catalogue) {
+    private static int deckCards(SealedProduct product, SealedCatalog catalog) {
         int cards = 0;
         for (SealedProduct.InDeck named : product.contents().decks()) {
-            SealedDeck deck = catalogue == null
-                    ? null : catalogue.deck(named.setCode(), named.name());
+            SealedDeck deck = catalog == null
+                    ? null : catalog.deck(named.setCode(), named.name());
             if (deck == null) {
                 return product.cardCount();
             }
@@ -138,7 +138,7 @@ public final class SealedPrice {
      * Whether a product is one this shop will ever sell.
      *
      * <p>Two questions, and neither of them is what the data calls it. Is there anything
-     * inside it at all - an art series and a subset are catalogue entries rather than boxes -
+     * inside it at all - an art series and a subset are catalog entries rather than boxes -
      * and does it exist on paper.
      *
      * <p>Not a list of categories. There was one, and it sold a case of fifteen prerelease

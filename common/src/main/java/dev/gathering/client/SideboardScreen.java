@@ -181,7 +181,7 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         hovered = null;
         ClientHoverState.clear();
 
-        GuiText.drawCentred(graphics, this.font,
+        GuiText.drawCentered(graphics, this.font,
                 Component.translatable("screen.gathering.sideboard.title", gameNumber, bestOf),
                 this.width / 2, MARGIN, this.width - MARGIN * 2, LABEL);
 
@@ -200,7 +200,7 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
                 // A recess the size of a card with nothing in it reads as a third column that
                 // has broken, which is exactly what it looked like the first time anybody
                 // photographed this screen. One line says what it is waiting for.
-                GuiText.drawCentred(graphics, this.font,
+                GuiText.drawCentered(graphics, this.font,
                         Component.translatable("screen.gathering.sideboard.point_at_one"),
                         preview.x() + preview.width() / 2,
                         preview.y() + preview.height() / 2 - this.font.lineHeight / 2,
@@ -211,7 +211,7 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         // Above the Done button, not under the hotbar. Drawn at the bottom of the window it
         // came out over the hotbar and the button both, which made the one sentence that
         // explains the screen the least readable thing on it.
-        GuiText.drawCentred(graphics, this.font,
+        GuiText.drawCentered(graphics, this.font,
                 Component.translatable("screen.gathering.sideboard.hint"),
                 this.width / 2, this.height - MARGIN - FOOTER - hintHeight() + GAP / 2,
                 this.width - MARGIN * 2, DIM);

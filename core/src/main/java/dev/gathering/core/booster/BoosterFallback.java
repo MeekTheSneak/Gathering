@@ -35,7 +35,7 @@ public final class BoosterFallback {
     /**
      * Sheets and arrangements for a set, from what is in it and how packs are configured.
      *
-     * @param pool  the printings in the set, by rarity - what a server's catalogue holds
+     * @param pool  the printings in the set, by rarity - what a server's catalog holds
      * @return a config the interpreter can open, or one that reports itself unusable when the
      *         set has nothing to fill any of its slots with
      */
@@ -54,7 +54,7 @@ public final class BoosterFallback {
             }
             Map<UUID, Integer> weights = new LinkedHashMap<>();
             for (UUID printing : printings) {
-                // Once each. A card that appears twice in the catalogue is still one card in
+                // Once each. A card that appears twice in the catalog is still one card in
                 // the set, and counting it twice would make it quietly twice as common.
                 weights.putIfAbsent(printing, 1);
             }

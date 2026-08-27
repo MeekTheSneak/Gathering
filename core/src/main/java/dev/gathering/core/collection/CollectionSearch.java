@@ -18,7 +18,7 @@ import java.util.Set;
  * where is that thing called something-Bolt - so those are the questions, and there is no
  * query language to learn.
  *
- * <p>Every filter is "and". Typing a word and picking a colour means both, which is what
+ * <p>Every filter is "and". Typing a word and picking a color means both, which is what
  * anybody would expect and the only rule that does not need explaining.
  *
  * <p>A card whose details have not been fetched yet is still in the collection and still
@@ -54,7 +54,7 @@ public final class CollectionSearch {
         NAME,
         SET,
         RARITY,
-        COLOUR,
+        COLOR,
         COUNT
     }
 
@@ -64,17 +64,17 @@ public final class CollectionSearch {
      * @param text     words that must all appear somewhere in the card - its name, its type
      *                 line, its set. Blank matches everything.
      * @param setCode  one set, or blank for all of them
-     * @param colours  single letters; a card matches when it is at least these colours, so
+     * @param colors  single letters; a card matches when it is at least these colors, so
      *                 asking for W and U finds Azorius cards and not mono-white ones. Empty
      *                 matches everything, and asking for none of them - "C" - finds the
-     *                 colourless.
+     *                 colorless.
      * @param rarity   one rarity, or null for all of them
      * @param type     a word from the type line - "creature", "instant", "equipment"
      */
     public record Query(
             String text,
             String setCode,
-            Set<String> colours,
+            Set<String> colors,
             Rarity rarity,
             String type,
             Sort sort,
@@ -83,7 +83,7 @@ public final class CollectionSearch {
         public Query {
             text = text == null ? "" : text.trim().toLowerCase(Locale.ROOT);
             setCode = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
-            colours = colours == null ? Set.of() : upperCased(colours);
+            colors = colors == null ? Set.of() : upperCased(colors);
             type = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
             sort = sort == null ? Sort.NAME : sort;
         }
@@ -95,16 +95,16 @@ public final class CollectionSearch {
 
         /** Whether this asks anything at all, or is just an order to put things in. */
         public boolean filtersAnything() {
-            return !text.isEmpty() || !setCode.isEmpty() || !colours.isEmpty()
+            return !text.isEmpty() || !setCode.isEmpty() || !colors.isEmpty()
                     || rarity != null || !type.isEmpty();
         }
 
         public Query orderedBy(Sort newSort, boolean newDescending) {
-            return new Query(text, setCode, colours, rarity, type, newSort, newDescending);
+            return new Query(text, setCode, colors, rarity, type, newSort, newDescending);
         }
 
         public Query searchingFor(String newText) {
-            return new Query(newText, setCode, colours, rarity, type, sort, descending);
+            return new Query(newText, setCode, colors, rarity, type, sort, descending);
         }
     }
 
@@ -147,7 +147,7 @@ public final class CollectionSearch {
                 && !lower(about.typeLine()).contains(asked.type())) {
             return false;
         }
-        if (!isColours(about, asked.colours())) {
+        if (!isColors(about, asked.colors())) {
             return false;
         }
         return saysAll(about, asked.text());
@@ -156,27 +156,27 @@ public final class CollectionSearch {
     // ------------------------------------------------------------- the rules
 
     /**
-     * Whether a card is at least these colours.
+     * Whether a card is at least these colors.
      *
-     * <p>"C" on its own means colourless, which is not a colour a card has but the absence of
+     * <p>"C" on its own means colorless, which is not a color a card has but the absence of
      * every one - so it is asked as its own question rather than looked for in the list.
      */
-    private static boolean isColours(CardMetadata about, Set<String> wanted) {
+    private static boolean isColors(CardMetadata about, Set<String> wanted) {
         if (wanted.isEmpty()) {
             return true;
         }
         Set<String> has = new LinkedHashSet<>();
-        for (String colour : about.colors()) {
-            has.add(colour.trim().toUpperCase(Locale.ROOT));
+        for (String color : about.colors()) {
+            has.add(color.trim().toUpperCase(Locale.ROOT));
         }
-        for (String colour : wanted) {
-            if (colour.equals("C")) {
+        for (String color : wanted) {
+            if (color.equals("C")) {
                 if (!has.isEmpty()) {
                     return false;
                 }
                 continue;
             }
-            if (!has.contains(colour)) {
+            if (!has.contains(color)) {
                 return false;
             }
         }
@@ -218,7 +218,7 @@ public final class CollectionSearch {
                     (Row row) -> row.isKnown() ? lower(row.about().setCode()) : "")
                     .thenComparing(row -> collectorNumber(row));
             case RARITY -> Comparator.comparingInt(CollectionSearch::rarityRank).reversed();
-            case COLOUR -> Comparator.comparing(CollectionSearch::colourKey);
+            case COLOR -> Comparator.comparing(CollectionSearch::colorKey);
             case COUNT -> Comparator.comparingInt(Row::count).reversed();
         };
         if (query.descending()) {
@@ -249,33 +249,33 @@ public final class CollectionSearch {
     }
 
     /**
-     * A card's colours as one sortable string, in Magic's own order.
+     * A card's colors as one sortable string, in Magic's own order.
      *
      * <p>WUBRG rather than alphabetical, because that is the order every player already reads
-     * colours in and a list that puts blue after black looks broken to them.
+     * colors in and a list that puts blue after black looks broken to them.
      */
-    private static String colourKey(Row row) {
+    private static String colorKey(Row row) {
         if (!row.isKnown()) {
             return "~";
         }
         Set<String> has = new LinkedHashSet<>();
-        for (String colour : row.about().colors()) {
-            has.add(colour.trim().toUpperCase(Locale.ROOT));
+        for (String color : row.about().colors()) {
+            has.add(color.trim().toUpperCase(Locale.ROOT));
         }
         if (has.isEmpty()) {
-            // Colourless after the colours rather than before them: it is where a player
+            // Colorless after the colors rather than before them: it is where a player
             // looks for artifacts and lands, which is the end of the binder.
             return "z";
         }
         StringBuilder key = new StringBuilder();
-        // How many colours first, so the mono-coloured cards are together and the gold ones
+        // How many colors first, so the mono-colored cards are together and the gold ones
         // follow, which is how anybody lays a collection out.
         key.append((char) ('0' + Math.min(9, has.size())));
-        // The colour where a card has it, and a character that sorts after every letter
+        // The color where a card has it, and a character that sorts after every letter
         // where it does not - so a white card comes before a blue one because W beats the
         // placeholder in the first position, which is what WUBRG order actually is.
-        for (char colour : new char[] {'W', 'U', 'B', 'R', 'G'}) {
-            key.append(has.contains(String.valueOf(colour)) ? colour : '~');
+        for (char color : new char[] {'W', 'U', 'B', 'R', 'G'}) {
+            key.append(has.contains(String.valueOf(color)) ? color : '~');
         }
         return key.toString();
     }
@@ -302,11 +302,11 @@ public final class CollectionSearch {
         return padded.toString().toLowerCase(Locale.ROOT);
     }
 
-    private static Set<String> upperCased(Set<String> colours) {
+    private static Set<String> upperCased(Set<String> colors) {
         Set<String> kept = new LinkedHashSet<>();
-        for (String colour : colours) {
-            if (colour != null && !colour.isBlank()) {
-                kept.add(colour.trim().toUpperCase(Locale.ROOT));
+        for (String color : colors) {
+            if (color != null && !color.isBlank()) {
+                kept.add(color.trim().toUpperCase(Locale.ROOT));
             }
         }
         return java.util.Collections.unmodifiableSet(kept);

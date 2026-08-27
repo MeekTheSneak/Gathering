@@ -113,7 +113,7 @@ class HandFanTest {
             // next. What has to hold is that the part still showing belongs to it.
             for (int index = 0; index < count; index++) {
                 Rect where = HandFan.slot(AREA, count, index, -1).where();
-                int found = HandFan.at(AREA, count, where.x() + 3, (int) Math.round(where.centreY()));
+                int found = HandFan.at(AREA, count, where.x() + 3, (int) Math.round(where.centerY()));
                 assertThat(found)
                         .describedAs("the showing edge of card %s of %s", index, count)
                         .isEqualTo(index);
@@ -125,7 +125,7 @@ class HandFanTest {
         void laterCardsAreInFront() {
             Rect last = HandFan.slot(AREA, 6, 5, -1).where();
 
-            assertThat(HandFan.at(AREA, 6, (int) Math.round(last.centreX()), (int) Math.round(last.centreY()))).isEqualTo(5);
+            assertThat(HandFan.at(AREA, 6, (int) Math.round(last.centerX()), (int) Math.round(last.centerY()))).isEqualTo(5);
         }
 
         @Test
@@ -151,7 +151,7 @@ class HandFanTest {
             assertThat(aboveTheFan)
                     .describedAs("a point the lifted card covers and the resting one does not")
                     .isLessThan(resting.y());
-            assertThat(HandFan.at(AREA, 7, (int) Math.round(resting.centreX()), aboveTheFan))
+            assertThat(HandFan.at(AREA, 7, (int) Math.round(resting.centerX()), aboveTheFan))
                     .isEqualTo(-1);
         }
     }
@@ -177,8 +177,8 @@ class HandFanTest {
             HandFan.Slot resting = HandFan.slot(AREA, 9, 2, -1);
             HandFan.Slot lifted = HandFan.slot(AREA, 9, 2, 2);
 
-            assertThat(lifted.where().centreX())
-                    .isCloseTo(resting.where().centreX(), org.assertj.core.data.Offset.offset(2.0));
+            assertThat(lifted.where().centerX())
+                    .isCloseTo(resting.where().centerX(), org.assertj.core.data.Offset.offset(2.0));
         }
 
         @Test
@@ -196,10 +196,10 @@ class HandFanTest {
     }
 
     @Test
-    @DisplayName("the fan is centred, so a small hand sits in the middle rather than off to one side")
-    void aSmallHandIsCentred() {
+    @DisplayName("the fan is centered, so a small hand sits in the middle rather than off to one side")
+    void aSmallHandIsCentered() {
         Rect only = HandFan.slot(AREA, 1, 0, -1).where();
 
-        assertThat(only.centreX()).isCloseTo(AREA.centreX(), org.assertj.core.data.Offset.offset(2.0));
+        assertThat(only.centerX()).isCloseTo(AREA.centerX(), org.assertj.core.data.Offset.offset(2.0));
     }
 }

@@ -62,10 +62,10 @@ public final class TableCluster {
         while (!pending.isEmpty()) {
             TableCell cell = pending.removeFirst();
             for (Side side : Side.values()) {
-                TableCell neighbour = cell.step(side);
-                if (!found.contains(neighbour) && present.test(neighbour)) {
-                    found.add(neighbour);
-                    pending.addLast(neighbour);
+                TableCell neighbor = cell.step(side);
+                if (!found.contains(neighbor) && present.test(neighbor)) {
+                    found.add(neighbor);
+                    pending.addLast(neighbor);
                 }
             }
         }

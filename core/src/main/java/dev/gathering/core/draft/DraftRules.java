@@ -46,7 +46,7 @@ public final class DraftRules {
      * Which way the packs go in this round: {@code +1} to the drafter on the left.
      *
      * <p>Alternating, as paper does, so a pod does not spend the whole draft reading the
-     * same neighbour. Rounds count from zero.
+     * same neighbor. Rounds count from zero.
      */
     public static int passing(int round) {
         if (round < 0) {

@@ -12,7 +12,7 @@ import java.util.Map;
  * shape people describe packs with - so many commons, so many uncommons, a rare that is
  * sometimes a mythic - which was never quite how packs worked and has not been close for
  * years. It exists because a set with no published data still has to open, and a server that
- * refused would have holes in its catalogue rather than approximate packs.
+ * refused would have holes in its catalog rather than approximate packs.
  *
  * <p>Configurable, because "eleven commons" is a fact about one era of one game and a server
  * running an older block, a cube, or a set of its own wants different numbers. Nothing here

@@ -18,7 +18,7 @@ import javax.crypto.SecretKey;
  * A whole session, ready to be written down, and put back together again.
  *
  * <p>Two blobs: one readable, one sealed. Which of a session's parts goes where is not a
- * judgement call made here - the log's own {@code Secrecy} decides that - with one addition.
+ * judgment call made here - the log's own {@code Secrecy} decides that - with one addition.
  * The shuffle seed goes in the sealed blob, because seed plus decklist is every card anybody
  * will draw for the rest of the game, which makes it more sensitive than any single hidden
  * card rather than less.

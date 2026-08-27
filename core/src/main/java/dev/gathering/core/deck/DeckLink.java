@@ -22,7 +22,7 @@ public record DeckLink(DeckLink.Provider provider, String deckId) {
         ARCHIDEKT("Archidekt", true),
 
         /**
-         * Recognised so the player gets told what to do, never fetched.
+         * Recognized so the player gets told what to do, never fetched.
          *
          * <p>Moxfield's API answers third-party requests with 403. Working around an access
          * control somebody deliberately put up is not something this mod is going to do, so
@@ -55,7 +55,7 @@ public record DeckLink(DeckLink.Provider provider, String deckId) {
             "^(?:https?://)?(?:www\\.)?moxfield\\.com/decks/([A-Za-z0-9_-]+)(?:[/?#].*)?$",
             Pattern.CASE_INSENSITIVE);
 
-    /** Recognises a link, or returns empty for anything that is not one we will fetch. */
+    /** Recognizes a link, or returns empty for anything that is not one we will fetch. */
     public static Optional<DeckLink> parse(String input) {
         if (input == null) {
             return Optional.empty();

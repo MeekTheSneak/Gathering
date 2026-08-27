@@ -211,7 +211,7 @@ public final class DeckEditGameTest {
 
     @GameTest(template = "empty")
     public static void anEditOnlyEverTouchesTheHeldDeck(GameTestHelper helper) {
-        // The payload names a hand, so an empty hand is the whole of the defence.
+        // The payload names a hand, so an empty hand is the whole of the defense.
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         ItemStack deckStack = DeckItem.of(deck(List.of(SOL), List.of(), List.of()));
         player.setItemInHand(InteractionHand.MAIN_HAND, deckStack);

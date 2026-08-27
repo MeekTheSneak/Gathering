@@ -77,7 +77,7 @@ class ManaSymbolsTest {
         assertThat(ManaSymbols.segments(text)).isNotNull();
     }
 
-    /** Rewrites recognised codes into their canonical name so the two sides are comparable. */
+    /** Rewrites recognized codes into their canonical name so the two sides are comparable. */
     private static String canonical(String text) {
         StringBuilder out = new StringBuilder();
         int index = 0;

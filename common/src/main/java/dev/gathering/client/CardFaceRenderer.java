@@ -59,7 +59,7 @@ public final class CardFaceRenderer {
         ResourceLocation facing = card.map(c -> textureForSide(c, c.flipped())).orElse(CARD_BACK);
 
         poseStack.pushPose();
-        // Item models are drawn in a 1x1 space with the origin at a corner; centre the card.
+        // Item models are drawn in a 1x1 space with the origin at a corner; center the card.
         poseStack.translate(0.5f, 0.5f, 0.5f);
 
         Matrix4f pose = poseStack.last().pose();

@@ -43,7 +43,7 @@ class TablePositionTest {
 
         @Test
         @DisplayName("two spots a pixel apart are two spots, because the table is continuous")
-        void neighbouringSpotsAreDistinct() {
+        void neighboringSpotsAreDistinct() {
             GameSession session = GameFixtures.twoPlayerTable(40);
             List<CardInstanceId> cards = drawMany(session, GameFixtures.ALICE, 2);
 

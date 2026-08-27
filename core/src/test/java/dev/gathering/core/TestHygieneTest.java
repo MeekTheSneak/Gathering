@@ -39,7 +39,7 @@ class TestHygieneTest {
                     + "(?:\\s*(?:public|private|protected)?\\s*[\\w.<>,\\[\\]? ]+\\s+)(\\w+)\\s*\\(");
 
     @Test
-    @DisplayName("no property is labelled with an annotation that stops it running")
+    @DisplayName("no property is labeled with an annotation that stops it running")
     void noPropertyCarriesADisplayName() throws IOException {
         List<String> offenders = new ArrayList<>();
         for (Path file : testSources()) {

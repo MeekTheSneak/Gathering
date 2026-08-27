@@ -16,8 +16,8 @@ class ShopCounterTest {
             booster("coll-sample", "Collector Booster Sample Pack", "collector");
     private static final SealedProduct VALUE = booster("value", "Value Booster", "value");
 
-    private static final SealedCatalogue CATALOGUE =
-            Catalogues.of(PLAY, COLLECTOR, SAMPLE, VALUE);
+    private static final SealedCatalog CATALOG =
+            Catalogs.of(PLAY, COLLECTOR, SAMPLE, VALUE);
 
     /** Shelf order for boosters all at the same price is by name, which is the hard case. */
     private static final SealedShelf SHELF = new SealedShelf(List.of(
@@ -31,9 +31,9 @@ class ShopCounterTest {
     void everyCounterIsTheSame() {
         // The point of the whole class. A shelf that varied per villager would be a shelf you
         // could break the counter and re-place until it offered what you wanted.
-        List<SealedShelf.Item> once = ShopCounter.at(SHELF, CATALOGUE, 1);
+        List<SealedShelf.Item> once = ShopCounter.at(SHELF, CATALOG, 1);
         for (int again = 0; again < 20; again++) {
-            assertThat(ShopCounter.at(SHELF, CATALOGUE, 1)).isEqualTo(once);
+            assertThat(ShopCounter.at(SHELF, CATALOG, 1)).isEqualTo(once);
         }
     }
 
@@ -41,7 +41,7 @@ class ShopCounterTest {
     @DisplayName("the ordinary booster is there before the collector one")
     void theOrdinaryPackComesFirst() {
         // By name alone the shelf leads with two collector packs, which would waste a counter.
-        assertThat(ShopCounter.at(SHELF, CATALOGUE, 1))
+        assertThat(ShopCounter.at(SHELF, CATALOG, 1))
                 .extracting(SealedShelf.Item::name)
                 .containsExactly("Play Booster Pack", "Collector Booster Pack");
     }
@@ -70,7 +70,7 @@ class ShopCounterTest {
     @Test
     @DisplayName("nothing on the shelf is nothing on the counter")
     void anEmptyShelfIsAnEmptyCounter() {
-        assertThat(ShopCounter.at(SealedShelf.EMPTY, CATALOGUE, 1)).isEmpty();
+        assertThat(ShopCounter.at(SealedShelf.EMPTY, CATALOG, 1)).isEmpty();
         assertThat(ShopCounter.pick(null, 2)).isEmpty();
         assertThat(ShopCounter.pick(List.of(new SealedShelf.Item(PLAY, 2)), 0)).isEmpty();
     }

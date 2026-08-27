@@ -92,8 +92,8 @@ public final class DevScene {
      * A deck small enough to import quickly and varied enough to look at.
      *
      * <p>Real cards, fetched from Scryfall like any other deck, because the whole point of
-     * photographing the client is to see what a player sees - and a board of grey rectangles
-     * would prove only that grey rectangles are laid out correctly.
+     * photographing the client is to see what a player sees - and a board of gray rectangles
+     * would prove only that gray rectangles are laid out correctly.
      */
     private static final String DECK = String.join("\n",
             // Two commanders, because the table's one-click path starts a game of Commander
@@ -755,8 +755,8 @@ public final class DevScene {
                     if (first.isEmpty()) {
                         fail("the scry box showed no first card to click");
                     } else {
-                        pile.mouseClicked(first.centreX(), first.centreY(), 0);
-                        pile.mouseReleased(first.centreX(), first.centreY(), 0);
+                        pile.mouseClicked(first.centerX(), first.centerY(), 0);
+                        pile.mouseReleased(first.centerX(), first.centerY(), 0);
                         if (pile.markedToSendAway() != 1) {
                             fail("clicking a scried card marked "
                                     + pile.markedToSendAway() + " cards to send away");
@@ -811,8 +811,8 @@ public final class DevScene {
                     if (first.isEmpty()) {
                         fail("the surveil box showed no card to bin");
                     } else {
-                        pile.mouseClicked(first.centreX(), first.centreY(), 0);
-                        pile.mouseReleased(first.centreX(), first.centreY(), 0);
+                        pile.mouseClicked(first.centerX(), first.centerY(), 0);
+                        pile.mouseReleased(first.centerX(), first.centerY(), 0);
                     }
                 }
                 advance(SETTLE / 4);
@@ -1458,7 +1458,7 @@ public final class DevScene {
                 // card in it, so there is nothing in the air to name and the whole thing has
                 // to move as a pile or not at all.
                 expectScreen(client, "a table to pick a pile up from", TableScreen.class);
-                int[] at = zoneCentre(client, Zone.PILES.indexOf(Zone.LIBRARY));
+                int[] at = zoneCenter(client, Zone.PILES.indexOf(Zone.LIBRARY));
                 if (at == null || !(client.screen instanceof TableScreen board)) {
                     fail("there was no library on screen to hold: seat "
                             + ClientTableState.seatAt(table) + ", table " + table);
@@ -1478,7 +1478,7 @@ public final class DevScene {
             case 132 -> {
                 expectScreen(client, "a pile in the air", TableScreen.class);
                 shoot(client, "50-a-pile-in-hand");
-                int[] onto = zoneCentre(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
+                int[] onto = zoneCenter(client, Zone.PILES.indexOf(Zone.GRAVEYARD));
                 if (onto == null || !(client.screen instanceof TableScreen board)) {
                     fail("there was no graveyard on screen to drop a pile on");
                     advance(SETTLE / 2);
@@ -2097,7 +2097,7 @@ public final class DevScene {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
                 // Dyed with the board still open and nothing else touching the world, which
-                // is the case that was broken: the colour is a tint baked into the chunk's
+                // is the case that was broken: the color is a tint baked into the chunk's
                 // mesh, and being told the block entity changed does not rebuild a mesh. The
                 // two pictures either side of this are the whole check - a table that only
                 // goes purple when something else happens nearby is a dye that looks broken.
@@ -2141,9 +2141,9 @@ public final class DevScene {
             fail("the scry had no row of cards to drag along");
             return;
         }
-        int fromX = (int) first.centreX();
-        int fromY = (int) first.centreY();
-        int toX = (int) last.centreX();
+        int fromX = (int) first.centerX();
+        int fromY = (int) first.centerY();
+        int toX = (int) last.centerX();
         pile.mouseClicked(fromX, fromY, 0);
         pile.mouseDragged(toX, fromY, 0, toX - fromX, 0);
         draggingTo = new int[] {toX, fromY};
@@ -2196,14 +2196,14 @@ public final class DevScene {
             return;
         }
         TableTop top = TableTop.forCorner(table.getX(), table.getY(), table.getZ());
-        double[] pixel = TablePointer.onScreen(top, zone.centreX(), zone.centreY())
+        double[] pixel = TablePointer.onScreen(top, zone.centerX(), zone.centerY())
                 .orElse(null);
         if (pixel == null) {
             fail("the zone the wheel was aimed at is not on the window");
             return;
         }
         wheelAt = new int[] {(int) Math.round(pixel[0]), (int) Math.round(pixel[1])};
-        wheelWasOver = new double[] {zone.centreX(), zone.centreY()};
+        wheelWasOver = new double[] {zone.centerX(), zone.centerY()};
         System.out.println("[devscene] the wheel is aimed at " + wheelAt[0] + "," + wheelAt[1]);
     }
 
@@ -2319,7 +2319,7 @@ public final class DevScene {
                     return;
                 }
                 Rect at = board.board().rectOf(me, where);
-                hover(client, new int[] {(int) at.centreX(), (int) at.centreY()});
+                hover(client, new int[] {(int) at.centerX(), (int) at.centerY()});
                 return;
             }
         }
@@ -2514,8 +2514,8 @@ public final class DevScene {
             return null;
         }
         Rect at = board.board().rectOf(me, where);
-        hover(client, new int[] {(int) at.centreX(), (int) at.centreY()});
-        board.mouseClicked(at.centreX(), at.centreY(), 1);
+        hover(client, new int[] {(int) at.centerX(), (int) at.centerY()});
+        board.mouseClicked(at.centerX(), at.centerY(), 1);
         return board.hasMenuEntry(label) ? board : null;
     }
 
@@ -2591,8 +2591,8 @@ public final class DevScene {
             }
             frozen = visible.id();
             Rect at = board.board().rectOf(me, where);
-            hover(client, new int[] {(int) at.centreX(), (int) at.centreY()});
-            board.mouseClicked(at.centreX(), at.centreY(), 1);
+            hover(client, new int[] {(int) at.centerX(), (int) at.centerY()});
+            board.mouseClicked(at.centerX(), at.centerY(), 1);
             if (!board.pressMenuEntry("Freeze (won't untap)")) {
                 fail("a card's menu offers no way to freeze it");
             }
@@ -2729,7 +2729,7 @@ public final class DevScene {
             fail("the stack is nowhere on screen");
             return;
         }
-        int[] at = {(int) where.centreX(), (int) where.centreY()};
+        int[] at = {(int) where.centerX(), (int) where.centerY()};
         hover(client, at);
         board.mouseClicked(at[0], at[1], 0);
         System.out.println("[devscene] holding a stack at " + at[0] + "," + at[1]);
@@ -2737,7 +2737,7 @@ public final class DevScene {
 
     /** Lets the held stack go over exile, which is where all of it should end up. */
     private static void letTheStackGo(Minecraft client) {
-        int[] onto = zoneCentre(client, Zone.PILES.indexOf(Zone.EXILE));
+        int[] onto = zoneCenter(client, Zone.PILES.indexOf(Zone.EXILE));
         if (onto == null || !(client.screen instanceof TableScreen board)) {
             fail("there was no exile to drop a stack on");
             return;
@@ -2845,9 +2845,9 @@ public final class DevScene {
     }
 
     /** The middle of one of the zone slots, in screen pixels, or null if there is none. */
-    private static int[] zoneCentre(Minecraft client, int index) {
+    private static int[] zoneCenter(Minecraft client, int index) {
         Rect zone = zoneRect(client, index);
-        return zone.isEmpty() ? null : new int[] {(int) zone.centreX(), (int) zone.centreY()};
+        return zone.isEmpty() ? null : new int[] {(int) zone.centerX(), (int) zone.centerY()};
     }
 
 
@@ -3516,7 +3516,7 @@ public final class DevScene {
     }
 
     /**
-     * Three packs in the hotbar, one of each product a wrapper has a colour for.
+     * Three packs in the hotbar, one of each product a wrapper has a color for.
      *
      * <p>Set client-side, which is all a picture of an item needs: what is drawn is what this
      * client's own inventory holds. The symbol on each is fetched by this client from
@@ -3556,8 +3556,8 @@ public final class DevScene {
                 return;
             }
             String set = pack.get().setCode();
-            int colour = dev.gathering.core.ui.PackWrapper.symbolColour(pack.get().kind());
-            if (ClientSetSymbols.get().symbol(set, colour, 64).isEmpty()) {
+            int color = dev.gathering.core.ui.PackWrapper.symbolColor(pack.get().kind());
+            if (ClientSetSymbols.get().symbol(set, color, 64).isEmpty()) {
                 waiting.add(set + (ClientSetSymbols.get().hasFailed(set) ? " (gave up)" : ""));
             }
         }
@@ -3753,7 +3753,7 @@ public final class DevScene {
                 fail("there was no card at " + index + " to click");
                 return;
             }
-            draft.mouseClicked(slot.centreX(), slot.centreY(), 0);
+            draft.mouseClicked(slot.centerX(), slot.centerY(), 0);
         }
         if (draft.chosenCount() != 2) {
             fail("clicking two cards chose " + draft.chosenCount());
@@ -3906,7 +3906,7 @@ public final class DevScene {
             fail("there was no deck screen to look for lands on");
             return;
         }
-        java.util.Set<String> labelled = new java.util.LinkedHashSet<>();
+        java.util.Set<String> labeled = new java.util.LinkedHashSet<>();
         for (net.minecraft.client.gui.components.events.GuiEventListener child : deck.children()) {
             if (!(child instanceof net.minecraft.client.gui.components.AbstractWidget widget)) {
                 continue;
@@ -3931,14 +3931,14 @@ public final class DevScene {
                     fail("the " + name + " button is drawn off the screen");
                     return;
                 }
-                labelled.add(name);
+                labeled.add(name);
             }
         }
-        if (labelled.size() != dev.gathering.core.card.BasicLand.values().length) {
-            fail("only " + labelled.size() + " basic lands have buttons: " + labelled);
+        if (labeled.size() != dev.gathering.core.card.BasicLand.values().length) {
+            fail("only " + labeled.size() + " basic lands have buttons: " + labeled);
             return;
         }
-        System.out.println("[devscene] the deck screen offers " + labelled);
+        System.out.println("[devscene] the deck screen offers " + labeled);
     }
 
     /** A flat, bright, empty world in creative: nothing to look at but the table. */
@@ -4081,7 +4081,7 @@ public final class DevScene {
             TablePosition at = card.placedAt().orElse(null);
             if (at != null) {
                 Rect where = board.board().rectOf(seat, at);
-                return new double[] {where.centreX(), where.centreY()};
+                return new double[] {where.centerX(), where.centerY()};
             }
         }
         return null;
@@ -4102,9 +4102,9 @@ public final class DevScene {
         // and dropping onto one would stack them where the scene wants two side by side.
         int[] onto = {width / 2, height / 4};
 
-        board.mouseClicked(first.where().centreX(), first.where().centreY(), 0);
+        board.mouseClicked(first.where().centerX(), first.where().centerY(), 0);
         board.mouseDragged(onto[0], onto[1], 0,
-                onto[0] - first.where().centreX(), onto[1] - first.where().centreY());
+                onto[0] - first.where().centerX(), onto[1] - first.where().centerY());
         board.mouseReleased(onto[0], onto[1], 0);
         System.out.println("[devscene] dragged a card from the hand onto the table");
     }
@@ -4149,7 +4149,7 @@ public final class DevScene {
             return;
         }
         int[] from = {(int) Math.round(spot[0]), (int) Math.round(spot[1])};
-        aimedAt = new int[] {(int) zone.centreX(), (int) zone.centreY()};
+        aimedAt = new int[] {(int) zone.centerX(), (int) zone.centerY()};
         // The real cursor as well as the synthetic drag. The board draws the card in the air
         // at where the mouse actually is, so a drag that only reports a position leaves the
         // card hanging wherever the cursor was last really put.
@@ -4243,10 +4243,10 @@ public final class DevScene {
                 TableScreenLayout.of(client.getWindow().getGuiScaledWidth(),
                         client.getWindow().getGuiScaledHeight()).hand(),
                 6, 0, -1).where();
-        board.mouseClicked(from.centreX(), from.centreY(), 0);
-        board.mouseDragged(zone.centreX(), zone.centreY(), 0,
-                zone.centreX() - from.centreX(), zone.centreY() - from.centreY());
-        board.mouseReleased(zone.centreX(), zone.centreY(), 0);
+        board.mouseClicked(from.centerX(), from.centerY(), 0);
+        board.mouseDragged(zone.centerX(), zone.centerY(), 0,
+                zone.centerX() - from.centerX(), zone.centerY() - from.centerY());
+        board.mouseReleased(zone.centerX(), zone.centerY(), 0);
         System.out.println("[devscene] dropped a card into zone " + index);
     }
 
@@ -4264,9 +4264,9 @@ public final class DevScene {
         }
         int[] onto = {client.getWindow().getGuiScaledWidth() / 2,
                 client.getWindow().getGuiScaledHeight() / 3};
-        board.mouseClicked(zone.centreX(), zone.centreY(), 0);
+        board.mouseClicked(zone.centerX(), zone.centerY(), 0);
         board.mouseDragged(onto[0], onto[1], 0,
-                onto[0] - zone.centreX(), onto[1] - zone.centreY());
+                onto[0] - zone.centerX(), onto[1] - zone.centerY());
         board.mouseReleased(onto[0], onto[1], 0);
         System.out.println("[devscene] dragged a card out of zone " + index);
     }
@@ -4298,8 +4298,8 @@ public final class DevScene {
             System.out.println("[devscene] no zone " + index + " to click");
             return;
         }
-        client.screen.mouseClicked(zone.centreX(), zone.centreY(), button);
-        client.screen.mouseReleased(zone.centreX(), zone.centreY(), button);
+        client.screen.mouseClicked(zone.centerX(), zone.centerY(), button);
+        client.screen.mouseReleased(zone.centerX(), zone.centerY(), button);
     }
 
     /**
@@ -4414,9 +4414,9 @@ public final class DevScene {
             fail("the scry box had nowhere to drag a card from or to");
             return;
         }
-        pile.mouseClicked(last.centreX(), last.centreY(), 0);
-        pile.mouseDragged(first.centreX(), first.centreY(), 0, 0, 0);
-        pile.mouseReleased(first.centreX(), first.centreY(), 0);
+        pile.mouseClicked(last.centerX(), last.centerY(), 0);
+        pile.mouseDragged(first.centerX(), first.centerY(), 0, 0, 0);
+        pile.mouseReleased(first.centerX(), first.centerY(), 0);
 
         java.util.List<CardInstanceId> after = pile.orderOnTop();
         if (after.size() != before.size()) {
@@ -4678,7 +4678,7 @@ public final class DevScene {
             fail("no zone " + index + " to rest on");
             return;
         }
-        hover(client, new int[] {(int) zone.centreX(), (int) zone.centreY()});
+        hover(client, new int[] {(int) zone.centerX(), (int) zone.centerY()});
     }
 
     /**
@@ -4883,7 +4883,7 @@ public final class DevScene {
      * The rival plays a card and then slides it across their own mat.
      *
      * <p>Through the session rather than through this client, which is the point: a card
-     * somebody else moves is the case the travelling had to cover, and the only case where
+     * somebody else moves is the case the traveling had to cover, and the only case where
      * this client is a spectator of the movement rather than the cause of it. It is also the
      * commonest movement in the game and was the last one still teleporting.
      */
@@ -5267,8 +5267,8 @@ public final class DevScene {
             fail("the seated player's graveyard had nowhere to be clicked");
             return;
         }
-        board.mouseClicked(zone.centreX(), zone.centreY(), 0);
-        board.mouseReleased(zone.centreX(), zone.centreY(), 0);
+        board.mouseClicked(zone.centerX(), zone.centerY(), 0);
+        board.mouseReleased(zone.centerX(), zone.centerY(), 0);
         if (!(client.screen instanceof PileScreen)) {
             fail("a spectator could not open a seated player's graveyard");
             return;
@@ -5678,8 +5678,8 @@ public final class DevScene {
         watched = whose;
         Rect end = board.lifeEndFor(whose, 1);
         int[] at = board.board() instanceof SurfaceBoard
-                ? screenPointFor(client, new double[] {end.centreX(), end.centreY()}, null)
-                : new int[] {(int) end.centreX(), (int) end.centreY()};
+                ? screenPointFor(client, new double[] {end.centerX(), end.centerY()}, null)
+                : new int[] {(int) end.centerX(), (int) end.centerY()};
         if (at == null) {
             fail("the life counter was not under any pixel of the window");
             return;
@@ -5862,8 +5862,8 @@ public final class DevScene {
         }
         Rect end = board.lifeEndFor(me, 1);
         int[] at = board.board() instanceof SurfaceBoard
-                ? screenPointFor(client, new double[] {end.centreX(), end.centreY()}, null)
-                : new int[] {(int) end.centreX(), (int) end.centreY()};
+                ? screenPointFor(client, new double[] {end.centerX(), end.centerY()}, null)
+                : new int[] {(int) end.centerX(), (int) end.centerY()};
         if (at == null) {
             fail("the life counter was not under any pixel of the window");
             return;
@@ -5889,8 +5889,8 @@ public final class DevScene {
         }
         Rect end = board.lifeEndFor(me, side);
         int[] at = board.board() instanceof SurfaceBoard
-                ? screenPointFor(client, new double[] {end.centreX(), end.centreY()}, null)
-                : new int[] {(int) end.centreX(), (int) end.centreY()};
+                ? screenPointFor(client, new double[] {end.centerX(), end.centerY()}, null)
+                : new int[] {(int) end.centerX(), (int) end.centerY()};
         if (at == null) {
             fail("the life counter was not under any pixel of the window");
             return;
@@ -5933,8 +5933,8 @@ public final class DevScene {
             return;
         }
         int[] at = board.board() instanceof SurfaceBoard
-                ? screenPointFor(client, new double[] {end.centreX(), end.centreY()}, null)
-                : new int[] {(int) end.centreX(), (int) end.centreY()};
+                ? screenPointFor(client, new double[] {end.centerX(), end.centerY()}, null)
+                : new int[] {(int) end.centerX(), (int) end.centerY()};
         if (at == null) {
             fail("the life counter on the block was not under any pixel of the window");
             return;
@@ -5981,8 +5981,8 @@ public final class DevScene {
             return;
         }
         int[] at = board.board() instanceof SurfaceBoard
-                ? screenPointFor(client, new double[] {band.centreX(), band.centreY()}, null)
-                : new int[] {(int) band.centreX(), (int) band.centreY()};
+                ? screenPointFor(client, new double[] {band.centerX(), band.centerY()}, null)
+                : new int[] {(int) band.centerX(), (int) band.centerY()};
         if (at == null) {
             fail("the tax band on the block was not under any pixel of the window");
             return;
@@ -6010,9 +6010,9 @@ public final class DevScene {
         }
         if (board.board() instanceof SurfaceBoard) {
             // On the block the rectangle is in surface units, and the cursor is in pixels.
-            return screenPointFor(client, new double[] {where.centreX(), where.centreY()}, null);
+            return screenPointFor(client, new double[] {where.centerX(), where.centerY()}, null);
         }
-        return new int[] {(int) where.centreX(), (int) where.centreY()};
+        return new int[] {(int) where.centerX(), (int) where.centerY()};
     }
 
     private static void hoverAVerbButton(Minecraft client, TableVerb verb) {
@@ -6067,7 +6067,7 @@ public final class DevScene {
             return;
         }
         // The same lookup the hover uses. It was two lookups once, and the copy that pressed
-        // went on aiming at the seated board's pixels after the other had learnt that the
+        // went on aiming at the seated board's pixels after the other had learned that the
         // board on the block is measured in units of felt - so the press landed off the
         // window and reported success.
         int[] at = verbButtonAt(client, verb);
@@ -6086,7 +6086,7 @@ public final class DevScene {
      * <p>Everything else in this run that asks where the cursor is asks {@link TablePointer},
      * including the helper that finds a card to hover - so a picker that is off by a constant
      * would place the cursor by its own wrong answer and then agree with itself. Minecraft's
-     * crosshair ray is worked out from the camera by the game, and at the exact centre of the
+     * crosshair ray is worked out from the camera by the game, and at the exact center of the
      * screen the two are answering the same question about the same pixel. They have to agree.
      */
     private static void theCursorPicksWhereItPoints(Minecraft client) {
@@ -6104,7 +6104,7 @@ public final class DevScene {
             System.out.println("[devscene] the crosshair was not over the felt; picker unchecked");
             return;
         }
-        // The camera's own forward axis, dropped onto the felt by hand. The exact centre of
+        // The camera's own forward axis, dropped onto the felt by hand. The exact center of
         // the screen is where a camera is looking, whatever its projection says, so this
         // answers the same question using only where the camera is and which way it faces -
         // no matrices, no viewport, none of the arithmetic being checked.
@@ -6139,10 +6139,10 @@ public final class DevScene {
     /**
      * Checks the picker away from the middle of the screen, where the projection matters.
      *
-     * <p>The centre only proves there is no constant offset: a camera looks along its forward
+     * <p>The center only proves there is no constant offset: a camera looks along its forward
      * axis whatever its lens does. An offset that grows towards the edges - the shape a wrong
      * field of view or a wrong aspect ratio makes - passes that check and ruins every click
-     * that is not dead centre.
+     * that is not dead center.
      *
      * <p>The second answer is a ray built by hand out of where the camera is, the three axes
      * it faces along, and the half-angle the view frames with. No matrices, no viewport, no
@@ -6285,14 +6285,14 @@ public final class DevScene {
                         continue;
                     }
                     for (int button : new int[] {0, 1}) {
-                        board.mouseClicked(zone.centreX(), zone.centreY(), button);
-                        board.mouseReleased(zone.centreX(), zone.centreY(), button);
+                        board.mouseClicked(zone.centerX(), zone.centerY(), button);
+                        board.mouseReleased(zone.centerX(), zone.centerY(), button);
                     }
                 }
             }
         }
         Rect hand = TableScreenLayout.of(width, height).hand();
-        board.mouseClicked(hand.centreX(), hand.centreY(), 0);
+        board.mouseClicked(hand.centerX(), hand.centerY(), 0);
         board.mouseDragged(card[0], card[1], 0, 0, 0);
         board.mouseReleased(card[0], card[1], 0);
         for (int key : new int[] {
@@ -6442,7 +6442,7 @@ public final class DevScene {
                 return;
             }
         }
-        fail("no button labelled " + label + " on "
+        fail("no button labeled " + label + " on "
                 + client.screen.getClass().getSimpleName());
     }
 
@@ -6458,7 +6458,7 @@ public final class DevScene {
      *
      * <p>Run at every photograph rather than left to somebody looking at the picture, which
      * is how a pot ended up drawn across a life total: a thing checked on its own reads
-     * perfectly and still lands on top of its neighbour, and the only reliable way to catch
+     * perfectly and still lands on top of its neighbor, and the only reliable way to catch
      * that is to check it against everything else that can be on screen at the same time.
      *
      * <p>Widgets only. What is drawn rather than added - felt, mats, the pot - has its
@@ -6513,7 +6513,7 @@ public final class DevScene {
         // Anything drawn at a scale nobody asked for, anywhere in the whole run. A power and
         // toughness meant for the corner of a card was once drawn eighteen times too big,
         // covering the board in letterforms too large to read as letters - and the build was
-        // green, the game tests passed, and the only evidence was the colour histogram of a
+        // green, the game tests passed, and the only evidence was the color histogram of a
         // screenshot. This is the check that would have failed. See GuiText.wrongScales.
         if (GuiText.wrongScales() > 0) {
             fail("text was drawn at a scale nobody asked for " + GuiText.wrongScales()

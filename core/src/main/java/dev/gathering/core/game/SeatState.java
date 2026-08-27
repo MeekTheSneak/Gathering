@@ -10,7 +10,7 @@ import java.util.Map;
  *
  * <p>Every one of these is a displayed number that players change by hand. Nothing here
  * triggers anything. A player on zero life is a player on zero life; the mod does not
- * declare them out, because deciding a game has ended is a rules judgement and there is no
+ * declare them out, because deciding a game has ended is a rules judgment and there is no
  * rules engine here.
  *
  * @param lastOccupant    whoever sat here most recently, kept after they leave so the board

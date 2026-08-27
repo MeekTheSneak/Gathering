@@ -10,7 +10,7 @@ package dev.gathering.core.image;
  * <p>Done to the pixels once at decode rather than by drawing something over the corners
  * every frame, because the thing behind a card is different everywhere it appears - a frame
  * on the deck screen, a panel by the cursor, a dimmed world. A corner mask painted in one
- * background colour would be right in exactly one of those places.
+ * background color would be right in exactly one of those places.
  *
  * <p>Pixels are <b>ABGR</b> ({@code 0xAABBGGRR}), matching {@link CardImageDecoder}.
  */
@@ -53,7 +53,7 @@ public final class RoundedCorners {
             if (!nearTop && !nearBottom) {
                 continue;
             }
-            float centreY = nearTop ? radius - 0.5f : height - radius - 0.5f;
+            float centerY = nearTop ? radius - 0.5f : height - radius - 0.5f;
 
             for (int x = 0; x < width; x++) {
                 boolean nearLeft = x < span;
@@ -61,10 +61,10 @@ public final class RoundedCorners {
                 if (!nearLeft && !nearRight) {
                     continue;
                 }
-                float centreX = nearLeft ? radius - 0.5f : width - radius - 0.5f;
+                float centerX = nearLeft ? radius - 0.5f : width - radius - 0.5f;
 
-                float dx = x - centreX;
-                float dy = y - centreY;
+                float dx = x - centerX;
+                float dy = y - centerY;
                 float distance = (float) Math.sqrt(dx * dx + dy * dy);
                 if (distance <= radius - 1f) {
                     continue;

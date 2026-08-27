@@ -69,11 +69,11 @@ public final class TableCameraView {
     /**
      * How much of the window the screen's own furniture covers, top and bottom.
      *
-     * <p>The camera centres what it is looking at in the <em>window</em>, and the window has a
+     * <p>The camera centers what it is looking at in the <em>window</em>, and the window has a
      * status strip across the top of it and the player's hand across the bottom. Left alone,
      * that puts the near edge of the table - the player's own zones and their own mat -
      * underneath their own cards, and the far edge behind the life totals. So what is framed
-     * is centred in the strip between the two, and sized to fit it.
+     * is centered in the strip between the two, and sized to fit it.
      */
     private static double coveredAtTheTop;
 
@@ -130,9 +130,9 @@ public final class TableCameraView {
         // Surface units run north to south whichever way the viewer is facing, and so does
         // world z, so the same offset finds the same mat for both players; the camera's own
         // facing is what turns the picture round afterwards.
-        offsetX = (ownMat.centreX() - TableSurface.SPAN / 2.0) / TableSurface.SPAN
+        offsetX = (ownMat.centerX() - TableSurface.SPAN / 2.0) / TableSurface.SPAN
                 * TableTop.SPAN_BLOCKS;
-        offsetZ = (ownMat.centreY() - TableSurface.SPAN / 2.0) / TableSurface.SPAN
+        offsetZ = (ownMat.centerY() - TableSurface.SPAN / 2.0) / TableSurface.SPAN
                 * TableTop.SPAN_BLOCKS;
         height = heightThatFrames(
                 ownMat.width() / (double) TableSurface.SPAN * TableTop.SPAN_BLOCKS,
@@ -396,7 +396,7 @@ public final class TableCameraView {
         return window / Math.max(1e-6, height * spread());
     }
 
-    /** Back to the whole table, centred, and still clear of the hand. */
+    /** Back to the whole table, centered, and still clear of the hand. */
     public static void showEverything() {
         height = heightThatFrames(TableTop.SPAN_BLOCKS, TableTop.SPAN_BLOCKS);
         offsetX = 0;

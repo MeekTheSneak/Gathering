@@ -90,7 +90,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
      *
      * <p>Opening and refreshing are the same call, because from here they are the same event:
      * a pack arrived. Which of the two it is was decided by the server, which knows whether
-     * this was somebody sitting down to draft or a neighbour picking.
+     * this was somebody sitting down to draft or a neighbor picking.
      *
      * @param open false for an update, so a drafter who closed the screen to look something
      *             up is not dragged back to it every time anybody else picks
@@ -124,7 +124,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
     }
 
     /**
-     * The pod moved on: a new pack, or a neighbour picking.
+     * The pod moved on: a new pack, or a neighbor picking.
      *
      * <p>The chosen cards are dropped whenever the pack itself changes, because a place in
      * one pack means a different card in the next - keeping them would turn "I had picked
@@ -289,7 +289,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         // and the footer saying where the pool went, and a third sentence in the middle of an
         // empty box saying it again is a box repeating itself.
         if (cards.isEmpty() && (showingPool || !view.finished())) {
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     showingPool
                             ? Component.translatable("screen.gathering.draft.pool_empty")
                             : Component.translatable("screen.gathering.draft.pack_coming"),
@@ -355,7 +355,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
             // one is the screen where being unable to read a card actually costs something.
             GatheringSprites.inset(
                     graphics, where.x(), where.y(), where.width(), where.height());
-            GuiText.drawCentred(graphics, this.font,
+            GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.deck.loading_card"),
                     where.x() + where.width() / 2,
                     where.y() + where.height() / 2 - this.font.lineHeight / 2,

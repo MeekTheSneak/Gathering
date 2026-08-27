@@ -45,14 +45,14 @@ class CoverageAuditTest {
         Map<Rarity, List<UUID>> pool = poolOf(8, 4, 2, 1);
         BoosterConfig config = BoosterFallback.configFor("tst", "draft", pool, RaritySlots.usual());
         UUID orphan = printing("an-old-promo");
-        List<UUID> catalogue = new ArrayList<>(everythingIn(pool));
-        catalogue.add(orphan);
+        List<UUID> catalog = new ArrayList<>(everythingIn(pool));
+        catalog.add(orphan);
 
-        CoverageReport report = CoverageAudit.of(catalogue, List.of(new BoosterFaucet(config)));
+        CoverageReport report = CoverageAudit.of(catalog, List.of(new BoosterFaucet(config)));
 
         assertThat(report.isComplete()).isFalse();
         assertThat(report.uncovered()).containsExactly(orphan);
-        assertThat(report.catalogue()).isEqualTo(16);
+        assertThat(report.catalog()).isEqualTo(16);
         assertThat(report.covered()).isEqualTo(15);
     }
 
@@ -75,10 +75,10 @@ class CoverageAuditTest {
         BoosterConfig config = new BoosterConfig("tst", "draft", sheets,
                 List.of(new BoosterVariant("plain", 1, Map.of("common", 2))));
 
-        Set<UUID> catalogue = new LinkedHashSet<>(config.sheets().get("common").printings());
-        catalogue.add(onlyOnTheUnusedSheet);
+        Set<UUID> catalog = new LinkedHashSet<>(config.sheets().get("common").printings());
+        catalog.add(onlyOnTheUnusedSheet);
 
-        CoverageReport report = CoverageAudit.of(catalogue, List.of(new BoosterFaucet(config)));
+        CoverageReport report = CoverageAudit.of(catalog, List.of(new BoosterFaucet(config)));
 
         assertThat(report.uncovered())
                 .describedAs("a card only on a sheet nothing draws from was called covered")
@@ -111,11 +111,11 @@ class CoverageAuditTest {
         second.put(Rarity.COMMON, List.of(printing("other-1"), printing("other-2")));
         BoosterConfig other = BoosterFallback.configFor("two", "draft", second, RaritySlots.usual());
 
-        List<UUID> catalogue = new ArrayList<>(everythingIn(ours));
-        catalogue.addAll(everythingIn(second));
+        List<UUID> catalog = new ArrayList<>(everythingIn(ours));
+        catalog.addAll(everythingIn(second));
 
         CoverageReport report = CoverageAudit.of(
-                catalogue, List.of(new BoosterFaucet(first), new BoosterFaucet(other)));
+                catalog, List.of(new BoosterFaucet(first), new BoosterFaucet(other)));
 
         assertThat(report.isComplete()).isTrue();
         assertThat(report.byFaucet()).containsEntry("one:draft", 7).containsEntry("two:draft", 2);
@@ -124,23 +124,23 @@ class CoverageAuditTest {
     /**
      * A path producing cards the server excluded is not thereby covering them.
      *
-     * <p>Excluding a card from the catalogue is a deliberate, visible choice - a server that
+     * <p>Excluding a card from the catalog is a deliberate, visible choice - a server that
      * wants hard scarcity. An auditor that quietly counted it as satisfied because some pack
      * could produce it would be arguing with the admin about their own config.
      */
     @Test
-    void whatIsOutsideTheCatalogueIsNotCounted() {
+    void whatIsOutsideTheCatalogIsNotCounted() {
         Map<Rarity, List<UUID>> pool = poolOf(6, 3, 1, 0);
         BoosterConfig config = BoosterFallback.configFor("tst", "draft", pool, RaritySlots.usual());
-        // The catalogue is only the commons: the rest are excluded on purpose.
+        // The catalog is only the commons: the rest are excluded on purpose.
         List<UUID> narrowed = pool.get(Rarity.COMMON);
 
         CoverageReport report = CoverageAudit.of(narrowed, List.of(new BoosterFaucet(config)));
 
-        assertThat(report.catalogue()).isEqualTo(6);
+        assertThat(report.catalog()).isEqualTo(6);
         assertThat(report.isComplete()).isTrue();
         assertThat(report.byFaucet().get("tst:draft"))
-                .describedAs("cards outside the catalogue were counted as coverage")
+                .describedAs("cards outside the catalog were counted as coverage")
                 .isEqualTo(6);
     }
 
@@ -156,9 +156,9 @@ class CoverageAuditTest {
         assertThat(report.uncovered()).hasSize(5);
     }
 
-    /** An empty catalogue is complete rather than a hole to go looking for. */
+    /** An empty catalog is complete rather than a hole to go looking for. */
     @Test
-    void anEmptyCatalogueIsComplete() {
+    void anEmptyCatalogIsComplete() {
         CoverageReport report = CoverageAudit.of(List.of(), List.of());
 
         assertThat(report.isComplete()).isTrue();
@@ -172,11 +172,11 @@ class CoverageAuditTest {
         BoosterConfig config = BoosterFallback.configFor("tst", "draft", pool, RaritySlots.usual());
         UUID first = printing("promo-1");
         UUID second = printing("promo-2");
-        List<UUID> catalogue = new ArrayList<>(everythingIn(pool));
-        catalogue.add(first);
-        catalogue.add(second);
+        List<UUID> catalog = new ArrayList<>(everythingIn(pool));
+        catalog.add(first);
+        catalog.add(second);
 
-        CoverageReport report = CoverageAudit.of(catalogue, List.of(new BoosterFaucet(config)));
+        CoverageReport report = CoverageAudit.of(catalog, List.of(new BoosterFaucet(config)));
         BoosterSheet archive = CoverageAudit.archiveSheet(report);
 
         assertThat(archive.printings()).containsExactly(first, second);

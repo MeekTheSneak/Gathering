@@ -164,7 +164,7 @@ public final class TableSetupScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        GuiText.drawCentred(graphics, this.font, this.title,
+        GuiText.drawCentered(graphics, this.font, this.title,
                 panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.setup.format"),
                 panel.x() + MARGIN, formatsHeading, panel.width() - MARGIN * 2, DIM);
@@ -178,7 +178,7 @@ public final class TableSetupScreen extends Screen {
                         FormatPresets.defaultPreset().startingLife())
                 : Component.translatable("screen.gathering.setup.chosen",
                         format.displayName(), bestOf, format.startingLife());
-        GuiText.drawCentred(graphics, this.font, chosen,
+        GuiText.drawCentered(graphics, this.font, chosen,
                 panel.x() + panel.width() / 2, panel.bottom() - 12, panel.width() - MARGIN * 2, DIM);
         chosenSaid = chosen.getString();
     }

@@ -20,7 +20,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * already holds these cards; this says which of them to make a fuss about.
  *
  * @param setCode which set's wrapper is being torn
- * @param kind    which product, so the wrapper is the right colour
+ * @param kind    which product, so the wrapper is the right color
  * @param cards   what came out, in the order it should be shown
  */
 public record PackOpenedPayload(String setCode, String kind, List<CardComponent> cards)

@@ -15,14 +15,14 @@ import java.util.UUID;
  * covers the first - which is a computation, and so cannot drift the way a promise can.
  *
  * <p>It takes the server's actual configuration rather than the mod's defaults, because the
- * question is about this server. An admin who removed the stall, narrowed the catalogue, or
+ * question is about this server. An admin who removed the stall, narrowed the catalog, or
  * added a product of their own gets an answer about the game their players are playing.
  *
  * <p>What it does with the remainder is the point: the uncovered cards become the Archive
  * Pack's sheet, so the long tail is reachable through play and the archive shrinks by
  * computation as products are added. Nothing has to be curated and nothing goes stale.
  *
- * <p>Pure, and cheap enough to run in a test suite over a whole catalogue.
+ * <p>Pure, and cheap enough to run in a test suite over a whole catalog.
  */
 public final class CoverageAudit {
 
@@ -30,13 +30,13 @@ public final class CoverageAudit {
     }
 
     /**
-     * @param catalogue every printing the server says a player may obtain
+     * @param catalog every printing the server says a player may obtain
      * @param faucets   every path a card can come out of
      */
-    public static CoverageReport of(Collection<UUID> catalogue, Collection<? extends Faucet> faucets) {
+    public static CoverageReport of(Collection<UUID> catalog, Collection<? extends Faucet> faucets) {
         Set<UUID> wanted = new LinkedHashSet<>();
-        if (catalogue != null) {
-            for (UUID printing : catalogue) {
+        if (catalog != null) {
+            for (UUID printing : catalog) {
                 if (printing != null) {
                     wanted.add(printing);
                 }
@@ -54,7 +54,7 @@ public final class CoverageAudit {
                 int within = 0;
                 if (reaches != null) {
                     for (UUID printing : reaches) {
-                        // Only what the catalogue asked about. A path that also produces
+                        // Only what the catalog asked about. A path that also produces
                         // cards the server has excluded is not thereby covering them - the
                         // exclusion was a deliberate visible choice and this must not quietly
                         // report it as satisfied.

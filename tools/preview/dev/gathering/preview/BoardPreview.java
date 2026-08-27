@@ -8,7 +8,7 @@ import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.PackTear;
 import dev.gathering.core.ui.Rect;
-import dev.gathering.core.ui.SeatColour;
+import dev.gathering.core.ui.SeatColor;
 import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableScreenLayout;
 import dev.gathering.core.ui.TableStacking;
@@ -146,7 +146,7 @@ public final class BoardPreview {
 
         for (int seat = 0; seat < seats; seat++) {
             SeatId id = new SeatId(seat);
-            fill(g, board.matRect(id), MAT, new Color(SeatColour.of(seat)));
+            fill(g, board.matRect(id), MAT, new Color(SeatColor.of(seat)));
             for (int index = 0; index < Zone.PILES.size(); index++) {
                 Rect slot = board.pileRect(id, index, Zone.PILES.size());
                 fill(g, slot, SLOT, SLOT_EDGE);
@@ -204,7 +204,7 @@ public final class BoardPreview {
 
         for (int seat = 0; seat < surface.seatCount(); seat++) {
             SeatId id = new SeatId(seat);
-            fill(g, surface.matOf(seat), MAT, new Color(SeatColour.of(seat)));
+            fill(g, surface.matOf(seat), MAT, new Color(SeatColor.of(seat)));
 
             for (int index = 0; index < Zone.PILES.size(); index++) {
                 Rect slot = board.pileRect(id, index, Zone.PILES.size());

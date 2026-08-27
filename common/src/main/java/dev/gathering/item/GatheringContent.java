@@ -110,7 +110,7 @@ public final class GatheringContent {
                 .mapColor(MapColor.WOOD)
                 .strength(2.0f)
                 .sound(SoundType.WOOD)
-                // The model is a table rather than a cube, so neighbouring blocks must not
+                // The model is a table rather than a cube, so neighboring blocks must not
                 // cull their faces against it.
                 .noOcclusion()
                 // A piston would push one quarter of a table and leave the other three, which

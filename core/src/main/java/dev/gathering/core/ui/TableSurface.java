@@ -590,7 +590,7 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         if (box.isEmpty() || !box.contains((int) Math.round(x), (int) Math.round(y))) {
             return 0;
         }
-        boolean atTheLeft = x < box.centreX();
+        boolean atTheLeft = x < box.centerX();
         return atTheLeft == turned ? 1 : -1;
     }
 
@@ -712,7 +712,7 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         int gap = Math.max(2, (int) Math.round(slot.height() * PILE_GAP * (1 + PILE_GROUP_PAD)));
         int width = Math.max(1, (int) Math.round(slot.width() * PILE_LABEL_WIDTHS));
         int height = Math.max(1, (int) Math.round(slot.height() * PILE_LABEL_HEIGHT));
-        // Centred on whatever the name names: its own slot, or the run of command slots. The
+        // Centered on whatever the name names: its own slot, or the run of command slots. The
         // span is measured off the same pileSlot arithmetic that placed them, so the one name
         // cannot drift away from the pair it belongs to.
         Rect last = commandSlot ? pileSlot(seat, count - 1, count) : slot;
@@ -804,7 +804,7 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
      * pot is the opposite of that, which is why it goes where the mats meet.
      *
      * <p>But the middle is not empty. A seat's life box sits on the edge of its mat facing
-     * the middle, which is the same strip of table, so a pot drawn centred lands straight on
+     * the middle, which is the same strip of table, so a pot drawn centered lands straight on
      * top of one. It goes in the widest clear span of that strip instead, which is usually
      * still the middle and is never on top of a number somebody needs to read.
      *
