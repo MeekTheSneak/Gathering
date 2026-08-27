@@ -2006,14 +2006,20 @@ public final class TableScreen extends Screen {
         }
     }
 
-    /** Which card of the hand the cursor is on, or -1. */
+    /** Which card of the hand the cursor is on, or -1. The risen card's top half counts. */
     private int handIndexAt(GameView board, int x, int y) {
         SeatId seat = mySeat().orElse(null);
-        if (seat == null || !layout().hand().contains(x, y)) {
+        if (seat == null) {
             return -1;
         }
-        return HandFan.at(layout().hand(),
-                board.seat(seat).zone(Zone.HAND).cards().size(), x, y);
+        int count = board.seat(seat).zone(Zone.HAND).cards().size();
+        if (!layout().hand().contains(x, y)) {
+            // Above the strip, where the hovered card rises. Its upper half is a card the
+            // player is looking straight at, and a click there used to fall through to the
+            // battlefield behind it.
+            return HandFan.atLifted(layout().hand(), count, x, y);
+        }
+        return HandFan.at(layout().hand(), count, x, y);
     }
 
     /**
@@ -2464,15 +2470,26 @@ public final class TableScreen extends Screen {
         // card teleporting to the cursor, and the shadow is the footprint - so the answer to
         // "where is this going" is drawn on the felt, at the size and shape it will be, while
         // the question is still being asked.
+        //
+        // Shape included: a tapped card stays tapped through the move and lands sideways, so
+        // its footprint lies sideways too. An upright shadow under a card about to come down
+        // landscape was a promise the landing broke.
+        boolean tappedInAir = card != null && card.tapped()
+                && !(held.whole() && held.fromPile() != null);
+        Rect footprint = tappedInAir
+                ? centered((int) Math.round(comingDownOn.centerX()),
+                        (int) Math.round(comingDownOn.centerY()),
+                        comingDownOn.height(), comingDownOn.width())
+                : comingDownOn;
         int lift = Math.max(3, comingDownOn.height() / 8);
-        graphics.fill(comingDownOn.x(), comingDownOn.y(),
-                comingDownOn.right(), comingDownOn.bottom(), CAST);
+        graphics.fill(footprint.x(), footprint.y(),
+                footprint.right(), footprint.bottom(), CAST);
         // And the footprint's own edge, drawn over the shadow so the two sides the card is
         // lifted away from say where it lands as well as the two the shadow shows on. A
         // shadow alone is only ever visible down one corner - which is a drop shadow, which
         // is the thing this is not.
-        graphics.renderOutline(comingDownOn.x(), comingDownOn.y(),
-                comingDownOn.width(), comingDownOn.height(), LANDING);
+        graphics.renderOutline(footprint.x(), footprint.y(),
+                footprint.width(), footprint.height(), LANDING);
 
         Rect airborne = new Rect(comingDownOn.x() - lift, comingDownOn.y() - lift,
                 comingDownOn.width(), comingDownOn.height());
@@ -2481,7 +2498,8 @@ public final class TableScreen extends Screen {
         if (held.whole() && held.fromPile() != null) {
             drawHeldPile(graphics, board, card, airborne);
         } else {
-            drawCard(graphics, card, airborne, 0, false, false);
+            drawCard(graphics, card, airborne,
+                    tappedInAir ? TablePosition.QUARTER_TURN : 0, false, false);
         }
         graphics.pose().popPose();
     }
@@ -2675,7 +2693,11 @@ public final class TableScreen extends Screen {
         holdStrayed = false;
         long now = ClientCardFlights.now();
         double[] at = fromHand ? null : pointer(x, y);
-        if (at == null) {
+        // On the block the card takes the cursor by the middle too: the grab offset there is
+        // in table units while the airborne card is drawn in screen pixels, and carrying the
+        // offset through only one of the two promised a landing the drop did not honor - the
+        // card came down displaced by the grab, off the drawn footprint.
+        if (at == null || playingOnTheBlock) {
             // Straight from the hand, or from somewhere the table cannot answer for: the card
             // takes the cursor by the middle, which is where you would expect to be holding it.
             return new Held(card, seat, fromHand, fromPile, 0, 0, x, y, now, false);
@@ -2897,6 +2919,18 @@ public final class TableScreen extends Screen {
         if (!dropped.fromHand() && dropped.fromPile() == null && selected.contains(dropped.card())) {
             dropGroup(dropped, landing, where, me);
         } else {
+            // A card already angled on the felt keeps its angle through a drag. The fresh
+            // position carries rotation 0, and sending that snapped a turned card upright -
+            // while dragging it as part of a selection preserved the angle, so the same
+            // gesture did two different things depending on how many cards came along.
+            if (!dropped.fromHand() && dropped.fromPile() == null) {
+                TablePosition previous = findCard(view().orElse(null), dropped.card())
+                        .flatMap(CardView::placedAt)
+                        .orElse(null);
+                if (previous != null) {
+                    where = where.rotatedTo(previous.rotation());
+                }
+            }
             send(new GameEvent.CardMoved(
                     me, dropped.card(), ZoneRef.of(landing, Zone.BATTLEFIELD), Placement.at(where)));
         }

@@ -681,10 +681,32 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             }
             return true;
         }
-        int to = Math.max(0, Math.min(cards.size() - 1, slotUnder((int) mouseX, (int) mouseY)));
+        // The same gap the bar promised, through the same rule - and with the shift from
+        // taking the card out accounted for. Reading the slot directly here dropped the
+        // card one gap right of the bar on every rightward drag: after the removal, every
+        // index right of the card had moved down one, and the insert landed past the gap.
+        int gap = gapUnder((int) mouseX, (int) mouseY, cards.size());
+        int insert = gap > from ? gap - 1 : gap;
         order.remove(visible.id());
-        order.add(Math.min(to, order.size()), visible.id());
+        order.add(Math.min(insert, order.size()), visible.id());
         return true;
+    }
+
+    /**
+     * The gap a drag at this point is aimed at.
+     *
+     * <p>Gap {@code g} is the space before slot {@code g}; {@code howMany} means past the
+     * end of the row. One rule, asked by the landing bar and the release alike, because the
+     * bar is a promise about the release and two copies of a promise drift.
+     */
+    private int gapUnder(int x, int y, int howMany) {
+        int landing = Math.max(0, Math.min(howMany - 1, slotUnder(x, y)));
+        Rect slot = slotOf(landing);
+        // Past the card it is over when the cursor is on the last card's right-hand half:
+        // dropping "on" the last card has to be able to mean after it, or the far end of
+        // the row is unreachable.
+        boolean after = landing == howMany - 1 && !slot.isEmpty() && x > slot.centerX();
+        return after ? howMany : landing;
     }
 
     /** How far a press has to travel sideways before it counts as a drag. */
@@ -716,15 +738,12 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         if (!dragged || howMany == 0) {
             return;
         }
-        int landing = Math.max(0, Math.min(howMany - 1, slotUnder(draggingAtX, draggingAtY)));
-        Rect slot = slotOf(landing);
+        int gap = gapUnder(draggingAtX, draggingAtY, howMany);
+        boolean after = gap == howMany;
+        Rect slot = slotOf(after ? howMany - 1 : gap);
         if (slot.isEmpty()) {
             return;
         }
-        // Past the card it is over when the cursor is on its right-hand half, because that is
-        // the gap the card is being aimed at - dropping "on" the last card has to be able to
-        // mean after it, or the far end of the row is unreachable.
-        boolean after = draggingAtX > slot.centerX() && landing == howMany - 1;
         int edge = after ? slot.right() + GAP / 2 : slot.x() - GAP / 2;
         graphics.fill(edge - LANDING_WIDTH / 2, slot.y() - 2,
                 edge - LANDING_WIDTH / 2 + LANDING_WIDTH, slot.bottom() + 2, LANDING);

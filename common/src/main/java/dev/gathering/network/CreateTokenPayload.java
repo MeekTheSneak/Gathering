@@ -21,7 +21,8 @@ public record CreateTokenPayload(BlockPos table, String name, int count) impleme
     public static final int MAX_NAME = 64;
 
     /** More than anybody makes at once, and few enough that the board survives it. */
-    public static final int MAX_COUNT = 32;
+    public static final int MAX_COUNT =
+            dev.gathering.core.game.event.GameEvent.TokenCreated.MOST_AT_ONCE;
 
     public static final CustomPacketPayload.Type<CreateTokenPayload> TYPE =
             GatheringPayloads.type("create_token");

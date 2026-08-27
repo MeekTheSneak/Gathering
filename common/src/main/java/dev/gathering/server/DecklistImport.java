@@ -150,6 +150,12 @@ public final class DecklistImport {
                     List.of("Importing again so soon; give it a few seconds.")));
             return;
         }
+        // Forgotten wholesale past a bound, the way CollectionView remembers its takes: one
+        // entry per player who ever imported, kept for the life of the JVM, is a map that
+        // only grows. Forgetting costs one free re-import, which the cooldown can afford.
+        if (lastImportNanos.size() > 512) {
+            lastImportNanos.clear();
+        }
         lastImportNanos.put(id, now);
 
         service.importDecklist(decklist)

@@ -109,6 +109,27 @@ public final class HandFan {
     }
 
     /**
+     * Which card's <em>risen</em> shape the cursor is on, or -1. For points the strip test
+     * has already said no to.
+     *
+     * <p>The hovered card grows above the strip, over the table - and the top of it was a
+     * card the player was looking straight at that could not be clicked: the strip test said
+     * "not the hand", and the click fell through to whatever the felt had behind it. Asked
+     * only outside the strip, where the unlifted fan has nothing, so the no-flicker argument
+     * on {@link #at} still holds: inside the strip the resting shapes decide, above it the
+     * risen ones do, and neither test moves anything the other is standing on.
+     */
+    public static int atLifted(Rect area, int count, int x, int y) {
+        for (int index = count - 1; index >= 0; index--) {
+            Slot slot = slot(area, count, index, index);
+            if (slot.where().containsTurned(slot.angle(), x, y)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /**
      * How big a card is drawn.
      *
      * <p>As tall as the strip allows, until there are so many that even at the tightest

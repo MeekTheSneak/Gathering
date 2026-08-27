@@ -171,10 +171,6 @@ public record SeatState(
         }
     }
 
-    public int commanderDamageFrom(SeatId from) {
-        return commanderDamage.getOrDefault(from, 0);
-    }
-
     public int taxOn(CardInstanceId commander) {
         return commanderTax.getOrDefault(commander, 0);
     }

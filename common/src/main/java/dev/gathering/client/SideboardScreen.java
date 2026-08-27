@@ -234,7 +234,10 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         List<Entry> entries = rowsOf(section);
         for (int index = 0; index < entries.size(); index++) {
             int line = top + index * ROW_HEIGHT - scroll;
-            if (line < top - ROW_HEIGHT || line + ROW_HEIGHT > area.bottom()) {
+            // Strictly inside the list: the scroll moves in whole rows, so the slack of one
+            // ROW_HEIGHT the old test allowed was exactly one scrolled-out row, drawn - with
+            // its hover highlight - straight over the column heading.
+            if (line < top || line + ROW_HEIGHT > area.bottom()) {
                 continue;
             }
             Entry entry = entries.get(index);
@@ -279,6 +282,11 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
             return false;
         }
         int top = area.y() + 4 + this.font.lineHeight + 3;
+        if (y < top) {
+            // The heading. Integer division truncates toward zero, so a click up to a row's
+            // height above the list still computed index 0 and quietly moved the top card.
+            return true;
+        }
         int index = (y - top + scroll) / ROW_HEIGHT;
         List<Entry> entries = rowsOf(from);
         if (index < 0 || index >= entries.size()) {
@@ -293,7 +301,14 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int step = (int) -scrollY * ROW_HEIGHT;
+        // At least one row per gesture in the direction asked. Casting the delta to int
+        // first threw away a trackpad's fractional notches, so precision scrolling did
+        // nothing at all.
+        int rows = (int) Math.round(-scrollY);
+        if (rows == 0 && scrollY != 0) {
+            rows = scrollY > 0 ? -1 : 1;
+        }
+        int step = rows * ROW_HEIGHT;
         if (mainboard.contains((int) mouseX, (int) mouseY)) {
             mainScroll = clampScroll(mainScroll + step, mainboard, DeckComponent.Section.MAINBOARD);
             return true;

@@ -53,7 +53,9 @@ public final class CommandSlots {
         if (held == null || held.cards().isEmpty()) {
             return null;
         }
-        return held.cards().get(held.cards().size() - 1) instanceof CardView.Visible visible
+        // Index 0 is the top: it is where place(TOP) writes and where topOf reads. The
+        // last index was the other end, which only agreed while a slot held one card.
+        return held.cards().get(0) instanceof CardView.Visible visible
                 ? visible.id()
                 : null;
     }

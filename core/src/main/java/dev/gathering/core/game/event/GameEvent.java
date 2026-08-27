@@ -624,6 +624,17 @@ public sealed interface GameEvent {
 
     /** Tokens are real printings from Scryfall's token search, not invented cards. */
     record TokenCreated(SeatId actor, SeatId seat, CardIdentity identity, int count) implements GameEvent {
+
+        /** As many as the payload allows, and no other door lets in more. */
+        public static final int MOST_AT_ONCE = 32;
+
+        public TokenCreated {
+            // Clamped on the event, not only on the typed payload: an event also arrives
+            // through the raw codec, and each token copies the whole board's maps - an
+            // unbounded count was a request to hang the server thread inside one fold.
+            count = Math.max(1, Math.min(MOST_AT_ONCE, count));
+        }
+
         @Override
         public LogLine describe(GameState before) {
             return LogLine.of("log.gathering.token_created", actor, seat, count);

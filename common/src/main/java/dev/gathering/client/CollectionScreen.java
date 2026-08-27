@@ -444,7 +444,11 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
             return false;
         }
         int index = rowUnder(mouseY);
-        if (index < 0 || index >= rows.size() || mouseX < MARGIN || mouseX > this.width - MARGIN) {
+        // Bounded by what is drawn, not only by what the page holds: between a window shrink
+        // and the re-asked page arriving, rows past rowsThatFit() exist but are not on the
+        // screen, and a click in the blank strip below the list took an unseen card.
+        if (index < 0 || index >= rows.size() || index >= rowsThatFit()
+                || mouseX < MARGIN || mouseX > this.width - MARGIN) {
             return false;
         }
         CardComponent card = rows.get(index).card();

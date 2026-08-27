@@ -308,6 +308,11 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int column = columnWidth();
+        // The cast truncates toward zero, so a click just above the first row still made
+        // index 0 and adjusted the top pile; anything above the rows is not a row.
+        if (mouseY < rowsTop()) {
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
         int index = (int) ((mouseY - rowsTop()) / ROW_HEIGHT);
         if (mouseX >= columnLeft() && mouseX < columnLeft() + column
                 && index >= 0 && index < mine.size() && index < rowsThatFit()) {

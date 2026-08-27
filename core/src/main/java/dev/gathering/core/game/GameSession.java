@@ -83,9 +83,9 @@ public final class GameSession {
 
         long highest = 0;
         for (SessionRecord record : records) {
-            if (record instanceof SessionRecord.EventRecord event) {
-                highest = Math.max(highest, event.sequence());
-            }
+            // Every record kind counts: an undo consumes a sequence number too, and maxing
+            // over events alone handed the number a stored UndoRecord holds out again.
+            highest = Math.max(highest, record.sequence());
         }
         session.nextSequence = highest + 1;
         session.state = session.refold();

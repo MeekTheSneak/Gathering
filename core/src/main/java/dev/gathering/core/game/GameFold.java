@@ -47,7 +47,7 @@ public final class GameFold {
 
             case GameEvent.SessionEnded ignored -> state.asEnded();
 
-            case GameEvent.CardMoved moved -> state.place(moved.card(), moved.to(), moved.placement());
+            case GameEvent.CardMoved moved -> movedCard(state, moved);
 
             case GameEvent.ZoneMoved moved -> moveZone(state, moved);
 
@@ -242,20 +242,43 @@ public final class GameFold {
         return state.withCard(card.faceDownWith(seed.marker(ordinal))).withMarkerOrdinal(ordinal + 1);
     }
 
+    /**
+     * A single card moved by hand, with one consequence the move drags behind it: a card
+     * leaving a library takes the revealed-top window with it.
+     *
+     * <p>The revealed count is positional - "the first N of this library are face up" - and
+     * the visibility rules hand exactly that many identities to everybody. Moving a revealed
+     * card out (a cascade taking its hit, a reveal-until fetch) slid the window down onto a
+     * card nobody had ever revealed, and the whole table saw it. Mill and shuffle already
+     * cleared it; this is the same rule at the move everybody actually performs.
+     */
+    private static GameState movedCard(GameState state, GameEvent.CardMoved moved) {
+        ZoneRef from = state.locationOf(moved.card()).orElse(null);
+        GameState updated = state.place(moved.card(), moved.to(), moved.placement());
+        if (from != null && from.zone() == Zone.LIBRARY && !from.equals(moved.to())) {
+            updated = updated.withRevealed(from.seat(), 0);
+        }
+        return updated;
+    }
+
     private static GameState draw(GameState state, SeatId seat, int count) {
         ZoneRef library = ZoneRef.of(seat, Zone.LIBRARY);
         ZoneRef hand = ZoneRef.of(seat, Zone.HAND);
         GameState updated = state;
         // Drawing from an empty library draws nothing. Whether that means the player has lost
         // is a rules question, and there is no rules engine here to answer it.
+        boolean any = false;
         for (int drawn = 0; drawn < count; drawn++) {
             List<CardInstanceId> contents = updated.contents(library);
             if (contents.isEmpty()) {
                 break;
             }
             updated = updated.place(contents.get(0), hand, Placement.BOTTOM);
+            any = true;
         }
-        return updated;
+        // The card that was revealed on top just left; the one now on top was never shown.
+        // Mill clears this the same way, and for the same reason.
+        return any ? updated.withRevealed(seat, 0) : updated;
     }
 
     /**
@@ -338,13 +361,24 @@ public final class GameFold {
 
     private static GameState reorderLibrary(GameState state, GameEvent.LibraryReordered event) {
         ZoneRef library = ZoneRef.of(event.seat(), Zone.LIBRARY);
-        List<CardInstanceId> rest = remaining(state.contents(library), event.onTop(), event.toBottom());
+        // Only cards the library really holds, exactly as sortHand does and for the same
+        // reason - the decision arrives from a client that worked it out a moment ago, and a
+        // card can have been drawn since. Without the filter the list also accepted ids the
+        // library NEVER held: a card in two zones at once from an ordinary race, or, from a
+        // crafted event, somebody else's card quietly written into this library.
+        List<CardInstanceId> onTop = keptOf(state.contents(library), event.onTop());
+        List<CardInstanceId> toBottom = keptOf(state.contents(library), event.toBottom());
+        List<CardInstanceId> rest = remaining(state.contents(library), onTop, toBottom);
 
-        List<CardInstanceId> updated = new ArrayList<>(event.onTop());
+        List<CardInstanceId> updated = new ArrayList<>(onTop);
         updated.addAll(rest);
-        updated.addAll(event.toBottom());
+        updated.addAll(toBottom);
         // Deciding is the end of looking: the cards have been put back and the decision made.
-        return state.withZone(library, updated).withoutPeekBy(event.actor());
+        // And whatever was revealed off the top has been rearranged out from under the
+        // count, so the count goes too.
+        return state.withZone(library, updated)
+                .withRevealed(event.seat(), 0)
+                .withoutPeekBy(event.actor());
     }
 
     /**
@@ -373,17 +407,36 @@ public final class GameFold {
 
     private static GameState surveil(GameState state, GameEvent.Surveiled event) {
         ZoneRef library = ZoneRef.of(event.seat(), Zone.LIBRARY);
-        List<CardInstanceId> rest = remaining(state.contents(library), event.onTop(), event.toGraveyard());
+        // The same membership filter as reorderLibrary, and it matters more here: the
+        // graveyard half MOVES cards, so an unchecked id was a card conjured into a public
+        // zone - which the broadcast then could not describe - or somebody else's card
+        // walked off their battlefield by an event whose log line names no card.
+        List<CardInstanceId> onTop = keptOf(state.contents(library), event.onTop());
+        List<CardInstanceId> toGraveyard = keptOf(state.contents(library), event.toGraveyard());
+        List<CardInstanceId> rest = remaining(state.contents(library), onTop, toGraveyard);
 
-        List<CardInstanceId> updated = new ArrayList<>(event.onTop());
+        List<CardInstanceId> updated = new ArrayList<>(onTop);
         updated.addAll(rest);
         GameState result = state.withZone(library, updated);
 
         ZoneRef graveyard = ZoneRef.of(event.seat(), Zone.GRAVEYARD);
-        for (CardInstanceId id : event.toGraveyard()) {
+        for (CardInstanceId id : toGraveyard) {
             result = result.place(id, graveyard, Placement.TOP);
         }
-        return result.withoutPeekBy(event.actor());
+        // The top the table was shown has been rearranged; the count over it is stale.
+        return result.withRevealed(event.seat(), 0).withoutPeekBy(event.actor());
+    }
+
+    /** The named cards that are really in the zone, in the order named. */
+    private static List<CardInstanceId> keptOf(
+            List<CardInstanceId> zone, List<CardInstanceId> named) {
+        List<CardInstanceId> kept = new ArrayList<>(named.size());
+        for (CardInstanceId id : named) {
+            if (zone.contains(id) && !kept.contains(id)) {
+                kept.add(id);
+            }
+        }
+        return kept;
     }
 
     /** The library minus the cards the player made a decision about, order preserved. */

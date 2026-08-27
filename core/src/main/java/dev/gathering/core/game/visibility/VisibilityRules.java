@@ -117,7 +117,7 @@ public final class VisibilityRules {
             }
             List<CardView> top = new ArrayList<>(open);
             for (CardInstanceId id : contents.subList(0, Math.min(open, contents.size()))) {
-                top.add(cardView(state.requireCard(id), viewer));
+                top.add(cardView(state, state.requireCard(id), viewer));
             }
             return new ZoneView(ref, contents.size(), top);
         }
@@ -130,17 +130,29 @@ public final class VisibilityRules {
 
         List<CardView> cards = new ArrayList<>(contents.size());
         for (CardInstanceId id : contents) {
-            cards.add(cardView(state.requireCard(id), viewer));
+            cards.add(cardView(state, state.requireCard(id), viewer));
         }
         return new ZoneView(ref, contents.size(), cards);
     }
 
-    private static CardView cardView(CardInstance card, Viewer viewer) {
+    private static CardView cardView(GameState state, CardInstance card, Viewer viewer) {
         boolean entitled = !card.isFaceDown() || viewer.isSeatedAt(card.owner());
+        // The host this card sits on, named only to viewers whose world holds that id. A
+        // face-down host is anonymous to everyone but its owner - its view carries a marker
+        // and no id - and an instance id is a decklist position, so writing the real id into
+        // an opponent's attachedTo told them which card of the deck the morph is. The log
+        // already routes this through the marker; the view does the same by saying nothing.
+        CardInstanceId host = card.attachedTo();
+        if (host != null) {
+            CardInstance hostCard = state.card(host).orElse(null);
+            if (hostCard != null && hostCard.isFaceDown() && !viewer.isSeatedAt(hostCard.owner())) {
+                host = null;
+            }
+        }
         if (entitled) {
             return new CardView.Visible(
                     card.id(), card.identity(), card.owner(), card.facing(), card.tapped(),
-                    card.counters(), card.position(), card.token(), card.attachedTo(),
+                    card.counters(), card.position(), card.token(), host,
                     card.note(), card.turnedOver(), card.strength(), card.frozen());
         }
         // The spot goes to everyone: where a card sits was never a secret, and an opponent
@@ -151,7 +163,7 @@ public final class VisibilityRules {
                 card.tapped(),
                 card.counters(),
                 card.position(),
-                card.attachedTo(),
+                host,
                 // A note is what somebody wrote about the card, not what the card is. The
                 // person who picked up the pen decided what it gave away.
                 card.note(),

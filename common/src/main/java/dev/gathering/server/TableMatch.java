@@ -143,9 +143,13 @@ public final class TableMatch {
                         : "message.gathering.game_over_next")
                 : "message.gathering.match_over";
 
+        // The finished match reports the winner's wins; the games in between report which
+        // game just ended. Passing the game number to both told a 2-1 match "3 games of 3",
+        // which is a sweep that never happened.
         return winner
                 .map(seat -> Component.translatable(key, nameOf(level, tableOrigin, seat),
-                        match.gameNumber(), match.rules().bestOf()))
+                        match.hasGameToPlay() ? match.gameNumber() : match.winsFor(seat),
+                        match.rules().bestOf()))
                 .orElseGet(() -> Component.translatable("message.gathering.game_drawn",
                         match.gameNumber(), match.rules().bestOf()));
     }

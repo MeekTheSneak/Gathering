@@ -192,6 +192,12 @@ public record GameState(
      * battlefield goes through the same path as moving one, and both should work.
      */
     public GameState place(CardInstanceId id, ZoneRef into, Placement placement) {
+        // Never an id this session has no card for. A zone list holding a phantom id is a
+        // board the visibility rules cannot describe - the first broadcast that walks the
+        // zone throws - and this is the last gate every move goes through.
+        if (!cards.containsKey(id)) {
+            return this;
+        }
         Map<ZoneRef, List<CardInstanceId>> updated = new LinkedHashMap<>();
         for (Map.Entry<ZoneRef, List<CardInstanceId>> entry : zones.entrySet()) {
             List<CardInstanceId> contents = entry.getValue();
