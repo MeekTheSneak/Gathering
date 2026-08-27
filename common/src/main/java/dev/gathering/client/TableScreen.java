@@ -1902,18 +1902,45 @@ public final class TableScreen extends Screen {
         }
     }
 
-    /** The pile count, on the corner nearest the top of the stack. */
+    /**
+     * The pile count, on the corner nearest the top of the stack.
+     *
+     * <p>A corner, and not more than one. This was drawn at whatever size the font happens to
+     * be, which is fine on a card filling half the screen and absurd on the card a two-player
+     * board actually draws: at that size "x2" was as wide as the card and covered its name and
+     * a third of its art. A count that hides the thing it is counting has stopped being a
+     * count and become a sticker.
+     *
+     * <p>So it is measured against the card rather than against the font, and shrinks with it
+     * to the smallest size text is drawn at anywhere here. Below that the card is too small
+     * for the badge to say anything, and the check at the top drops it entirely.
+     */
     private void drawPileBadge(GuiGraphics graphics, Rect where, int size) {
         if (where.height() < this.font.lineHeight + 3) {
             return;
         }
         Component label = Component.literal("x" + size);
-        int width = this.font.width(label) + 5;
+        int room = Math.max(MIN_BADGE, where.width() / BADGE_SHARE);
+        float scale = GuiText.scaleForTheSet(this.font, label, room - 4);
+        int width = Math.min(room, Math.round(this.font.width(label) * scale) + 4);
+        int high = Math.round(this.font.lineHeight * scale) + 2;
         int left = where.right() - width - 1;
         int top = where.y() + 1;
-        graphics.fill(left, top, left + width, top + this.font.lineHeight + 1, PILE_BADGE);
-        GuiText.draw(graphics, this.font, label, left + 2, top + 1, width, PILE_TEXT);
+        graphics.fill(left, top, left + width, top + high, PILE_BADGE);
+        GuiText.drawCentredAt(
+                graphics, this.font, label, left + width / 2, top + 1, scale, PILE_TEXT);
     }
+
+    /**
+     * How much of a card's width the pile count may take, and the least it is ever drawn in.
+     *
+     * <p>A third, because a badge is a corner mark and a corner is about a third of an edge.
+     * The floor stops the arithmetic collapsing to nothing on a card drawn very small - at
+     * which point the badge is dropped rather than drawn as a smudge.
+     */
+    private static final int BADGE_SHARE = 3;
+
+    private static final int MIN_BADGE = 10;
 
     /**
      * The angle a card is drawn at: the angle it was left at, plus a quarter turn if tapped.
