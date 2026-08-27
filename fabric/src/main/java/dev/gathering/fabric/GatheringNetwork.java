@@ -214,8 +214,6 @@ final class GatheringNetwork {
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.FetchBasicPayload.TYPE, (payload, context) ->
-                        CardDataService.active().ifPresent(service ->
-                                dev.gathering.server.TokenCreation.fetchBasic(
-                                        context.player(), service, payload)));
+                        dev.gathering.server.BasicLandFetch.handle(context.player(), payload));
     }
 }

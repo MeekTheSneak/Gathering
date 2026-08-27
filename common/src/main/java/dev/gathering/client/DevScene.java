@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 191;
+    private static final int LAST_STEP = 193;
 
     private static int step;
     private static int waited;
@@ -1755,43 +1755,71 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 159 -> {
-                // A basic land from outside the game. Two questions in a row, which is the
+                // A Forest goes back into the deck first. By this point the library is down
+                // to its last card or two - the run has drawn, milled and discarded its way
+                // through it - and a fetch out of an empty deck proves only that the deck is
+                // empty. Putting one back and taking it out again tests the property that
+                // matters either way: it has to come from in there.
+                putAForestBackInTheDeck(client);
+                advance(SETTLE);
+            }
+            case 160 -> {
+                // A basic land out of the deck. Two questions in a row, which is the
                 // part worth photographing: the second one has to name the land, because by
                 // then the first question has gone and "How many?" on its own is a question
                 // about something the player can no longer see.
                 askForABasicLand(client);
                 advance(SETTLE / 2);
             }
-            case 160 -> {
+            case 161 -> {
                 expectScreen(client, "choosing a basic land", ChoiceScreen.class);
                 shoot(client, "54f-which-basic");
                 press(client, "Forest");
                 advance(SETTLE / 2);
             }
-            case 161 -> {
+            case 162 -> {
                 expectScreen(client, "choosing how many lands", AmountScreen.class);
                 shoot(client, "54g-how-many-basics");
-                // Backed out rather than answered: a real basic needs a printing off
-                // Scryfall and this run has no network. What is being proved is that the
-                // menu entry reaches a question, that the question names the land it is
-                // about, and that both come back to the board.
-                if (client.screen != null) {
-                    client.screen.onClose();
+                // Answered for real. It comes out of the deck rather than off Scryfall, so
+                // this run can go through with it without a network - and going through with
+                // it is the only way to prove that is where it came from.
+                inTheLibraryBefore = countIn(Zone.LIBRARY);
+                onTheBattlefieldBefore = countIn(Zone.BATTLEFIELD);
+                press(client, "1");
+                advance(SETTLE);
+            }
+            case 163 -> {
+                expectScreen(client, "back from fetching a land", TableScreen.class);
+                int library = countIn(Zone.LIBRARY);
+                int battlefield = countIn(Zone.BATTLEFIELD);
+                if (library != inTheLibraryBefore - 1) {
+                    fail("a Forest was fetched and the library went from "
+                            + inTheLibraryBefore + " to " + library
+                            + " - it has to come out of the deck, not out of the ether");
+                    advance(SETTLE / 2);
+                    return;
                 }
+                if (battlefield != onTheBattlefieldBefore + 1) {
+                    fail("a Forest was fetched and the battlefield went from "
+                            + onTheBattlefieldBefore + " to " + battlefield);
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println("[devscene] a basic land came out of the deck, not out of nowhere");
                 advance(SETTLE / 2);
             }
-            case 162 -> {
+            case 164 -> {
                 // Loyalty. A fresh card, because the one the earlier steps used has a written
                 // power and toughness on it and the corner only holds one number - which is
                 // the rule worth checking as much as the counter is.
                 playACard(client);
                 advance(SETTLE);
             }
-            case 163 -> {
+            case 165 -> {
                 putLoyaltyOn(client, 3);
                 advance(SETTLE);
             }
-            case 164 -> {
+            case 166 -> {
                 if (loyaltyNow() != 3) {
                     fail("three loyalty went on and the board says " + loyaltyNow());
                     advance(SETTLE / 2);
@@ -1808,7 +1836,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 165 -> {
+            case 167 -> {
                 shoot(client, "54h-loyalty");
                 // The menu is still the one step 164 opened. Right-clicking again to reopen
                 // it lands on the menu rather than on the card, which is what a player would
@@ -1819,7 +1847,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 166 -> {
+            case 168 -> {
                 if (loyaltyNow() != 4) {
                     fail("Loyalty +1 was pressed and the board says " + loyaltyNow());
                     advance(SETTLE / 2);
@@ -1831,11 +1859,11 @@ public final class DevScene {
                 lookAwayFromTheCards(client);
                 advance(SETTLE);
             }
-            case 167 -> {
+            case 169 -> {
                 shoot(client, "54i-loyalty-on-the-card");
                 advance(SETTLE / 2);
             }
-            case 168 -> {
+            case 170 -> {
                 // The pen itself. Everything written on a card so far in this run has been
                 // written by sending the event, which proves the card carries it and proves
                 // nothing at all about the screen a player actually types it into - and that
@@ -1844,7 +1872,7 @@ public final class DevScene {
                         ClientTableState.seatAt(table).orElseThrow(), loyal, "5/5"));
                 advance(SETTLE);
             }
-            case 169 -> {
+            case 171 -> {
                 if (!"5/5".equals(strengthOn(loyal))) {
                     fail("5/5 was written and the card says " + strengthOn(loyal));
                     advance(SETTLE / 2);
@@ -1853,14 +1881,14 @@ public final class DevScene {
                 openTheCardMenu(client, "Set power/toughness...");
                 advance(SETTLE / 2);
             }
-            case 170 -> {
+            case 172 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !board.pressMenuEntry("Set power/toughness...")) {
                     fail("the card's menu offers no way to set power and toughness");
                 }
                 advance(SETTLE);
             }
-            case 171 -> {
+            case 173 -> {
                 expectScreen(client, "the pen for power and toughness", NoteScreen.class);
                 shoot(client, "54j-the-pen");
                 // The other half of writing something is rubbing it out, and it has its own
@@ -1869,7 +1897,7 @@ public final class DevScene {
                 press(client, "Printed");
                 advance(SETTLE);
             }
-            case 172 -> {
+            case 174 -> {
                 expectScreen(client, "back from the pen", TableScreen.class);
                 if (strengthOn(loyal) != null) {
                     fail("the pen was put down and the card still says " + strengthOn(loyal));
@@ -1879,7 +1907,7 @@ public final class DevScene {
                 System.out.println("[devscene] the pen writes numbers on a card and rubs them out");
                 advance(SETTLE / 2);
             }
-            case 173 -> {
+            case 175 -> {
                 // The user's report: "the actual table version is riddled with issues such as
                 // flipping cards doesn't work". Right-clicking a card on the block had never
                 // been in the run - the drag had, the buttons had, the menu had not.
@@ -1888,7 +1916,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 174 -> {
+            case 176 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !(board.board() instanceof dev.gathering.core.ui.SurfaceBoard)) {
                     fail("pressing V did not put the board on the block");
@@ -1901,7 +1929,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 175 -> {
+            case 177 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a card could be right-clicked on it");
                     advance(SETTLE / 2);
@@ -1929,7 +1957,7 @@ public final class DevScene {
                 System.out.println("[devscene] turned a card face down from its menu on the block");
                 advance(SETTLE);
             }
-            case 176 -> {
+            case 178 -> {
                 int now = howManyAreFaceDown();
                 if (now != faceDownWas + 1) {
                     fail("turning a card face down on the block left " + now
@@ -1940,7 +1968,7 @@ public final class DevScene {
                 shoot(client, "55-flipped-on-the-block");
                 advance(SETTLE / 2);
             }
-            case 177 -> {
+            case 179 -> {
                 // The written card, put in the graveyard and read back through the pile
                 // screen. A card looked at through one screen and lying on the felt in
                 // another has to be the same card.
@@ -1953,11 +1981,11 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 178 -> {
+            case 180 -> {
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 179 -> {
+            case 181 -> {
                 expectScreen(client, "a graveyard holding a written card", PileScreen.class);
                 if (!theGraveyardHoldsTheWrittenCard()) {
                     fail("the card written on is not in the graveyard the screen opened");
@@ -1970,7 +1998,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 180 -> {
+            case 182 -> {
                 // "Many of the elements of the table gui phase in and out as you scroll in
                 // and out." Photographed at four heights rather than reasoned about: whatever
                 // comes and goes has to be visible in the pictures side by side.
@@ -1979,7 +2007,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 181 -> {
+            case 183 -> {
                 expectScreen(client, "the board on the block to zoom", TableScreen.class);
                 // Aimed at the graveyard rather than at the middle of the window, because
                 // the middle is where the camera already is: a wheel that ignored the cursor
@@ -1989,7 +2017,7 @@ public final class DevScene {
                 scrollTheBoard(client, 6);
                 advance(SETTLE / 2);
             }
-            case 182 -> {
+            case 184 -> {
                 theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
                 // Dragged here as well as at the whole-table framing, because how many blocks
@@ -1999,29 +2027,29 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 183 -> {
+            case 185 -> {
                 theBoardFollowedTheHand("dragged while leaning all the way in");
                 dragTheBoard(client, 0, -PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 184 -> {
+            case 186 -> {
                 theBoardFollowedTheHand("dragged back again");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 185 -> {
+            case 187 -> {
                 theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 186 -> {
+            case 188 -> {
                 theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 187 -> {
+            case 189 -> {
                 theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
@@ -2034,7 +2062,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 188 -> {
+            case 190 -> {
                 expectScreen(client, "the whole table on the block", TableScreen.class);
                 System.out.println("[devscene] camera: " + TableCameraView.report());
                 theBlockFramesLikeTheScreen(client);
@@ -2045,12 +2073,12 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 189 -> {
+            case 191 -> {
                 theBoardFollowedTheHand("dragged down the whole-table view");
                 dragTheBoard(client, PAN_BY, 0);
                 advance(SETTLE / 2);
             }
-            case 190 -> {
+            case 192 -> {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
                 // Dyed with the board still open and nothing else touching the world, which
@@ -2061,7 +2089,7 @@ public final class DevScene {
                 dyeTheTable(client);
                 advance(SETTLE);
             }
-            case 191 -> {
+            case 193 -> {
                 shoot(client, "60-the-felt-dyed");
                 advance(SETTLE / 2);
             }
@@ -2383,6 +2411,38 @@ public final class DevScene {
         return seen < 2 ? "only " + seen + " cards in it could be priced at all" : null;
     }
 
+    /**
+     * Puts a Forest from the hand back on top of the deck, so there is one to fetch.
+     *
+     * <p>The run has spent most of the library by this point. A fetch that found nothing
+     * would pass a test about an empty deck rather than the one worth having, which is that
+     * the card comes out of the library at all.
+     */
+    private static void putAForestBackInTheDeck(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            fail("there was no board to put a Forest back into");
+            return;
+        }
+        for (CardView card : view.seat(me).zone(Zone.HAND).cards()) {
+            if (!(card instanceof CardView.Visible visible)) {
+                continue;
+            }
+            java.util.Optional<dev.gathering.network.CardSummary> summary = ClientCardCache.get()
+                    .summary(dev.gathering.item.CardComponent.of(visible.identity()));
+            if (summary.isEmpty() || !"Forest".equals(summary.get().name())) {
+                continue;
+            }
+            ClientTableActions.send(table, new GameEvent.CardMoved(
+                    me, visible.id(),
+                    dev.gathering.core.game.ZoneRef.of(me, Zone.LIBRARY),
+                    dev.gathering.core.game.Placement.TOP));
+            return;
+        }
+        fail("there was no Forest in hand to put back into the deck");
+    }
+
     /** Opens the library's menu and asks for a basic land off it. */
     private static void askForABasicLand(Minecraft client) {
         if (!(client.screen instanceof TableScreen board)) {
@@ -2390,7 +2450,7 @@ public final class DevScene {
             return;
         }
         clickAZone(client, Zone.PILES.indexOf(Zone.LIBRARY), 1);
-        if (!board.pressMenuEntry("Fetch a basic land...")) {
+        if (!board.pressMenuEntry("Fetch a basic land from your deck...")) {
             fail("the library's menu offers no way to fetch a basic land");
         }
     }
@@ -2484,6 +2544,9 @@ public final class DevScene {
 
     /** What the library held before the number row put something back under it. */
     private static int inTheLibraryBefore;
+
+    /** What the battlefield held before a land was fetched onto it. */
+    private static int onTheBattlefieldBefore;
 
     /** What the hand and the graveyard held before the random discard, to compare after. */
     private static int inTheHandBefore;

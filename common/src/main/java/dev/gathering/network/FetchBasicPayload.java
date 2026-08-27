@@ -7,16 +7,20 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
- * Client to server: put a basic land on the table.
+ * Client to server: go and get a basic land out of my deck.
  *
- * <p>For the effects that put a land into play from nowhere, and for the moment somebody needs
- * one and it is not worth stopping the game over. It arrives as a token - something that came
- * from outside the game and goes away with it - because that is what it is.
+ * <p>Out of the library, which is what fetching means. The server looks: a deck with no
+ * Forests in it produces no Forest and says so. This used to make a token off a card lookup
+ * instead, which was quick to write and wrong - it turned a search into a conjuring trick and
+ * a deck's land count into a suggestion.
  *
- * <p><b>Six answers, not a name.</b> The server has to look this card up, and a payload that
- * carried a string would be a door a client could put any name through - a general
- * card-lookup channel dressed as a land button. There are six basic lands, so there are six
- * values here, and an id this build has no name for is refused rather than guessed at.
+ * <p><b>Six answers, not a name.</b> A payload carrying a string would be a door a client
+ * could put anything through, and what is on the other side of this one walks a library.
+ * There are six basic lands, so there are six values here, and an id this build has no name
+ * for is refused rather than guessed at.
+ *
+ * <p>Carries no seat: it is your own deck, and which deck that is comes from the player the
+ * packet arrived from.
  */
 public record FetchBasicPayload(BlockPos table, Basic land, int count) implements CustomPacketPayload {
 

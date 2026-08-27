@@ -11,7 +11,6 @@ import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.CardSummary;
 import dev.gathering.network.CreateTokenPayload;
-import dev.gathering.network.FetchBasicPayload;
 import dev.gathering.service.CardDataService;
 import java.util.List;
 import java.util.Optional;
@@ -61,41 +60,6 @@ public final class TokenCreation {
                         return;
                     }
                     place(player, level, origin, seat, found, payload);
-                }));
-    }
-
-    /**
-     * A basic land, put on the table as a token.
-     *
-     * <p>The same act as making a token and it goes down the same path: something that came
-     * from outside the game, is drawn as an ordinary card, and goes away with the game. What
-     * differs is only which lookup answers - a basic land is a real printing, not a token, so
-     * the token search would never find one.
-     *
-     * <p>The name is not the client's. It comes from an enum of the six basic lands, so this
-     * cannot be used to ask the server to look up an arbitrary card - see
-     * {@link FetchBasicPayload}.
-     */
-    public static void fetchBasic(
-            ServerPlayer player, CardDataService service, FetchBasicPayload payload) {
-        TableReach.Seated at = TableReach.seatedAt(player, payload.table()).orElse(null);
-        if (at == null) {
-            return;
-        }
-        ServerLevel level = player.serverLevel();
-        String name = payload.land().printedName();
-        service.findByName(name)
-                .whenComplete((found, failure) -> player.server.execute(() -> {
-                    if (player.hasDisconnected()) {
-                        return;
-                    }
-                    if (failure != null) {
-                        player.sendSystemMessage(Component.translatable(
-                                "message.gathering.card_lookup_failed", name));
-                        return;
-                    }
-                    put(player, level, at.origin(), at.seat(),
-                            found.map(List::of).orElse(List.of()), payload.count(), name);
                 }));
     }
 

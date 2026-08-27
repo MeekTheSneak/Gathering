@@ -132,8 +132,7 @@ public final class GatheringNetwork {
                 dev.gathering.network.FetchBasicPayload.STREAM_CODEC,
                 (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        CardDataService.active().ifPresent(service ->
-                                dev.gathering.server.TokenCreation.fetchBasic(player, service, payload));
+                        dev.gathering.server.BasicLandFetch.handle(player, payload);
                     }
                 });
 
