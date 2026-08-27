@@ -97,8 +97,9 @@ makes the hidden-information promise above hold up.
 ## Multiplayer
 
 Install the mod on the server and on every client — the same version, and Fabric players also
-need Fabric API. Any table seats two; four tables merged seat eight. People who aren't playing can watch: the board renders on the table block itself, so a
-game is something you can walk past and see.
+need Fabric API. Any table seats two; four tables merged seat eight. People who aren't playing
+can watch: the board renders on the table block itself, so a game is something you can walk
+past and see.
 
 ## Status
 

@@ -93,7 +93,13 @@ public final class DecklistImport {
             return "Importing decklists is turned off on this server.";
         }
         if (!settings.mayImport(isOperator)) {
-            return "Only server operators can import decklists here.";
+            // Said with the way in that is open, because on a collecting server this is not
+            // a refusal so much as a signpost: cards are things you own here, and there is a
+            // whole game on the other side of that sentence. Only claimed where it is true.
+            return settings.modes().collectionEnabled()
+                    ? "Only server operators can import decklists here. Open packs and build "
+                            + "a deck out of your own collection instead."
+                    : "Only server operators can import decklists here.";
         }
         return null;
     }

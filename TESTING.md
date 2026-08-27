@@ -409,9 +409,25 @@ Open to LAN is enough for two, and a dedicated server is the honest test: run
 `./gradlew :neoforge:runServer` once to generate `run/`, accept the EULA, drop the built jar
 from `neoforge/build/libs/` into a normal server's `mods/`, and have everyone join.
 
+**Before anybody joins, one setting.** As it ships, collecting is on and importing a decklist
+is an operator's tool - so your friends will be told "only server operators can import
+decklists here" the moment they try. That is right for a normal server and wrong for a
+playtest where four people bring real decks. In `config/gathering-server.toml`:
+
+```toml
+[import]
+allow_all_players = true
+```
+
+Leave it alone instead if what you want to test is the collecting game, in which case everyone
+opens packs and builds out of their own collection, and only you can conjure a deck.
+
+Expect the first boot to take a little longer than you remember, too: with collecting on the
+server works out the current set and fetches its data once, a few megabytes, then caches it.
+
 Four players at one table needs a cluster: place four tables adjacent and they merge into one
-eight-seat surface. Everyone imports their own deck first (`/gathering import`), then walks up
-holding it and right-clicks.
+eight-seat surface. Everyone gets a deck - imported, or built out of a collection - then walks
+up holding it and right-clicks.
 
 What is worth watching, in the order it would hurt:
 
