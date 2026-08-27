@@ -74,13 +74,27 @@ public final class ClientCardRequests {
         countdown = 0;
     }
 
+    /** How far off a card has to be before it is not worth knowing what it is. */
+    private static final double IN_SIGHT = 32.0d;
+
     /**
-     * Every printing the player is holding.
+     * Every printing this client can see.
      *
      * <p>Loose cards, plus each deck's commanders - a deck shows its commander's name on the
      * item itself, so that much is needed without opening it. The rest of a deck is asked for
      * when the deck is opened, because a shelf of deckboxes should not be a thousand-card
      * request.
+     *
+     * <p>And cards nobody is holding: framed on a wall, or lying on the floor where somebody
+     * dropped them. Those used to be asked about by nothing at all, so a card in an item frame
+     * drew as its own back - correct-looking to whoever framed it, because they had held it a
+     * moment earlier and their cache still knew it, and a blank sleeve to everybody else and
+     * to them after a rejoin. Framing a good pull is the first thing anybody does with a
+     * collection, so it has to survive somebody else walking past it.
+     *
+     * <p>No access comes with this: an item frame's contents and a dropped stack are already
+     * on this client - the entity was synced to it - so this asks about cards it can see and
+     * nothing more, which is the same rule the inventory sweep follows.
      */
     private static List<UUID> heldPrintings(Player player) {
         List<UUID> printings = new ArrayList<>();
@@ -99,6 +113,19 @@ public final class ClientCardRequests {
                 .map(visible -> visible.identity().scryfallId())
                 .filter(java.util.Objects::nonNull)
                 .forEach(printings::add));
+
+        // Cards in the world around the player: framed, or dropped. Bounded by sight rather
+        // than by the whole level, and asked for once - a printing already in the cache is
+        // dropped before any request is built.
+        net.minecraft.world.phys.AABB nearby = player.getBoundingBox().inflate(IN_SIGHT);
+        for (net.minecraft.world.entity.decoration.ItemFrame frame : player.level()
+                .getEntitiesOfClass(net.minecraft.world.entity.decoration.ItemFrame.class, nearby)) {
+            collect(frame.getItem(), printings);
+        }
+        for (net.minecraft.world.entity.item.ItemEntity dropped : player.level()
+                .getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, nearby)) {
+            collect(dropped.getItem(), printings);
+        }
 
         return printings;
     }

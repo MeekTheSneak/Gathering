@@ -36,12 +36,19 @@ public final class ServerSettingsGameTest {
             if (!ServerSettings.get().modes().importEnabled()) {
                 return "A fresh server came up with importing off";
             }
-            if (ServerSettings.get().modes().collectionEnabled()) {
-                return "A fresh server came up with collection on";
+            if (!ServerSettings.get().modes().collectionEnabled()) {
+                return "A fresh server came up with collection off";
             }
-            if (DecklistImport.whyNot(false) != null) {
-                return "A fresh server refused an ordinary player an import: "
-                        + DecklistImport.whyNot(false);
+            // The shipped shape, in a real server rather than in a config unit test: cards
+            // are found and opened, and importing a decklist is the operator's tool - a card
+            // conjured out of a list beside a card opened out of a pack makes the pack
+            // pointless.
+            if (DecklistImport.whyNot(false) == null) {
+                return "A fresh server let an ordinary player import";
+            }
+            if (DecklistImport.whyNot(true) != null) {
+                return "A fresh server refused an operator an import: "
+                        + DecklistImport.whyNot(true);
             }
             return null;
         });
