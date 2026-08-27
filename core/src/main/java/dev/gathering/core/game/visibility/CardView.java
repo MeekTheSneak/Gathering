@@ -14,7 +14,7 @@ import java.util.Optional;
  *
  * <p>Two shapes, and the split is the security property made structural: {@link Visible}
  * carries identity, {@link Anonymous} carries no path to it. There is no third shape
- * carrying "identity, but redacted", because a sanitised secret is still a secret in
+ * carrying "identity, but redacted", because a sanitized secret is still a secret in
  * somebody's memory and network traffic.
  */
 public sealed interface CardView {

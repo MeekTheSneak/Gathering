@@ -42,6 +42,13 @@ public final class ArtToSend {
             // identity to name, which is the whole of the safety argument.
             if (card instanceof CardView.Visible visible) {
                 UUID printing = visible.identity().scryfallId();
+                // A custom card has no printing and no Scryfall picture to push. Passing its
+                // null through instead used to blow up the send on the server thread - the
+                // set the sends are remembered in refuses nulls - so one face-up custom card
+                // stopped every picture at the table.
+                if (printing == null) {
+                    continue;
+                }
                 if (alreadySent == null || !alreadySent.contains(printing)) {
                     wanted.add(printing);
                 }

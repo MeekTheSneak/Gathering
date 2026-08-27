@@ -117,7 +117,7 @@ class GatheringConfigTest {
 
     @Test
     @DisplayName("names of things are read as names, not as whatever case they were typed in")
-    void namesAreNormalised() throws Exception {
+    void namesAreNormalized() throws Exception {
         GatheringConfig config = read("""
                 [collection]
                 current_set = "  BLB "

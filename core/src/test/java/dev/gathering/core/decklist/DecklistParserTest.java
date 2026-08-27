@@ -84,7 +84,7 @@ class DecklistParserTest {
         }
 
         @Test
-        @DisplayName("lowercase set codes are normalised, as Archidekt writes them")
+        @DisplayName("lowercase set codes are normalized, as Archidekt writes them")
         void lowercaseSetCode() {
             DecklistEntry entry = onlyEntry("1x Sol Ring (c21) 263");
             assertThat(entry.setCode()).isEqualTo("C21");
@@ -252,6 +252,24 @@ class DecklistParserTest {
             ParsedDecklist result = DecklistParser.parse("""
                     4 Lightning Bolt
                     4 Chain Lightning
+
+                    2 Pyroblast
+                    """);
+            assertThat(result.cardCount(DeckSection.MAINBOARD)).isEqualTo(8);
+            assertThat(result.cardCount(DeckSection.SIDEBOARD)).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("a comment between the blocks does not spend the blank line")
+        void commentsAreInvisibleToBlockStructure() {
+            // The hand-edited shape: somebody labels their sideboard with a comment. The
+            // comment used to count as a block of its own, so the convention saw three
+            // blocks, never fired, and the sideboard quietly joined the mainboard.
+            ParsedDecklist result = DecklistParser.parse("""
+                    4 Lightning Bolt
+                    4 Chain Lightning
+
+                    # Sideboard
 
                     2 Pyroblast
                     """);

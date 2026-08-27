@@ -29,7 +29,7 @@ class DiskCardMetadataStoreTest {
     }
 
     @Test
-    @DisplayName("what Scryfall said is what lands on disk, not a re-serialisation of it")
+    @DisplayName("what Scryfall said is what lands on disk, not a re-serialization of it")
     void writesTheRawResponse(@TempDir Path root) throws IOException {
         DiskCardMetadataStore store = new DiskCardMetadataStore(root);
         JsonObject raw = Fixtures.json("sol_ring");

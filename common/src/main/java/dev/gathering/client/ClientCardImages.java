@@ -123,6 +123,7 @@ public final class ClientCardImages {
     }
 
     private void fetch(String url) {
+        boolean handedOff = false;
         try {
             byte[] bytes = readCached(url).orElseGet(() -> download(url));
             if (bytes == null || bytes.length == 0) {
@@ -130,12 +131,20 @@ public final class ClientCardImages {
                 return;
             }
             // Back to the client thread: NativeImage and the GL upload both belong there.
+            // The url stays in flight until upload() has published the texture. Releasing it
+            // here opened a gap - resident not yet filled, inFlight already empty - that the
+            // render loop fetched into on the very next frame, and the second upload then
+            // replaced the first texture in resident without releasing it: a leaked GL
+            // texture per fetched card, plus the double decode.
+            handedOff = true;
             Minecraft.getInstance().execute(() -> upload(url, bytes));
         } catch (RuntimeException e) {
             LOGGER.warn("Could not load card art from {}: {}", url, e.toString());
             markFailed(url);
         } finally {
-            inFlight.remove(url);
+            if (!handedOff) {
+                inFlight.remove(url);
+            }
         }
     }
 
@@ -156,6 +165,25 @@ public final class ClientCardImages {
             // this is one line per card rather than a flood.
             LOGGER.warn("Could not decode card art from {}: {}", url, e.toString());
             markFailed(url);
+            // What would not decode is thrown out of the disk cache too. The failed set only
+            // lasts the session, so a truncated file kept here came back every session and
+            // broke this card's art for good; gone, the next session downloads it fresh.
+            discardCached(url);
+        } finally {
+            inFlight.remove(url);
+        }
+    }
+
+    /** Client thread or fetcher thread; only touches the disk. */
+    private void discardCached(String url) {
+        Path file = cacheFile(url);
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            LOGGER.debug("Could not discard cached card art for {}", url, e);
         }
     }
 
@@ -229,7 +257,12 @@ public final class ClientCardImages {
         }
         try {
             Files.createDirectories(file.getParent());
-            Files.write(file, bytes);
+            // Written beside and moved into place, like the set symbols. A client killed
+            // part way through a plain write left a truncated image that failed to decode
+            // on every later session.
+            Path beside = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.write(beside, bytes);
+            Files.move(beside, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             // A cache we cannot write is slower, not broken.
             LOGGER.debug("Could not cache card art for {}", url, e);

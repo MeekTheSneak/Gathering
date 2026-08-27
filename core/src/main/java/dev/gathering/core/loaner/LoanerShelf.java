@@ -122,7 +122,7 @@ public record LoanerShelf(List<Loaner> decks) {
      *
      * <p>{@code mono-red_burn.txt} is "Mono Red Burn". A name is what an admin typed when
      * they saved the file, so this only does what a file name cannot carry: drops the
-     * extension, turns the separators back into spaces, and capitalises.
+     * extension, turns the separators back into spaces, and capitalizes.
      */
     public static String nameOf(String fileName) {
         if (fileName == null) {

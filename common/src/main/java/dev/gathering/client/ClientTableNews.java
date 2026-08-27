@@ -25,7 +25,7 @@ import net.minecraft.core.BlockPos;
  * draw, and until now the only account of it was a line in the log.
  *
  * <p>Taken from the log rather than from the board, because the log is the only place a
- * shuffle appears at all. That is also why it is safe: a log line is the sanitised, public
+ * shuffle appears at all. That is also why it is safe: a log line is the sanitized, public
  * account of an event, already built for everyone at the table to read, and what is taken from
  * it here is a seat and nothing else.
  *

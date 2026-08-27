@@ -4,7 +4,7 @@ package dev.gathering.core.game.event;
  * Where an event's content is allowed to live at rest.
  *
  * <p>The hidden-information lifecycle has three stages and one principle: unauthorised
- * parties never hold secrets, sanitised or otherwise.
+ * parties never hold secrets, sanitized or otherwise.
  *
  * <ul>
  *   <li><b>Live</b> - hidden identity goes only to entitled clients. Everyone else gets the

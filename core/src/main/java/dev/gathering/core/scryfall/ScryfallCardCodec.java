@@ -82,7 +82,7 @@ public final class ScryfallCardCodec {
     /**
      * The same parse, keeping each card's original JSON beside it.
      *
-     * <p>The disk cache stores the raw body rather than a re-serialised model, so this pair
+     * <p>The disk cache stores the raw body rather than a re-serialized model, so this pair
      * is what the caching layer actually needs.
      */
     public static List<ParsedCard> parseCollectionEntries(JsonObject response) {

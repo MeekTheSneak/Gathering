@@ -138,23 +138,23 @@ public final class ManaSymbols {
     /**
      * The texture name for a braced code, or null.
      *
-     * <p>Hybrid codes are normalised to the conventional order, so {@code {U/W}} and
+     * <p>Hybrid codes are normalized to the conventional order, so {@code {U/W}} and
      * {@code {W/U}} are the same symbol rather than one symbol and one gap.
      */
     public static String nameFor(String code) {
         if (code == null || code.isEmpty()) {
             return null;
         }
-        String normalised = code.toLowerCase(Locale.ROOT).replace("/", "");
-        String alias = ALIASES.get(normalised);
+        String normalized = code.toLowerCase(Locale.ROOT).replace("/", "");
+        String alias = ALIASES.get(normalized);
         if (alias != null) {
             return alias;
         }
-        if (NAMES.contains(normalised)) {
-            return normalised;
+        if (NAMES.contains(normalized)) {
+            return normalized;
         }
-        if (normalised.length() == 2) {
-            String flipped = "" + normalised.charAt(1) + normalised.charAt(0);
+        if (normalized.length() == 2) {
+            String flipped = "" + normalized.charAt(1) + normalized.charAt(0);
             if (NAMES.contains(flipped)) {
                 return flipped;
             }

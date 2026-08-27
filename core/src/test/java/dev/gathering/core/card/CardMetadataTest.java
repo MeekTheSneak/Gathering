@@ -24,8 +24,54 @@ class CardMetadataTest {
     @Test
     @DisplayName("the any-number exception is read off printed text, not a hardcoded list")
     void anyNumberIsReadFromOracleText() {
-        assertThat(Fixtures.card("persistent_petitioners").allowsAnyNumber()).isTrue();
-        assertThat(Fixtures.card("sol_ring").allowsAnyNumber()).isFalse();
+        assertThat(Fixtures.card("persistent_petitioners").printedCopyAllowance())
+                .hasValue(CardMetadata.ANY_NUMBER);
+        assertThat(Fixtures.card("sol_ring").printedCopyAllowance()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Seven Dwarves' \"up to seven\" is an allowance of seven, not a violation")
+    void upToSevenIsReadFromOracleText() {
+        // Matching only the any-number phrase made the deck check report a legal 7x Seven
+        // Dwarves deck as too many copies - a rules violation that does not exist, from the
+        // one screen whose job is to be right about that.
+        CardMetadata dwarves = withOracleText(
+                "A deck can have up to seven cards named Seven Dwarves.");
+        CardMetadata nazgul = withOracleText(
+                "A deck can have up to nine cards named Nazgûl.");
+
+        assertThat(dwarves.printedCopyAllowance()).hasValue(7);
+        assertThat(nazgul.printedCopyAllowance()).hasValue(9);
+    }
+
+    @Test
+    @DisplayName("a spell with a land on its back is not a land - the front face decides")
+    void theFrontFaceDecidesWhatACardIs() {
+        // Scryfall's card-level type line joins both faces, so Malakir Rebirth reads
+        // "Instant // Land". A word search over that made a land of it, and cascade - whose
+        // stop rule is "first nonland" - sailed straight past a card it should stop on.
+        CardMetadata modalSpellLand = withFaces("Instant // Land",
+                new CardFace("Malakir Rebirth", "{B}", "Instant",
+                        null, null, null, null, null, null, ImageUris.EMPTY),
+                new CardFace("Malakir Mire", null, "Land",
+                        null, null, null, null, null, null, ImageUris.EMPTY));
+
+        assertThat(modalSpellLand.isLand()).isFalse();
+        assertThat(modalSpellLand.isBasicLand()).isFalse();
+    }
+
+    private static CardMetadata withOracleText(String oracleText) {
+        return new CardMetadata(java.util.UUID.randomUUID(), java.util.UUID.randomUUID(),
+                "A Card", "{1}", 1, "Creature", oracleText, null, null, null, "normal",
+                "tst", "Test", "1", Rarity.COMMON, false, true, true, false, false,
+                java.util.List.of("paper"), null, null, null);
+    }
+
+    private static CardMetadata withFaces(String combinedTypeLine, CardFace... faces) {
+        return new CardMetadata(java.util.UUID.randomUUID(), java.util.UUID.randomUUID(),
+                "A Card", null, 1, combinedTypeLine, null, null, null,
+                java.util.List.of(faces), "modal_dfc", "tst", "Test", "1", Rarity.COMMON,
+                false, true, true, false, false, java.util.List.of("paper"), null, null, null);
     }
 
     @Test

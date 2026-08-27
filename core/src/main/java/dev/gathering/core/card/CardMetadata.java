@@ -103,10 +103,18 @@ public record CardMetadata(
     }
 
     private boolean hasTypeWord(String wanted) {
-        if (typeLine == null) {
+        // The front face's line, not the whole card's. Scryfall joins a double-faced card's
+        // types as "Instant // Land", and a word search over that makes a land of Malakir
+        // Rebirth - whose front face is the instant, and whose front face is what a card is
+        // everywhere but the battlefield (CR 712.4a). Cascade stops on it; a fetch skips it.
+        String line = frontFace().map(CardFace::typeLine).orElse(typeLine);
+        if (line == null) {
+            line = typeLine;
+        }
+        if (line == null) {
             return false;
         }
-        for (String word : typeLine.split("[^A-Za-z]+")) {
+        for (String word : line.split("[^A-Za-z]+")) {
             if (word.equalsIgnoreCase(wanted)) {
                 return true;
             }
@@ -114,20 +122,66 @@ public record CardMetadata(
         return false;
     }
 
+    /** Read as "any number" wherever a printed copy allowance comes back with it. */
+    public static final int ANY_NUMBER = Integer.MAX_VALUE;
+
+    private static final java.util.regex.Pattern UP_TO_COPIES =
+            java.util.regex.Pattern.compile("A deck can have up to (\\w+) cards named");
+
     /**
-     * The oracle-text exception to singleton copy limits: cards that say a deck may contain
-     * any number of them. Checked against printed text rather than a hardcoded name list,
-     * so new printings need no code change.
+     * The copy allowance the card's own text grants, when it grants one.
+     *
+     * <p>"A deck can have any number of cards named ..." - Relentless Rats, Persistent
+     * Petitioners - comes back as {@link #ANY_NUMBER}. "A deck can have up to seven cards
+     * named Seven Dwarves." comes back as seven; Nazgul's nine as nine. Both read off the
+     * printed text rather than a maintained name list, so a new printing needs no code
+     * change - which is also why the second template matters: matching only the first made
+     * the deck check call a legal seven-Dwarves deck a rules violation, and a check that
+     * cries wolf is the one kind of rules enforcement this mod does do.
      */
-    public boolean allowsAnyNumber() {
-        String text = oracleText == null ? "" : oracleText;
-        if (text.contains("A deck can have any number of cards named")) {
-            return true;
+    public java.util.OptionalInt printedCopyAllowance() {
+        java.util.OptionalInt fromCard = allowanceIn(oracleText);
+        if (fromCard.isPresent()) {
+            return fromCard;
         }
         return faces.stream()
                 .map(CardFace::oracleText)
-                .filter(java.util.Objects::nonNull)
-                .anyMatch(t -> t.contains("A deck can have any number of cards named"));
+                .map(CardMetadata::allowanceIn)
+                .filter(java.util.OptionalInt::isPresent)
+                .findFirst()
+                .orElse(java.util.OptionalInt.empty());
+    }
+
+    private static java.util.OptionalInt allowanceIn(String text) {
+        if (text == null) {
+            return java.util.OptionalInt.empty();
+        }
+        if (text.contains("A deck can have any number of cards named")) {
+            return java.util.OptionalInt.of(ANY_NUMBER);
+        }
+        java.util.regex.Matcher upTo = UP_TO_COPIES.matcher(text);
+        if (upTo.find()) {
+            int count = numberFrom(upTo.group(1));
+            if (count > 0) {
+                return java.util.OptionalInt.of(count);
+            }
+        }
+        return java.util.OptionalInt.empty();
+    }
+
+    /** Wizards writes the number out as a word; nobody should have to guess which ones. */
+    private static int numberFrom(String word) {
+        List<String> words = List.of("one", "two", "three", "four", "five", "six", "seven",
+                "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen");
+        int index = words.indexOf(word.toLowerCase(java.util.Locale.ROOT));
+        if (index >= 0) {
+            return index + 1;
+        }
+        try {
+            return Integer.parseInt(word);
+        } catch (NumberFormatException impossibleToRead) {
+            return 0;
+        }
     }
 
     /** The price used only to pick a default printing on import - never shown, never in the economy. */

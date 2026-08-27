@@ -129,7 +129,7 @@ public final class ScryfallClient {
                 break;
             }
             // Kept with their original JSON, because the caller's next move is to put them in
-            // the cache and the cache stores the body rather than a re-serialised model.
+            // the cache and the cache stores the body rather than a re-serialized model.
             found.addAll(ScryfallCardCodec.parseCollectionEntries(json));
             JsonElement more = json.get("has_more");
             if (more == null || !more.isJsonPrimitive() || !more.getAsBoolean()) {

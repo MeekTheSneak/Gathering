@@ -115,11 +115,15 @@ public final class DeckValidator {
     private static final int UNLIMITED = -1;
 
     private static int copyLimitFor(CardMetadata card, FormatPreset preset) {
-        // Basic lands, and cards whose own text says a deck may contain any number of them.
-        // Both read off the card rather than a maintained list, so a new printing needs no
-        // code change.
-        if (card.isBasicLand() || card.allowsAnyNumber()) {
+        // Basic lands, and cards whose own text grants an allowance - "any number" for
+        // Relentless Rats, "up to seven" for Seven Dwarves. Read off the card rather than a
+        // maintained list, so a new printing needs no code change.
+        if (card.isBasicLand()) {
             return UNLIMITED;
+        }
+        java.util.OptionalInt printed = card.printedCopyAllowance();
+        if (printed.isPresent()) {
+            return printed.getAsInt() == CardMetadata.ANY_NUMBER ? UNLIMITED : printed.getAsInt();
         }
         // Restricted carries its own ceiling of one, which is the whole of Vintage's
         // restricted list handled without a line of Vintage-specific code.

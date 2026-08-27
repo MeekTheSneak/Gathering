@@ -21,6 +21,7 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
     private final Map<UUID, CardMetadata> byId = new ConcurrentHashMap<>();
     private final Map<String, UUID> byPrinting = new ConcurrentHashMap<>();
     private final Map<String, UUID> byName = new ConcurrentHashMap<>();
+    private final Map<String, UUID> byNameInSet = new ConcurrentHashMap<>();
     private final Map<UUID, JsonObject> raw = new ConcurrentHashMap<>();
 
     /**
@@ -47,10 +48,15 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
                             .map(byId::get);
             case CardQuery.ByName name ->
                     Optional.ofNullable(byName.get(nameKey(name.name()))).map(byId::get);
+            // Its own index, not the name index filtered by set. The name index keeps the
+            // one cheapest printing across every set, so whenever a cheaper printing from
+            // some other set was stored, filtering it made this query a permanent miss -
+            // and every "Name (SET)" decklist line went back to the network on every
+            // import, found the same card, and missed again.
             case CardQuery.ByNameInSet nameInSet ->
-                    Optional.ofNullable(byName.get(nameKey(nameInSet.name())))
-                            .map(byId::get)
-                            .filter(card -> nameInSet.setCode().equalsIgnoreCase(card.setCode()));
+                    Optional.ofNullable(byNameInSet.get(
+                                    nameSetKey(nameInSet.name(), nameInSet.setCode())))
+                            .map(byId::get);
         };
     }
 
@@ -80,8 +86,14 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
         if (name == null || name.isBlank()) {
             return;
         }
-        String key = nameKey(name);
-        byName.merge(key, card.scryfallId(), (existingId, candidateId) -> {
+        keepCheapest(byName, nameKey(name), card);
+        if (card.setCode() != null) {
+            keepCheapest(byNameInSet, nameSetKey(name, card.setCode()), card);
+        }
+    }
+
+    private void keepCheapest(Map<String, UUID> index, String key, CardMetadata card) {
+        index.merge(key, card.scryfallId(), (existingId, candidateId) -> {
             CardMetadata existing = byId.get(existingId);
             if (existing == null) {
                 return candidateId;
@@ -90,6 +102,10 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
             double candidatePrice = card.usdPrice().orElse(Double.MAX_VALUE);
             return candidatePrice < existingPrice ? candidateId : existingId;
         });
+    }
+
+    static String nameSetKey(String name, String setCode) {
+        return nameKey(name) + "@" + setCode.toLowerCase(Locale.ROOT);
     }
 
     public Optional<JsonObject> rawJson(UUID id) {

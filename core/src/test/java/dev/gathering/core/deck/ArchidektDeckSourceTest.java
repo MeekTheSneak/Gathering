@@ -69,7 +69,7 @@ class ArchidektDeckSourceTest {
     }
 
     @Test
-    @DisplayName("Archidekt sends null rather than an empty list for an uncategorised card")
+    @DisplayName("Archidekt sends null rather than an empty list for an uncategorized card")
     void nullCategoriesAreAnEmptyListNotACrash() {
         // Straight from the live API: cards in no category have "categories": null. Reading
         // that as a missing field rather than as an absent list is the difference between a

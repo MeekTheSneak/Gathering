@@ -151,7 +151,7 @@ cannot be inferred from reading the code.
   `...client.event.lifecycle.v1` where the server-side lifecycle events are.
 - **Scryfall's collection endpoint answers, but does not echo, the raw JSON per query.**
   Keep each card's original body alongside the parsed model (`CollectionResult#raw`) or the
-  disk cache ends up storing a re-serialisation of only the fields today's codec reads.
+  disk cache ends up storing a re-serialization of only the fields today's codec reads.
 - **Scryfall serves progressive JPEG, and Minecraft cannot read it.** `NativeImage.read` is
   stb_image, which handles baseline JPEG only, so every card image fails to decode and the
   only symptom is art that never appears. Decoding goes through `CardImageDecoder` (ImageIO,
@@ -198,7 +198,7 @@ cannot be inferred from reading the code.
   player typed reaches the network verbatim. Without that, any player could point the server
   at a metadata endpoint or an internal service and read the answer. The hostile-input cases
   are in `DeckLinkTest` - add to them before adding a provider.
-- **Archidekt sends `"categories": null` for an uncategorised card**, not an empty list, and
+- **Archidekt sends `"categories": null` for an uncategorized card**, not an empty list, and
   its deck entries carry the printing's Scryfall id in `card.uid` - which is why a link
   import resolves exactly where a text export can only guess.
 - **Scryfall's collection endpoint refuses combined card names.** `{"name": "Fire // Ice"}`

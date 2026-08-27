@@ -103,7 +103,7 @@ public record DeckLink(DeckLink.Provider provider, String deckId) {
                 + "Open the deck there, choose More, Export, Text, and paste that instead.";
     }
 
-    static String normaliseHost(String host) {
+    static String normalizeHost(String host) {
         return host == null ? "" : host.toLowerCase(Locale.ROOT);
     }
 }

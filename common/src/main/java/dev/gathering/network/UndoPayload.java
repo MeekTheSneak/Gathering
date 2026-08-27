@@ -19,6 +19,11 @@ public record UndoPayload(BlockPos table, int actions) implements CustomPacketPa
     /** More than this in one request is a client that is not asking in good faith. */
     public static final int MOST_AT_ONCE = 32;
 
+    public UndoPayload {
+        // Clamped here like every sibling payload, so the cap holds whoever handles it.
+        actions = Math.max(1, Math.min(MOST_AT_ONCE, actions));
+    }
+
     public static final CustomPacketPayload.Type<UndoPayload> TYPE =
             GatheringPayloads.type("undo");
 

@@ -22,7 +22,7 @@ import java.util.UUID;
  * One game event, to bytes and back.
  *
  * <p>A session is its event log - state is the fold of it - so this is what makes a game
- * survive a restart. Bytes rather than any of Minecraft's own serialisation because it lives
+ * survive a restart. Bytes rather than any of Minecraft's own serialization because it lives
  * in the pure module, which is what lets a round trip be checked against arbitrary logs
  * instead of against the handful somebody thought to write down. It is also what the sealed
  * stream needs: encryption takes bytes.

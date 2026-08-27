@@ -17,7 +17,7 @@ import java.util.UUID;
  * player, line by line, so a typo is a fixable thing rather than a failed import.
  *
  * @param raw each card's original Scryfall JSON, kept so the disk cache stores what Scryfall
- *            actually said rather than a re-serialisation of the fields the codec reads today
+ *            actually said rather than a re-serialization of the fields the codec reads today
  */
 public record CollectionResult(
         Map<String, CardMetadata> found, List<CardQuery> notFound, Map<UUID, JsonObject> raw) {

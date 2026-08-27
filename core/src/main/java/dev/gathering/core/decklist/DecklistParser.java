@@ -95,14 +95,18 @@ public final class DecklistParser {
                 previousLineWasBlank = true;
                 continue;
             }
+            // Before the block tracking, and leaving previousLineWasBlank alone: a comment
+            // is not a card, and one sitting between the blank line and the sideboard used
+            // to spend the blank and mint an empty block of its own - three blocks, so the
+            // two-block sideboard convention quietly never fired and the sideboard was
+            // imported into the mainboard. A comment a parser honors is one it cannot see.
+            if (isComment(line)) {
+                continue;
+            }
             if (previousLineWasBlank && !parsed.isEmpty()) {
                 blockIndex++;
             }
             previousLineWasBlank = false;
-
-            if (isComment(line)) {
-                continue;
-            }
 
             if (inAboutBlock) {
                 Matcher nameMatcher = ARENA_NAME.matcher(line);
@@ -268,7 +272,7 @@ public final class DecklistParser {
             }
         }
 
-        String name = normaliseName(working);
+        String name = normalizeName(working);
         if (name.isEmpty()) {
             return LineResult.problem(lineNumber, sourceLine, "no card name found");
         }
@@ -304,7 +308,7 @@ public final class DecklistParser {
         return working;
     }
 
-    private static String normaliseName(String raw) {
+    private static String normalizeName(String raw) {
         String name = WHITESPACE_RUN.matcher(raw.strip()).replaceAll(" ").strip();
         while (name.endsWith(",") || name.endsWith("-")) {
             name = name.substring(0, name.length() - 1).strip();

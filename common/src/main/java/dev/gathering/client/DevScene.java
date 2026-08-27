@@ -2534,7 +2534,7 @@ public final class DevScene {
         expect("mill", "4");
         expect("pass_turn", "0");
         // And the row that is not the key: putting cards back in order is a different act
-        // from putting them back in none, so it must not claim the key that randomises.
+        // from putting them back in none, so it must not claim the key that randomizes.
         if (TableScreen.keyShownFor("to_library_bottom") != null) {
             fail("the ordered bottom-of-library row claims a key, and 9 is the random one");
         }

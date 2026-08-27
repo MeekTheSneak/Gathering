@@ -12,7 +12,7 @@ import java.util.Locale;
  * <p>Counter names are not translated, because they are not words this mod chose: a table
  * that agrees a card has three "stun" counters has agreed on the word "stun", and a client
  * that renamed it would be describing a different card to its player than to everybody else.
- * All that happens here is that a name is capitalised for the start of a label - and a name
+ * All that happens here is that a name is capitalized for the start of a label - and a name
  * that already reads as a symbol, "+1/+1" or "-1/-1", is left exactly as it is.
  *
  * <p>Never shortened. It used to be: a card wrote "+1/+1" as a "+" with the count after it,

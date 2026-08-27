@@ -212,14 +212,22 @@ public final class GatheringFabricClient implements ClientModInitializer {
             dev.gathering.client.DevScene.tick(client);
         });
 
-        HudRenderCallback.EVENT.register((graphics, tickDelta) -> CardZoomOverlay.render(
-                graphics,
-                Minecraft.getInstance().getWindow().getGuiScaledWidth(),
-                Minecraft.getInstance().getWindow().getGuiScaledHeight()));
+        HudRenderCallback.EVENT.register((graphics, tickDelta) -> {
+            // With a screen open the screen hook draws it. The HUD still renders under an
+            // open screen, so without this the zoom drew from both hooks at once - a doubled
+            // backdrop and a full-screen card fighting the screen's own panel. NeoForge's
+            // HUD hook has the same guard.
+            if (Minecraft.getInstance().screen != null) {
+                return;
+            }
+            CardZoomOverlay.render(
+                    graphics,
+                    Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+                    Minecraft.getInstance().getWindow().getGuiScaledHeight());
+        });
 
-        // Over an open screen the HUD callback does not run, so the inspect panel needs its
-        // own hook there; drawn after the screen so it sits above slots and the vanilla
-        // tooltip it replaces.
+        // Over an open screen the inspect panel needs its own hook; drawn after the screen
+        // so it sits above slots and the vanilla tooltip it replaces.
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) ->
                 ScreenEvents.afterRender(screen).register(
                         (rendered, graphics, mouseX, mouseY, tickDelta) -> CardZoomOverlay.renderAtCursor(
