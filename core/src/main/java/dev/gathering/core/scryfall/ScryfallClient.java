@@ -80,14 +80,6 @@ public final class ScryfallClient {
         return json == null ? Optional.empty() : ScryfallCardCodec.parse(json);
     }
 
-    /** Exact name lookup, for the single-card path and for import fallbacks. */
-    public Optional<CardMetadata> cardByExactName(String name) throws IOException {
-        // The named endpoint is happier with combined names than the collection endpoint is,
-        // but a half name resolves correctly on both, so use one rule everywhere.
-        JsonObject json = getJson("/cards/named?exact=" + encode(CardQuery.lookupName(name)));
-        return json == null ? Optional.empty() : ScryfallCardCodec.parse(json);
-    }
-
     /**
      * Every printing of one card, cheapest first.
      *

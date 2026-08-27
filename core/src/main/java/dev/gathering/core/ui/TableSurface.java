@@ -1018,27 +1018,6 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         return -1;
     }
 
-    /**
-     * How big a card is on this seat's mat, against a card on a table with one mat on it.
-     *
-     * <p>A mat is a share of the table and a card is a share of a mat, so a table with eight
-     * seats draws smaller cards than one with two - exactly as a real one would, and for the
-     * same reason.
-     *
-     * <p>One factor for both axes, taken from whichever side of the mat is tighter. Scaling
-     * width by the mat's width and height by its height looks like the obvious thing and is
-     * wrong: mats are rarely square - two players at one table get a mat that is the full
-     * width and half the depth - so a card drawn that way comes out squat and half again as
-     * wide as it is tall. A card is a card whatever shape the board under it is.
-     *
-     * <p>Here rather than in whatever happens to be drawing, because the screen and the table
-     * in the world both draw this board, and two answers to how big a card is would be two
-     * different boards.
-     */
-    public double cardScale(int seat) {
-        return cardWidthOn(seat) / CARD_WIDTH_UNITS;
-    }
-
     /** A card's width on this seat's mat, in surface units. */
     public double cardWidthOn(int seat) {
         Rect mat = matOf(seat);

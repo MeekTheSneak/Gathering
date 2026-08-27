@@ -68,9 +68,7 @@ public final class LibraryReveals {
             player.sendSystemMessage(Component.literal(rejected.reason()));
             return;
         }
-        TableSessions.anchorOf(level, origin)
-                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
-                .ifPresent(TableBlockEntity::setChanged);
+        TableSessions.markDirty(level, origin);
         TableBroadcast.sendToTable(level, origin);
     }
 

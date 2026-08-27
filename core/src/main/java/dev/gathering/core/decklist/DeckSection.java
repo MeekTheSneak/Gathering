@@ -29,8 +29,4 @@ public enum DeckSection {
         });
     }
 
-    /** Sections that count toward the deck proper rather than sitting beside it. */
-    public boolean countsTowardDeck() {
-        return this == MAINBOARD || this == COMMANDER || this == COMPANION;
-    }
 }

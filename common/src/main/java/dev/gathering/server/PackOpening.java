@@ -126,7 +126,7 @@ public final class PackOpening {
                     if (failure != null) {
                         LOGGER.warn("Opening a {} pack failed", set, failure);
                         player.sendSystemMessage(Component.translatable(
-                                "message.gathering.pack_failed", rootMessage(failure)));
+                                "message.gathering.pack_failed", Failures.rootMessage(failure)));
                         giveBack.run();
                         return;
                     }
@@ -333,12 +333,4 @@ public final class PackOpening {
         return seed;
     }
 
-    private static String rootMessage(Throwable failure) {
-        Throwable cause = failure;
-        while (cause.getCause() != null && cause.getCause() != cause) {
-            cause = cause.getCause();
-        }
-        String message = cause.getMessage();
-        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
-    }
 }

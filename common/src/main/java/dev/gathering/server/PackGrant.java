@@ -62,7 +62,7 @@ public final class PackGrant {
             if (failure != null) {
                 LOGGER.warn("Reading what {} sold failed", set, failure);
                 player.sendSystemMessage(Component.translatable(
-                        "message.gathering.pack_failed", rootMessage(failure)));
+                        "message.gathering.pack_failed", Failures.rootMessage(failure)));
                 return;
             }
             SealedProduct product = boosterOf(reading, wanted);
@@ -98,7 +98,7 @@ public final class PackGrant {
             }
             if (failure != null) {
                 player.sendSystemMessage(Component.translatable(
-                        "message.gathering.pack_failed", rootMessage(failure)));
+                        "message.gathering.pack_failed", Failures.rootMessage(failure)));
                 return;
             }
             if (reading.isEmpty()) {
@@ -161,12 +161,4 @@ public final class PackGrant {
         return product.category().replace('_', ' ');
     }
 
-    private static String rootMessage(Throwable failure) {
-        Throwable cause = failure;
-        while (cause.getCause() != null && cause.getCause() != cause) {
-            cause = cause.getCause();
-        }
-        String message = cause.getMessage();
-        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
-    }
 }

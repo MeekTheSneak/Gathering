@@ -65,7 +65,7 @@ public final class PackCoverage {
                     if (failure != null) {
                         LOGGER.warn("Auditing {} failed", set, failure);
                         player.sendSystemMessage(Component.translatable(
-                                "message.gathering.coverage_failed", rootMessage(failure)));
+                                "message.gathering.coverage_failed", Failures.rootMessage(failure)));
                         return;
                     }
                     tell(player, set, audited);
@@ -173,12 +173,4 @@ public final class PackCoverage {
         return shown;
     }
 
-    private static String rootMessage(Throwable failure) {
-        Throwable cause = failure;
-        while (cause.getCause() != null && cause.getCause() != cause) {
-            cause = cause.getCause();
-        }
-        String message = cause.getMessage();
-        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
-    }
 }

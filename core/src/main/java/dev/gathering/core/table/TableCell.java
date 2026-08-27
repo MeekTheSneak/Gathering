@@ -17,10 +17,4 @@ public record TableCell(int x, int z) {
         return new TableCell(x + side.stepX(), z + side.stepZ());
     }
 
-    /** Whether these two tables share a full edge, which is what makes a cluster. */
-    public boolean touches(TableCell other) {
-        int dx = Math.abs(x - other.x);
-        int dz = Math.abs(z - other.z);
-        return dx + dz == 1;
-    }
 }

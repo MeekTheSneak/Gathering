@@ -158,7 +158,7 @@ public final class GatheringNeoForgeClient {
             return;
         }
         if (payload instanceof dev.gathering.network.TableViewPayload table) {
-            context.enqueueWork(() -> acceptTableView(table));
+            context.enqueueWork(() -> dev.gathering.client.ClientTableState.acceptPayload(table));
             return;
         }
         if (payload instanceof dev.gathering.network.PackOpenedPayload opened) {
@@ -224,27 +224,6 @@ public final class GatheringNeoForgeClient {
     private static void acceptSideboard(dev.gathering.network.OpenSideboardPayload payload) {
         dev.gathering.client.SideboardScreen.open(
                 payload.table(), payload.deck(), payload.gameNumber(), payload.bestOf());
-    }
-
-    /** Takes a board off the wire and, if asked, sits the player down at it. */
-    private static void acceptTableView(dev.gathering.network.TableViewPayload payload) {
-        try {
-            dev.gathering.core.game.visibility.GameView board =
-                    dev.gathering.core.game.persistence.ViewCodec.read(payload.view());
-            // A seated view is this player's own board; a spectator view is the public one
-            // that feeds the miniature on the table. Only the first belongs to a seat.
-            boolean seated = board.viewer()
-                    instanceof dev.gathering.core.game.visibility.Viewer.Seated;
-            dev.gathering.client.ClientTableState.accept(payload.table(), board, seated);
-        } catch (java.io.IOException e) {
-            // A board this client cannot read is one it must not draw a guess at.
-            dev.gathering.client.ClientTableState.forget(payload.table());
-            return;
-        }
-        if (payload.open() && !(Minecraft.getInstance().screen
-                instanceof dev.gathering.client.TableScreen)) {
-            Minecraft.getInstance().setScreen(new dev.gathering.client.TableScreen(payload.table()));
-        }
     }
 
     /** The overlay over the HUD, for a card held in hand. */

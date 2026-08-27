@@ -99,6 +99,9 @@ public final class CountersScreen extends ChildScreen {
     /** And which enemy commanders there were to take damage from, for the same reason. */
     private List<CardInstanceId> opponentsShown = List.of();
 
+    /** The commanders whose tax rows have widgets, to notice a new cast needing buttons. */
+    private List<CardInstanceId> taxedShown = List.of();
+
     /**
      * What the counters are on.
      *
@@ -151,6 +154,7 @@ public final class CountersScreen extends ChildScreen {
         int commonRows = (common().size() + 2) / 3;
         List<CardInstanceId> opponents = commanderDamageFrom();
         List<CardInstanceId> taxed = taxedCommanders();
+        taxedShown = taxed;
 
         int height = MARGIN * 2 + ROW * 2
                 + rows * (ROW + GAP)
@@ -482,7 +486,11 @@ public final class CountersScreen extends ChildScreen {
         // needs to stop having one. So does an opponent: somebody sitting down opposite adds
         // a commander to take damage from, and this screen is open for the length of a turn.
         if (!List.copyOf(current().keySet()).equals(rowsShown)
-                || !commanderDamageFrom().equals(opponentsShown)) {
+                || !commanderDamageFrom().equals(opponentsShown)
+                // And a commander newly cast: its tax row is drawn regardless, but the
+                // +/- buttons beside it only exist after a rebuild - a row with no way to
+                // change it until some unrelated counter happened to change too.
+                || !taxedCommanders().equals(taxedShown)) {
             rebuildWidgets();
         }
     }

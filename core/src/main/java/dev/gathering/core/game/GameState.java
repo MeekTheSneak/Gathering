@@ -107,11 +107,6 @@ public record GameState(
         return Optional.empty();
     }
 
-    /** What this seat is currently looking through, if anything. */
-    public Optional<Peek> peekBy(SeatId seat) {
-        return Optional.ofNullable(peeks.get(seat));
-    }
-
     /**
      * Whether {@code viewer} is currently entitled to see the top of {@code library}.
      *
@@ -417,15 +412,6 @@ public record GameState(
                 : new GameState(
                         seats, cards, zones, seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal,
                         markerOrdinal, true);
-    }
-
-    /** Cards grouped by the zone kind they sit in, for the renderers and for tests. */
-    public Map<Zone, Integer> countsFor(SeatId seat) {
-        Map<Zone, Integer> counts = new EnumMap<>(Zone.class);
-        for (Zone zone : Zone.values()) {
-            counts.put(zone, count(ZoneRef.of(seat, zone)));
-        }
-        return counts;
     }
 
     private static List<CardInstanceId> without(List<CardInstanceId> contents, CardInstanceId id) {

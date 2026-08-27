@@ -343,7 +343,8 @@ public final class EventCodec {
         };
     }
 
-    private static void identity(DataOutput out, CardIdentity identity) throws IOException {
+    /** One encoding for a card's identity, shared with {@link ViewCodec} so it cannot drift. */
+    static void identity(DataOutput out, CardIdentity identity) throws IOException {
         boolean printing = identity.scryfallId() != null;
         out.writeBoolean(printing);
         if (printing) {
@@ -355,7 +356,7 @@ public final class EventCodec {
         out.writeBoolean(identity.foil());
     }
 
-    private static CardIdentity identity(DataInput in) throws IOException {
+    static CardIdentity identity(DataInput in) throws IOException {
         boolean printing = in.readBoolean();
         if (printing) {
             UUID id = new UUID(in.readLong(), in.readLong());

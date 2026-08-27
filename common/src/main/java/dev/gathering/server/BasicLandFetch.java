@@ -85,9 +85,7 @@ public final class BasicLandFetch {
         if (moved == 0) {
             return;
         }
-        TableSessions.anchorOf(level, origin)
-                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
-                .ifPresent(TableBlockEntity::setChanged);
+        TableSessions.markDirty(level, origin);
         TableBroadcast.sendToTable(level, origin);
         // How many really came out, because asking for three when the deck holds two is a
         // normal thing to do and being told "done" would be a lie about your own library.

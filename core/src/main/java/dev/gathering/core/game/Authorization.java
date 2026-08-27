@@ -73,10 +73,6 @@ public final class Authorization {
         };
     }
 
-    public static boolean isPermitted(GameState state, GameEvent event) {
-        return denialFor(state, event).isEmpty();
-    }
-
     private static Optional<String> ownerOnly(SeatId actor, SeatId owner, String what) {
         return actor.equals(owner)
                 ? Optional.empty()

@@ -1300,21 +1300,9 @@ public final class TableScreen extends Screen {
      * shuffling rather than one board vibrating.
      */
     private Rect shakenIfStirred(SeatId seat, Zone zone, Rect slot) {
-        long shaking = ClientTableNews.shakingFor(
-                table, seat, zone, ClientCardFlights.now());
-        if (shaking < 0 || slot.isEmpty()) {
-            return slot;
-        }
-        int reach = Math.max(1, slot.width() / SHAKE_OF_A_SLOT);
-        int seed = seat.index() * Zone.values().length + zone.ordinal();
-        return new Rect(
-                slot.x() + Shaking.wobble(seed, shaking, reach),
-                slot.y() + Shaking.wobble(seed + 7, shaking, reach),
-                slot.width(), slot.height());
+        return Shaking.shaken(slot, seat, zone,
+                ClientTableNews.shakingFor(table, seat, zone, ClientCardFlights.now()));
     }
-
-    /** How far a shuffled pile rattles, as a fraction of its own width. */
-    private static final int SHAKE_OF_A_SLOT = 8;
 
     /** The line round a group of zones. Nothing inside it - the slots draw themselves. */
     private void drawPileGroup(GuiGraphics graphics, Rect group) {

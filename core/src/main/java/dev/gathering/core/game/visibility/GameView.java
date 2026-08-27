@@ -40,8 +40,4 @@ public record GameView(
                 .toList();
     }
 
-    public Map<SeatId, Integer> lifeTotals() {
-        return seats.stream().collect(
-                java.util.stream.Collectors.toMap(SeatView::seat, SeatView::life, (a, b) -> a, java.util.LinkedHashMap::new));
-    }
 }

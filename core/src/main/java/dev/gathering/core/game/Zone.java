@@ -79,11 +79,6 @@ public enum Zone {
         return !hidden;
     }
 
-    /** Whether position within the zone is meaningful - top and bottom of a library. */
-    public boolean isOrdered() {
-        return ordered;
-    }
-
     /**
      * Whether cards here sit on a surface rather than in a pile.
      *
@@ -93,16 +88,6 @@ public enum Zone {
      */
     public boolean isSurface() {
         return this == BATTLEFIELD;
-    }
-
-    /**
-     * Whether a non-owner may manipulate cards here.
-     *
-     * <p>The mod never says no about rules. It does say no about reaching into someone's
-     * hand or library, which is not a rule but the security property.
-     */
-    public boolean isOpenToAllSeats() {
-        return !hidden;
     }
 
     /**

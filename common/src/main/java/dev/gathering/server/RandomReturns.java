@@ -77,9 +77,7 @@ public final class RandomReturns {
         if (moved == 0) {
             return;
         }
-        TableSessions.anchorOf(level, origin)
-                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
-                .ifPresent(TableBlockEntity::setChanged);
+        TableSessions.markDirty(level, origin);
         TableBroadcast.sendToTable(level, origin);
     }
 }

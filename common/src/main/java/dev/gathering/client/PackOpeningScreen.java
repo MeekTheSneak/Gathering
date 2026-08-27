@@ -127,6 +127,13 @@ public final class PackOpeningScreen extends Screen {
         // Kept across a resize: a pack half torn when somebody dragged the window is still
         // half torn, and starting it again would be the window eating their progress.
         this.tear = new PackTear(this.packWidth, seed(), this.tear.gripped(), this.tear.torn());
+
+        // A way out somebody can see. The cards are already in the inventory the moment the
+        // pack opens, so leaving loses nothing at any stage - but the only exit was the
+        // escape key, which is a rule nobody was told.
+        addRenderableWidget(GatheringButtons.of(
+                this.width() - 66, this.height() - 28, 56, 18,
+                net.minecraft.network.chat.Component.translatable("gui.done"), this::onClose));
     }
 
     private int width() {
@@ -254,21 +261,10 @@ public final class PackOpeningScreen extends Screen {
     private List<CardComponent> inRevealOrder() {
         List<CardComponent> order = new ArrayList<>(cards);
         order.sort(java.util.Comparator.comparingInt(card ->
-                rankOf(ClientCardCache.get().summary(card)
+                PackGlow.rankOf(ClientCardCache.get().summary(card)
                         .map(CardSummary::rarity)
                         .orElse(Rarity.UNKNOWN))));
         return List.copyOf(order);
-    }
-
-    private static int rankOf(Rarity rarity) {
-        return switch (rarity) {
-            case MYTHIC -> 5;
-            case SPECIAL, BONUS -> 4;
-            case RARE -> 3;
-            case UNCOMMON -> 2;
-            case COMMON -> 1;
-            default -> 0;
-        };
     }
 
     /**

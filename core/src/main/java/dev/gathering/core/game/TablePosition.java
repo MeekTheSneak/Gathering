@@ -76,10 +76,6 @@ public record TablePosition(int x, int y, int rotation) {
         return new TablePosition(x, y, degrees);
     }
 
-    public TablePosition turnedBy(int degrees) {
-        return new TablePosition(x, y, rotation + degrees);
-    }
-
     /** Where across the region this is, as a fraction, for anything that has to draw it. */
     public double acrossFraction() {
         return (double) x / SPAN;

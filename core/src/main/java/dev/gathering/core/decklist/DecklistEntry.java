@@ -46,10 +46,6 @@ public record DecklistEntry(
         return Optional.ofNullable(setCode);
     }
 
-    public Optional<String> collector() {
-        return Optional.ofNullable(collectorNumber);
-    }
-
     /** Whether this line named a specific printing rather than just a card. */
     public boolean hasPrintingHint() {
         return setCode != null;

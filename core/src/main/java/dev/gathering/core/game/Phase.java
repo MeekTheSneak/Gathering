@@ -30,10 +30,6 @@ public enum Phase {
         return all[(ordinal() + 1) % all.length];
     }
 
-    public boolean isLastOfTurn() {
-        return this == CLEANUP;
-    }
-
     public String displayName() {
         return name().toLowerCase(Locale.ROOT).replace('_', ' ');
     }

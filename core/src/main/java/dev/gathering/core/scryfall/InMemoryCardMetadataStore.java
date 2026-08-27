@@ -108,10 +108,6 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
         return nameKey(name) + "@" + setCode.toLowerCase(Locale.ROOT);
     }
 
-    public Optional<JsonObject> rawJson(UUID id) {
-        return Optional.ofNullable(raw.get(id));
-    }
-
     public int size() {
         return byId.size();
     }

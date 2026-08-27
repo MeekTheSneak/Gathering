@@ -127,16 +127,43 @@ public final class GameLogText {
     }
 
     private static Component named(GameView board, CardInstanceId id) {
-        for (CardView card : board.allCardViews()) {
-            if (!(card instanceof CardView.Visible visible) || !visible.id().equals(id)) {
-                continue;
-            }
-            return ClientCardCache.get().summary(CardComponent.of(visible.identity()))
-                    .<Component>map(summary -> Component.literal(summary.name()))
-                    .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
+        CardView.Visible visible = visibleIn(board, id);
+        if (visible == null) {
+            // Pointed at a card this client has not been sent, or one that has since left the
+            // board. Saying "a card" is both true and the safe direction to be wrong in.
+            return Component.translatable("log.gathering.a_card");
         }
-        // Pointed at a card this client has not been sent, or one that has since left the
-        // board. Saying "a card" is both true and the safe direction to be wrong in.
-        return Component.translatable("log.gathering.a_card");
+        return ClientCardCache.get().summary(CardComponent.of(visible.identity()))
+                .<Component>map(summary -> Component.literal(summary.name()))
+                .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
+    }
+
+    /**
+     * The board's visible cards by id, walked once per board rather than once per line per
+     * frame.
+     *
+     * <p>An open log resolves a card name for every visible line every frame, and each
+     * resolution walked every card view of every zone of every seat - a few hundred thousand
+     * visits a second on a Commander table, to answer a question whose answer only changes
+     * when the view object does. The view is immutable, so one index per view is exact.
+     *
+     * <p>Client thread only, like everything else in this class.
+     */
+    private static GameView indexedFor;
+
+    private static java.util.Map<CardInstanceId, CardView.Visible> index = java.util.Map.of();
+
+    private static CardView.Visible visibleIn(GameView board, CardInstanceId id) {
+        if (board != indexedFor) {
+            java.util.Map<CardInstanceId, CardView.Visible> fresh = new java.util.HashMap<>();
+            for (CardView card : board.allCardViews()) {
+                if (card instanceof CardView.Visible visible) {
+                    fresh.put(visible.id(), visible);
+                }
+            }
+            index = fresh;
+            indexedFor = board;
+        }
+        return index.get(id);
     }
 }

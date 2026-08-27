@@ -533,20 +533,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * about which library is being shuffled and for how long.
      */
     private Rect shakenIfStirred(BlockPos table, SeatId seat, Zone zone, Rect slot) {
-        long shaking = ClientTableNews.shakingFor(table, seat, zone, ClientCardFlights.now());
-        if (shaking < 0) {
-            return slot;
-        }
-        int reach = Math.max(1, slot.width() / SHAKE_OF_A_SLOT);
-        int seed = seat.index() * Zone.values().length + zone.ordinal();
-        return new Rect(
-                slot.x() + Shaking.wobble(seed, shaking, reach),
-                slot.y() + Shaking.wobble(seed + 7, shaking, reach),
-                slot.width(), slot.height());
+        return Shaking.shaken(slot, seat, zone,
+                ClientTableNews.shakingFor(table, seat, zone, ClientCardFlights.now()));
     }
-
-    /** How far a shuffled pile rattles, as a fraction of its own width. */
-    private static final int SHAKE_OF_A_SLOT = 8;
 
     /**
      * How far a line of writing shrinks to fit the room it has.

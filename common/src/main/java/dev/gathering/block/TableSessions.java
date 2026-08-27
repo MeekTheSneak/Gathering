@@ -64,6 +64,19 @@ public final class TableSessions {
                 .flatMap(TableBlockEntity::match);
     }
 
+    /**
+     * Marks the table's saved state dirty, so the log just appended to reaches the disk.
+     *
+     * <p>One name for a three-line idiom seven handlers each spelled out - and the eighth
+     * would have been the one that forgot, which is a game that plays fine until the chunk
+     * unloads and comes back without its last few moves.
+     */
+    public static void markDirty(BlockGetter level, BlockPos tableOrigin) {
+        anchorOf(level, tableOrigin)
+                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
+                .ifPresent(TableBlockEntity::setChanged);
+    }
+
     public static boolean hasSession(BlockGetter level, BlockPos tableOrigin) {
         return anchorOf(level, tableOrigin)
                 .flatMap(anchor -> TableBlock.entityAt(level, anchor))

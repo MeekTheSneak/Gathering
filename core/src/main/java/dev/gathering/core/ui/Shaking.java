@@ -44,6 +44,32 @@ public final class Shaking {
         return left * left;
     }
 
+    /** How far a shuffled pile rattles, as a fraction of its own width. */
+    private static final int SHAKE_OF_A_SLOT = 8;
+
+    /**
+     * The slot, rattled - or itself once the shaking is over.
+     *
+     * <p>The one rule for both boards. The seated screen and the miniature on the block each
+     * carried their own copy of the seed and reach arithmetic, and the miniature's javadoc
+     * promised "the same shake the seated board draws" - a promise only kept by hand. Seeded
+     * by seat and zone so two libraries shuffled at once are two hands shuffling rather than
+     * one board vibrating.
+     */
+    public static Rect shaken(
+            Rect slot, dev.gathering.core.game.SeatId seat, dev.gathering.core.game.Zone zone,
+            long since) {
+        if (since < 0 || slot.isEmpty()) {
+            return slot;
+        }
+        int reach = Math.max(1, slot.width() / SHAKE_OF_A_SLOT);
+        int seed = seat.index() * dev.gathering.core.game.Zone.values().length + zone.ordinal();
+        return new Rect(
+                slot.x() + wobble(seed, since, reach),
+                slot.y() + wobble(seed + 7, since, reach),
+                slot.width(), slot.height());
+    }
+
     /**
      * How far to move something along one axis, in whatever units the caller measures in.
      *

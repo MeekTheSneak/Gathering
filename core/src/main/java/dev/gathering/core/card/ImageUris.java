@@ -16,17 +16,6 @@ public record ImageUris(String small, String normal, String large, String png, S
 
     public static final ImageUris EMPTY = new ImageUris(null, null, null, null, null, null);
 
-    public Optional<String> tier(ImageTier tier) {
-        return Optional.ofNullable(switch (tier) {
-            case SMALL -> small;
-            case NORMAL -> normal;
-            case LARGE -> large;
-            case PNG -> png;
-            case ART_CROP -> artCrop;
-            case BORDER_CROP -> borderCrop;
-        });
-    }
-
     /** Best available at or below the requested tier, so a card missing a tier still renders. */
     public Optional<String> bestFor(ImageTier tier) {
         return switch (tier) {

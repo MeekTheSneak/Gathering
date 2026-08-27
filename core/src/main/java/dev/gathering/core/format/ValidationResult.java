@@ -17,10 +17,6 @@ public record ValidationResult(FormatPreset preset, List<ValidationIssue> issues
         return issues.stream().filter(ValidationIssue::isError).toList();
     }
 
-    public List<ValidationIssue> warnings() {
-        return issues.stream().filter(issue -> !issue.isError()).toList();
-    }
-
     public boolean isClean() {
         return issues.isEmpty();
     }

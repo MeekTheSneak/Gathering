@@ -155,6 +155,13 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
                 Component.translatable("screen.gathering.collection.build_deck"),
                 () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
 
+        // A way out somebody can see. Every other panel in the mod has one, and this one
+        // relied on the escape key - which is a rule nobody was told. Bottom right, in the
+        // bar the page count already lives in.
+        addRenderableWidget(GatheringButtons.of(
+                this.width - MARGIN - 56, this.height - BOTTOM_BAR + 8, 56, 18,
+                Component.translatable("gui.done"), this::onClose));
+
         setInitialFocus(searchBox);
         updateButtons();
         // Here rather than when the collection opened: this is the first moment anything

@@ -171,10 +171,6 @@ public record SeatState(
         }
     }
 
-    public int taxOn(CardInstanceId commander) {
-        return commanderTax.getOrDefault(commander, 0);
-    }
-
     private static <K> Map<K, Integer> immutable(Map<K, Integer> source) {
         return source == null || source.isEmpty()
                 ? Map.of()

@@ -19,10 +19,6 @@ public record ParsedDecklist(String name, List<DecklistEntry> entries, List<Pars
         return Optional.ofNullable(name);
     }
 
-    public boolean hasProblems() {
-        return !problems.isEmpty();
-    }
-
     public boolean isEmpty() {
         return entries.isEmpty();
     }
@@ -41,12 +37,4 @@ public record ParsedDecklist(String name, List<DecklistEntry> entries, List<Pars
         return entries.stream().mapToInt(DecklistEntry::quantity).sum();
     }
 
-    public Map<DeckSection, List<DecklistEntry>> bySection() {
-        Map<DeckSection, List<DecklistEntry>> out = new EnumMap<>(DeckSection.class);
-        for (DecklistEntry entry : entries) {
-            out.computeIfAbsent(entry.section(), s -> new java.util.ArrayList<>()).add(entry);
-        }
-        out.replaceAll((s, list) -> List.copyOf(list));
-        return out;
-    }
 }

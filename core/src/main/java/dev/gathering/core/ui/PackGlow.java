@@ -90,8 +90,11 @@ public final class PackGlow {
      * <p>Nought for a rarity nothing is known about, so a card whose rarity did not arrive
      * never outranks one whose did. A pack of nothing but those has no best card at all,
      * which comes back as nothing rather than as a card nobody can describe.
+     *
+     * <p>Public because the reveal order asks the same question: which card is best is one
+     * rule, and the glow color and the last-card-last ordering must never disagree about it.
      */
-    private static int rankOf(Rarity rarity) {
+    public static int rankOf(Rarity rarity) {
         if (rarity == null) {
             return 0;
         }

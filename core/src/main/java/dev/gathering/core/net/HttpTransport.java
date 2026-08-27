@@ -23,10 +23,6 @@ public interface HttpTransport {
             return status >= 200 && status < 300;
         }
 
-        public boolean isRateLimited() {
-            return status == 429;
-        }
-
         /** Server-side trouble, worth retrying; a 404 is an answer, not a failure. */
         public boolean isRetryable() {
             return status == 429 || status == 500 || status == 502 || status == 503 || status == 504;

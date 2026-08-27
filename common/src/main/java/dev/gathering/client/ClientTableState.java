@@ -49,6 +49,32 @@ public final class ClientTableState {
     private ClientTableState() {
     }
 
+    /**
+     * Takes a board off the wire and, if asked, sits the player down at it.
+     *
+     * <p>Here rather than in each loader's network glue, where it lived twice: eighteen
+     * identical lines, comments included, that would have drifted the first time only one
+     * copy learned something.
+     */
+    public static void acceptPayload(dev.gathering.network.TableViewPayload payload) {
+        try {
+            GameView board = dev.gathering.core.game.persistence.ViewCodec.read(payload.view());
+            // A seated view is this player's own board; a spectator view is the public one
+            // that feeds the miniature on the table. Only the first belongs to a seat.
+            boolean seated = board.viewer()
+                    instanceof dev.gathering.core.game.visibility.Viewer.Seated;
+            accept(payload.table(), board, seated);
+        } catch (java.io.IOException e) {
+            // A board this client cannot read is one it must not draw a guess at.
+            forget(payload.table());
+            return;
+        }
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+        if (payload.open() && !(client.screen instanceof TableScreen)) {
+            client.setScreen(new TableScreen(payload.table()));
+        }
+    }
+
     public static void accept(BlockPos table, GameView board, boolean seated) {
         if (BOARDS.size() >= MAX_TABLES && !BOARDS.containsKey(table)) {
             BOARDS.keySet().stream().findFirst().ifPresent(forgotten -> {

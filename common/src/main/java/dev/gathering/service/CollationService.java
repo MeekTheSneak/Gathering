@@ -71,7 +71,7 @@ public final class CollationService implements AutoCloseable {
     }
 
     private CollationService(Path cacheRoot, String userAgent) throws IOException {
-        this.executor = Executors.newSingleThreadExecutor(namedDaemonThreads("gathering-mtgjson"));
+        this.executor = Executors.newSingleThreadExecutor(ServiceThreads.named("gathering-mtgjson"));
         this.feed = new MtgjsonFeed(
                 new JdkHttpTransport(), RateLimiter.defaultLimiter(), userAgent, cacheRoot);
     }
@@ -203,13 +203,4 @@ public final class CollationService implements AutoCloseable {
         }
     }
 
-    private static ThreadFactory namedDaemonThreads(String prefix) {
-        AtomicInteger counter = new AtomicInteger();
-        return runnable -> {
-            Thread thread = new Thread(runnable, prefix + "-" + counter.incrementAndGet());
-            // Daemon so a server shutdown is never held open by an in-flight set fetch.
-            thread.setDaemon(true);
-            return thread;
-        };
-    }
 }

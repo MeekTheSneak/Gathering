@@ -189,9 +189,7 @@ public final class TableReport {
             session.submit(new GameEvent.CardMoved(seat, top.get(),
                     ZoneRef.of(seat, Zone.BATTLEFIELD), Placement.at(spots.get(index))));
         }
-        TableSessions.anchorOf(level, origin)
-                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
-                .ifPresent(TableBlockEntity::setChanged);
+        TableSessions.markDirty(level, origin);
         TableBroadcast.sendToTable(level, origin);
         return new Filled(playing, null);
     }

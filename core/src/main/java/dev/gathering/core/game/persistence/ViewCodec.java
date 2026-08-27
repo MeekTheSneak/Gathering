@@ -402,24 +402,15 @@ public final class ViewCodec {
         return in.readBoolean() ? new CardInstanceId(in.readInt()) : null;
     }
 
+    // A card's identity has one wire shape. It was written out twice, byte for byte the
+    // same, here and in EventCodec - two codecs that agree by coincidence are a saved
+    // session and a client view one edit away from silently disagreeing.
     private static void identity(DataOutput out, CardIdentity identity) throws IOException {
-        boolean printing = identity.scryfallId() != null;
-        out.writeBoolean(printing);
-        if (printing) {
-            out.writeLong(identity.scryfallId().getMostSignificantBits());
-            out.writeLong(identity.scryfallId().getLeastSignificantBits());
-        } else {
-            out.writeUTF(identity.customId());
-        }
-        out.writeBoolean(identity.foil());
+        EventCodec.identity(out, identity);
     }
 
     private static CardIdentity identity(DataInput in) throws IOException {
-        if (in.readBoolean()) {
-            UUID id = new UUID(in.readLong(), in.readLong());
-            return CardIdentity.ofPrinting(id, in.readBoolean());
-        }
-        return CardIdentity.ofCustom(in.readUTF(), in.readBoolean());
+        return EventCodec.identity(in);
     }
 
     private static void counters(DataOutput out, Map<String, Integer> counters) throws IOException {
