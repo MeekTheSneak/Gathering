@@ -1978,6 +1978,7 @@ public final class TableScreen extends Screen {
             return;
         }
         int lifted = handIndexAt(board, mouseX, mouseY);
+        liftedNow = lifted;
 
         // The lifted one last, so it is drawn over the cards it has risen in front of.
         for (int pass = 0; pass < 2; pass++) {
@@ -1994,6 +1995,9 @@ public final class TableScreen extends Screen {
         }
     }
 
+    /** The card drawn risen this frame, which is the only one whose top half is a card. */
+    private int liftedNow = -1;
+
     /** Which card of the hand the cursor is on, or -1. The risen card's top half counts. */
     private int handIndexAt(GameView board, int x, int y) {
         SeatId seat = mySeat().orElse(null);
@@ -2004,8 +2008,11 @@ public final class TableScreen extends Screen {
         if (!layout().hand().contains(x, y)) {
             // Above the strip, where the hovered card rises. Its upper half is a card the
             // player is looking straight at, and a click there used to fall through to the
-            // battlefield behind it.
-            return HandFan.atLifted(layout().hand(), count, x, y);
+            // battlefield behind it. Only the card already drawn risen counts: the band
+            // above the strip is board - the block's own life buttons live there - and a
+            // card must not spring up under a cursor that was never on the hand.
+            int risen = HandFan.atLifted(layout().hand(), count, x, y);
+            return risen >= 0 && risen == liftedNow ? risen : -1;
         }
         return HandFan.at(layout().hand(), count, x, y);
     }
