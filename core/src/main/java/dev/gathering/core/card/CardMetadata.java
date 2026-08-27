@@ -85,8 +85,33 @@ public record CardMetadata(
         return games.contains("paper") && !digitalOnly;
     }
 
+    /**
+     * Whether this card is a land, read off its type line.
+     *
+     * <p>The word, not the substring, so a subtype that merely contains the letters cannot
+     * make a land of something else. This is the one place the question is answered - it was
+     * briefly answered three ways in three files, each one drift waiting to happen, and
+     * cascade's whole correctness turns on it.
+     */
+    public boolean isLand() {
+        return hasTypeWord("Land");
+    }
+
+    /** A basic land: the supertype and the type, both as words. Snow-covered basics count. */
     public boolean isBasicLand() {
-        return typeLine != null && typeLine.contains("Basic") && typeLine.contains("Land");
+        return isLand() && hasTypeWord("Basic");
+    }
+
+    private boolean hasTypeWord(String wanted) {
+        if (typeLine == null) {
+            return false;
+        }
+        for (String word : typeLine.split("[^A-Za-z]+")) {
+            if (word.equalsIgnoreCase(wanted)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

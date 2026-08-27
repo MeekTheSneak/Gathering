@@ -5,7 +5,7 @@ import dev.gathering.block.TableBlockEntity;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.CardMetadata;
-import dev.gathering.core.game.BasicLands;
+import dev.gathering.core.game.LibraryBasics;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.Placement;
@@ -36,7 +36,7 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * <p>Read out of the card cache only, never a fetch: this runs on the server thread with a
  * player waiting. A card nobody has looked up is passed over rather than guessed at - see
- * {@link BasicLands} - which in practice means a card from an imported deck, since importing
+ * {@link LibraryBasics} - which in practice means a card from an imported deck, since importing
  * is what put it in the cache.
  *
  * <p>Nothing is shuffled afterwards. Searching a library and shuffling it are two things a
@@ -63,7 +63,7 @@ public final class BasicLandFetch {
         String name = payload.land().printedName();
 
         List<CardInstanceId> library = session.state().contents(seat, Zone.LIBRARY);
-        List<Integer> found = BasicLands.findIn(
+        List<Integer> found = LibraryBasics.findIn(
                 whatTheyAre(session, seat, library), name, payload.count());
         if (found.isEmpty()) {
             // The honest answer, and the one that makes this a search rather than a wish.
@@ -99,7 +99,7 @@ public final class BasicLandFetch {
      * What each card in the library is, as far as this server knows.
      *
      * <p>Parallel to the library itself: the same length, in the same order, with a null
-     * wherever the cache cannot say. {@link BasicLands} joins the two by position.
+     * wherever the cache cannot say. {@link LibraryBasics} joins the two by position.
      */
     private static List<CardMetadata> whatTheyAre(
             GameSession session, SeatId seat, List<CardInstanceId> library) {

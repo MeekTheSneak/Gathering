@@ -1010,6 +1010,13 @@ public final class DevScene {
                     fail("a rival with two partners grew " + damageRowsShowing(client)
                             + " damage rows, not one per commander");
                 }
+                // And the rows say who. Each enemy commander's name is pushed with the view
+                // that showed it, and a row stuck on "Loading..." cannot answer the one
+                // question the grid exists for: which commander is at twenty-one.
+                if (!enemyCommanderNamesKnown(client)) {
+                    fail("the rival's commander names never arrived, "
+                            + "so the damage rows cannot say who");
+                }
                 press(client, "+");
                 advance(SETTLE);
             }
@@ -3904,8 +3911,8 @@ public final class DevScene {
             if (!(child instanceof net.minecraft.client.gui.components.AbstractWidget widget)) {
                 continue;
             }
-            for (dev.gathering.network.AddBasicsPayload.Basic land
-                    : dev.gathering.network.AddBasicsPayload.Basic.values()) {
+            for (dev.gathering.core.card.BasicLand land
+                    : dev.gathering.core.card.BasicLand.values()) {
                 String name = net.minecraft.network.chat.Component
                         .translatable(land.translationKey()).getString();
                 // By the glyph the button is actually marked with, so a button that lost its
@@ -3927,7 +3934,7 @@ public final class DevScene {
                 labelled.add(name);
             }
         }
-        if (labelled.size() != dev.gathering.network.AddBasicsPayload.Basic.values().length) {
+        if (labelled.size() != dev.gathering.core.card.BasicLand.values().length) {
             fail("only " + labelled.size() + " basic lands have buttons: " + labelled);
             return;
         }
@@ -4834,10 +4841,29 @@ public final class DevScene {
             }
             // With partners, deliberately: two commanders is the case the damage grid is
             // keyed by the card for, and a rival with none would grow no damage rows at all
-            // - which is correct for a Modern opponent and useless for this check.
-            session.submit(new GameEvent.DeckLoaded(theirs, library, List.of(
-                    CardIdentity.ofPrinting(new java.util.UUID(0L, 601L), false),
-                    CardIdentity.ofPrinting(new java.util.UUID(0L, 602L), false))));
+            // - which is correct for a Modern opponent and useless for this check. The
+            // partners are real printings, borrowed from the deck already at the table:
+            // the damage grid names each enemy commander, and a made-up UUID would leave
+            // every row saying "Loading..." forever - indistinguishable, in a picture, from
+            // the push of card names simply not working.
+            java.util.LinkedHashSet<java.util.UUID> printings = new java.util.LinkedHashSet<>();
+            List<CardIdentity> partners = new ArrayList<>();
+            for (dev.gathering.core.game.CardInstance card : session.state().cards().values()) {
+                if (partners.size() == 2) {
+                    break;
+                }
+                if (card.owner().equals(new SeatId(0))
+                        && card.identity().printing().isPresent()
+                        && printings.add(card.identity().printing().get())) {
+                    partners.add(card.identity());
+                }
+            }
+            if (partners.size() < 2) {
+                System.out.println(
+                        "[devscene] FAIL no two real printings to lend the rival as partners");
+                return;
+            }
+            session.submit(new GameEvent.DeckLoaded(theirs, library, partners));
             session.submit(new GameEvent.CardsDrawn(theirs, theirs, 3));
             // And plays one, so there is a card of somebody else's on the table - which is
             // the only way to check what a card moved by another player looks like.
@@ -5034,6 +5060,43 @@ public final class DevScene {
             }
         }
         return rows;
+    }
+
+    /**
+     * Whether every enemy commander's name has arrived, so a damage row can say who it is.
+     *
+     * <p>Known through the same two hops the counters screen uses: the commander's id to its
+     * visible view for the printing, the printing to the client cache for the name. The
+     * server pushes both with the view that showed the card, so by the time the screen is
+     * open they have had several steps to arrive - a miss here is the push not working, not
+     * the run being impatient.
+     */
+    private static boolean enemyCommanderNamesKnown(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || board == null) {
+            return false;
+        }
+        for (SeatView seat : board.seats()) {
+            if (seat.seat().equals(me)) {
+                continue;
+            }
+            for (CardInstanceId commander : seat.commanders()) {
+                boolean known = false;
+                for (CardView held : board.allCardViews()) {
+                    if (held instanceof CardView.Visible visible && visible.id().equals(commander)) {
+                        known = visible.identity().printing()
+                                .flatMap(printing -> ClientCardCache.get().summary(printing))
+                                .isPresent();
+                        break;
+                    }
+                }
+                if (!known) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /** How much commander damage this player has taken, over all enemy commanders. */

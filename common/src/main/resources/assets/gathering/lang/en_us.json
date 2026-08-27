@@ -367,6 +367,7 @@
   "screen.gathering.deck.basic.mountain": "Mountain",
   "screen.gathering.deck.basic.plains": "Plains",
   "screen.gathering.deck.basic.swamp": "Swamp",
+  "screen.gathering.deck.basic.wastes": "Wastes",
   "screen.gathering.deck.commanders": "Command zone (%s)",
   "screen.gathering.deck.empty": "Empty. Add lands below, or sleeve from a collection.",
   "screen.gathering.deck.hint_menu": "Right-click: command zone, or take a copy",

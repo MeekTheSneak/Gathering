@@ -143,8 +143,8 @@ public final class PayloadGameTest {
         // client could name any card in Magic and be handed it. It names a type instead, and
         // the count is clamped on the way in rather than trusted: a request for two billion
         // Forests must be refused rather than allocated.
-        for (dev.gathering.network.AddBasicsPayload.Basic land
-                : dev.gathering.network.AddBasicsPayload.Basic.values()) {
+        for (dev.gathering.core.card.BasicLand land
+                : dev.gathering.core.card.BasicLand.values()) {
             dev.gathering.network.AddBasicsPayload asked =
                     new dev.gathering.network.AddBasicsPayload(true, land, 3);
             dev.gathering.network.AddBasicsPayload restored = roundTrip(
@@ -153,7 +153,7 @@ public final class PayloadGameTest {
                 helper.fail("A request for " + land + " changed on the wire: " + restored);
                 return;
             }
-            if (!restored.land().cardName().equals(land.cardName())) {
+            if (!restored.land().printedName().equals(land.printedName())) {
                 helper.fail("A basic land lost its name on the wire: " + restored.land());
                 return;
             }
@@ -161,13 +161,13 @@ public final class PayloadGameTest {
 
         int most = dev.gathering.network.AddBasicsPayload.MOST_AT_ONCE;
         dev.gathering.network.AddBasicsPayload huge = new dev.gathering.network.AddBasicsPayload(
-                false, dev.gathering.network.AddBasicsPayload.Basic.FOREST, Integer.MAX_VALUE);
+                false, dev.gathering.core.card.BasicLand.FOREST, Integer.MAX_VALUE);
         if (huge.howMany() != most) {
             helper.fail("A request for two billion Forests came through as " + huge.howMany());
             return;
         }
         dev.gathering.network.AddBasicsPayload none = new dev.gathering.network.AddBasicsPayload(
-                false, dev.gathering.network.AddBasicsPayload.Basic.ISLAND, -5);
+                false, dev.gathering.core.card.BasicLand.ISLAND, -5);
         if (none.howMany() != 1) {
             helper.fail("A request for minus five Islands came through as " + none.howMany());
             return;
@@ -438,7 +438,7 @@ public final class PayloadGameTest {
      */
     @GameTest(template = "empty")
     public static void aFetchedBasicSurvivesTheWire(GameTestHelper helper) {
-        for (var land : dev.gathering.network.FetchBasicPayload.Basic.values()) {
+        for (var land : dev.gathering.core.card.BasicLand.values()) {
             var asked = roundTrip(
                     helper,
                     new dev.gathering.network.FetchBasicPayload(
@@ -454,7 +454,7 @@ public final class PayloadGameTest {
 
         var silly = new dev.gathering.network.FetchBasicPayload(
                 net.minecraft.core.BlockPos.ZERO,
-                dev.gathering.network.FetchBasicPayload.Basic.FOREST, Integer.MAX_VALUE);
+                dev.gathering.core.card.BasicLand.FOREST, Integer.MAX_VALUE);
         if (silly.count() != dev.gathering.network.FetchBasicPayload.MOST) {
             helper.fail("two billion Forests were not brought back down: " + silly.count());
         }

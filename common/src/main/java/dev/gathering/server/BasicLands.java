@@ -50,7 +50,7 @@ public final class BasicLands {
         // Off the server thread, like every other card lookup: a basic this server has not
         // seen before is a file read at best and a Scryfall round trip at worst, and neither
         // belongs on the thread the game ticks on.
-        cards.findByName(asked.land().cardName()).whenComplete((found, failure) ->
+        cards.findByName(asked.land().printedName()).whenComplete((found, failure) ->
                 player.server.execute(() -> give(player, asked, found, failure)));
     }
 
@@ -65,7 +65,7 @@ public final class BasicLands {
             // Said out loud rather than swallowed. A button that does nothing and explains
             // nothing is worse than one that is not there.
             player.sendSystemMessage(Component.translatable(
-                    "message.gathering.basics_not_found", asked.land().cardName()));
+                    "message.gathering.basics_not_found", asked.land().printedName()));
             return;
         }
         if (!land.isBasicLand()) {
@@ -73,7 +73,7 @@ public final class BasicLands {
             // reachable if Scryfall answers a name with something surprising, and the answer
             // to that is to do nothing rather than to put it in somebody's deck.
             player.sendSystemMessage(Component.translatable(
-                    "message.gathering.basics_not_found", asked.land().cardName()));
+                    "message.gathering.basics_not_found", asked.land().printedName()));
             return;
         }
 

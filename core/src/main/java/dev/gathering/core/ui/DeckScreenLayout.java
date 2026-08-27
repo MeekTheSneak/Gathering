@@ -70,8 +70,12 @@ public record DeckScreenLayout(
     /** How tall the row of basic-land buttons is. One button, and they are small ones. */
     public static final int LAND_HEIGHT = 14;
 
-    /** The five basics, which is the whole list and has been since 1993. */
-    public static final int LAND_BUTTONS = 5;
+    /**
+     * Six, one per basic land, Wastes included. This was five, which was the layout quietly
+     * deciding a colourless deck could not have its lands - the list itself lives in
+     * {@link dev.gathering.core.card.BasicLand} and this only has to match its length.
+     */
+    public static final int LAND_BUTTONS = dev.gathering.core.card.BasicLand.values().length;
 
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_WIDTH = 72;

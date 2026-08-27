@@ -12,7 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("Finding a basic land in a library")
-class BasicLandsTest {
+class LibraryBasicsTest {
 
     @Test
     @DisplayName("it finds them top first, as many as asked for")
@@ -24,8 +24,8 @@ class BasicLandsTest {
                 card("Forest", "Basic Land — Forest"),
                 card("Forest", "Basic Land — Forest"));
 
-        assertThat(BasicLands.findIn(library, "Forest", 2)).containsExactly(1, 3);
-        assertThat(BasicLands.findIn(library, "Forest", 9)).containsExactly(1, 3, 4);
+        assertThat(LibraryBasics.findIn(library, "Forest", 2)).containsExactly(1, 3);
+        assertThat(LibraryBasics.findIn(library, "Forest", 9)).containsExactly(1, 3, 4);
     }
 
     @Test
@@ -37,7 +37,7 @@ class BasicLandsTest {
                 card("Island", "Basic Land — Island"),
                 card("Lightning Bolt", "Instant"));
 
-        assertThat(BasicLands.findIn(library, "Forest", 1)).isEmpty();
+        assertThat(LibraryBasics.findIn(library, "Forest", 1)).isEmpty();
     }
 
     @Test
@@ -48,7 +48,7 @@ class BasicLandsTest {
         // hands them nothing.
         List<CardMetadata> library = List.of(card("Forest", "Legendary Creature — Treefolk"));
 
-        assertThat(BasicLands.findIn(library, "Forest", 1)).isEmpty();
+        assertThat(LibraryBasics.findIn(library, "Forest", 1)).isEmpty();
     }
 
     @Test
@@ -59,7 +59,7 @@ class BasicLandsTest {
         List<CardMetadata> library = List.of(
                 card("Snow-Covered Forest", "Basic Snow Land — Forest"));
 
-        assertThat(BasicLands.findIn(library, "Forest", 1)).isEmpty();
+        assertThat(LibraryBasics.findIn(library, "Forest", 1)).isEmpty();
     }
 
     @Test
@@ -69,7 +69,7 @@ class BasicLandsTest {
                 null,
                 card("Forest", "Basic Land — Forest"));
 
-        assertThat(BasicLands.findIn(library, "Forest", 2)).containsExactly(1);
+        assertThat(LibraryBasics.findIn(library, "Forest", 2)).containsExactly(1);
     }
 
     @Test
@@ -77,12 +77,12 @@ class BasicLandsTest {
     void theEmptyAnswers() {
         List<CardMetadata> library = List.of(card("Forest", "Basic Land — Forest"));
 
-        assertThat(BasicLands.findIn(library, "Forest", 0)).isEmpty();
-        assertThat(BasicLands.findIn(library, "Forest", -3)).isEmpty();
-        assertThat(BasicLands.findIn(library, "", 1)).isEmpty();
-        assertThat(BasicLands.findIn(library, null, 1)).isEmpty();
-        assertThat(BasicLands.findIn(null, "Forest", 1)).isEmpty();
-        assertThat(BasicLands.findIn(List.of(), "Forest", 1)).isEmpty();
+        assertThat(LibraryBasics.findIn(library, "Forest", 0)).isEmpty();
+        assertThat(LibraryBasics.findIn(library, "Forest", -3)).isEmpty();
+        assertThat(LibraryBasics.findIn(library, "", 1)).isEmpty();
+        assertThat(LibraryBasics.findIn(library, null, 1)).isEmpty();
+        assertThat(LibraryBasics.findIn(null, "Forest", 1)).isEmpty();
+        assertThat(LibraryBasics.findIn(List.of(), "Forest", 1)).isEmpty();
     }
 
     @Test
@@ -90,8 +90,8 @@ class BasicLandsTest {
     void theNameIsMatchedLoosely() {
         List<CardMetadata> library = List.of(card("Forest", "Basic Land — Forest"));
 
-        assertThat(BasicLands.findIn(library, "forest", 1)).containsExactly(0);
-        assertThat(BasicLands.findIn(library, "  FOREST  ", 1)).containsExactly(0);
+        assertThat(LibraryBasics.findIn(library, "forest", 1)).containsExactly(0);
+        assertThat(LibraryBasics.findIn(library, "  FOREST  ", 1)).containsExactly(0);
     }
 
     private static CardMetadata card(String name, String typeLine) {

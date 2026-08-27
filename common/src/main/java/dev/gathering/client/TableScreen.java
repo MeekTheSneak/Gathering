@@ -3723,7 +3723,7 @@ public final class TableScreen extends Screen {
      */
     private void askWhichBasic() {
         List<ChoiceScreen.Option> lands = new ArrayList<>();
-        for (FetchBasicPayload.Basic land : FetchBasicPayload.Basic.values()) {
+        for (dev.gathering.core.card.BasicLand land : dev.gathering.core.card.BasicLand.values()) {
             lands.add(new ChoiceScreen.Option(
                     Component.translatable(
                             "screen.gathering.basic." + land.name().toLowerCase(java.util.Locale.ROOT)),
@@ -3739,7 +3739,7 @@ public final class TableScreen extends Screen {
      * <p>Named, because the second question arrives after the first has gone and "How many?"
      * on its own is a question about something the player can no longer see.
      */
-    private void askHowManyBasics(FetchBasicPayload.Basic land) {
+    private void askHowManyBasics(dev.gathering.core.card.BasicLand land) {
         // The plural, because the question is "how many". Six strings rather than an "s" on
         // the end of one: Plains and Wastes are already plural, and "How many Plainss?" is
         // the sort of thing nobody fixes once it has shipped.

@@ -97,11 +97,12 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         rebuild(deck);
         requestNames(deck);
 
-        // A row of five, one per basic land. Click adds one, shift-click adds five, because
-        // a mana base is seventeen cards and seventeen clicks is not a deckbuilding screen.
-        AddBasicsPayload.Basic[] basics = AddBasicsPayload.Basic.values();
+        // A row of six, one per basic land, Wastes included. Click adds one, shift-click
+        // adds five, because a mana base is seventeen cards and seventeen clicks is not a
+        // deckbuilding screen.
+        dev.gathering.core.card.BasicLand[] basics = dev.gathering.core.card.BasicLand.values();
         for (int index = 0; index < basics.length; index++) {
-            AddBasicsPayload.Basic land = basics[index];
+            dev.gathering.core.card.BasicLand land = basics[index];
             Rect where = layout.landButton(index);
             if (where.isEmpty()) {
                 continue;
@@ -163,9 +164,9 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
      */
     private final class LandButton extends Button {
 
-        private final AddBasicsPayload.Basic land;
+        private final dev.gathering.core.card.BasicLand land;
 
-        private LandButton(Rect where, AddBasicsPayload.Basic land) {
+        private LandButton(Rect where, dev.gathering.core.card.BasicLand land) {
             super(where.x(), where.y(), where.width(), where.height(),
                     ManaText.of(land.symbol()),
                     button -> { },

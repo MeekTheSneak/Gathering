@@ -23,9 +23,9 @@ import java.util.Locale;
  *
  * <p>Pure: no Minecraft, no session, so which cards count is checked rather than played.
  */
-public final class BasicLands {
+public final class LibraryBasics {
 
-    private BasicLands() {
+    private LibraryBasics() {
     }
 
     /**
@@ -67,6 +67,6 @@ public final class BasicLands {
             return false;
         }
         return card.name().strip().toLowerCase(Locale.ROOT).equals(wanted)
-                && card.typeLine().toLowerCase(Locale.ROOT).contains("basic land");
+                && card.isBasicLand();
     }
 }
