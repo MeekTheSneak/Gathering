@@ -96,8 +96,8 @@ public final class CountersScreen extends ChildScreen {
     private GameView countedFrom;
     private Map<String, Integer> counted = Map.of();
 
-    /** And which opponents there were to take commander damage from, for the same reason. */
-    private List<SeatId> opponentsShown = List.of();
+    /** And which enemy commanders there were to take damage from, for the same reason. */
+    private List<CardInstanceId> opponentsShown = List.of();
 
     /**
      * What the counters are on.
@@ -149,7 +149,7 @@ public final class CountersScreen extends ChildScreen {
         List<String> present = new ArrayList<>(current().keySet());
         int rows = Math.min(MAX_ROWS, present.size());
         int commonRows = (common().size() + 2) / 3;
-        List<SeatId> opponents = commanderDamageFrom();
+        List<CardInstanceId> opponents = commanderDamageFrom();
         List<CardInstanceId> taxed = taxedCommanders();
 
         int height = MARGIN * 2 + ROW * 2
@@ -197,7 +197,7 @@ public final class CountersScreen extends ChildScreen {
         // three numbers nobody can hold in their head for an hour.
         int damageTop = commonTop + commonRows * (ROW + GAP) + GAP;
         for (int index = 0; index < opponents.size(); index++) {
-            SeatId from = opponents.get(index);
+            CardInstanceId from = opponents.get(index);
             int rowY = damageTop + ROW + index * (ROW + GAP);
             addRenderableWidget(GatheringButtons.of(
                     panel.right() - MARGIN - STEP_WIDTH * 2 - GAP, rowY, STEP_WIDTH, ROW,
@@ -251,13 +251,13 @@ public final class CountersScreen extends ChildScreen {
      * adjust anybody's numbers, because on a real table the person who notices says so and
      * whoever is nearest the pad writes it down.
      */
-    private void hitBy(SeatId from, int delta) {
+    private void hitBy(CardInstanceId commander, int delta) {
         SeatId me = ClientTableState.seatAt(table).orElse(null);
         if (me == null || !(subject instanceof Subject.Seat mine)) {
             return;
         }
         ClientTableActions.send(table,
-                new GameEvent.CommanderDamageChanged(me, mine.seat(), from, delta));
+                new GameEvent.CommanderDamageChanged(me, mine.seat(), commander, delta));
     }
 
     private void addCustom() {
@@ -293,13 +293,16 @@ public final class CountersScreen extends ChildScreen {
     }
 
     /**
-     * The other seats, in seat order, when this screen is about a seat at a table with a
-     * command zone - and nothing otherwise.
+     * Every other seat's commanders, in seat order, when this screen is about a seat at a
+     * table with a command zone - and nothing otherwise.
      *
-     * <p>Commander damage is per opponent and only exists where there are commanders, so a
-     * table playing Modern gets no grid rather than a grid of zeroes nobody can use.
+     * <p>One row per commander and not per opponent, because the rule is twenty-one from the
+     * <em>same</em> commander and a partner deck fields two: a single number per enemy seat
+     * could not tell one partner's damage from the other's, which is the pair the rule
+     * exists to separate. A seat that brought no commanders contributes no rows, so a table
+     * playing Modern gets no grid rather than a grid of zeroes nobody can use.
      */
-    private List<SeatId> commanderDamageFrom() {
+    private List<CardInstanceId> commanderDamageFrom() {
         if (!(subject instanceof Subject.Seat mine) || !tableHasACommandZone()) {
             return List.of();
         }
@@ -307,10 +310,10 @@ public final class CountersScreen extends ChildScreen {
         if (board == null) {
             return List.of();
         }
-        List<SeatId> others = new ArrayList<>();
+        List<CardInstanceId> others = new ArrayList<>();
         for (SeatView seat : board.seats()) {
-            if (!seat.seat().equals(mine.seat()) && seat.occupant().isPresent()) {
-                others.add(seat.seat());
+            if (!seat.seat().equals(mine.seat())) {
+                others.addAll(seat.commanders());
             }
         }
         return others;
@@ -324,13 +327,13 @@ public final class CountersScreen extends ChildScreen {
                 && entity.hasCommandZone();
     }
 
-    /** How much commander damage this seat has taken from that one. */
-    private int damageFrom(SeatId from) {
+    /** How much commander damage this seat has taken from that commander. */
+    private int damageFrom(CardInstanceId commander) {
         GameView board = ClientTableState.viewOf(table).orElse(null);
         if (board == null || !(subject instanceof Subject.Seat mine)) {
             return 0;
         }
-        return board.seat(mine.seat()).commanderDamage().getOrDefault(from, 0);
+        return board.seat(mine.seat()).commanderDamage().getOrDefault(commander, 0);
     }
 
     /**
@@ -519,7 +522,7 @@ public final class CountersScreen extends ChildScreen {
                     panel.x() + panel.width() / 2, y + 5, panel.width() - MARGIN * 2, DIM);
         }
 
-        List<SeatId> opponents = commanderDamageFrom();
+        List<CardInstanceId> opponents = commanderDamageFrom();
         opponentsShown = opponents;
         renderCommanderTax(graphics, y);
         if (opponents.isEmpty()) {
@@ -532,7 +535,7 @@ public final class CountersScreen extends ChildScreen {
                 Component.translatable("screen.gathering.counters.commander_damage"),
                 panel.x() + MARGIN, damageTop + 5, panel.width() - MARGIN * 2, DIM);
         for (int row = 0; row < opponents.size(); row++) {
-            SeatId from = opponents.get(row);
+            CardInstanceId from = opponents.get(row);
             int taken = damageFrom(from);
             int rowY = damageTop + ROW + row * (ROW + GAP);
             GuiText.draw(graphics, this.font, nameOf(from),
@@ -556,7 +559,7 @@ public final class CountersScreen extends ChildScreen {
         if (commanders.isEmpty()) {
             return;
         }
-        List<SeatId> opponents = opponentsShown;
+        List<CardInstanceId> opponents = opponentsShown;
         int commonRows = (common().size() + 2) / 3;
         int taxTop = y + Math.min(MAX_ROWS, current().size()) * (ROW + GAP) + ROW
                 + commonRows * (ROW + GAP) + GAP

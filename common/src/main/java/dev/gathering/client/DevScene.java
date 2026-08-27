@@ -1002,6 +1002,14 @@ public final class DevScene {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
+                // One row per enemy commander, and the rival brought partners - so two rows,
+                // or the grid has collapsed back to one number per seat, which is the bug
+                // the keying exists to rule out: twenty-one is counted against the SAME
+                // commander, and partners are two.
+                if (damageRowsShowing(client) != 2) {
+                    fail("a rival with two partners grew " + damageRowsShowing(client)
+                            + " damage rows, not one per commander");
+                }
                 press(client, "+");
                 advance(SETTLE);
             }
@@ -4824,7 +4832,12 @@ public final class DevScene {
             for (int index = 0; index < 12; index++) {
                 library.add(CardIdentity.ofPrinting(new java.util.UUID(0L, 500 + index), false));
             }
-            session.submit(new GameEvent.DeckLoaded(theirs, library, List.of()));
+            // With partners, deliberately: two commanders is the case the damage grid is
+            // keyed by the card for, and a rival with none would grow no damage rows at all
+            // - which is correct for a Modern opponent and useless for this check.
+            session.submit(new GameEvent.DeckLoaded(theirs, library, List.of(
+                    CardIdentity.ofPrinting(new java.util.UUID(0L, 601L), false),
+                    CardIdentity.ofPrinting(new java.util.UUID(0L, 602L), false))));
             session.submit(new GameEvent.CardsDrawn(theirs, theirs, 3));
             // And plays one, so there is a card of somebody else's on the table - which is
             // the only way to check what a card moved by another player looks like.
@@ -5007,14 +5020,34 @@ public final class DevScene {
                 client.screen));
     }
 
-    /** How much commander damage this player has taken from the seat opposite. */
+    /** How many commander-damage rows the counters screen is offering. */
+    private static int damageRowsShowing(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || board == null) {
+            return -1;
+        }
+        int rows = 0;
+        for (dev.gathering.core.game.visibility.SeatView seat : board.seats()) {
+            if (!seat.seat().equals(me)) {
+                rows += seat.commanders().size();
+            }
+        }
+        return rows;
+    }
+
+    /** How much commander damage this player has taken, over all enemy commanders. */
     private static int damageTaken(Minecraft client) {
         SeatId me = ClientTableState.seatAt(table).orElse(null);
         GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
         if (me == null || board == null) {
             return -1;
         }
-        return board.seat(me).commanderDamage().getOrDefault(new SeatId(1), 0);
+        // Summed over commanders rather than read per enemy seat: the map is keyed by the
+        // commander card now, because twenty-one is a fact about the same commander and a
+        // partner deck fields two. What this step checks is only that a press lands.
+        return board.seat(me).commanderDamage().values().stream()
+                .mapToInt(Integer::intValue).sum();
     }
 
     /**

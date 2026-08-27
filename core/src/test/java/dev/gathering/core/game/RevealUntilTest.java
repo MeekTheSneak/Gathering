@@ -51,6 +51,42 @@ class RevealUntilTest {
     }
 
     @Test
+    @DisplayName("cascade turns lands over and passes them by")
+    void landsDoNotStopACascade() {
+        // A land's mana value is zero, so without the nonland half of the rule the first
+        // land always stops the run - and a deck is a third lands, which made cascade wrong
+        // on nearly every real casting. CR 702.85a: the first NONLAND card that costs less.
+        List<CardMetadata> library = List.of(
+                card("Wrath", 4, "Sorcery"),
+                card("Forest", 0, "Basic Land — Forest"),
+                card("Vesuva", 0, "Land"),
+                card("Bolt", 1, "Instant"));
+
+        assertThat(RevealUntil.howFarDown(library, RevealUntil.cheaperThan(3))).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("a zero-cost artifact is not a land, and does stop it")
+    void freeSpellsStillStopIt() {
+        // Ornithopter costs nothing and is exactly what a cascade can hit. Only lands are
+        // passed by; a nonland card at zero is the cheapest stop there is.
+        List<CardMetadata> library = List.of(
+                card("Thopter", 0, "Artifact Creature — Thopter"));
+
+        assertThat(RevealUntil.howFarDown(library, RevealUntil.cheaperThan(3))).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a deck of nothing but lands cascades into nothing")
+    void allLandsFindsNothing() {
+        List<CardMetadata> library = List.of(
+                card("Forest", 0, "Basic Land — Forest"),
+                card("Island", 0, "Basic Land — Island"));
+
+        assertThat(RevealUntil.howFarDown(library, RevealUntil.cheaperThan(9))).isZero();
+    }
+
+    @Test
     @DisplayName("cheaper than means cheaper, not the same price")
     void theBoundaryIsExclusive() {
         List<CardMetadata> library = List.of(card("Wrath", 3, "Sorcery"));

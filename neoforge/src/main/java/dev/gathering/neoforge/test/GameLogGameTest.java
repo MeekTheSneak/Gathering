@@ -174,7 +174,7 @@ public final class GameLogGameTest {
         session.submit(new GameEvent.LibraryRevealed(ALICE, ALICE, 0));
         session.submit(new GameEvent.LibrarySearched(ALICE, ALICE));
         session.submit(new GameEvent.LifeChanged(ALICE, BOB, -3));
-        session.submit(new GameEvent.CommanderDamageChanged(ALICE, BOB, ALICE, 4));
+        session.submit(new GameEvent.CommanderDamageChanged(ALICE, BOB, first, 4));
         session.submit(new GameEvent.CommanderTaxChanged(ALICE, ALICE, first, 2));
         session.submit(new GameEvent.TokenCreated(ALICE, ALICE, deck().get(0), 2));
         session.submit(new GameEvent.TokenCopyCreated(ALICE, first, ALICE));

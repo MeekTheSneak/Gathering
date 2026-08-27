@@ -200,8 +200,8 @@ public final class EventCodec {
             }
             case GameEvent.CommanderDamageChanged e -> {
                 seat(out, e.actor());
-                seat(out, e.toSeat());
-                seat(out, e.fromSeat());
+                seat(out, e.seat());
+                card(out, e.commander());
                 out.writeInt(e.delta());
             }
             case GameEvent.CommanderTaxChanged e -> {
@@ -270,7 +270,7 @@ public final class EventCodec {
                     seat(in), seat(in), in.readUTF(), in.readInt());
             case "LifeChanged" -> new GameEvent.LifeChanged(seat(in), seat(in), in.readInt());
             case "CommanderDamageChanged" -> new GameEvent.CommanderDamageChanged(
-                    seat(in), seat(in), seat(in), in.readInt());
+                    seat(in), seat(in), card(in), in.readInt());
             case "CommanderTaxChanged" -> new GameEvent.CommanderTaxChanged(
                     seat(in), seat(in), card(in), in.readInt());
             case "Conceded" -> new GameEvent.Conceded(seat(in));

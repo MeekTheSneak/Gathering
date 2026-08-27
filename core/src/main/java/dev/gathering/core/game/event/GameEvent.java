@@ -670,10 +670,20 @@ public sealed interface GameEvent {
         }
     }
 
-    record CommanderDamageChanged(SeatId actor, SeatId toSeat, SeatId fromSeat, int delta) implements GameEvent {
+    /**
+     * Commander damage, recorded against the commander that dealt it.
+     *
+     * <p>The card and not the seat, because the rule is twenty-one from the <em>same</em>
+     * commander and a partner deck fields two. One number per enemy seat could not tell
+     * Halana's damage from Tevesh's - which is the pair the rule exists to separate, and the
+     * deck this project's own brief was written around.
+     */
+    record CommanderDamageChanged(SeatId actor, SeatId seat, CardInstanceId commander, int delta)
+            implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
-            return LogLine.of("log.gathering.commander_damage", actor, toSeat, fromSeat, delta);
+            return LogLine.of("log.gathering.commander_damage",
+                    actor, seat, CardRef.publicRefFor(before, commander), delta);
         }
     }
 
@@ -749,7 +759,7 @@ public sealed interface GameEvent {
             case SeatUntappedAll untapped -> Optional.of(untapped.seat());
             case LifeChanged life -> Optional.of(life.seat());
             case SeatCounterChanged counter -> Optional.of(counter.seat());
-            case CommanderDamageChanged damage -> Optional.of(damage.toSeat());
+            case CommanderDamageChanged damage -> Optional.of(damage.seat());
             case CommanderTaxChanged tax -> Optional.of(tax.seat());
             case TokenCreated token -> Optional.of(token.seat());
             case TokenCopyCreated copy -> Optional.of(copy.seat());

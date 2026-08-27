@@ -15,7 +15,14 @@ import java.util.Map;
  *
  * @param lastOccupant    whoever sat here most recently, kept after they leave so the board
  *                        they left behind still has a name on it
- * @param commanderDamage damage taken from each other seat's commanders, the 21-point grid
+ * @param commanderDamage damage taken from each commander, by the card. By the card and not
+ *                        by the seat, because the rule is 21 from the <em>same</em> commander
+ *                        and a partner deck fields two: one number per enemy seat could not
+ *                        tell Halana's damage from Tevesh's, which is exactly the pair the
+ *                        rule exists to separate
+ * @param commanders      the cards this seat brought as commanders, wherever they are now.
+ *                        Recorded when the deck goes down, because a commander on the
+ *                        battlefield is still the commander and nothing about its zone says so
  * @param commanderTax    per commander, the number of times it has been cast from the
  *                        command zone; displayed, never charged
  * @param counters        poison, energy, experience and anything else a player cares to name;
@@ -27,8 +34,9 @@ public record SeatState(
         PlayerRef occupant,
         PlayerRef lastOccupant,
         int life,
-        Map<SeatId, Integer> commanderDamage,
+        Map<CardInstanceId, Integer> commanderDamage,
         Map<CardInstanceId, Integer> commanderTax,
+        java.util.List<CardInstanceId> commanders,
         Map<String, Integer> counters,
         boolean conceded) {
 
@@ -38,19 +46,21 @@ public record SeatState(
         }
         commanderDamage = immutable(commanderDamage);
         commanderTax = immutable(commanderTax);
+        commanders = commanders == null ? java.util.List.of() : java.util.List.copyOf(commanders);
         counters = counters == null || counters.isEmpty()
                 ? Map.of()
                 : Collections.unmodifiableMap(new LinkedHashMap<>(counters));
     }
 
     public static SeatState startingAt(SeatId seat, int startingLife) {
-        return new SeatState(seat, null, null, startingLife, Map.of(), Map.of(), Map.of(), false);
+        return new SeatState(
+                seat, null, null, startingLife, Map.of(), Map.of(), java.util.List.of(), Map.of(), false);
     }
 
     /** A seat is held until the player leaves it, not until they walk away or log out. */
     public SeatState occupiedBy(PlayerRef player) {
         return new SeatState(
-                seat, player, player, life, commanderDamage, commanderTax, counters, conceded);
+                seat, player, player, life, commanderDamage, commanderTax, commanders, counters, conceded);
     }
 
     /**
@@ -63,7 +73,7 @@ public record SeatState(
      */
     public SeatState released() {
         return new SeatState(
-                seat, null, lastOccupant, life, commanderDamage, commanderTax, counters, conceded);
+                seat, null, lastOccupant, life, commanderDamage, commanderTax, commanders, counters, conceded);
     }
 
     public java.util.Optional<PlayerRef> player() {
@@ -87,18 +97,26 @@ public record SeatState(
     }
 
     public SeatState withLife(int delta) {
-        return new SeatState(seat, occupant, lastOccupant, life + delta, commanderDamage, commanderTax, counters, conceded);
+        return new SeatState(
+                seat, occupant, lastOccupant, life + delta, commanderDamage, commanderTax, commanders, counters, conceded);
     }
 
-    public SeatState withCommanderDamage(SeatId from, int delta) {
-        Map<SeatId, Integer> updated = new LinkedHashMap<>(commanderDamage);
-        int now = updated.getOrDefault(from, 0) + delta;
+    public SeatState withCommanderDamage(CardInstanceId commander, int delta) {
+        Map<CardInstanceId, Integer> updated = new LinkedHashMap<>(commanderDamage);
+        int now = updated.getOrDefault(commander, 0) + delta;
         if (now == 0) {
-            updated.remove(from);
+            updated.remove(commander);
         } else {
-            updated.put(from, now);
+            updated.put(commander, now);
         }
-        return new SeatState(seat, occupant, lastOccupant, life, updated, commanderTax, counters, conceded);
+        return new SeatState(
+                seat, occupant, lastOccupant, life, updated, commanderTax, commanders, counters, conceded);
+    }
+
+    /** Names this seat's commanders, once, when the deck goes down. */
+    public SeatState withCommanders(java.util.List<CardInstanceId> named) {
+        return new SeatState(
+                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, named, counters, conceded);
     }
 
     public SeatState withCommanderTax(CardInstanceId commander, int delta) {
@@ -109,13 +127,15 @@ public record SeatState(
         } else {
             updated.put(commander, now);
         }
-        return new SeatState(seat, occupant, lastOccupant, life, commanderDamage, updated, counters, conceded);
+        return new SeatState(
+                seat, occupant, lastOccupant, life, commanderDamage, updated, commanders, counters, conceded);
     }
 
     public SeatState withConcede() {
         return conceded
                 ? this
-                : new SeatState(seat, occupant, lastOccupant, life, commanderDamage, commanderTax, counters, true);
+                : new SeatState(
+                        seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters, true);
     }
 
     /**
@@ -133,7 +153,8 @@ public record SeatState(
         } else {
             updated.put(name, now);
         }
-        return new SeatState(seat, occupant, lastOccupant, life, commanderDamage, commanderTax, updated, conceded);
+        return new SeatState(
+                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, updated, conceded);
     }
 
     public int counter(String name) {

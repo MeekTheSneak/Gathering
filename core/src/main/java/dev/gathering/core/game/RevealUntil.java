@@ -70,9 +70,38 @@ public final class RevealUntil {
         return 0;
     }
 
-    /** Cascade's question: the first card that costs less than this. */
+    /**
+     * Cascade's question: the first <em>nonland</em> card that costs less than this.
+     *
+     * <p>Nonland is not a refinement, it is most of the rule. A land's mana value is zero,
+     * so "the first card that costs less" is the first land - and a deck is a third lands,
+     * which made this stop wrong on nearly every real cascade. What cascade actually says is
+     * that lands are turned over and passed by, and the spell you get is a spell.
+     */
     public static Predicate<CardMetadata> cheaperThan(int manaValue) {
-        return card -> card.cmc() < manaValue;
+        return card -> !isALand(card) && card.cmc() < manaValue;
+    }
+
+    /**
+     * Whether the card is a land, read off its type line.
+     *
+     * <p>The word, not the substring: "Basic Land", "Legendary Land" and "Artifact Land" are
+     * lands, and matching anything containing the letters would be one odd subtype away from
+     * calling something a land that is not. The em-dash on a type line separates types from
+     * subtypes, and the land subtypes only appear on lands anyway - the card type is what is
+     * being asked about.
+     */
+    private static boolean isALand(CardMetadata card) {
+        String line = card.typeLine();
+        if (line == null) {
+            return false;
+        }
+        for (String word : line.split("[^A-Za-z]+")) {
+            if (word.equalsIgnoreCase("Land")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

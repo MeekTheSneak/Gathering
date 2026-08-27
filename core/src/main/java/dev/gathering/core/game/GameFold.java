@@ -121,7 +121,7 @@ public final class GameFold {
                     state.withSeatState(state.seatState(life.seat()).withLife(life.delta()));
 
             case GameEvent.CommanderDamageChanged damage -> state.withSeatState(
-                    state.seatState(damage.toSeat()).withCommanderDamage(damage.fromSeat(), damage.delta()));
+                    state.seatState(damage.seat()).withCommanderDamage(damage.commander(), damage.delta()));
 
             case GameEvent.CommanderTaxChanged tax -> state.withSeatState(
                     state.seatState(tax.seat()).withCommanderTax(tax.commander(), tax.delta()));
@@ -156,12 +156,18 @@ public final class GameFold {
         // being dropped: a deck that names three commanders is a deck somebody built wrong,
         // and losing a card is a worse answer than showing it.
         List<Zone> slots = Zone.COMMAND_SLOTS;
+        List<CardInstanceId> commanders = new ArrayList<>(loaded.commanders().size());
         for (int index = 0; index < loaded.commanders().size(); index++) {
             CardInstance card = CardInstance.faceUp(
                     CardInstanceId.of(nextId++), loaded.commanders().get(index), seat);
             Zone slot = slots.get(Math.min(index, slots.size() - 1));
             updated = updated.addCard(card, ZoneRef.of(seat, slot), Placement.BOTTOM);
+            commanders.add(card.id());
         }
+        // Named on the seat, once, because a commander on the battlefield is still the
+        // commander and nothing about its zone says so. This is what lets damage be recorded
+        // against the card that dealt it wherever that card happens to be standing.
+        updated = updated.withSeatState(updated.seatState(seat).withCommanders(commanders));
         return updated.withNextCardId(nextId);
     }
 

@@ -94,6 +94,7 @@ public final class VisibilityRules {
                 seatState.life(),
                 seatState.commanderDamage(),
                 seatState.commanderTax(),
+                seatState.commanders(),
                 seatState.counters(),
                 seatState.conceded(),
                 zones);

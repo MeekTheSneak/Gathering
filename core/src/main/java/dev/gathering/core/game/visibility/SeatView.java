@@ -14,8 +14,9 @@ public record SeatView(
         PlayerRef player,
         PlayerRef lastPlayer,
         int life,
-        Map<SeatId, Integer> commanderDamage,
+        Map<CardInstanceId, Integer> commanderDamage,
         Map<CardInstanceId, Integer> commanderTax,
+        java.util.List<CardInstanceId> commanders,
         Map<String, Integer> counters,
         boolean conceded,
         Map<Zone, ZoneView> zones) {
@@ -30,6 +31,9 @@ public record SeatView(
         commanderTax = commanderTax == null
                 ? Map.of()
                 : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(commanderTax));
+        // Which cards this seat brought as commanders, public to everyone: they went down
+        // face up in the command zone in front of the whole table.
+        commanders = commanders == null ? java.util.List.of() : java.util.List.copyOf(commanders);
         // Kept in the order they arrived rather than in a hash order, because a screen draws
         // them as rows and rows that reorder themselves are rows nobody can point at.
         counters = counters == null

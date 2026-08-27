@@ -214,9 +214,14 @@ public final class ViewCodec {
         out.writeBoolean(seat.conceded());
 
         out.writeInt(seat.commanderDamage().size());
-        for (Map.Entry<SeatId, Integer> entry : seat.commanderDamage().entrySet()) {
-            out.writeInt(entry.getKey().index());
+        for (Map.Entry<CardInstanceId, Integer> entry : seat.commanderDamage().entrySet()) {
+            out.writeInt(entry.getKey().value());
             out.writeInt(entry.getValue());
+        }
+
+        out.writeInt(seat.commanders().size());
+        for (CardInstanceId commander : seat.commanders()) {
+            out.writeInt(commander.value());
         }
 
         out.writeInt(seat.commanderTax().size());
@@ -248,10 +253,16 @@ public final class ViewCodec {
         int life = in.readInt();
         boolean conceded = in.readBoolean();
 
-        Map<SeatId, Integer> damage = new LinkedHashMap<>();
+        Map<CardInstanceId, Integer> damage = new LinkedHashMap<>();
         int damageCount = size(in.readInt());
         for (int index = 0; index < damageCount; index++) {
-            damage.put(new SeatId(in.readInt()), in.readInt());
+            damage.put(new CardInstanceId(in.readInt()), in.readInt());
+        }
+
+        List<CardInstanceId> commanders = new ArrayList<>();
+        int commanderCount = size(in.readInt());
+        for (int index = 0; index < commanderCount; index++) {
+            commanders.add(new CardInstanceId(in.readInt()));
         }
 
         Map<CardInstanceId, Integer> tax = new LinkedHashMap<>();
@@ -272,7 +283,7 @@ public final class ViewCodec {
             Zone zone = Zone.valueOf(in.readUTF());
             zones.put(zone, zone(in));
         }
-        return new SeatView(id, player, lastPlayer, life, damage, tax, counters, conceded, zones);
+        return new SeatView(id, player, lastPlayer, life, damage, tax, commanders, counters, conceded, zones);
     }
 
     private static PlayerRef readPlayer(DataInput in) throws IOException {
