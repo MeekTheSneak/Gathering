@@ -401,17 +401,19 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
                 "screen.gathering.collection.page", matched, page + 1, pages);
         graphics.drawString(this.font, found, MARGIN, y, DIM, false);
 
+        // Ending short of the Done button, which owns the corner now.
+        int hintRight = this.width - MARGIN - 64;
         Component how = mayTake ? whatAClickDoes()
                 : Component.translatable("screen.gathering.collection.hint_look");
         graphics.drawString(this.font, how,
-                this.width - MARGIN - this.font.width(how), y, DIM, false);
+                hintRight - this.font.width(how), y, DIM, false);
 
         // The other half of the gesture, said where somebody is holding the deck it applies
         // to. It is the only place it can be found, and a tooltip five lines long is not one.
         if (heldDeckName() != null) {
             Component back = Component.translatable("screen.gathering.collection.hint_dissolve");
             graphics.drawString(this.font, back,
-                    this.width - MARGIN - this.font.width(back), y + 11, DIM, false);
+                    hintRight - this.font.width(back), y + 11, DIM, false);
         }
     }
 

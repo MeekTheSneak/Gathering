@@ -153,13 +153,20 @@ public final class PackOpeningScreen extends Screen {
         return mixed;
     }
 
+    /** The dark room the pack is opened in, under the widgets rather than over them. */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        graphics.fill(0, 0, width(), height(), BACKING);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // The background first, and only once. Drawing the pack and then calling up to the
         // superclass paints the menu background straight over it - which came out as a pack
         // behind frosted glass, and was only ever going to be found by looking at a picture.
+        // The backing lives in renderBackground now, so the Done button is not behind it.
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.fill(0, 0, width(), height(), BACKING);
 
         if (tear.isOpen()) {
             drawWhatWasInIt(graphics, mouseX, mouseY);
