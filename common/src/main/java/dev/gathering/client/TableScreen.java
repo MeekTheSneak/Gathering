@@ -453,6 +453,19 @@ public final class TableScreen extends Screen {
         return pileCount();
     }
 
+    /**
+     * Which key the menu says does the same as this row, for the scripted run to check.
+     *
+     * <p>Exists because the labels went wrong once and nothing noticed: the number row was
+     * corrected against the reference table and the menu went on printing the old keys, so
+     * the interface was teaching a player the wrong thing in the one place they were looking
+     * straight at it.
+     */
+    static String keyShownFor(String verb) {
+        Component key = SHORTCUTS.get(verb);
+        return key == null ? null : key.getString();
+    }
+
     /** Whether a menu is up offering this entry. For the harness, as above. */
     boolean hasMenuEntry(String label) {
         return menu != null && menu.has(label);
@@ -3177,6 +3190,18 @@ public final class TableScreen extends Screen {
                         new GameEvent.CounterChanged(
                                 me, target, CardInstance.Counters.PLUS_ONE_PLUS_ONE, -1))));
             }
+            // Loyalty gets the same treatment on the cards that have it. Not a new mechanic -
+            // the counters panel has always been able to put a "loyalty" on anything - but a
+            // planeswalker's loyalty changes twice a turn, and a verb done twice a turn does
+            // not belong two screens deep.
+            if (isAPlaneswalker(card) || card.counter(CardInstance.Counters.LOYALTY) != 0) {
+                entries.add(entry("loyalty_up", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CounterChanged(
+                                me, target, CardInstance.Counters.LOYALTY, 1))));
+                entries.add(entry("loyalty_down", () -> eachTarget(board, targets, target ->
+                        new GameEvent.CounterChanged(
+                                me, target, CardInstance.Counters.LOYALTY, -1))));
+            }
             entries.add(entry("counters", () -> openCounters(new CountersScreen.Subject.Cards(
                     targets, CountersScreen.titleFor(targets, nameOf(card))))));
             // The pen. A group with no rules engine remembers "flying until end of turn" by
@@ -3233,6 +3258,11 @@ public final class TableScreen extends Screen {
         entries.add(entry("to_library_bottom", () -> eachCard(board, targets, seen ->
                 new GameEvent.CardMoved(
                         me, seen.id(), ZoneRef.of(seen.owner(), Zone.LIBRARY), Placement.BOTTOM))));
+        // Its own row rather than a note on the one above, because putting cards back in the
+        // order you picked them up and putting them back in no order are different acts - and
+        // the second is the one the number row does, so it needs somewhere to say so.
+        entries.add(entry("to_library_bottom_random",
+                () -> ClientNetworking.send(new ToBottomAtRandomPayload(table, targets))));
         entries.add(ContextMenu.Entry.rule());
         entries.add(entry("ping", () -> send(new GameEvent.CardPinged(me, id))));
 
@@ -3750,30 +3780,53 @@ public final class TableScreen extends Screen {
     }
 
     /**
+     * The number row, once.
+     *
+     * <p>This used to be written twice - once as the switch that acts on a press, once as the
+     * labels the menu prints beside its rows - and the two drifted the moment the row was
+     * corrected against the reference table. The menu went on saying "To graveyard 7" while 7
+     * had started exiling, which is worse than no label at all: a player who reads it is
+     * being taught the wrong key by the interface itself.
+     *
+     * <p>So the numbers live here and nowhere else. {@link #verbKey} looks the verb up rather
+     * than switching on the number, and the labels below are built from the same map.
+     */
+    private static final java.util.Map<Integer, String> NUMBER_ROW = java.util.Map.ofEntries(
+            java.util.Map.entry(0, "pass_turn"),
+            java.util.Map.entry(1, "untap_all"),
+            java.util.Map.entry(2, "draw"),
+            java.util.Map.entry(3, "scry"),
+            java.util.Map.entry(4, "mill"),
+            java.util.Map.entry(5, "reveal"),
+            java.util.Map.entry(6, "surveil"),
+            java.util.Map.entry(7, "to_exile"),
+            java.util.Map.entry(8, "to_graveyard"),
+            java.util.Map.entry(9, "to_library_bottom_random"));
+
+    /**
      * The key that does the same thing as each menu entry, for the menu to say so.
      *
      * <p>Keyed off the same name the entry is, so an entry and its key cannot drift apart, and
      * an entry with no key simply has none here. This is the only place a player is looking
-     * straight at a verb, so it is the only place worth telling them there is a faster way.
+     * straight at a verb, so it is the only place worth telling them there is a faster way -
+     * and the only place they can be told the wrong one, which is why the numbers come out of
+     * {@link #NUMBER_ROW} rather than being written again here.
      */
-    private static final java.util.Map<String, Component> SHORTCUTS = java.util.Map.ofEntries(
-            java.util.Map.entry("untap_all", Component.literal("1")),
-            java.util.Map.entry("draw", Component.literal("2")),
-            java.util.Map.entry("scry", Component.literal("3")),
-            java.util.Map.entry("mill", Component.literal("4")),
-            java.util.Map.entry("reveal", Component.literal("5")),
-            java.util.Map.entry("surveil", Component.literal("6")),
-            java.util.Map.entry("to_graveyard", Component.literal("7")),
-            java.util.Map.entry("to_exile", Component.literal("8")),
-            java.util.Map.entry("to_library_bottom", Component.literal("9")),
-            java.util.Map.entry("pass_turn", Component.literal("0")),
-            java.util.Map.entry("shuffle", Component.literal("R")),
-            java.util.Map.entry("turn_face_down", Component.literal("F")),
-            java.util.Map.entry("turn_face_up", Component.literal("F")),
-            java.util.Map.entry("untap", Component.literal("Q")),
-            java.util.Map.entry("tap", Component.literal("E")),
-            java.util.Map.entry("show_log", Component.literal("L")),
-            java.util.Map.entry("hide_log", Component.literal("L")));
+    private static java.util.Map<String, Component> shortcuts() {
+        java.util.Map<String, Component> keys = new java.util.LinkedHashMap<>();
+        NUMBER_ROW.forEach((number, verb) -> keys.put(verb, Component.literal(number.toString())));
+        keys.put("shuffle", Component.literal("R"));
+        keys.put("turn_face_down", Component.literal("F"));
+        keys.put("turn_face_up", Component.literal("F"));
+        keys.put("untap", Component.literal("Q"));
+        keys.put("tap", Component.literal("E"));
+        keys.put("show_log", Component.literal("L"));
+        keys.put("hide_log", Component.literal("L"));
+        return java.util.Map.copyOf(keys);
+    }
+
+    private static final java.util.Map<String, Component> SHORTCUTS = shortcuts();
+
 
     // ------------------------------------------------------------ hit-testing
 
@@ -3971,36 +4024,39 @@ public final class TableScreen extends Screen {
      * once a game belongs.
      */
     private boolean verbKey(SeatId me, int number) {
-        return switch (number) {
-            case 0 -> {
+        String verb = NUMBER_ROW.get(number);
+        if (verb == null) {
+            return false;
+        }
+        return switch (verb) {
+            case "pass_turn" -> {
                 view().ifPresent(board -> passTurn(board, me));
                 yield true;
             }
-            case 3 -> {
+            case "scry" -> {
                 send(new GameEvent.LibraryLooked(me, me, 1));
                 decideOnLibrary(me, PileScreen.Decision.SCRY);
                 yield true;
             }
-            case 4 -> {
+            case "mill" -> {
                 send(new GameEvent.LibraryMilled(me, me, 1));
                 yield true;
             }
-            case 5 -> {
+            case "reveal" -> {
                 send(new GameEvent.LibraryRevealed(me, me, 1));
                 yield true;
             }
-            case 6 -> {
+            case "surveil" -> {
                 send(new GameEvent.LibraryLooked(me, me, 1));
                 decideOnLibrary(me, PileScreen.Decision.SURVEIL);
                 yield true;
             }
-            // 7 is exile and 8 is the graveyard, which is the way round the reference table
-            // has them. They were the other way round here for no reason but the order they
-            // were written in, and a player arriving from that table would have binned two
-            // cards before noticing.
-            case 7 -> sendUnderCursorTo(me, Zone.EXILE, Placement.TOP);
-            case 8 -> sendUnderCursorTo(me, Zone.GRAVEYARD, Placement.TOP);
-            case 9 -> bottomOfLibraryAtRandom(me);
+            case "to_exile" -> sendUnderCursorTo(me, Zone.EXILE, Placement.TOP);
+            case "to_graveyard" -> sendUnderCursorTo(me, Zone.GRAVEYARD, Placement.TOP);
+            case "to_library_bottom_random" -> bottomOfLibraryAtRandom(me);
+            // Untap and draw are the mat's own buttons. Their keys are answered further up,
+            // by verbForKey, so that a button and its key are one body and cannot come to
+            // mean different things - they are named here only so the menu can label them.
             default -> false;
         };
     }
@@ -4034,6 +4090,22 @@ public final class TableScreen extends Screen {
             return;
         }
         send(new GameEvent.HandSorted(me, me, order));
+    }
+
+    /**
+     * Whether this card is printed as a planeswalker.
+     *
+     * <p>A question about a printing rather than about the game, so it is answered out of the
+     * card data this client holds. A card whose data has not arrived yet answers no, and its
+     * loyalty rows appear the moment the data does - which is better than showing every card
+     * a pair of buttons that only mean something on one card in thirty.
+     */
+    private boolean isAPlaneswalker(CardView card) {
+        return summaryOf(card)
+                .map(summary -> summary.sideShown(card.turnedOver()).typeLine())
+                .filter(line -> line != null)
+                .map(line -> line.toLowerCase(java.util.Locale.ROOT).contains("planeswalker"))
+                .orElse(false);
     }
 
     /** What this card costs, if its data has arrived. */
@@ -4376,7 +4448,28 @@ public final class TableScreen extends Screen {
      */
     private int drawStrength(GuiGraphics graphics, CardView card, Rect art) {
         return CardInspectPanel.drawStrength(
-                graphics, this.font, card.writtenStrength().orElse(null), art);
+                graphics, this.font, cornerNumberOf(card), art);
+    }
+
+    /**
+     * What goes in the corner where a card prints its own numbers, or nothing.
+     *
+     * <p>One corner, so one answer. A written power and toughness wins, because somebody
+     * typed it and typing it is a statement that the printed numbers are wrong. Otherwise a
+     * planeswalker's loyalty goes there, which is where the card prints it - and it is worth
+     * that spot rather than a line in the counter stack, because loyalty is the number a
+     * planeswalker <em>is</em>.
+     *
+     * <p>Nothing decides which of the two a card ought to have. A creature somebody has put
+     * loyalty on shows loyalty; that is a table's business, not the mod's.
+     */
+    private static String cornerNumberOf(CardView card) {
+        String written = card.writtenStrength().orElse(null);
+        if (written != null) {
+            return written;
+        }
+        int loyalty = card.counter(CardInstance.Counters.LOYALTY);
+        return loyalty == 0 ? null : Integer.toString(loyalty);
     }
 
     /**
@@ -4418,6 +4511,12 @@ public final class TableScreen extends Screen {
         // that gets trimmed off - it is written separately so it is fitted separately.
         List<Component> counts = new ArrayList<>();
         for (Map.Entry<String, Integer> counter : card.counters().entrySet()) {
+            if (CardInstance.Counters.LOYALTY.equals(counter.getKey())
+                    && card.writtenStrength().isEmpty()) {
+                // Already in the corner, where the card prints it. Saying it twice on one
+                // card is the sort of thing that makes a board look busier than it is.
+                continue;
+            }
             // Several +1/+1 counters are one bigger counter rather than a count of small
             // ones, so they are written that way: "+2/+2", not "+1/+1 x2".
             String together = CounterText.addedUp(counter.getKey(), counter.getValue());

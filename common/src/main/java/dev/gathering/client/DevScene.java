@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 180;
+    private static final int LAST_STEP = 186;
 
     private static int step;
     private static int waited;
@@ -1682,6 +1682,12 @@ public final class DevScene {
                 // The other two destinations on the number row, checked because they were
                 // wrong: 7 exiles and 9 puts cards back under the library. Everything else
                 // about the row was right, which is exactly why nobody noticed these.
+                // Before any of it, and not behind a check that can fail first: the menu
+                // has to name the keys the keys actually are. That is the half that went
+                // wrong last time - the row said "To graveyard 7" while 7 had started
+                // exiling, and the interface was teaching the wrong key in the one place
+                // somebody was looking straight at it.
+                theMenuNamesTheRightKeys();
                 inExileBefore = countIn(Zone.EXILE);
                 inTheLibraryBefore = countIn(Zone.LIBRARY);
                 hover(client, cardPoint(client));
@@ -1775,6 +1781,61 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 162 -> {
+                // Loyalty. A fresh card, because the one the earlier steps used has a written
+                // power and toughness on it and the corner only holds one number - which is
+                // the rule worth checking as much as the counter is.
+                playACard(client);
+                advance(SETTLE);
+            }
+            case 163 -> {
+                putLoyaltyOn(client, 3);
+                advance(SETTLE);
+            }
+            case 164 -> {
+                if (loyaltyNow() != 3) {
+                    fail("three loyalty went on and the board says " + loyaltyNow());
+                    advance(SETTLE / 2);
+                    return;
+                }
+                // The menu rows appear on anything already carrying loyalty, so a card that
+                // has some can be nudged without opening the counters panel. Opened here and
+                // pressed a step later, because a menu opened and photographed in the same
+                // step is photographed from the frame before it existed.
+                if (!theCardOffers(client, "Loyalty +1")) {
+                    fail("a card with loyalty on it offers no way to add more");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                advance(SETTLE / 2);
+            }
+            case 165 -> {
+                shoot(client, "54h-loyalty");
+                // The menu is still the one step 164 opened. Right-clicking again to reopen
+                // it lands on the menu rather than on the card, which is what a player would
+                // find too - so the run does what a player does and presses the row.
+                if (!(client.screen instanceof TableScreen board)
+                        || !board.pressMenuEntry("Loyalty +1")) {
+                    fail("the card's menu lost its Loyalty +1 between opening and pressing");
+                }
+                advance(SETTLE);
+            }
+            case 166 -> {
+                if (loyaltyNow() != 4) {
+                    fail("Loyalty +1 was pressed and the board says " + loyaltyNow());
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println("[devscene] loyalty goes up off the card's own menu");
+                // With the menu gone, so the number in the corner is the thing being looked
+                // at rather than the thing behind a menu.
+                lookAwayFromTheCards(client);
+                advance(SETTLE);
+            }
+            case 167 -> {
+                shoot(client, "54i-loyalty-on-the-card");
+                advance(SETTLE / 2);
+            }
+            case 168 -> {
                 // The user's report: "the actual table version is riddled with issues such as
                 // flipping cards doesn't work". Right-clicking a card on the block had never
                 // been in the run - the drag had, the buttons had, the menu had not.
@@ -1783,7 +1844,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 163 -> {
+            case 169 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !(board.board() instanceof dev.gathering.core.ui.SurfaceBoard)) {
                     fail("pressing V did not put the board on the block");
@@ -1796,7 +1857,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 164 -> {
+            case 170 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a card could be right-clicked on it");
                     advance(SETTLE / 2);
@@ -1824,7 +1885,7 @@ public final class DevScene {
                 System.out.println("[devscene] turned a card face down from its menu on the block");
                 advance(SETTLE);
             }
-            case 165 -> {
+            case 171 -> {
                 int now = howManyAreFaceDown();
                 if (now != faceDownWas + 1) {
                     fail("turning a card face down on the block left " + now
@@ -1835,7 +1896,7 @@ public final class DevScene {
                 shoot(client, "55-flipped-on-the-block");
                 advance(SETTLE / 2);
             }
-            case 166 -> {
+            case 172 -> {
                 // The written card, put in the graveyard and read back through the pile
                 // screen. A card looked at through one screen and lying on the felt in
                 // another has to be the same card.
@@ -1848,11 +1909,11 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 167 -> {
+            case 173 -> {
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 168 -> {
+            case 174 -> {
                 expectScreen(client, "a graveyard holding a written card", PileScreen.class);
                 if (!theGraveyardHoldsTheWrittenCard()) {
                     fail("the card written on is not in the graveyard the screen opened");
@@ -1865,7 +1926,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 169 -> {
+            case 175 -> {
                 // "Many of the elements of the table gui phase in and out as you scroll in
                 // and out." Photographed at four heights rather than reasoned about: whatever
                 // comes and goes has to be visible in the pictures side by side.
@@ -1874,7 +1935,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 170 -> {
+            case 176 -> {
                 expectScreen(client, "the board on the block to zoom", TableScreen.class);
                 // Aimed at the graveyard rather than at the middle of the window, because
                 // the middle is where the camera already is: a wheel that ignored the cursor
@@ -1884,7 +1945,7 @@ public final class DevScene {
                 scrollTheBoard(client, 6);
                 advance(SETTLE / 2);
             }
-            case 171 -> {
+            case 177 -> {
                 theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
                 // Dragged here as well as at the whole-table framing, because how many blocks
@@ -1894,29 +1955,29 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 172 -> {
+            case 178 -> {
                 theBoardFollowedTheHand("dragged while leaning all the way in");
                 dragTheBoard(client, 0, -PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 173 -> {
+            case 179 -> {
                 theBoardFollowedTheHand("dragged back again");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 174 -> {
+            case 180 -> {
                 theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 175 -> {
+            case 181 -> {
                 theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 176 -> {
+            case 182 -> {
                 theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
@@ -1929,7 +1990,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 177 -> {
+            case 183 -> {
                 expectScreen(client, "the whole table on the block", TableScreen.class);
                 System.out.println("[devscene] camera: " + TableCameraView.report());
                 theBlockFramesLikeTheScreen(client);
@@ -1940,12 +2001,12 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 178 -> {
+            case 184 -> {
                 theBoardFollowedTheHand("dragged down the whole-table view");
                 dragTheBoard(client, PAN_BY, 0);
                 advance(SETTLE / 2);
             }
-            case 179 -> {
+            case 185 -> {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
                 // Dyed with the board still open and nothing else touching the world, which
@@ -1956,7 +2017,7 @@ public final class DevScene {
                 dyeTheTable(client);
                 advance(SETTLE);
             }
-            case 180 -> {
+            case 186 -> {
                 shoot(client, "60-the-felt-dyed");
                 advance(SETTLE / 2);
             }
@@ -2289,6 +2350,86 @@ public final class DevScene {
             fail("the library's menu offers no way to fetch a basic land");
         }
     }
+
+    /** Puts loyalty on the newest card on the battlefield, and remembers which. */
+    private static void putLoyaltyOn(Minecraft client, int howMuch) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            fail("there was no board to put loyalty on");
+            return;
+        }
+        java.util.List<CardView> onTheTable = view.seat(me).zone(Zone.BATTLEFIELD).cards();
+        for (int index = onTheTable.size() - 1; index >= 0; index--) {
+            if (onTheTable.get(index) instanceof CardView.Visible visible
+                    && visible.writtenStrength().isEmpty()) {
+                loyal = visible.id();
+                ClientTableActions.send(table, new GameEvent.CounterChanged(
+                        me, loyal, dev.gathering.core.game.CardInstance.Counters.LOYALTY, howMuch));
+                return;
+            }
+        }
+        fail("there was no plain card on the battlefield to put loyalty on");
+    }
+
+    /** How much loyalty the board says that card has. */
+    private static int loyaltyNow() {
+        return findOnTheBattlefield(loyal)
+                .map(card -> card.counter(dev.gathering.core.game.CardInstance.Counters.LOYALTY))
+                .orElse(-1);
+    }
+
+    /** Whether that card's own menu offers this row. Opens the menu and leaves it open. */
+    private static boolean theCardOffers(Minecraft client, String label) {
+        return openTheCardMenu(client, label) != null;
+    }
+
+    /** Right-clicks the loyalty card and answers with the board if the row is there. */
+    private static TableScreen openTheCardMenu(Minecraft client, String label) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        if (me == null || loyal == null || !(client.screen instanceof TableScreen board)) {
+            return null;
+        }
+        TablePosition where = findOnTheBattlefield(loyal).flatMap(CardView::placedAt).orElse(null);
+        if (where == null) {
+            return null;
+        }
+        Rect at = board.board().rectOf(me, where);
+        hover(client, new int[] {(int) at.centreX(), (int) at.centreY()});
+        board.mouseClicked(at.centreX(), at.centreY(), 1);
+        return board.hasMenuEntry(label) ? board : null;
+    }
+
+    /**
+     * Every menu row that names a number key names the one that really does it.
+     *
+     * <p>Read out of the same table the menu prints from, and checked against what the run
+     * has just watched those keys do - so a row whose label drifts from its key fails here
+     * rather than teaching somebody the wrong key for a release.
+     */
+    private static void theMenuNamesTheRightKeys() {
+        expect("to_exile", "7");
+        expect("to_graveyard", "8");
+        expect("to_library_bottom_random", "9");
+        expect("scry", "3");
+        expect("mill", "4");
+        expect("pass_turn", "0");
+        // And the row that is not the key: putting cards back in order is a different act
+        // from putting them back in none, so it must not claim the key that randomises.
+        if (TableScreen.keyShownFor("to_library_bottom") != null) {
+            fail("the ordered bottom-of-library row claims a key, and 9 is the random one");
+        }
+    }
+
+    private static void expect(String verb, String key) {
+        String shown = TableScreen.keyShownFor(verb);
+        if (!key.equals(shown)) {
+            fail("the menu says " + verb + " is key " + shown + ", not " + key);
+        }
+    }
+
+    /** The card the loyalty steps are working on. */
+    private static CardInstanceId loyal;
 
     /** What the library held before the number row put something back under it. */
     private static int inTheLibraryBefore;
