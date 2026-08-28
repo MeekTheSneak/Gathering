@@ -41,9 +41,11 @@ public enum Dungeon {
         return cardName;
     }
 
-    /** The one at that position, or the first, for an index that arrived off a wire. */
+    /** The four, once, so a lookup off the wire does not copy an array to answer. */
+    private static final Dungeon[] ALL = values();
+
+    /** The one at that position, clamped, for an index that arrived off a wire. */
     public static Dungeon at(int index) {
-        Dungeon[] all = values();
-        return all[Math.max(0, Math.min(all.length - 1, index))];
+        return ALL[Math.max(0, Math.min(ALL.length - 1, index))];
     }
 }

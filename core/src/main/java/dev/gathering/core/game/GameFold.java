@@ -108,6 +108,8 @@ public final class GameFold {
 
             case GameEvent.CoinFlipped ignored -> state;
 
+            case GameEvent.PlanarRolled ignored -> state;
+
             case GameEvent.LibraryReordered reordered -> reorderLibrary(state, reordered);
 
             case GameEvent.Surveiled surveiled -> surveil(state, surveiled);

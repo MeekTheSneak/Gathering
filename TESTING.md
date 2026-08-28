@@ -274,6 +274,25 @@ first time any verb past "put your deck down" has been reachable at all.
 - **Right-click a card and pick "Write on it"** to put a line of text on it — a keyword, a
   reminder, what the face-down card is. Everyone at the table can read it: the first words
   show on the card and resting on it reads the whole thing. Rub it out from the same panel.
+- **Right-click the felt and pick "Write a card..." or "Make an emblem..."** to put blank
+  stock on the table. That is the mod's answer to every table state it has no feature for -
+  the monarch, the initiative, the ring - and to emblems, which are the same object in black
+  and gold. Type what it says; rewrite it later with the ordinary pen; bin it with "Remove
+  token". What I want to know is whether the words are readable at the size a four-player
+  board draws a card at, or whether you find yourself resting on it every time.
+- **Right-click the felt and pick "Show my hand to..."** to turn your hand face up to one
+  player or to the whole table. While it is open your own hand wears a warm band saying so;
+  take it back from the same menu. Whoever you showed it to gets a "Read X's hand" row on
+  their own table menu. They can read it and cannot reach into it.
+- **Press your chat key at the board** and say something. It reaches the people at the table
+  and the people watching it, and nobody else. It turns up over the felt as well as in the
+  chat window, because the board covers the chat window.
+- **Right-click the felt and pick "Bring in a dungeon..."** for one of the four. It arrives
+  as a card; write the room you are in on it.
+- **The planar die** is on the "Roll a die..." list. It is not a d6 — four blanks, a chaos
+  and a planeswalk — and the log says which came up. Planechase itself is not here: a planar
+  deck belongs to the table and every zone in this game belongs to a seat, so laying one out
+  is a manual job. The die is the part of it nobody can roll honestly on their own.
 - **Hold a press on a zone** — graveyard, library, exile — for about a third of a second and
   the whole pile lifts instead of the top card. Drop it on another zone to move the lot: the
   graveyard onto the library is the "shuffle it all back in" gesture, in one act rather than
@@ -307,15 +326,19 @@ and all cheap to change.
 
 ### 8. Collect, buy, and build
 
-Collection mode is off by default. Switch it on in `config/gathering-server.toml`:
+Collection mode is **on** out of the box - it is what a default server is - so there is
+nothing to switch on. The server reads what the current set was really sold as on its first
+start, which takes a few seconds and one fetch. If you would rather test without it:
 
 ```toml
 [modes]
-collection_enabled = true
+collection_enabled = false
 ```
 
-Restart. The server reads what the current set was really sold as, which takes a few seconds
-and one fetch.
+The other half of that default is that **importing is the operator's tool**: on a server,
+only operators can turn a decklist into a deck unless `import.allow_all_players = true` is
+set. In your own single-player world you are the operator whether or not cheats are on, so
+importing works there without touching anything.
 
 **Your collection.** Put a **collection** block down and right-click it: everything you own,
 searchable, one page at a time. Cards go in one at a time and come out one at a time — into

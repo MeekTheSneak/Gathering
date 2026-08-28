@@ -41,6 +41,15 @@ public enum PaperStock {
      */
     private static final String PREFIX = "paper/";
 
+    /**
+     * The stocks, once.
+     *
+     * <p>{@code values()} hands back a fresh copy of the array every time it is called, and
+     * this is asked of every card the board draws on every frame - so it is asked here once
+     * instead. Cheap either way; free is better in a render loop.
+     */
+    private static final PaperStock[] ALL = values();
+
     private final String id;
 
     PaperStock(String id) {
@@ -58,7 +67,7 @@ public enum PaperStock {
             return Optional.empty();
         }
         String custom = identity.customId();
-        for (PaperStock stock : values()) {
+        for (PaperStock stock : ALL) {
             if ((PREFIX + stock.id).equals(custom)) {
                 return Optional.of(stock);
             }

@@ -35,12 +35,29 @@ public final class FoilSheen {
     /** How much of the card one band covers. */
     private static final float BAND_SHARE = 0.16f;
 
-    /** How strongly the color shows. A foil is a hint of a rainbow, not a rainbow. */
-    private static final int BAND_ALPHA = 0x30;
+    /**
+     * How strongly the color shows.
+     *
+     * <p>A foil is a hint of a rainbow, not a rainbow - and this is drawn over somebody's card
+     * art, which is the thing they are trying to look at. The first pass at it fogged the card
+     * badly enough that the picture underneath stopped reading, which is the whole failure
+     * mode of an effect like this: it is meant to catch the eye and not to hold it.
+     */
+    private static final int BAND_ALPHA = 0x1C;
+
+    /**
+     * How much further the pale catch travels than the colors do.
+     *
+     * <p>More than one, so it overtakes them and the whole thing reads as light moving over a
+     * surface rather than as a pattern printed on it. Not much more: at twice the travel it
+     * left the card entirely on a small turn, which is a foil that stops being foil the moment
+     * you tip it.
+     */
+    private static final float GLARE_TRAVEL = 1.3f;
 
     /** The broad white catch that rides over the bands, and how wide it is. */
-    private static final int GLARE_ALPHA = 0x38;
-    private static final float GLARE_SHARE = 0.42f;
+    private static final int GLARE_ALPHA = 0x22;
+    private static final float GLARE_SHARE = 0.30f;
 
     private FoilSheen() {
     }
@@ -81,7 +98,7 @@ public final class FoilSheen {
         // makes the whole thing read as light on a surface rather than as a pattern printed
         // on it. Twice the travel, so it overtakes them.
         int glare = Math.max(4, Math.round(width * GLARE_SHARE));
-        int over = Math.round(travel * width * 2f);
+        int over = Math.round(travel * width * GLARE_TRAVEL);
         graphics.fill(over - glare / 2, -reach, over + glare / 2, reach,
                 (GLARE_ALPHA << 24) | 0xFFFFFF);
 

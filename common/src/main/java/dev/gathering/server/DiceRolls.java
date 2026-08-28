@@ -3,8 +3,10 @@ package dev.gathering.server;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.event.GameEvent;
+import dev.gathering.core.game.event.PlanarFace;
 import dev.gathering.network.FlipCoinPayload;
 import dev.gathering.network.RollDicePayload;
+import dev.gathering.network.RollPlanarPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -54,6 +56,22 @@ public final class DiceRolls {
         }
         ServerLevel level = player.serverLevel();
         tell(level, at, new GameEvent.CoinFlipped(at.seat(), level.getRandom().nextBoolean()));
+    }
+
+    /**
+     * The planar die, whose faces are symbols rather than numbers.
+     *
+     * <p>Rolled out of six and read as a face, so the odds are Planechase's printed ones - one
+     * chaos, one planeswalk, four blanks - rather than a third each. See {@link PlanarFace}.
+     */
+    public static void planar(ServerPlayer player, RollPlanarPayload payload) {
+        TableReach.Seated at = TableReach.seatedAt(player, payload.table()).orElse(null);
+        if (at == null) {
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        tell(level, at, new GameEvent.PlanarRolled(
+                at.seat(), PlanarFace.of(level.getRandom().nextInt(PlanarFace.FACES))));
     }
 
     /**

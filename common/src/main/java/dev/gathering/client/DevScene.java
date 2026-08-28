@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 213;
+    private static final int LAST_STEP = 219;
 
     private static int step;
     private static int waited;
@@ -2252,6 +2252,53 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
+            case 214 -> {
+                // Out of the board and into the world, holding a foil, to look at the one
+                // thing in the mod that is drawn rather than fetched. There is no foil scan
+                // on Scryfall and never will be: a foil is the same picture doing something
+                // as it moves, so the whole feature is the movement.
+                leaveTheBoard(client);
+                holdAFoil(client);
+                advance(SETTLE);
+            }
+            case 215 -> {
+                if (theresNoCardInHand(client)) {
+                    fail("nothing ended up in hand to read");
+                }
+                CardZoomOverlay.bindKeyState(() -> true);
+                advance(SETTLE);
+            }
+            case 216 -> {
+                shoot(client, "70-reading-a-foil");
+                // Turned, so the second picture is the first one with the card tipped and the
+                // shine somewhere else. A sheen that looked identical in both would be a
+                // sheen that is not moving, which is the only way this can fail quietly.
+                turnTheHead(client, 18f);
+                advance(SETTLE);
+            }
+            case 217 -> {
+                if (Math.abs(CardTilt.yaw()) < 1f) {
+                    fail("the head turned and the card did not: yaw " + CardTilt.yaw());
+                }
+                shoot(client, "71-the-foil-turned");
+                CardZoomOverlay.bindKeyState(() -> false);
+                backToTheBoard(client);
+                advance(SETTLE);
+            }
+            case 218 -> {
+                // The planar die, which is not a d6: four blanks, a chaos and a planeswalk.
+                // Rolled through the same door every other die goes through, so what is being
+                // checked is that the face reaches the log at all - a symbol only the roller
+                // saw is the one thing none of these verbs may be.
+                rollThePlanarDie(client);
+                advance(SETTLE);
+            }
+            case 219 -> {
+                if (!logSays(client, "planar die")) {
+                    fail("the planar die was rolled and the log does not say so");
+                }
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -3844,6 +3891,22 @@ public final class DevScene {
         }
     }
 
+    /** And the planar die, which lives on the same question the numbered dice do. */
+    private static void rollThePlanarDie(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to roll the planar die on");
+            return;
+        }
+        String wanted = net.minecraft.network.chat.Component
+                .translatable("menu.gathering.table.roll_die").getString();
+        if (!openTheTableMenu(client, board, wanted) || !board.pressMenuEntry(wanted)) {
+            fail("the table menu offers no way to roll a die");
+            return;
+        }
+        press(client, net.minecraft.network.chat.Component
+                .translatable("screen.gathering.dice.planar").getString());
+    }
+
     /** And a coin, which is one press rather than a question. */
     private static void flipACoin(Minecraft client) {
         if (!(client.screen instanceof TableScreen board)) {
@@ -3933,6 +3996,67 @@ public final class DevScene {
         }
         return ClientTableChat.recentAt(table, System.currentTimeMillis()).stream()
                 .noneMatch(said -> said.text().contains(words));
+    }
+
+    /** Shuts the board, for the steps that happen out in the world. */
+    private static void leaveTheBoard(Minecraft client) {
+        if (client.screen != null) {
+            client.screen.onClose();
+        }
+        client.setScreen(null);
+    }
+
+    /**
+     * Puts a foil copy of a card this client can already draw into the player's hand.
+     *
+     * <p>A foil rather than any card, because the shine is what is being looked at - and a
+     * card the client has already been told about, because the read draws from what has
+     * arrived rather than asking for anything. Set on the server player so it comes back down
+     * the wire the way a real one would; setting it on the client would be undone by the next
+     * inventory sync, which is exactly the kind of picture that lies.
+     */
+    private static void holdAFoil(Minecraft client) {
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        MinecraftServer server = client.getSingleplayerServer();
+        if (board == null || server == null || client.player == null) {
+            fail("there was no board or server to take a card from");
+            return;
+        }
+        dev.gathering.core.card.CardIdentity identity = board.allCardViews().stream()
+                .filter(CardView.Visible.class::isInstance)
+                .map(CardView.Visible.class::cast)
+                .map(CardView.Visible::identity)
+                .filter(seen -> seen.printing().isPresent())
+                .findFirst()
+                .orElse(null);
+        if (identity == null) {
+            fail("no card on the board had a printing to make a foil of");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        dev.gathering.core.card.CardIdentity shiny = identity.withFoil(true);
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player != null) {
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                        dev.gathering.item.CardItem.of(dev.gathering.item.CardComponent.of(shiny)));
+            }
+        });
+    }
+
+    /** Whether the read has anything to draw, which is the whole of what the next step needs. */
+    private static boolean theresNoCardInHand(Minecraft client) {
+        return client.player == null
+                || dev.gathering.item.CardItem.cardOf(client.player.getMainHandItem()).isEmpty();
+    }
+
+    /** Turns the player's head, which out in the world is what turns the card being read. */
+    private static void turnTheHead(Minecraft client, float degrees) {
+        if (client.player == null) {
+            fail("there was nobody to turn");
+            return;
+        }
+        client.player.setYRot(client.player.getYRot() + degrees);
     }
 
     /** Shows the log on the board, so a picture of it has it in. */

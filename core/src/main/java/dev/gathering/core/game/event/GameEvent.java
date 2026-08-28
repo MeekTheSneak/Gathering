@@ -897,6 +897,34 @@ public sealed interface GameEvent {
         }
     }
 
+    /**
+     * A planar die rolled where the whole table can see it.
+     *
+     * <p>Its own verb rather than a d6, because its faces are symbols: four blanks, a chaos and
+     * a planeswalk, and "rolled a 3" would be a true sentence about the wrong thing. The same
+     * reason a coin is heads and tails here.
+     *
+     * <p>The rest of Planechase is not here and is not planned - a planar deck is owned by the
+     * table and every zone in this game is owned by a seat - but a group can play it by hand,
+     * and this is the part of it that cannot honestly be played by hand: a player rolling their
+     * own planar die is a player claiming a chaos symbol.
+     */
+    record PlanarRolled(SeatId actor, PlanarFace face) implements GameEvent {
+
+        public PlanarRolled {
+            face = face == null ? PlanarFace.BLANK : face;
+        }
+
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of(switch (face) {
+                case CHAOS -> "log.gathering.planar_chaos";
+                case PLANESWALK -> "log.gathering.planar_walk";
+                case BLANK -> "log.gathering.planar_blank";
+            }, actor);
+        }
+    }
+
     /** Convenience for the callers that only care whether an event touched a particular seat. */
     default Optional<SeatId> subjectSeat() {
         return switch (this) {

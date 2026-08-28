@@ -67,6 +67,9 @@ final class GatheringNetwork {
                 dev.gathering.network.RollDicePayload.TYPE,
                 dev.gathering.network.RollDicePayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.RollPlanarPayload.TYPE,
+                dev.gathering.network.RollPlanarPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.FlipCoinPayload.TYPE,
                 dev.gathering.network.FlipCoinPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
@@ -240,6 +243,9 @@ final class GatheringNetwork {
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.RollDicePayload.TYPE, (payload, context) ->
                         dev.gathering.server.DiceRolls.roll(context.player(), payload));
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.RollPlanarPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.DiceRolls.planar(context.player(), payload));
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.FlipCoinPayload.TYPE, (payload, context) ->
                         dev.gathering.server.DiceRolls.flip(context.player(), payload));

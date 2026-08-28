@@ -1,6 +1,7 @@
 package dev.gathering.client;
 
 import dev.gathering.core.ui.CardShape;
+import dev.gathering.core.ui.InspectLayout;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.Gathering;
 import dev.gathering.network.CardFaceSummary;
@@ -50,6 +51,27 @@ public final class CardInspectPanel {
      * often as it is dark on light and a note has to be readable over either.
      */
     private static final int WRITING_TEXT = 0xFFBFD8FF;
+
+    /**
+     * The backdrop behind a full-window read.
+     *
+     * <p>Darker than the one a small panel sits on. Nothing behind it is being read - that is
+     * the whole reason this form exists - and a card is a picture, which needs the room around
+     * it to be quiet before it looks like anything.
+     */
+    private static final int FULL_BACKDROP = 0xE6000000;
+
+    /**
+     * The shadow a turned card casts, how far it slides, and how far it drops.
+     *
+     * <p>Slid by the same number that moves the shine, which is the point: the light is on one
+     * side and the shadow is on the other, and taking both off one figure is what stops them
+     * disagreeing the day somebody changes how far a card turns.
+     */
+    private static final int CARD_SHADOW = 0x59000000;
+    private static final int SHADOW_REACH = 11;
+    private static final int SHADOW_DROP = 8;
+
 
     private static final int GAP = 8;
     private static final int PADDING = 8;
@@ -109,18 +131,20 @@ public final class CardInspectPanel {
      * because this panel is drawn over the vanilla tooltip and should sit where it sat.
      */
     public static void renderBeside(
-            GuiGraphics graphics, CardSummary summary, int anchorX, int anchorY, int screenWidth, int screenHeight) {
+            GuiGraphics graphics, CardSummary summary, boolean foil,
+            int anchorX, int anchorY, int screenWidth, int screenHeight) {
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, OVER_ITEMS);
         try {
-            drawBeside(graphics, summary, anchorX, anchorY, screenWidth, screenHeight);
+            drawBeside(graphics, summary, foil, anchorX, anchorY, screenWidth, screenHeight);
         } finally {
             graphics.pose().popPose();
         }
     }
 
     private static void drawBeside(
-            GuiGraphics graphics, CardSummary summary, int anchorX, int anchorY, int screenWidth, int screenHeight) {
+            GuiGraphics graphics, CardSummary summary, boolean foil,
+            int anchorX, int anchorY, int screenWidth, int screenHeight) {
         // Art per printed side, text per face: a split card is one picture and two rules
         // boxes.
         List<CardFaceSummary> faces = List.of(summary.sideShown(false));
@@ -175,6 +199,13 @@ public final class CardInspectPanel {
         int face = x + PADDING + (content - artRow) / 2;
         for (CardFaceSummary summaryFace : faces) {
             drawFace(graphics, summaryFace, face, y + PADDING, artWidth, artHeight);
+            // The shine, on the small panel too. It moves with the cursor rather than with a
+            // turn, because this panel is already following the cursor and turning it as well
+            // would be two things answering one hand. Same drawing either way, so a foil
+            // looks like a foil wherever it is met.
+            if (foil) {
+                FoilSheen.draw(graphics, face, y + PADDING, artWidth, artHeight, CardTilt.shine());
+            }
             face += artWidth + GAP;
         }
         int textTop = y + PADDING + artHeight + GAP;
@@ -250,48 +281,85 @@ public final class CardInspectPanel {
     }
 
     /**
-     * The card as large as the screen allows, over a dimmed backdrop.
+     * The whole window: the card down the left, everything it says beside it.
      *
-     * <p>For reading a card in hand while roaming, where there is no cursor to sit beside and
-     * nothing on screen worth keeping legible behind it.
+     * <p>For picking a card up and looking at it. Two columns rather than a card with a
+     * caption, because that is the shape somebody already has in their hands, and the card is
+     * drawn as large as a card can be drawn - the picture is the card, and one shrunk to make
+     * room for its own text is a reading tool with the priority backwards.
+     *
+     * <p>The card turns with the mouse. Out here the mouse is the player's head, so reading a
+     * card and turning slightly tips it, which is what a hand does without being asked - and
+     * it is the only way a foil can exist at all, because a sheen that never moves is a
+     * sticker. See {@link CardTilt} and {@link FoilSheen}.
+     *
+     * @param foil whether this particular copy is a foil, which is a fact about the card in
+     *     somebody's hand rather than about the printing - so it comes from the caller and
+     *     never from the metadata
      */
     public static void renderFullScreen(
-            GuiGraphics graphics, CardSummary summary, int screenWidth, int screenHeight) {
+            GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
+            int screenWidth, int screenHeight) {
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, OVER_ITEMS);
         try {
-            drawFullScreen(graphics, summary, screenWidth, screenHeight);
+            drawFullScreen(graphics, summary, foil, flipped, screenWidth, screenHeight);
         } finally {
             graphics.pose().popPose();
         }
     }
 
     private static void drawFullScreen(
-            GuiGraphics graphics, CardSummary summary, int screenWidth, int screenHeight) {
-        graphics.fill(0, 0, screenWidth, screenHeight, BACKDROP);
+            GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
+            int screenWidth, int screenHeight) {
+        graphics.fill(0, 0, screenWidth, screenHeight, FULL_BACKDROP);
 
-        List<CardFaceSummary> faces = List.of(summary.sideShown(false));
-        int cardHeight = Math.round(screenHeight * FULL_SCREEN_HEIGHT_FRACTION);
-        int cardWidth = CardShape.widthFor(cardHeight);
-
-        int totalWidth = cardWidth * faces.size() + GAP * (faces.size() - 1) + GAP + SIDEBAR_WIDTH;
-        // A very wide double-faced layout would run off a narrow screen; shrink to fit.
-        if (totalWidth > screenWidth - GAP * 2) {
-            float scale = (float) (screenWidth - GAP * 2) / totalWidth;
-            cardHeight = Math.round(cardHeight * scale);
-            cardWidth = Math.round(cardWidth * scale);
-            totalWidth = cardWidth * faces.size() + GAP * (faces.size() - 1) + GAP + SIDEBAR_WIDTH;
+        InspectLayout layout = InspectLayout.of(screenWidth, screenHeight);
+        Rect card = layout.card();
+        Rect words = layout.text();
+        if (card.isEmpty()) {
+            return;
         }
+        drawTurned(graphics, summary.sideShown(flipped), foil, card);
+        drawTextPanel(graphics, summary.faces(), words.x(), words.y(), words.width(), words.height());
+    }
 
-        int left = (screenWidth - totalWidth) / 2;
-        int top = (screenHeight - cardHeight) / 2;
+    /**
+     * The card, turned the way the reader is holding it, with its shine if it has one.
+     *
+     * <p>The turn is a rotation about the card's own middle in both axes, which under the
+     * interface's flat projection reads as the card narrowing on one side - which is what a
+     * card being turned away from you does. Slight, and eased, so it is a hand rather than a
+     * mechanism.
+     *
+     * <p>The shine is drawn a hair in front of the face along the card's own normal, so it
+     * travels with the turn and cannot fight the art for the same depth.
+     */
+    private static void drawTurned(
+            GuiGraphics graphics, CardFaceSummary face, boolean foil, Rect where) {
+        graphics.pose().pushPose();
+        graphics.pose().translate((float) where.centerX(), (float) where.centerY(), 0f);
+        graphics.pose().mulPose(com.mojang.math.Axis.YP.rotationDegrees(CardTilt.yaw()));
+        graphics.pose().mulPose(com.mojang.math.Axis.XP.rotationDegrees(CardTilt.pitch()));
+        graphics.pose().translate((float) -where.centerX(), (float) -where.centerY(), 0f);
 
-        for (CardFaceSummary face : faces) {
-            drawFace(graphics, face, left, top, cardWidth, cardHeight);
-            left += cardWidth + GAP;
+        // The card's own shadow, cast the other way from the turn. Drawn inside the turn
+        // rather than flat behind it, so it narrows as the card narrows: a shadow that kept
+        // the card's untilted shape read as a grey slab lying next to it rather than as the
+        // card's own, which is worse than no shadow at all.
+        int cast = Math.round(-CardTilt.shine() * SHADOW_REACH);
+        graphics.pose().pushPose();
+        graphics.pose().translate(cast, SHADOW_DROP, -1f);
+        graphics.fill(where.x(), where.y(), where.right(), where.bottom(), CARD_SHADOW);
+        graphics.pose().popPose();
+
+        drawFace(graphics, face, where.x(), where.y(), where.width(), where.height());
+        if (foil) {
+            graphics.pose().translate(0f, 0f, 1f);
+            FoilSheen.draw(graphics, where.x(), where.y(), where.width(), where.height(),
+                    CardTilt.shine());
         }
-
-        drawTextPanel(graphics, summary.faces(), left, top, SIDEBAR_WIDTH, cardHeight);
+        graphics.pose().popPose();
     }
 
     private static void drawFace(GuiGraphics graphics, CardFaceSummary face, int x, int y, int width, int height) {
@@ -337,10 +405,17 @@ public final class CardInspectPanel {
         }
     }
 
+    /**
+     * Everything the card says, in a panel beside it.
+     *
+     * <p>The mod's own panel rather than a filled rectangle with a line round it. Every other
+     * box in the interface is drawn with this one, and the full-window read is the largest
+     * thing on screen when it is up - a box that looked like nothing else in the mod would be
+     * the most visible thing that did.
+     */
     private static void drawTextPanel(
             GuiGraphics graphics, List<CardFaceSummary> faces, int x, int y, int width, int height) {
-        graphics.fill(x, y, x + width, y + height, PLACEHOLDER);
-        graphics.renderOutline(x, y, width, height, PLACEHOLDER_BORDER);
+        GatheringSprites.panel(graphics, x, y, width, height);
 
         Font font = Minecraft.getInstance().font;
         int textWidth = width - PADDING * 2;

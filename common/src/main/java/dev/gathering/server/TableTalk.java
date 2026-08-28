@@ -48,6 +48,12 @@ public final class TableTalk {
      */
     private static final long QUIET_MILLIS = 200L;
 
+    /** More names than any one server has people sitting at tables at once. */
+    private static final int MANY = 64;
+
+    /** Past this, an entry is about somebody who is not at a table any more. */
+    private static final long FORGET_AFTER_MILLIS = 60_000L;
+
     /** When each player last said something. Server thread only, so a plain map is right. */
     private static final Map<UUID, Long> LAST_SPOKE = new HashMap<>();
 
@@ -68,7 +74,7 @@ public final class TableTalk {
         if (before != null && now - before < QUIET_MILLIS) {
             return;
         }
-        LAST_SPOKE.put(player.getUUID(), now);
+        remember(player.getUUID(), now);
 
         TableSaidPayload line = new TableSaidPayload(
                 origin, player.getGameProfile().getName(), said);
@@ -92,8 +98,19 @@ public final class TableTalk {
         return heard;
     }
 
-    /** Forgets a player who has left, so the map does not grow for the life of the server. */
-    public static void forget(UUID player) {
-        LAST_SPOKE.remove(player);
+    /**
+     * Writes down when somebody last spoke, and tidies up after players who have gone.
+     *
+     * <p>The gap being guarded is a fifth of a second, so an entry older than a minute is
+     * about a player who has left. Swept when the map has more names in it than a server has
+     * people at tables, rather than on a disconnect hook: this is one number per player and
+     * the sweep costs nothing, and a cleanup that depends on an event being wired up on two
+     * loaders is a cleanup that will be wired up on one of them.
+     */
+    private static void remember(UUID player, long now) {
+        LAST_SPOKE.put(player, now);
+        if (LAST_SPOKE.size() > MANY) {
+            LAST_SPOKE.values().removeIf(when -> now - when > FORGET_AFTER_MILLIS);
+        }
     }
 }

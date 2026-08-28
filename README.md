@@ -48,12 +48,29 @@ holding seven. From there it's a table: drag cards where you want them, tap them
 your graveyard, count your life, and argue about the stack out loud like you would in person.
 
 Dice and coins are there too, because Magic keeps asking for them — a d4 through d20, or any
-number of sides up to twenty, and a coin. The server rolls, so nobody has to be trusted, and
-the result lands in the game log under your name where the whole table can read it.
+number of sides up to twenty, a coin, and the planar die with its four blanks, its chaos and
+its planeswalk. The server rolls, so nobody has to be trusted, and the result lands in the
+game log under your name where the whole table can read it.
 
-Hold **Alt** over any card to read it full size with its rules text. Press **F1** at the table
-for every key. Press **V** to switch between playing on your screen and playing on the actual
-table block in the world, which is also what everybody standing around it can see.
+**Talk to the table, not the server.** Your chat key at the board says it to the people
+playing and the people watching, and nobody else — it turns up over the felt as well as in the
+chat window, so you can hear the person across the table without closing the game.
+
+**Show your hand** to one player or to the whole table, and take it back when you are done.
+Only ever your own: a card that says "target player reveals their hand" is settled the way it
+is in paper, by that player turning it round.
+
+**Blank cards and emblems** for everything Magic keeps inventing that is not a card — the
+monarch, the initiative, the ring tempting you, whatever the next set calls its version.
+Write on one and put it on the table. And the four **dungeons** come in from outside the game
+the way they are meant to, with the room you are in written on the card.
+
+Hold **Alt** over any card to read it: out in the world it fills the window, the card down one
+side and everything it says down the other, and it **tips with your mouse** — which is how you
+catch the light on a foil, because a foil is drawn here rather than fetched and the shine only
+exists while it moves. Press **F1** at the table for every key. Press **V** to switch between
+playing on your screen and playing on the actual table block in the world, which is also what
+everybody standing around it can see.
 
 ## The two things that make it different
 

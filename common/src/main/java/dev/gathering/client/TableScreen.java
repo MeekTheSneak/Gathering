@@ -3958,6 +3958,14 @@ public final class TableScreen extends Screen {
                     () -> ClientNetworking.send(
                             new dev.gathering.network.RollDicePayload(table, howManySides))));
         }
+        // The planar die, which is not a d6: its faces are a chaos symbol, a planeswalk
+        // symbol and four blanks. Planechase itself is not here - a planar deck belongs to
+        // the table and every zone in this game belongs to a seat - but a group can lay one
+        // out by hand, and this is the part of it nobody can do by hand honestly.
+        dice.add(new ChoiceScreen.Option(
+                Component.translatable("screen.gathering.dice.planar"),
+                () -> ClientNetworking.send(
+                        new dev.gathering.network.RollPlanarPayload(table))));
         dice.add(new ChoiceScreen.Option(
                 Component.translatable("screen.gathering.dice.other"), this::askHowManySides));
         net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(

@@ -1,6 +1,5 @@
 package dev.gathering.client;
 
-import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
 import java.util.Optional;
@@ -51,10 +50,20 @@ public final class CardZoomOverlay {
      */
     public static void render(GuiGraphics graphics, int screenWidth, int screenHeight) {
         if (!isActive()) {
+            // Flattened between reads, so the next card comes up square rather than at
+            // whatever angle the last one was left at. See CardTilt.
+            CardTilt.forget();
             return;
         }
-        cardInHand().ifPresent(card ->
-                CardInspectPanel.renderFullScreen(graphics, card, screenWidth, screenHeight));
+        Held held = cardInHand().orElse(null);
+        if (held == null) {
+            return;
+        }
+        // Out here the mouse is the camera, so turning your head is what turns the card. It
+        // is the same gesture the cursor makes over a screen, doing the same thing.
+        CardTilt.withTheHead(Minecraft.getInstance().player);
+        CardInspectPanel.renderFullScreen(
+                graphics, held.summary(), held.foil(), held.flipped(), screenWidth, screenHeight);
     }
 
     /**
@@ -67,6 +76,11 @@ public final class CardZoomOverlay {
     public static void renderAtCursor(
             GuiGraphics graphics, int screenWidth, int screenHeight, int mouseX, int mouseY) {
         if (!isActive()) {
+            // Flattened here as well as in the world, so a card picked up next is square
+            // however the last read ended. Only one of the two hooks runs at a time - the
+            // HUD one bows out whenever a screen is open - so whichever it was, one of them
+            // has put the tilt back.
+            CardTilt.forget();
             return;
         }
         if (Minecraft.getInstance().screen instanceof CardPreviewHost) {
@@ -74,8 +88,15 @@ public final class CardZoomOverlay {
             // readable. A second copy chasing the cursor would undo exactly that.
             return;
         }
-        cardUnderCursor().ifPresent(card ->
-                CardInspectPanel.renderBeside(graphics, card, mouseX, mouseY, screenWidth, screenHeight));
+        Held under = cardUnderCursor().orElse(null);
+        if (under == null) {
+            return;
+        }
+        // The panel already follows the cursor, so the cursor's place across the window is
+        // what moves the shine. A card that also turned would be two answers to one hand.
+        CardTilt.towards(mouseX, mouseY, screenWidth / 2, screenHeight / 2, screenWidth, screenHeight);
+        CardInspectPanel.renderBeside(
+                graphics, under.summary(), under.foil(), mouseX, mouseY, screenWidth, screenHeight);
     }
 
     /**
@@ -93,7 +114,7 @@ public final class CardZoomOverlay {
         if (!isActive() || Minecraft.getInstance().screen instanceof CardPreviewHost) {
             return false;
         }
-        return summaryOf(stack).isPresent();
+        return heldAs(stack).isPresent();
     }
 
     /**
@@ -105,35 +126,46 @@ public final class CardZoomOverlay {
      * show nothing - falling back meant a card in your hand shadowed every slot you were not
      * over, and answered a question nobody asked.
      */
-    static Optional<CardSummary> cardUnderCursor() {
+    static Optional<Held> cardUnderCursor() {
         Minecraft minecraft = Minecraft.getInstance();
 
-        Optional<CardSummary> hovered = summaryOf(ClientHoverState.hovered());
+        Optional<Held> hovered = heldAs(ClientHoverState.hovered());
         if (hovered.isPresent()) {
             return hovered;
         }
         if (minecraft.screen instanceof AbstractContainerScreen<?> && minecraft.player != null) {
             // A card being dragged is held by the cursor rather than sitting in a slot.
-            return summaryOf(minecraft.player.containerMenu.getCarried());
+            return heldAs(minecraft.player.containerMenu.getCarried());
         }
         return Optional.empty();
     }
 
+    /**
+     * A card this client can draw, and the two things about this particular copy of it.
+     *
+     * <p>Foil and which side is up are facts about the card in somebody's hand, not about the
+     * printing - two players can hold the same printing and only one of them holds a foil - so
+     * they travel beside the metadata rather than inside it.
+     */
+    record Held(CardSummary summary, boolean foil, boolean flipped) {
+    }
+
     /** The card the player is actually holding, which is the question the HUD answers. */
-    static Optional<CardSummary> cardInHand() {
+    static Optional<Held> cardInHand() {
         Player player = Minecraft.getInstance().player;
         if (player == null) {
             return Optional.empty();
         }
-        Optional<CardSummary> mainHand = summaryOf(player.getMainHandItem());
-        return mainHand.isPresent() ? mainHand : summaryOf(player.getOffhandItem());
+        Optional<Held> mainHand = heldAs(player.getMainHandItem());
+        return mainHand.isPresent() ? mainHand : heldAs(player.getOffhandItem());
     }
 
-    private static Optional<CardSummary> summaryOf(ItemStack stack) {
+    /** The same stack, read as a card this client knows enough about to draw. */
+    private static Optional<Held> heldAs(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return Optional.empty();
         }
-        Optional<CardComponent> card = CardItem.cardOf(stack);
-        return card.flatMap(ClientCardCache.get()::summary);
+        return CardItem.cardOf(stack).flatMap(card -> ClientCardCache.get().summary(card)
+                .map(summary -> new Held(summary, card.foil(), card.flipped())));
     }
 }

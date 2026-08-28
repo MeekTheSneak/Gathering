@@ -68,7 +68,24 @@ public final class DecklistImport {
      * being handed the box to type it into.
      */
     public static String whyNot(ServerPlayer player) {
-        return whyNot(player.hasPermissions(OPERATOR_LEVEL));
+        return whyNot(runsThisServer(player));
+    }
+
+    /**
+     * Whether this player is the person whose server it is.
+     *
+     * <p>Operator, or the owner of a single-player world - which is the same person and is not
+     * the same permission. A player in their own world has permission level zero until they
+     * turn cheats on, so on the shipped defaults, where importing is the operator's tool,
+     * somebody who installed the mod to play on their own was told they were not allowed to
+     * use it. Nobody was going to report that as a bug; they were going to uninstall it.
+     *
+     * <p>Not merely "single player", because a world opened to the LAN is still a single-player
+     * server and its guests are guests. The one this asks about is the host.
+     */
+    private static boolean runsThisServer(ServerPlayer player) {
+        return player.hasPermissions(OPERATOR_LEVEL)
+                || player.server.isSingleplayerOwner(player.getGameProfile());
     }
 
     /**

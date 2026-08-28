@@ -153,6 +153,14 @@ public final class GatheringNetwork {
                     }
                 });
         registrar.playToServer(
+                dev.gathering.network.RollPlanarPayload.TYPE,
+                dev.gathering.network.RollPlanarPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.DiceRolls.planar(player, payload);
+                    }
+                });
+        registrar.playToServer(
                 dev.gathering.network.FlipCoinPayload.TYPE,
                 dev.gathering.network.FlipCoinPayload.STREAM_CODEC,
                 (payload, context) -> {

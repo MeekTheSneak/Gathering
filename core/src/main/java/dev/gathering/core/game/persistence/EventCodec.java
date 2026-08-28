@@ -245,6 +245,10 @@ public final class EventCodec {
                 seat(out, e.actor());
                 out.writeBoolean(e.heads());
             }
+            case GameEvent.PlanarRolled e -> {
+                seat(out, e.actor());
+                out.writeUTF(e.face().name());
+            }
             case GameEvent.CardPinged e -> {
                 seat(out, e.actor());
                 card(out, e.card());
@@ -308,6 +312,8 @@ public final class EventCodec {
             case "TurnPassed" -> new GameEvent.TurnPassed(seat(in), seat(in));
             case "DiceRolled" -> new GameEvent.DiceRolled(seat(in), in.readInt(), in.readInt());
             case "CoinFlipped" -> new GameEvent.CoinFlipped(seat(in), in.readBoolean());
+            case "PlanarRolled" -> new GameEvent.PlanarRolled(
+                    seat(in), dev.gathering.core.game.event.PlanarFace.valueOf(in.readUTF()));
             case "CardPinged" -> new GameEvent.CardPinged(seat(in), card(in));
             default -> throw new IOException("Unknown event in the session log: " + tag);
         };
