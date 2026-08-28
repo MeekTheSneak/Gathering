@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 228;
+    private static final int LAST_STEP = 231;
 
     private static int step;
     private static int waited;
@@ -2373,21 +2373,51 @@ public final class DevScene {
             // a step that changes something and photographs it in the same breath photographs
             // what was there before. Three looks came out labelled as each other.
             case 225 -> {
-                wearTheLook(client, GuiTheme.SLATE);
+                wearTheLook(client, "gathering:slate");
                 advance(SETTLE / 2);
             }
             case 226 -> {
                 shoot(client, "75-the-slate-look");
-                wearTheLook(client, GuiTheme.WALNUT);
+                wearTheLook(client, "gathering:walnut");
                 advance(SETTLE / 2);
             }
             case 227 -> {
                 shoot(client, "76-the-walnut-look");
-                wearTheLook(client, GuiTheme.FELT);
+                wearTheLook(client, "gathering:felt");
                 advance(SETTLE / 2);
             }
             case 228 -> {
                 shoot(client, "77-back-to-the-felt");
+                client.setScreen(new net.minecraft.client.gui.screens.options.VideoSettingsScreen(
+                        client.screen, client, client.options));
+                advance(SETTLE);
+            }
+            case 229 -> {
+                expectScreen(client, "opening the game's video settings",
+                        net.minecraft.client.gui.screens.options.VideoSettingsScreen.class);
+                // Scrolled to where the row actually is, which is the foot of the list: mod
+                // settings go after the game's own. A picture of the top of the screen was a
+                // picture that proved nothing about the row it was taken for.
+                scrollToTheFoot(client);
+                advance(SETTLE / 2);
+            }
+            case 230 -> {
+                shoot(client, "78-the-look-in-video-settings");
+                // Pressed rather than assumed. This row is put into a list vanilla built, and
+                // a mod that adds a widget to somebody else's screen finds out it has stopped
+                // working by nobody ever seeing it.
+                pressTheLookRow(client);
+                advance(SETTLE);
+            }
+            case 231 -> {
+                if (GuiThemes.active().id().toString().equals("gathering:felt")) {
+                    fail("the look row in video settings was pressed and the look did not change");
+                }
+                shoot(client, "79-a-look-picked-from-the-options");
+                wearTheLook(client, "gathering:felt");
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
                 advance(SETTLE / 2);
             }
             default -> {
@@ -2405,6 +2435,75 @@ public final class DevScene {
     }
 
     /**
+     * Presses the mod's row in the game's own video settings.
+     *
+     * <p>Not through {@link #press}, which looks at a screen's own children: this row lives
+     * inside the scrolling list of options, which is one child holding all of them. Walking
+     * into it is the point - the row is only useful if it is really in that list, where a
+     * player scrolling through video settings will come across it.
+     */
+    private static void pressTheLookRow(Minecraft client) {
+        String wanted = net.minecraft.network.chat.Component
+                .translatable("options.gathering.look").getString();
+        if (client.screen == null) {
+            fail("there was no screen to look for the look row on");
+            return;
+        }
+        AbstractWidget row = widgetSaying(client.screen.children(), wanted, 0);
+        if (row == null) {
+            fail("the game's video settings offer no way to change the mod's look");
+            return;
+        }
+        String was = row.getMessage().getString();
+        row.onClick(row.getX() + row.getWidth() / 2.0, row.getY() + row.getHeight() / 2.0);
+        System.out.println("[devscene] the look row said '" + was + "' and now says '"
+                + row.getMessage().getString() + "'");
+    }
+
+    /** Winds a screen's scrolling list all the way down, so what is at its foot is on show. */
+    private static void scrollToTheFoot(Minecraft client) {
+        if (client.screen == null) {
+            return;
+        }
+        for (GuiEventListener child : client.screen.children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractSelectionList<?> list) {
+                list.setClampedScrollAmount(Double.MAX_VALUE);
+                return;
+            }
+        }
+        fail("the video settings had no scrolling list of options in them");
+    }
+
+    /** How far into a screen's furniture to look for a widget. Deep enough for a list row. */
+    private static final int NESTED = 4;
+
+    /**
+     * The first widget under here whose label starts with this, however deeply it is nested.
+     *
+     * <p>Searched rather than reached for, because the row is put inside the scrolling list
+     * vanilla built and that list is one child of the screen holding all of the options. What
+     * is being checked is that a player scrolling through video settings comes across it,
+     * which is a question about where it ended up rather than about what was added.
+     */
+    private static AbstractWidget widgetSaying(
+            java.util.List<? extends GuiEventListener> among, String starting, int depth) {
+        for (GuiEventListener child : among) {
+            if (child instanceof AbstractWidget widget
+                    && widget.getMessage().getString().startsWith(starting)) {
+                return widget;
+            }
+            if (depth < NESTED
+                    && child instanceof net.minecraft.client.gui.components.events.ContainerEventHandler holder) {
+                AbstractWidget found = widgetSaying(holder.children(), starting, depth + 1);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Puts one of the mod's looks on, and checks the art really came from it.
      *
      * <p>Photographed on the collection screen, which is a panel, a backdrop, striped rows
@@ -2413,16 +2512,17 @@ public final class DevScene {
      * and then silently drawn from the default one would look right in three screenshots and
      * be broken for every pack anybody made.
      */
-    private static void wearTheLook(Minecraft client, GuiTheme wanted) {
-        ClientSettings.theme(wanted);
-        if (ClientSettings.theme() != wanted) {
-            fail("asking for the " + wanted.folder() + " look left the mod on "
-                    + ClientSettings.theme().folder());
+    private static void wearTheLook(Minecraft client, String wanted) {
+        GuiTheme found = GuiThemes.byId(wanted);
+        if (!found.id().toString().equals(wanted)) {
+            fail("no theme is installed called " + wanted + "; the mod has "
+                    + GuiThemes.all());
             return;
         }
-        String from = GatheringSprites.of(GatheringSprites.Element.PANEL).getPath();
-        if (!from.startsWith(wanted.folder() + "/")) {
-            fail("the " + wanted.folder() + " look draws its panel from " + from);
+        GuiThemes.wear(found);
+        String from = GatheringSprites.of(GatheringSprites.Element.PANEL).toString();
+        if (!from.startsWith(found.sprites() + "/")) {
+            fail("the " + wanted + " look draws its panel from " + from);
         }
     }
 
@@ -5850,9 +5950,7 @@ public final class DevScene {
                 // looks is a row of this menu, and a row that quietly stopped being drawn is
                 // a feature nobody could find and nothing else would notice.
                 String look = net.minecraft.network.chat.Component
-                        .translatable("menu.gathering.table.theme",
-                                net.minecraft.network.chat.Component.translatable(
-                                        ClientSettings.theme().translationKey()))
+                        .translatable("menu.gathering.table.theme", GuiThemes.active().name())
                         .getString();
                 if (!board.hasMenuEntry(look)) {
                     fail("the table menu came up with no way to change the look");

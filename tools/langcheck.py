@@ -23,6 +23,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LANG = ROOT / "common/src/main/resources/assets/gathering/lang/en_us.json"
 SOUNDS = ROOT / "common/src/main/resources/assets/gathering/sounds.json"
+THEMES = ROOT / "common/src/main/resources/assets/gathering/gui_themes"
 
 # Entries nothing in the source asks for by name, on purpose. Listing them here rather than
 # letting them show up as unused every run is the difference between a check people read and a
@@ -121,10 +122,31 @@ def subtitles():
     return named
 
 
+def themeNames():
+    """
+    The names the shipped GUI themes ask to be called.
+
+    A theme is a file rather than a class now, so the only thing asking for these keys is
+    JSON - and a key nothing in Java mentions looked unused, which is exactly the report
+    that would hide a theme with no name.
+    """
+    if not THEMES.is_dir():
+        return {}
+    named = {}
+    for file in sorted(THEMES.glob("*.json")):
+        name = json.loads(file.read_text(encoding="utf-8")).get("name")
+        # A pack may write a plain word instead of a key, which renders as itself. Only
+        # something shaped like a key is one.
+        if name and "." in name:
+            named[name] = f"gui_themes/{file.name}"
+    return named
+
+
 def main() -> int:
     entries = json.loads(LANG.read_text(encoding="utf-8"))
 
     whole = dict(subtitles())
+    whole.update(themeNames())
     prefixes = {}
     for source in sources():
         where = source.relative_to(ROOT).as_posix()

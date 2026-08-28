@@ -40,24 +40,37 @@ public final class ClientSettings {
             # Gathering, as seen from this computer. Server settings are in gathering-server.toml.
 
             [gui]
-            # Which set of GUI art to draw with: felt, slate or walnut.
+            # Which set of GUI art to draw with. There is a picker in Options, Video Settings.
             #
-            # A theme is a folder of textures under assets/gathering/textures/gui/sprites, and
-            # nothing else - no colors and no sizes live in this file or in the code. To make
-            # your own, copy the felt folder in a resource pack, repaint it, and name the copy
-            # here. Anything a theme leaves out falls back to felt, so a pack may repaint six
-            # elements and inherit the rest.
-            theme = "felt"
+            # A theme is a folder of textures and a small file naming it - no colors and no
+            # sizes live in this file or in the code. The ones that ship are gathering:felt,
+            # gathering:slate, gathering:walnut and gathering:template, the last of which draws
+            # every element as a labelled diagram so you can see what you are painting over.
+            #
+            # To make your own, copy a folder of art in a resource pack, repaint it, and put a
+            # file beside it saying what it is called. Anything a theme leaves out falls back
+            # to felt, so a pack may repaint six elements and inherit the rest. See
+            # docs/themes.md.
+            theme = "gathering:felt"
             """;
 
-    private static GuiTheme theme;
+    /** What is drawn when this file has never been written. */
+    private static final String DEFAULT_THEME = "gathering:felt";
+
+    private static String theme;
 
     private ClientSettings() {
     }
 
-    /** Which art the screens are drawing with. Never null. */
-    public static GuiTheme theme() {
-        GuiTheme known = theme;
+    /**
+     * Which art the screens are drawing with, as an id.
+     *
+     * <p>An id rather than a theme, because which themes exist is a question about the
+     * resource packs and this is a question about one line of one file. {@link GuiThemes}
+     * puts the two together; a name nothing recognizes draws the default rather than failing.
+     */
+    public static String themeId() {
+        String known = theme;
         if (known == null) {
             known = readTheme();
             theme = known;
@@ -66,8 +79,8 @@ public final class ClientSettings {
     }
 
     /** Picks a theme and remembers it, on disk as well as in memory. */
-    public static void theme(GuiTheme wanted) {
-        if (wanted == null || wanted == theme) {
+    public static void themeId(String wanted) {
+        if (wanted == null || wanted.equals(theme)) {
             return;
         }
         theme = wanted;
@@ -78,7 +91,7 @@ public final class ClientSettings {
         return Platform.get().configDirectory().resolve(FILE_NAME);
     }
 
-    private static GuiTheme readTheme() {
+    private static String readTheme() {
         Path where;
         try {
             where = file();
@@ -86,19 +99,19 @@ public final class ClientSettings {
             // Nothing has registered a platform yet, which happens in bare unit tests. The
             // default theme is a correct answer, and a screen asking about art is not the
             // place to fail a game over it.
-            return GuiTheme.DEFAULT;
+            return DEFAULT_THEME;
         }
         if (!Files.isRegularFile(where)) {
             writeFresh(where);
-            return GuiTheme.DEFAULT;
+            return DEFAULT_THEME;
         }
         try {
             Toml read = Toml.read(Files.readString(where, StandardCharsets.UTF_8));
-            return GuiTheme.named(read.string(THEME_KEY, GuiTheme.DEFAULT.folder()));
+            return read.string(THEME_KEY, DEFAULT_THEME);
         } catch (IOException | TomlException couldNotRead) {
             LOGGER.warn("Could not read {}: {}. Drawing with the {} theme.",
-                    FILE_NAME, couldNotRead.getMessage(), GuiTheme.DEFAULT.folder());
-            return GuiTheme.DEFAULT;
+                    FILE_NAME, couldNotRead.getMessage(), DEFAULT_THEME);
+            return DEFAULT_THEME;
         }
     }
 
@@ -118,7 +131,7 @@ public final class ClientSettings {
      * what the setting is survive a button press. A file with no line to replace gets a fresh
      * one - which is the case where there is nothing of the player's to lose.
      */
-    private static void write(GuiTheme wanted) {
+    private static void write(String wanted) {
         Path where;
         try {
             where = file();
@@ -130,11 +143,11 @@ public final class ClientSettings {
                     ? Files.readString(where, StandardCharsets.UTF_8)
                     : TEMPLATE;
             String replaced = text.replaceAll(
-                    "(?m)^\\s*theme\\s*=.*$", "theme = \"" + wanted.folder() + "\"");
+                    "(?m)^\\s*theme\\s*=.*$", "theme = \"" + wanted + "\"");
             if (replaced.equals(text)) {
                 replaced = text + System.lineSeparator()
                         + "[gui]" + System.lineSeparator()
-                        + "theme = \"" + wanted.folder() + "\"" + System.lineSeparator();
+                        + "theme = \"" + wanted + "\"" + System.lineSeparator();
             }
             Files.createDirectories(where.getParent());
             Files.writeString(where, replaced, StandardCharsets.UTF_8);

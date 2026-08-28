@@ -1,82 +1,88 @@
 package dev.gathering.client;
 
-import java.util.Locale;
+import dev.gathering.client.GatheringSprites.Element;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 /**
- * Which set of GUI art the mod draws itself with.
+ * One set of GUI art the mod can draw itself with.
  *
- * <p>Every element of every screen is a texture, and a theme is one folder of them. The
- * sprite for a panel under the slate theme is {@code gathering:slate/panel}; under the felt
- * theme it is {@code gathering:felt/panel}. Nothing in the code knows which - screens ask
- * {@link GatheringSprites} for an element and get back whichever folder is in force.
+ * <p>A theme is a folder of PNGs and a small file naming it. That is the whole of it: no
+ * colors, no sizes and no rules live here, because a theme that could change anything but a
+ * picture would mean repainting the pictures was not enough. Adding one is a folder and a
+ * file in a resource pack - see {@link GuiThemes} for where they are read from and
+ * {@code docs/themes.md} for how to write one.
  *
- * <p>That is why this is an enum of folder names and nothing else. A theme carries no colors,
- * no sizes and no rules: if a theme could change anything that is not a PNG, then repainting
- * the PNGs would stop being enough to change how the mod looks, which is the whole point.
+ * <p>Every element's file name is worked out once, here, rather than on each draw. Screens ask
+ * for elements while drawing, tens of times a frame, and building a {@link ResourceLocation}
+ * per rectangle would be a string concatenation and an allocation for something that never
+ * changes.
  *
- * <p>{@link #FELT} is the one that must be complete. A theme is allowed to leave an element
- * out and inherit it, so a pack can reskin six things without drawing the other forty; see
- * {@link GatheringSprites#of}.
+ * <p>Client-only.
  */
-public enum GuiTheme {
+public final class GuiTheme {
 
-    /** The dark green table the design brief describes. The default, and the fallback. */
-    FELT("felt"),
+    /** Where a theme that says nothing about its art keeps it. */
+    public static final String DEFAULT_FOLDER = "felt";
 
-    /** Cold and high contrast: grey stone, a colder accent, for readability over prettiness. */
-    SLATE("slate"),
+    private final ResourceLocation id;
+    private final Component name;
+    private final ResourceLocation sprites;
+    private final int order;
 
-    /** Warm: wood, cream and brass, the look of a card table rather than a screen. */
-    WALNUT("walnut");
+    /** This theme's file for each element, made once. Indexed by {@link Element#ordinal()}. */
+    private final ResourceLocation[] byElement;
 
-    /** The one every other theme falls back to, and the only one that has to be complete. */
-    public static final GuiTheme DEFAULT = FELT;
-
-    private final String folder;
-
-    GuiTheme(String folder) {
-        this.folder = folder;
-    }
-
-    /** The folder under {@code textures/gui/sprites} this theme's art lives in. */
-    public String folder() {
-        return folder;
-    }
-
-    /** What a player sees this called. Translated, so a theme's name is editable like any text. */
-    public String translationKey() {
-        return "theme.gathering." + folder;
-    }
-
-    /** The next one round, for a button that cycles rather than opening a list of three. */
-    public GuiTheme next() {
-        GuiTheme[] all = ALL;
-        return all[(ordinal() + 1) % all.length];
-    }
-
-    /**
-     * The theme with this folder name, or the default.
-     *
-     * <p>Never throws. This reads a name out of a config file a person typed into, and a
-     * misspelled theme is a reason to draw the default one, not a reason to refuse to start.
-     */
-    public static GuiTheme named(String folder) {
-        if (folder != null) {
-            String wanted = folder.trim().toLowerCase(Locale.ROOT);
-            for (GuiTheme theme : ALL) {
-                if (theme.folder.equals(wanted)) {
-                    return theme;
-                }
-            }
+    public GuiTheme(ResourceLocation id, Component name, ResourceLocation sprites, int order) {
+        this.id = id;
+        this.name = name;
+        this.sprites = sprites;
+        this.order = order;
+        Element[] elements = Element.all();
+        this.byElement = new ResourceLocation[elements.length];
+        for (Element element : elements) {
+            this.byElement[element.ordinal()] =
+                    sprites.withSuffix("/" + element.fileName());
         }
-        return DEFAULT;
     }
 
-    /** Every theme, once. {@code values()} clones its array and this is read while drawing. */
-    private static final GuiTheme[] ALL = values();
+    /** What names this theme: {@code gathering:felt}, or a pack's own. */
+    public ResourceLocation id() {
+        return id;
+    }
 
-    /** Every theme, for anything that has to walk them. Do not modify. */
-    public static GuiTheme[] all() {
-        return ALL;
+    /** What a player sees it called. */
+    public Component name() {
+        return name;
+    }
+
+    /** The folder its art lives in, as {@code namespace:folder} under {@code gui/sprites}. */
+    public ResourceLocation sprites() {
+        return sprites;
+    }
+
+    /** Where it sits in the list. Lower first; the default is always first whatever it says. */
+    public int order() {
+        return order;
+    }
+
+    /** Where this theme's art for one element lives, whether or not anybody drew it. */
+    public ResourceLocation spriteOf(Element element) {
+        return byElement[element.ordinal()];
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof GuiTheme theme && id.equals(theme.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return id.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return id.toString();
     }
 }

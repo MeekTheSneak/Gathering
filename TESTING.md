@@ -569,10 +569,17 @@ reasoning to whatever ended up underneath it, which in a codebase where the comm
 the purple checkerboard and says nothing at all in the log, so it can survive a whole scripted
 run looking like a texture somebody chose.
 
-`tools/gui_art.py` paints that art: every element, once per theme. Run it after adding an
-element, and repaint the PNGs it wrote — they are placeholders, and the felt set is exactly
-what the code used to draw with `fill`, so the change from rectangles to textures is invisible
-until somebody paints over it.
+`tools/gui_art.py` paints that art: every element, once per theme, plus
+`docs/gui-elements.png` — one page showing all of them with their sizes, their scaling and
+where a nine-slice cuts. Run it after adding an element, and repaint the PNGs it wrote: they
+are placeholders, and the felt set is exactly what the code used to draw with `fill`, so the
+change from rectangles to textures is invisible until somebody paints over it.
+
+A theme is a file in a resource pack rather than a class, so `spritecheck` reads
+`assets/gathering/gui_themes/*.json` for the list. It also refuses a see-through file in the
+`template` set: that set exists so nobody has to open a blank square to find out what an
+element is, and the elements most worth a template — the tints and the washes — are exactly the
+ones that are see-through everywhere else. [`docs/themes.md`](docs/themes.md) is the guide.
 
 `verify` proves the code is right. It cannot prove a *loader* was wired up right — a loader
 serving the mod's classes without its assets compiles, builds, passes every test, boots,

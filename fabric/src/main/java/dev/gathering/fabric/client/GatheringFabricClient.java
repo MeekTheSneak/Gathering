@@ -9,6 +9,7 @@ import dev.gathering.client.ClientFetching;
 import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientCardRequests;
 import dev.gathering.client.ClientNetworking;
+import dev.gathering.client.GuiThemeOption;
 import dev.gathering.client.TableColors;
 import dev.gathering.client.DeckContentsScreen;
 import dev.gathering.client.DecklistImportScreen;
@@ -193,6 +194,11 @@ public final class GatheringFabricClient implements ClientModInitializer {
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) ->
                 ScreenEvents.beforeRender(screen).register(
                         (rendered, graphics, mouseX, mouseY, tickDelta) -> ClientHoverState.clear()));
+
+        // Which look the mod draws itself with, put in the game's own video settings. The
+        // condition and the widget are in :common so both loaders offer exactly the same row.
+        ScreenEvents.AFTER_INIT.register(
+                (client, screen, width, height) -> GuiThemeOption.addTo(screen));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // No screen means no slots, so nothing is hovered.

@@ -136,6 +136,7 @@ public final class GatheringNeoForgeClient {
 
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onRenderGui);
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onScreenRenderPre);
+            NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onScreenInit);
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onRenderScreen);
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onClientTick);
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onRenderTooltip);
@@ -261,6 +262,16 @@ public final class GatheringNeoForgeClient {
      */
     private static void onScreenRenderPre(ScreenEvent.Render.Pre event) {
         ClientHoverState.clear();
+    }
+
+    /**
+     * Puts the look picker into the game's own video settings.
+     *
+     * <p>The condition and the widget are in :common, so this loader and the other one offer
+     * the same row rather than two rows that drifted apart.
+     */
+    private static void onScreenInit(ScreenEvent.Init.Post event) {
+        dev.gathering.client.GuiThemeOption.addTo(event.getScreen());
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {

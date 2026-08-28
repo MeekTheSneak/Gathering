@@ -1,7 +1,6 @@
 package dev.gathering.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import dev.gathering.Gathering;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
@@ -242,18 +241,8 @@ public final class GatheringSprites {
 
         private final String name;
 
-        /** This element's file in each theme, made once. Indexed by {@link GuiTheme#ordinal()}. */
-        private final ResourceLocation[] byTheme;
-
         Element(String name) {
             this.name = name;
-            GuiTheme[] themes = GuiTheme.all();
-            this.byTheme = new ResourceLocation[themes.length];
-            for (GuiTheme theme : themes) {
-                this.byTheme[theme.ordinal()] =
-                        ResourceLocation.fromNamespaceAndPath(
-                                Gathering.MOD_ID, theme.folder() + "/" + name);
-            }
         }
 
         /** The file name this element is painted in, the same in every theme. */
@@ -261,9 +250,12 @@ public final class GatheringSprites {
             return name;
         }
 
-        /** Where this element's art lives under one particular theme, drawn or not. */
-        public ResourceLocation in(GuiTheme theme) {
-            return byTheme[theme.ordinal()];
+        /** Every element, once. {@code values()} clones its array and this is walked per theme. */
+        private static final Element[] ALL = values();
+
+        /** Every element, for anything that has to walk them. Do not modify. */
+        public static Element[] all() {
+            return ALL;
         }
     }
 
@@ -276,14 +268,15 @@ public final class GatheringSprites {
      * <p>The theme in force, unless it has not drawn this one, in which case the default
      * theme's. Resolved on every call rather than remembered: the answer changes when a
      * resource pack is added or removed, and both the lookup and the comparison are cheaper
-     * than the draw call that follows. Nothing is allocated.
+     * than the draw call that follows. Nothing is allocated - every file name a theme could
+     * name was worked out when the theme was read.
      */
     public static ResourceLocation of(Element element) {
-        GuiTheme theme = ClientSettings.theme();
-        if (theme == GuiTheme.DEFAULT) {
-            return element.in(theme);
+        GuiTheme theme = GuiThemes.active();
+        ResourceLocation wanted = theme.spriteOf(element);
+        if (theme.id().equals(GuiThemes.DEFAULT)) {
+            return wanted;
         }
-        ResourceLocation wanted = element.in(theme);
         Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return wanted;
@@ -294,7 +287,7 @@ public final class GatheringSprites {
         TextureAtlasSprite drawn = client.getGuiSprites().getSprite(wanted);
         if (drawn == null
                 || drawn.contents().name().equals(MissingTextureAtlasSprite.getLocation())) {
-            return element.in(GuiTheme.DEFAULT);
+            return GuiThemes.byId(GuiThemes.DEFAULT.toString()).spriteOf(element);
         }
         return wanted;
     }

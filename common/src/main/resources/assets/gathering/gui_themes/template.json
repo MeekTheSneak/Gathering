@@ -1,0 +1,5 @@
+{
+  "name": "theme.gathering.template",
+  "sprites": "gathering:template",
+  "order": 9000
+}

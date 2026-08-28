@@ -3804,14 +3804,16 @@ public final class TableScreen extends Screen {
      * is visible the instant it is made - the menu behind it repaints - and a list would be a
      * dialog asking about something you can simply see.
      *
-     * <p>Saved to this player's own file, not sent anywhere. See {@link ClientSettings}.
+     * <p>Saved to this player's own file, not sent anywhere. See {@link ClientSettings}. The
+     * same choice is a row of the game's own video settings; see {@link GuiThemeOption}.
      */
     private ContextMenu.Entry themeEntry() {
-        GuiTheme now = ClientSettings.theme();
+        java.util.List<GuiTheme> looks = GuiThemes.all();
+        GuiTheme now = GuiThemes.active();
+        int next = (looks.indexOf(now) + 1) % Math.max(1, looks.size());
         return ContextMenu.Entry.of(
-                Component.translatable("menu.gathering.table.theme",
-                        Component.translatable(now.translationKey())),
-                () -> ClientSettings.theme(now.next()));
+                Component.translatable("menu.gathering.table.theme", now.name()),
+                () -> GuiThemes.wear(looks.get(next)));
     }
 
     /** Puts the waiting cards onto the one just clicked, and leaves the mode either way. */
