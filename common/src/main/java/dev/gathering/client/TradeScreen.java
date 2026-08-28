@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
@@ -48,7 +49,6 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
     private static final int DIM = 0xFF9A9690;
     private static final int UP = 0xFF7FD08A;
     private static final int WAITING = 0xFFE0B15A;
-    private static final int ROW_HOVER = 0x30FFFFFF;
 
     private TradeViewPayload view;
     private Button agreeButton;
@@ -273,7 +273,8 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
             String count = row.up() + "/" + row.carried();
             int countWidth = this.font.width(count);
             if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + ROW_HEIGHT) {
-                graphics.fill(x - 2, y, x + width, y + ROW_HEIGHT, ROW_HOVER);
+                GatheringSprites.draw(graphics, Element.ROW_HOVER,
+                        x - 2, y, width + 2, ROW_HEIGHT);
                 hovered = CardItem.of(row.card());
             }
             // Trimmed to what is left after the count. A long name used to be drawn straight

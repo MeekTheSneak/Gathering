@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.card.Rarity;
 import dev.gathering.core.collection.CollectionSearch;
 import dev.gathering.item.CardComponent;
@@ -40,9 +41,6 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
     private static final int ROW_HEIGHT = 14;
     private static final int TOP_BAR = 80;
     private static final int BOTTOM_BAR = 34;
-    private static final int BACKING = 0xE8080B10;
-    private static final int ROW_ODD = 0x18FFFFFF;
-    private static final int ROW_HOVER = 0x30FFFFFF;
     private static final int TEXT = 0xFFDDE3EC;
     private static final int DIM = 0xFF8A94A3;
 
@@ -161,8 +159,14 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         addRenderableWidget(GatheringButtons.of(
                 this.width - MARGIN - 118, this.height - BOTTOM_BAR + 8, 58, 18,
                 Component.translatable("screen.gathering.collection.sets"),
-                () -> ClientNetworking.send(
-                        new dev.gathering.network.AskSetProgressPayload(where))));
+                () -> {
+                    // Said out loud, because the answer is what opens the screen and the
+                    // server sends more than one: only the answer somebody asked for opens
+                    // it, the rest refresh it. See SetProgressScreen.asked.
+                    SetProgressScreen.asked(where);
+                    ClientNetworking.send(
+                            new dev.gathering.network.AskSetProgressPayload(where));
+                }));
 
         // A way out somebody can see. Every other panel in the mod has one, and this one
         // relied on the escape key - which is a rule nobody was told. Bottom right, in the
@@ -305,7 +309,8 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        graphics.fill(0, 0, this.width, this.height, BACKING);
+        GatheringSprites.draw(graphics, Element.SCREEN_BACKDROP,
+                0, 0, this.width, this.height);
         GatheringSprites.inset(graphics, MARGIN - 4, TOP_BAR - 4,
                 this.width - 2 * MARGIN + 8, this.height - BOTTOM_BAR - TOP_BAR + 8);
     }
@@ -338,7 +343,7 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         int y = MARGIN + 42 + 15;
         for (String color : COLORS) {
             if (query.colors().contains(color)) {
-                graphics.fill(x + 2, y, x + 16, y + 1, 0xFFE8C86A);
+                GatheringSprites.draw(graphics, Element.FILTER_ON, x + 2, y, 14, 1);
             }
             x += 20;
         }
@@ -364,10 +369,12 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
             boolean hovered = mouseX >= MARGIN && mouseX < this.width - MARGIN
                     && mouseY >= y && mouseY < y + ROW_HEIGHT;
             if (hovered) {
-                graphics.fill(MARGIN - 2, y, this.width - MARGIN + 2, y + ROW_HEIGHT, ROW_HOVER);
+                GatheringSprites.draw(graphics, Element.ROW_HOVER,
+                        MARGIN - 2, y, this.width - MARGIN * 2 + 4, ROW_HEIGHT);
                 over = row;
             } else if (index % 2 == 1) {
-                graphics.fill(MARGIN - 2, y, this.width - MARGIN + 2, y + ROW_HEIGHT, ROW_ODD);
+                GatheringSprites.draw(graphics, Element.ROW_ODD,
+                        MARGIN - 2, y, this.width - MARGIN * 2 + 4, ROW_HEIGHT);
             }
             drawRow(graphics, row, y);
         }

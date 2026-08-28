@@ -1,6 +1,6 @@
 package dev.gathering.client;
 
-import dev.gathering.core.ui.CardShape;
+import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.Placement;
@@ -11,6 +11,7 @@ import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.ZoneView;
+import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
@@ -42,10 +43,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
-    private static final int ACCENT = 0xFF6FD3E8;
-
-    /** Over a card the player has said they do not want on top. */
-    private static final int SENT_AWAY = 0xB0101418;
 
     private static final int MARGIN = 14;
     private static final int GAP = 4;
@@ -421,8 +418,8 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             if (place > 0) {
                 Component said = Component.literal(Integer.toString(place));
                 int badge = this.font.width(said) + 4;
-                graphics.fill(slot.x() + 2, slot.y() + 2,
-                        slot.x() + 2 + badge, slot.y() + 2 + this.font.lineHeight + 1, SENT_AWAY);
+                GatheringSprites.draw(graphics, Element.SENT_AWAY, slot.x() + 2, slot.y() + 2,
+                        badge, this.font.lineHeight + 1);
                 GuiText.drawCentered(graphics, this.font, said,
                         slot.x() + 2 + badge / 2, slot.y() + 3, badge, LABEL);
             }
@@ -515,10 +512,12 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         if (away) {
             // Grayed rather than moved. A card that jumped to another row every time somebody
             // changed their mind would make a scry of three a puzzle about where things went.
-            graphics.fill(art.x(), art.y(), art.right(), art.bottom(), SENT_AWAY);
+            GatheringSprites.draw(graphics, Element.SENT_AWAY,
+                    art.x(), art.y(), art.width(), art.height());
         }
         if (hovered) {
-            graphics.renderOutline(where.x(), where.y(), where.width(), where.height(), ACCENT);
+            GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                    where.x(), where.y(), where.width(), where.height());
         }
     }
 
@@ -720,9 +719,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     private int draggingAtY;
 
-    /** The bar marking the gap a dragged card would drop into. */
-    private static final int LANDING = 0xFFFFD479;
-
     private static final int LANDING_WIDTH = 3;
 
     /**
@@ -748,8 +744,8 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             return;
         }
         int edge = after ? slot.right() + GAP / 2 : slot.x() - GAP / 2;
-        graphics.fill(edge - LANDING_WIDTH / 2, slot.y() - 2,
-                edge - LANDING_WIDTH / 2 + LANDING_WIDTH, slot.bottom() + 2, LANDING);
+        GatheringSprites.draw(graphics, Element.DRAG_LANDING, edge - LANDING_WIDTH / 2,
+                slot.y() - 2, LANDING_WIDTH, slot.height() + 4);
     }
 
     /** Which slot of the grid a point is over, whether or not a card is in it. */

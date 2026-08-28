@@ -1,9 +1,10 @@
 package dev.gathering.client;
 
+import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.card.CardIdentity;
-import dev.gathering.core.draft.DrafterId;
 import dev.gathering.core.draft.DraftView;
 import dev.gathering.core.draft.DraftViewCodec;
+import dev.gathering.core.draft.DrafterId;
 import dev.gathering.core.ui.PackLayout;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.item.CardComponent;
@@ -36,9 +37,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
     private static final int ACCENT = 0xFF6FD3E8;
-
-    /** Over a card that has been chosen, so a pick of two reads at a glance. */
-    private static final int CHOSEN = 0x606FD3E8;
 
     private static final int MARGIN = 14;
     private static final int GAP = 4;
@@ -362,11 +360,12 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
                     where.width() - 6, LABEL);
         }
         if (taken) {
-            graphics.fill(where.x(), where.y(), where.right(), where.bottom(), CHOSEN);
+            GatheringSprites.draw(graphics, Element.CHOSEN_FILL,
+                    where.x(), where.y(), where.width(), where.height());
         }
         if (hovered || taken) {
-            graphics.renderOutline(where.x(), where.y(), where.width(), where.height(),
-                    taken ? ACCENT : LABEL);
+            GatheringSprites.draw(graphics, taken ? Element.FOCUS_RING : Element.HOVER_RING,
+                    where.x(), where.y(), where.width(), where.height());
         }
     }
 

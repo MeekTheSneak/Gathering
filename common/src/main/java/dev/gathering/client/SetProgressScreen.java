@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.collection.SetCompletion;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.network.SetProgressPayload;
@@ -33,22 +34,17 @@ public final class SetProgressScreen extends ChildScreen {
     private static final int BOTTOM_BAR = 30;
     private static final int ROW_HEIGHT = 22;
 
-    /** Over the collection, because this screen is the size of the one it covers. */
-    private static final int BACKDROP = 0xC0000000;
-
     private static final int TEXT = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
     private static final int WARNING = 0xFFFFD98A;
 
-    /** The bar: what is there, what is not, and the one drawn when a set is finished. */
-    private static final int BAR_EMPTY = 0x66000000;
-    private static final int BAR_FULL = 0xFF4E9A6A;
-    private static final int BAR_DONE = 0xFFD9A441;
+    private static final int DONE_TEXT = 0xFFD9A441;
 
     private final BlockPos where;
     private final CollectionScreen collection;
-    private final List<SetCompletion> sets;
-    private final int stillLooking;
+    /** Replaced when a later answer arrives, which is why neither of these is final. */
+    private List<SetCompletion> sets;
+    private int stillLooking;
 
     private int scroll;
     private int hovered = -1;
@@ -64,7 +60,24 @@ public final class SetProgressScreen extends ChildScreen {
     }
 
     /**
-     * Opens it, or refreshes it if it is already up.
+     * Which collection somebody has asked about and not yet been shown, if any.
+     *
+     * <p>The answer to the first ask opens this screen; every answer after it only refreshes
+     * one that is already open. Without that distinction the second answer - and the server
+     * sends one every second while it is still naming cards - reopened the list in front of
+     * somebody who had just pressed a set and been taken back to their collection, which is
+     * the interface undoing a press the player had made.
+     */
+    private static BlockPos waitingFor;
+
+    /** Somebody pressed the button. The next answer for this block is theirs to be shown. */
+    static void asked(BlockPos collection) {
+        waitingFor = collection;
+    }
+
+    /**
+     * Opens it if it was asked for, refreshes it if it is already up, and otherwise leaves
+     * the screen alone.
      *
      * <p>Refreshing matters because the server looks up whatever it could not name and the
      * count settles a moment later: a screen that could only be opened once would show the
@@ -76,14 +89,23 @@ public final class SetProgressScreen extends ChildScreen {
         for (SetProgressPayload.Row row : payload.sets()) {
             rows.add(row.asProgress());
         }
-        CollectionScreen collection = client.screen instanceof SetProgressScreen open
-                ? open.collection
-                : client.screen instanceof CollectionScreen showing ? showing : null;
-        if (collection == null) {
+        if (client.screen instanceof SetProgressScreen open
+                && open.where.equals(payload.collection())) {
+            // The same screen with new numbers in it, rather than a new screen. Building a
+            // fresh one lost the scroll and the row under the cursor every time an answer
+            // landed - and while the server is still naming cards an answer lands every
+            // second, so a long list could not be read at all.
+            open.sets = List.copyOf(rows);
+            open.stillLooking = payload.stillLooking();
+            open.scroll = Math.clamp(open.scroll, 0, open.hiddenBelow());
             return;
         }
-        client.setScreen(new SetProgressScreen(
-                collection, payload.collection(), List.copyOf(rows), payload.stillLooking()));
+        if (client.screen instanceof CollectionScreen showing
+                && payload.collection().equals(waitingFor)) {
+            waitingFor = null;
+            client.setScreen(new SetProgressScreen(
+                    showing, payload.collection(), List.copyOf(rows), payload.stillLooking()));
+        }
     }
 
     @Override
@@ -123,7 +145,8 @@ public final class SetProgressScreen extends ChildScreen {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        graphics.fill(0, 0, this.width, this.height, BACKDROP);
+        GatheringSprites.draw(graphics, Element.SETS_BACKDROP,
+                0, 0, this.width, this.height);
         GatheringSprites.panel(graphics, MARGIN - 8, MARGIN - 8,
                 this.width - (MARGIN - 8) * 2, this.height - (MARGIN - 8) * 2);
     }
@@ -180,22 +203,24 @@ public final class SetProgressScreen extends ChildScreen {
         int numbers = 96;
         int nameRoom = Math.max(20, row.width() - numbers - 8);
         GuiText.draw(graphics, this.font, Component.literal(set.name()),
-                row.x(), row.y() + 1, nameRoom, set.isComplete() ? BAR_DONE : TEXT);
+                row.x(), row.y() + 1, nameRoom, set.isComplete() ? DONE_TEXT : TEXT);
 
         Component count = set.extras() > 0
                 ? Component.translatable("screen.gathering.sets.count_with_extras",
                         set.owned(), set.size(), set.extras())
                 : Component.translatable("screen.gathering.sets.count", set.owned(), set.size());
         GuiText.drawFlushRight(graphics, this.font, count, row.right(), row.y() + 1, 1f,
-                set.isComplete() ? BAR_DONE : DIM);
+                set.isComplete() ? DONE_TEXT : DIM);
 
         int barTop = row.y() + this.font.lineHeight + 3;
         int barHigh = 3;
-        graphics.fill(row.x(), barTop, row.right(), barTop + barHigh, BAR_EMPTY);
+        GatheringSprites.draw(graphics, Element.BAR_TRACK,
+                row.x(), barTop, row.width(), barHigh);
         int full = Math.round(row.width() * set.share());
         if (full > 0) {
-            graphics.fill(row.x(), barTop, row.x() + full, barTop + barHigh,
-                    set.isComplete() ? BAR_DONE : BAR_FULL);
+            GatheringSprites.draw(graphics,
+                    set.isComplete() ? Element.BAR_DONE : Element.BAR_FILL,
+                    row.x(), barTop, full, barHigh);
         }
     }
 

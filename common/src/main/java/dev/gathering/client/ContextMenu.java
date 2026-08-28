@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.client.GatheringSprites.Element;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.Font;
@@ -30,9 +31,6 @@ public final class ContextMenu {
     private static final int TEXT = 0xFFE8E4DC;
     private static final int HOVERED = 0xFFFFFFFF;
     private static final int DISABLED = 0xFF6E6A66;
-
-    /** The line between two groups of entries. Dimmer than the dimmest text on it. */
-    private static final int RULE = 0xFF4A4642;
 
     /** The key written at the end of a row: present, and quieter than the verb. */
     private static final int SHORTCUT = 0xFF8A8378;
@@ -135,8 +133,8 @@ public final class ContextMenu {
             int left = x + (index / perColumn) * columnWidth;
             int row = y + PADDING + (index % perColumn) * ROW_HEIGHT;
             if (entry.isRule()) {
-                graphics.fill(left + PADDING, row + ROW_HEIGHT / 2,
-                        left + columnWidth - PADDING, row + ROW_HEIGHT / 2 + 1, RULE);
+                GatheringSprites.draw(graphics, Element.MENU_RULE,
+                        left + PADDING, row + ROW_HEIGHT / 2, columnWidth - PADDING * 2, 1);
                 continue;
             }
             boolean hovered = entry.enabled() && index == indexAt(mouseX, mouseY);

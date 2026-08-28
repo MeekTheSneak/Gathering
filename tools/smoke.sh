@@ -132,6 +132,18 @@ else
     FAILED=1
 fi
 
+# And every element a screen can draw has art in every theme. A sprite nobody painted is
+# drawn as the purple checkerboard and logged nowhere, so it survives a whole run of the
+# scene looking like a texture somebody chose - see tools/spritecheck.py.
+printf '%-24s ' "gui art"
+if SPRITE_OUT=$(python3 tools/spritecheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$SPRITE_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
 if [ "$TARGET" = all ] || [ "$TARGET" = neoforge ]; then
     # "mod/gathering" is the mod's own resource pack. Without it the assets are not loaded.
     # The camera hook is a mixin, and a mixin that is never listed fails silently: the mod

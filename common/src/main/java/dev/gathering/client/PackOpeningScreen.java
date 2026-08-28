@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.card.Rarity;
 import dev.gathering.core.ui.PackGlow;
 import dev.gathering.core.ui.PackLayout;
@@ -39,12 +40,9 @@ public final class PackOpeningScreen extends Screen {
     /** How deep the torn strip is, as a fraction of the pack's height. */
     private static final double CRIMP = 0.16;
 
-    private static final int BACKING = 0xC8060A0E;
-
     /** How the cards are laid out once the wrapper is off. */
     private static final int GAP = 4;
     private static final int MARGIN_PIXELS = 16;
-    private static final int WRAPPER_EDGE = 0xFF161A20;
 
     /**
      * Which rows of the wrapper texture are which.
@@ -157,7 +155,7 @@ public final class PackOpeningScreen extends Screen {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        graphics.fill(0, 0, width(), height(), BACKING);
+        GatheringSprites.draw(graphics, Element.PACK_BACKDROP, 0, 0, width(), height());
     }
 
     @Override
@@ -180,7 +178,8 @@ public final class PackOpeningScreen extends Screen {
         int crimp = packY + (int) (packHeight * CRIMP);
 
         // The wrapper below the tear, which is the pack proper.
-        graphics.fill(packX, crimp, packX + packWidth, packY + packHeight, WRAPPER_EDGE);
+        GatheringSprites.draw(graphics, Element.PACK_WRAPPER_EDGE,
+                packX, crimp, packWidth, packY + packHeight - crimp);
         drawWrapper(graphics, packX, crimp, packX + packWidth, packY + packHeight,
                 BODY_ROW, BODY_ROWS);
         // The strip above it, still attached where the tear has not reached.
@@ -219,7 +218,7 @@ public final class PackOpeningScreen extends Screen {
         int gridLeft = (width() - gridWidth) / 2;
         int gridTop = (height() - gridHeight) / 2;
 
-        graphics.fill(0, 0, width(), height(), BACKING);
+        GatheringSprites.draw(graphics, Element.PACK_BACKDROP, 0, 0, width(), height());
         this.grid = laid;
         this.gridLeft = gridLeft;
         this.gridTop = gridTop;
@@ -244,8 +243,8 @@ public final class PackOpeningScreen extends Screen {
             }
             // The one the pack was opened for, ringed in its own color.
             if (index == revealed.size() - 1 && glow != PackGlow.NO_LIGHT) {
-                graphics.renderOutline(x - 1, y - 1, laid.cardWidth() + 2, laid.cardHeight() + 2,
-                        glow);
+                GatheringSprites.draw(graphics, Element.RARITY_RING,
+                        x - 1, y - 1, laid.cardWidth() + 2, laid.cardHeight() + 2, glow);
             }
         }
         ClientHoverState.setHovered(over == null
@@ -317,7 +316,8 @@ public final class PackOpeningScreen extends Screen {
             for (int up = 0; up < reach; up++) {
                 float strength = 1f - up / (float) reach;
                 int alpha = Math.round(strength * strength * 190);
-                graphics.fill(x, y - up, x + 2, y - up + 1, (alpha << 24) | (glow & 0x00FFFFFF));
+                GatheringSprites.draw(graphics, Element.PACK_SPARK, x, y - up, 2, 1,
+                        (alpha << 24) | (glow & 0x00FFFFFF));
             }
         }
     }

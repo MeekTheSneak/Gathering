@@ -1,9 +1,10 @@
 package dev.gathering.client;
 
+import dev.gathering.Gathering;
+import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.InspectLayout;
 import dev.gathering.core.ui.Rect;
-import dev.gathering.Gathering;
 import dev.gathering.network.CardFaceSummary;
 import dev.gathering.network.CardSummary;
 import java.util.ArrayList;
@@ -14,8 +15,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 
 /**
  * One card, drawn: its printed face and its oracle text.
@@ -35,11 +36,6 @@ import net.minecraft.util.FormattedCharSequence;
  */
 public final class CardInspectPanel {
 
-    /** The printed aspect ratio, 2.5 by 3.5 inches. */
-
-    private static final int BACKDROP = 0xC0000000;
-    private static final int PLACEHOLDER = 0xE0101014;
-    private static final int PLACEHOLDER_BORDER = 0xFF3A3A44;
     private static final int TEXT = 0xFFE8E4DC;
     private static final int DIM_TEXT = 0xFF9A9690;
 
@@ -52,21 +48,10 @@ public final class CardInspectPanel {
      */
     private static final int WRITING_TEXT = 0xFFBFD8FF;
 
-    /**
-     * The backdrop behind a full-window read.
-     *
-     * <p>Darker than the one a small panel sits on. Nothing behind it is being read - that is
-     * the whole reason this form exists - and a card is a picture, which needs the room around
-     * it to be quiet before it looks like anything.
-     */
-    private static final int FULL_BACKDROP = 0xE6000000;
-
-
     private static final int GAP = 8;
     private static final int PADDING = 8;
     private static final int SIDEBAR_WIDTH = 180;
     private static final float FULL_SCREEN_HEIGHT_FRACTION = 0.82f;
-
 
     /**
      * How tall the art is in the cursor panel, as a share of the screen, and the bounds it
@@ -299,7 +284,8 @@ public final class CardInspectPanel {
     private static void drawFullScreen(
             GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
             int screenWidth, int screenHeight) {
-        graphics.fill(0, 0, screenWidth, screenHeight, FULL_BACKDROP);
+        GatheringSprites.draw(graphics, Element.INSPECT_BACKDROP,
+                0, 0, screenWidth, screenHeight);
 
         InspectLayout layout = InspectLayout.of(screenWidth, screenHeight);
         Rect card = layout.card();
@@ -380,8 +366,7 @@ public final class CardInspectPanel {
         }
 
         // No art yet. Say which, rather than showing an empty rectangle that looks broken.
-        graphics.fill(x, y, x + width, y + height, PLACEHOLDER);
-        graphics.renderOutline(x, y, width, height, PLACEHOLDER_BORDER);
+        GatheringSprites.draw(graphics, Element.CARD_PLACEHOLDER, x, y, width, height);
         Font font = Minecraft.getInstance().font;
         // Fitted to the box, not drawn at whatever width the sentence happens to be. A row of
         // small cards with no art came out as four sentences overlapping each other and the
@@ -546,20 +531,12 @@ public final class CardInspectPanel {
         if (note == null || note.isBlank() || art.height() < font.lineHeight + 2) {
             return;
         }
-        graphics.fill(art.x(), art.y() + 1, art.right(), art.y() + font.lineHeight + 1, BACKDROP);
+        GatheringSprites.draw(graphics, Element.NAME_BACKDROP,
+                art.x(), art.y() + 1, art.width(), font.lineHeight);
         GuiText.draw(graphics, font, Component.literal(note),
                 art.x() + 2, art.y() + 2, art.width() - 4, WRITING_TEXT);
     }
 
-    /**
-     * The box a written power and toughness is drawn in.
-     *
-     * <p>Warm rather than the cool gray the rest of the board uses, because it is the one
-     * number on a card that somebody put there by hand, and the difference between "printed"
-     * and "we agreed this" should be visible from across the table.
-     */
-    private static final int STRENGTH_BADGE = 0xE02A1B12;
-    private static final int STRENGTH_EDGE = 0xFFD9A441;
     private static final int STRENGTH_TEXT = 0xFFFFE6B0;
 
     /**
@@ -586,8 +563,7 @@ public final class CardInspectPanel {
         int high = font.lineHeight + 1;
         int left = art.right() - 2 - wide;
         int top = floor - high;
-        graphics.fill(left, top, left + wide, top + high, STRENGTH_BADGE);
-        graphics.renderOutline(left, top, wide, high, STRENGTH_EDGE);
+        GatheringSprites.draw(graphics, Element.STRENGTH_BADGE, left, top, wide, high);
         GuiText.drawCenteredAt(graphics, font, numbers, left + wide / 2, top + 1, 1f, STRENGTH_TEXT);
         return top - 1;
     }

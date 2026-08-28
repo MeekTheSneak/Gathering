@@ -71,7 +71,8 @@ public abstract class ChildScreen extends Screen {
             back.resize(Minecraft.getInstance(), this.width, this.height);
         }
         back.render(graphics, OFF_THE_SCREEN, OFF_THE_SCREEN, partialTick);
-        graphics.fill(0, 0, this.width, this.height, SCRIM);
+        GatheringSprites.draw(graphics, GatheringSprites.Element.SCREEN_SCRIM,
+                0, 0, this.width, this.height);
     }
 
     /** No blur either: the point of drawing the board behind is that it can be read. */
@@ -81,7 +82,4 @@ public abstract class ChildScreen extends Screen {
 
     /** Far enough outside the window that nothing behind can think it is being pointed at. */
     private static final int OFF_THE_SCREEN = -1000;
-
-    /** Enough to push the board back behind this screen, not enough to hide it. */
-    private static final int SCRIM = 0x80101418;
 }

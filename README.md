@@ -158,6 +158,12 @@ won't work around that.
 
 **Does this need a resource pack, or a Scryfall account?** Neither.
 
+**Can I change how it looks?** Yes, all of it. Nothing in the mod draws a colored rectangle:
+every panel, band, tint, ring, badge and bar is a texture, so a resource pack can replace any
+of it. Three sets of that art ship — felt, slate and walnut — and the table's own menu switches
+between them. Adding a fourth is a folder of PNGs and one line in `gathering-client.toml`; a
+theme may leave elements out and inherit them, so repainting six things is a complete theme.
+
 **Will it hammer my server?** No. Card lookups are batched, rate-limited, cached on disk and
 done off the main thread. A hundred-card decklist costs two requests cold and none warm.
 
@@ -183,7 +189,8 @@ checklist. Gradle must run on **Java 21**.
 `core` is pure Java with no Minecraft on its classpath and `common` has no loader imports, both
 enforced by the build rather than by convention, which keeps the layer that can be tested in
 milliseconds as large as possible. Beside the gate sit checks for translation keys, stranded
-documentation, and a scripted client that plays a whole game and photographs every step.
+documentation, GUI art with nothing drawing it, and a scripted client that plays a whole game
+and photographs every step.
 
 ## Licence
 

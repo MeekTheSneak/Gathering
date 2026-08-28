@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 224;
+    private static final int LAST_STEP = 228;
 
     private static int step;
     private static int waited;
@@ -2368,6 +2368,28 @@ public final class DevScene {
                 shoot(client, "74-only-that-set");
                 advance(SETTLE / 2);
             }
+            // A look is put on in one step and photographed in the next, the way every other
+            // change here is: a picture is taken of the frame that has already been drawn, so
+            // a step that changes something and photographs it in the same breath photographs
+            // what was there before. Three looks came out labelled as each other.
+            case 225 -> {
+                wearTheLook(client, GuiTheme.SLATE);
+                advance(SETTLE / 2);
+            }
+            case 226 -> {
+                shoot(client, "75-the-slate-look");
+                wearTheLook(client, GuiTheme.WALNUT);
+                advance(SETTLE / 2);
+            }
+            case 227 -> {
+                shoot(client, "76-the-walnut-look");
+                wearTheLook(client, GuiTheme.FELT);
+                advance(SETTLE / 2);
+            }
+            case 228 -> {
+                shoot(client, "77-back-to-the-felt");
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -2379,6 +2401,28 @@ public final class DevScene {
                 }
                 finish(client, "done");
             }
+        }
+    }
+
+    /**
+     * Puts one of the mod's looks on, and checks the art really came from it.
+     *
+     * <p>Photographed on the collection screen, which is a panel, a backdrop, striped rows
+     * and a scrollbar - five of the elements a theme owns, in one picture. The check is that
+     * {@link GatheringSprites#of} resolves into that theme's folder: a theme that was chosen
+     * and then silently drawn from the default one would look right in three screenshots and
+     * be broken for every pack anybody made.
+     */
+    private static void wearTheLook(Minecraft client, GuiTheme wanted) {
+        ClientSettings.theme(wanted);
+        if (ClientSettings.theme() != wanted) {
+            fail("asking for the " + wanted.folder() + " look left the mod on "
+                    + ClientSettings.theme().folder());
+            return;
+        }
+        String from = GatheringSprites.of(GatheringSprites.Element.PANEL).getPath();
+        if (!from.startsWith(wanted.folder() + "/")) {
+            fail("the " + wanted.folder() + " look draws its panel from " + from);
         }
     }
 
@@ -5802,6 +5846,17 @@ public final class DevScene {
             board.mouseClicked(at[0], at[1], 1);
             board.mouseReleased(at[0], at[1], 1);
             if (board.menuIsOpen() && board.hasMenuEntry(wanted)) {
+                // Every time it comes up, wherever it came up: the way to change how the mod
+                // looks is a row of this menu, and a row that quietly stopped being drawn is
+                // a feature nobody could find and nothing else would notice.
+                String look = net.minecraft.network.chat.Component
+                        .translatable("menu.gathering.table.theme",
+                                net.minecraft.network.chat.Component.translatable(
+                                        ClientSettings.theme().translationKey()))
+                        .getString();
+                if (!board.hasMenuEntry(look)) {
+                    fail("the table menu came up with no way to change the look");
+                }
                 return true;
             }
             // Only to shut a menu that opened. Escape with nothing open leaves the table, so

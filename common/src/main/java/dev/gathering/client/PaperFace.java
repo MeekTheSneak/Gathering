@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.card.PaperStock;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.ui.Rect;
@@ -33,17 +34,12 @@ import net.minecraft.network.chat.Component;
  */
 public final class PaperFace {
 
-    /** Paper: warm and pale, so it reads as a scrap on the felt rather than as a card. */
-    private static final int BLANK_STOCK = 0xFFF1E8D2;
-    private static final int BLANK_EDGE = 0xFF6E6047;
-    private static final int BLANK_RULE = 0xFFBFAE8C;
     private static final int BLANK_INK = 0xFF2B2620;
 
-    /** An emblem: near black with the gold rule Wizards prints one with. */
-    private static final int EMBLEM_STOCK = 0xFF13100C;
-    private static final int EMBLEM_EDGE = 0xFF000000;
-    private static final int EMBLEM_RULE = 0xFFC9A227;
     private static final int EMBLEM_INK = 0xFFF2E7C4;
+
+    /** The word "Emblem" across the top of one. Text, so a color rather than a texture. */
+    private static final int EMBLEM_TITLE = 0xFFC9A227;
 
     /** How far the scale search steps. Small enough to find a fit, coarse enough to stop. */
     private static final float STEP = 0.05f;
@@ -96,21 +92,18 @@ public final class PaperFace {
             return;
         }
         boolean emblem = stock == PaperStock.EMBLEM;
-        graphics.fill(x, y, x + width, y + height, emblem ? EMBLEM_STOCK : BLANK_STOCK);
-        graphics.renderOutline(x, y, width, height, emblem ? EMBLEM_EDGE : BLANK_EDGE);
-
-        // The inner rule, which is what makes a rectangle read as a card. Proportional so it
-        // survives being drawn at a fifth of the size on a four-player board.
-        int inset = Math.max(1, Math.min(4, width / 14));
-        if (width > inset * 4 && height > inset * 4) {
-            graphics.renderOutline(x + inset, y + inset, width - inset * 2, height - inset * 2,
-                    emblem ? EMBLEM_RULE : BLANK_RULE);
-        }
-
-        // One pixel of air inside the rule on a small card, two on a large one. Two
-        // everywhere cost eight pixels of a card that is thirty-seven wide, which is the
-        // difference between a board that says "Creatures" and one that says "Crea...".
-        int air = inset + (width >= 60 ? 2 : 1);
+        // The stock, its edge and the inner rule that makes a rectangle read as a card, all
+        // in one nine-sliced texture. Nine-slicing is what makes one file survive both sizes
+        // this is drawn at: the border clamps to half the box, so the edge and the rule stay
+        // the width they were painted whether the card is a fifth of the screen or a fifth
+        // of a four-player board.
+        GatheringSprites.draw(graphics, emblem ? Element.PAPER_EMBLEM : Element.PAPER_BLANK,
+                x, y, width, height);
+        // The writing starts clear of the rule the texture paints two pixels in. Wider on a
+        // large card, tight on a small one: four pixels either side of a card that is
+        // thirty-seven wide is the difference between a board that says "Creatures" and one
+        // that says "Crea...".
+        int air = width >= 60 ? 6 : 4;
         int left = x + air;
         int room = width - air * 2;
         int top = y + air;
@@ -120,7 +113,7 @@ public final class PaperFace {
         // with its title and nothing else would be a card that says less than its color did.
         if (emblem && floor - top >= font.lineHeight * 2 + 2) {
             GuiText.drawCentered(graphics, font, Component.translatable("card.gathering.emblem"),
-                    x + width / 2, top, room, EMBLEM_RULE);
+                    x + width / 2, top, room, EMBLEM_TITLE);
             top += font.lineHeight + 2;
         }
         writeAcross(graphics, font, text, left, top, room, floor - top,

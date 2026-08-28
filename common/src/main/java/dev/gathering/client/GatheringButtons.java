@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.client.GatheringSprites.Element;
 import java.util.function.BooleanSupplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -28,9 +29,6 @@ import net.minecraft.sounds.SoundEvents;
  * <p>Client-only.
  */
 public final class GatheringButtons {
-
-    /** The chosen-option outline. Bright enough to find at a glance across eight buttons. */
-    private static final int CHOSEN = 0xFF6FD3E8;
 
     private GatheringButtons() {
     }
@@ -92,10 +90,10 @@ public final class GatheringButtons {
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             super.renderWidget(graphics, mouseX, mouseY, partialTick);
             if (chosen.getAsBoolean()) {
-                // Two rings rather than one: a single-pixel outline on a vanilla button's own
-                // border is nearly invisible, and this has to be findable at a glance.
-                graphics.renderOutline(getX(), getY(), getWidth(), getHeight(), CHOSEN);
-                graphics.renderOutline(getX() + 1, getY() + 1, getWidth() - 2, getHeight() - 2, CHOSEN);
+                // Thicker than a hover ring: a single-pixel outline on a vanilla button's
+                // own border is nearly invisible, and this has to be findable at a glance.
+                GatheringSprites.draw(graphics, Element.CHOSEN_RING,
+                        getX(), getY(), getWidth(), getHeight());
             }
         }
     }

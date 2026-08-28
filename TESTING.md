@@ -557,14 +557,22 @@ The half of the mod that never appears on screen has its own gate:
 tools/smoke.sh          # boots both loaders, client and dedicated server
 python3 tools/langcheck.py  # every translation key the source asks for has an entry
 python3 tools/doccheck.py   # no paragraph left attached to the wrong method
+python3 tools/spritecheck.py  # every drawn element has art, in every theme
 ```
 
-The last two run inside `smoke.sh` as well; they are listed separately because they take a
-second and catch two failures the compiler is completely blind to. A missing translation key
+The last three run inside `smoke.sh` as well; they are listed separately because they take a
+second and catch three failures the compiler is completely blind to. A missing translation key
 draws itself on screen where a sentence should be. An orphaned javadoc — one left sitting
 above another one when its own member was renamed or moved — quietly hands a method's
 reasoning to whatever ended up underneath it, which in a codebase where the comments carry the
-*why* is worse than having no comment at all.
+*why* is worse than having no comment at all. And a GUI element with no PNG behind it draws
+the purple checkerboard and says nothing at all in the log, so it can survive a whole scripted
+run looking like a texture somebody chose.
+
+`tools/gui_art.py` paints that art: every element, once per theme. Run it after adding an
+element, and repaint the PNGs it wrote — they are placeholders, and the felt set is exactly
+what the code used to draw with `fill`, so the change from rectangles to textures is invisible
+until somebody paints over it.
 
 `verify` proves the code is right. It cannot prove a *loader* was wired up right — a loader
 serving the mod's classes without its assets compiles, builds, passes every test, boots,

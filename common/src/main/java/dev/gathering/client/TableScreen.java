@@ -1,13 +1,15 @@
 package dev.gathering.client;
 
 import com.mojang.math.Axis;
-import dev.gathering.core.game.CardInstance;
+import dev.gathering.SeatNames;
 import dev.gathering.block.TableBlockEntity;
+import dev.gathering.client.GatheringSprites.Element;
+import dev.gathering.core.card.PaperStock;
+import dev.gathering.core.game.CardInstance;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.Placement;
-import dev.gathering.SeatNames;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.Zone;
@@ -27,31 +29,30 @@ import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Legibility;
 import dev.gathering.core.ui.Rect;
-import dev.gathering.core.ui.Shaking;
 import dev.gathering.core.ui.SeatColor;
+import dev.gathering.core.ui.Shaking;
+import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
 import dev.gathering.core.ui.TableScreenLayout;
-import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
-import dev.gathering.core.ui.TableVerb;
 import dev.gathering.core.ui.TableTop;
+import dev.gathering.core.ui.TableVerb;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
-import dev.gathering.core.card.PaperStock;
 import dev.gathering.network.CreateTokenPayload;
 import dev.gathering.network.DiscardAtRandomPayload;
 import dev.gathering.network.FetchBasicPayload;
-import dev.gathering.network.ToBottomAtRandomPayload;
 import dev.gathering.network.RevealUntilPayload;
+import dev.gathering.network.ToBottomAtRandomPayload;
 import dev.gathering.network.UndoPayload;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import net.minecraft.ChatFormatting;
@@ -90,14 +91,6 @@ public final class TableScreen extends Screen {
 
     /** The pot's own color: the stakes gold the consent screen uses, not a board accent. */
     private static final int POT_LABEL = 0xFFE0B15A;
-    private static final int TAPPED_TINT = 0x60000000;
-    private static final int GHOST_TINT = 0x50000000;
-
-    /** What a tax band is written on, which is card art rather than the empty felt. */
-    private static final int TAX_BACKING = 0xB0000000;
-
-    /** What a life total is written on, so it reads against the table rather than into it. */
-    private static final int LIFE_BACKING = 0xA0101418;
 
     /** What the hand strip wrote in itself last frame, when it wrote instead of dealing. */
     private String handSaid = "";
@@ -108,112 +101,22 @@ public final class TableScreen extends Screen {
     /** What the log panel wrote the last time it drew, so a check can read it back. */
     private String logSaid = "";
 
-    /** The tax band under the cursor: darker still, so a button looks like one. */
-    private static final int TAX_LIT = 0xD0000000;
     private static final int COUNTER_TEXT = 0xFFFFE9A8;
-
-    /**
-     * The band a counter is written on.
-     *
-     * <p>Darker than the tint used elsewhere, because this one lands wherever a card's rules
-     * box happens to be light and pale text on pale card stock is text nobody reads at a
-     * glance - which for the one number saying how big a creature is now is the whole point.
-     */
-    private static final int COUNTER_BAND = 0xC0000000;
-
-    /** The felt, and a mat on it. Mats are lighter so the table reads as somebody's space. */
-    private static final int FELT = 0xFF1E3A2E;
-    private static final int MAT = 0x30FFFFFF;
-
-    /** The line round a group of zones: a marking on the mat rather than a piece of interface. */
-    private static final int ZONE_BORDER = 0x66FFFFFF;
-
-    /**
-     * Behind the zone a card in the air would drop into.
-     *
-     * <p>Behind rather than over, so whatever is already sitting in the slot stays readable:
-     * the question being answered is "which box", and the box is the thing that has to
-     * change.
-     */
-    private static final int AIMED = 0x996FD3E8;
 
     /** Zone names printed on the felt: quieter than a card, loud enough to read. */
     private static final int ZONE_LABEL = 0xFFB9C4C0;
 
     /** How solid a free chair's outline is: there, and clearly not a board in play. */
     private static final int FREE_SEAT_EDGE = 0x44;
-    private static final int MAT_MINE = 0x406FD3E8;
-
-    /**
-     * The shadow every card on the table casts.
-     *
-     * <p>Nothing here has thickness, so without this a card lying across another one is two
-     * flat pictures sharing an edge and you cannot tell which is on top.
-     *
-     * <p>A contact shadow rather than a drop shadow, which is the difference between a card
-     * lying on the felt and a card hovering over it. It used to be the whole card again in
-     * black, moved down and right, so what showed was a two-pixel band along two sides -
-     * which is what a thing casts when it is some way off the surface, and read as exactly
-     * that. What a card resting on a table casts is a hard line right where its edge meets
-     * the cloth: one pixel, no daylight under it, and darker to make up for being thin.
-     */
-    private static final int SHADOW = 0x99000000;
 
     private static final int SHADOW_OFFSET = 1;
 
-    /**
-     * What a card being carried casts on the table underneath it.
-     *
-     * <p>Softer and wider than the line a resting card casts, because it is further away -
-     * and the whole footprint rather than an edge, because this one is doing a second job:
-     * it is where the card will come down. A drag that shows nothing until it is let go asks
-     * the player to aim at something they cannot see.
-     */
-    private static final int CAST = 0x59000000;
-
-    /**
-     * The line round where a carried card will come down.
-     *
-     * <p>The same amber the scry box draws its landing bar in, because it is the same
-     * sentence: this is where the thing in your hand goes if you let go now.
-     */
-    private static final int LANDING = 0xBFFFD479;
-
-    /**
-     * What is drawn over a card that will not untap.
-     *
-     * <p>A pale blue wash, and rime caked along the top and bottom edges rather than a ring
-     * round the whole card - because a ring is what the cursor draws. Nearly white, so it
-     * separates from the cursor's cyan as well as from the warm gold of a written power and
-     * toughness: three marks on one card have to be three things or a player reads them as
-     * one.
-     */
-    private static final int FROZEN_TINT = 0x3899D9F2;
-
-    /**
-     * The band over a hand that is face up to somebody.
-     *
-     * <p>Warm against the board's greens and cools, because it is the same kind of fact as a
-     * power and toughness somebody typed: a thing a person did on purpose. It has to be the
-     * one warm thing at the bottom of the window or it is not a warning.
-     */
-    private static final int EXPOSED_BAND = 0xC02A1B12;
     private static final int EXPOSED_TEXT = 0xFFFFD98A;
 
-    /** What somebody said, and the bar it is typed into. Quiet: it is not part of the board. */
-    private static final int TALK_BACKDROP = 0x99000000;
     private static final int TALK_TEXT = 0xFFE8E4DC;
-    private static final int TALK_TYPING = 0xCC101C1A;
     private static final int TALK_TYPING_TEXT = 0xFF8FE3C8;
-    private static final int FROZEN_EDGE = 0xFFE8F7FF;
 
-    /** The badge on a pile, saying how many cards are in it. */
-    private static final int PILE_BADGE = 0xE0141210;
     private static final int PILE_TEXT = 0xFFF2EEE6;
-
-    /** The rubber band drawn while picking out several cards at once. */
-    private static final int BOX_FILL = 0x206FD3E8;
-
 
     /** How far a card is turned by one nudge. Small enough to be a gesture, not a mode. */
     private static final int NUDGE_DEGREES = 15;
@@ -813,7 +716,8 @@ public final class TableScreen extends Screen {
         // being played is the real one, in which case the world shows through and the only
         // things drawn here are the ones that were never on the table anyway.
         if (!playingOnTheBlock) {
-            graphics.fill(0, 0, this.width, this.height, FELT);
+            GatheringSprites.draw(graphics, Element.TABLE_FELT,
+                    0, 0, this.width, this.height);
         }
 
         GameView board = view().orElse(null);
@@ -920,8 +824,8 @@ public final class TableScreen extends Screen {
         }
         if (boxFrom != null) {
             Rect box = boxBetween(boxFrom[0], boxFrom[1], mouseX, mouseY);
-            graphics.fill(box.x(), box.y(), box.right(), box.bottom(), BOX_FILL);
-            graphics.renderOutline(box.x(), box.y(), box.width(), box.height(), ACCENT);
+            GatheringSprites.draw(graphics, Element.SELECT_BOX,
+                    box.x(), box.y(), box.width(), box.height());
         }
         // Over the felt and under the panels, because it is a conversation happening beside
         // the game rather than a thing to read instead of it.
@@ -988,12 +892,14 @@ public final class TableScreen extends Screen {
             Component text = Component.translatable(
                     "chat.gathering.table", said.who(), said.text());
             int wide = Math.min(room, this.font.width(text) + 6);
-            graphics.fill(left - 2, top - 1, left - 2 + wide, top + line - 1, TALK_BACKDROP);
+            GatheringSprites.draw(graphics, Element.TALK_BACKDROP,
+                    left - 2, top - 1, wide, line);
             GuiText.draw(graphics, this.font, text, left, top, room - 6, TALK_TEXT);
         }
         if (saying != null) {
             int top = bottom + 2;
-            graphics.fill(left - 2, top - 1, left - 2 + room, top + line - 1, TALK_TYPING);
+            GatheringSprites.draw(graphics, Element.TALK_TYPING,
+                    left - 2, top - 1, room, line);
             // The caret blinks, which is the only thing on the bar that says it is live -
             // an empty box with a prompt in it looks the same as a box nobody is typing in.
             String caret = (now / 500L) % 2 == 0 ? "_" : "";
@@ -1039,11 +945,13 @@ public final class TableScreen extends Screen {
             boolean taken = seat.hasABoard();
             if (taken) {
                 boolean mine = me != null && me.equals(seat.seat());
-                graphics.fill(mat.x(), mat.y(), mat.right(), mat.bottom(), mine ? MAT_MINE : MAT);
+                GatheringSprites.draw(graphics, mine ? Element.SEAT_MAT_MINE : Element.SEAT_MAT,
+                        mat.x(), mat.y(), mat.width(), mat.height());
             }
             // The seat's own color, which is how four identical rectangles become four
             // boards. Brighter for whoever's turn it is, faint for a chair nobody is in.
-            graphics.renderOutline(mat.x(), mat.y(), mat.width(), mat.height(),
+            GatheringSprites.draw(graphics, Element.SEAT_RING,
+                    mat.x(), mat.y(), mat.width(), mat.height(),
                     SeatColor.at(seat.seat().index(), !taken ? FREE_SEAT_EDGE
                             : seat.seat().equals(board.turn().activeSeat()) ? 0xFF : 0xAA));
             if (!taken) {
@@ -1053,8 +961,8 @@ public final class TableScreen extends Screen {
             // And the line marking off the row nearest its player, which is where lands go.
             Rect divider = board().matDividerRect(seat.seat(), pileCount());
             if (!divider.isEmpty()) {
-                graphics.fill(divider.x(), divider.y(), divider.right(), divider.bottom(),
-                        ZONE_BORDER);
+                GatheringSprites.draw(graphics, Element.SEAT_DIVIDER,
+                        divider.x(), divider.y(), divider.width(), divider.height());
             }
             drawLife(graphics, seat);
         }
@@ -1085,12 +993,14 @@ public final class TableScreen extends Screen {
         float scale = Math.max(SMALLEST_LIFE_SCALE,
                 Math.min(1f, (box.height() - 2f) / this.font.lineHeight));
         int way = mySeat().isEmpty() ? 0 : lifeWayUnder(seat.seat(), cursorX, cursorY);
-        graphics.fill(box.x(), box.y(), box.right(), box.bottom(), LIFE_BACKING);
+        GatheringSprites.draw(graphics, Element.LIFE_BACKING,
+                box.x(), box.y(), box.width(), box.height());
         // In its own seat's color, the same way the mat is - and brighter under the cursor,
         // the same way everything pressable here is. Two boards facing each other put their
         // counters in the same strip of table between them, back to back, and in one gray
         // the pair read as a single control with neither saying which board it was for.
-        graphics.renderOutline(box.x(), box.y(), box.width(), box.height(),
+        GatheringSprites.draw(graphics, Element.SEAT_RING,
+                box.x(), box.y(), box.width(), box.height(),
                 SeatColor.at(seat.seat().index(), way == 0 ? 0xAA : 0xFF));
         // In what the two ends leave, not in half the box: half the box plus two ends better
         // than a quarter each comes to more than there is, and two figures filling it ran
@@ -1259,7 +1169,8 @@ public final class TableScreen extends Screen {
         if (group.isEmpty() || group.width() < 6) {
             return;
         }
-        graphics.renderOutline(group.x(), group.y(), group.width(), group.height(), ZONE_BORDER);
+        GatheringSprites.draw(graphics, Element.ZONE_BORDER,
+                group.x(), group.y(), group.width(), group.height());
         int pointed = verbSlotAt(me, mouseX, mouseY);
         for (int index = 0; index < count; index++) {
             Rect where = board().verbRect(me, index, count);
@@ -1272,8 +1183,8 @@ public final class TableScreen extends Screen {
             if (hovered) {
                 GatheringSprites.highlight(
                         graphics, where.x(), where.y(), where.width(), where.height());
-                graphics.renderOutline(
-                        where.x(), where.y(), where.width(), where.height(), ACCENT);
+                GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                        where.x(), where.y(), where.width(), where.height());
             }
             if (hovered) {
                 tooltip = tipFor(VERB_NAMES[index], VERB_KEY_NAMES[index]);
@@ -1377,7 +1288,8 @@ public final class TableScreen extends Screen {
         if (group.isEmpty() || group.width() < 6) {
             return;
         }
-        graphics.renderOutline(group.x(), group.y(), group.width(), group.height(), ZONE_BORDER);
+        GatheringSprites.draw(graphics, Element.ZONE_BORDER,
+                group.x(), group.y(), group.width(), group.height());
     }
 
     /**
@@ -1420,11 +1332,8 @@ public final class TableScreen extends Screen {
             // five", and the slots are a stack of boxes that already have borders - a single
             // line one shade brighter than the ones above and below it is a difference you
             // have to go looking for, which is the opposite of what a player mid-drag needs.
-            graphics.fill(pile.x() - 2, pile.y() - 2, pile.right() + 2, pile.bottom() + 2, AIMED);
-            graphics.renderOutline(pile.x() - 2, pile.y() - 2,
-                    pile.width() + 4, pile.height() + 4, ACCENT);
-            graphics.renderOutline(pile.x() - 1, pile.y() - 1,
-                    pile.width() + 2, pile.height() + 2, ACCENT);
+            GatheringSprites.draw(graphics, Element.AIMED_PILE,
+                    pile.x() - 2, pile.y() - 2, pile.width() + 4, pile.height() + 4);
         }
 
         // The slot itself, and then whatever is sitting in it. No frame round the card: an
@@ -1487,7 +1396,8 @@ public final class TableScreen extends Screen {
                     taxBand.contains(mouseX, mouseY));
         }
         if (hovered) {
-            graphics.renderOutline(pile.x(), pile.y(), pile.width(), pile.height(), ACCENT);
+            GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                    pile.x(), pile.y(), pile.width(), pile.height());
             top.filter(card -> !card.isFaceDown()).ifPresent(this::offerToInspector);
         }
     }
@@ -1638,7 +1548,8 @@ public final class TableScreen extends Screen {
         // the backing has to be measured the same way or a shrunk number sits with its head
         // out over the card art it is supposed to be legible against.
         int top = Math.round(art.bottom() - this.font.lineHeight * (1 + scale) / 2f) - 1;
-        graphics.fill(art.right() - width, top, art.right(), art.bottom(), GHOST_TINT);
+        GatheringSprites.draw(graphics, Element.GHOST_TINT,
+                art.right() - width, top, width, art.bottom() - top);
         GuiText.drawFlushLeft(graphics, this.font, label, art.right() - width + 2,
                 art.bottom() - this.font.lineHeight, scale, LABEL);
     }
@@ -1673,8 +1584,8 @@ public final class TableScreen extends Screen {
         // Darker than a pile's count sits on, because this one is written over card art
         // rather than over an empty slot, and a commander with a pale text box under a white
         // number is a number nobody can read.
-        graphics.fill(band.x(), band.y(), band.right(), band.bottom(),
-                lit ? TAX_LIT : TAX_BACKING);
+        GatheringSprites.draw(graphics, lit ? Element.TAX_LIT : Element.TAX_BACKING,
+                band.x(), band.y(), band.width(), band.height());
         Component label = Component.literal("+" + tax);
         int baseline = (int) band.centerY() - this.font.lineHeight / 2;
         GuiText.drawCenteredAt(graphics, this.font, label, (int) band.centerX(), baseline,
@@ -1982,7 +1893,7 @@ public final class TableScreen extends Screen {
         int high = Math.round(this.font.lineHeight * scale) + 2;
         int left = where.right() - width - 1;
         int top = where.y() + 1;
-        graphics.fill(left, top, left + width, top + high, PILE_BADGE);
+        GatheringSprites.draw(graphics, Element.PILE_BADGE, left, top, width, high);
         GuiText.drawCenteredAt(
                 graphics, this.font, label, left + width / 2, top + 1, scale, PILE_TEXT);
     }
@@ -2101,7 +2012,8 @@ public final class TableScreen extends Screen {
                 : Component.translatable("screen.gathering.hand.open_to",
                         net.minecraft.network.chat.ComponentUtils.formatList(names, Component.literal(", ")));
         int high = this.font.lineHeight + 2;
-        graphics.fill(area.x(), area.y(), area.right(), area.y() + high, EXPOSED_BAND);
+        GatheringSprites.draw(graphics, Element.EXPOSED_BAND,
+                area.x(), area.y(), area.width(), high);
         GuiText.drawCentered(graphics, this.font, said,
                 area.x() + area.width() / 2, area.y() + 1, area.width() - 4, EXPOSED_TEXT);
     }
@@ -2569,7 +2481,8 @@ public final class TableScreen extends Screen {
         // and there is nothing honest to draw them over here.
         if (landing != null && !playingOnTheBlock) {
             Rect mat = board().matRect(landing);
-            graphics.renderOutline(mat.x(), mat.y(), mat.width(), mat.height(), ACCENT);
+            GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                    mat.x(), mat.y(), mat.width(), mat.height());
         }
 
         // The card in the air is always drawn on the screen, at the size a card is on the
@@ -2598,14 +2511,14 @@ public final class TableScreen extends Screen {
                         comingDownOn.height(), comingDownOn.width())
                 : comingDownOn;
         int lift = Math.max(3, comingDownOn.height() / 8);
-        graphics.fill(footprint.x(), footprint.y(),
-                footprint.right(), footprint.bottom(), CAST);
+        GatheringSprites.draw(graphics, Element.CARD_CAST,
+                footprint.x(), footprint.y(), footprint.width(), footprint.height());
         // And the footprint's own edge, drawn over the shadow so the two sides the card is
         // lifted away from say where it lands as well as the two the shadow shows on. A
         // shadow alone is only ever visible down one corner - which is a drop shadow, which
         // is the thing this is not.
-        graphics.renderOutline(footprint.x(), footprint.y(),
-                footprint.width(), footprint.height(), LANDING);
+        GatheringSprites.draw(graphics, Element.CARD_FOOTPRINT,
+                footprint.x(), footprint.y(), footprint.width(), footprint.height());
 
         Rect airborne = new Rect(comingDownOn.x() - lift, comingDownOn.y() - lift,
                 comingDownOn.width(), comingDownOn.height());
@@ -3794,6 +3707,7 @@ public final class TableScreen extends Screen {
             watching.add(entry("say", () -> saying = new StringBuilder()));
             watching.add(entry(showingLog ? "hide_log" : "show_log",
                     () -> showingLog = !showingLog));
+            watching.add(themeEntry());
             menu = ContextMenu.at(this.font, x, y, this.width, this.height,
                     layout().status().bottom() + 2, watching);
             return;
@@ -3846,6 +3760,7 @@ public final class TableScreen extends Screen {
         // is a verb nobody uses, and the menu is where somebody looks for what a table can do.
         entries.add(entry("say", () -> saying = new StringBuilder()));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
+        entries.add(themeEntry());
         view().ifPresent(board -> entries.add(entry("next_phase",
                 () -> send(new GameEvent.PhaseSet(me, board.turn().phase().next())))));
         view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
@@ -3878,6 +3793,25 @@ public final class TableScreen extends Screen {
         }));
         menu = ContextMenu.at(this.font, x, y, this.width, this.height,
                 layout().status().bottom() + 2, entries);
+    }
+
+    /**
+     * Which set of GUI art to draw with, cycled from the table's own menu.
+     *
+     * <p>Here rather than in a settings screen nobody would find, and on the watchers' menu
+     * as well as the players': the table is where the mod's art is, so the table is where
+     * somebody looks to change it. One entry rather than a list of three, because the change
+     * is visible the instant it is made - the menu behind it repaints - and a list would be a
+     * dialog asking about something you can simply see.
+     *
+     * <p>Saved to this player's own file, not sent anywhere. See {@link ClientSettings}.
+     */
+    private ContextMenu.Entry themeEntry() {
+        GuiTheme now = ClientSettings.theme();
+        return ContextMenu.Entry.of(
+                Component.translatable("menu.gathering.table.theme",
+                        Component.translatable(now.translationKey())),
+                () -> ClientSettings.theme(now.next()));
     }
 
     /** Puts the waiting cards onto the one just clicked, and leaves the mode either way. */
@@ -4162,9 +4096,7 @@ public final class TableScreen extends Screen {
 
     private static final java.util.Map<String, Component> SHORTCUTS = shortcuts();
 
-
     // ------------------------------------------------------------ hit-testing
-
 
     /**
      * The keys, matched to Tabletop Simulator's defaults.
@@ -4590,7 +4522,6 @@ public final class TableScreen extends Screen {
         return !targets.isEmpty();
     }
 
-
     /**
      * Hands the turn on, and untaps whoever is receiving it.
      *
@@ -4681,7 +4612,8 @@ public final class TableScreen extends Screen {
             if (mouseX >= slot.x() && mouseX < slot.right()
                     && mouseY >= slot.y() && mouseY < slot.bottom()) {
                 ClientHoverState.setHovered(CardItem.of(card));
-                graphics.renderOutline(slot.x(), slot.y(), slot.width(), slot.height(), ACCENT);
+                GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                        slot.x(), slot.y(), slot.width(), slot.height());
             }
         }
         // Said rather than assumed, and inside the tray. A row of cards in the middle of a
@@ -4725,10 +4657,11 @@ public final class TableScreen extends Screen {
             // two edges that would show: filling the whole card again and moving it is the
             // same picture with far more of it hidden under the card, and the part that is
             // not hidden is the part that made it look airborne.
-            graphics.fill(where.x() + SHADOW_OFFSET, where.bottom(),
-                    where.right() + SHADOW_OFFSET, where.bottom() + SHADOW_OFFSET, SHADOW);
-            graphics.fill(where.right(), where.y() + SHADOW_OFFSET,
-                    where.right() + SHADOW_OFFSET, where.bottom(), SHADOW);
+            GatheringSprites.draw(graphics, Element.CARD_SHADOW,
+                    where.x() + SHADOW_OFFSET, where.bottom(), where.width(), SHADOW_OFFSET);
+            GatheringSprites.draw(graphics, Element.CARD_SHADOW,
+                    where.right(), where.y() + SHADOW_OFFSET,
+                    SHADOW_OFFSET, where.height() - SHADOW_OFFSET);
         }
         if (card.isFaceDown()) {
             // Even to the player who knows what it is. Their board has to look to them the
@@ -4745,7 +4678,8 @@ public final class TableScreen extends Screen {
         if (onTheFelt && card.tapped()) {
             // A tapped card is already lying sideways; the tint is what tells it apart from
             // one somebody turned by hand, without a word of text over the art.
-            graphics.fill(where.x(), where.y(), where.right(), where.bottom(), TAPPED_TINT);
+            GatheringSprites.draw(graphics, Element.TAPPED_TINT,
+                    where.x(), where.y(), where.width(), where.height());
         }
         if (onTheFelt && card.frozen()) {
             // A frozen card looks frozen. Everything about this feature happens on a press
@@ -4759,7 +4693,8 @@ public final class TableScreen extends Screen {
         // most important number is the one you cannot see.
         drawCounters(graphics, card, where, drawStrength(graphics, card, where));
         if (hovered) {
-            graphics.renderOutline(where.x(), where.y(), where.width(), where.height(), ACCENT);
+            GatheringSprites.draw(graphics, Element.FOCUS_RING,
+                    where.x(), where.y(), where.width(), where.height());
         }
         if (turned) {
             graphics.pose().popPose();
@@ -4837,14 +4772,17 @@ public final class TableScreen extends Screen {
      * of the cursor: three marks on one card have to be three colors or they are one mark.
      */
     private void drawFrost(GuiGraphics graphics, Rect where) {
-        graphics.fill(where.x(), where.y(), where.right(), where.bottom(), FROZEN_TINT);
+        GatheringSprites.draw(graphics, Element.FROZEN_TINT,
+                where.x(), where.y(), where.width(), where.height());
         // Caked along the top and bottom rather than ringing the card. A full outline is what
         // the cursor draws, in a blue close enough to this one that a frozen card under the
         // cursor had two rings nobody could tell apart - and the one that matters is the one
         // that is still there when you look away.
         int rime = Math.max(1, where.height() / 16);
-        graphics.fill(where.x(), where.y(), where.right(), where.y() + rime, FROZEN_EDGE);
-        graphics.fill(where.x(), where.bottom() - rime, where.right(), where.bottom(), FROZEN_EDGE);
+        GatheringSprites.draw(graphics, Element.FROZEN_EDGE,
+                where.x(), where.y(), where.width(), rime);
+        GatheringSprites.draw(graphics, Element.FROZEN_EDGE,
+                where.x(), where.bottom() - rime, where.width(), rime);
     }
 
     /**
@@ -4907,7 +4845,8 @@ public final class TableScreen extends Screen {
         for (int index = 0; index < lines.size(); index++) {
             Component amount = counts.get(index);
             int amountRoom = amount == null ? 0 : this.font.width(amount) + 3;
-            graphics.fill(art.x(), line - 1, art.right(), line + this.font.lineHeight - 1, COUNTER_BAND);
+            GatheringSprites.draw(graphics, Element.COUNTER_BAND,
+                    art.x(), line - 1, art.width(), this.font.lineHeight);
             GuiText.draw(graphics, this.font, lines.get(index),
                     art.x() + 2, line, room - amountRoom, COUNTER_TEXT);
             if (amount != null) {
@@ -4977,7 +4916,6 @@ public final class TableScreen extends Screen {
             GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
         }
     }
-
 
     private TableScreenLayout layout() {
         if (layout == null) {
