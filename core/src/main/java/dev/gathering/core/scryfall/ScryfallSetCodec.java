@@ -10,9 +10,11 @@ import java.util.List;
 /**
  * Scryfall's list of every set, read.
  *
- * <p>Only the six fields that decide which set is current. The reply is a megabyte of set
+ * <p>Only the handful of fields anything here asks for. The reply is a megabyte of set
  * descriptions and none of the rest of it is worth carrying around: what a set is called on
- * the shelf, what kind it is, when it came out, and whether it exists on paper.
+ * the shelf, what kind it is, when it came out, whether it exists on paper, and the two
+ * numbers that say how big it is - how many cards carry the code, and how many the set was
+ * printed as. The difference between those two is what "a complete set" means.
  *
  * <p>A row missing a field it needs is skipped rather than refused. Scryfall's list runs back
  * to 1993 and includes things that barely fit the shape of a set; one strange row is not a
@@ -51,7 +53,10 @@ public final class ScryfallSetCodec {
                     text(set, "set_type"),
                     text(set, "released_at"),
                     flag(set, "digital"),
-                    number(set, "card_count")));
+                    number(set, "card_count"),
+                    // What the cards themselves say they are one of. Scryfall omits it for
+                    // the older sets, where it was the same as the count anyway.
+                    number(set, "printed_size")));
         }
         return List.copyOf(sets);
     }

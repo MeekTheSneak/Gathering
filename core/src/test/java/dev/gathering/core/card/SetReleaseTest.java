@@ -11,7 +11,44 @@ class SetReleaseTest {
 
     private static SetRelease set(String code, String type, String released) {
         return new SetRelease(code, code.toUpperCase(java.util.Locale.ROOT), type, released,
-                false, 300);
+                false, 300, 281);
+    }
+
+    @Test
+    @DisplayName("the size of a set is what its cards say they are one of")
+    void thePrintedSizeIsTheSet() {
+        // Three hundred cards carry the code and the cards say "of 281". The other nineteen
+        // are the borderless, the showcases and the buy-a-box card, and nobody counts those
+        // against somebody who owns one of everything the set says it has.
+        SetRelease modern = set("tst", "expansion", "2026-01-01");
+
+        assertThat(modern.sizeOfTheSet()).isEqualTo(281);
+        assertThat(modern.numbers("1")).isTrue();
+        assertThat(modern.numbers("281")).isTrue();
+        assertThat(modern.numbers("282")).isFalse();
+    }
+
+    @Test
+    @DisplayName("an old set with no printed size is as big as the cards in it")
+    void anOldSetFallsBackToItsCount() {
+        SetRelease old = new SetRelease("leg", "Legends", "expansion", "1994-06-01", false, 310, 0);
+
+        assertThat(old.sizeOfTheSet()).isEqualTo(310);
+        assertThat(old.numbers("310")).isTrue();
+    }
+
+    @Test
+    @DisplayName("a collector number that is not a number is not one of the set")
+    void oddCollectorNumbers() {
+        SetRelease modern = set("tst", "expansion", "2026-01-01");
+
+        // Variants share a number with a suffix, and promos are stars. Both are extras.
+        assertThat(modern.numbers("12a")).isTrue();
+        assertThat(modern.numbers("*")).isFalse();
+        assertThat(modern.numbers("")).isFalse();
+        assertThat(modern.numbers(null)).isFalse();
+        assertThat(SetRelease.leadingNumber("103b")).isEqualTo(103);
+        assertThat(SetRelease.leadingNumber("99999999999999")).isZero();
     }
 
     @Test
@@ -54,7 +91,7 @@ class SetReleaseTest {
                 set("sds", "masterpiece", "2026-11-13"),
                 set("mh4", "draft_innovation", "2026-10-01"),
                 set("pfoo", "promo", "2026-09-30"),
-                new SetRelease("y26", "Alchemy", "alchemy", "2026-09-01", true, 30),
+                new SetRelease("y26", "Alchemy", "alchemy", "2026-09-01", true, 30, 30),
                 set("hob", "expansion", "2026-08-14"));
 
         assertThat(SetRelease.current(sets, "2026-12-01"))

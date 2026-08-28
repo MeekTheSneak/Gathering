@@ -532,6 +532,43 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /** How much of each set is in a collection, on the wire. */
+    @GameTest(template = "empty")
+    public static void setProgressSurvivesTheWire(GameTestHelper helper) {
+        var asked = roundTrip(
+                helper,
+                new dev.gathering.network.AskSetProgressPayload(new net.minecraft.core.BlockPos(4, 5, 6)),
+                dev.gathering.network.AskSetProgressPayload.STREAM_CODEC);
+        if (!asked.collection().equals(new net.minecraft.core.BlockPos(4, 5, 6))) {
+            helper.fail("a set-progress question lost its collection: " + asked.collection());
+        }
+
+        var answer = roundTrip(
+                helper,
+                new dev.gathering.network.SetProgressPayload(
+                        net.minecraft.core.BlockPos.ZERO,
+                        java.util.List.of(
+                                new dev.gathering.network.SetProgressPayload.Row(
+                                        "tst", "The Test Set", 281, 281, 12),
+                                new dev.gathering.network.SetProgressPayload.Row(
+                                        "dom", "Dominaria", 61, 269, 0)),
+                        7),
+                dev.gathering.network.SetProgressPayload.STREAM_CODEC);
+        if (answer.sets().size() != 2 || answer.stillLooking() != 7) {
+            helper.fail("a set-progress answer came back as " + answer.sets().size()
+                    + " sets, " + answer.stillLooking() + " still looking");
+        }
+        var first = answer.sets().get(0).asProgress();
+        if (!first.isComplete() || first.extras() != 12 || first.missing() != 0) {
+            helper.fail("a finished set came back as " + first);
+        }
+        var second = answer.sets().get(1).asProgress();
+        if (second.missing() != 208) {
+            helper.fail("a part-finished set came back missing " + second.missing());
+        }
+        helper.succeed();
+    }
+
     /** A deck's new name, on the wire. */
     @GameTest(template = "empty")
     public static void aRenameSurvivesTheWire(GameTestHelper helper) {

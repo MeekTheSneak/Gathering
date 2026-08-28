@@ -155,6 +155,15 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
                 Component.translatable("screen.gathering.collection.build_deck"),
                 () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
 
+        // How much of each set is in here, which is the one question a binder cannot answer
+        // by being looked at. Beside the way out because it is a place to go rather than a
+        // filter: everything else on this screen changes the list, and this leaves it.
+        addRenderableWidget(GatheringButtons.of(
+                this.width - MARGIN - 118, this.height - BOTTOM_BAR + 8, 58, 18,
+                Component.translatable("screen.gathering.collection.sets"),
+                () -> ClientNetworking.send(
+                        new dev.gathering.network.AskSetProgressPayload(where))));
+
         // A way out somebody can see. Every other panel in the mod has one, and this one
         // relied on the escape key - which is a rule nobody was told. Bottom right, in the
         // bar the page count already lives in.
@@ -490,6 +499,22 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    /**
+     * Shows only one set, from the top.
+     *
+     * <p>What pressing a row of the set-progress screen does. Straight to the first page
+     * rather than wherever the last search was: the set being asked for is a different list,
+     * and page nine of it is not where anybody wants to arrive.
+     */
+    public void showOnly(String setCode) {
+        query = new CollectionQuery(
+                "", setCode == null ? "" : setCode, "", "", null, query.sort());
+        if (searchBox != null) {
+            searchBox.setValue("");
+        }
+        askFor(0);
     }
 
     /** What the screen is looking for, for the scripted run. */

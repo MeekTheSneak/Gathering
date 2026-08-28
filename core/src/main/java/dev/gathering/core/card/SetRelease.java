@@ -31,7 +31,8 @@ public record SetRelease(
         String type,
         String releasedOn,
         boolean digital,
-        int cardCount) {
+        int cardCount,
+        int printedSize) {
 
     /** The set types a booster is printed for. */
     private static final List<String> PREMIER_TYPES = List.of("expansion", "core");
@@ -46,6 +47,56 @@ public record SetRelease(
         name = name == null ? "" : name;
         type = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
         releasedOn = releasedOn == null ? "" : releasedOn.trim();
+        cardCount = Math.max(0, cardCount);
+        printedSize = Math.max(0, printedSize);
+    }
+
+    /**
+     * How many cards the set was printed as: the number on the bottom of every card in it.
+     *
+     * <p>Not the same as {@link #cardCount}, and the difference is the whole of what "a
+     * complete set" means. A modern release has a few hundred numbered cards and then several
+     * hundred more sharing the same set code - borderless, extended art, showcase, promos,
+     * the buy-a-box card - which are numbered above the printed size and which nobody counts
+     * against you. A player who owns one of every card the set says it has owns the set.
+     *
+     * <p>Falls back to the full count for the older sets Scryfall gives no printed size for,
+     * where the two were the same thing anyway because nobody was printing variants yet.
+     */
+    public int sizeOfTheSet() {
+        return printedSize > 0 ? printedSize : cardCount;
+    }
+
+    /**
+     * Whether a card with this collector number is one of the numbered set.
+     *
+     * <p>Collector numbers are text, not numbers: a card can be "103a" or a star. What counts
+     * is the number it starts with, and a number that runs past the printed size - or one
+     * that does not start with a digit at all - is one of the extras.
+     */
+    public boolean numbers(String collectorNumber) {
+        int number = leadingNumber(collectorNumber);
+        return number >= 1 && number <= sizeOfTheSet();
+    }
+
+    /** The number a collector number starts with, or zero where it starts with anything else. */
+    public static int leadingNumber(String collectorNumber) {
+        if (collectorNumber == null) {
+            return 0;
+        }
+        int end = 0;
+        while (end < collectorNumber.length() && Character.isDigit(collectorNumber.charAt(end))) {
+            end++;
+        }
+        if (end == 0) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(collectorNumber.substring(0, end));
+        } catch (NumberFormatException tooLong) {
+            // A collector number of forty digits is not a card, it is somebody's typo.
+            return 0;
+        }
     }
 
     /** Whether this is the kind of set that gets boosters printed for it, on paper. */

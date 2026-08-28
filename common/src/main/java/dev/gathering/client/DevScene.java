@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 220;
+    private static final int LAST_STEP = 224;
 
     private static int step;
     private static int waited;
@@ -2317,6 +2317,55 @@ public final class DevScene {
                 if (!logSays(client, "planar die")) {
                     fail("the planar die was rolled and the log does not say so");
                 }
+                openTheCollection(client);
+                advance(SETTLE);
+            }
+            case 221 -> {
+                expectScreen(client, "opening a collection to count its sets", CollectionScreen.class);
+                // Pressed rather than assumed, like every other button on this screen: one
+                // that fits on a wide window and hides under its neighbour on a narrow one is
+                // a button nobody can find.
+                press(client, net.minecraft.network.chat.Component
+                        .translatable("screen.gathering.collection.sets").getString());
+                // And then answered here, because working out how much of a set is here is a
+                // question for Scryfall and this run has no network - the same reason the
+                // token search two hundred steps back backs out of its own question. What is
+                // being checked is the screen, which is all of it that is ours.
+                howMuchOfEachSet(client);
+                advance(SETTLE);
+            }
+            case 222 -> {
+                expectScreen(client, "how much of each set is here", SetProgressScreen.class);
+                shoot(client, "73-how-much-of-each-set");
+                hover(client, new int[] {client.getWindow().getGuiScaledWidth() / 2, SET_ROW_Y});
+                advance(SETTLE / 2);
+            }
+            case 223 -> {
+                // Pressing a set takes the collection down to it. Without that the screen
+                // shows you where you are and then makes you go and find it again.
+                //
+                // Which set that is depends on what the server answered, and this run cannot
+                // know: a machine with a network gets real sets and one without gets the four
+                // fed above. So the row under the cursor is asked for and checked against
+                // afterwards, which is the question that is actually being asked.
+                if (client.screen instanceof SetProgressScreen sets) {
+                    pressedSet = sets.hoveredCode();
+                    if (pressedSet.isEmpty()) {
+                        fail("no set row was under the cursor to press");
+                    }
+                    sets.mouseClicked(
+                            client.getWindow().getGuiScaledWidth() / 2.0, SET_ROW_Y, 0);
+                }
+                advance(SETTLE);
+            }
+            case 224 -> {
+                expectScreen(client, "back in the collection, filtered", CollectionScreen.class);
+                if (client.screen instanceof CollectionScreen collection
+                        && !pressedSet.equals(collection.query().setCode())) {
+                    fail("pressing " + pressedSet + " narrowed the collection to '"
+                            + collection.query().setCode() + "'");
+                }
+                shoot(client, "74-only-that-set");
                 advance(SETTLE / 2);
             }
             default -> {
@@ -4025,6 +4074,34 @@ public final class DevScene {
         }
         return ClientTableChat.recentAt(table, System.currentTimeMillis()).stream()
                 .noneMatch(said -> said.text().contains(words));
+    }
+
+    /** Where the first row of the set list sits, which is the row the scene presses. */
+    private static final int SET_ROW_Y = 44;
+
+    /** Which set the run pressed, so the step after can check the collection followed. */
+    private static String pressedSet = "";
+
+    /**
+     * Answers the set-completion question the way a server with a network would.
+     *
+     * <p>Four sets covering what the screen has to draw differently: one finished, one most of
+     * the way, one barely started, and one whose extras outnumber what it has of the set
+     * itself. Sent as the payload rather than poked into the screen, so what is checked is the
+     * whole path from the wire in.
+     */
+    private static void howMuchOfEachSet(Minecraft client) {
+        if (table == null && collectionBlock == null) {
+            fail("there was no collection to count");
+            return;
+        }
+        java.util.List<dev.gathering.network.SetProgressPayload.Row> rows = java.util.List.of(
+                new dev.gathering.network.SetProgressPayload.Row("tst", "The Test Set", 281, 281, 12),
+                new dev.gathering.network.SetProgressPayload.Row("mid", "Innistrad: Midnight Hunt", 214, 277, 3),
+                new dev.gathering.network.SetProgressPayload.Row("dom", "Dominaria", 61, 269, 0),
+                new dev.gathering.network.SetProgressPayload.Row("leg", "Legends", 4, 310, 21));
+        SetProgressScreen.accept(new dev.gathering.network.SetProgressPayload(
+                collectionBlock, rows, 0));
     }
 
     /** Shuts the board, for the steps that happen out in the world. */

@@ -61,6 +61,9 @@ final class GatheringNetwork {
                 dev.gathering.network.BringInDungeonPayload.TYPE,
                 dev.gathering.network.BringInDungeonPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.AskSetProgressPayload.TYPE,
+                dev.gathering.network.AskSetProgressPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.TableChatPayload.TYPE,
                 dev.gathering.network.TableChatPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
@@ -87,6 +90,9 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.AnteAnswerPayload.TYPE,
                 dev.gathering.network.AnteAnswerPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.SetProgressPayload.TYPE,
+                dev.gathering.network.SetProgressPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.TableSaidPayload.TYPE,
                 dev.gathering.network.TableSaidPayload.STREAM_CODEC);
@@ -237,6 +243,10 @@ final class GatheringNetwork {
                 dev.gathering.network.BringInDungeonPayload.TYPE, (payload, context) ->
                         dev.gathering.service.CardDataService.active().ifPresent(service ->
                                 dev.gathering.server.Dungeons.handle(context.player(), service, payload)));
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.AskSetProgressPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.CollectionSets.progress(
+                                context.player(), payload.collection()));
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.TableChatPayload.TYPE, (payload, context) ->
                         dev.gathering.server.TableTalk.handle(context.player(), payload));

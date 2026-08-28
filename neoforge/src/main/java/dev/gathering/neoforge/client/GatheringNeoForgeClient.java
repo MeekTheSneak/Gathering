@@ -163,6 +163,10 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> acceptSideboard(sideboard));
             return;
         }
+        if (payload instanceof dev.gathering.network.SetProgressPayload progress) {
+            context.enqueueWork(() -> dev.gathering.client.SetProgressScreen.accept(progress));
+            return;
+        }
         if (payload instanceof dev.gathering.network.TableSaidPayload said) {
             context.enqueueWork(() -> dev.gathering.client.ClientTableChat.accept(said));
             return;

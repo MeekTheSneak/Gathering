@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -71,6 +72,15 @@ public final class CardDataService implements AutoCloseable {
         active = service;
         return service;
     }
+
+    /**
+     * Every set Scryfall lists, by code, once it has been fetched.
+     *
+     * <p>Volatile and written once: several things ask for it and any of them may be first.
+     * Never written empty, so a failed fetch is asked again rather than remembered as an
+     * answer.
+     */
+    private volatile Map<String, dev.gathering.core.card.SetRelease> everySet;
 
     /** Empty between servers, which is the honest answer rather than a stale pipeline. */
     public static Optional<CardDataService> active() {
@@ -165,6 +175,36 @@ public final class CardDataService implements AutoCloseable {
     }
 
     /**
+     * Every set there has ever been, by its code.
+     *
+     * <p>Fetched once and kept, because it is a megabyte of reply that changes about six times
+     * a year and three separate features want it: which set is current, which sets a server
+     * draws packs from, and how big a set is when somebody asks how much of one they have.
+     * Asking Scryfall three times for the same answer would be rude as well as slow.
+     *
+     * <p>The failure is remembered as an absence rather than as a value, so a server that
+     * started with no network answers again the next time somebody asks rather than insisting
+     * for the rest of its life that there are no sets.
+     */
+    public CompletableFuture<Map<String, dev.gathering.core.card.SetRelease>> allSets() {
+        Map<String, dev.gathering.core.card.SetRelease> known = everySet;
+        if (known != null) {
+            return CompletableFuture.completedFuture(known);
+        }
+        return supply(() -> {
+            Map<String, dev.gathering.core.card.SetRelease> byCode = new java.util.LinkedHashMap<>();
+            for (dev.gathering.core.card.SetRelease set : client.everySet()) {
+                byCode.putIfAbsent(set.code(), set);
+            }
+            Map<String, dev.gathering.core.card.SetRelease> settled = Map.copyOf(byCode);
+            if (!settled.isEmpty()) {
+                everySet = settled;
+            }
+            return settled;
+        });
+    }
+
+    /**
      * Every premier set that has come out, newest first, from Scryfall's list of all of them.
      *
      * <p>The whole list rather than only the newest, because a server drawing its packs from
@@ -173,8 +213,9 @@ public final class CardDataService implements AutoCloseable {
      */
     public CompletableFuture<List<dev.gathering.core.card.SetRelease>> premierSets(
             String today, int howMany) {
-        return supply(() ->
-                dev.gathering.core.card.SetRelease.recent(client.everySet(), today, howMany));
+        return allSets().thenApply(sets ->
+                dev.gathering.core.card.SetRelease.recent(
+                        List.copyOf(sets.values()), today, howMany));
     }
 
     /** Tokens matching a name, for the "make a token" screen. */
