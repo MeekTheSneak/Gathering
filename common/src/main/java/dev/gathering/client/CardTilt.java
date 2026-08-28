@@ -128,6 +128,18 @@ public final class CardTilt {
     }
 
     /**
+     * And where it is up and down the card.
+     *
+     * <p>Its own number rather than folded into the one above, because the shine is a place on
+     * a surface and a place needs two. Taking only the sideways turn meant a card tipped up
+     * and down was a card whose foil did nothing, which is the first thing anybody holding one
+     * tries.
+     */
+    public static float shineDown() {
+        return Mth.clamp(pitch / MOST_PITCH, -1f, 1f);
+    }
+
+    /**
      * Whether the mouse is currently free to aim it.
      *
      * <p>A screen means a cursor; no screen means the mouse is the camera. The two aiming

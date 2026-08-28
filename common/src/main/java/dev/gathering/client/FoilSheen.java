@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import dev.gathering.core.ui.CardMesh;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.util.Mth;
 import org.joml.Matrix4f;
@@ -102,6 +103,9 @@ public final class FoilSheen {
     /** How big one point of grain is, as a share of the card's width. */
     private static final float GRAIN_SIZE = 0.011f;
 
+    /** How many pieces a rounded corner of the shine is drawn in. */
+    private static final int SHINE_ARC = 12;
+
     private static final float TAU = (float) (Math.PI * 2.0);
 
     private FoilSheen() {
@@ -110,19 +114,30 @@ public final class FoilSheen {
     /**
      * Paints the shine onto a card's mesh.
      *
-     * <p>{@code slide} is where the light is, from minus one to one across the card. The
-     * inspect screen feeds it the turn, so tipping the card moves the shine - see
-     * {@link CardTilt}.
+     * <p>{@code shineX} and {@code shineY} are where the light is, each from minus one to one,
+     * and both of them matter. An earlier version took only the sideways turn, so a card
+     * tipped up and down was a card whose foil did nothing - which is the one thing a person
+     * turning a foil over in their hands will try within about two seconds. Each spectrum
+     * takes the part of that movement that runs along its own rake, so tipping the card any
+     * direction moves every part of the shine, by different amounts, the way light does.
      */
     static void paint(
-            Matrix4f matrix, CardLens lens, float slide, long grain, int columns, int rows) {
-        float travel = Mth.clamp(slide, -1f, 1f);
-        float middle = 0.5f + travel * CATCH_TRAVEL;
-        float crossMiddle = 0.5f - travel * CATCH_TRAVEL;
+            Matrix4f matrix, CardLens lens, float shineX, float shineY, long grain,
+            int columns, int rows) {
+        float acrossCard = Mth.clamp(shineX, -1f, 1f);
+        float downCard = Mth.clamp(shineY, -1f, 1f);
         float cosRake = (float) Math.cos(Math.toRadians(RAKE));
         float sinRake = (float) Math.sin(Math.toRadians(RAKE));
         float cosCross = (float) Math.cos(Math.toRadians(CROSS_RAKE));
         float sinCross = (float) Math.sin(Math.toRadians(CROSS_RAKE));
+
+        // How much of the movement runs along each rake. The two rakes cross, so the same
+        // tip of the hand moves them by different amounts - which is what stops the pair
+        // reading as one gradient sliding about.
+        float travel = acrossCard * cosRake + downCard * sinRake;
+        float crossTravel = -(acrossCard * cosCross + downCard * sinCross);
+        float middle = 0.5f + travel * CATCH_TRAVEL;
+        float crossMiddle = 0.5f + crossTravel * CATCH_TRAVEL;
 
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.enableBlend();
@@ -130,22 +145,19 @@ public final class FoilSheen {
         BufferBuilder buffer =
                 Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         float[] corner = new float[2];
-        for (int column = 0; column < columns; column++) {
-            float leftU = column / (float) columns;
-            float rightU = (column + 1) / (float) columns;
-            for (int row = 0; row < rows; row++) {
-                float topV = row / (float) rows;
-                float bottomV = (row + 1) / (float) rows;
-                lit(buffer, matrix, lens, corner, leftU, topV, travel, middle, crossMiddle,
-                        cosRake, sinRake, cosCross, sinCross);
-                lit(buffer, matrix, lens, corner, leftU, bottomV, travel, middle, crossMiddle,
-                        cosRake, sinRake, cosCross, sinCross);
-                lit(buffer, matrix, lens, corner, rightU, bottomV, travel, middle, crossMiddle,
-                        cosRake, sinRake, cosCross, sinCross);
-                lit(buffer, matrix, lens, corner, rightU, topV, travel, middle, crossMiddle,
-                        cosRake, sinRake, cosCross, sinCross);
-            }
-        }
+        // The card's own surface, corners cut - the same points the picture is drawn from, so
+        // the shine is made of the card and there is nowhere else it could be. See CardMesh.
+        CardMesh.walk(lens.aspect(), columns, rows, SHINE_ARC,
+                (u1, v1, u2, v2, u3, v3, u4, v4) -> {
+                    lit(buffer, matrix, lens, corner, u1, v1, travel, crossTravel, middle,
+                            crossMiddle, cosRake, sinRake, cosCross, sinCross);
+                    lit(buffer, matrix, lens, corner, u2, v2, travel, crossTravel, middle,
+                            crossMiddle, cosRake, sinRake, cosCross, sinCross);
+                    lit(buffer, matrix, lens, corner, u3, v3, travel, crossTravel, middle,
+                            crossMiddle, cosRake, sinRake, cosCross, sinCross);
+                    lit(buffer, matrix, lens, corner, u4, v4, travel, crossTravel, middle,
+                            crossMiddle, cosRake, sinRake, cosCross, sinCross);
+                });
         BufferUploader.drawWithShader(buffer.buildOrThrow());
         grain(matrix, lens, middle, cosRake, sinRake, grain);
         RenderSystem.disableBlend();
@@ -154,13 +166,13 @@ public final class FoilSheen {
     /** One point of the mesh, colored by both spectra laid over each other. */
     private static void lit(
             BufferBuilder buffer, Matrix4f matrix, CardLens lens, float[] corner,
-            float u, float v, float travel, float middle, float crossMiddle,
+            float u, float v, float travel, float crossTravel, float middle, float crossMiddle,
             float cosRake, float sinRake, float cosCross, float sinCross) {
         float along = lens.alongRake(u, v, cosRake, sinRake);
         float across = lens.alongRake(u, v, cosCross, sinCross);
 
         float[] first = spectrum(along, travel, middle, 1f);
-        float[] second = spectrum(across, -travel, crossMiddle, CROSS_SHARE);
+        float[] second = spectrum(across, crossTravel, crossMiddle, CROSS_SHARE);
         // The faint one under the strong one, composited the ordinary way rather than added,
         // so two spectra crossing stay a sheen instead of stacking up into a fog.
         float alpha = first[3] + second[3] * (1f - first[3]);
@@ -225,8 +237,11 @@ public final class FoilSheen {
                 continue;
             }
             int color = pack(GRAIN_ALPHA * lit * lit, 1f, 1f, 1f);
-            // Kept inside the card's own edges, so a point that landed on the very corner is
-            // a smaller point rather than one hanging off it.
+            // On the card, corners included - a point of light hanging off a cut corner is
+            // the one place a viewer would notice the shine is not really part of the card.
+            if (!CardMesh.holds(u, v, lens.aspect(), 0f)) {
+                continue;
+            }
             float halfU = GRAIN_SIZE / 2f;
             float halfV = halfU * lens.aspect();
             float leftU = Math.max(0f, u - halfU);

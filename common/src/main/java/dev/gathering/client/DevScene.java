@@ -2283,12 +2283,22 @@ public final class DevScene {
                     fail("the head turned one way and the card did not: yaw " + CardTilt.yaw());
                 }
                 shoot(client, "71-the-foil-turned");
+                // Back the other way and tipped down as well, because a foil that only
+                // answers a sideways turn is a foil that does nothing the first time somebody
+                // tips it up and down - which is the first thing anybody tries.
                 turnTheHead(client, -40f);
+                tipTheHead(client, 18f);
                 advance(SETTLE);
             }
             case 218 -> {
                 if (CardTilt.yaw() > -1f) {
                     fail("the head turned back and the card did not: yaw " + CardTilt.yaw());
+                }
+                if (Math.abs(CardTilt.pitch()) < 0.5f) {
+                    fail("the head tipped and the card did not: pitch " + CardTilt.pitch());
+                }
+                if (Math.abs(CardTilt.shineDown()) < 0.05f) {
+                    fail("the card tipped and the shine did not move down it");
                 }
                 shoot(client, "72-the-foil-turned-back");
                 CardZoomOverlay.bindKeyState(() -> false);
@@ -3997,6 +4007,15 @@ public final class DevScene {
             board.charTyped(letter, 0);
         }
         board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, 0, 0);
+    }
+
+    /** And tips it up or down, which moves the shine the other way across the card. */
+    private static void tipTheHead(Minecraft client, float degrees) {
+        if (client.player == null) {
+            fail("there was nobody to tip");
+            return;
+        }
+        client.player.setXRot(client.player.getXRot() + degrees);
     }
 
     /** Whether the line got all the way back round to this client. */

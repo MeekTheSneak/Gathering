@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import dev.gathering.core.ui.CardMesh;
 import dev.gathering.core.ui.Rect;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
@@ -15,10 +16,16 @@ import org.joml.Matrix4f;
 /**
  * A printed face, drawn as a card somebody is holding.
  *
- * <p>Not a picture with a transform on it. The card is a rectangle in space turned about its
- * own middle and projected through {@link CardLens}, drawn as a grid of quads rather than one:
- * a single quad under a perspective has its texture stretched wrong across the diagonal, which
+ * <p>Not a picture with a transform on it. The card is a real shape in space turned about its
+ * own middle and projected through {@link CardLens}, drawn as many quads rather than one: a
+ * single quad under a perspective has its texture stretched wrong across the diagonal, which
  * is the warp old console games are remembered for, and subdividing it is the whole fix.
+ *
+ * <p>The shape is {@link CardMesh}, which is a rectangle with its corners cut, because that is
+ * what a card is. The picture the mod fetches is a rectangle - a scan has to be - so the
+ * rounding is the mod's to do, and it is done by covering the card in quads that stop where the
+ * card stops rather than by painting the corners out afterwards, which would need to know what
+ * is behind the card and that changes from screen to screen.
  *
  * <p><b>The shine is painted onto that same grid.</b> That is the important part of the design
  * and not an implementation detail. It means the foil is made of the card's own points, so it
@@ -46,6 +53,13 @@ public final class TiltedFace {
     private static final int FACE_COLUMNS = 10;
     private static final int FACE_ROWS = 14;
 
+    /** How many pieces each rounded corner is drawn in. Enough that the curve is a curve. */
+    private static final int FACE_ARC = 10;
+    private static final int SHINE_ARC = 12;
+
+    /** The shadow only needs a silhouette, so it is walked as coarsely as a shape allows. */
+    private static final int SHADOW_ARC = 10;
+
     /**
      * And how finely the shine is.
      *
@@ -56,6 +70,7 @@ public final class TiltedFace {
      */
     private static final int SHINE_COLUMNS = 26;
     private static final int SHINE_ROWS = 36;
+
 
     /** The shadow the card casts on the backdrop behind it, and how far it drops and slides. */
     private static final int SHADOW = 0x59000000;
@@ -72,12 +87,13 @@ public final class TiltedFace {
      * screen that shows a card in a list is untouched by any of this and costs exactly what it
      * did before.
      *
-     * @param slide where the light is across the card, minus one to one
+     * @param shineX where the light is across the card, minus one to one
+     * @param shineY and up and down it, so tipping the card either way moves the shine
      * @param grain a stable number about the printing, so its sparkle is its own
      */
     public static void draw(
             GuiGraphics graphics, ResourceLocation texture, Rect where,
-            float yaw, float pitch, boolean foil, long grain, float slide) {
+            float yaw, float pitch, boolean foil, long grain, float shineX, float shineY) {
         if (!foil && yaw == 0f && pitch == 0f) {
             // Every card in every list takes this line and nothing else. Answered before a
             // lens is even built, because this runs for every card on a board on every frame
@@ -89,11 +105,11 @@ public final class TiltedFace {
         CardLens lens = CardLens.of(where, yaw, pitch);
         Matrix4f matrix = graphics.pose().last().pose();
         if (!lens.isSquare()) {
-            castShadow(matrix, lens, slide);
+            castShadow(matrix, lens, shineX);
         }
         paint(matrix, lens, texture);
         if (foil) {
-            FoilSheen.paint(matrix, lens, slide, grain, SHINE_COLUMNS, SHINE_ROWS);
+            FoilSheen.paint(matrix, lens, shineX, shineY, grain, SHINE_COLUMNS, SHINE_ROWS);
         }
     }
 
@@ -110,18 +126,13 @@ public final class TiltedFace {
         BufferBuilder buffer =
                 Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
         float[] corner = new float[2];
-        for (int column = 0; column < FACE_COLUMNS; column++) {
-            float leftU = column / (float) FACE_COLUMNS;
-            float rightU = (column + 1) / (float) FACE_COLUMNS;
-            for (int row = 0; row < FACE_ROWS; row++) {
-                float topV = row / (float) FACE_ROWS;
-                float bottomV = (row + 1) / (float) FACE_ROWS;
-                textured(buffer, matrix, lens, corner, leftU, topV);
-                textured(buffer, matrix, lens, corner, leftU, bottomV);
-                textured(buffer, matrix, lens, corner, rightU, bottomV);
-                textured(buffer, matrix, lens, corner, rightU, topV);
-            }
-        }
+        CardMesh.walk(lens.aspect(), FACE_COLUMNS, FACE_ROWS, FACE_ARC,
+                (u1, v1, u2, v2, u3, v3, u4, v4) -> {
+                    textured(buffer, matrix, lens, corner, u1, v1);
+                    textured(buffer, matrix, lens, corner, u2, v2);
+                    textured(buffer, matrix, lens, corner, u3, v3);
+                    textured(buffer, matrix, lens, corner, u4, v4);
+                });
         BufferUploader.drawWithShader(buffer.buildOrThrow());
     }
 
@@ -138,18 +149,22 @@ public final class TiltedFace {
      * narrows. A shadow that kept the flat shape read as a gray slab lying beside the card,
      * which is worse than no shadow at all.
      */
-    private static void castShadow(Matrix4f matrix, CardLens lens, float slide) {
-        float cast = -slide * SHADOW_REACH;
+    private static void castShadow(Matrix4f matrix, CardLens lens, float shineX) {
+        float cast = -shineX * SHADOW_REACH;
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         BufferBuilder buffer =
                 Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         float[] corner = new float[2];
-        shade(buffer, matrix, lens, corner, 0f, 0f, cast);
-        shade(buffer, matrix, lens, corner, 0f, 1f, cast);
-        shade(buffer, matrix, lens, corner, 1f, 1f, cast);
-        shade(buffer, matrix, lens, corner, 1f, 0f, cast);
+        // The card's own outline, corners and all, so what falls behind it is card-shaped.
+        // Walked coarsely: a shadow needs a silhouette and nothing inside it.
+        CardMesh.walk(lens.aspect(), 1, 1, SHADOW_ARC, (u1, v1, u2, v2, u3, v3, u4, v4) -> {
+            shade(buffer, matrix, lens, corner, u1, v1, cast);
+            shade(buffer, matrix, lens, corner, u2, v2, cast);
+            shade(buffer, matrix, lens, corner, u3, v3, cast);
+            shade(buffer, matrix, lens, corner, u4, v4, cast);
+        });
         BufferUploader.drawWithShader(buffer.buildOrThrow());
         RenderSystem.disableBlend();
     }

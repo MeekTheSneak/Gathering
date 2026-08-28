@@ -334,14 +334,16 @@ public final class CardInspectPanel {
      * screens that are actually about one card ask for {@link #inspected}; everything else
      * takes {@link #FLAT} and is drawn exactly as it always was.
      */
-    private record Holding(boolean foil, long grain, float yaw, float pitch, float slide) {
+    private record Holding(
+            boolean foil, long grain, float yaw, float pitch, float shineX, float shineY) {
 
         /** A card lying flat with nothing special about it. */
-        static final Holding FLAT = new Holding(false, 0L, 0f, 0f, 0f);
+        static final Holding FLAT = new Holding(false, 0L, 0f, 0f, 0f, 0f);
 
         /** The card somebody is looking at, turned however they are holding it. */
         static Holding inspected(boolean foil, long grain) {
-            return new Holding(foil, grain, CardTilt.yaw(), CardTilt.pitch(), CardTilt.shine());
+            return new Holding(foil, grain, CardTilt.yaw(), CardTilt.pitch(),
+                    CardTilt.shine(), CardTilt.shineDown());
         }
     }
 
@@ -372,7 +374,8 @@ public final class CardInspectPanel {
 
         if (texture.isPresent()) {
             TiltedFace.draw(graphics, texture.get(), new Rect(x, y, width, height),
-                    held.yaw(), held.pitch(), held.foil(), held.grain(), held.slide());
+                    held.yaw(), held.pitch(), held.foil(), held.grain(),
+                    held.shineX(), held.shineY());
             return;
         }
 
