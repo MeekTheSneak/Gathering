@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 219;
+    private static final int LAST_STEP = 220;
 
     private static int step;
     private static int waited;
@@ -2270,22 +2270,32 @@ public final class DevScene {
             }
             case 216 -> {
                 shoot(client, "70-reading-a-foil");
-                // Turned, so the second picture is the first one with the card tipped and the
-                // shine somewhere else. A sheen that looked identical in both would be a
-                // sheen that is not moving, which is the only way this can fail quietly.
-                turnTheHead(client, 18f);
+                // Turned both ways, so the three pictures are one card with the light in
+                // three places. A sheen that looked identical in all of them would be a sheen
+                // that is not moving, which is the only way this can fail quietly - and the
+                // far ends of the turn are where the shine would leave the card if the
+                // scissor were not holding it.
+                turnTheHead(client, 20f);
                 advance(SETTLE);
             }
             case 217 -> {
-                if (Math.abs(CardTilt.yaw()) < 1f) {
-                    fail("the head turned and the card did not: yaw " + CardTilt.yaw());
+                if (CardTilt.yaw() < 1f) {
+                    fail("the head turned one way and the card did not: yaw " + CardTilt.yaw());
                 }
                 shoot(client, "71-the-foil-turned");
+                turnTheHead(client, -40f);
+                advance(SETTLE);
+            }
+            case 218 -> {
+                if (CardTilt.yaw() > -1f) {
+                    fail("the head turned back and the card did not: yaw " + CardTilt.yaw());
+                }
+                shoot(client, "72-the-foil-turned-back");
                 CardZoomOverlay.bindKeyState(() -> false);
                 backToTheBoard(client);
                 advance(SETTLE);
             }
-            case 218 -> {
+            case 219 -> {
                 // The planar die, which is not a d6: four blanks, a chaos and a planeswalk.
                 // Rolled through the same door every other die goes through, so what is being
                 // checked is that the face reaches the log at all - a symbol only the roller
@@ -2293,7 +2303,7 @@ public final class DevScene {
                 rollThePlanarDie(client);
                 advance(SETTLE);
             }
-            case 219 -> {
+            case 220 -> {
                 if (!logSays(client, "planar die")) {
                     fail("the planar die was rolled and the log does not say so");
                 }

@@ -61,17 +61,6 @@ public final class CardInspectPanel {
      */
     private static final int FULL_BACKDROP = 0xE6000000;
 
-    /**
-     * The shadow a turned card casts, how far it slides, and how far it drops.
-     *
-     * <p>Slid by the same number that moves the shine, which is the point: the light is on one
-     * side and the shadow is on the other, and taking both off one figure is what stops them
-     * disagreeing the day somebody changes how far a card turns.
-     */
-    private static final int CARD_SHADOW = 0x59000000;
-    private static final int SHADOW_REACH = 11;
-    private static final int SHADOW_DROP = 8;
-
 
     private static final int GAP = 8;
     private static final int PADDING = 8;
@@ -198,14 +187,12 @@ public final class CardInspectPanel {
         int artRow = artWidth * faces.size() + GAP * (faces.size() - 1);
         int face = x + PADDING + (content - artRow) / 2;
         for (CardFaceSummary summaryFace : faces) {
-            drawFace(graphics, summaryFace, face, y + PADDING, artWidth, artHeight);
             // The shine, on the small panel too. It moves with the cursor rather than with a
             // turn, because this panel is already following the cursor and turning it as well
             // would be two things answering one hand. Same drawing either way, so a foil
             // looks like a foil wherever it is met.
-            if (foil) {
-                FoilSheen.draw(graphics, face, y + PADDING, artWidth, artHeight, CardTilt.shine());
-            }
+            drawFace(graphics, summaryFace, Holding.inspected(foil, grainOf(summary)),
+                    face, y + PADDING, artWidth, artHeight);
             face += artWidth + GAP;
         }
         int textTop = y + PADDING + artHeight + GAP;
@@ -320,54 +307,72 @@ public final class CardInspectPanel {
         if (card.isEmpty()) {
             return;
         }
-        drawTurned(graphics, summary.sideShown(flipped), foil, card);
+        drawFace(graphics, summary.sideShown(flipped), Holding.inspected(foil, grainOf(summary)),
+                card.x(), card.y(), card.width(), card.height());
         drawTextPanel(graphics, summary.faces(), words.x(), words.y(), words.width(), words.height());
     }
 
     /**
-     * The card, turned the way the reader is holding it, with its shine if it has one.
+     * A number to sparkle by: this printing and no other.
      *
-     * <p>The turn is a rotation about the card's own middle in both axes, which under the
-     * interface's flat projection reads as the card narrowing on one side - which is what a
-     * card being turned away from you does. Slight, and eased, so it is a hand rather than a
-     * mechanism.
-     *
-     * <p>The shine is drawn a hair in front of the face along the card's own normal, so it
-     * travels with the turn and cannot fight the art for the same depth.
+     * <p>Taken from the Scryfall id, so a foil glitters the same way every time it is picked
+     * up and two foils on the same table do not glitter alike. It is not a secret and it is
+     * not sent anywhere - the client already holds it, because it is what it fetched the
+     * picture with.
      */
-    private static void drawTurned(
-            GuiGraphics graphics, CardFaceSummary face, boolean foil, Rect where) {
-        graphics.pose().pushPose();
-        graphics.pose().translate((float) where.centerX(), (float) where.centerY(), 0f);
-        graphics.pose().mulPose(com.mojang.math.Axis.YP.rotationDegrees(CardTilt.yaw()));
-        graphics.pose().mulPose(com.mojang.math.Axis.XP.rotationDegrees(CardTilt.pitch()));
-        graphics.pose().translate((float) -where.centerX(), (float) -where.centerY(), 0f);
-
-        // The card's own shadow, cast the other way from the turn. Drawn inside the turn
-        // rather than flat behind it, so it narrows as the card narrows: a shadow that kept
-        // the card's untilted shape read as a grey slab lying next to it rather than as the
-        // card's own, which is worse than no shadow at all.
-        int cast = Math.round(-CardTilt.shine() * SHADOW_REACH);
-        graphics.pose().pushPose();
-        graphics.pose().translate(cast, SHADOW_DROP, -1f);
-        graphics.fill(where.x(), where.y(), where.right(), where.bottom(), CARD_SHADOW);
-        graphics.pose().popPose();
-
-        drawFace(graphics, face, where.x(), where.y(), where.width(), where.height());
-        if (foil) {
-            graphics.pose().translate(0f, 0f, 1f);
-            FoilSheen.draw(graphics, where.x(), where.y(), where.width(), where.height(),
-                    CardTilt.shine());
-        }
-        graphics.pose().popPose();
+    private static long grainOf(CardSummary summary) {
+        return summary.scryfallId().getMostSignificantBits()
+                ^ summary.scryfallId().getLeastSignificantBits();
     }
 
-    private static void drawFace(GuiGraphics graphics, CardFaceSummary face, int x, int y, int width, int height) {
+    /**
+     * How a particular copy of a card is being held: foil or not, and turned how far.
+     *
+     * <p>Carried rather than read from {@link CardTilt} where the card is drawn, because most
+     * of the cards this class draws are rows in a list and a list that leaned every time
+     * somebody inspected something else would be a list with a fault in it. Only the two
+     * screens that are actually about one card ask for {@link #inspected}; everything else
+     * takes {@link #FLAT} and is drawn exactly as it always was.
+     */
+    private record Holding(boolean foil, long grain, float yaw, float pitch, float slide) {
+
+        /** A card lying flat with nothing special about it. */
+        static final Holding FLAT = new Holding(false, 0L, 0f, 0f, 0f);
+
+        /** The card somebody is looking at, turned however they are holding it. */
+        static Holding inspected(boolean foil, long grain) {
+            return new Holding(foil, grain, CardTilt.yaw(), CardTilt.pitch(), CardTilt.shine());
+        }
+    }
+
+    /** A printed face lying flat, with no shine on it. For every list of cards. */
+    private static void drawFace(
+            GuiGraphics graphics, CardFaceSummary face, int x, int y, int width, int height) {
+        drawFace(graphics, face, Holding.FLAT, x, y, width, height);
+    }
+
+    /**
+     * A printed face, turned the way it is being held, with its shine if it is a foil.
+     *
+     * <p><b>The only place a foil is ever drawn.</b> The shine goes on inside the branch that
+     * has just been handed a printed face's texture, so there is no arrangement of callers
+     * that can put one on anything else: a sleeve is a different texture drawn by different
+     * code with no path here, and a card whose art has not arrived gets the placeholder below
+     * and no shine, because a sheen over a "fetching" box is a shine on a box.
+     *
+     * <p>Both printed sides of a double-faced card arrive here, so turning one over shows a
+     * foil on its back too. That is a face rather than a sleeve, and it was foil when it was
+     * printed.
+     */
+    private static void drawFace(
+            GuiGraphics graphics, CardFaceSummary face, Holding held,
+            int x, int y, int width, int height) {
         Optional<String> url = face.readableImage();
         Optional<ResourceLocation> texture = url.flatMap(ClientCardImages.get()::texture);
 
         if (texture.isPresent()) {
-            graphics.blit(texture.get(), x, y, width, height, 0f, 0f, 1, 1, 1, 1);
+            TiltedFace.draw(graphics, texture.get(), new Rect(x, y, width, height),
+                    held.yaw(), held.pitch(), held.foil(), held.grain(), held.slide());
             return;
         }
 

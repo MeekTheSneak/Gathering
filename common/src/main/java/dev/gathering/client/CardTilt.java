@@ -12,6 +12,11 @@ import net.minecraft.world.entity.player.Player;
  * exist at all, because a holographic sheen that never moves is a sticker. See
  * {@link FoilSheen}.
  *
+ * <p>The angles here are fed to {@link CardLens}, which turns a real rectangle in space and
+ * projects it. That matters to the numbers: an earlier version rotated a flat picture under
+ * the interface's flat projection, where a turn is only ever a squash, and it needed a large
+ * angle before it read as anything at all. A genuine perspective needs a small one.
+ *
  * <p>Two sources for the same number, because the read happens in two places. Over an open
  * screen there is a cursor, and where the cursor is relative to the card is the tilt. Out in
  * the world the mouse is turning the player's head, so the tilt is how far they have turned
@@ -29,9 +34,17 @@ import net.minecraft.world.entity.player.Player;
  */
 public final class CardTilt {
 
-    /** As far as the card ever turns. Slight on purpose: this is a hand moving, not a lathe. */
-    private static final float MOST_YAW = 16f;
-    private static final float MOST_PITCH = 11f;
+    /**
+     * As far as the card ever turns.
+     *
+     * <p>Slight on purpose, and slighter than it looks like it should be on paper: this is a
+     * card resting in a hand, catching the light, not a card being shown to the room. Once
+     * the turn became a real perspective rather than a squash, the angle that had been needed
+     * to make a squash read as a turn at all was suddenly far too much - a card at sixteen
+     * degrees of genuine perspective looks like it is being waved.
+     */
+    private static final float MOST_YAW = 9f;
+    private static final float MOST_PITCH = 5.5f;
 
     /** How much of the gap is closed each frame. Enough to feel attached, slow enough to lag. */
     private static final float EASE = 0.22f;
@@ -52,14 +65,15 @@ public final class CardTilt {
     /**
      * Aims the card at the cursor.
      *
-     * <p>Cursor to the right of the card turns its right edge away, which is what happens when
-     * you turn a card towards something on your right. Getting this backwards is the sort of
-     * thing that reads as "wrong" without anybody being able to say why.
+     * <p>The card's face turns to point at the cursor: cursor to the right sends the card's
+     * right-hand edge away and brings its left towards you, which is what a card does when
+     * you tip it to show it to something over there. Getting this backwards reads as "wrong"
+     * without anybody being able to say why.
      */
     public static void towards(int mouseX, int mouseY, int centerX, int centerY, int width, int height) {
         float across = width <= 0 ? 0f : Mth.clamp((mouseX - centerX) / (width / 2f), -1f, 1f);
         float down = height <= 0 ? 0f : Mth.clamp((mouseY - centerY) / (height / 2f), -1f, 1f);
-        ease(across * MOST_YAW, -down * MOST_PITCH);
+        ease(across * MOST_YAW, down * MOST_PITCH);
     }
 
     /**
@@ -79,7 +93,7 @@ public final class CardTilt {
         }
         float turned = Mth.wrapDegrees(player.getYRot() - lookYaw) / LOOK_FOR_FULL;
         float raised = Mth.wrapDegrees(player.getXRot() - lookPitch) / LOOK_FOR_FULL;
-        ease(Mth.clamp(turned, -1f, 1f) * MOST_YAW, -Mth.clamp(raised, -1f, 1f) * MOST_PITCH);
+        ease(Mth.clamp(turned, -1f, 1f) * MOST_YAW, Mth.clamp(raised, -1f, 1f) * MOST_PITCH);
     }
 
     /** Drops the anchor and flattens the card, for when a read ends. */
