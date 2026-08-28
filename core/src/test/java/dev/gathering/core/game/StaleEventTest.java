@@ -89,6 +89,19 @@ class StaleEventTest {
     }
 
     @Test
+    @DisplayName("a die nobody printed is brought down to one that exists")
+    void dieSidesAreBoundedOnTheEventItself() {
+        // Same lesson as the token count: the typed payload clamps, and an event also
+        // arrives through the raw codec, so the bound lives where every path crosses it.
+        assertThat(new GameEvent.DiceRolled(GameFixtures.ALICE, Integer.MAX_VALUE, 5).sides())
+                .isEqualTo(GameEvent.DiceRolled.MOST_SIDES);
+        assertThat(new GameEvent.DiceRolled(GameFixtures.ALICE, 0, 0).sides()).isEqualTo(1);
+        // And a result cannot fall off the die it was rolled on, in either direction.
+        assertThat(new GameEvent.DiceRolled(GameFixtures.ALICE, 6, 19).result()).isEqualTo(6);
+        assertThat(new GameEvent.DiceRolled(GameFixtures.ALICE, 6, 0).result()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("a restored log never hands out a sequence number an undo already holds")
     void restoreCountsUndoRecordsToo() {
         GameSession session = GameFixtures.twoPlayerTable(10);

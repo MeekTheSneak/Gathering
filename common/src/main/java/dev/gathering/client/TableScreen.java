@@ -3647,6 +3647,12 @@ public final class TableScreen extends Screen {
                 howMany -> ClientNetworking.send(new DiscardAtRandomPayload(table, howMany)))));
         entries.add(entry("sort_hand", () -> sortMyHand(me)));
         entries.add(entry("make_token", this::askForToken));
+        // Both decided by the server, like the discard at random and for the same reason: a
+        // die the roller chose is not a die. The coin is one press because Magic asks for one
+        // far more often than for any particular die.
+        entries.add(entry("flip_coin",
+                () -> ClientNetworking.send(new dev.gathering.network.FlipCoinPayload(table))));
+        entries.add(entry("roll_die", this::askWhichDie));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
         view().ifPresent(board -> entries.add(entry("next_phase",
                 () -> send(new GameEvent.PhaseSet(me, board.turn().phase().next())))));
@@ -3741,6 +3747,38 @@ public final class TableScreen extends Screen {
                         send(new GameEvent.CardStrengthSet(me, target, written));
                     }
                 },
+                this));
+    }
+
+    /**
+     * Which die, out of the ones Magic actually prints.
+     *
+     * <p>Six buttons and a way out to any other number. A card asks for a d20 more than for
+     * everything else combined, and none of them is worth typing a number for - but the odd
+     * one exists, so "another number" is there rather than a wall of twenty buttons.
+     */
+    private void askWhichDie() {
+        List<ChoiceScreen.Option> dice = new ArrayList<>();
+        for (int sides : new int[] {4, 6, 8, 10, 12, 20}) {
+            int howManySides = sides;
+            dice.add(new ChoiceScreen.Option(
+                    Component.translatable("screen.gathering.dice.die", howManySides),
+                    () -> ClientNetworking.send(
+                            new dev.gathering.network.RollDicePayload(table, howManySides))));
+        }
+        dice.add(new ChoiceScreen.Option(
+                Component.translatable("screen.gathering.dice.other"), this::askHowManySides));
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.dice.which"), dice, this));
+    }
+
+    /** The odd die. Twenty suggested, because that is the one somebody is most likely after. */
+    private void askHowManySides() {
+        net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
+                Component.translatable("screen.gathering.dice.sides"),
+                dev.gathering.core.game.event.GameEvent.DiceRolled.MOST_SIDES,
+                sides -> ClientNetworking.send(
+                        new dev.gathering.network.RollDicePayload(table, sides)),
                 this));
     }
 

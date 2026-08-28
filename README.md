@@ -47,6 +47,10 @@ plain `1 Sol Ring` lines, and an Archidekt link fetches the exact printings for 
 holding seven. From there it's a table: drag cards where you want them, tap them, put them in
 your graveyard, count your life, and argue about the stack out loud like you would in person.
 
+Dice and coins are there too, because Magic keeps asking for them — a d4 through d20, or any
+number of sides up to twenty, and a coin. The server rolls, so nobody has to be trusted, and
+the result lands in the game log under your name where the whole table can read it.
+
 Hold **Alt** over any card to read it full size with its rules text. Press **F1** at the table
 for every key. Press **V** to switch between playing on your screen and playing on the actual
 table block in the world, which is also what everybody standing around it can see.

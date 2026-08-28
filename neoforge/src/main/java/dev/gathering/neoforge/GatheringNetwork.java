@@ -128,6 +128,22 @@ public final class GatheringNetwork {
                 GatheringNetwork::onCreateToken);
 
         registrar.playToServer(
+                dev.gathering.network.RollDicePayload.TYPE,
+                dev.gathering.network.RollDicePayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.DiceRolls.roll(player, payload);
+                    }
+                });
+        registrar.playToServer(
+                dev.gathering.network.FlipCoinPayload.TYPE,
+                dev.gathering.network.FlipCoinPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.DiceRolls.flip(player, payload);
+                    }
+                });
+        registrar.playToServer(
                 dev.gathering.network.FetchBasicPayload.TYPE,
                 dev.gathering.network.FetchBasicPayload.STREAM_CODEC,
                 (payload, context) -> {

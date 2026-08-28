@@ -101,6 +101,13 @@ public final class GameFold {
 
             case GameEvent.CardPinged ignored -> state;
 
+            // A roll and a flip change no board. They are things that happened, which the log
+            // is for - the number is in the event, so a re-fold reports the same roll rather
+            // than a fresh one, and undo takes back the asking rather than rewriting chance.
+            case GameEvent.DiceRolled ignored -> state;
+
+            case GameEvent.CoinFlipped ignored -> state;
+
             case GameEvent.LibraryReordered reordered -> reorderLibrary(state, reordered);
 
             case GameEvent.Surveiled surveiled -> surveil(state, surveiled);

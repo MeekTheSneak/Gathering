@@ -461,6 +461,36 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /** A die and a coin, on the wire, and a die nobody printed brought back down. */
+    @GameTest(template = "empty")
+    public static void aRollSurvivesTheWire(GameTestHelper helper) {
+        for (int sides : new int[] {1, 2, 4, 6, 8, 10, 12, 20}) {
+            var asked = roundTrip(
+                    helper,
+                    new dev.gathering.network.RollDicePayload(
+                            net.minecraft.core.BlockPos.ZERO, sides),
+                    dev.gathering.network.RollDicePayload.STREAM_CODEC);
+            if (asked.sides() != sides) {
+                helper.fail("a d" + sides + " came back as a d" + asked.sides());
+            }
+        }
+
+        var silly = new dev.gathering.network.RollDicePayload(
+                net.minecraft.core.BlockPos.ZERO, Integer.MAX_VALUE);
+        if (silly.sides() != dev.gathering.core.game.event.GameEvent.DiceRolled.MOST_SIDES) {
+            helper.fail("a two billion sided die was not brought down: " + silly.sides());
+        }
+
+        var coin = roundTrip(
+                helper,
+                new dev.gathering.network.FlipCoinPayload(new net.minecraft.core.BlockPos(3, 4, 5)),
+                dev.gathering.network.FlipCoinPayload.STREAM_CODEC);
+        if (!coin.table().equals(new net.minecraft.core.BlockPos(3, 4, 5))) {
+            helper.fail("a coin flip lost its table on the wire: " + coin.table());
+        }
+        helper.succeed();
+    }
+
     /** A deck's new name, on the wire. */
     @GameTest(template = "empty")
     public static void aRenameSurvivesTheWire(GameTestHelper helper) {

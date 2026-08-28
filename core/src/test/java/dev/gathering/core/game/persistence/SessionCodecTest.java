@@ -230,7 +230,9 @@ class SessionCodecTest {
                 new GameEvent.Conceded(a),
                 new GameEvent.PhaseSet(a, Phase.values()[0]),
                 new GameEvent.TurnPassed(a, b),
-                new GameEvent.CardPinged(a, card));
+                new GameEvent.CardPinged(a, card),
+                new GameEvent.DiceRolled(a, 20, 17),
+                new GameEvent.CoinFlipped(a, true));
     }
 
     @Provide

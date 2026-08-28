@@ -21,10 +21,13 @@ import java.util.Optional;
  * the seed. None of those three needed to be designed - they fall out of this being the only
  * way state ever changes.
  *
- * <p>The set is section 7's deliberately trimmed v1 list and no more. Dice, coin flips,
- * monarch and initiative markers, a shared reveal area, clone markers distinct from
- * copy-tokens, per-player notes and a dedicated mill button all wait for post-v1 evidence
- * that anyone actually wants them.
+ * <p>The set is section 7's deliberately trimmed v1 list, plus what has since earned its
+ * way in. Dice and coin flips were on the deferred list and came off it: Magic asks for a
+ * d20 across half of Adventures in the Forgotten Realms and for a coin as far back as
+ * Krark's Thumb, so a table without them sends players to a physical die and loses the one
+ * thing this mod is for, which is everybody watching the same thing happen. Monarch and
+ * initiative markers, a shared reveal area, clone markers distinct from copy-tokens and
+ * per-player notes are still waiting for the same kind of evidence.
  *
  * <p>Nothing here enforces a rule. There is no event for "this is illegal" because there is
  * no such concept: the mod moves cards, tracks numbers and shows things, and the group
@@ -752,6 +755,52 @@ public sealed interface GameEvent {
         public LogLine describe(GameState before) {
             // Pinging is pointing at the table, so it only ever names something public anyway.
             return LogLine.of("log.gathering.pinged", actor, CardRef.publicRefFor(before, card));
+        }
+    }
+
+    /**
+     * A die rolled where the whole table can see it.
+     *
+     * <p>Magic asks for one often enough to deserve a verb - a d20 on half of Adventures in
+     * the Forgotten Realms, a d6 on a Sarkhan, a d4 somewhere in between - and a die nobody
+     * else watched is not a die, it is a claim. So the server rolls it, everyone is told the
+     * number, and the log keeps it under the name of whoever asked.
+     *
+     * <p>The result is carried rather than the seed: a roll is one number that happened once,
+     * and re-deriving it on each client would be a second implementation of chance that could
+     * disagree with the first.
+     */
+    record DiceRolled(SeatId actor, int sides, int result) implements GameEvent {
+
+        /** A d20 is the biggest die Magic prints on a card. */
+        public static final int MOST_SIDES = 20;
+
+        public DiceRolled {
+            // Clamped on the event, so the raw codec is no way round it either. A die with
+            // no sides has no roll to report, and one with two billion is a number nobody
+            // asked for on a card nobody printed.
+            sides = Math.max(1, Math.min(MOST_SIDES, sides));
+            result = Math.max(1, Math.min(sides, result));
+        }
+
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of("log.gathering.rolled", actor, sides, result);
+        }
+    }
+
+    /**
+     * A coin flipped where the whole table can see it.
+     *
+     * <p>Its own verb rather than a two-sided die, because Magic's own words are heads and
+     * tails - a card says "flip a coin", never "roll a d2", and Krark's Thumb cares which one
+     * you did. A log line that said "rolled a 1" would be true and useless.
+     */
+    record CoinFlipped(SeatId actor, boolean heads) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of(heads ? "log.gathering.flipped_heads" : "log.gathering.flipped_tails",
+                    actor);
         }
     }
 

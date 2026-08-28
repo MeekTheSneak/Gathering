@@ -219,6 +219,15 @@ public final class EventCodec {
                 seat(out, e.actor());
                 seat(out, e.toSeat());
             }
+            case GameEvent.DiceRolled e -> {
+                seat(out, e.actor());
+                out.writeInt(e.sides());
+                out.writeInt(e.result());
+            }
+            case GameEvent.CoinFlipped e -> {
+                seat(out, e.actor());
+                out.writeBoolean(e.heads());
+            }
             case GameEvent.CardPinged e -> {
                 seat(out, e.actor());
                 card(out, e.card());
@@ -276,6 +285,8 @@ public final class EventCodec {
             case "Conceded" -> new GameEvent.Conceded(seat(in));
             case "PhaseSet" -> new GameEvent.PhaseSet(seat(in), Phase.valueOf(in.readUTF()));
             case "TurnPassed" -> new GameEvent.TurnPassed(seat(in), seat(in));
+            case "DiceRolled" -> new GameEvent.DiceRolled(seat(in), in.readInt(), in.readInt());
+            case "CoinFlipped" -> new GameEvent.CoinFlipped(seat(in), in.readBoolean());
             case "CardPinged" -> new GameEvent.CardPinged(seat(in), card(in));
             default -> throw new IOException("Unknown event in the session log: " + tag);
         };

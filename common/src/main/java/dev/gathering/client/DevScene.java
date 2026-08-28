@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 195;
+    private static final int LAST_STEP = 201;
 
     private static int step;
     private static int waited;
@@ -2121,6 +2121,45 @@ public final class DevScene {
                 shoot(client, "61-a-table-in-every-material");
                 advance(SETTLE / 2);
             }
+            case 196 -> {
+                // Back to the board for the two verbs the server decides. A die nobody else
+                // watched is a claim, so what matters is that the number reaches the log where
+                // the whole table reads it - which is what the last picture is of.
+                backToTheBoard(client);
+                advance(SETTLE);
+            }
+            case 197 -> {
+                openTheDiceQuestion(client);
+                advance(SETTLE / 2);
+            }
+            case 198 -> {
+                expectScreen(client, "asking which die", ChoiceScreen.class);
+                shoot(client, "62-which-die");
+                press(client, "d20");
+                advance(SETTLE);
+            }
+            case 199 -> {
+                flipACoin(client);
+                advance(SETTLE);
+            }
+            case 200 -> {
+                if (!logSays(client, "rolled a d20")) {
+                    fail("a d20 was rolled and the log does not say so");
+                }
+                if (!logSays(client, "flipped a coin")) {
+                    fail("a coin was flipped and the log does not say so");
+                }
+                // Opened a step before it is photographed. A screenshot asked for in the same
+                // step catches the frame that was already drawn, so the log would be open and
+                // the picture would not show it - and a roll nobody can read is the thing
+                // this whole verb exists to stop.
+                openTheLog(client);
+                advance(SETTLE);
+            }
+            case 201 -> {
+                shoot(client, "63-a-roll-and-a-flip-in-the-log");
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -3664,6 +3703,91 @@ public final class DevScene {
             // holding a deck is enough, so the scene has to actually walk up holding a deck.
             System.out.println("[devscene] table placed, nobody seated");
         });
+    }
+
+    /**
+     * Walks back to the table and opens the board.
+     *
+     * <p>The walking matters. The camera has just been eleven blocks away photographing
+     * furniture, and every verb the server decides is checked against TableReach first - so
+     * opening the screen alone would put a board in front of a player standing too far from
+     * it to do anything, and the rolls would be refused with nothing on screen to say why.
+     */
+    private static void backToTheBoard(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (table == null || server == null) {
+            fail("there is no table to go back to");
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream()
+                    .findFirst().orElse(null);
+            if (player == null) {
+                return;
+            }
+            double atX = where.getX() + 0.5;
+            double atY = where.getY() + 1;
+            double atZ = where.getZ() + 2.5;
+            player.teleportTo(atX, atY, atZ);
+            player.connection.teleport(atX, atY, atZ, 0f, 0f);
+        });
+        client.setScreen(new TableScreen(table));
+    }
+
+    /** Opens the table menu and asks for a die. */
+    private static void openTheDiceQuestion(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to roll a die on");
+            return;
+        }
+        String wanted = net.minecraft.network.chat.Component
+                .translatable("menu.gathering.table.roll_die").getString();
+        if (!openTheTableMenu(client, board, wanted)) {
+            fail("no felt on the board offered a table menu to roll a die from");
+            return;
+        }
+        if (!board.pressMenuEntry(wanted)) {
+            fail("the table menu offers no way to roll a die");
+        }
+    }
+
+    /** And a coin, which is one press rather than a question. */
+    private static void flipACoin(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to flip a coin on");
+            return;
+        }
+        String wanted = net.minecraft.network.chat.Component
+                .translatable("menu.gathering.table.flip_coin").getString();
+        if (!openTheTableMenu(client, board, wanted) || !board.pressMenuEntry(wanted)) {
+            fail("the table menu offers no way to flip a coin");
+        }
+    }
+
+    /** Shows the log on the board, so a picture of it has it in. */
+    private static void openTheLog(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to open the log on");
+            return;
+        }
+        if (!board.theLogIsShowing()) {
+            board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_L, 0, 0);
+        }
+        if (!board.theLogIsShowing()) {
+            fail("the log key was pressed at the table and no log opened");
+        }
+    }
+
+    /** Whether the public log carries a line with this in it. */
+    private static boolean logSays(Minecraft client, String phrase) {
+        GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (board == null) {
+            return false;
+        }
+        return board.log().stream()
+                .map(entry -> GameLogText.render(board, entry).getString())
+                .anyMatch(line -> line.contains(phrase));
     }
 
     /** Where the row of stone tables was stood up, so the camera can be pointed at it. */
