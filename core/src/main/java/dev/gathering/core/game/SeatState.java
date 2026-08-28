@@ -2,7 +2,9 @@ package dev.gathering.core.game;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The numbers beside a seat: life, commander damage taken, commander tax, and whether the
@@ -28,6 +30,13 @@ import java.util.Map;
  * @param counters        poison, energy, experience and anything else a player cares to name;
  *                        the same open-ended bag a card has, for the same reason - the set of
  *                        things a player can accumulate is not one anybody can finish listing
+ * @param handShownTo     which other seats this hand is currently face up to. Empty for the
+ *                        ordinary case, which is a hand only its owner can read. A player
+ *                        showing their hand is a thing they do on purpose and take back on
+ *                        purpose, so it is state on the seat rather than a moment in the log:
+ *                        Duress is resolved by the person being Duressed pressing the button,
+ *                        exactly as they would turn their hand round at a real table, and
+ *                        nothing anybody else can submit ever opens somebody's hand
  */
 public record SeatState(
         SeatId seat,
@@ -38,7 +47,8 @@ public record SeatState(
         Map<CardInstanceId, Integer> commanderTax,
         java.util.List<CardInstanceId> commanders,
         Map<String, Integer> counters,
-        boolean conceded) {
+        boolean conceded,
+        Set<SeatId> handShownTo) {
 
     public SeatState {
         if (seat == null) {
@@ -50,17 +60,25 @@ public record SeatState(
         counters = counters == null || counters.isEmpty()
                 ? Map.of()
                 : Collections.unmodifiableMap(new LinkedHashMap<>(counters));
+        // Kept in the order the seats were shown, for the same reason every other collection
+        // here is: it is written into the board's byte form by walking it, and a hash order
+        // salted once per launch would encode the same board differently on every start.
+        handShownTo = handShownTo == null || handShownTo.isEmpty()
+                ? Set.of()
+                : Collections.unmodifiableSet(new LinkedHashSet<>(handShownTo));
     }
 
     public static SeatState startingAt(SeatId seat, int startingLife) {
         return new SeatState(
-                seat, null, null, startingLife, Map.of(), Map.of(), java.util.List.of(), Map.of(), false);
+                seat, null, null, startingLife, Map.of(), Map.of(), java.util.List.of(), Map.of(), false,
+                Set.of());
     }
 
     /** A seat is held until the player leaves it, not until they walk away or log out. */
     public SeatState occupiedBy(PlayerRef player) {
         return new SeatState(
-                seat, player, player, life, commanderDamage, commanderTax, commanders, counters, conceded);
+                seat, player, player, life, commanderDamage, commanderTax, commanders, counters, conceded,
+                handShownTo);
     }
 
     /**
@@ -73,7 +91,8 @@ public record SeatState(
      */
     public SeatState released() {
         return new SeatState(
-                seat, null, lastOccupant, life, commanderDamage, commanderTax, commanders, counters, conceded);
+                seat, null, lastOccupant, life, commanderDamage, commanderTax, commanders, counters, conceded,
+                handShownTo);
     }
 
     public java.util.Optional<PlayerRef> player() {
@@ -98,7 +117,8 @@ public record SeatState(
 
     public SeatState withLife(int delta) {
         return new SeatState(
-                seat, occupant, lastOccupant, life + delta, commanderDamage, commanderTax, commanders, counters, conceded);
+                seat, occupant, lastOccupant, life + delta, commanderDamage, commanderTax, commanders, counters,
+                conceded, handShownTo);
     }
 
     public SeatState withCommanderDamage(CardInstanceId commander, int delta) {
@@ -110,13 +130,15 @@ public record SeatState(
             updated.put(commander, now);
         }
         return new SeatState(
-                seat, occupant, lastOccupant, life, updated, commanderTax, commanders, counters, conceded);
+                seat, occupant, lastOccupant, life, updated, commanderTax, commanders, counters, conceded,
+                handShownTo);
     }
 
     /** Names this seat's commanders, once, when the deck goes down. */
     public SeatState withCommanders(java.util.List<CardInstanceId> named) {
         return new SeatState(
-                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, named, counters, conceded);
+                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, named, counters, conceded,
+                handShownTo);
     }
 
     public SeatState withCommanderTax(CardInstanceId commander, int delta) {
@@ -128,14 +150,16 @@ public record SeatState(
             updated.put(commander, now);
         }
         return new SeatState(
-                seat, occupant, lastOccupant, life, commanderDamage, updated, commanders, counters, conceded);
+                seat, occupant, lastOccupant, life, commanderDamage, updated, commanders, counters, conceded,
+                handShownTo);
     }
 
     public SeatState withConcede() {
         return conceded
                 ? this
                 : new SeatState(
-                        seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters, true);
+                        seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters, true,
+                        handShownTo);
     }
 
     /**
@@ -154,11 +178,55 @@ public record SeatState(
             updated.put(name, now);
         }
         return new SeatState(
-                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, updated, conceded);
+                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, updated, conceded,
+                handShownTo);
     }
 
     public int counter(String name) {
         return counters.getOrDefault(name, 0);
+    }
+
+    /**
+     * Turns this hand face up to another seat, or face down again.
+     *
+     * <p>Adding rather than replacing, so showing Bob and then showing Chris shows both -
+     * which is what happens at a table, where turning your hand towards one more person does
+     * not turn it away from the last one.
+     */
+    public SeatState withHandShownTo(SeatId other, boolean showing) {
+        if (other == null || other.equals(seat) || showing == handShownTo.contains(other)) {
+            return this;
+        }
+        Set<SeatId> updated = new LinkedHashSet<>(handShownTo);
+        if (showing) {
+            updated.add(other);
+        } else {
+            updated.remove(other);
+        }
+        return new SeatState(
+                seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders, counters,
+                conceded, updated);
+    }
+
+    /** Turns this hand face up to all of these seats at once, or face down to everybody. */
+    public SeatState withHandShownTo(Set<SeatId> others) {
+        Set<SeatId> without = new LinkedHashSet<>(others == null ? Set.of() : others);
+        without.remove(seat);
+        return without.equals(handShownTo)
+                ? this
+                : new SeatState(
+                        seat, occupant, lastOccupant, life, commanderDamage, commanderTax, commanders,
+                        counters, conceded, without);
+    }
+
+    /** Whether that seat may currently read this hand. Its own seat always may. */
+    public boolean handIsShownTo(SeatId other) {
+        return other != null && (other.equals(seat) || handShownTo.contains(other));
+    }
+
+    /** Whether anybody at all is being shown this hand. */
+    public boolean handIsShown() {
+        return !handShownTo.isEmpty();
     }
 
     /** The counters a player accumulates often enough to be worth spelling once. */

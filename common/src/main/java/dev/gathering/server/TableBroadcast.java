@@ -157,6 +157,25 @@ public final class TableBroadcast {
         }
     }
 
+    /**
+     * Everybody near enough to be watching this table, seated or not.
+     *
+     * <p>The same range the ambient board goes out at, and the same one for the same reason:
+     * a person who can see your game is a person at your game. Written once here so that the
+     * miniature's audience and the table's conversation cannot come to be two different
+     * groups of people.
+     */
+    public static List<ServerPlayer> watchingNearby(ServerLevel level, BlockPos tableOrigin) {
+        List<ServerPlayer> nearby = new ArrayList<>();
+        for (ServerPlayer player : level.players()) {
+            if (player.distanceToSqr(tableOrigin.getX() + 1.0, tableOrigin.getY() + 1.0,
+                    tableOrigin.getZ() + 1.0) <= AMBIENT_RANGE * AMBIENT_RANGE) {
+                nearby.add(player);
+            }
+        }
+        return nearby;
+    }
+
     /** Says something to everyone at this cluster. What happened at the table is table news. */
     public static void tell(ServerLevel level, BlockPos tableOrigin, net.minecraft.network.chat.Component line) {
         for (Seated seated : seatedAt(level, tableOrigin)) {

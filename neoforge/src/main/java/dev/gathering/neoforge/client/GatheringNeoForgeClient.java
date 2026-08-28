@@ -163,6 +163,10 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> acceptSideboard(sideboard));
             return;
         }
+        if (payload instanceof dev.gathering.network.TableSaidPayload said) {
+            context.enqueueWork(() -> dev.gathering.client.ClientTableChat.accept(said));
+            return;
+        }
         if (payload instanceof dev.gathering.network.TableViewPayload table) {
             context.enqueueWork(() -> dev.gathering.client.ClientTableState.acceptPayload(table));
             return;
@@ -297,5 +301,6 @@ public final class GatheringNeoForgeClient {
         ClientCardRequests.clear();
         ClientHoverState.clear();
         dev.gathering.client.ClientTableState.clear();
+        dev.gathering.client.ClientTableChat.clear();
     }
 }

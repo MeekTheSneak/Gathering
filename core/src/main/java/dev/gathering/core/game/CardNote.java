@@ -23,52 +23,18 @@ public final class CardNote {
      */
     public static final int LONGEST = 48;
 
-    /** Minecraft's formatting escape. Player text carrying one would color the board. */
-    private static final char FORMATTING = '§';
-
     private CardNote() {
     }
 
     /**
      * The note as it will be stored, or null for no note at all.
      *
-     * <p>One line: newlines and tabs become spaces and runs of space collapse, because a note
-     * is drawn on a band across a card and a second line has nowhere to go. Control characters
-     * and the formatting escape are dropped outright rather than replaced - they are not
-     * writing, and a card whose note recolors the board is a card somebody used as a paint
-     * brush.
+     * <p>One line and nothing that could recolor a board - the same rule table chat follows,
+     * written once in {@link PlayerText} because they are the same problem: a line of typing
+     * from one client, drawn on everybody else's screen.
      */
     public static String clean(String written) {
-        if (written == null) {
-            return null;
-        }
-        StringBuilder tidy = new StringBuilder(Math.min(written.length(), LONGEST));
-        boolean space = false;
-        for (int index = 0; index < written.length() && tidy.length() < LONGEST; index++) {
-            char letter = written.charAt(index);
-            if (letter == FORMATTING) {
-                continue;
-            }
-            if (Character.isWhitespace(letter)) {
-                space = tidy.length() > 0;
-                continue;
-            }
-            if (Character.isISOControl(letter)) {
-                continue;
-            }
-            if (space) {
-                // Room for the space and the word after it, or neither. Writing the space
-                // first and then finding the note full left it ending on one, which is a
-                // note that comes back different the second time it is cleaned.
-                if (tidy.length() + 1 >= LONGEST) {
-                    break;
-                }
-                tidy.append(' ');
-                space = false;
-            }
-            tidy.append(letter);
-        }
-        return tidy.isEmpty() ? null : tidy.toString();
+        return PlayerText.oneLine(written, LONGEST);
     }
 
     /** Whether these two notes are the same note, treating null and blank as the same. */

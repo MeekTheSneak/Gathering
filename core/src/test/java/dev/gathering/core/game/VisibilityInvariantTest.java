@@ -157,7 +157,8 @@ class VisibilityInvariantTest {
                 .containsExactlyElementsOf(names);
 
         SeatView seat = new SeatView(
-                GameFixtures.ALICE, null, null, 40, Map.of(), Map.of(), java.util.List.of(), counters, false, Map.of());
+                GameFixtures.ALICE, null, null, 40, Map.of(), Map.of(), java.util.List.of(), counters, false,
+                java.util.Set.of(), Map.of());
         assertThat(seat.counters().keySet())
                 .describedAs("a seat's counters came back in a different order")
                 .containsExactlyElementsOf(names);
@@ -167,7 +168,8 @@ class VisibilityInvariantTest {
     @Test
     void anEmptyChairHasNoBoard() {
         SeatView empty = new SeatView(
-                GameFixtures.ALICE, null, null, 40, Map.of(), Map.of(), java.util.List.of(), Map.of(), false, Map.of());
+                GameFixtures.ALICE, null, null, 40, Map.of(), Map.of(), java.util.List.of(), Map.of(), false,
+                java.util.Set.of(), Map.of());
 
         assertThat(empty.hasABoard()).isFalse();
         assertThat(empty.whoseBoard())

@@ -117,6 +117,10 @@ public final class GameFold {
 
             case GameEvent.TokenCreated token -> createTokens(state, token);
 
+            case GameEvent.PaperCardCreated paper -> putPaperDown(state, paper);
+
+            case GameEvent.HandShown shown -> showHand(state, shown);
+
             case GameEvent.TokenCopyCreated copy -> createCopy(state, copy);
 
             case GameEvent.TokenRemoved removed -> state.removeCard(removed.card());
@@ -471,6 +475,44 @@ public final class GameFold {
             updated = updated.addCard(token, battlefield, Placement.BOTTOM);
         }
         return updated.withNextCardId(nextId);
+    }
+
+    /**
+     * Turns a hand towards one seat, or towards the whole table, or away again.
+     *
+     * <p>The table means every other seat as it stands now, written out one by one rather than
+     * kept as a flag. A player who shows the table and then shows one more person has done two
+     * things that mean the same thing, and a board that recorded them as two different kinds
+     * of state would have to decide which one wins.
+     */
+    private static GameState showHand(GameState state, GameEvent.HandShown event) {
+        SeatState seat = state.seatState(event.actor());
+        if (!event.everybody()) {
+            return state.withSeatState(seat.withHandShownTo(event.to(), event.showing()));
+        }
+        if (!event.showing()) {
+            return state.withSeatState(seat.withHandShownTo(java.util.Set.of()));
+        }
+        java.util.Set<SeatId> everyone = new java.util.LinkedHashSet<>(state.seats());
+        everyone.remove(event.actor());
+        return state.withSeatState(seat.withHandShownTo(everyone));
+    }
+
+    /**
+     * Blank stock on the table, with whatever was written on it already written.
+     *
+     * <p>Built before it is put down rather than added and then written on, so a card never
+     * exists in a board anybody could see without the words that are the entire reason it is
+     * there. A token, because that is what it is - see {@link GameEvent.PaperCardCreated}.
+     */
+    private static GameState putPaperDown(GameState state, GameEvent.PaperCardCreated event) {
+        int nextId = state.nextCardId();
+        CardInstance paper = CardInstance
+                .token(CardInstanceId.of(nextId), event.stock().identity(), event.seat())
+                .withNote(event.text());
+        return state
+                .addCard(paper, ZoneRef.of(event.seat(), Zone.BATTLEFIELD), Placement.BOTTOM)
+                .withNextCardId(nextId + 1);
     }
 
     private static GameState createCopy(GameState state, GameEvent.TokenCopyCreated event) {

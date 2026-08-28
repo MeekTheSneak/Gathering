@@ -59,32 +59,31 @@ public final class TokenCreation {
                                 "message.gathering.card_lookup_failed", payload.name()));
                         return;
                     }
-                    place(player, level, origin, seat, found, payload);
+                    put(player, level, origin, seat, found, payload.count(), payload.name(),
+                            "message.gathering.token_created", "message.gathering.token_not_found");
                 }));
     }
 
-    /** Server thread only. */
-    private static void place(
-            ServerPlayer player, ServerLevel level, BlockPos origin, SeatId seat,
-            List<CardMetadata> found, CreateTokenPayload payload) {
-        put(player, level, origin, seat, found, payload.count(), payload.name());
-    }
-
     /**
-     * Puts whatever was found on the table, as that many tokens.
+     * Puts whatever was found on the table, that many times.
      *
-     * <p>Shared by the token search and the basic-land button so the two cannot drift: both
-     * have to tell the client what the card is before the board arrives naming it, both have
-     * to mark the table changed, and both have to say something when nothing was found.
+     * <p>Shared by everything that brings a card in from outside the game - the token search,
+     * the basic-land button, the dungeons - so that none of them can drift from the others.
+     * Every one of them has to tell the client what the card is before the board arrives
+     * naming it, has to re-check the seat after the lookup came back, has to mark the table
+     * changed, and has to say something when nothing was found. Four rules, written once.
+     *
+     * <p>What it says afterwards is the caller's, because a dungeon is not a token and a
+     * message calling it one would be the mod being wrong about Magic in the one sentence a
+     * player reads.
      *
      * <p>Server thread only.
      */
-    private static void put(
+    public static void put(
             ServerPlayer player, ServerLevel level, BlockPos origin, SeatId seatWhenAsked,
-            List<CardMetadata> found, int count, String asked) {
+            List<CardMetadata> found, int count, String asked, String madeKey, String missingKey) {
         if (found.isEmpty()) {
-            player.sendSystemMessage(Component.translatable(
-                    "message.gathering.token_not_found", asked));
+            player.sendSystemMessage(Component.translatable(missingKey, asked));
             return;
         }
         // The seat again, not the one from before the lookup. A card lookup is a network
@@ -116,8 +115,7 @@ public final class TokenCreation {
                 .flatMap(anchor -> TableBlock.entityAt(level, anchor))
                 .ifPresent(table -> table.setChanged());
         TableBroadcast.sendToTable(level, origin);
-        player.sendSystemMessage(Component.translatable(
-                "message.gathering.token_created", count, token.name()));
+        player.sendSystemMessage(Component.translatable(madeKey, count, token.name()));
     }
 
     /** The corner of the table, if this player is at one. One rule; see {@link TableReach}. */

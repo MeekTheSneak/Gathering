@@ -1,6 +1,7 @@
 package dev.gathering.core.game.persistence;
 
 import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.card.PaperStock;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.Phase;
@@ -178,6 +179,22 @@ public final class EventCodec {
                 identity(out, e.identity());
                 out.writeInt(e.count());
             }
+            case GameEvent.HandShown e -> {
+                seat(out, e.actor());
+                // A flag then the seat, the same shape an optional card takes above: null
+                // means the whole table, and there is no seat index that could stand for it.
+                out.writeBoolean(e.to() != null);
+                if (e.to() != null) {
+                    seat(out, e.to());
+                }
+                out.writeBoolean(e.showing());
+            }
+            case GameEvent.PaperCardCreated e -> {
+                seat(out, e.actor());
+                seat(out, e.seat());
+                out.writeUTF(e.stock().name());
+                out.writeUTF(e.text() == null ? "" : e.text());
+            }
             case GameEvent.TokenCopyCreated e -> {
                 seat(out, e.actor());
                 card(out, e.source());
@@ -273,6 +290,10 @@ public final class EventCodec {
                     seat(in), card(in), in.readUTF(), in.readInt());
             case "TokenCreated" -> new GameEvent.TokenCreated(
                     seat(in), seat(in), identity(in), in.readInt());
+            case "HandShown" -> new GameEvent.HandShown(
+                    seat(in), in.readBoolean() ? seat(in) : null, in.readBoolean());
+            case "PaperCardCreated" ->  new GameEvent.PaperCardCreated(
+                    seat(in), seat(in), PaperStock.valueOf(in.readUTF()), in.readUTF());
             case "TokenCopyCreated" -> new GameEvent.TokenCopyCreated(seat(in), card(in), seat(in));
             case "TokenRemoved" -> new GameEvent.TokenRemoved(seat(in), card(in));
             case "SeatCounterChanged" -> new GameEvent.SeatCounterChanged(

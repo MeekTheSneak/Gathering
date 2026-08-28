@@ -102,6 +102,11 @@ public final class GatheringFabricClient implements ClientModInitializer {
                         context.client().execute(() -> dev.gathering.client.ClientTableState.acceptPayload(payload)));
 
         ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.TableSaidPayload.TYPE, (payload, context) ->
+                        context.client().execute(() ->
+                                dev.gathering.client.ClientTableChat.accept(payload)));
+
+        ClientPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.PackOpenedPayload.TYPE, (payload, context) ->
                         context.client().execute(() -> context.client().setScreen(
                                 new dev.gathering.client.PackOpeningScreen(
@@ -228,6 +233,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
             ClientCardRequests.clear();
             ClientHoverState.clear();
             dev.gathering.client.ClientTableState.clear();
+            dev.gathering.client.ClientTableChat.clear();
         });
     }
 }

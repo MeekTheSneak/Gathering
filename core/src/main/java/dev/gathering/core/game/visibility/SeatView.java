@@ -8,7 +8,14 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
 
-/** One seat as one viewer sees it: the numbers beside it and its six zones. */
+/**
+ * One seat as one viewer sees it: the numbers beside it and its six zones.
+ *
+ * @param handShownTo which other seats this player has turned their hand towards. Public to
+ *     everybody, because turning your hand round is something the whole table watches you do
+ *     - and because the person doing it has to be able to see, on their own screen, that
+ *     their hand is still face up. A reveal nobody is reminded of is a hand left open.
+ */
 public record SeatView(
         SeatId seat,
         PlayerRef player,
@@ -19,6 +26,7 @@ public record SeatView(
         java.util.List<CardInstanceId> commanders,
         Map<String, Integer> counters,
         boolean conceded,
+        java.util.Set<SeatId> handShownTo,
         Map<Zone, ZoneView> zones) {
 
     public SeatView {
@@ -39,6 +47,9 @@ public record SeatView(
         counters = counters == null
                 ? Map.of()
                 : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(counters));
+        handShownTo = handShownTo == null || handShownTo.isEmpty()
+                ? java.util.Set.of()
+                : java.util.Collections.unmodifiableSet(new java.util.LinkedHashSet<>(handShownTo));
         // Sorted into zone order, so two views of the same board list their zones the same
         // way. Built from the enum rather than from the map: EnumMap cannot be handed an
         // empty map - it has nothing to infer the key type from and throws - so a seat with
@@ -53,6 +64,16 @@ public record SeatView(
         // the sentence above about two views listing their zones the same way was true of the
         // sort and false of what came out of it.
         zones = java.util.Collections.unmodifiableMap(sorted);
+    }
+
+    /** Whether this hand is currently readable by that seat. Its own seat always may. */
+    public boolean handIsShownTo(SeatId other) {
+        return other != null && (other.equals(seat) || handShownTo.contains(other));
+    }
+
+    /** Whether this player has turned their hand towards anybody. */
+    public boolean handIsShown() {
+        return !handShownTo.isEmpty();
     }
 
     public int counter(String name) {

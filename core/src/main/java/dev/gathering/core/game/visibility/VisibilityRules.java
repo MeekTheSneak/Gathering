@@ -97,6 +97,7 @@ public final class VisibilityRules {
                 seatState.commanders(),
                 seatState.counters(),
                 seatState.conceded(),
+                seatState.handShownTo(),
                 zones);
     }
 
@@ -122,9 +123,14 @@ public final class VisibilityRules {
             return new ZoneView(ref, contents.size(), top);
         }
 
-        // A hand is full to its own seat and a count to everyone else. Spectators are
-        // "everyone else" - that is the whole reason a spectating client cannot leak one.
-        if (ref.zone() == Zone.HAND && !viewer.isSeatedAt(ref.seat())) {
+        // A hand is full to its own seat and a count to everyone else - unless its owner has
+        // turned it towards somebody, which is a thing they do on purpose and take back on
+        // purpose. Spectators stay in "everyone else" even then: showing your hand is
+        // something you do to the players you are playing against, and the mod's one security
+        // property is worth more than a watcher's convenience. The log says it happened, so
+        // nobody watching is left wondering why a hand changed hands.
+        if (ref.zone() == Zone.HAND && !viewer.isSeatedAt(ref.seat())
+                && !shownTo(state, ref.seat(), viewer)) {
             return ZoneView.countOnly(ref, contents.size());
         }
 
@@ -133,6 +139,12 @@ public final class VisibilityRules {
             cards.add(cardView(state, state.requireCard(id), viewer));
         }
         return new ZoneView(ref, contents.size(), cards);
+    }
+
+    /** Whether this hand's owner has turned it towards this viewer. */
+    private static boolean shownTo(GameState state, SeatId owner, Viewer viewer) {
+        return viewer instanceof Viewer.Seated seated
+                && state.seatState(owner).handIsShownTo(seated.seat());
     }
 
     private static CardView cardView(GameState state, CardInstance card, Viewer viewer) {

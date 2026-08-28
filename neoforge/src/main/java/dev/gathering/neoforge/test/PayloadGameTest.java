@@ -491,6 +491,47 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /** Talking to a table, and a dungeon coming in from outside the game, on the wire. */
+    @GameTest(template = "empty")
+    public static void talkAndDungeonsSurviveTheWire(GameTestHelper helper) {
+        var said = roundTrip(
+                helper,
+                new dev.gathering.network.TableChatPayload(
+                        new net.minecraft.core.BlockPos(1, 2, 3), "attacking you with everything"),
+                dev.gathering.network.TableChatPayload.STREAM_CODEC);
+        if (!said.text().equals("attacking you with everything")) {
+            helper.fail("a line lost its words on the wire: " + said.text());
+        }
+
+        var heard = roundTrip(
+                helper,
+                new dev.gathering.network.TableSaidPayload(
+                        new net.minecraft.core.BlockPos(1, 2, 3), "Dev", "in response"),
+                dev.gathering.network.TableSaidPayload.STREAM_CODEC);
+        if (!heard.who().equals("Dev") || !heard.text().equals("in response")) {
+            helper.fail("a line came back as " + heard.who() + ": " + heard.text());
+        }
+
+        for (dev.gathering.core.card.Dungeon dungeon : dev.gathering.core.card.Dungeon.values()) {
+            var asked = roundTrip(
+                    helper,
+                    new dev.gathering.network.BringInDungeonPayload(
+                            net.minecraft.core.BlockPos.ZERO, dungeon.ordinal()),
+                    dev.gathering.network.BringInDungeonPayload.STREAM_CODEC);
+            if (asked.dungeon() != dungeon) {
+                helper.fail(dungeon + " came back as " + asked.dungeon());
+            }
+        }
+        // A dungeon nobody printed is the first one rather than a crash, which is the whole
+        // reason the wire carries a position instead of a name.
+        var nonsense = new dev.gathering.network.BringInDungeonPayload(
+                net.minecraft.core.BlockPos.ZERO, Integer.MAX_VALUE);
+        if (nonsense.dungeon() != dev.gathering.core.card.Dungeon.UNDERCITY) {
+            helper.fail("a dungeon index off the end was not brought back in: " + nonsense.dungeon());
+        }
+        helper.succeed();
+    }
+
     /** A deck's new name, on the wire. */
     @GameTest(template = "empty")
     public static void aRenameSurvivesTheWire(GameTestHelper helper) {

@@ -236,6 +236,14 @@ public final class ViewCodec {
             out.writeInt(entry.getValue());
         }
 
+        // Who this hand is turned towards. Public, and the reason it has to be on the wire
+        // rather than worked out: the player showing it needs their own screen to keep saying
+        // so, and the players being shown it need to know why they can suddenly read it.
+        out.writeInt(seat.handShownTo().size());
+        for (SeatId shown : seat.handShownTo()) {
+            out.writeInt(shown.index());
+        }
+
         out.writeInt(seat.zones().size());
         for (Map.Entry<Zone, ZoneView> entry : seat.zones().entrySet()) {
             out.writeUTF(entry.getKey().name());
@@ -277,13 +285,21 @@ public final class ViewCodec {
             counters.put(in.readUTF(), in.readInt());
         }
 
+        java.util.Set<SeatId> handShownTo = new java.util.LinkedHashSet<>();
+        int shownCount = size(in.readInt());
+        for (int index = 0; index < shownCount; index++) {
+            handShownTo.add(new SeatId(in.readInt()));
+        }
+
         Map<Zone, ZoneView> zones = new EnumMap<>(Zone.class);
         int zoneCount = size(in.readInt());
         for (int index = 0; index < zoneCount; index++) {
             Zone zone = Zone.valueOf(in.readUTF());
             zones.put(zone, zone(in));
         }
-        return new SeatView(id, player, lastPlayer, life, damage, tax, commanders, counters, conceded, zones);
+        return new SeatView(
+                id, player, lastPlayer, life, damage, tax, commanders, counters, conceded,
+                handShownTo, zones);
     }
 
     private static PlayerRef readPlayer(DataInput in) throws IOException {

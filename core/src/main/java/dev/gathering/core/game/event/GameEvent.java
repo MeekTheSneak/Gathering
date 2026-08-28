@@ -1,6 +1,8 @@
 package dev.gathering.core.game.event;
 
 import dev.gathering.core.card.CardIdentity;
+import dev.gathering.core.card.PaperStock;
+import dev.gathering.core.game.CardNote;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.GameState;
@@ -25,9 +27,14 @@ import java.util.Optional;
  * way in. Dice and coin flips were on the deferred list and came off it: Magic asks for a
  * d20 across half of Adventures in the Forgotten Realms and for a coin as far back as
  * Krark's Thumb, so a table without them sends players to a physical die and loses the one
- * thing this mod is for, which is everybody watching the same thing happen. Monarch and
- * initiative markers, a shared reveal area, clone markers distinct from copy-tokens and
- * per-player notes are still waiting for the same kind of evidence.
+ * thing this mod is for, which is everybody watching the same thing happen.
+ *
+ * <p>The monarch and the initiative came off it too, and not as themselves. Both are table
+ * states tracked at a real table by putting something down and writing on it, and so is the
+ * ring tempting you, and so will be whatever the set after this one invents - so what came
+ * off the list is {@link PaperCardCreated}, blank stock and a pen, which is never one set
+ * behind. A shared reveal area and clone markers distinct from copy-tokens are still waiting
+ * for the same kind of evidence.
  *
  * <p>Nothing here enforces a rule. There is no event for "this is illegal" because there is
  * no such concept: the mod moves cards, tracks numbers and shows things, and the group
@@ -660,6 +667,92 @@ public sealed interface GameEvent {
         }
     }
 
+    /**
+     * Blank stock, put on the table with something written on it.
+     *
+     * <p>Magic keeps printing table states that are not cards - the monarch, the initiative,
+     * the ring tempting you, whatever the set after this one calls its version - and a table
+     * tracks every one of them by putting an object down and writing on it. Guessing at each
+     * mechanic in turn would be a feature that is always one set behind; blank stock and a
+     * pen is never behind at all. See {@link PaperStock}.
+     *
+     * <p>It arrives as a token, which is exactly what it is: a thing that exists for this
+     * game and is thrown away afterwards. So it is removed with the same verb, it goes in the
+     * bin at session end with the other tokens, and nobody has to have written code deciding
+     * what happens to the monarch when everybody stands up.
+     *
+     * <p>What is written on it is a note, cleaned by the same rule every other note is - it
+     * is drawn across a card and read by everybody, so it is one line of ordinary letters.
+     * Rewriting it later is the pen, not this: a card already on the table is written on with
+     * {@link CardNoted}, which is why "I have the monarch" can become "Chris has the monarch"
+     * without anybody making a second emblem.
+     */
+    record PaperCardCreated(SeatId actor, SeatId seat, PaperStock stock, String text) implements GameEvent {
+
+        public PaperCardCreated {
+            stock = stock == null ? PaperStock.BLANK : stock;
+            text = CardNote.clean(text);
+        }
+
+        @Override
+        public LogLine describe(GameState before) {
+            // Empty rather than null: a log line's arguments are an immutable list, which a
+            // null would refuse to go into - and a blank card with nothing on it yet is a
+            // perfectly ordinary thing to put down and write on after.
+            String written = text == null ? "" : text;
+            return LogLine.of(
+                    stock == PaperStock.EMBLEM
+                            ? "log.gathering.emblem_created"
+                            : "log.gathering.paper_created",
+                    actor, seat, written);
+        }
+    }
+
+    /**
+     * Turning your hand round so somebody can read it.
+     *
+     * <p>Always your own hand. Magic is full of cards that make an opponent reveal their hand
+     * - Duress, Thoughtseize, Peek - and at a real table every one of them is resolved by the
+     * person being Duressed picking their hand up and turning it towards you. That is exactly
+     * what this is, and it is why nothing anybody else submits can open somebody's hand: the
+     * one thing the mod ever says no to is an action that would show the actor a card they are
+     * not entitled to, and "make that player reveal their hand" is that action written out in
+     * full. See {@link dev.gathering.core.game.Authorization}.
+     *
+     * <p>A state rather than a moment. A hand shown is a hand that stays shown until it is
+     * taken back, because that is how it works when you put it face up on the table - and
+     * because a one-off reveal would be a screenful of somebody else's cards that vanished
+     * before they had read them.
+     *
+     * @param to the seat being shown, or null for the whole table at once
+     * @param showing whether it is being turned towards them or away again
+     */
+    record HandShown(SeatId actor, SeatId to, boolean showing) implements GameEvent {
+
+        /** Whether this is the whole table rather than one player. */
+        public boolean everybody() {
+            return to == null;
+        }
+
+        @Override
+        public LogLine describe(GameState before) {
+            if (everybody()) {
+                return LogLine.of(showing
+                        ? "log.gathering.hand_shown_all" : "log.gathering.hand_hidden_all", actor);
+            }
+            return LogLine.of(showing
+                    ? "log.gathering.hand_shown" : "log.gathering.hand_hidden", actor, to);
+        }
+
+        @Override
+        public boolean revealsInformation(GameState before) {
+            // Only the turning towards. Taking a hand back shows nobody anything, and an undo
+            // that had to be agreed on unanimously just because somebody stopped revealing
+            // would be a boundary in the wrong direction.
+            return showing;
+        }
+    }
+
     // --------------------------------------------------------- player verbs
 
     /**
@@ -822,6 +915,7 @@ public sealed interface GameEvent {
             case CommanderDamageChanged damage -> Optional.of(damage.seat());
             case CommanderTaxChanged tax -> Optional.of(tax.seat());
             case TokenCreated token -> Optional.of(token.seat());
+            case PaperCardCreated paper -> Optional.of(paper.seat());
             case TokenCopyCreated copy -> Optional.of(copy.seat());
             case CardMoved moved -> Optional.of(moved.to().seat());
             case ZoneMoved moved -> Optional.of(moved.seat());

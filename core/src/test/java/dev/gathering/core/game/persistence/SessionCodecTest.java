@@ -142,6 +142,25 @@ class SessionCodecTest {
     }
 
     @Test
+    @DisplayName("showing a hand to the whole table survives the round trip as everybody")
+    void showingTheTableRoundTrips() throws Exception {
+        // The other event with an optional seat in it. A null seat means the whole table, and
+        // there is no seat index that could stand for it - so a reopened session that read it
+        // back as seat zero would have shown one player a hand meant for everybody.
+        GameEvent everybody = new GameEvent.HandShown(new SeatId(0), null, true);
+
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        try (java.io.DataOutputStream out = new java.io.DataOutputStream(bytes)) {
+            EventCodec.write(out, everybody);
+        }
+        GameEvent back = EventCodec.read(
+                new java.io.DataInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray())));
+
+        assertThat(back).isEqualTo(everybody);
+        assertThat(((GameEvent.HandShown) back).everybody()).isTrue();
+    }
+
+    @Test
     @DisplayName("a log that has had something taken back can still be written and read")
     void aRewindSurvivesBeingStored() throws Exception {
         // A rewind puts an UndoRecord in the log, and the writer used to refuse anything that
@@ -222,6 +241,8 @@ class SessionCodecTest {
                 new GameEvent.CounterChanged(a, card, "+1/+1", 2),
                 new GameEvent.TokenCreated(a, b, identity, 3),
                 new GameEvent.TokenCopyCreated(a, card, b),
+                new GameEvent.PaperCardCreated(
+                        a, b, dev.gathering.core.card.PaperStock.EMBLEM, "Creatures you control get +1/+0"),
                 new GameEvent.TokenRemoved(a, card),
                 new GameEvent.LifeChanged(a, b, -3),
                 new GameEvent.SeatCounterChanged(a, b, "poison", 2),
@@ -232,7 +253,8 @@ class SessionCodecTest {
                 new GameEvent.TurnPassed(a, b),
                 new GameEvent.CardPinged(a, card),
                 new GameEvent.DiceRolled(a, 20, 17),
-                new GameEvent.CoinFlipped(a, true));
+                new GameEvent.CoinFlipped(a, true),
+                new GameEvent.HandShown(a, b, true));
     }
 
     @Provide

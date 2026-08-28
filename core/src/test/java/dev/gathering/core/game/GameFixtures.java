@@ -44,6 +44,27 @@ public final class GameFixtures {
         return session;
     }
 
+    /**
+     * A table of this many seats, all sat in and all with a deck down.
+     *
+     * <p>For the rules that only have a third case once there is a third player - showing one
+     * opponent something and not the other, which is two seats' worth of nothing to check.
+     */
+    public static GameSession table(int seats, int librarySize) {
+        List<SeatId> chairs = new ArrayList<>(seats);
+        for (int index = 0; index < seats; index++) {
+            chairs.add(SeatId.of(index));
+        }
+        GameSession session = GameSession.create(chairs, 40, FIXED_SEED, UndoMode.shippedDefault());
+        for (SeatId seat : chairs) {
+            session.submit(new GameEvent.SeatTaken(
+                    seat, new PlayerRef(UUID.randomUUID(), "Player " + (seat.index() + 1))));
+            session.submit(new GameEvent.DeckLoaded(
+                    seat, deck(librarySize), List.of(card(900 + seat.index()))));
+        }
+        return session;
+    }
+
     /** The first card of a seat's library, which tests reach for constantly. */
     public static CardInstanceId topOfLibrary(GameSession session, SeatId seat) {
         return session.state().contents(seat, Zone.LIBRARY).get(0);

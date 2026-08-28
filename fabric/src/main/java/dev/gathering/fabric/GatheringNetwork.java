@@ -58,6 +58,12 @@ final class GatheringNetwork {
                 dev.gathering.network.FetchBasicPayload.TYPE,
                 dev.gathering.network.FetchBasicPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.BringInDungeonPayload.TYPE,
+                dev.gathering.network.BringInDungeonPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.TableChatPayload.TYPE,
+                dev.gathering.network.TableChatPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.RollDicePayload.TYPE,
                 dev.gathering.network.RollDicePayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
@@ -78,6 +84,9 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.AnteAnswerPayload.TYPE,
                 dev.gathering.network.AnteAnswerPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.TableSaidPayload.TYPE,
+                dev.gathering.network.TableSaidPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.AntePotPayload.TYPE,
                 dev.gathering.network.AntePotPayload.STREAM_CODEC);
@@ -221,6 +230,13 @@ final class GatheringNetwork {
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.FetchBasicPayload.TYPE, (payload, context) ->
                         dev.gathering.server.BasicLandFetch.handle(context.player(), payload));
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.BringInDungeonPayload.TYPE, (payload, context) ->
+                        dev.gathering.service.CardDataService.active().ifPresent(service ->
+                                dev.gathering.server.Dungeons.handle(context.player(), service, payload)));
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.TableChatPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.TableTalk.handle(context.player(), payload));
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.RollDicePayload.TYPE, (payload, context) ->
                         dev.gathering.server.DiceRolls.roll(context.player(), payload));

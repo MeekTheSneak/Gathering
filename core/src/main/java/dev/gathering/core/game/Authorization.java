@@ -62,6 +62,12 @@ public final class Authorization {
                     : ownerOnly(event.actor(), moved.seat(), "empty their "
                             + moved.from().name().toLowerCase(java.util.Locale.ROOT));
 
+            // Your own hand and nobody else's. "Target player reveals their hand" is
+            // resolved by that player turning it round, exactly as it is on a real table -
+            // and an event that let one client open another player's hand would be the whole
+            // security property of the mod handed over in a single packet.
+            case GameEvent.HandShown shown -> Optional.empty();
+
             // Your own seat, and nobody else's, for the things that are simply about you.
             case GameEvent.SeatTaken ignored -> Optional.empty();
             case GameEvent.SeatReleased ignored -> Optional.empty();

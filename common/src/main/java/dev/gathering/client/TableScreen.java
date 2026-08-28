@@ -40,6 +40,7 @@ import dev.gathering.core.ui.TableTop;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
+import dev.gathering.core.card.PaperStock;
 import dev.gathering.network.CreateTokenPayload;
 import dev.gathering.network.DiscardAtRandomPayload;
 import dev.gathering.network.FetchBasicPayload;
@@ -188,6 +189,22 @@ public final class TableScreen extends Screen {
      * one.
      */
     private static final int FROZEN_TINT = 0x3899D9F2;
+
+    /**
+     * The band over a hand that is face up to somebody.
+     *
+     * <p>Warm against the board's greens and cools, because it is the same kind of fact as a
+     * power and toughness somebody typed: a thing a person did on purpose. It has to be the
+     * one warm thing at the bottom of the window or it is not a warning.
+     */
+    private static final int EXPOSED_BAND = 0xC02A1B12;
+    private static final int EXPOSED_TEXT = 0xFFFFD98A;
+
+    /** What somebody said, and the bar it is typed into. Quiet: it is not part of the board. */
+    private static final int TALK_BACKDROP = 0x99000000;
+    private static final int TALK_TEXT = 0xFFE8E4DC;
+    private static final int TALK_TYPING = 0xCC101C1A;
+    private static final int TALK_TYPING_TEXT = 0xFF8FE3C8;
     private static final int FROZEN_EDGE = 0xFFE8F7FF;
 
     /** The badge on a pile, saying how many cards are in it. */
@@ -906,6 +923,9 @@ public final class TableScreen extends Screen {
             graphics.fill(box.x(), box.y(), box.right(), box.bottom(), BOX_FILL);
             graphics.renderOutline(box.x(), box.y(), box.width(), box.height(), ACCENT);
         }
+        // Over the felt and under the panels, because it is a conversation happening beside
+        // the game rather than a thing to read instead of it.
+        renderTalk(graphics);
         if (showingLog) {
             renderLog(graphics, board);
         }
@@ -932,6 +952,54 @@ public final class TableScreen extends Screen {
             int lowest = layout().status().bottom() + tall + 12;
             graphics.renderComponentTooltip(
                     this.font, tooltip, mouseX, Math.max(mouseY, lowest));
+        }
+    }
+
+    /**
+     * What has just been said at this table, and what is being typed to it.
+     *
+     * <p>Drawn on the board rather than left to the chat window, because the board is a screen
+     * and a screen covers the chat window. A player who has to close the game to hear the
+     * person across the table from them will stop using either.
+     *
+     * <p>Above the hand and along the left, where the felt is emptiest and where nothing else
+     * claims a row. It fades out on its own - see {@link ClientTableChat} - so a table that
+     * has gone quiet goes back to being a table.
+     */
+    private void renderTalk(GuiGraphics graphics) {
+        long now = System.currentTimeMillis();
+        List<ClientTableChat.Said> recent = ClientTableChat.recentAt(table, now);
+        if (recent.isEmpty() && saying == null) {
+            return;
+        }
+        int line = this.font.lineHeight + 2;
+        int left = layout().hand().x() + 2;
+        int room = Math.max(40, layout().hand().width() - 4);
+        // Stacked upwards from just above the hand, so the newest line is always in the same
+        // place and the older ones climb away from it. A list that grew downwards would move
+        // the line somebody is reading every time somebody else spoke.
+        int bottom = layout().hand().y() - 2 - (saying == null ? 0 : line + 2);
+        for (int index = recent.size() - 1; index >= 0; index--) {
+            ClientTableChat.Said said = recent.get(index);
+            int top = bottom - line * (recent.size() - index);
+            if (top < layout().status().bottom()) {
+                break;
+            }
+            Component text = Component.translatable(
+                    "chat.gathering.table", said.who(), said.text());
+            int wide = Math.min(room, this.font.width(text) + 6);
+            graphics.fill(left - 2, top - 1, left - 2 + wide, top + line - 1, TALK_BACKDROP);
+            GuiText.draw(graphics, this.font, text, left, top, room - 6, TALK_TEXT);
+        }
+        if (saying != null) {
+            int top = bottom + 2;
+            graphics.fill(left - 2, top - 1, left - 2 + room, top + line - 1, TALK_TYPING);
+            // The caret blinks, which is the only thing on the bar that says it is live -
+            // an empty box with a prompt in it looks the same as a box nobody is typing in.
+            String caret = (now / 500L) % 2 == 0 ? "_" : "";
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("chat.gathering.saying", saying.toString() + caret),
+                    left, top, room - 6, TALK_TYPING_TEXT);
         }
     }
 
@@ -1370,7 +1438,7 @@ public final class TableScreen extends Screen {
             summaryOf(top.get()).ifPresentOrElse(
                     summary -> CardInspectPanel.renderArt(
                             graphics, summary, art.x(), art.y(), art.width(), art.height()),
-                    () -> GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height()));
+                    () -> PaperFace.drawOrInset(graphics, this.font, top.get(), art));
         } else {
             graphics.blit(CardFaceRenderer.CARD_BACK, art.x(), art.y(), 0f, 0f,
                     art.width(), art.height(), art.width(), art.height());
@@ -1975,6 +2043,7 @@ public final class TableScreen extends Screen {
             GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.table.hand_empty"),
                     area.x() + area.width() / 2, area.bottom() - 14, area.width(), DIM);
+            drawHandExposure(graphics, board, seat, area);
             return;
         }
         int lifted = handIndexAt(board, mouseX, mouseY);
@@ -1990,13 +2059,65 @@ public final class TableScreen extends Screen {
                 drawCard(graphics, hand.get(index), slot.where(), slot.angle(), false, false);
             }
         }
+        // Over the cards, last, because it is the one thing here that has to be seen. Drawn
+        // under them it was a band of color behind a row of cards - which is exactly the way
+        // a warning fails: it was there, and nobody could read it.
+        drawHandExposure(graphics, board, seat, area);
         if (lifted >= 0 && lifted < hand.size()) {
             offerToInspector(hand.get(lifted));
         }
     }
 
+    /**
+     * Says so, across the top of your own hand, while your hand is face up to somebody.
+     *
+     * <p>The whole feature turns on this line existing. Showing a hand is a state rather than
+     * a moment - it stays until it is taken back - so the one way it goes wrong is a player
+     * who showed it during somebody's turn and has forgotten by their own. A log line
+     * scrolled past three minutes ago is not a reminder; a band over the cards themselves is.
+     *
+     * <p>Warm, like the numbers somebody typed on a card, because it is the same kind of
+     * fact: a thing a person did on purpose rather than something the game worked out.
+     */
+    private void drawHandExposure(GuiGraphics graphics, GameView board, SeatId me, Rect area) {
+        SeatView mine = board.seat(me);
+        if (!mine.handIsShown() || area.height() < this.font.lineHeight + 4) {
+            return;
+        }
+        List<Component> names = new ArrayList<>();
+        for (SeatView seat : board.seats()) {
+            if (mine.handShownTo().contains(seat.seat())) {
+                names.add(SeatNames.of(seat));
+            }
+        }
+        // "the table" when it is everyone else, and the names when it is not. Counting the
+        // occupied seats rather than every seat: a four-seat table with two players is a
+        // two-player game, and a hand shown to both of them is a hand shown to the table.
+        long playing = board.seats().stream()
+                .filter(seat -> !seat.seat().equals(me) && seat.occupant().isPresent())
+                .count();
+        Component said = names.size() >= playing && playing > 0
+                ? Component.translatable("screen.gathering.hand.open_to_table")
+                : Component.translatable("screen.gathering.hand.open_to",
+                        net.minecraft.network.chat.ComponentUtils.formatList(names, Component.literal(", ")));
+        int high = this.font.lineHeight + 2;
+        graphics.fill(area.x(), area.y(), area.right(), area.y() + high, EXPOSED_BAND);
+        GuiText.drawCentered(graphics, this.font, said,
+                area.x() + area.width() / 2, area.y() + 1, area.width() - 4, EXPOSED_TEXT);
+    }
+
     /** The card drawn risen this frame, which is the only one whose top half is a card. */
     private int liftedNow = -1;
+
+    /**
+     * What is being typed to the table, or null when nobody is typing.
+     *
+     * <p>Typed here rather than on a screen of its own. Saying something at a table is done in
+     * the middle of somebody else's turn while you are looking at the board, and a screen that
+     * took the board away to ask for a sentence would be a conversation that costs you the
+     * game state you were talking about.
+     */
+    private StringBuilder saying;
 
     /** Which card of the hand the cursor is on, or -1. The risen card's top half counts. */
     private int handIndexAt(GameView board, int x, int y) {
@@ -3568,6 +3689,45 @@ public final class TableScreen extends Screen {
     }
 
     /**
+     * Asks what it should say, then puts it on the table.
+     *
+     * <p>One question, because a blank card with nothing on it is a blank card nobody can
+     * read - and the words are the whole of what is being made. Rewriting it afterwards is
+     * the pen, on the card's own menu, like any other note.
+     */
+    private void askForPaper(SeatId me, PaperStock stock) {
+        String which = stock == PaperStock.EMBLEM ? "emblem" : "note_card";
+        net.minecraft.client.Minecraft.getInstance().setScreen(new TextPromptScreen(
+                Component.translatable("screen.gathering.paper." + which),
+                Component.translatable("screen.gathering.paper." + which + ".hint"),
+                dev.gathering.core.game.CardNote.LONGEST,
+                text -> send(new GameEvent.PaperCardCreated(me, me, stock, text)),
+                this));
+    }
+
+    /**
+     * Which dungeon.
+     *
+     * <p>Four buttons rather than a typing box, because there are four of them and they are
+     * all spellable wrongly - the same reason the basic lands get buttons. The name is not on
+     * the wire at all: the client sends which of the four, and the server knows what they are
+     * called. See {@link dev.gathering.core.card.Dungeon}.
+     */
+    private void askWhichDungeon() {
+        List<ChoiceScreen.Option> dungeons = new ArrayList<>();
+        for (dev.gathering.core.card.Dungeon dungeon : dev.gathering.core.card.Dungeon.values()) {
+            int which = dungeon.ordinal();
+            dungeons.add(new ChoiceScreen.Option(
+                    Component.translatable("screen.gathering.dungeon."
+                            + dungeon.name().toLowerCase(java.util.Locale.ROOT)),
+                    () -> ClientNetworking.send(
+                            new dev.gathering.network.BringInDungeonPayload(table, which))));
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.dungeon.which"), dungeons, this));
+    }
+
+    /**
      * Asks before doing something that cannot be taken back, then does it.
      *
      * <p>The question, what it means and the word on the button all come off one key, so a
@@ -3631,6 +3791,7 @@ public final class TableScreen extends Screen {
             // public, and refusing to open the menu at all left the one person who most needs
             // to catch up with no way to ask for it.
             List<ContextMenu.Entry> watching = ContextMenu.entries();
+            watching.add(entry("say", () -> saying = new StringBuilder()));
             watching.add(entry(showingLog ? "hide_log" : "show_log",
                     () -> showingLog = !showingLog));
             menu = ContextMenu.at(this.font, x, y, this.width, this.height,
@@ -3646,13 +3807,44 @@ public final class TableScreen extends Screen {
         entries.add(entry("discard_at_random", () -> ask("discard_at_random", 1,
                 howMany -> ClientNetworking.send(new DiscardAtRandomPayload(table, howMany)))));
         entries.add(entry("sort_hand", () -> sortMyHand(me)));
+        // Turning your hand round. Always your own: "target player reveals their hand" is
+        // resolved by that player pressing this, exactly as they would turn it towards you
+        // across a table - see GameEvent.HandShown.
+        entries.add(entry("show_hand", () -> askWhoSeesMyHand(me)));
+        view().ifPresent(board -> {
+            if (board.seat(me).handIsShown()) {
+                entries.add(entry("hide_hand", () -> send(new GameEvent.HandShown(me, null, false))));
+            }
+            // One row per player who has turned their hand towards me, named, because
+            // being shown a hand and having nowhere to read it is the same as not being
+            // shown one. It opens in the box every other pile opens in.
+            for (SeatView theirs : board.seats()) {
+                if (!theirs.seat().equals(me) && theirs.handIsShownTo(me)) {
+                    entries.add(ContextMenu.Entry.of(
+                            Component.translatable("menu.gathering.table.read_hand",
+                                    SeatNames.of(theirs)),
+                            () -> openPile(theirs.seat(), Zone.HAND, false)));
+                }
+            }
+        });
         entries.add(entry("make_token", this::askForToken));
+        // Blank stock and a pen, for every table state the mod has no feature for: the
+        // monarch, the initiative, the ring tempting you, whatever the next set calls its
+        // version. See PaperCardCreated - the point of it is that it is never one set behind.
+        entries.add(entry("note_card", () -> askForPaper(me, PaperStock.BLANK)));
+        entries.add(entry("make_emblem", () -> askForPaper(me, PaperStock.EMBLEM)));
+        // A dungeon starts outside the game and cannot be drawn, bought or opened, so
+        // something has to bring it in. See Dungeons.
+        entries.add(entry("bring_in_dungeon", this::askWhichDungeon));
         // Both decided by the server, like the discard at random and for the same reason: a
         // die the roller chose is not a die. The coin is one press because Magic asks for one
         // far more often than for any particular die.
         entries.add(entry("flip_coin",
                 () -> ClientNetworking.send(new dev.gathering.network.FlipCoinPayload(table))));
         entries.add(entry("roll_die", this::askWhichDie));
+        // The key does this too, and the key is the chat key - but a verb nobody knows about
+        // is a verb nobody uses, and the menu is where somebody looks for what a table can do.
+        entries.add(entry("say", () -> saying = new StringBuilder()));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
         view().ifPresent(board -> entries.add(entry("next_phase",
                 () -> send(new GameEvent.PhaseSet(me, board.turn().phase().next())))));
@@ -3770,6 +3962,47 @@ public final class TableScreen extends Screen {
                 Component.translatable("screen.gathering.dice.other"), this::askHowManySides));
         net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
                 Component.translatable("screen.gathering.dice.which"), dice, this));
+    }
+
+    /**
+     * Who may read my hand.
+     *
+     * <p>One screen rather than a verb per player, and it toggles rather than only turning
+     * on: a player who has shown Bob their hand and wants to stop has to find the same place
+     * they turned it on, or the feature is a door that only opens.
+     *
+     * <p>Only occupied seats, and never your own. Showing your hand to an empty chair is not
+     * a thing anybody means to do, and it would sit in the log looking like a mistake.
+     */
+    private void askWhoSeesMyHand(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null) {
+            return;
+        }
+        SeatView mine = board.seat(me);
+        List<ChoiceScreen.Option> who = new ArrayList<>();
+        who.add(new ChoiceScreen.Option(
+                Component.translatable("screen.gathering.hand.everybody"),
+                () -> send(new GameEvent.HandShown(me, null, true))));
+        for (SeatView seat : board.seats()) {
+            if (seat.seat().equals(me) || seat.occupant().isEmpty()) {
+                continue;
+            }
+            SeatId them = seat.seat();
+            boolean already = mine.handIsShownTo(them);
+            who.add(new ChoiceScreen.Option(
+                    Component.translatable(
+                            already ? "screen.gathering.hand.stop" : "screen.gathering.hand.start",
+                            SeatNames.of(seat)),
+                    () -> send(new GameEvent.HandShown(me, them, !already))));
+        }
+        if (mine.handIsShown()) {
+            who.add(new ChoiceScreen.Option(
+                    Component.translatable("screen.gathering.hand.nobody"),
+                    () -> send(new GameEvent.HandShown(me, null, false))));
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.hand.who"), who, this));
     }
 
     /** The odd die. Twenty suggested, because that is the one somebody is most likely after. */
@@ -3939,6 +4172,19 @@ public final class TableScreen extends Screen {
      */
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
+        // Before everything, because while somebody is typing every other key is a letter.
+        // A board where pressing D drew a card halfway through the word "dead" would be a
+        // board nobody could talk at.
+        if (saying != null && typingKey(key, modifiers)) {
+            return true;
+        }
+        if (saying == null && net.minecraft.client.Minecraft.getInstance()
+                .options.keyChat.matches(key, scanCode)) {
+            // The player's own chat key, whatever they have bound it to. Talking to the table
+            // is the same act as talking to the server, so it is the same press.
+            saying = new StringBuilder();
+            return true;
+        }
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_F1) {
             showingKeys = !showingKeys;
             return true;
@@ -4486,8 +4732,7 @@ public final class TableScreen extends Screen {
                     summary -> CardInspectPanel.renderArt(
                             graphics, summary, card.turnedOver(),
                             where.x(), where.y(), where.width(), where.height()),
-                    () -> GatheringSprites.inset(
-                            graphics, where.x(), where.y(), where.width(), where.height()));
+                    () -> PaperFace.drawOrInset(graphics, this.font, card, where));
         }
         if (onTheFelt && card.tapped()) {
             // A tapped card is already lying sideways; the tint is what tells it apart from
@@ -4525,6 +4770,12 @@ public final class TableScreen extends Screen {
      * from across the table.
      */
     private void drawWriting(GuiGraphics graphics, CardView card, Rect art) {
+        // Not on blank stock. There the writing is the card - drawn across the whole of it by
+        // PaperFace - and a band repeating the first few words of it over the top would be
+        // the same sentence twice, the second copy covering the first.
+        if (PaperFace.isPaper(card)) {
+            return;
+        }
         CardInspectPanel.drawNote(graphics, this.font, card.writtenOn().orElse(null), art);
     }
 
@@ -4735,11 +4986,13 @@ public final class TableScreen extends Screen {
      * button, say - and those two lists parting company is a panel Escape will not close.
      */
     private boolean somethingIsOpen() {
-        return menu != null || !attaching.isEmpty() || showingKeys || showingLog || held != null;
+        return saying != null || menu != null || !attaching.isEmpty()
+                || showingKeys || showingLog || held != null;
     }
 
     /** Shuts all of it, because Escape is one press and a player pressed it once. */
     private void closeWhatIsOpen() {
+        saying = null;
         menu = null;
         attaching = List.of();
         showingKeys = false;
@@ -4747,6 +5000,73 @@ public final class TableScreen extends Screen {
         // Put back where it came from, which is what letting go off the table does too: the
         // card never moved as far as the server is concerned, so there is nothing to undo.
         held = null;
+    }
+
+    /**
+     * The keys that mean something while a line is being typed, and whether this was one.
+     *
+     * <p>Its own method rather than four cases at the top of the key handler, because the
+     * answer to everything else is the same: swallow it. A key that fell through to the board
+     * while somebody was mid-sentence would play a card out of a word.
+     */
+    private boolean typingKey(int key, int modifiers) {
+        switch (key) {
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> saying = null;
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> say();
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE -> {
+                if (saying.length() > 0) {
+                    saying.deleteCharAt(saying.length() - 1);
+                }
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_V -> {
+                if (net.minecraft.client.gui.screens.Screen.hasControlDown()) {
+                    append(net.minecraft.client.Minecraft.getInstance().keyboardHandler.getClipboard());
+                }
+            }
+            default -> {
+                // Everything else is a letter on its way to charTyped, or a key that has no
+                // meaning here. Either way it is not the board's while a line is open.
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public boolean charTyped(char letter, int modifiers) {
+        if (saying == null) {
+            return super.charTyped(letter, modifiers);
+        }
+        append(String.valueOf(letter));
+        return true;
+    }
+
+    /** Adds to the line, up to what the wire will carry. */
+    private void append(String more) {
+        if (more == null) {
+            return;
+        }
+        for (int index = 0; index < more.length()
+                && saying.length() < dev.gathering.network.TableChatPayload.LONGEST; index++) {
+            char letter = more.charAt(index);
+            if (net.minecraft.util.StringUtil.isAllowedChatCharacter(letter)) {
+                saying.append(letter);
+            }
+        }
+    }
+
+    /**
+     * Says it, and closes the line either way.
+     *
+     * <p>Closed even when there was nothing to say, because Enter on an empty line is
+     * somebody changing their mind - and a bar that stayed open would eat the next key press
+     * they meant for the board.
+     */
+    private void say() {
+        String line = saying.toString();
+        saying = null;
+        if (!line.isBlank()) {
+            ClientNetworking.send(new dev.gathering.network.TableChatPayload(table, line));
+        }
     }
 
     @Override

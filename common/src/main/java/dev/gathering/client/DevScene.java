@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 201;
+    private static final int LAST_STEP = 213;
 
     private static int step;
     private static int waited;
@@ -2158,6 +2158,98 @@ public final class DevScene {
             }
             case 201 -> {
                 shoot(client, "63-a-roll-and-a-flip-in-the-log");
+                // The log is over the board from here on, and the next thing to look at is
+                // the board. Closed rather than left up, because a picture of an emblem with
+                // the log across it is a picture of the log.
+                openTheLog(client);
+                advance(SETTLE / 2);
+            }
+            case 202 -> {
+                // Blank stock: the mod's answer to every table state it has no feature for.
+                // Worth photographing rather than only asserting, because the whole of what
+                // an emblem is is how it looks - there is no art to fall back on.
+                openThePaperQuestion(client, "make_emblem", "an emblem");
+                advance(SETTLE / 2);
+            }
+            case 203 -> {
+                expectScreen(client, "asking what the emblem says", TextPromptScreen.class);
+                shoot(client, "64-what-does-the-emblem-say");
+                typeInto(client, "Creatures you control get +1/+1");
+                press(client, "OK");
+                advance(SETTLE);
+            }
+            case 204 -> {
+                if (!logSays(client, "Creatures you control get +1/+1")) {
+                    fail("an emblem was made and the log does not say what it says");
+                }
+                openThePaperQuestion(client, "note_card", "a blank card");
+                advance(SETTLE / 2);
+            }
+            case 205 -> {
+                expectScreen(client, "asking what the blank card says", TextPromptScreen.class);
+                typeInto(client, "Dev has the monarch");
+                press(client, "OK");
+                advance(SETTLE);
+            }
+            case 206 -> {
+                if (!logSays(client, "Dev has the monarch")) {
+                    fail("a blank card was written and the log does not say what it says");
+                }
+                shoot(client, "65-an-emblem-and-a-written-card");
+                advance(SETTLE / 2);
+            }
+            case 207 -> {
+                // Turning your hand round. The one feature that deliberately opens a hidden
+                // zone, so the picture is worth as much as the assertion: what has to be true
+                // is that the player doing it can see, on their own screen, that it is open.
+                openTheHandQuestion(client);
+                advance(SETTLE / 2);
+            }
+            case 208 -> {
+                expectScreen(client, "asking who can see my hand", ChoiceScreen.class);
+                shoot(client, "66-who-can-see-my-hand");
+                press(client, net.minecraft.network.chat.Component
+                        .translatable("screen.gathering.hand.everybody").getString());
+                advance(SETTLE);
+            }
+            case 209 -> {
+                if (!logSays(client, "face up to the table")) {
+                    fail("a hand was turned face up and the log does not say so");
+                }
+                shoot(client, "67-my-hand-is-face-up");
+                takeMyHandBack(client);
+                advance(SETTLE);
+            }
+            case 210 -> {
+                if (!logSays(client, "took their hand back")) {
+                    fail("a hand was taken back and the log does not say so");
+                }
+                // And the other half of a table: talking at it. Typed with the player's own
+                // chat key, into the board rather than into a screen that would take the
+                // board away - see TableScreen.renderTalk.
+                sayToTheTable(client, "attacking you with everything");
+                advance(SETTLE);
+            }
+            case 211 -> {
+                if (theTableHasNotHeard(client, "attacking you with everything")) {
+                    fail("something was said to the table and the table did not hear it");
+                }
+                shoot(client, "68-said-at-the-table");
+                advance(SETTLE / 2);
+            }
+            case 212 -> {
+                // A dungeon starts outside the game, so something has to bring it in. Only
+                // the question is photographed: the card itself is a Scryfall lookup and this
+                // run has no network, exactly like the token search two hundred steps back.
+                pressTableEntry(client, "bring_in_dungeon", "bring in a dungeon");
+                advance(SETTLE / 2);
+            }
+            case 213 -> {
+                expectScreen(client, "asking which dungeon", ChoiceScreen.class);
+                shoot(client, "69-which-dungeon");
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
                 advance(SETTLE / 2);
             }
             default -> {
@@ -3763,6 +3855,84 @@ public final class DevScene {
         if (!openTheTableMenu(client, board, wanted) || !board.pressMenuEntry(wanted)) {
             fail("the table menu offers no way to flip a coin");
         }
+    }
+
+    /**
+     * Opens the one question a blank card asks: what should it say.
+     *
+     * <p>Both stocks go through here because they are the same act with a different word on
+     * the menu, and a scene that drove them separately would be two copies of one path - the
+     * thing the mod itself refuses to have.
+     */
+    private static void openThePaperQuestion(Minecraft client, String entry, String what) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to put " + what + " on");
+            return;
+        }
+        String wanted = net.minecraft.network.chat.Component
+                .translatable("menu.gathering.table." + entry).getString();
+        if (!openTheTableMenu(client, board, wanted) || !board.pressMenuEntry(wanted)) {
+            fail("the table menu offers no way to put " + what + " on the table");
+        }
+    }
+
+    /** Opens the question of who may read my hand. */
+    private static void openTheHandQuestion(Minecraft client) {
+        pressTableEntry(client, "show_hand", "ask who can see my hand");
+    }
+
+    /** And closes it again, which is the press the whole feature depends on existing. */
+    private static void takeMyHandBack(Minecraft client) {
+        pressTableEntry(client, "hide_hand", "take my hand back");
+    }
+
+    /** One row of the table menu, by its key, for the verbs that are a single press. */
+    private static void pressTableEntry(Minecraft client, String entry, String what) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to " + what + " on");
+            return;
+        }
+        String wanted = net.minecraft.network.chat.Component
+                .translatable("menu.gathering.table." + entry).getString();
+        if (!openTheTableMenu(client, board, wanted) || !board.pressMenuEntry(wanted)) {
+            fail("the table menu offers no way to " + what);
+        }
+    }
+
+    /**
+     * Says something to the table, typed the way a player types it.
+     *
+     * <p>Through the board's own key handling rather than by sending the payload, because the
+     * thing most likely to break is the handling: a board where the chat key played a card,
+     * or where the letters of the sentence did, is a board nobody can talk at.
+     */
+    private static void sayToTheTable(Minecraft client, String words) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to say anything at");
+            return;
+        }
+        // T, and checked rather than assumed: the board opens the line on whatever the
+        // player has bound, and this run has the default binding. Reading the bound key back
+        // out is a loader extension and this layer has no loader.
+        int chat = org.lwjgl.glfw.GLFW.GLFW_KEY_T;
+        if (!client.options.keyChat.matches(chat, 0)) {
+            fail("the chat key is not bound to T in this run, so the scene cannot type");
+            return;
+        }
+        board.keyPressed(chat, 0, 0);
+        for (char letter : words.toCharArray()) {
+            board.charTyped(letter, 0);
+        }
+        board.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, 0, 0);
+    }
+
+    /** Whether the line got all the way back round to this client. */
+    private static boolean theTableHasNotHeard(Minecraft client, String words) {
+        if (table == null) {
+            return true;
+        }
+        return ClientTableChat.recentAt(table, System.currentTimeMillis()).stream()
+                .noneMatch(said -> said.text().contains(words));
     }
 
     /** Shows the log on the board, so a picture of it has it in. */

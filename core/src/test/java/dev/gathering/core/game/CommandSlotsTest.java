@@ -64,6 +64,8 @@ class CommandSlotsTest {
         Map<Zone, ZoneView> zones = new LinkedHashMap<>();
         counts.forEach((zone, count) ->
                 zones.put(zone, new ZoneView(ZoneRef.of(ME, zone), count, List.of())));
-        return new SeatView(ME, null, null, 40, Map.of(), Map.of(), List.of(), Map.of(), false, zones);
+        return new SeatView(
+                ME, null, null, 40, Map.of(), Map.of(), List.of(), Map.of(), false,
+                java.util.Set.of(), zones);
     }
 }

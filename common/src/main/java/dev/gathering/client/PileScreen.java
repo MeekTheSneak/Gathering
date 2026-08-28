@@ -500,11 +500,14 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                     summary -> CardInspectPanel.renderArt(
                             graphics, summary, card.turnedOver(),
                             art.x(), art.y(), art.width(), art.height()),
-                    () -> GatheringSprites.inset(graphics, art.x(), art.y(), art.width(), art.height()));
+                    () -> PaperFace.drawOrInset(graphics, this.font, card, art));
         }
         // And what somebody wrote on it, across the top, drawn by the same method the felt
-        // uses so the two can never come to look like different features.
-        CardInspectPanel.drawNote(graphics, this.font, card.writtenOn().orElse(null), art);
+        // uses so the two can never come to look like different features - except on blank
+        // stock, where the writing is the card and has already been drawn across all of it.
+        if (!PaperFace.isPaper(card)) {
+            CardInspectPanel.drawNote(graphics, this.font, card.writtenOn().orElse(null), art);
+        }
         // And the numbers in the corner, for the same reason: a card looked at through this
         // screen and the same card on the felt have to be the same card.
         CardInspectPanel.drawStrength(
@@ -620,7 +623,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                     pressed = index;
                     pressedX = x;
                     dragged = false;
-                } else {
+                } else if (mayMoveFromHere()) {
                     GatheringButtons.clickSound();
                     openMenu(visible, x, y);
                 }
@@ -755,6 +758,19 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         int column = Math.max(0, Math.min(columns - 1, (x - grid.x()) / (cardWidth + GAP)));
         int row = Math.max(0, (y + scroll - grid.y()) / (CARD_HEIGHT + GAP));
         return row * columns + column;
+    }
+
+    /**
+     * Whether a card read here is one this viewer could actually pick up.
+     *
+     * <p>A hand somebody has turned towards you is a hand you may read and not one you may
+     * reach into - {@link dev.gathering.core.game.Authorization} refuses a move out of
+     * somebody else's hidden zone, because naming a card inside one means having seen it. So
+     * the menu does not open at all rather than offering seven moves the server will refuse
+     * in silence. Nothing promised is nothing broken.
+     */
+    private boolean mayMoveFromHere() {
+        return !zone.isHidden() || mySeat().filter(owner::equals).isPresent();
     }
 
     /**

@@ -128,6 +128,23 @@ public final class GatheringNetwork {
                 GatheringNetwork::onCreateToken);
 
         registrar.playToServer(
+                dev.gathering.network.BringInDungeonPayload.TYPE,
+                dev.gathering.network.BringInDungeonPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.service.CardDataService.active().ifPresent(service ->
+                                dev.gathering.server.Dungeons.handle(player, service, payload));
+                    }
+                });
+        registrar.playToServer(
+                dev.gathering.network.TableChatPayload.TYPE,
+                dev.gathering.network.TableChatPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.TableTalk.handle(player, payload);
+                    }
+                });
+        registrar.playToServer(
                 dev.gathering.network.RollDicePayload.TYPE,
                 dev.gathering.network.RollDicePayload.STREAM_CODEC,
                 (payload, context) -> {
@@ -216,6 +233,10 @@ public final class GatheringNetwork {
         registrar.playToClient(
                 OpenImportScreenPayload.TYPE,
                 OpenImportScreenPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.TableSaidPayload.TYPE,
+                dev.gathering.network.TableSaidPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
                 TableViewPayload.TYPE,
