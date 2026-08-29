@@ -629,6 +629,7 @@ public final class TableScreen extends Screen {
         TableCameraView.release();
         TablePointer.forget();
         ClientTableHighlight.clear();
+        ClientTableRolls.forget();
         super.removed();
     }
 
@@ -841,6 +842,7 @@ public final class TableScreen extends Screen {
         // Over the felt and under the panels, because it is a conversation happening beside
         // the game rather than a thing to read instead of it.
         renderTalk(graphics);
+        renderRoll(graphics, board);
         if (showingLog) {
             renderLog(graphics, board);
         }
@@ -919,6 +921,59 @@ public final class TableScreen extends Screen {
                     left, top, room - 6, TALK_TYPING_TEXT);
         }
     }
+
+    /**
+     * The last die or coin, announced across the middle of the felt.
+     *
+     * <p>Reported as "need visuals for rolling dice and flipping coins as well as a visual
+     * announcement outside of the log". A result that only ever appeared in a panel players
+     * keep closed is the one place it must not be: the whole reason the server rolls is that
+     * a player rolling their own die is a player making a claim, and a result nobody at the
+     * table saw is exactly as good as a claim.
+     *
+     * <p>Across the middle rather than in a corner, and large, because everybody at the table
+     * has to catch it at once without being told to look. It fades on its own, so the felt
+     * goes back to being felt - the log still has the line for anybody who missed it, which is
+     * what the log is for.
+     *
+     * <p>The same sentence the log draws, through {@link GameLogText}, so the flourish and the
+     * record cannot end up saying different things about the same roll.
+     */
+    private void renderRoll(GuiGraphics graphics, GameView board) {
+        long now = System.currentTimeMillis();
+        ClientTableRolls.seen(table, board, now);
+        ClientTableRolls.Shown shown = ClientTableRolls.showingAt(table, now).orElse(null);
+        if (shown == null) {
+            return;
+        }
+        Component text = GameLogText.render(board, shown.entry());
+        // Fading out over the last of its moment, so it leaves rather than blinking off.
+        float gone = ClientTableRolls.progress(shown, now);
+        int alpha = (int) (0xFF * (1f - Math.max(0f, (gone - ROLL_HOLDS) / (1f - ROLL_HOLDS))));
+        if (alpha <= 0) {
+            return;
+        }
+        int line = this.font.lineHeight;
+        int room = Math.max(60, this.width - 40);
+        int wide = Math.min(room, this.font.width(text) + 24);
+        int middle = layout().status().bottom()
+                + (floorOfTheFelt() - layout().status().bottom()) / 3;
+        GatheringSprites.draw(graphics, Element.TALK_BACKDROP,
+                (this.width - wide) / 2, middle - 6, wide, line * ROLL_SIZE + 12,
+                (alpha << 24) | 0xFFFFFF);
+        graphics.pose().pushPose();
+        graphics.pose().translate(this.width / 2f, middle, 0f);
+        graphics.pose().scale(ROLL_SIZE, ROLL_SIZE, 1f);
+        GuiText.drawCentered(graphics, this.font, text, 0, 0,
+                Math.max(1, room / ROLL_SIZE), (alpha << 24) | (ACCENT & 0xFFFFFF));
+        graphics.pose().popPose();
+    }
+
+    /** How much of its moment the announcement holds full strength before fading. */
+    private static final float ROLL_HOLDS = 0.6f;
+
+    /** How much larger than the log's own text the announcement is drawn. */
+    private static final int ROLL_SIZE = 2;
 
     private static CardInstanceId idOf(Placed placed) {
         return placed != null && placed.card() instanceof CardView.Visible visible ? visible.id() : null;
@@ -5146,6 +5201,8 @@ public final class TableScreen extends Screen {
         TableCameraView.release();
         TablePointer.forget();
         ClientTableHighlight.clear();
+        // Or the next table opens wearing the last one's roll.
+        ClientTableRolls.forget();
         super.onClose();
     }
 
