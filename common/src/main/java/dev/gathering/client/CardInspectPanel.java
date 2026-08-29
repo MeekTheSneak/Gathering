@@ -209,6 +209,47 @@ public final class CardInspectPanel {
      */
     public static void renderArt(GuiGraphics graphics, CardSummary summary, boolean flipped,
             int x, int y, int width, int height) {
+        renderArt(graphics, summary, flipped, x, y, width, height, Holding.FLAT);
+    }
+
+    /**
+     * The same, turned, and with its shine if it is a foil.
+     *
+     * <p>For a screen that is showing a card as a thing rather than as an entry in a list -
+     * the cards coming out of a booster, so far. It goes through the same door every other
+     * card does, so a foil pulled out of a pack sparkles by exactly the machinery a foil held
+     * up to read does, rather than by a second copy of it.
+     *
+     * @param yaw   how far the card is turned sideways, in degrees
+     * @param pitch and up and down
+     * @param grain a stable number about the printing, so its sparkle is its own
+     */
+    public static void renderArtTurned(
+            GuiGraphics graphics, CardSummary summary, boolean flipped,
+            int x, int y, int width, int height,
+            float yaw, float pitch, boolean foil) {
+        renderArt(graphics, summary, flipped, x, y, width, height,
+                new Holding(foil, grainOf(summary), yaw, pitch,
+                        shineFrom(yaw, MOST_YAW), shineFrom(pitch, MOST_PITCH)));
+    }
+
+    /**
+     * Where the light is on a card turned this far.
+     *
+     * <p>The shine follows the turn rather than the cursor, because a card in a grid is
+     * turned by how near the cursor is to it rather than by being held - so the only thing
+     * that knows where the light should be is the angle itself.
+     */
+    private static float shineFrom(float angle, float most) {
+        return most <= 0f ? 0f : Math.max(-1f, Math.min(1f, angle / most));
+    }
+
+    /** The most a card in a grid is turned, which is what its shine is measured against. */
+    private static final float MOST_YAW = 9f;
+    private static final float MOST_PITCH = 5.5f;
+
+    private static void renderArt(GuiGraphics graphics, CardSummary summary, boolean flipped,
+            int x, int y, int width, int height, Holding held) {
         List<CardFaceSummary> faces = List.of(summary.sideShown(flipped));
         int count = 1;
         if (width <= 0 || height <= 0) {
@@ -228,7 +269,7 @@ public final class CardInspectPanel {
         int row = x + (width - (artWidth * count + GAP * (count - 1))) / 2;
         int top = y + (height - artHeight) / 2;
         for (CardFaceSummary face : faces) {
-            drawFace(graphics, face, row, top, artWidth, artHeight);
+            drawFace(graphics, face, held, row, top, artWidth, artHeight);
             row += artWidth + GAP;
         }
     }

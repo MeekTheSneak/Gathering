@@ -4,6 +4,7 @@ import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.card.Rarity;
 import dev.gathering.core.ui.PackGlow;
 import dev.gathering.core.ui.PackLayout;
+import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.PackTear;
 import dev.gathering.core.ui.PackWrapper;
 import dev.gathering.item.CardComponent;
@@ -11,6 +12,7 @@ import dev.gathering.network.CardSummary;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
+import org.joml.Matrix4f;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -58,12 +60,39 @@ public final class PackOpeningScreen extends Screen {
     private static final int BODY_ROW = 5;
     private static final int BODY_ROWS = 10;
 
+    /**
+     * How many rows each piece is cut into down the pack, for the turn to be a curve.
+     *
+     * <p>The body gets more because it is most of the pack and because its top edge is the
+     * tear; the strip is a sixth of the height and two are plenty.
+     */
+    private static final int BODY_DOWN = 6;
+    private static final int STRIP_DOWN = 2;
+
     private final String setCode;
     private final String kind;
     private final List<CardComponent> cards;
 
     private PackTear tear = PackTear.unopened(1, 0L);
     private List<CardComponent> revealed = List.of();
+
+    /**
+     * How far the pack is turned, and how far it is easing towards being turned.
+     *
+     * <p>Its own rather than {@link CardTilt}'s, which belongs to the inspect panel. Two
+     * things easing one value would fight over it the moment a card was hovered on top of a
+     * pack, and the numbers are not the same either: a pack held in front of you turns less
+     * than a card held up to read.
+     */
+    private float yaw;
+    private float pitch;
+
+    /** How far the pack turns, in degrees. Less than a card, because it is a heavier thing. */
+    private static final float MOST_YAW = 7f;
+    private static final float MOST_PITCH = 4.5f;
+
+    /** How much of the way to the wanted angle each frame, so it follows rather than snaps. */
+    private static final float EASE = 0.18f;
 
     // Named for the pack rather than for the screen: Screen has width and height of its own,
     // and a field here called either would shadow it silently.
@@ -177,12 +206,29 @@ public final class PackOpeningScreen extends Screen {
         int tornTo = packX + tear.tornTo();
         int crimp = packY + (int) (packHeight * CRIMP);
 
-        // The body, with its top edge torn away where the tear has reached.
-        drawBody(graphics, tornTo, crimp);
-        // The crimped strip above it, still attached where the tear has not.
-        drawWrapper(graphics, tornTo, packY, packX + packWidth, crimp, CRIMP_ROW, CRIMP_ROWS);
-        drawTornEdge(graphics, tornTo, crimp);
-        drawSymbol(graphics, crimp);
+        // Turned towards the cursor while it is being looked at, and square while it is being
+        // torn. A pack is held still to tear it, and a pack that swung eighteen degrees under
+        // the hand doing the tearing would be moving the very edge that hand is aiming at.
+        turnTowards(mouseX, mouseY);
+        CardLens lens = CardLens.of(
+                new Rect(packX, packY, packWidth, packHeight), yaw, pitch);
+        Matrix4f matrix = graphics.pose().last().pose();
+
+        int steps = tearSteps();
+        float[] top = tearTops(steps, tornTo, crimp);
+
+        // The body, its top edge wherever the tear left it, and the crimped strip above it
+        // where the tear has not reached. Two pieces because the wrapper's picture squashes
+        // its crimp into the top sixth of the pack and stretches its body over the rest, and
+        // a quad's texture coordinates can only run straight.
+        TiltedPack.draw(matrix, lens, PackFaceRenderer.WRAPPER, top,
+                new TiltedPack.Piece(BODY_ROW, BODY_ROWS, (float) CRIMP, 1f - (float) CRIMP),
+                BODY_DOWN, MARGIN, WRAPPER_PIXELS);
+        TiltedPack.draw(matrix, lens, PackFaceRenderer.WRAPPER, top,
+                new TiltedPack.Piece(CRIMP_ROW, CRIMP_ROWS, 0f, (float) CRIMP),
+                STRIP_DOWN, MARGIN, WRAPPER_PIXELS);
+        drawSymbol(graphics, lens, matrix);
+        drawTornEdge(graphics, lens, matrix, tornTo, steps, top);
 
         // Only before it has been touched. Once somebody is tearing it, the tear is the
         // feedback; a line of text cheering them on is the screen talking for the sake of it.
@@ -219,6 +265,9 @@ public final class PackOpeningScreen extends Screen {
         this.grid = laid;
         this.gridLeft = gridLeft;
         this.gridTop = gridTop;
+        if (leans.length != revealed.size()) {
+            leans = new float[revealed.size()];
+        }
         CardComponent over = null;
         for (int index = 0; index < revealed.size(); index++) {
             int column = index % laid.columns();
@@ -226,9 +275,25 @@ public final class PackOpeningScreen extends Screen {
             int x = gridLeft + column * (laid.cardWidth() + GAP);
             int y = gridTop + row * (laid.cardHeight() + GAP);
             CardComponent card = revealed.get(index);
+            // Turned towards the cursor, most for the one nearest it. These are the cards
+            // somebody has just been given: they are the point of the whole screen, and a
+            // grid of them lying flat is a spreadsheet of what was in the pack rather than a
+            // handful of cards. The one you are looking at leans towards you, and a foil
+            // among them catches the light as it does.
+            float toward = leanToward(mouseX, mouseY,
+                    x + laid.cardWidth() / 2f, y + laid.cardHeight() / 2f, laid.cardWidth());
+            if (index < leans.length) {
+                leans[index] = toward;
+            }
+            float cardYaw = across(mouseX, x + laid.cardWidth() / 2f, laid.cardWidth())
+                    * CARD_YAW * toward;
+            float cardPitch = across(mouseY, y + laid.cardHeight() / 2f, laid.cardHeight())
+                    * CARD_PITCH * toward;
             ClientCardCache.get().summary(card).ifPresentOrElse(
-                    summary -> CardInspectPanel.renderArt(graphics, summary, card.flipped(),
-                            x, y, laid.cardWidth(), laid.cardHeight()),
+                    summary -> CardInspectPanel.renderArtTurned(
+                            graphics, summary, card.flipped(),
+                            x, y, laid.cardWidth(), laid.cardHeight(),
+                            cardYaw, cardPitch, card.foil()),
                     () -> GatheringSprites.inset(
                             graphics, x, y, laid.cardWidth(), laid.cardHeight()));
             // Held over a card, the read-a-card key shows it here exactly as it does over a
@@ -254,6 +319,50 @@ public final class PackOpeningScreen extends Screen {
                 width() / 2, gridTop + gridHeight + 6, 0xFFBFC7D2);
     }
 
+    /** How much of its turn each card took last frame. For the harness; see {@link #leanOf}. */
+    private float[] leans = new float[0];
+
+    /**
+     * How far one of the pulled cards is turned towards the cursor, from nought to one.
+     *
+     * <p>For the scripted run, which cannot photograph this: the cards it opens are made up
+     * and have no art, so they take the placeholder path and nothing turns. What can be
+     * checked is the arithmetic - the card under the cursor leans most, and one across the
+     * grid from it barely at all - and that is the part of this that is new. The turning
+     * itself is the inspect panel's, and has its own pictures.
+     */
+    float leanOf(int index) {
+        return index >= 0 && index < leans.length ? leans[index] : 0f;
+    }
+
+    /** How far a card in the grid turns towards the cursor. */
+    private static final float CARD_YAW = 9f;
+    private static final float CARD_PITCH = 5.5f;
+
+    /**
+     * How far away the cursor has to be before a card stops paying attention to it.
+     *
+     * <p>In card widths. Without a falloff every card in the grid turns the same amount as
+     * the one under the cursor, because a card three widths away is still to its left - which
+     * came out as the whole grid leaning in one direction like a stack about to fall over.
+     */
+    private static final float NOTICES_WITHIN = 2.6f;
+
+    /** How much of its turn a card this far from the cursor takes, from one down to nought. */
+    private static float leanToward(int mouseX, int mouseY, float centerX, float centerY, int wide) {
+        float span = Math.max(1f, wide * NOTICES_WITHIN);
+        float away = (float) Math.hypot(mouseX - centerX, mouseY - centerY) / span;
+        float left = Math.max(0f, 1f - away);
+        // Squared, so the falloff is gentle near the cursor and quick further out - which is
+        // what makes one card read as the one being looked at rather than four of them.
+        return left * left;
+    }
+
+    /** Where a point sits across a card, minus one to one, clamped at its edges. */
+    private static float across(int at, float center, int span) {
+        return Math.max(-1f, Math.min(1f, (at - center) / Math.max(1f, span / 2f)));
+    }
+
     /**
      * What came out, worst first.
      *
@@ -268,26 +377,6 @@ public final class PackOpeningScreen extends Screen {
                         .map(CardSummary::rarity)
                         .orElse(Rarity.UNKNOWN))));
         return List.copyOf(order);
-    }
-
-    /**
-     * A piece of the wrapper.
-     *
-     * <p>Taken from a strip of the texture rather than the whole of it. The texture is one
-     * picture of a complete pack - crimped top, body, margins - so blitting all of it into
-     * both the strip and the body drew two packs stretched over each other, and the crimp's
-     * teeth came out as stripes running the length of it. Each piece takes the rows it is.
-     *
-     * @param fromRow the first texture row this piece is cut from, of sixteen
-     * @param rows    how many rows it is cut from
-     */
-    private void drawWrapper(
-            GuiGraphics graphics, int x0, int y0, int x1, int y1, int fromRow, int rows) {
-        if (x1 <= x0 || y1 <= y0) {
-            return;
-        }
-        graphics.blit(PackFaceRenderer.WRAPPER, x0, y0, x1 - x0, y1 - y0,
-                MARGIN, fromRow, WRAPPER_PIXELS - 2 * MARGIN, rows, 16, 16);
     }
 
     /**
@@ -320,56 +409,58 @@ public final class PackOpeningScreen extends Screen {
     }
 
     /**
-     * The torn edge, as a screen row per column.
+     * The torn edge, as a share of the way down the pack per column.
      *
      * <p>One array, handed to whatever is drawing: the paper, the light, and anything else
-     * that ever needs to know where the tear is. Columns the tear has not reached sit on the
-     * crimp line, which is where the strip above them is still attached.
+     * that ever needs to know where the tear is. In the pack's own space rather than in
+     * screen rows, because the pack is turned and a screen row is not a place on it any more.
+     *
+     * <p>Columns the tear has not reached sit at nought - the top of the pack - because the
+     * strip up there is still attached and the whole wrapper is showing.
      */
-    private int[] tearLine(int steps, int tornTo, int crimp) {
+    private float[] tearTops(int steps, int tornTo, int crimp) {
         float bite = tearBite();
         float[] edge = tear.edge(steps, bite);
-        int sink = Math.round(bite * 0.7f);
-        int[] line = new int[steps];
+        float sink = bite * 0.7f;
+        float crimpAt = (float) CRIMP;
+        float[] top = new float[steps];
         for (int step = 0; step < steps; step++) {
             int middle = (columnAt(step, steps) + columnAt(step + 1, steps)) / 2;
-            line[step] = middle > tornTo
-                    ? crimp
-                    : crimp + sink + Math.round(edge[Math.min(step, edge.length - 1)]);
+            if (middle > tornTo) {
+                top[step] = 0f;
+                continue;
+            }
+            float down = (crimp - packY + sink + edge[Math.min(step, edge.length - 1)])
+                    / Math.max(1f, packHeight);
+            top[step] = Math.min(1f, Math.max(crimpAt, down));
         }
-        return line;
+        return top;
     }
 
     /**
-     * The pack below the tear.
+     * Turns the pack towards the cursor, a little way, easing rather than snapping.
      *
-     * <p>Drawn as one wrapper, once per column, with a scissor holding each column to the
-     * part of it below the tear. That is what makes the paper end exactly where the light
-     * begins: neither of them is a shape somebody drew twice, they are one line read twice.
-     *
-     * <p>Column by column rather than as one blit with a torn top because a texture cannot be
-     * blitted into a shape that is not a rectangle - and rather than by cutting the texture up
-     * because a slice three pixels wide off a sixteen-pixel picture is not a slice, it is a
-     * rounding error. The scissor costs a draw call per column and buys an edge that is
-     * exactly the edge.
+     * <p>Square while it is being torn: the tear follows the hand across the top edge, and an
+     * edge that swung away from the hand aiming at it would be the interface arguing with the
+     * gesture. Aimed at its own middle rather than switched off, so it settles over a few
+     * frames the same way it arrived.
      */
-    private void drawBody(GuiGraphics graphics, int tornTo, int crimp) {
-        int steps = tearSteps();
-        int[] line = tearLine(steps, tornTo, crimp);
-        int bottom = packY + packHeight;
-        for (int step = 0; step < steps; step++) {
-            int x0 = columnAt(step, steps);
-            int x1 = columnAt(step + 1, steps);
-            if (x1 <= x0 || line[step] >= bottom) {
-                continue;
-            }
-            graphics.enableScissor(x0, line[step], x1, bottom);
-            GatheringSprites.draw(graphics, Element.PACK_WRAPPER_EDGE,
-                    packX, crimp, packWidth, bottom - crimp);
-            drawWrapper(graphics, packX, crimp, packX + packWidth, bottom,
-                    BODY_ROW, BODY_ROWS);
-            graphics.disableScissor();
+    private void turnTowards(int mouseX, int mouseY) {
+        boolean beingTorn = !tear.isUntouched() && !tear.isOpen();
+        float wantedYaw = 0f;
+        float wantedPitch = 0f;
+        if (!beingTorn) {
+            float centerX = packX + packWidth / 2f;
+            float centerY = packY + packHeight / 2f;
+            float across = Math.max(-1f, Math.min(1f,
+                    (mouseX - centerX) / Math.max(1f, packWidth)));
+            float down = Math.max(-1f, Math.min(1f,
+                    (mouseY - centerY) / Math.max(1f, packHeight)));
+            wantedYaw = across * MOST_YAW;
+            wantedPitch = down * MOST_PITCH;
         }
+        yaw += (wantedYaw - yaw) * EASE;
+        pitch += (wantedPitch - pitch) * EASE;
     }
 
     /**
@@ -377,42 +468,64 @@ public final class PackOpeningScreen extends Screen {
      *
      * <p>Drawn as a run of short bars along the torn edge rather than a line, because the
      * light is what is being drawn: a bar per column, brightest at the paper and fading
-     * upward, so the pack looks lit from inside rather than outlined. On the same line the
-     * paper was cut along, so there is no gap between them at any point.
+     * upward, so the pack looks lit from inside rather than outlined.
+     *
+     * <p>Through the same lens the paper went through, off the same line, so it stays on the
+     * tear at every angle. Drawn flat it slid off the moment the pack turned - which is the
+     * whole argument for the pack being a thing in space rather than two pictures.
      */
-    private void drawTornEdge(GuiGraphics graphics, int tornTo, int crimp) {
+    private void drawTornEdge(
+            GuiGraphics graphics, CardLens lens, Matrix4f matrix,
+            int tornTo, int steps, float[] top) {
         if (tear.isUntouched() || glow == PackGlow.NO_LIGHT) {
             return;
         }
-        int steps = tearSteps();
-        int[] line = tearLine(steps, tornTo, crimp);
-        int reach = Math.max(4, packHeight / 10);
-        for (int step = 0; step < steps; step++) {
-            int x0 = columnAt(step, steps);
-            int x1 = columnAt(step + 1, steps);
-            if (x0 > tornTo) {
-                break;
-            }
-            for (int up = 0; up < reach; up++) {
-                float strength = 1f - up / (float) reach;
-                int alpha = Math.round(strength * strength * 190);
-                GatheringSprites.draw(graphics, Element.PACK_SPARK,
-                        x0, line[step] - up, Math.max(1, x1 - x0), 1,
-                        (alpha << 24) | (glow & 0x00FFFFFF));
-            }
-        }
+        float reach = Math.max(4f, packHeight / 10f) / Math.max(1f, packHeight);
+        TiltedPack.Glow light = new TiltedPack.Glow(glow & 0x00FFFFFF, GLOW_ALPHA);
+        TiltedPack.shine(matrix, lens, top, reach, light,
+                columnsTorn(steps, tornTo), GLOW_STEPS);
     }
 
-    /** The set's symbol, printed on the wrapper in the product's color. */
-    private void drawSymbol(GuiGraphics graphics, int crimp) {
-        int side = (int) (packWidth * 0.42);
-        int color = PackWrapper.symbolColor(kind);
-        ClientSetSymbols.get().symbol(setCode, color, 128).ifPresent(symbol -> {
-            int x = packX + (packWidth - side) / 2;
-            int y = crimp + (packY + packHeight - crimp - side) / 2;
-            graphics.blit(symbol, x, y, 0f, 0f, side, side, side, side);
-        });
+    /** How brightly the light comes out where it meets the paper. */
+    private static final int GLOW_ALPHA = 190;
+
+    /** How many bands the light is faded over. Enough to read as light rather than as a bar. */
+    private static final int GLOW_STEPS = 7;
+
+    /** How many columns the tear has passed, which is how much of it is giving off light. */
+    private int columnsTorn(int steps, int tornTo) {
+        int torn = 0;
+        for (int step = 0; step < steps; step++) {
+            int middle = (columnAt(step, steps) + columnAt(step + 1, steps)) / 2;
+            if (middle > tornTo) {
+                break;
+            }
+            torn = step + 1;
+        }
+        return torn;
     }
+
+    /**
+     * The set's symbol, printed on the wrapper in the product's color.
+     *
+     * <p>On the pack rather than over it: it goes through the lens like everything else, so
+     * it lies on the paper and turns with it instead of hovering in front.
+     */
+    private void drawSymbol(GuiGraphics graphics, CardLens lens, Matrix4f matrix) {
+        float side = 0.42f;
+        float acrossFrom = 0.5f - side / 2f;
+        // Centred in the body, which is what is left under the crimp.
+        float down = (float) CRIMP + (1f - (float) CRIMP) / 2f;
+        float tall = side * packWidth / Math.max(1f, packHeight);
+        int color = PackWrapper.symbolColor(kind);
+        ClientSetSymbols.get().symbol(setCode, color, 128).ifPresent(symbol ->
+                TiltedPack.print(matrix, lens, symbol,
+                        acrossFrom, down - tall / 2f, acrossFrom + side, down + tall / 2f,
+                        SYMBOL_CUTS));
+    }
+
+    /** How finely the symbol is cut up, so it lies on the paper rather than across it. */
+    private static final int SYMBOL_CUTS = 3;
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
