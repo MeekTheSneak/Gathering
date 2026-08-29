@@ -266,7 +266,14 @@ first time any verb past "put your deck down" has been reachable at all.
   turned something sideways and a card could not be picked up and reconsidered.
 - **E taps and Q untaps** whatever is under the cursor, or the whole selection. The card's own
   menu carries both rows and writes the key beside them, which is where you learn it.
-- **D** draws, **S** shuffles, **U** untaps everything, **+** and **-** change your life.
+- **D** draws, **S** shuffles, **U** untaps everything. **+** and **-** put a +1/+1 counter on
+  whatever is under the cursor and change your life when nothing is - the same rule tap and untap
+  follow, so the keys act on what you are pointing at.
+- **P** moves the shared phase marker on and **shift-P** back, and clicking the turn readout at
+  the top right does the same. It is still a marker: nothing checks that an action suits it.
+- **Passing the turn untaps nobody.** It used to untap whoever received it, which playtesters
+  reported as the mod deciding a game action had happened - so the incoming player presses 1 or U,
+  and passing skips chairs nobody is sitting in.
 - **The strip along the top** is every seat: who, life, and how many cards in each zone. Click
   one to look at their board — you can move their public cards too, because that is the
   paper-Magic rule the design keeps. The log says who did it.

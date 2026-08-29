@@ -2167,6 +2167,13 @@ public final class DevScene {
                 if (!logSays(client, "flipped a coin")) {
                     fail("a coin was flipped and the log does not say so");
                 }
+                // And on the felt, where the table can see it without opening anything. The
+                // log line alone is what the players reported as not enough: a result nobody
+                // saw is as good as a claim, which is the whole reason the server rolls.
+                shoot(client, "62a-the-coin-announced");
+                if (ClientTableRolls.showingAt(table, System.currentTimeMillis()).isEmpty()) {
+                    fail("a coin was flipped and nothing was announced over the felt");
+                }
                 // Opened a step before it is photographed. A screenshot asked for in the same
                 // step catches the frame that was already drawn, so the log would be open and
                 // the picture would not show it - and a roll nobody can read is the thing

@@ -82,16 +82,23 @@ sizes, keys and drag feel are all first guesses.
 - [ ] Drag a card from your hand onto the felt, drag it back, drag one already down. Left-click
       picks up and does nothing else — it should never tap.
 - [ ] **E** taps, **Q** untaps (cursor or whole selection). **U** untaps everything you own.
+- [ ] **+ and −** put a +1/+1 counter on the card under the cursor, or change your life when the
+      cursor is on bare felt. **P** moves the phase marker on (**shift-P** back), and so does
+      clicking the turn readout at the top right.
+- [ ] **Passing the turn no longer untaps anybody** — that was reported and removed. The incoming
+      player presses **1** or **U**. Passing also skips chairs nobody is sitting in.
 - [ ] Walk the number row: 0 pass, 1 untap all, 2 draw, 3 scry, 4 mill, 5 reveal, 6 surveil,
       7 exile, 8 graveyard, 9 bottom in no order. Every card menu prints its key beside the entry —
       if a menu says one key and another key does the thing, that's a real bug.
 - [ ] Right-click a card: Write on it, Counters…, Set power/toughness…, Freeze, Attach to…, Make a
-      token copy, Cascade…, Loyalty +1 / −1.
+      token copy, Cascade…, Loyalty +1 / −1. Any counter name in play at the table is a button on
+      the counters panel, so the second card you put a "flying" counter on is one click.
 - [ ] Right-click the felt: Mulligan, Search library, Make a token…, Write a card…, Make an
       emblem…, Bring in a dungeon…, Roll a die…, Flip a coin, Sort hand by cost, Discard at
       random…, Undo my last action, Concede.
 - [ ] Roll the **planar die** (on the Roll a die… list). Four blanks, a chaos and a planeswalk. The
-      server rolls, so nobody has to be trusted, and it lands in the log under your name.
+      server rolls, so nobody has to be trusted. The result is announced across the felt for a few
+      seconds as well as going in the log.
 - [ ] Write a blank card (the monarch, the initiative, the ring). Then read it at the size a
       four-player board draws a card at — readable, or do you rest on it every time?
 - [ ] **Hold a press on a zone** (graveyard, library, exile) for about a third of a second — the
@@ -148,6 +155,12 @@ The deliverable everything has been waiting on. Four tables merged = eight seats
       mid-game. A board should outlast its player.
 - [ ] Sit down carrying **no deck** — you should be offered the shelf of loaner decks, and it goes
       straight down. `/gathering loaners` lists them.
+- [ ] **Sit down after the game has already started.** Your seat should say your name, not
+      "(away)", and you should be able to act. This was broken and is the fix most worth
+      re-testing with four people.
+- [ ] **Leave the table** (right-click felt → Leave the table) and your deck comes back to you.
+      Your board stays on the felt. A deck always returns to whoever put it down, even if
+      somebody else has taken the chair since.
 - [ ] Play one game **for keeps**. Everyone is asked by name, every game, and one "Not tonight"
       stops it. The pot sits face up in the middle all game. Try to break it: sit down at a table
       that's mid-question and check you get asked too.
@@ -215,7 +228,7 @@ Matched to Tabletop Simulator's defaults where they exist.
 | `2` | Draw a card | `L` | Game log |
 | `3` | Scry | `G` | Stack the selection |
 | `4` | Mill | `Delete` | Remove tokens |
-| `5` | Reveal the top card | `+` `−` | Gain or lose a life |
+| `5` | Reveal the top card | `+` `−` | A +1/+1 counter on the card under the cursor, or a life |
 | `6` | Surveil | `V` | Play on the table block itself |
 | `7` | To exile | `Home` | Frame the whole table |
 | `8` | To graveyard | Wheel | Zoom, on whatever's under the pointer |
@@ -223,7 +236,7 @@ Matched to Tabletop Simulator's defaults where they exist.
 | `E` / `Q` | Tap / untap | Left-drag | Move a card — from a zone, or into one |
 | `R` | Shuffle library | Hold a zone | Pick the whole pile up |
 | `F` | Turn face up or face down | Shift-click | Select (box-drag selects a group) |
-| | | `Esc` | Close what's open, or leave the table |
+| `P` | Next phase (shift for the one before) | `Esc` | Close what's open, or leave the table |
 
 ## How to report something
 

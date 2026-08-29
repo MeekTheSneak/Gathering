@@ -955,7 +955,10 @@ public final class TableScreen extends Screen {
         }
         int line = this.font.lineHeight;
         int room = Math.max(60, this.width - 40);
-        int wide = Math.min(room, this.font.width(text) + 24);
+        // The text is drawn at ROLL_SIZE, so the backdrop is measured at ROLL_SIZE too. Taking
+        // the font's own width left a band half the width of the words sitting on it, with the
+        // sentence hanging off both ends of its own backing.
+        int wide = Math.min(room, this.font.width(text) * ROLL_SIZE + 24);
         int middle = layout().status().bottom()
                 + (floorOfTheFelt() - layout().status().bottom()) / 3;
         GatheringSprites.draw(graphics, Element.TALK_BACKDROP,
@@ -1015,6 +1018,14 @@ public final class TableScreen extends Screen {
             Rect edge = board().handEdgeRect(seat.seat());
             if (edge.isEmpty() || isOffScreen(edge)) {
                 continue;
+            }
+            // Held down out of the status bar. That edge is just outside the near side of
+            // its own mat, which for the seat across the table is the top of the screen - so
+            // the fan for the one player it exists to show was drawn under the row of life
+            // totals with only its bottom corner visible.
+            int floor = layout().status().bottom() + 2;
+            if (edge.y() < floor) {
+                edge = new Rect(edge.x(), floor, edge.width(), edge.height());
             }
             // Fanned about the middle of that edge, overlapping so a big hand stays a hand
             // rather than a row of cards wider than the mat it belongs to.
