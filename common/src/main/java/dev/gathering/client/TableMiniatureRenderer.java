@@ -776,10 +776,22 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             spots.add(card.placedAt().orElse(null));
         }
         List<Integer> depths = TableStacking.depths(spots);
+        // Reported as "attach to visuals dont work on actual table view". They did not: this
+        // drew every permanent at its own recorded position, so an aura sat in the corner of
+        // the mat rather than on the creature it was enchanting - and the same game looked
+        // like two different games depending on which view you were in. The fan rules are
+        // TableAttachments' now, shared with the seated board, so the two cannot drift.
+        java.util.Map<CardInstanceId, List<CardView>> attachments =
+                dev.gathering.core.ui.TableAttachments.by(cards);
 
         int drawn = 0;
         for (int index = 0; index < cards.size() && drawn < budget; index++) {
             CardView card = cards.get(index);
+            if (card.host().isPresent()) {
+                // Drawn on whatever it is sitting on, below, rather than wherever it was last
+                // put down on its own.
+                continue;
+            }
             if (card instanceof CardView.Visible inHand
                     && ClientTableHighlight.isInTheAir(inHand.id())) {
                 // Following somebody's cursor. It has not moved yet - the server has not been
@@ -819,12 +831,88 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // Turned with the board, so a card lying face up in front of its owner reads the
             // right way up to them and upside down from the chair opposite - which is what a
             // card on a table between two people does.
+            int angle = where.rotation() + surface.facingDegrees(seatIndex);
             draw(poseStack, buffers, packedLight, textureFor(card), x, z, cardWidth, cardDepth,
-                    where.rotation() + surface.facingDegrees(seatIndex), isTapped(card), lift);
+                    angle, isTapped(card), lift);
+            drawn++;
+            drawn += drawAttached(poseStack, buffers, packedLight, attachments, card, placed,
+                    angle, lift, span, budget - drawn);
+            writeOn(poseStack, buffers, packedLight, card, x, z, cardWidth, cardDepth, angle);
+        }
+        return drawn;
+    }
+
+    /**
+     * The cards sitting on this one, fanned down its side the way the seated board fans them.
+     *
+     * <p>Through {@link dev.gathering.core.ui.TableAttachments}, which is where the fan lives
+     * so that both views place an aura in the same spot. Fanned to the right instead when the
+     * host is near the left edge of the surface, for the same reason the screen does it: half
+     * of somebody's equipment drawn off the table is half of it invisible.
+     *
+     * <p>Each one is lifted a little above its host so the two are not coplanar - two quads on
+     * the same plane z-fight, and an aura flickering on and off its creature reads as a fault
+     * rather than as an aura.
+     */
+    private int drawAttached(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            java.util.Map<CardInstanceId, List<CardView>> attachments, CardView host,
+            Rect hostRect, int angle, float lift, float span, int budget) {
+        List<CardView> attached = dev.gathering.core.ui.TableAttachments.on(attachments, host);
+        if (attached.isEmpty() || budget <= 0) {
+            return 0;
+        }
+        boolean left = dev.gathering.core.ui.TableAttachments.fansLeft(hostRect, WHOLE_SURFACE);
+        int drawn = 0;
+        for (int slot = 0; slot < attached.size() && drawn < budget; slot++) {
+            CardView card = attached.get(slot);
+            if (card instanceof CardView.Visible inHand
+                    && ClientTableHighlight.isInTheAir(inHand.id())) {
+                continue;
+            }
+            Rect at = left
+                    ? dev.gathering.core.ui.TableAttachments.slot(hostRect, slot)
+                    : dev.gathering.core.ui.TableAttachments.slotOnTheRight(hostRect, slot);
+            draw(poseStack, buffers, packedLight, textureFor(card),
+                    onSurface(at.x(), span), onSurface(at.y(), span),
+                    onSurface(at.width(), span), onSurface(at.height(), span),
+                    angle, isTapped(card), lift + STACK_LIFT * (slot + 1));
             drawn++;
         }
         return drawn;
     }
+
+    /** The whole surface, as the bounds the fan decides which side to run down against. */
+    private static final Rect WHOLE_SURFACE =
+            new Rect(0, 0, (int) TableSurface.SPAN, (int) TableSurface.SPAN);
+
+    /**
+     * What somebody has written on this card, lying across it.
+     *
+     * <p>Reported twice - "text rendered on cards" not working here, and "write on cards do
+     * not render correctly on the actual table view". They were not being drawn at all: this
+     * view drew the picture and nothing else, so a face-down card somebody had labelled
+     * "morph - Brine Elemental" was a blank card back to everybody standing at the table,
+     * which is the one case the label exists for.
+     *
+     * <p>Not on blank stock, for the same reason the seated board leaves it alone: there the
+     * writing <em>is</em> the card, drawn across the whole of it, and a second copy over the
+     * top would be the same sentence twice.
+     */
+    private void writeOn(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight, CardView card,
+            float x, float z, float cardWidth, float cardDepth, int angle) {
+        String note = card.writtenOn().orElse(null);
+        if (note == null || note.isBlank() || PaperFace.isPaper(card)) {
+            return;
+        }
+        writing(poseStack, buffers, packedLight, Component.literal(note),
+                x + cardWidth / 2f, z + cardDepth / 2f,
+                cardDepth * NOTE_HEIGHT, cardWidth * WRITING_ROOM, angle, COUNT_BACKING);
+    }
+
+    /** How tall a note written on a card is drawn, against the card's own height. */
+    private static final float NOTE_HEIGHT = 0.14f;
 
     /**
      * A halo just larger than a card, marking the one the cursor is on.

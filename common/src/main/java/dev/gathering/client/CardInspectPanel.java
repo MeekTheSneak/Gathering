@@ -670,9 +670,16 @@ public final class CardInspectPanel {
         }
         GatheringSprites.draw(graphics, Element.NAME_BACKDROP,
                 art.x(), art.y() + 1, art.width(), font.lineHeight);
-        GuiText.draw(graphics, font, Component.literal(note),
-                art.x() + 2, art.y() + 2, art.width() - 4, WRITING_TEXT);
+        // One size, whatever size the card is. Fitting it to the card meant zooming out
+        // shrank every note on the board towards illegible while still asking the player to
+        // read them; a word and a half at full size beats a whole sentence nobody can make
+        // out, and below a few characters' room it says nothing rather than a smudge.
+        GuiText.drawTrimmed(graphics, font, Component.literal(note),
+                art.x() + 2, art.y() + 2, art.width() - 4, LEAST_NOTE_WIDTH, WRITING_TEXT);
     }
+
+    /** Narrower than this and a note is an ellipsis, so nothing is drawn at all. */
+    private static final int LEAST_NOTE_WIDTH = 22;
 
     private static final int STRENGTH_TEXT = 0xFFFFE6B0;
 

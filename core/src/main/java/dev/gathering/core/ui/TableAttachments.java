@@ -38,6 +38,49 @@ public final class TableAttachments {
     }
 
     /**
+     * Everything on this list that is sitting on something else, grouped by what it is on.
+     *
+     * <p>Here rather than in either view because both of them need it and they must not
+     * disagree: a card fanned onto its host in one and lying loose in the other is the same
+     * game drawn two ways. That is exactly what happened - the board on the table block drew
+     * every permanent at its own recorded position, so an aura appeared in the corner of the
+     * mat instead of on the creature it was enchanting.
+     *
+     * <p>One pass rather than one scan per card. Searching the whole battlefield for every
+     * permanent on it, every frame, is three and a half thousand comparisons on a board with
+     * sixty permanents to find the handful of auras anybody actually has out.
+     */
+    public static java.util.Map<dev.gathering.core.game.CardInstanceId,
+            java.util.List<dev.gathering.core.game.visibility.CardView>> by(
+            java.util.List<dev.gathering.core.game.visibility.CardView> all) {
+        java.util.Map<dev.gathering.core.game.CardInstanceId,
+                java.util.List<dev.gathering.core.game.visibility.CardView>> byHost = null;
+        for (dev.gathering.core.game.visibility.CardView card : all) {
+            dev.gathering.core.game.CardInstanceId host = card.host().orElse(null);
+            if (host == null) {
+                continue;
+            }
+            if (byHost == null) {
+                byHost = new java.util.HashMap<>();
+            }
+            byHost.computeIfAbsent(host, ignored -> new java.util.ArrayList<>()).add(card);
+        }
+        return byHost == null ? java.util.Map.of() : byHost;
+    }
+
+    /** Everything currently sitting on this card, in the board's own order. */
+    public static java.util.List<dev.gathering.core.game.visibility.CardView> on(
+            java.util.Map<dev.gathering.core.game.CardInstanceId,
+                    java.util.List<dev.gathering.core.game.visibility.CardView>> byHost,
+            dev.gathering.core.game.visibility.CardView host) {
+        if (byHost.isEmpty()
+                || !(host instanceof dev.gathering.core.game.visibility.CardView.Visible visible)) {
+            return java.util.List.of();
+        }
+        return byHost.getOrDefault(visible.id(), java.util.List.of());
+    }
+
+    /**
      * The nth attachment on a card drawn at {@code host}.
      *
      * <p>Runs down the left rather than up, so the first one attached stays where it was as

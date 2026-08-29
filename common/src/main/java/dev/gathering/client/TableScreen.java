@@ -1760,7 +1760,7 @@ public final class TableScreen extends Screen {
             List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
             List<TablePosition> spots = spotsIn(cards);
             List<Integer> depths = TableStacking.depths(spots);
-            Map<CardInstanceId, List<CardView>> attachments = attachmentsBy(cards);
+            Map<CardInstanceId, List<CardView>> attachments = TableAttachments.by(cards);
 
             for (int index = 0; index < cards.size(); index++) {
                 CardView card = cards.get(index);
@@ -1770,7 +1770,7 @@ public final class TableScreen extends Screen {
                 Rect where = spotOf(seat.seat(), card, depths.get(index));
                 placed.add(new Placed(seat.seat(), card, where, angleOf(seat.seat(), card)));
 
-                List<CardView> attached = attachmentsOf(attachments, card);
+                List<CardView> attached = TableAttachments.on(attachments, card);
                 if (attached.isEmpty()) {
                     continue;
                 }
@@ -1799,30 +1799,6 @@ public final class TableScreen extends Screen {
      * three and a half thousand comparisons and sixty throwaway lists a frame to find the
      * handful of auras anybody actually has out.
      */
-    private static Map<CardInstanceId, List<CardView>> attachmentsBy(List<CardView> all) {
-        Map<CardInstanceId, List<CardView>> byHost = null;
-        for (CardView card : all) {
-            CardInstanceId host = card.host().orElse(null);
-            if (host == null) {
-                continue;
-            }
-            if (byHost == null) {
-                byHost = new java.util.HashMap<>();
-            }
-            byHost.computeIfAbsent(host, ignored -> new ArrayList<>()).add(card);
-        }
-        return byHost == null ? Map.of() : byHost;
-    }
-
-    /** Everything currently sitting on this card, in the board's own order. */
-    private static List<CardView> attachmentsOf(
-            Map<CardInstanceId, List<CardView>> byHost, CardView host) {
-        if (byHost.isEmpty() || !(host instanceof CardView.Visible visible)) {
-            return List.of();
-        }
-        return byHost.getOrDefault(visible.id(), List.of());
-    }
-
     private static List<TablePosition> spotsIn(List<CardView> cards) {
         List<TablePosition> spots = new ArrayList<>(cards.size());
         for (CardView card : cards) {

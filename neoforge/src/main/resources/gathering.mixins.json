@@ -4,7 +4,8 @@
   "package": "dev.gathering.neoforge.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "CameraMixin"
+    "CameraMixin",
+    "EntityRenderMixin"
   ],
   "injectors": {
     "defaultRequire": 1

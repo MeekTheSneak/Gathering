@@ -404,6 +404,27 @@ public final class TableCameraView {
     }
 
     /**
+     * Whether this entity should be left out while the camera is over a table.
+     *
+     * <p>Reported as "do not render other players when in real table view". The eye sits a
+     * couple of blocks above the felt looking straight down, so everybody standing around the
+     * table is between it and the board - four players at a four-table cluster can cover most
+     * of what they are all trying to read, and the person it hides most reliably is the one
+     * whose own head is directly under the camera.
+     *
+     * <p>Players only. The board itself is drawn by the table's block entity rather than as an
+     * entity, and item frames, armour stands and everything else somebody has arranged around
+     * their table are part of the room they built - hiding those would be tidying up after
+     * them. A player is the only thing here that is in the way rather than in the scene.
+     *
+     * <p>The decision lives here rather than in either loader's mixin so the two cannot come
+     * to different conclusions, which is the same reason {@link #wanted} does.
+     */
+    public static boolean hides(net.minecraft.world.entity.Entity entity) {
+        return entity instanceof net.minecraft.world.entity.player.Player && table != null;
+    }
+
+    /**
      * Where the camera should be this frame, or empty to leave it alone.
      *
      * <p>Empty is the answer almost every frame of almost every session, and it has to be

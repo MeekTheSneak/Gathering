@@ -146,6 +146,40 @@ public final class GuiText {
     }
 
     /**
+     * Draws at one size, cutting the tail off rather than shrinking to fit.
+     *
+     * <p>The opposite trade to {@link #draw}, and it exists for writing that sits <em>on</em>
+     * something whose size the player controls. Reported from the four-player session:
+     * "writing on cards should not scale with scrolling out - stay one size". Shrinking is
+     * right for a label in a panel, where the panel is the size it is and the label has to
+     * live in it. It is wrong for a note on a card, where zooming out shrank every note on
+     * the board towards illegible while the player was still being asked to read them - and a
+     * word and a half at full size beats a whole sentence nobody can make out.
+     *
+     * <p>Nothing at all below {@code leastWidth}, because a note trimmed to one letter and an
+     * ellipsis is not information, it is a smudge on the card.
+     */
+    public static void drawTrimmed(
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth,
+            int leastWidth, int color) {
+        if (maxWidth < leastWidth) {
+            return;
+        }
+        int width = font.width(text);
+        if (width == 0) {
+            return;
+        }
+        if (width <= maxWidth) {
+            graphics.drawString(font, text, x, y, color, false);
+            return;
+        }
+        int room = maxWidth - font.width(ELLIPSIS);
+        FormattedText shown = FormattedText.composite(
+                font.substrByWidth(text, Math.max(0, room)), FormattedText.of(ELLIPSIS));
+        graphics.drawString(font, Language.getInstance().getVisualOrder(shown), x, y, color, false);
+    }
+
+    /**
      * Works in {@link FormattedText} rather than in plain strings, so a bold or colored
      * component still arrives bold or colored after being shrunk or trimmed - flattening to
      * a string here would quietly drop the styling a caller went to the trouble of adding.
