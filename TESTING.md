@@ -9,6 +9,10 @@ The sections below are in the order they were built rather than the order you'd 
 If you only have twenty minutes, do **1** (import), **5** (tables) and **6** (start a game) —
 that is the mod's spine, and everything else hangs off it.
 
+**Sending this to somebody who isn't building it?** [`docs/playtest.md`](docs/playtest.md) is the
+same ground rewritten for a tester: no Gradle, no repository, just the jar, five passes to work
+down, every command and every key. This file stays the developer's copy.
+
 ## Setup
 
 **Gradle itself must run on Java 21** — not just your compiler. Minecraft 1.21.1 requires
@@ -509,9 +513,10 @@ In rough order of how much it would change what I build next:
 - **A chest does not decide which set.** It decides which kind of booster: a collector booster
   is much likelier out of an end city than out of a village. Tying a set to a structure is an
   idea and not built.
-- **No theme picker.** The GUI art is all real textures generated from one palette in
-  `tools/textures.py`, so a second theme is a matter of a second palette and a place to choose
-  it — but there is no such place yet, and a resource pack is the only way to swap them today.
+- **The looks are placeholders too.** **Options → Video Settings → Gathering look** switches
+  between felt, slate, walnut and template, and a fourth is a folder of PNGs and a four-line
+  file in a resource pack — but the three coloured ones are `tools/gui_art.py`'s output rather
+  than drawn art, and template is a labelled diagram on purpose.
 - **Placeholder art.** The booster wrapper and the collection block are generated templates,
   not drawn textures.
 
