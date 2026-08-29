@@ -530,7 +530,7 @@
   "screen.gathering.table.key_frame": "Home - show whole table",
   "screen.gathering.table.key_group": "G - stack the selection",
   "screen.gathering.table.key_leave": "Esc - close what is open, or leave the table",
-  "screen.gathering.table.key_life": "Plus and minus - gain or lose a life",
+  "screen.gathering.table.key_life": "Plus and minus - a +1/+1 counter on the card under the cursor, or a life",
   "screen.gathering.table.key_log": "L - game log",
   "screen.gathering.table.key_menu": "Right-click - card menu",
   "screen.gathering.table.key_mill": "4 - mill",

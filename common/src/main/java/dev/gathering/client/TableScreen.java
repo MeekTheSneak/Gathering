@@ -4282,11 +4282,11 @@ public final class TableScreen extends Screen {
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL -> {
-                send(new GameEvent.LifeChanged(me, me, 1));
+                countOrLive(me, 1);
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS -> {
-                send(new GameEvent.LifeChanged(me, me, -1));
+                countOrLive(me, -1);
                 return true;
             }
             default -> { }
@@ -4318,6 +4318,28 @@ public final class TableScreen extends Screen {
             TableCameraView.showEverything();
         } else {
             geometry.showEverything();
+        }
+    }
+
+    /**
+     * Plus and minus: a counter on the card being pointed at, or a life if there is none.
+     *
+     * <p>Reported as "having to right click then click put a +1/+1 every time is too slow",
+     * and it was: a +1/+1 counter is the single most frequent thing anybody does to a card in
+     * a game of Magic and it cost a menu. It reads the cursor exactly as tap and untap do, so
+     * the rule is the one already learned - these keys act on what you are pointing at - and
+     * the felt is still your life total, which is what the keys did before and what they
+     * still do everywhere else on the screen.
+     */
+    private void countOrLive(SeatId me, int delta) {
+        List<CardInstanceId> targets = underCursorOrSelected();
+        if (targets.isEmpty()) {
+            send(new GameEvent.LifeChanged(me, me, delta));
+            return;
+        }
+        for (CardInstanceId card : targets) {
+            send(new GameEvent.CounterChanged(
+                    me, card, CardInstance.Counters.PLUS_ONE_PLUS_ONE, delta));
         }
     }
 

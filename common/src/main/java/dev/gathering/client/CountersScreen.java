@@ -131,9 +131,33 @@ public final class CountersScreen extends ChildScreen {
         this.subject = subject;
     }
 
-    /** The counters worth a button of their own, which differ for a card and for a player. */
+    /**
+     * The counters worth a button of their own: the usual suspects, plus whatever this table
+     * has already named.
+     *
+     * <p>Reported as "adding custom counters to cards doesn't have an easy way to continue to
+     * add them without typing the whole counter name every time". A counter already on
+     * <em>this</em> card has always had its own row; the slow case is the second card. Once
+     * anybody at the table has put a "flying" counter on anything, "flying" is a button here
+     * for everybody, which also means the whole table spells it the same way - two players
+     * tracking "shield" and "shields" is a bug nobody can see.
+     *
+     * <p>Read off the board rather than remembered on this client, so it survives a relog and
+     * arrives for the player who did not do the typing. Capped, because the list is buttons
+     * and a table that has named thirty things has stopped being helped by all of them.
+     */
     private List<String> common() {
-        return switch (subject) {
+        GameView board = ClientTableState.viewOf(table).orElse(null);
+        if (board == buttonsFrom && buttons != null) {
+            return buttons;
+        }
+        buttonsFrom = board;
+        buttons = buildCommon();
+        return buttons;
+    }
+
+    private List<String> buildCommon() {
+        List<String> shown = new ArrayList<>(switch (subject) {
             case Subject.Cards ignored -> List.of(
                     CardInstance.Counters.PLUS_ONE_PLUS_ONE,
                     CardInstance.Counters.MINUS_ONE_MINUS_ONE,
@@ -144,14 +168,67 @@ public final class CountersScreen extends ChildScreen {
                     SeatState.Counters.POISON,
                     SeatState.Counters.ENERGY,
                     SeatState.Counters.EXPERIENCE);
-        };
+        });
+        Map<String, Integer> already = current();
+        for (String name : namedAtThisTable()) {
+            if (shown.size() >= MOST_BUTTONS) {
+                break;
+            }
+            // Not one already offered, and not one the subject has - that has its own row
+            // above with the count on it, and a second button for it would be two ways to do
+            // the same thing sitting one above the other.
+            if (!shown.contains(name) && !already.containsKey(name)) {
+                shown.add(name);
+            }
+        }
+        return List.copyOf(shown);
     }
+
+    /**
+     * Every counter name anywhere at this table, cards and seats alike, in a settled order.
+     *
+     * <p>Sorted rather than left in board order: these are buttons, and buttons that reorder
+     * themselves as the game goes on are buttons nobody can learn the position of.
+     */
+    private List<String> namedAtThisTable() {
+        GameView board = ClientTableState.viewOf(table).orElse(null);
+        if (board == namedFrom) {
+            return named;
+        }
+        namedFrom = board;
+        java.util.SortedSet<String> found = new java.util.TreeSet<>();
+        if (board != null) {
+            for (CardView card : board.allCardViews()) {
+                found.addAll(card.counters().keySet());
+            }
+            board.seats().forEach(seat -> found.addAll(seat.counters().keySet()));
+        }
+        named = List.copyOf(found);
+        return named;
+    }
+
+    /** How many counter buttons the panel will carry before it stops adding them. */
+    private static final int MOST_BUTTONS = 9;
+
+    /** The board the buttons were built from, so they are built once per board and not per frame. */
+    private GameView buttonsFrom;
+
+    private List<String> buttons;
+
+    /** Which buttons were drawn last rebuild, so tick can notice the table naming a new counter. */
+    private List<String> buttonsShown = List.of();
+
+    /** The board the button list was built from, so it is built once per board and not once per frame. */
+    private GameView namedFrom;
+
+    private List<String> named = List.of();
 
     @Override
     protected void init() {
         List<String> present = new ArrayList<>(current().keySet());
         int rows = Math.min(MAX_ROWS, present.size());
-        int commonRows = (common().size() + 2) / 3;
+        buttonsShown = common();
+        int commonRows = (buttonsShown.size() + 2) / 3;
         List<CardInstanceId> opponents = commanderDamageFrom();
         List<CardInstanceId> taxed = taxedCommanders();
         taxedShown = taxed;
@@ -490,7 +567,11 @@ public final class CountersScreen extends ChildScreen {
                 // And a commander newly cast: its tax row is drawn regardless, but the
                 // +/- buttons beside it only exist after a rebuild - a row with no way to
                 // change it until some unrelated counter happened to change too.
-                || !taxedCommanders().equals(taxedShown)) {
+                || !taxedCommanders().equals(taxedShown)
+                // And a counter name nobody at this table had used before, which becomes a
+                // button - the panel is sized around how many there are, so one appearing
+                // without a rebuild is a button drawn off the bottom of its own box.
+                || !common().equals(buttonsShown)) {
             rebuildWidgets();
         }
     }
