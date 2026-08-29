@@ -763,6 +763,7 @@ public final class TableScreen extends Screen {
             }
         } else {
             renderMats(graphics, board);
+            renderOtherHands(graphics, board);
             renderVerbs(graphics, mouseX, mouseY);
             renderPiles(graphics, board, mouseX, mouseY);
             // Under the cards in play, over the mats. The pot is on the table rather than in
@@ -781,6 +782,15 @@ public final class TableScreen extends Screen {
                 // arrived.
                 if (idOf(placed) != null
                         && ClientCardFlights.isFlying(table, idOf(placed), flying)) {
+                    continue;
+                }
+                if (isOffScreen(placed.where())) {
+                    // Reported as "GUI Table gets laggy when zooming in", and this is where
+                    // the cost is: zooming in does not draw fewer cards, it draws the same
+                    // cards bigger, and the ones that have gone off the edges were still
+                    // costing a texture bind, a shadow, a ring and two or three fitted lines
+                    // of text each. The further in a player zooms the larger that wasted
+                    // share gets, which is exactly the shape of the complaint.
                     continue;
                 }
                 drawCard(graphics, placed.card(), placed.where(), placed.angle(),
@@ -920,6 +930,52 @@ public final class TableScreen extends Screen {
                 Math.min(fromX, toX), Math.min(fromY, toY),
                 Math.abs(toX - fromX), Math.abs(toY - fromY));
     }
+
+    /**
+     * Everybody else's hand, as the backs of the cards they are holding.
+     *
+     * <p>Reported as "cant see cards in opponents hand". What is hidden stays hidden - these
+     * are card backs, and the identities were never sent to this client to draw - but a hand
+     * that is not drawn at all reads as a player who has nothing, and at a four-player table
+     * three of the four boards looked empty. A real table shows you a fan of backs across
+     * from you: how many, held where their player is sitting, and no more than that.
+     *
+     * <p>At {@link SurfaceBoard#handEdgeRect}, which is the place the board already says a
+     * hand is - just outside the near edge of that seat's mat, where a person holds theirs -
+     * so a card drawn flies to the same spot the fan is sitting in.
+     *
+     * <p>Not your own: yours runs along the bottom of the screen face up, which is the whole
+     * point of sitting in that chair.
+     */
+    private void renderOtherHands(GuiGraphics graphics, GameView board) {
+        SeatId me = mySeat().orElse(null);
+        for (SeatView seat : board.seats()) {
+            if (seat.seat().equals(me) || !seat.hasABoard()) {
+                continue;
+            }
+            int held = count(seat, Zone.HAND);
+            if (held <= 0) {
+                continue;
+            }
+            Rect edge = board().handEdgeRect(seat.seat());
+            if (edge.isEmpty() || isOffScreen(edge)) {
+                continue;
+            }
+            // Fanned about the middle of that edge, overlapping so a big hand stays a hand
+            // rather than a row of cards wider than the mat it belongs to.
+            int shown = Math.min(held, MOST_BACKS_SHOWN);
+            int step = Math.max(2, edge.width() / 3);
+            int left = (int) Math.round(edge.centerX()) - (step * (shown - 1) + edge.width()) / 2;
+            for (int index = 0; index < shown; index++) {
+                graphics.blit(CardFaceRenderer.CARD_BACK,
+                        left + index * step, edge.y(), 0f, 0f,
+                        edge.width(), edge.height(), edge.width(), edge.height());
+            }
+        }
+    }
+
+    /** How many backs a fan draws before it stops counting. Ten reads as "a lot" already. */
+    private static final int MOST_BACKS_SHOWN = 10;
 
     /**
      * Everybody's mat, with their name and life on it.
@@ -1791,14 +1847,22 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * Everything on the battlefield that is sitting on something else, grouped by what it is
-     * sitting on.
+     * Whether this card has gone off the edges of the window entirely.
      *
-     * <p>One pass rather than one scan per card. This was a search of the whole battlefield
-     * for every permanent on it, run on every frame, which on a board with sixty permanents is
-     * three and a half thousand comparisons and sixty throwaway lists a frame to find the
-     * handful of auras anybody actually has out.
+     * <p>Generous by a whole card on every side, because a rectangle is not the whole of what
+     * is drawn for one: a tapped card turns about its middle and reaches further than its
+     * upright rectangle does, a highlight ring sits outside its edge, and a shadow is cast
+     * past it. Culling on the rectangle alone popped the ring off a card whose corner was
+     * still visible.
      */
+    private boolean isOffScreen(Rect where) {
+        int margin = Math.max(where.width(), where.height());
+        return where.right() < -margin
+                || where.x() > this.width + margin
+                || where.bottom() < -margin
+                || where.y() > this.height + margin;
+    }
+
     private static List<TablePosition> spotsIn(List<CardView> cards) {
         List<TablePosition> spots = new ArrayList<>(cards.size());
         for (CardView card : cards) {
@@ -2472,9 +2536,11 @@ public final class TableScreen extends Screen {
         }
         double[] at = pointer(mouseX, mouseY);
         SeatId landing = at == null ? null : board().seatAt(at[0], at[1]);
+        int aimedSlot = -1;
 
         if (landing != null && at != null) {
             int slot = board().pileAt(landing, pileCount(), at[0], at[1]);
+            aimedSlot = slot;
             aimReport = "cursor " + mouseX + "," + mouseY
                     + " -> board " + Math.round(at[0]) + "," + Math.round(at[1])
                     + " seat " + landing.index() + " slot " + slot + " of " + pileCount();
@@ -2522,6 +2588,19 @@ public final class TableScreen extends Screen {
                         (int) Math.round(comingDownOn.centerY()),
                         comingDownOn.height(), comingDownOn.width())
                 : comingDownOn;
+        // Aimed at a zone, the footprint is that zone's own box rather than a card-sized
+        // rectangle under the cursor. Reported as "still hard to see where placing card ie
+        // graveyard is smaller than the card so you cant see its going in" - and it was
+        // exactly that: on a two-player board the column of four zones is shrunk to fit a mat
+        // twice as wide as it is deep, so the card being dragged is bigger than the slot it
+        // is going into and covers the slot, its highlight and its own shadow. Snapping the
+        // footprint into the slot is the drop drawn at the size the drop actually is.
+        if (landing != null && aimedSlot >= 0 && !playingOnTheBlock) {
+            Rect slot = board().pileRect(landing, aimedSlot, pileCount());
+            if (!slot.isEmpty()) {
+                footprint = slot;
+            }
+        }
         int lift = Math.max(3, comingDownOn.height() / 8);
         GatheringSprites.draw(graphics, Element.CARD_CAST,
                 footprint.x(), footprint.y(), footprint.width(), footprint.height());
