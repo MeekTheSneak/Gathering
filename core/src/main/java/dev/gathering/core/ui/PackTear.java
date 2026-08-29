@@ -45,8 +45,24 @@ public record PackTear(int width, long seed, boolean gripped, float torn) {
     /** How deep the torn edge wanders, as a fraction of the strip it is torn along. */
     private static final float RAGGEDNESS = 0.7f;
 
-    /** How many times the edge wanders off and back across the whole tear. */
-    private static final int WANDERS = 9;
+    /**
+     * How many times the edge wanders off and back across the whole tear.
+     *
+     * <p>Twenty rather than the nine this started as. Nine excursions across a pack put each
+     * one over a tenth of the width, which reads as a wave rather than as a tear: paper does
+     * not undulate, it goes a short way, catches, and turns. The number that matters is how
+     * long one excursion is against how deep it is, and at nine it was five times wider than
+     * it was deep.
+     */
+    private static final int WANDERS = 20;
+
+    /** How much finer the second wave is than the first, and the third than the second. */
+    private static final int FINER = 3;
+
+    /** How much of the wander each of the three waves is worth. They come to one. */
+    private static final float SLOW = 0.46f;
+    private static final float QUICK = 0.32f;
+    private static final float TEETH = 0.22f;
 
     /** How far in from each corner the edge takes to reach its full wander. */
     private static final float SETTLES_OVER = 0.07f;
@@ -141,10 +157,15 @@ public record PackTear(int width, long seed, boolean gripped, float torn) {
     /**
      * How far the edge has wandered off the line at this point along it.
      *
-     * <p>Two waves rather than a fresh number per point. A number per point is noise, and
+     * <p>Three waves rather than a fresh number per point. A number per point is noise, and
      * noise drawn as a line is a saw blade - which is what this was until somebody looked at
-     * a picture of it. Paper tears in long excursions with smaller ones riding on them, so
-     * that is what this is: a slow wander with a faster one at a third the size on top.
+     * a picture of it. Paper tears in long excursions with smaller ones riding on them, and
+     * then in small sharp teeth riding on those.
+     *
+     * <p>The first two are smoothed, because a long excursion in paper is a curve. The third
+     * is not: it turns a corner at every point, which is what a tooth is. Smoothing all three
+     * was what made this read as a gentle wave instead of a tear - a torn edge is mostly
+     * corners, and a curve has none.
      *
      * <p>Measured along the tear rather than by step number, so the same pack tears the same
      * shape whether it is drawn at twenty points or two hundred.
@@ -154,17 +175,22 @@ public record PackTear(int width, long seed, boolean gripped, float torn) {
      * that has to be reproducible from a session seed, which this must never be confused for.
      */
     private float wander(float along) {
-        return waveAt(along, WANDERS, 0) * 0.75f + waveAt(along, WANDERS * 3, 977) * 0.25f;
+        return waveAt(along, WANDERS, 0, true) * SLOW
+                + waveAt(along, WANDERS * FINER, 977, true) * QUICK
+                + waveAt(along, WANDERS * FINER * FINER, 5501, false) * TEETH;
     }
 
-    /** One smoothly interpolated wave of this many excursions across the tear. */
-    private float waveAt(float along, int excursions, int salt) {
+    /**
+     * One wave of this many excursions across the tear.
+     *
+     * @param smoothed whether the line arrives and leaves each control point level, which is
+     *     what a long excursion does, or turns a corner at it, which is what a tooth is
+     */
+    private float waveAt(float along, int excursions, int salt, boolean smoothed) {
         float at = along * excursions;
         int cell = (int) Math.floor(at);
         float across = at - cell;
-        // Smoothstep between the two ends of the cell, so the line arrives and leaves level
-        // rather than turning a corner at every control point.
-        float eased = across * across * (3f - 2f * across);
+        float eased = smoothed ? across * across * (3f - 2f * across) : across;
         float from = corner(cell + salt);
         float to = corner(cell + 1 + salt);
         return from + (to - from) * eased;

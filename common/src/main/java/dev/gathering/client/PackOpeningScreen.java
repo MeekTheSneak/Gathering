@@ -177,12 +177,9 @@ public final class PackOpeningScreen extends Screen {
         int tornTo = packX + tear.tornTo();
         int crimp = packY + (int) (packHeight * CRIMP);
 
-        // The wrapper below the tear, which is the pack proper.
-        GatheringSprites.draw(graphics, Element.PACK_WRAPPER_EDGE,
-                packX, crimp, packWidth, packY + packHeight - crimp);
-        drawWrapper(graphics, packX, crimp, packX + packWidth, packY + packHeight,
-                BODY_ROW, BODY_ROWS);
-        // The strip above it, still attached where the tear has not reached.
+        // The body, with its top edge torn away where the tear has reached.
+        drawBody(graphics, tornTo, crimp);
+        // The crimped strip above it, still attached where the tear has not.
         drawWrapper(graphics, tornTo, packY, packX + packWidth, crimp, CRIMP_ROW, CRIMP_ROWS);
         drawTornEdge(graphics, tornTo, crimp);
         drawSymbol(graphics, crimp);
@@ -294,29 +291,113 @@ public final class PackOpeningScreen extends Screen {
     }
 
     /**
-     * The tear, and the light coming out of it.
+     * How many columns the torn edge is cut into.
+     *
+     * <p>The paper and the light are drawn from this same count, because they have to be the
+     * same edge. They were not: the wrapper was cut off at a straight line and the light was
+     * drawn along a wandering one, so the glow floated above the paper down half the tear and
+     * sank into it down the other half. Two edges is one edge too many.
+     */
+    private int tearSteps() {
+        return Math.max(16, Math.min(64, packWidth / 3));
+    }
+
+    /** Where one column of the tear starts, so neighbouring columns meet without a seam. */
+    private int columnAt(int step, int steps) {
+        return packX + Math.round(step * packWidth / (float) steps);
+    }
+
+    /**
+     * How far the tear may bite into the body, in pixels.
+     *
+     * <p>Down into the body and never up into the crimp: an edge that wandered both ways
+     * would need paper drawn above the line to wander into, and there is none - the strip up
+     * there is the piece being torn off. So the whole wander is a bite out of what is left,
+     * which is what a tear along a crimp does anyway.
+     */
+    private float tearBite() {
+        return packHeight * (float) CRIMP * 0.4f;
+    }
+
+    /**
+     * The torn edge, as a screen row per column.
+     *
+     * <p>One array, handed to whatever is drawing: the paper, the light, and anything else
+     * that ever needs to know where the tear is. Columns the tear has not reached sit on the
+     * crimp line, which is where the strip above them is still attached.
+     */
+    private int[] tearLine(int steps, int tornTo, int crimp) {
+        float bite = tearBite();
+        float[] edge = tear.edge(steps, bite);
+        int sink = Math.round(bite * 0.7f);
+        int[] line = new int[steps];
+        for (int step = 0; step < steps; step++) {
+            int middle = (columnAt(step, steps) + columnAt(step + 1, steps)) / 2;
+            line[step] = middle > tornTo
+                    ? crimp
+                    : crimp + sink + Math.round(edge[Math.min(step, edge.length - 1)]);
+        }
+        return line;
+    }
+
+    /**
+     * The pack below the tear.
+     *
+     * <p>Drawn as one wrapper, once per column, with a scissor holding each column to the
+     * part of it below the tear. That is what makes the paper end exactly where the light
+     * begins: neither of them is a shape somebody drew twice, they are one line read twice.
+     *
+     * <p>Column by column rather than as one blit with a torn top because a texture cannot be
+     * blitted into a shape that is not a rectangle - and rather than by cutting the texture up
+     * because a slice three pixels wide off a sixteen-pixel picture is not a slice, it is a
+     * rounding error. The scissor costs a draw call per column and buys an edge that is
+     * exactly the edge.
+     */
+    private void drawBody(GuiGraphics graphics, int tornTo, int crimp) {
+        int steps = tearSteps();
+        int[] line = tearLine(steps, tornTo, crimp);
+        int bottom = packY + packHeight;
+        for (int step = 0; step < steps; step++) {
+            int x0 = columnAt(step, steps);
+            int x1 = columnAt(step + 1, steps);
+            if (x1 <= x0 || line[step] >= bottom) {
+                continue;
+            }
+            graphics.enableScissor(x0, line[step], x1, bottom);
+            GatheringSprites.draw(graphics, Element.PACK_WRAPPER_EDGE,
+                    packX, crimp, packWidth, bottom - crimp);
+            drawWrapper(graphics, packX, crimp, packX + packWidth, bottom,
+                    BODY_ROW, BODY_ROWS);
+            graphics.disableScissor();
+        }
+    }
+
+    /**
+     * The light coming out of the tear.
      *
      * <p>Drawn as a run of short bars along the torn edge rather than a line, because the
-     * light is what is being drawn: a bar per step, brightest at the edge and fading upward,
-     * so the pack looks lit from inside rather than outlined.
+     * light is what is being drawn: a bar per column, brightest at the paper and fading
+     * upward, so the pack looks lit from inside rather than outlined. On the same line the
+     * paper was cut along, so there is no gap between them at any point.
      */
     private void drawTornEdge(GuiGraphics graphics, int tornTo, int crimp) {
         if (tear.isUntouched() || glow == PackGlow.NO_LIGHT) {
             return;
         }
-        int steps = Math.max(8, packWidth / 2);
-        float[] edge = tear.edge(steps, packHeight * (float) CRIMP * 0.5f);
+        int steps = tearSteps();
+        int[] line = tearLine(steps, tornTo, crimp);
         int reach = Math.max(4, packHeight / 10);
         for (int step = 0; step < steps; step++) {
-            int x = packX + Math.round(step * packWidth / (float) (steps - 1));
-            if (x > tornTo) {
+            int x0 = columnAt(step, steps);
+            int x1 = columnAt(step + 1, steps);
+            if (x0 > tornTo) {
                 break;
             }
-            int y = crimp + Math.round(edge[step]);
             for (int up = 0; up < reach; up++) {
                 float strength = 1f - up / (float) reach;
                 int alpha = Math.round(strength * strength * 190);
-                GatheringSprites.draw(graphics, Element.PACK_SPARK, x, y - up, 2, 1,
+                GatheringSprites.draw(graphics, Element.PACK_SPARK,
+                        x0, line[step] - up, Math.max(1, x1 - x0), 1,
                         (alpha << 24) | (glow & 0x00FFFFFF));
             }
         }
