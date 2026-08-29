@@ -70,7 +70,8 @@ public record CardSummary(
                             card.oracleText(),
                             "",
                             card.images().bestFor(ImageTier.SMALL).orElse(""),
-                            card.images().bestFor(ImageTier.NORMAL).orElse("")),
+                            card.images().bestFor(ImageTier.NORMAL).orElse(""),
+                            card.images().bestFor(ImageTier.PNG).orElse("")),
                     Optional.empty(),
                     card.rarity());
         }

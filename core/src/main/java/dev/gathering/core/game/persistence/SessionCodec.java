@@ -158,6 +158,14 @@ public final class SessionCodec {
                 } else {
                     event = EventCodec.read(open);
                 }
+                if (event == null) {
+                    // A verb this build has retired - see EventCodec's read. The record is
+                    // dropped rather than the whole log refused: the sequence numbers of the
+                    // records around it are unchanged, so a rewind still points at what it
+                    // always pointed at, and the board folds to the same table minus a label
+                    // nothing ever read.
+                    continue;
+                }
                 records.add(new SessionRecord.EventRecord(sequence, event, undone));
             }
             return List.copyOf(records);

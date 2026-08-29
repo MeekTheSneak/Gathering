@@ -83,8 +83,7 @@ sizes, keys and drag feel are all first guesses.
       picks up and does nothing else — it should never tap.
 - [ ] **E** taps, **Q** untaps (cursor or whole selection). **U** untaps everything you own.
 - [ ] **+ and −** put a +1/+1 counter on the card under the cursor, or change your life when the
-      cursor is on bare felt. **P** moves the phase marker on (**shift-P** back), and so does
-      clicking the turn readout at the top right.
+      cursor is on bare felt.
 - [ ] **Passing the turn no longer untaps anybody** — that was reported and removed. The incoming
       player presses **1** or **U**. Passing also skips chairs nobody is sitting in.
 - [ ] Walk the number row: 0 pass, 1 untap all, 2 draw, 3 scry, 4 mill, 5 reveal, 6 surveil,
@@ -236,7 +235,7 @@ Matched to Tabletop Simulator's defaults where they exist.
 | `E` / `Q` | Tap / untap | Left-drag | Move a card — from a zone, or into one |
 | `R` | Shuffle library | Hold a zone | Pick the whole pile up |
 | `F` | Turn face up or face down | Shift-click | Select (box-drag selects a group) |
-| `P` | Next phase (shift for the one before) | `Esc` | Close what's open, or leave the table |
+| | | `Esc` | Close what's open, or leave the table |
 
 ## How to report something
 

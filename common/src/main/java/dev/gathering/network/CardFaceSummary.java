@@ -21,7 +21,8 @@ public record CardFaceSummary(
         String oracleText,
         String strength,
         String smallImage,
-        String normalImage) {
+        String normalImage,
+        String crispImage) {
 
     /**
      * Written out by hand rather than composed.
@@ -41,8 +42,10 @@ public record CardFaceSummary(
                         buffer.writeUtf(face.strength());
                         buffer.writeUtf(face.smallImage());
                         buffer.writeUtf(face.normalImage());
+                        buffer.writeUtf(face.crispImage);
                     },
                     buffer -> new CardFaceSummary(
+                            buffer.readUtf(),
                             buffer.readUtf(),
                             buffer.readUtf(),
                             buffer.readUtf(),
@@ -59,6 +62,7 @@ public record CardFaceSummary(
         strength = orEmpty(strength);
         smallImage = orEmpty(smallImage);
         normalImage = orEmpty(normalImage);
+        crispImage = orEmpty(crispImage);
     }
 
     public static CardFaceSummary of(CardFace face) {
@@ -69,7 +73,8 @@ public record CardFaceSummary(
                 face.oracleText(),
                 strengthOf(face),
                 imageAt(face, ImageTier.SMALL),
-                imageAt(face, ImageTier.NORMAL));
+                imageAt(face, ImageTier.NORMAL),
+                imageAt(face, ImageTier.PNG));
     }
 
     /** The tier the overlay reads from, falling back to the table tier if that is all there is. */
@@ -78,6 +83,25 @@ public record CardFaceSummary(
             return Optional.of(normalImage);
         }
         return smallImage.isEmpty() ? Optional.empty() : Optional.of(smallImage);
+    }
+
+    /**
+     * The best picture there is, for a card being drawn large.
+     *
+     * <p>Scryfall's png tier, 745x1040 and lossless. Reported as "the mod pretty much
+     * exclusively uses the low quality scryfall image pull" - which was half right: the board
+     * and every list read the normal tier at 488x680, and that is the right size for a card
+     * an inch tall. It is the wrong size for one filling the window, where it is being
+     * upscaled past its own resolution and the rules text goes soft exactly when somebody is
+     * trying to read it.
+     *
+     * <p>A separate tier rather than raising the one everybody uses, because a board of sixty
+     * permanents at this size is sixty textures four times the area for no gain at all - the
+     * texture budget is the reason the tiers exist. Which one a card gets is decided by how
+     * large it is being drawn, in {@link dev.gathering.client.CardInspectPanel}.
+     */
+    public Optional<String> bestImage() {
+        return crispImage.isEmpty() ? readableImage() : Optional.of(crispImage);
     }
 
     /**

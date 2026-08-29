@@ -4,7 +4,6 @@ import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.PaperStock;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
-import dev.gathering.core.game.Phase;
 import dev.gathering.core.game.Placement;
 import dev.gathering.core.game.PlayerRef;
 import dev.gathering.core.game.SeatId;
@@ -228,10 +227,6 @@ public final class EventCodec {
                 out.writeInt(e.delta());
             }
             case GameEvent.Conceded e -> seat(out, e.actor());
-            case GameEvent.PhaseSet e -> {
-                seat(out, e.actor());
-                out.writeUTF(e.phase().name());
-            }
             case GameEvent.TurnPassed e -> {
                 seat(out, e.actor());
                 seat(out, e.toSeat());
@@ -308,7 +303,15 @@ public final class EventCodec {
             case "CommanderTaxChanged" -> new GameEvent.CommanderTaxChanged(
                     seat(in), seat(in), card(in), in.readInt());
             case "Conceded" -> new GameEvent.Conceded(seat(in));
-            case "PhaseSet" -> new GameEvent.PhaseSet(seat(in), Phase.valueOf(in.readUTF()));
+            // A retired verb. The phase marker is gone - nothing ever read it and no table
+            // ever moved it - but a session written while it existed still has these in its
+            // log, and refusing to open somebody's half-finished game over a label is the
+            // wrong trade. Read past it and hand back nothing; the caller drops the record.
+            case "PhaseSet" -> {
+                seat(in);
+                in.readUTF();
+                yield null;
+            }
             case "TurnPassed" -> new GameEvent.TurnPassed(seat(in), seat(in));
             case "DiceRolled" -> new GameEvent.DiceRolled(seat(in), in.readInt(), in.readInt());
             case "CoinFlipped" -> new GameEvent.CoinFlipped(seat(in), in.readBoolean());

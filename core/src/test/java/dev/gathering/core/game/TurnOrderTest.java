@@ -60,17 +60,6 @@ final class TurnOrderTest {
         assertThat(board.nextSeatWithABoard(SeatId.of(7))).isEqualTo(SeatId.of(7));
     }
 
-    @Test
-    @DisplayName("the phase ring turns both ways and meets itself")
-    void thePhaseRingTurnsBothWays() {
-        for (Phase phase : Phase.values()) {
-            assertThat(phase.next().previous()).isEqualTo(phase);
-            assertThat(phase.previous().next()).isEqualTo(phase);
-        }
-        assertThat(Phase.UNTAP.previous()).isEqualTo(Phase.CLEANUP);
-        assertThat(Phase.CLEANUP.next()).isEqualTo(Phase.UNTAP);
-    }
-
     /** A table of this many chairs with only the listed ones sat in and dealt a deck. */
     private static GameView tableOf(int chairs, List<Integer> seated) {
         List<SeatId> seats = new ArrayList<>(chairs);

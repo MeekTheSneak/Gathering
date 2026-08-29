@@ -494,9 +494,13 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         }
         Row row = rows.get(index);
         if (button == 0) {
+            // Takes it out of the deck and hands it to you. Left-click used to move the card
+            // across to the other pile - deck to sideboard and back - which is one of three
+            // things a row can do and not the one anybody reached for: taking a card out is
+            // what a person opens a decklist to do, and the moves are a menu of choices that
+            // reads better as a menu.
             GatheringButtons.clickSound();
-            ClientNetworking.send(
-                    DeckEditPayload.move(hand, row.section(), row.section().across(), row.card()));
+            ClientNetworking.send(DeckEditPayload.take(hand, row.section(), row.card()));
             return true;
         }
         if (button == 1) {
@@ -507,12 +511,16 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     }
 
     /**
-     * What you can do with this card, given where it currently is.
+     * Where else this card could go: every pile it is not already in.
      *
-     * <p>Every pile it is not already in, plus taking a copy. Moving to the command zone is
-     * one entry among them rather than what right-click does, because a deck editor whose
-     * right-click means "make commander" is a Commander deck editor - and the formats that
-     * live and die on their sideboard are exactly the ones that would notice.
+     * <p>Sideboard, command zone, back to the deck - whichever of those it is not currently
+     * in. No "take a copy" any more, because left-click is that now and one action reachable
+     * two ways one above the other is a menu asking a question it has already answered.
+     *
+     * <p>Moving to the command zone is one entry among them rather than what right-click does
+     * on its own, because a deck editor whose right-click means "make commander" is a
+     * Commander deck editor - and the formats that live and die on their sideboard are
+     * exactly the ones that would notice.
      */
     private ContextMenu menuFor(Row row, int x, int y) {
         List<ContextMenu.Entry> entries = ContextMenu.entries();
@@ -526,10 +534,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
                     () -> ClientNetworking.send(
                             DeckEditPayload.move(hand, row.section(), destination, row.card()))));
         }
-        entries.add(ContextMenu.Entry.of(
-                Component.translatable("menu.gathering.take_a_copy"),
-                () -> ClientNetworking.send(DeckEditPayload.take(hand, row.section(), row.card()))));
-
         return ContextMenu.at(this.font, x, y, this.width, this.height, entries);
     }
 

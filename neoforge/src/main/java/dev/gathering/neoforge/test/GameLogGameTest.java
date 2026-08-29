@@ -5,7 +5,6 @@ import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.GameSession;
-import dev.gathering.core.game.Phase;
 import dev.gathering.core.game.Placement;
 import dev.gathering.core.game.PlayerRef;
 import dev.gathering.core.game.SeatId;
@@ -179,7 +178,6 @@ public final class GameLogGameTest {
         session.submit(new GameEvent.TokenCreated(ALICE, ALICE, deck().get(0), 2));
         session.submit(new GameEvent.TokenCopyCreated(ALICE, first, ALICE));
         session.submit(new GameEvent.CardPinged(ALICE, first));
-        session.submit(new GameEvent.PhaseSet(ALICE, Phase.PRECOMBAT_MAIN));
         session.submit(new GameEvent.TurnPassed(ALICE, BOB));
         session.submit(new GameEvent.Mulliganed(BOB, BOB, 6));
 

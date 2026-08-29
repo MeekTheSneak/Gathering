@@ -6,7 +6,6 @@ import dev.gathering.core.game.CardNote;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.GameState;
-import dev.gathering.core.game.Phase;
 import dev.gathering.core.game.Placement;
 import dev.gathering.core.game.PlayerRef;
 import dev.gathering.core.game.SeatId;
@@ -823,13 +822,6 @@ public sealed interface GameEvent {
     }
 
     // ---------------------------------------------------------- table verbs
-
-    record PhaseSet(SeatId actor, Phase phase) implements GameEvent {
-        @Override
-        public LogLine describe(GameState before) {
-            return LogLine.of("log.gathering.phase_set", actor, phase.displayName());
-        }
-    }
 
     record TurnPassed(SeatId actor, SeatId toSeat) implements GameEvent {
         @Override

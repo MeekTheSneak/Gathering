@@ -269,8 +269,6 @@ first time any verb past "put your deck down" has been reachable at all.
 - **D** draws, **S** shuffles, **U** untaps everything. **+** and **-** put a +1/+1 counter on
   whatever is under the cursor and change your life when nothing is - the same rule tap and untap
   follow, so the keys act on what you are pointing at.
-- **P** moves the shared phase marker on and **shift-P** back, and clicking the turn readout at
-  the top right does the same. It is still a marker: nothing checks that an action suits it.
 - **Passing the turn untaps nobody.** It used to untap whoever received it, which playtesters
   reported as the mod deciding a game action had happened - so the incoming player presses 1 or U,
   and passing skips chairs nobody is sitting in.

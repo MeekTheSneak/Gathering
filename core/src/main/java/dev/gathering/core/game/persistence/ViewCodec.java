@@ -7,7 +7,6 @@ import dev.gathering.core.game.event.CardRef;
 import dev.gathering.core.game.event.LogArg;
 import dev.gathering.core.game.event.LogEntry;
 import dev.gathering.core.game.MarkerId;
-import dev.gathering.core.game.Phase;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.PlayerRef;
 import dev.gathering.core.game.TablePosition;
@@ -189,7 +188,6 @@ public final class ViewCodec {
         out.writeBoolean(present);
         if (present) {
             out.writeInt(turn.activeSeat().index());
-            out.writeUTF(turn.phase().name());
             out.writeInt(turn.turnNumber());
         }
     }
@@ -198,7 +196,7 @@ public final class ViewCodec {
         if (!in.readBoolean()) {
             return null;
         }
-        return new TurnMarker(new SeatId(in.readInt()), Phase.valueOf(in.readUTF()), in.readInt());
+        return new TurnMarker(new SeatId(in.readInt()), in.readInt());
     }
 
     private static void seat(DataOutput out, SeatView seat) throws IOException {

@@ -26,7 +26,6 @@ import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.game.TablePosition;
 import dev.gathering.core.game.CardInstanceId;
-import dev.gathering.core.game.Phase;
 import dev.gathering.core.game.Zone;
 import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
@@ -177,10 +176,10 @@ public final class DevScene {
     private static int taxPaid;
 
     /** Where in the turn the table was before the marker was stepped on. */
-    private static Phase wasInPhase;
+    private static int wasOnTurn;
 
     /** Where the turn marker was before the undo was asked for. */
-    private static Phase beforeTheUndo;
+    private static int beforeTheUndo;
 
     /** What the graveyard held before the verb key was pressed at a card. */
     private static int beforeTheKey;
@@ -378,16 +377,16 @@ public final class DevScene {
                 advance(0);
             }
             case 17 -> {
-                // The shared turn marker. Nothing enforces it, which is exactly why it has to
-                // be movable: a marker stuck on "untap" all game is worse than none.
-                wasInPhase = phaseNow();
-                stepThePhase(client);
+                // The shared turn marker. Nothing enforces it, which is exactly why handing
+                // it on has to work: it is the whole of the turn structure now that the phase
+                // is gone.
+                wasOnTurn = turnNow();
+                passTheTurn(client);
                 advance(SETTLE);
             }
             case 18 -> {
-                Phase now = phaseNow();
-                if (now == null || now == wasInPhase) {
-                    fail("the turn marker did not move on: still " + wasInPhase);
+                if (turnNow() <= wasOnTurn) {
+                    fail("the turn was passed and the marker is still on turn " + wasOnTurn);
                 }
                 advance(0);
             }
@@ -395,14 +394,13 @@ public final class DevScene {
                 // Taking a move back. Every misclick in a game played by dragging cards about
                 // is permanent without this, and all of the machinery for it existed with
                 // nothing able to ask for it.
-                beforeTheUndo = phaseNow();
+                beforeTheUndo = turnNow();
                 undoTheLastThing(client);
                 advance(SETTLE);
             }
             case 20 -> {
-                Phase now = phaseNow();
-                if (now == null || now == beforeTheUndo) {
-                    fail("undoing the phase step changed nothing: still " + beforeTheUndo);
+                if (turnNow() >= beforeTheUndo) {
+                    fail("undoing the pass changed nothing: still on turn " + beforeTheUndo);
                 }
                 advance(0);
             }
@@ -3711,7 +3709,7 @@ public final class DevScene {
             summaries.add(new dev.gathering.network.CardSummary(
                     id,
                     new dev.gathering.network.CardFaceSummary(
-                            "Pulled Card " + index, "{1}", "Artifact", "", "", "", ""),
+                            "Pulled Card " + index, "{1}", "Artifact", "", "", "", "", ""),
                     java.util.Optional.empty(),
                     rarities[index]));
             cards.add(dev.gathering.item.CardComponent.of(
@@ -4452,7 +4450,7 @@ public final class DevScene {
         ClientCardCache.get().accept(java.util.List.of(new dev.gathering.network.CardSummary(
                 printing,
                 new dev.gathering.network.CardFaceSummary(
-                        "Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "", "", ""),
+                        "Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "", "", "", ""),
                 java.util.Optional.empty(),
                 dev.gathering.core.card.Rarity.UNCOMMON)));
 
@@ -7197,29 +7195,30 @@ public final class DevScene {
         }
     }
 
-    /** Where in the turn the table thinks everybody is. */
-    private static Phase phaseNow() {
+    /** Which turn of the game the table thinks it is on, or zero if there is no board. */
+    private static int turnNow() {
         GameView board = table == null ? null : ClientTableState.viewOf(table).orElse(null);
-        return board == null ? null : board.turn().phase();
+        return board == null ? 0 : board.turn().turnNumber();
     }
 
     /**
-     * Steps the shared turn marker on, off the table's own menu.
+     * Hands the turn on, off the table's own menu.
      *
-     * <p>A marker nobody can move is a marker that says "untap" for the whole game, which is
-     * worse than no marker: it is wrong for all but a moment of every turn and everybody
-     * learns to stop reading it.
+     * <p>The whole of the turn structure: there is no phase marker any more, so a pass that
+     * did not move the marker would leave a table with nothing at all saying whose turn it is.
      */
-    private static void stepThePhase(Minecraft client) {
+    private static void passTheTurn(Minecraft client) {
         if (!(client.screen instanceof TableScreen board)) {
-            fail("there was no board to step the phase on");
+            fail("there was no board to pass the turn at");
             return;
         }
-        if (!openTheTableMenu(client, board, "Next phase")) {
-            fail("the table menu offers no way to move the turn marker on");
+        String wanted = net.minecraft.network.chat.Component
+                .translatable("menu.gathering.table.pass_turn").getString();
+        if (!openTheTableMenu(client, board, wanted)) {
+            fail("the table menu offers no way to pass the turn");
             return;
         }
-        board.pressMenuEntry("Next phase");
+        board.pressMenuEntry(wanted);
     }
 
     /** Asks the table to take back the last thing this player did, off its own menu. */

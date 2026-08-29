@@ -55,7 +55,7 @@ public final class DoubleFacedGameTest {
         CardSummary split = new CardSummary(UUID.randomUUID(),
                 face("Fire // Ice", "one.jpg"),
                 // No art of its own: the second half of a split card is printed on the first.
-                Optional.of(new CardFaceSummary("Ice", "{1}{U}", "Instant", "", "", "", "")),
+                Optional.of(new CardFaceSummary("Ice", "{1}{U}", "Instant", "", "", "", "", "")),
                 Rarity.UNCOMMON);
 
         if (split.hasAnotherSide()) {
@@ -84,7 +84,7 @@ public final class DoubleFacedGameTest {
     @GameTest(template = "empty")
     public static void aCardWithNoArtStillHasASideToDraw(GameTestHelper helper) {
         CardSummary blank = new CardSummary(UUID.randomUUID(),
-                new CardFaceSummary("Nameless", "", "", "", "", "", ""),
+                new CardFaceSummary("Nameless", "", "", "", "", "", "", ""),
                 Optional.empty(), Rarity.UNKNOWN);
         if (!blank.sideShown(false).name().equals("Nameless")
                 || !blank.sideShown(true).name().equals("Nameless")) {
@@ -95,6 +95,6 @@ public final class DoubleFacedGameTest {
     }
 
     private static CardFaceSummary face(String name, String art) {
-        return new CardFaceSummary(name, "{1}", "Creature", "", "", art, art);
+        return new CardFaceSummary(name, "{1}", "Creature", "", "", art, art, "");
     }
 }

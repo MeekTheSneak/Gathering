@@ -103,8 +103,7 @@ public final class TableReport {
                 + ", undo " + session.undoMode().name().toLowerCase(Locale.ROOT)
                 + ", " + session.records().size() + " action(s)");
         lines.add("  turn " + state.turn().turnNumber() + ": seat "
-                + state.turn().activeSeat().index()
-                + ", " + state.turn().phase().name().toLowerCase(Locale.ROOT));
+                + state.turn().activeSeat().index());
         table.match().ifPresent(match -> lines.add("  match: " + describeMatch(match)));
         if (table.playingForKeeps() || table.pot().size() > 0) {
             lines.add("  ante: " + yesNo(table.playingForKeeps())

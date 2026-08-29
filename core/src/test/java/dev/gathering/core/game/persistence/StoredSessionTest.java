@@ -134,7 +134,7 @@ class StoredSessionTest {
                 new dev.gathering.core.game.PlayerRef(UUID.randomUUID(), "Sam")));
         session.submit(new GameEvent.DeckLoaded(ALICE, library(), List.of()));
         session.submit(new GameEvent.LifeChanged(ALICE, BOB, -3));
-        session.submit(new GameEvent.PhaseSet(ALICE, dev.gathering.core.game.Phase.values()[0]));
+        session.submit(new GameEvent.TurnPassed(ALICE, BOB));
         return session;
     }
 

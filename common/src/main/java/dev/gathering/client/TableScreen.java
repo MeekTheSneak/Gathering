@@ -186,7 +186,6 @@ public final class TableScreen extends Screen {
                 "screen.gathering.table.key_surveil",
                 "screen.gathering.table.key_to_zones",
                 "screen.gathering.table.key_pass",
-                "screen.gathering.table.key_phase",
                 "screen.gathering.table.key_shuffle",
                 "screen.gathering.table.key_life",
                 "screen.gathering.table.key_log",
@@ -2174,8 +2173,7 @@ public final class TableScreen extends Screen {
         List<SeatView> seats = board.seats();
         SeatId me = mySeat().orElse(null);
         SeatId active = board.turn().activeSeat();
-        Rect readout = turnReadout();
-        int turnWidth = readout.width();
+        int turnWidth = Math.min(area.width() / 3, 190);
         int column = seats.isEmpty() ? area.width() : (area.width() - turnWidth) / seats.size();
         int line = area.y() + (area.height() - this.font.lineHeight) / 2;
 
@@ -2220,48 +2218,15 @@ public final class TableScreen extends Screen {
                 .orElseGet(() -> Component.translatable(
                         "message.gathering.seat_number", active.index() + 1).getString());
         boolean mine = me != null && me.equals(active);
-        // Whose turn it is and where in it everyone is. The phase is a marker and nothing
-        // more - the mod never advances it, never checks an action suits it and never stops
-        // anybody doing anything in any phase - but four people agreeing on where they are
-        // without saying it out loud every thirty seconds is most of what it is for.
-        // Lit while the pointer is on it, because it is a button and nothing else on this
-        // strip is. The phase marker went a whole four-player evening reading "untap" - the
-        // only way to move it was an entry a dozen rows down the felt menu, so nobody ever
-        // did, and a marker nobody advances is worse than no marker at all.
-        if (readout.contains(mouseX, mouseY)) {
-            GatheringSprites.draw(graphics, Element.HOVER_RING,
-                    readout.x(), readout.y(), readout.width(), readout.height());
-        }
+        // Whose turn it is, and which turn. There was a phase beside it - untap, upkeep, draw
+        // and the nine after them - and it is gone: nothing ever read it, no action was ever
+        // checked against it, and the tables people already play on do not have one either.
+        // What it actually did was spend a third of this strip telling four people something
+        // they had just said out loud.
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.table.turn",
-                        board.turn().turnNumber(), who, phaseName(board.turn().phase())),
-                readout.x() + 2, line, turnWidth - 4, mine ? ACCENT : DIM);
-    }
-
-    /**
-     * Where the turn and phase readout sits, and therefore what can be clicked to move it.
-     *
-     * <p>One rule read twice rather than the same arithmetic written in the renderer and
-     * again in the click handler, which is how a button ends up drawn in one place and
-     * pressed in another.
-     */
-    private Rect turnReadout() {
-        Rect area = layout().status();
-        int width = Math.min(area.width() / 3, 190);
-        return new Rect(area.right() - width, area.y(), width, area.height());
-    }
-
-    /**
-     * Moves the shared phase marker, forwards or back.
-     *
-     * <p>Still a marker and still nothing more: nothing checks that an action suits the
-     * phase and nothing stops anybody doing anything in any of them. What changed is that
-     * moving it is now a click on the thing itself and a key, rather than one row of a menu
-     * of forty - and a marker that is never moved is a marker that lies.
-     */
-    private void advancePhase(SeatId me, boolean backwards) {
-        view().ifPresent(board -> send(new GameEvent.PhaseSet(me,
-                backwards ? board.turn().phase().previous() : board.turn().phase().next())));
+                        board.turn().turnNumber(), who),
+                area.right() - turnWidth + 2, line, turnWidth - 4, mine ? ACCENT : DIM);
     }
 
     /**
@@ -2768,14 +2733,6 @@ public final class TableScreen extends Screen {
             // doing something to a card the player cannot see.
             showingLog = false;
             showingKeys = false;
-            return true;
-        }
-
-        // The turn readout is a button: left to move the phase on, right to take it back.
-        // Checked before the felt, because it sits on the status strip and a click there is
-        // not a click on the table.
-        if (button != 2 && turnReadout().contains(x, y)) {
-            mySeat().ifPresent(me -> advancePhase(me, button == 1));
             return true;
         }
 
@@ -3926,8 +3883,6 @@ public final class TableScreen extends Screen {
         entries.add(entry("say", () -> saying = new StringBuilder()));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
         entries.add(themeEntry());
-        entries.add(entry("next_phase", () -> advancePhase(me, false)));
-        entries.add(entry("previous_phase", () -> advancePhase(me, true)));
         view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
         entries.add(entry("untap_all", () -> send(new GameEvent.SeatUntappedAll(me, me))));
         entries.add(entry("shuffle", () -> send(new GameEvent.LibraryShuffled(me, me))));
@@ -4196,17 +4151,6 @@ public final class TableScreen extends Screen {
         ClientNetworking.send(new UndoPayload(table, 1));
     }
 
-    /** What a phase is called, built once each because the status line asks every frame. */
-    private static Component phaseName(dev.gathering.core.game.Phase phase) {
-        return PHASE_NAMES[phase.ordinal()];
-    }
-
-    private static final Component[] PHASE_NAMES =
-            java.util.Arrays.stream(dev.gathering.core.game.Phase.values())
-                    .map(phase -> (Component) Component.translatable(
-                            "phase.gathering." + phase.name().toLowerCase(java.util.Locale.ROOT)))
-                    .toArray(Component[]::new);
-
     private static ContextMenu.Entry entry(String key, Runnable action) {
         Component shortcut = SHORTCUTS.get(key);
         Component label = Component.translatable("menu.gathering.table." + key);
@@ -4251,7 +4195,6 @@ public final class TableScreen extends Screen {
     private static java.util.Map<String, Component> shortcuts() {
         java.util.Map<String, Component> keys = new java.util.LinkedHashMap<>();
         NUMBER_ROW.forEach((number, verb) -> keys.put(verb, Component.literal(number.toString())));
-        keys.put("next_phase", Component.literal("P"));
         keys.put("shuffle", Component.literal("R"));
         keys.put("turn_face_down", Component.literal("F"));
         keys.put("turn_face_up", Component.literal("F"));
@@ -4393,13 +4336,6 @@ public final class TableScreen extends Screen {
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> {
                 view().ifPresent(board -> passTurn(board, me));
-                return true;
-            }
-            // The phase, forwards on P and back on shift-P. A key as well as the click on the
-            // readout because the readout is off the felt and a player with a card under the
-            // cursor should not have to travel to the top of the screen to say "combat now".
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_P -> {
-                advancePhase(me, hasShiftDown());
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL -> {

@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
-import dev.gathering.core.game.Phase;
 import dev.gathering.core.game.Placement;
 import dev.gathering.core.game.PlayerRef;
 import dev.gathering.core.game.SeatId;
@@ -249,7 +248,6 @@ class SessionCodecTest {
                 new GameEvent.CommanderDamageChanged(a, b, card, 5),
                 new GameEvent.CommanderTaxChanged(a, b, card, 2),
                 new GameEvent.Conceded(a),
-                new GameEvent.PhaseSet(a, Phase.values()[0]),
                 new GameEvent.TurnPassed(a, b),
                 new GameEvent.CardPinged(a, card),
                 new GameEvent.DiceRolled(a, 20, 17),

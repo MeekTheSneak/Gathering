@@ -410,8 +410,24 @@ public final class CardInspectPanel {
     private static void drawFace(
             GuiGraphics graphics, CardFaceSummary face, Holding held,
             int x, int y, int width, int height) {
-        Optional<String> url = face.readableImage();
+        // The best picture there is once the card is being drawn larger than the ordinary
+        // tier's own resolution, and the ordinary one everywhere else. Reported as "the mod
+        // pretty much exclusively uses the low quality scryfall image pull": it read 488x680
+        // everywhere, which is right for a card an inch tall on a board and wrong for one
+        // filling the window, where it was being upscaled past itself and the rules text went
+        // soft exactly when somebody was trying to read it.
+        //
+        // Decided by the size rather than by a setting, so nobody has to know the tiers exist
+        // - and only by the size, because a board of sixty permanents at the crisp tier is
+        // sixty textures four times the area for no gain at all.
+        Optional<String> url = height >= CRISP_ABOVE ? face.bestImage() : face.readableImage();
         Optional<ResourceLocation> texture = url.flatMap(ClientCardImages.get()::texture);
+        if (texture.isEmpty() && height >= CRISP_ABOVE) {
+            // The crisp one has not arrived yet. Show the ordinary one rather than a
+            // "fetching" box over a card this client can already draw: the swap when it lands
+            // is a card getting sharper, which is a better half-second than an empty frame.
+            texture = face.readableImage().flatMap(ClientCardImages.get()::texture);
+        }
 
         if (texture.isPresent()) {
             TiltedFace.draw(graphics, texture.get(), new Rect(x, y, width, height),
@@ -680,6 +696,16 @@ public final class CardInspectPanel {
 
     /** Narrower than this and a note is an ellipsis, so nothing is drawn at all. */
     private static final int LEAST_NOTE_WIDTH = 22;
+
+    /**
+     * How tall a card has to be drawn before it is worth the crisp tier.
+     *
+     * <p>The ordinary tier is 680 pixels tall, so anything drawn under about a third of that
+     * is throwing detail away rather than missing it. Above this the card is being scaled up
+     * towards its own resolution and past it, which is where the softness the players
+     * reported actually lives - the read overlay and the pack, and nothing on a board.
+     */
+    private static final int CRISP_ABOVE = 220;
 
     private static final int STRENGTH_TEXT = 0xFFFFE6B0;
 

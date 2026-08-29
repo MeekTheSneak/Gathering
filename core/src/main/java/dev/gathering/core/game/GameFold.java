@@ -142,7 +142,6 @@ public final class GameFold {
             case GameEvent.Conceded conceded ->
                     state.withSeatState(state.seatState(conceded.actor()).withConcede());
 
-            case GameEvent.PhaseSet phase -> state.withTurn(state.turn().withPhase(phase.phase()));
 
             case GameEvent.TurnPassed passed -> state.withTurn(state.turn().passTo(passed.toSeat()));
         };
