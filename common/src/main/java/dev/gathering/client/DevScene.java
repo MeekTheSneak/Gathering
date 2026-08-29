@@ -3704,7 +3704,7 @@ public final class DevScene {
             summaries.add(new dev.gathering.network.CardSummary(
                     id,
                     new dev.gathering.network.CardFaceSummary(
-                            "Pulled Card " + index, "{1}", "Artifact", "", "", ""),
+                            "Pulled Card " + index, "{1}", "Artifact", "", "", "", ""),
                     java.util.Optional.empty(),
                     rarities[index]));
             cards.add(dev.gathering.item.CardComponent.of(
@@ -4445,7 +4445,7 @@ public final class DevScene {
         ClientCardCache.get().accept(java.util.List.of(new dev.gathering.network.CardSummary(
                 printing,
                 new dev.gathering.network.CardFaceSummary(
-                        "Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "", ""),
+                        "Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "", "", ""),
                 java.util.Optional.empty(),
                 dev.gathering.core.card.Rarity.UNCOMMON)));
 

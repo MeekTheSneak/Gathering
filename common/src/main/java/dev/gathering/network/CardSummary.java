@@ -68,6 +68,7 @@ public record CardSummary(
                             card.manaCost(),
                             card.typeLine(),
                             card.oracleText(),
+                            "",
                             card.images().bestFor(ImageTier.SMALL).orElse(""),
                             card.images().bestFor(ImageTier.NORMAL).orElse("")),
                     Optional.empty(),

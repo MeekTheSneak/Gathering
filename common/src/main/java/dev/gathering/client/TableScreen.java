@@ -4944,8 +4944,11 @@ public final class TableScreen extends Screen {
             // and being shown its front is the read key describing a different card from the
             // one under the cursor.
             CardComponent held = CardComponent.of(visible.identity());
-            ClientHoverState.setHovered(CardItem.of(
-                    visible.turnedOver() ? held.flip() : held));
+            // With whatever the table has written over its power and toughness, which is the
+            // number the game is actually being played with.
+            ClientHoverState.setHovered(
+                    CardItem.of(visible.turnedOver() ? held.flip() : held),
+                    visible.strength());
         }
     }
 

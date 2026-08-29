@@ -77,11 +77,20 @@ public final class CardTilt {
     }
 
     /**
-     * Aims the card by how far the player has turned their head since the read started.
+     * Aims the card by how far the player has turned their head since the read started, and
+     * will not let them turn it any further than the card answers to.
      *
      * <p>For the world, where there is no cursor because the mouse is the camera. The anchor
      * is taken on the first frame of a read and dropped when it ends, so every card starts
      * flat and turning your head tips the one you are holding.
+     *
+     * <p>The holding is the reported half: "holding Alt while holding a card doesn't lock
+     * your looking - it should". Past {@link #LOOK_FOR_FULL} degrees the card has already
+     * tipped as far as it tips, so every further degree turned the world and did nothing to
+     * the card - which meant reading a wordy card left you facing somewhere else, and reading
+     * one while walking up to a table meant losing the table. Inside the arc the mouse still
+     * moves the head, because that movement <em>is</em> the gesture; outside it the head is
+     * simply held, which is what a person does when they stop to read something.
      */
     public static void withTheHead(Player player) {
         if (player == null) {
@@ -91,9 +100,20 @@ public final class CardTilt {
             lookYaw = player.getYRot();
             lookPitch = player.getXRot();
         }
-        float turned = Mth.wrapDegrees(player.getYRot() - lookYaw) / LOOK_FOR_FULL;
-        float raised = Mth.wrapDegrees(player.getXRot() - lookPitch) / LOOK_FOR_FULL;
-        ease(Mth.clamp(turned, -1f, 1f) * MOST_YAW, Mth.clamp(raised, -1f, 1f) * MOST_PITCH);
+        float turned = Mth.wrapDegrees(player.getYRot() - lookYaw);
+        float raised = Mth.wrapDegrees(player.getXRot() - lookPitch);
+        float heldYaw = Mth.clamp(turned, -LOOK_FOR_FULL, LOOK_FOR_FULL);
+        float heldPitch = Mth.clamp(raised, -LOOK_FOR_FULL, LOOK_FOR_FULL);
+        if (heldYaw != turned || heldPitch != raised) {
+            player.setYRot(lookYaw + heldYaw);
+            player.setXRot(lookPitch + heldPitch);
+            // The previous rotation too, or the camera spends the next tick interpolating
+            // from where the mouse got to towards where it was put back - which reads as the
+            // view shuddering rather than stopping.
+            player.yRotO = player.getYRot();
+            player.xRotO = player.getXRot();
+        }
+        ease(heldYaw / LOOK_FOR_FULL * MOST_YAW, heldPitch / LOOK_FOR_FULL * MOST_PITCH);
     }
 
     /** Drops the anchor and flattens the card, for when a read ends. */

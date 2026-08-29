@@ -68,8 +68,13 @@ public final class CardInspectPanel {
     // out on any screen that does. So the only screens left here are inventories and chests,
     // where there is nothing behind worth protecting and a card too small to read is a
     // reading tool that does not work.
-    private static final float CURSOR_ART_FRACTION = 0.55f;
-    private static final int CURSOR_ART_MAX = 320;
+    //
+    // Raised again after the four-player session: "cards when holding ALT at a table need to
+    // render larger so you can see what the card says". The table screen is the one place the
+    // panel is read against a busy background, and 0.55 of a GUI-scale-3 window is under two
+    // hundred pixels of card. The text column is sized from the art, so this is the one knob.
+    private static final float CURSOR_ART_FRACTION = 0.66f;
+    private static final int CURSOR_ART_MAX = 400;
     private static final int CURSOR_ART_MIN = 96;
 
     /** The art may shrink this far to give a wordy card's text somewhere to go. */
@@ -107,8 +112,9 @@ public final class CardInspectPanel {
      */
     public static void renderBeside(
             GuiGraphics graphics, CardSummary summary, boolean foil, CardStory story,
-            int anchorX, int anchorY, int screenWidth, int screenHeight) {
+            String strength, int anchorX, int anchorY, int screenWidth, int screenHeight) {
         told = story == null ? CardStory.NONE : story;
+        overwritten = strength;
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, OVER_ITEMS);
         try {
@@ -116,6 +122,7 @@ public final class CardInspectPanel {
         } finally {
             graphics.pose().popPose();
             told = CardStory.NONE;
+            overwritten = null;
         }
     }
 
@@ -315,8 +322,9 @@ public final class CardInspectPanel {
      */
     public static void renderFullScreen(
             GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
-            CardStory story, int screenWidth, int screenHeight) {
+            CardStory story, String strength, int screenWidth, int screenHeight) {
         told = story == null ? CardStory.NONE : story;
+        overwritten = strength;
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, OVER_ITEMS);
         try {
@@ -324,6 +332,7 @@ public final class CardInspectPanel {
         } finally {
             graphics.pose().popPose();
             told = CardStory.NONE;
+            overwritten = null;
         }
     }
 
@@ -482,10 +491,45 @@ public final class CardInspectPanel {
             wrap(lines, font, face.typeLine(), width, DIM_TEXT);
             rule(lines);
             wrap(lines, font, face.oracleText(), width, TEXT);
+            strengthLine(lines, font, face, width);
         }
         tell(lines, font, width);
         return lines;
     }
+
+    /**
+     * The power and toughness, under the rules text, where a card prints it.
+     *
+     * <p>Reported as missing: "need to have cards power toughness default in the alt menu".
+     * It was not being left out of the panel - it was never reaching the client at all, since
+     * the wire summary carried a name, a cost, a type line and the rules text and stopped
+     * there. So a player reading a creature could see everything about it except the one
+     * number the combat they were in the middle of turns on.
+     *
+     * <p>What somebody has written over the top wins, and says so, because that is the
+     * number the table is playing with. Nothing is drawn for a card that has neither, which
+     * is most of them.
+     */
+    private static void strengthLine(List<Line> lines, Font font, CardFaceSummary face, int width) {
+        String written = overwritten;
+        boolean changed = written != null && !written.isBlank();
+        String strength = changed ? written : face.strength();
+        if (strength.isEmpty()) {
+            return;
+        }
+        rule(lines);
+        wrap(lines, font, strength, width, changed ? STORY_TEXT : TEXT);
+    }
+
+    /**
+     * A power and toughness a player has written over the printed one, while it is being drawn.
+     *
+     * <p>Held the way {@link #told} is and for the same reason: the method that builds these
+     * lines is also how the panel measures itself, and it is reached from callers that know
+     * about a card summary and nothing about a card in play. Set on the way in and cleared on
+     * the way out, on the one thread that draws.
+     */
+    private static String overwritten;
 
     /**
      * Which card's history the panel is drawing, for as long as it is drawing it.

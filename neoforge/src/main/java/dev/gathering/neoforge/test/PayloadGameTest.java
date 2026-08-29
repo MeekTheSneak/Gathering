@@ -116,13 +116,13 @@ public final class PayloadGameTest {
     public static void cardMetadataRoundTripsForBothFaces(GameTestHelper helper) {
         CardSummary singleFaced = new CardSummary(
                 SOL_RING,
-                new CardFaceSummary("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "small", "normal"),
+                new CardFaceSummary("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "", "small", "normal"),
                 Optional.empty(),
                 dev.gathering.core.card.Rarity.UNCOMMON);
         CardSummary doubleFaced = new CardSummary(
                 UUID.fromString("11bf83bb-c95b-4b4f-9a56-ce7a1816307a"),
-                new CardFaceSummary("Delver of Secrets", "{U}", "Creature", "At the beginning...", "s1", "n1"),
-                Optional.of(new CardFaceSummary("Insectile Aberration", "", "Creature", "Flying", "s2", "n2")),
+                new CardFaceSummary("Delver of Secrets", "{U}", "Creature", "At the beginning...", "1/1", "s1", "n1"),
+                Optional.of(new CardFaceSummary("Insectile Aberration", "", "Creature", "Flying", "3/2", "s2", "n2")),
                 dev.gathering.core.card.Rarity.MYTHIC);
 
         CardMetadataPayload payload = new CardMetadataPayload(List.of(singleFaced, doubleFaced));
@@ -188,7 +188,7 @@ public final class PayloadGameTest {
             summaries.add(new CardSummary(
                     UUID.nameUUIDFromBytes(("printing-" + index).getBytes(
                             java.nio.charset.StandardCharsets.UTF_8)),
-                    new CardFaceSummary("Card " + index, "{1}", "Artifact", "", "s", "n"),
+                    new CardFaceSummary("Card " + index, "{1}", "Artifact", "", "", "s", "n"),
                     Optional.empty(),
                     dev.gathering.core.card.Rarity.COMMON));
         }

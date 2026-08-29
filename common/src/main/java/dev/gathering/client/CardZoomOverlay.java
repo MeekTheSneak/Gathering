@@ -63,7 +63,7 @@ public final class CardZoomOverlay {
         // is the same gesture the cursor makes over a screen, doing the same thing.
         CardTilt.withTheHead(Minecraft.getInstance().player);
         CardInspectPanel.renderFullScreen(graphics, held.summary(), held.foil(), held.flipped(),
-                held.story(), screenWidth, screenHeight);
+                held.story(), held.strength(), screenWidth, screenHeight);
     }
 
     /**
@@ -96,7 +96,7 @@ public final class CardZoomOverlay {
         // what moves the shine. A card that also turned would be two answers to one hand.
         CardTilt.towards(mouseX, mouseY, screenWidth / 2, screenHeight / 2, screenWidth, screenHeight);
         CardInspectPanel.renderBeside(graphics, under.summary(), under.foil(), under.story(),
-                mouseX, mouseY, screenWidth, screenHeight);
+                under.strength(), mouseX, mouseY, screenWidth, screenHeight);
     }
 
     /**
@@ -148,7 +148,7 @@ public final class CardZoomOverlay {
      * they travel beside the metadata rather than inside it.
      */
     record Held(CardSummary summary, boolean foil, boolean flipped,
-            dev.gathering.core.story.CardStory story) {
+            dev.gathering.core.story.CardStory story, String strength) {
     }
 
     /** The card the player is actually holding, which is the question the HUD answers. */
@@ -168,6 +168,12 @@ public final class CardZoomOverlay {
         }
         return CardItem.cardOf(stack).flatMap(card -> ClientCardCache.get().summary(card)
                 .map(summary -> new Held(summary, card.foil(), card.flipped(),
-                        dev.gathering.item.StoryComponent.on(stack))));
+                        dev.gathering.item.StoryComponent.on(stack),
+                        // Only the table ever writes one, and only onto the card the cursor
+                        // is on - so a stack read anywhere else carries none, which is what a
+                        // card sitting in a box has.
+                        stack == ClientHoverState.hovered()
+                                ? ClientHoverState.writtenStrength()
+                                : "")));
     }
 }
