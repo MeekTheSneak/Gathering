@@ -529,18 +529,22 @@ public final class CollectionScreen extends Screen {
 
     private void drawFooter(GuiGraphics graphics) {
         int y = this.height - BOTTOM_BAR + 6;
-        Component found = Component.translatable(
-                "screen.gathering.collection.page", matched, page + 1, pages);
-        graphics.drawString(this.font, found, MARGIN, y, DIM, false);
 
-        // Ending short of the buttons in that corner, which is both of them: Sets... sits at
-        // MARGIN + 118 from the right and Done at MARGIN + 56, so a hint measured against Done
-        // alone ran straight under Sets.
+        // Three things want this line: what was found, what a click does, and two buttons in
+        // the corner. They are laid out right to left so none of them can land on another -
+        // the buttons own their corner, the hint ends short of them, and the count gets
+        // whatever is left and shrinks into it. Drawn in any order they all fit on a wide
+        // window and all three overlapped on a narrow one.
         int hintRight = this.width - MARGIN - 124;
         Component how = mayTake ? whatAClickDoes()
                 : Component.translatable("screen.gathering.collection.hint_look");
-        graphics.drawString(this.font, how,
-                hintRight - this.font.width(how), y, DIM, false);
+        int hintWidth = Math.min(this.font.width(how), Math.max(0, hintRight - MARGIN));
+        graphics.drawString(this.font, how, hintRight - hintWidth, y, DIM, false);
+
+        Component found = Component.translatable(
+                "screen.gathering.collection.page", matched, page + 1, pages);
+        GuiText.draw(graphics, this.font, found, MARGIN, y,
+                Math.max(0, hintRight - hintWidth - MARGIN - 8), DIM);
 
         // The other half of the gesture, said where somebody is holding the deck it applies
         // to. It is the only place it can be found, and a tooltip five lines long is not one.

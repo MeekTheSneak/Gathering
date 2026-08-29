@@ -106,8 +106,12 @@ public final class DecklistImportScreen extends Screen {
 
         top += FIELD_HEIGHT + GAP + this.font.lineHeight;
         int listBottom = this.height - MARGIN - PADDING - BUTTON_HEIGHT - GAP - problemAreaHeight() - GAP;
-        this.decklistField = new MultiLineEditBox(this.font, left, top, inner,
-                Math.max(MIN_LIST_HEIGHT, listBottom - top),
+        // Sized to whole lines. A box whose height is not a multiple of the line height cuts
+        // its last line through the middle of the letters, which reads as the panel being
+        // broken rather than as the box being full - and the placeholder in it is seven lines
+        // of instructions, so it is the first thing anybody sees.
+        int listHeight = wholeLines(Math.max(MIN_LIST_HEIGHT, listBottom - top));
+        this.decklistField = new MultiLineEditBox(this.font, left, top, inner, listHeight,
                 Component.translatable("screen.gathering.import.placeholder"),
                 Component.translatable("screen.gathering.import"));
         this.decklistField.setValue(previousList);
@@ -240,6 +244,19 @@ public final class DecklistImportScreen extends Screen {
                 line += this.font.lineHeight;
             }
         }
+    }
+
+    /**
+     * The largest whole number of lines that fits in this much room.
+     *
+     * <p>Vanilla's multi-line box has a two-pixel inset at each end, which is where the odd
+     * few pixels go; anything left over after that is what shows of a line nobody can read.
+     */
+    private int wholeLines(int room) {
+        int inset = 4;
+        int line = this.font.lineHeight;
+        int lines = Math.max(1, (room - inset) / line);
+        return lines * line + inset;
     }
 
     /**
