@@ -4,6 +4,7 @@ import dev.gathering.Gathering;
 import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.InspectLayout;
+import dev.gathering.core.story.CardStory;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.network.CardFaceSummary;
 import dev.gathering.network.CardSummary;
@@ -105,14 +106,16 @@ public final class CardInspectPanel {
      * because this panel is drawn over the vanilla tooltip and should sit where it sat.
      */
     public static void renderBeside(
-            GuiGraphics graphics, CardSummary summary, boolean foil,
+            GuiGraphics graphics, CardSummary summary, boolean foil, CardStory story,
             int anchorX, int anchorY, int screenWidth, int screenHeight) {
+        told = story == null ? CardStory.NONE : story;
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, OVER_ITEMS);
         try {
             drawBeside(graphics, summary, foil, anchorX, anchorY, screenWidth, screenHeight);
         } finally {
             graphics.pose().popPose();
+            told = CardStory.NONE;
         }
     }
 
@@ -312,13 +315,15 @@ public final class CardInspectPanel {
      */
     public static void renderFullScreen(
             GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
-            int screenWidth, int screenHeight) {
+            CardStory story, int screenWidth, int screenHeight) {
+        told = story == null ? CardStory.NONE : story;
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, OVER_ITEMS);
         try {
             drawFullScreen(graphics, summary, foil, flipped, screenWidth, screenHeight);
         } finally {
             graphics.pose().popPose();
+            told = CardStory.NONE;
         }
     }
 
@@ -478,8 +483,55 @@ public final class CardInspectPanel {
             rule(lines);
             wrap(lines, font, face.oracleText(), width, TEXT);
         }
+        tell(lines, font, width);
         return lines;
     }
+
+    /**
+     * Which card's history the panel is drawing, for as long as it is drawing it.
+     *
+     * <p>Held here rather than threaded through {@code describe} because that method is also
+     * how a panel measures itself, and it is reached from half a dozen places that know
+     * nothing about stories. Set on the way in and cleared on the way out, on the one thread
+     * that draws - so a card with no story can never be handed the last one's.
+     */
+    private static CardStory told = CardStory.NONE;
+
+    /** Where a card has been, under everything it says. */
+    private static void tell(List<Line> lines, Font font, int width) {
+        if (told.isEmpty()) {
+            return;
+        }
+        rule(lines);
+        wrap(lines, font,
+                Component.translatable("story.gathering.heading").getString(), width, STORY_TEXT);
+        if (told.hasGaps()) {
+            // Said rather than swallowed: a card that changed hands twenty times and shows
+            // three of them is a card whose history has a hole in it, and a hole nobody is
+            // told about is a lie about where it has been.
+            wrap(lines, font,
+                    Component.translatable("story.gathering.and_more", told.forgotten()).getString(),
+                    width, DIM_TEXT);
+        }
+        for (CardStory.Chapter chapter : told.chapters()) {
+            wrap(lines, font, sentenceFor(chapter), width, DIM_TEXT);
+        }
+    }
+
+    /** One chapter, as a line somebody reads. Every word of it translated. */
+    private static String sentenceFor(CardStory.Chapter chapter) {
+        Component said = chapter.how().hasSomebodyBefore() && !chapter.from().isEmpty()
+                ? Component.translatable(chapter.how().translationKey() + ".from",
+                        chapter.who(), chapter.from())
+                : Component.translatable(chapter.how().translationKey(),
+                        chapter.who(), chapter.what());
+        return chapter.day().isEmpty()
+                ? said.getString()
+                : Component.translatable("story.gathering.on_day", said, chapter.day()).getString();
+    }
+
+    /** The colour a card's history is written in: warm, because somebody did all of it. */
+    private static final int STORY_TEXT = 0xFFD9A441;
 
     /**
      * The Scryfall credit, which every panel showing card data carries.

@@ -105,7 +105,18 @@ public class CollectionBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
         int howMany = stack.getCount();
-        collection.put(card, howMany);
+        // A card with a history keeps it. A stack is only ever more than one card when none
+        // of them has one - a story is part of what an item is, so two cards with different
+        // histories never stacked in the first place.
+        dev.gathering.core.story.CardStory story =
+                dev.gathering.server.CardStories.storyOf(stack);
+        if (story.isEmpty()) {
+            collection.put(card, howMany);
+        } else {
+            for (int one = 0; one < howMany; one++) {
+                collection.putStoried(card, story);
+            }
+        }
         stack.setCount(0);
         player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
                 "message.gathering.collection_added", howMany, collection.cards().total()));

@@ -270,6 +270,32 @@ public final class PackOpening {
         return new Delivery(giving, unnameable);
     }
 
+    /**
+     * The best card in what is being handed over, which is the one the pack was opened for.
+     *
+     * <p>The same rule the ceremony's own glow and reveal order use - see
+     * {@link dev.gathering.core.ui.PackGlow} - so the card that came out last, ringed in its
+     * rarity's colour, is the card that remembers coming out.
+     */
+    private static CardIdentity bestOf(List<CardIdentity> giving, List<CardMetadata> about) {
+        CardIdentity best = null;
+        int rank = Integer.MAX_VALUE;
+        for (CardIdentity card : giving) {
+            for (CardMetadata detail : about) {
+                if (!card.printing().filter(detail.scryfallId()::equals).isPresent()) {
+                    continue;
+                }
+                int at = dev.gathering.core.ui.PackGlow.rankOf(detail.rarity());
+                if (at < rank) {
+                    rank = at;
+                    best = card;
+                }
+                break;
+            }
+        }
+        return best;
+    }
+
     /** Server thread only. */
     private static void deliver(ServerPlayer player, Opened opened, boolean ceremony) {
         // What was actually opened, not what was asked for. Asking for a set and no kind is
@@ -288,8 +314,15 @@ public final class PackOpening {
         }
 
         Delivery delivery = whatToGive(opened.pack(), opened.cards());
+        // The one the pack was opened for remembers being opened. Only that one: a story on
+        // every common out of every booster would be a story on every card in the game, which
+        // is the same as no card having one. See CardStories.
+        CardIdentity best = bestOf(delivery.giving(), opened.cards());
         for (CardIdentity card : delivery.giving()) {
             ItemStack stack = CardItem.of(CardComponent.of(card));
+            if (card.equals(best)) {
+                CardStories.remember(stack, CardStories.pulledBy(player, set));
+            }
             if (!player.getInventory().add(stack)) {
                 player.drop(stack, false);
             }

@@ -145,6 +145,9 @@ final class GatheringRegistration {
     private static final Supplier<DataComponentType<dev.gathering.item.SealedComponent>>
             SEALED_COMPONENT = DATA_COMPONENTS.register(
                     GatheringComponents.SEALED_ID, GatheringComponents::createSealedType);
+    private static final Supplier<DataComponentType<dev.gathering.item.StoryComponent>>
+            STORY_COMPONENT = DATA_COMPONENTS.register(
+                    GatheringComponents.STORY_ID, GatheringComponents::createStoryType);
 
     private static final Supplier<net.minecraft.world.level.storage.loot.entries.LootPoolEntryType>
             SEALED_PRODUCT_ENTRY = LOOT_ENTRIES.register(
@@ -217,6 +220,7 @@ final class GatheringRegistration {
         GatheringComponents.POOL.bind(POOL_COMPONENT);
         GatheringComponents.PACK.bind(PACK_COMPONENT);
         GatheringComponents.SEALED.bind(SEALED_COMPONENT);
+        GatheringComponents.STORY.bind(STORY_COMPONENT);
         GatheringContent.SEALED.bind(SEALED);
         GatheringContent.SHOP_COUNTER.bind(SHOP_COUNTER);
         GatheringContent.SHOP_COUNTER_ITEM.bind(SHOP_COUNTER_ITEM);

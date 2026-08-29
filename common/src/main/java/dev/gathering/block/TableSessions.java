@@ -240,12 +240,50 @@ public final class TableSessions {
             for (dev.gathering.core.card.CardIdentity card : cards) {
                 ItemStack stack = dev.gathering.item.CardItem.of(
                         dev.gathering.item.CardComponent.of(card));
+                // A card that came back to whoever staked it is a card nothing happened to.
+                // A card that did not is the one the whole feature is for: this is the moment
+                // it stops being a copy of a printing and becomes a thing with a history.
+                if (winner != null && owner instanceof net.minecraft.server.level.ServerPlayer won) {
+                    dev.gathering.server.CardStories.remember(stack,
+                            dev.gathering.server.CardStories.wonBy(won,
+                                    whoStaked(level, tableOrigin, anchors, pot, card, seat)));
+                }
                 if (owner == null || !owner.getInventory().add(stack)) {
                     Containers.dropItemStack(level, tableOrigin.getX() + 0.5,
                             tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
                 }
             }
         });
+    }
+
+    /**
+     * Who put this card in the pot, if it was not the person taking it out.
+     *
+     * <p>A name rather than a seat, because a story is read by a person years later and "seat
+     * two" means nothing to them. Blank where the staker has logged out: their name is not
+     * worth holding a profile lookup for, and "won in an ante game" is still the fact.
+     *
+     * <p>Where two people staked the same printing this names the first of them, which is a
+     * guess. It is the right kind of guess: the alternative is naming nobody, and the card
+     * genuinely did come out of one of their hands.
+     */
+    private static String whoStaked(
+            Level level, BlockPos tableOrigin, List<SeatAnchor> anchors,
+            dev.gathering.core.ante.AntePot pot, dev.gathering.core.card.CardIdentity card,
+            SeatId taking) {
+        for (var stake : pot.stakes().entrySet()) {
+            if (stake.getKey().equals(taking) || !stake.getValue().contains(card)) {
+                continue;
+            }
+            int index = stake.getKey().index();
+            if (index >= anchors.size()) {
+                continue;
+            }
+            return occupantOf(level, tableOrigin, anchors.get(index))
+                    .map(player -> player.getGameProfile().getName())
+                    .orElse("");
+        }
+        return "";
     }
 
     private static Optional<Player> occupantOf(Level level, BlockPos tableOrigin, SeatAnchor seat) {

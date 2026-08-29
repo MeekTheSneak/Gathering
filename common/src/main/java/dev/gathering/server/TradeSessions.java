@@ -197,8 +197,8 @@ public final class TradeSessions {
         // completed cannot have half happened.
         List<ItemStack> forLeft = takeFrom(right, table.fromRight());
         List<ItemStack> forRight = takeFrom(left, table.fromLeft());
-        give(left, forLeft);
-        give(right, forRight);
+        give(left, forLeft, right);
+        give(right, forRight, left);
 
         TABLES.remove(table.left());
         TABLES.remove(table.right());
@@ -255,8 +255,17 @@ public final class TradeSessions {
         return stacks;
     }
 
-    private static void give(ServerPlayer player, List<ItemStack> stacks) {
+    /**
+     * Hands cards over, and writes on each of them whose they were.
+     *
+     * <p>Every card in a trade, unlike a pack where only the rare remembers. A trade is two
+     * people agreeing about particular cards, which makes each of them a thing that changed
+     * hands rather than one of a handful that fell out of a wrapper - and the person it came
+     * from is exactly the part nothing else records.
+     */
+    private static void give(ServerPlayer player, List<ItemStack> stacks, ServerPlayer from) {
         for (ItemStack stack : stacks) {
+            CardStories.remember(stack, CardStories.tradedTo(player, from));
             if (!player.getInventory().add(stack)) {
                 player.drop(stack, false);
             }

@@ -174,8 +174,25 @@ public final class CollectionView {
         // Whatever the deck had no room for goes in the hand rather than back in the
         // collection: it came out because somebody asked for it, and a card that silently
         // un-took itself is a click that did nothing for a reason nobody can see.
+        // Ordinary copies first, and only then the ones with a history. The card somebody
+        // won in an ante game stays at the bottom of the box until it is the only one left,
+        // which is what a person does with a card like that - and it means a trophy cannot be
+        // sleeved into a deck by a click that meant any copy.
+        // The count before the take, less the copies that have a history: that many ordinary
+        // ones come out first. Anything the box cannot back with a copy is dropped by take
+        // itself, so this never hands out a story for a card that has already gone.
+        CardIdentity identity = card.faceUp().toIdentity();
+        int plain = Math.max(0,
+                collection.cards().of(identity) + took - collection.storiedCount(identity));
         for (int one = sleeved; one < took; one++) {
             ItemStack stack = CardItem.of(card.faceUp());
+            if (one >= plain) {
+                dev.gathering.core.story.CardStory story = collection.takeStory(identity);
+                if (!story.isEmpty()) {
+                    stack.set(dev.gathering.registry.GatheringComponents.STORY.get(),
+                            dev.gathering.item.StoryComponent.of(story));
+                }
+            }
             if (!player.getInventory().add(stack)) {
                 player.drop(stack, false);
             }

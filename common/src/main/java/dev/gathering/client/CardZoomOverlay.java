@@ -62,8 +62,8 @@ public final class CardZoomOverlay {
         // Out here the mouse is the camera, so turning your head is what turns the card. It
         // is the same gesture the cursor makes over a screen, doing the same thing.
         CardTilt.withTheHead(Minecraft.getInstance().player);
-        CardInspectPanel.renderFullScreen(
-                graphics, held.summary(), held.foil(), held.flipped(), screenWidth, screenHeight);
+        CardInspectPanel.renderFullScreen(graphics, held.summary(), held.foil(), held.flipped(),
+                held.story(), screenWidth, screenHeight);
     }
 
     /**
@@ -95,8 +95,8 @@ public final class CardZoomOverlay {
         // The panel already follows the cursor, so the cursor's place across the window is
         // what moves the shine. A card that also turned would be two answers to one hand.
         CardTilt.towards(mouseX, mouseY, screenWidth / 2, screenHeight / 2, screenWidth, screenHeight);
-        CardInspectPanel.renderBeside(
-                graphics, under.summary(), under.foil(), mouseX, mouseY, screenWidth, screenHeight);
+        CardInspectPanel.renderBeside(graphics, under.summary(), under.foil(), under.story(),
+                mouseX, mouseY, screenWidth, screenHeight);
     }
 
     /**
@@ -147,7 +147,8 @@ public final class CardZoomOverlay {
      * printing - two players can hold the same printing and only one of them holds a foil - so
      * they travel beside the metadata rather than inside it.
      */
-    record Held(CardSummary summary, boolean foil, boolean flipped) {
+    record Held(CardSummary summary, boolean foil, boolean flipped,
+            dev.gathering.core.story.CardStory story) {
     }
 
     /** The card the player is actually holding, which is the question the HUD answers. */
@@ -166,6 +167,7 @@ public final class CardZoomOverlay {
             return Optional.empty();
         }
         return CardItem.cardOf(stack).flatMap(card -> ClientCardCache.get().summary(card)
-                .map(summary -> new Held(summary, card.foil(), card.flipped())));
+                .map(summary -> new Held(summary, card.foil(), card.flipped(),
+                        dev.gathering.item.StoryComponent.on(stack))));
     }
 }

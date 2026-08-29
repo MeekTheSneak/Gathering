@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 236;
+    private static final int LAST_STEP = 238;
 
     private static int step;
     private static int waited;
@@ -2473,6 +2473,18 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
+            case 237 -> {
+                aCardWithAHistoryInHand(client);
+                advance(SETTLE);
+            }
+            case 238 -> {
+                if (!CardZoomOverlay.isActive()) {
+                    fail("the read-a-card overlay did not come up over a card with a history");
+                }
+                shoot(client, "80-where-it-has-been");
+                CardZoomOverlay.bindKeyState(() -> false);
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -4331,8 +4343,9 @@ public final class DevScene {
                 collectionBlock, rows, 0));
     }
 
-    /** Which card the run put on its wants list, so the answer can be checked against it. */
+    /** Which card the run pressed on its wants list, and whether it was already on it. */
     private static java.util.UUID wanted;
+    private static boolean wasWanted;
 
     /**
      * Puts the card under the cursor on the wants list.
@@ -4356,6 +4369,10 @@ public final class DevScene {
         missing.render(new net.minecraft.client.gui.GuiGraphics(
                 client, client.renderBuffers().bufferSource()), firstRow[0], firstRow[1], 0f);
         wanted = missing.printingOfRow(0);
+        // What it was before, because this file survives a restart and the run before this
+        // one may well have left the card on the list. What is being checked is that
+        // pressing a row changes what the server holds, not what state it started in.
+        wasWanted = dev.gathering.client.ClientWants.wants(wanted);
         missing.mouseClicked(firstRow[0], firstRow[1], 0);
     }
 
@@ -4371,8 +4388,9 @@ public final class DevScene {
             fail("nothing was ever put on the wants list to check");
             return;
         }
-        if (!dev.gathering.client.ClientWants.wants(wanted)) {
-            fail("a card was put on the wants list and the server never said it was there");
+        if (dev.gathering.client.ClientWants.wants(wanted) == wasWanted) {
+            fail("pressing a card on the missing list left the wants list "
+                    + (wasWanted ? "still holding it" : "without it"));
         }
         System.out.println("[devscene] the wants list holds "
                 + dev.gathering.client.ClientWants.all().size() + " card(s)");
@@ -4402,6 +4420,51 @@ public final class DevScene {
                                 java.nio.charset.StandardCharsets.UTF_8))));
         MissingCardsScreen.accept(new dev.gathering.network.SetMissingPayload(
                 setCode, "The Test Set", rows, rows.size()));
+    }
+
+    /**
+     * A card with a history, held up and read.
+     *
+     * <p>Put into the hand here rather than won in an ante game two hundred steps back,
+     * because what is being looked at is the reading of it: the four things that write a
+     * story are checked in world by CardStoryGameTest, where they belong, and the picture
+     * this takes is of the panel that says where the card has been.
+     */
+    private static void aCardWithAHistoryInHand(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player to hand a card with a history to");
+            return;
+        }
+        if (client.screen != null) {
+            client.screen.onClose();
+        }
+        client.setScreen(null);
+
+        java.util.UUID printing = java.util.UUID.nameUUIDFromBytes(
+                "storied".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        ClientCardCache.get().accept(java.util.List.of(new dev.gathering.network.CardSummary(
+                printing,
+                new dev.gathering.network.CardFaceSummary(
+                        "Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "", ""),
+                java.util.Optional.empty(),
+                dev.gathering.core.card.Rarity.UNCOMMON)));
+
+        dev.gathering.core.story.CardStory story = dev.gathering.core.story.CardStory
+                .begunWith(new dev.gathering.core.story.CardStory.Chapter(
+                        dev.gathering.core.story.HowItCame.PULLED, "Dev", "", "dsk", "2026-01-04"))
+                .and(new dev.gathering.core.story.CardStory.Chapter(
+                        dev.gathering.core.story.HowItCame.WON, "Rival", "Dev", "", "2026-02-11"))
+                .and(new dev.gathering.core.story.CardStory.Chapter(
+                        dev.gathering.core.story.HowItCame.TRADED, "Dev", "Rival", "", "2026-03-14"));
+
+        net.minecraft.world.item.ItemStack card = dev.gathering.item.CardItem.of(
+                dev.gathering.item.CardComponent.of(
+                        dev.gathering.core.card.CardIdentity.ofPrinting(printing, false)));
+        card.set(dev.gathering.registry.GatheringComponents.STORY.get(),
+                dev.gathering.item.StoryComponent.of(story));
+        client.player.getInventory().items.set(
+                client.player.getInventory().selected, card);
+        CardZoomOverlay.bindKeyState(() -> true);
     }
 
     /** Shuts the board, for the steps that happen out in the world. */
