@@ -539,6 +539,12 @@ public class TableBlock extends BaseEntityBlock {
     private static void tellTheTableWhoIsSittingAtIt(Level level, BlockPos tableOrigin) {
         if (level instanceof net.minecraft.server.level.ServerLevel server
                 && TableSessions.hasSession(level, tableOrigin)) {
+            // The session's own seats first, then the broadcast - in that order, because the
+            // broadcast is built from the session and one sent before the seat was taken
+            // tells every client the chair is still empty. Every path that changes who is
+            // sitting where comes through here, which is why the reconcile lives here rather
+            // than beside each click.
+            TableSessions.seatingChanged(level, tableOrigin);
             dev.gathering.server.TableBroadcast.sendToTable(server, tableOrigin);
         }
     }
@@ -581,6 +587,10 @@ public class TableBlock extends BaseEntityBlock {
                     level, tableOrigin, anchor.cell(), anchor.side(), player.getUUID());
             if (claim == TableSeats.Claim.TAKEN) {
                 player.sendSystemMessage(Component.translatable("message.gathering.seat_taken"));
+                // A game may already be running here - a loaner deck goes down mid-session -
+                // so the session hears about the chair the same way a deliberate click makes
+                // it hear about one.
+                tellTheTableWhoIsSittingAtIt(level, tableOrigin);
                 return true;
             }
         }

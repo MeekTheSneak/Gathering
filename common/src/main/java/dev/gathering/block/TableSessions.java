@@ -286,6 +286,50 @@ public final class TableSessions {
         return "";
     }
 
+    /**
+     * Puts the running game's seats back in step with who is actually sitting at the table.
+     *
+     * <p>A seat is claimed on the table block and a seat is taken in the session, and until
+     * now only the first happened after a game had started: everybody present when the game
+     * began was seated into it, and anybody who walked up afterwards claimed a chair the
+     * session never heard about. Their column said "(away)" for the rest of the evening with
+     * them sitting in it, which is the report this exists to answer - and they were a
+     * spectator to their own board, because a seat nobody holds is a seat nobody can act as.
+     *
+     * <p>Reconciling rather than reacting to the one click: the same walk fixes a player who
+     * reconnected under a new display name, a chair that changed hands while the server was
+     * down, and a session loaded from disk beside a table whose claims outlived it. Every
+     * call is a no-op unless something actually differs, so it is safe on any seat change.
+     */
+    public static void seatingChanged(Level level, BlockPos tableOrigin) {
+        GameSession session = sessionAt(level, tableOrigin).orElse(null);
+        if (session == null || session.state().ended()) {
+            return;
+        }
+        List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
+        for (int index = 0; index < anchors.size(); index++) {
+            SeatId seat = new SeatId(index);
+            if (!session.state().hasSeat(seat)) {
+                continue;
+            }
+            PlayerRef sittingThere = occupantOf(level, tableOrigin, anchors.get(index))
+                    .map(player -> new PlayerRef(player.getUUID(), player.getGameProfile().getName()))
+                    .orElse(null);
+            PlayerRef inTheSession = session.state().seatState(seat).occupant();
+            if (java.util.Objects.equals(sittingThere, inTheSession)) {
+                continue;
+            }
+            // Released first even when somebody is arriving, so the log reads as two things
+            // happening rather than one player silently becoming another.
+            if (inTheSession != null) {
+                session.submit(new GameEvent.SeatReleased(seat));
+            }
+            if (sittingThere != null) {
+                session.submit(new GameEvent.SeatTaken(seat, sittingThere));
+            }
+        }
+    }
+
     private static Optional<Player> occupantOf(Level level, BlockPos tableOrigin, SeatAnchor seat) {
         return TableBlock
                 .entityAt(level, TableClusters.blockPos(tableOrigin, seat.cell()))

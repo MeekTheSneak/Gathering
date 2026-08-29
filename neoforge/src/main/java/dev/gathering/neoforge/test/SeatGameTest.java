@@ -7,6 +7,8 @@ import dev.gathering.block.TablePart;
 import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
 import dev.gathering.core.format.FormatPresets;
+import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.PlayerRef;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.match.MatchRules;
 import dev.gathering.core.table.SeatAnchor;
@@ -17,6 +19,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -97,6 +100,65 @@ public final class SeatGameTest {
         BlockPos origin = table(helper);
         if (TableSeats.leave(helper.getLevel(), origin, new UUID(31L, 3L))) {
             helper.fail("somebody who was not sitting there gave up a seat");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Somebody who sits down after the game has started is in the game, not beside it.
+     *
+     * <p>The reported bug, and the shape of it: a seat is claimed on the table block and a
+     * seat is taken in the session, and only the first used to happen once a game was under
+     * way. Everybody present at the start was seated into the session; anybody who walked up
+     * afterwards got a chair the session never heard about, so their column read "(away)"
+     * with them sitting in it and they could not act, because acting needs a seat to act as.
+     */
+    @GameTest(template = "empty")
+    public static void sittingDownMidGameJoinsTheGame(GameTestHelper helper) {
+        BlockPos origin = table(helper);
+        ServerLevel level = helper.getLevel();
+        UUID starter = new UUID(31L, 4L);
+        List<SeatAnchor> seats = TableClusters.at(level, origin).seats();
+        TableSeats.take(level, origin, seats.get(0).cell(), seats.get(0).side(), starter);
+
+        if (TableSessions.start(level, origin, MatchRules.single(FormatPresets.COMMANDER))
+                != TableSessions.Outcome.STARTED) {
+            helper.fail("the game would not start");
+            return;
+        }
+
+        // A second player arrives after the game is already running. A real one, because the
+        // reconcile reads the level for who is behind the claimed chair.
+        ServerPlayer latecomer = helper.makeMockServerPlayerInLevel();
+        SeatAnchor theirs = seats.get(1);
+        if (TableSeats.take(level, origin, theirs.cell(), theirs.side(), latecomer.getUUID())
+                != TableSeats.Claim.TAKEN) {
+            helper.fail("the second player could not claim a chair");
+            return;
+        }
+        TableSessions.seatingChanged(level, origin);
+
+        GameSession session = TableSessions.sessionAt(level, origin).orElse(null);
+        if (session == null) {
+            helper.fail("the game vanished");
+            return;
+        }
+        PlayerRef sitting = session.state().seatState(new SeatId(1)).occupant();
+        if (sitting == null) {
+            helper.fail("a player who sat down mid-game is still (away) in the session");
+            return;
+        }
+        if (!sitting.id().equals(latecomer.getUUID())) {
+            helper.fail("seat 1 is held by somebody other than the player who took it");
+            return;
+        }
+
+        // And standing back up empties it again, rather than leaving a ghost in the chair.
+        TableSeats.leave(level, origin, latecomer.getUUID());
+        TableSessions.seatingChanged(level, origin);
+        if (session.state().seatState(new SeatId(1)).occupant() != null) {
+            helper.fail("standing up left the player in the session's seat");
             return;
         }
         helper.succeed();
