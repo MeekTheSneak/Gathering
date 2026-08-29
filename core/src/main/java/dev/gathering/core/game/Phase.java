@@ -30,6 +30,18 @@ public enum Phase {
         return all[(ordinal() + 1) % all.length];
     }
 
+    /**
+     * The previous phase, wrapping from untap back to cleanup.
+     *
+     * <p>Here because a marker advanced by hand is a marker overshot by hand, and the only
+     * way back used to be eleven more presses. Wrapping the same way {@link #next} does, so
+     * the two are one ring rather than a ring and a wall.
+     */
+    public Phase previous() {
+        Phase[] all = values();
+        return all[(ordinal() + all.length - 1) % all.length];
+    }
+
     public String displayName() {
         return name().toLowerCase(Locale.ROOT).replace('_', ' ');
     }

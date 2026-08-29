@@ -186,6 +186,7 @@ public final class TableScreen extends Screen {
                 "screen.gathering.table.key_surveil",
                 "screen.gathering.table.key_to_zones",
                 "screen.gathering.table.key_pass",
+                "screen.gathering.table.key_phase",
                 "screen.gathering.table.key_shuffle",
                 "screen.gathering.table.key_life",
                 "screen.gathering.table.key_log",
@@ -813,7 +814,7 @@ public final class TableScreen extends Screen {
 
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        renderStatus(graphics, board);
+        renderStatus(graphics, board, mouseX, mouseY);
         renderHand(graphics, board, mouseX, mouseY);
         renderHeldCard(graphics, board, mouseX, mouseY);
 
@@ -2057,7 +2058,7 @@ public final class TableScreen extends Screen {
      * on one would be unreadable at any height worth playing at; on the screen it frees the
      * mats to be nothing but board, which is what they are for.
      */
-    private void renderStatus(GuiGraphics graphics, GameView board) {
+    private void renderStatus(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         Rect area = layout().status();
         if (area.isEmpty()) {
             return;
@@ -2067,7 +2068,8 @@ public final class TableScreen extends Screen {
         List<SeatView> seats = board.seats();
         SeatId me = mySeat().orElse(null);
         SeatId active = board.turn().activeSeat();
-        int turnWidth = Math.min(area.width() / 3, 190);
+        Rect readout = turnReadout();
+        int turnWidth = readout.width();
         int column = seats.isEmpty() ? area.width() : (area.width() - turnWidth) / seats.size();
         int line = area.y() + (area.height() - this.font.lineHeight) / 2;
 
@@ -2116,10 +2118,44 @@ public final class TableScreen extends Screen {
         // more - the mod never advances it, never checks an action suits it and never stops
         // anybody doing anything in any phase - but four people agreeing on where they are
         // without saying it out loud every thirty seconds is most of what it is for.
+        // Lit while the pointer is on it, because it is a button and nothing else on this
+        // strip is. The phase marker went a whole four-player evening reading "untap" - the
+        // only way to move it was an entry a dozen rows down the felt menu, so nobody ever
+        // did, and a marker nobody advances is worse than no marker at all.
+        if (readout.contains(mouseX, mouseY)) {
+            GatheringSprites.draw(graphics, Element.HOVER_RING,
+                    readout.x(), readout.y(), readout.width(), readout.height());
+        }
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.table.turn",
                         board.turn().turnNumber(), who, phaseName(board.turn().phase())),
-                area.right() - turnWidth, line, turnWidth - 4, mine ? ACCENT : DIM);
+                readout.x() + 2, line, turnWidth - 4, mine ? ACCENT : DIM);
+    }
+
+    /**
+     * Where the turn and phase readout sits, and therefore what can be clicked to move it.
+     *
+     * <p>One rule read twice rather than the same arithmetic written in the renderer and
+     * again in the click handler, which is how a button ends up drawn in one place and
+     * pressed in another.
+     */
+    private Rect turnReadout() {
+        Rect area = layout().status();
+        int width = Math.min(area.width() / 3, 190);
+        return new Rect(area.right() - width, area.y(), width, area.height());
+    }
+
+    /**
+     * Moves the shared phase marker, forwards or back.
+     *
+     * <p>Still a marker and still nothing more: nothing checks that an action suits the
+     * phase and nothing stops anybody doing anything in any of them. What changed is that
+     * moving it is now a click on the thing itself and a key, rather than one row of a menu
+     * of forty - and a marker that is never moved is a marker that lies.
+     */
+    private void advancePhase(SeatId me, boolean backwards) {
+        view().ifPresent(board -> send(new GameEvent.PhaseSet(me,
+                backwards ? board.turn().phase().previous() : board.turn().phase().next())));
     }
 
     /**
@@ -2611,6 +2647,14 @@ public final class TableScreen extends Screen {
             // doing something to a card the player cannot see.
             showingLog = false;
             showingKeys = false;
+            return true;
+        }
+
+        // The turn readout is a button: left to move the phase on, right to take it back.
+        // Checked before the felt, because it sits on the status strip and a click there is
+        // not a click on the table.
+        if (button != 2 && turnReadout().contains(x, y)) {
+            mySeat().ifPresent(me -> advancePhase(me, button == 1));
             return true;
         }
 
@@ -3761,8 +3805,8 @@ public final class TableScreen extends Screen {
         entries.add(entry("say", () -> saying = new StringBuilder()));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
         entries.add(themeEntry());
-        view().ifPresent(board -> entries.add(entry("next_phase",
-                () -> send(new GameEvent.PhaseSet(me, board.turn().phase().next())))));
+        entries.add(entry("next_phase", () -> advancePhase(me, false)));
+        entries.add(entry("previous_phase", () -> advancePhase(me, true)));
         view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
         entries.add(entry("untap_all", () -> send(new GameEvent.SeatUntappedAll(me, me))));
         entries.add(entry("shuffle", () -> send(new GameEvent.LibraryShuffled(me, me))));
@@ -4086,6 +4130,7 @@ public final class TableScreen extends Screen {
     private static java.util.Map<String, Component> shortcuts() {
         java.util.Map<String, Component> keys = new java.util.LinkedHashMap<>();
         NUMBER_ROW.forEach((number, verb) -> keys.put(verb, Component.literal(number.toString())));
+        keys.put("next_phase", Component.literal("P"));
         keys.put("shuffle", Component.literal("R"));
         keys.put("turn_face_down", Component.literal("F"));
         keys.put("turn_face_up", Component.literal("F"));
@@ -4227,6 +4272,13 @@ public final class TableScreen extends Screen {
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> {
                 view().ifPresent(board -> passTurn(board, me));
+                return true;
+            }
+            // The phase, forwards on P and back on shift-P. A key as well as the click on the
+            // readout because the readout is off the felt and a player with a card under the
+            // cursor should not have to travel to the top of the screen to say "combat now".
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_P -> {
+                advancePhase(me, hasShiftDown());
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL -> {
@@ -4525,27 +4577,18 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * Hands the turn on, and untaps whoever is receiving it.
+     * Hands the turn on, and nothing else.
      *
-     * <p>Two events, because they are two things and the log should say both. Untapping on
-     * arrival rather than making the next player do it is the one piece of turn structure
-     * worth automating: it is unambiguous, everybody does it, and forgetting it is the single
-     * most common way a paper game goes wrong.
+     * <p>It used to untap the seat receiving the turn as well, on the argument that untapping
+     * is unambiguous and forgetting it is how a paper game goes wrong. Playtesters reported
+     * it as a bug - "passing turn automatically untaps opponents boards" - and they were
+     * right to: this mod's whole promise is that it moves cards and never decides that a game
+     * action happened, and untapping somebody else's board is a game action. It is also one
+     * key for the player whose board it is, printed beside its own menu entry, so automating
+     * it saved a keystroke and cost the rule the rest of the table is trusting.
      */
     private void passTurn(GameView board, SeatId me) {
-        SeatId next = nextSeatAfter(board, board.turn().activeSeat());
-        send(new GameEvent.TurnPassed(me, next));
-        send(new GameEvent.SeatUntappedAll(me, next));
-    }
-
-    private static SeatId nextSeatAfter(GameView board, SeatId seat) {
-        List<SeatView> seats = board.seats();
-        for (int index = 0; index < seats.size(); index++) {
-            if (seats.get(index).seat().equals(seat)) {
-                return seats.get((index + 1) % seats.size()).seat();
-            }
-        }
-        return seat;
+        send(new GameEvent.TurnPassed(me, board.nextSeatWithABoard(board.turn().activeSeat())));
     }
 
     /**
