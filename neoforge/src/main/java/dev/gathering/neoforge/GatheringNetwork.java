@@ -145,6 +145,15 @@ public final class GatheringNetwork {
                     }
                 });
         registrar.playToServer(
+                dev.gathering.network.MarkWantedPayload.TYPE,
+                dev.gathering.network.MarkWantedPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.Wants.mark(
+                                player, payload.printing(), payload.wanted());
+                    }
+                });
+        registrar.playToServer(
                 dev.gathering.network.AskSetMissingPayload.TYPE,
                 dev.gathering.network.AskSetMissingPayload.STREAM_CODEC,
                 (payload, context) -> {
@@ -266,6 +275,10 @@ public final class GatheringNetwork {
         registrar.playToClient(
                 dev.gathering.network.SetMissingPayload.TYPE,
                 dev.gathering.network.SetMissingPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.WantsPayload.TYPE,
+                dev.gathering.network.WantsPayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
                 dev.gathering.network.TableSaidPayload.TYPE,

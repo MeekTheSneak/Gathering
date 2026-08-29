@@ -218,6 +218,8 @@ public final class GatheringSprites {
         SENT_AWAY("sent_away"),
         /** Under a filter that is switched on. */
         FILTER_ON("filter_on"),
+        /** Beside a card somebody is chasing, wherever that card is shown. */
+        WANTED_MARK("wanted_mark"),
 
         /** The torn edge of a booster wrapper. */
         PACK_WRAPPER_EDGE("pack_wrapper_edge"),

@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 235;
+    private static final int LAST_STEP = 236;
 
     private static int step;
     private static int waited;
@@ -2386,13 +2386,21 @@ public final class DevScene {
                 if (client.screen instanceof MissingCardsScreen missing && missing.total() == 0) {
                     fail("the missing list opened saying nothing is missing");
                 }
+                // One of them onto the wants list, which is the whole reason to be looking at
+                // this list rather than reading it once and forgetting it.
+                wantACardFromTheList(client);
+                advance(SETTLE);
+            }
+            case 227 -> {
+                theWantedCardCameBack(client);
+                shoot(client, "74a-one-i-am-after");
                 // Back to the set list, which is where a sub-screen of it goes.
                 if (client.screen != null) {
                     client.screen.onClose();
                 }
                 advance(SETTLE);
             }
-            case 227 -> {
+            case 228 -> {
                 expectScreen(client, "back on the set list", SetProgressScreen.class);
                 // The other half of the row: right for what you have rather than what you
                 // do not. Both halves are pressed, because a row that answers two questions
@@ -2403,7 +2411,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 228 -> {
+            case 229 -> {
                 expectScreen(client, "back in the collection, filtered", CollectionScreen.class);
                 if (client.screen instanceof CollectionScreen collection
                         && !pressedSet.equals(collection.query().setCode())) {
@@ -2417,27 +2425,27 @@ public final class DevScene {
             // change here is: a picture is taken of the frame that has already been drawn, so
             // a step that changes something and photographs it in the same breath photographs
             // what was there before. Three looks came out labelled as each other.
-            case 229 -> {
+            case 230 -> {
                 wearTheLook(client, "gathering:slate");
                 advance(SETTLE / 2);
             }
-            case 230 -> {
+            case 231 -> {
                 shoot(client, "75-the-slate-look");
                 wearTheLook(client, "gathering:walnut");
                 advance(SETTLE / 2);
             }
-            case 231 -> {
+            case 232 -> {
                 shoot(client, "76-the-walnut-look");
                 wearTheLook(client, "gathering:felt");
                 advance(SETTLE / 2);
             }
-            case 232 -> {
+            case 233 -> {
                 shoot(client, "77-back-to-the-felt");
                 client.setScreen(new net.minecraft.client.gui.screens.options.VideoSettingsScreen(
                         client.screen, client, client.options));
                 advance(SETTLE);
             }
-            case 233 -> {
+            case 234 -> {
                 expectScreen(client, "opening the game's video settings",
                         net.minecraft.client.gui.screens.options.VideoSettingsScreen.class);
                 // Scrolled to where the row actually is, which is the foot of the list: mod
@@ -2446,7 +2454,7 @@ public final class DevScene {
                 scrollToTheFoot(client);
                 advance(SETTLE / 2);
             }
-            case 234 -> {
+            case 235 -> {
                 shoot(client, "78-the-look-in-video-settings");
                 // Pressed rather than assumed. This row is put into a list vanilla built, and
                 // a mod that adds a widget to somebody else's screen finds out it has stopped
@@ -2454,7 +2462,7 @@ public final class DevScene {
                 pressTheLookRow(client);
                 advance(SETTLE);
             }
-            case 235 -> {
+            case 236 -> {
                 if (GuiThemes.active().id().toString().equals("gathering:felt")) {
                     fail("the look row in video settings was pressed and the look did not change");
                 }
@@ -4321,6 +4329,53 @@ public final class DevScene {
                 new dev.gathering.network.SetProgressPayload.Row("leg", "Legends", 4, 310, 21));
         SetProgressScreen.accept(new dev.gathering.network.SetProgressPayload(
                 collectionBlock, rows, 0));
+    }
+
+    /** Which card the run put on its wants list, so the answer can be checked against it. */
+    private static java.util.UUID wanted;
+
+    /**
+     * Puts the card under the cursor on the wants list.
+     *
+     * <p>Through the screen's own click rather than by calling the network directly, because
+     * what is being checked is that pressing a row of this list is what does it.
+     */
+    private static void wantACardFromTheList(Minecraft client) {
+        if (!(client.screen instanceof MissingCardsScreen missing)) {
+            fail("there was no missing list to want a card from");
+            return;
+        }
+        int[] firstRow = missing.middleOfRow(0);
+        if (firstRow == null) {
+            fail("the missing list showed nothing to want");
+            return;
+        }
+        hover(client, firstRow);
+        // Rendered once so the row under the cursor is known, the same way every other
+        // hovered thing in this scene is pressed.
+        missing.render(new net.minecraft.client.gui.GuiGraphics(
+                client, client.renderBuffers().bufferSource()), firstRow[0], firstRow[1], 0f);
+        wanted = missing.printingOfRow(0);
+        missing.mouseClicked(firstRow[0], firstRow[1], 0);
+    }
+
+    /**
+     * The server put it on the list and said so.
+     *
+     * <p>Checked rather than assumed, because the client deliberately does not mark its own
+     * card: a full list is refused, and a screen that marked what it hoped for would show a
+     * card nobody is chasing with nothing to ever correct it.
+     */
+    private static void theWantedCardCameBack(Minecraft client) {
+        if (wanted == null) {
+            fail("nothing was ever put on the wants list to check");
+            return;
+        }
+        if (!dev.gathering.client.ClientWants.wants(wanted)) {
+            fail("a card was put on the wants list and the server never said it was there");
+        }
+        System.out.println("[devscene] the wants list holds "
+                + dev.gathering.client.ClientWants.all().size() + " card(s)");
     }
 
     /**

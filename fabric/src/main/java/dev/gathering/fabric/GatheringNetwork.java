@@ -64,6 +64,9 @@ final class GatheringNetwork {
                 dev.gathering.network.AskSetProgressPayload.TYPE,
                 dev.gathering.network.AskSetProgressPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.MarkWantedPayload.TYPE,
+                dev.gathering.network.MarkWantedPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.AskSetMissingPayload.TYPE,
                 dev.gathering.network.AskSetMissingPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
@@ -96,6 +99,9 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.SetProgressPayload.TYPE,
                 dev.gathering.network.SetProgressPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.WantsPayload.TYPE,
+                dev.gathering.network.WantsPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.SetMissingPayload.TYPE,
                 dev.gathering.network.SetMissingPayload.STREAM_CODEC);
@@ -253,6 +259,10 @@ final class GatheringNetwork {
                 dev.gathering.network.AskSetProgressPayload.TYPE, (payload, context) ->
                         dev.gathering.server.CollectionSets.progress(
                                 context.player(), payload.collection()));
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.MarkWantedPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.Wants.mark(
+                                context.player(), payload.printing(), payload.wanted()));
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.AskSetMissingPayload.TYPE, (payload, context) ->
                         dev.gathering.server.CollectionSets.missing(

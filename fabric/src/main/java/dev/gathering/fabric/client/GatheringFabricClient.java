@@ -107,6 +107,10 @@ public final class GatheringFabricClient implements ClientModInitializer {
                         context.client().execute(() ->
                                 dev.gathering.client.SetProgressScreen.accept(payload)));
         ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.WantsPayload.TYPE, (payload, context) ->
+                        context.client().execute(() ->
+                                dev.gathering.client.ClientWants.accept(payload)));
+        ClientPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.SetMissingPayload.TYPE, (payload, context) ->
                         context.client().execute(() ->
                                 dev.gathering.client.MissingCardsScreen.accept(payload)));
@@ -244,6 +248,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             // What one server told us is not true of the next one.
             ClientCardCache.get().clear();
+            dev.gathering.client.ClientWants.clear();
             ClientCardRequests.clear();
             ClientHoverState.clear();
             dev.gathering.client.ClientTableState.clear();

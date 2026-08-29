@@ -65,6 +65,14 @@ public final class GatheringFabric implements ModInitializer {
                                     from, dev.gathering.core.sealed.LootRichness.of(table)))));
         });
 
+        // A player's wants list, read when they arrive and let go when they leave. Both are
+        // needed: without the first a client draws its first collection screen with no marks
+        // on it, and without the second a long-running server holds every list ever read.
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register(
+                (handler, sender, server) -> dev.gathering.server.Wants.joined(handler.getPlayer()));
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
+                (handler, server) -> dev.gathering.server.Wants.left(handler.getPlayer()));
+
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             ServerSettings.load(Platform.get());
             try {

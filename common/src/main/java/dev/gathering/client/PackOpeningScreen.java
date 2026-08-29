@@ -308,15 +308,26 @@ public final class PackOpeningScreen extends Screen {
                 GatheringSprites.draw(graphics, Element.RARITY_RING,
                         x - 1, y - 1, laid.cardWidth() + 2, laid.cardHeight() + 2, glow);
             }
+            // And one somebody has been chasing, marked in the corner. This is the moment a
+            // wants list is for: a pack is a handful of names, and the one you have been
+            // after for a month looks like all the others until something says so.
+            if (card.scryfallId().filter(ClientWants::wants).isPresent()) {
+                GatheringSprites.draw(graphics, Element.WANTED_MARK,
+                        x + 2, y + 2, MARK_SIDE, MARK_SIDE);
+            }
         }
         ClientHoverState.setHovered(over == null
                 ? net.minecraft.world.item.ItemStack.EMPTY
                 : dev.gathering.item.CardItem.of(over));
 
         graphics.drawCenteredString(this.font, this.title, width() / 2, gridTop - 14, 0xFFBFC7D2);
+        int chased = howManyWereWanted();
         graphics.drawCenteredString(this.font,
-                Component.translatable("screen.gathering.pack_kept", revealed.size()),
-                width() / 2, gridTop + gridHeight + 6, 0xFFBFC7D2);
+                chased > 0
+                        ? Component.translatable(
+                                "screen.gathering.pack_kept_wanted", revealed.size(), chased)
+                        : Component.translatable("screen.gathering.pack_kept", revealed.size()),
+                width() / 2, gridTop + gridHeight + 6, chased > 0 ? WANTED : 0xFFBFC7D2);
     }
 
     /** How much of its turn each card took last frame. For the harness; see {@link #leanOf}. */
@@ -333,6 +344,23 @@ public final class PackOpeningScreen extends Screen {
      */
     float leanOf(int index) {
         return index >= 0 && index < leans.length ? leans[index] : 0f;
+    }
+
+    /** How big the mark on a card somebody was chasing is, in the corner of it. */
+    private static final int MARK_SIDE = 5;
+
+    /** The color of the wants list, so the line under the pack matches the marks above it. */
+    private static final int WANTED = 0xFFFFD479;
+
+    /** How many of these were on the wants list. */
+    private int howManyWereWanted() {
+        int chased = 0;
+        for (CardComponent card : revealed) {
+            if (card.scryfallId().filter(ClientWants::wants).isPresent()) {
+                chased++;
+            }
+        }
+        return chased;
     }
 
     /** How far a card in the grid turns towards the cursor. */

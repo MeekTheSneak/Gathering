@@ -149,6 +149,9 @@ public final class MissingCardsScreen extends ChildScreen {
                     Component.translatable("screen.gathering.missing.more", hiddenBelow()),
                     this.width / 2, this.height - BOTTOM_BAR + 10, this.width / 2, DIM);
         }
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.missing.hint"),
+                MARGIN, this.height - BOTTOM_BAR + 10, this.width / 2 - MARGIN, DIM);
     }
 
     /**
@@ -164,9 +167,40 @@ public final class MissingCardsScreen extends ChildScreen {
         GuiText.drawFlushRight(graphics, this.font,
                 Component.literal(Integer.toString(card.number())),
                 row.x() + numberRoom - 6, row.y() + 1, 1f, DIM);
+        boolean chasing = ClientWants.wants(card.printing());
+        int marked = chasing ? WANTED_MARK : 0;
+        if (chasing) {
+            GatheringSprites.draw(graphics, Element.WANTED_MARK,
+                    row.x() + numberRoom, row.y() + 2, MARK_WIDTH, this.font.lineHeight - 2);
+        }
         GuiText.draw(graphics, this.font, Component.literal(card.name()),
-                row.x() + numberRoom, row.y() + 1, row.width() - numberRoom,
-                colorOf(card.rarity()));
+                row.x() + numberRoom + marked, row.y() + 1, row.width() - numberRoom - marked,
+                chasing ? WANTED_TEXT : colorOf(card.rarity()));
+    }
+
+    /** How much room the mark beside a wanted card's name takes. */
+    private static final int MARK_WIDTH = 5;
+    private static final int WANTED_MARK = MARK_WIDTH + 3;
+
+    /** A card on the list is named in the colour of the list rather than of its rarity. */
+    private static final int WANTED_TEXT = 0xFFFFD479;
+
+    /**
+     * Pressing a card puts it on the wants list, or takes it off.
+     *
+     * <p>The one thing to do to a card on this screen, so it is the plain click. A list of
+     * three hundred cards to find is a list somebody reads once; a list they can tick down is
+     * one they come back to - and the ticking has to happen here, where they are already
+     * looking at the names.
+     */
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && hovered >= 0 && hovered < missing.count()) {
+            GatheringButtons.clickSound();
+            ClientWants.toggle(missing.cards().get(hovered).printing());
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private static int colorOf(Rarity rarity) {
@@ -192,6 +226,22 @@ public final class MissingCardsScreen extends ChildScreen {
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         scroll = Math.clamp(scroll - (int) Math.signum(scrollY), 0, hiddenBelow());
         return true;
+    }
+
+    /** The middle of one row, for the scripted run to put a cursor on. */
+    int[] middleOfRow(int index) {
+        if (index < 0 || index >= missing.count() || index < scroll
+                || index - scroll >= rowsThatFit()) {
+            return null;
+        }
+        Rect row = rowAt(index - scroll);
+        return new int[] {(int) row.centerX(), (int) row.centerY()};
+    }
+
+    /** Which card one row is about, so the run can check what it asked for came back. */
+    java.util.UUID printingOfRow(int index) {
+        return index >= 0 && index < missing.count()
+                ? missing.cards().get(index).printing() : null;
     }
 
     /** What the cursor is on, for the scripted run. */

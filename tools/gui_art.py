@@ -213,6 +213,7 @@ ELEMENTS = [
     ("drag_landing", STRETCH, lambda: flat(16, 0xFFFFD479)),
     ("sent_away", STRETCH, lambda: flat(16, 0xB0101418)),
     ("filter_on", STRETCH, lambda: flat(16, 0xFFE8C86A)),
+    ("wanted_mark", STRETCH, lambda: flat(16, 0xFFFFD479)),
 
     # Sealed product.
     ("pack_wrapper_edge", STRETCH, lambda: flat(16, 0xFF161A20)),

@@ -168,6 +168,10 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> dev.gathering.client.SetProgressScreen.accept(progress));
             return;
         }
+        if (payload instanceof dev.gathering.network.WantsPayload wants) {
+            context.enqueueWork(() -> dev.gathering.client.ClientWants.accept(wants));
+            return;
+        }
         if (payload instanceof dev.gathering.network.SetMissingPayload missing) {
             context.enqueueWork(() -> dev.gathering.client.MissingCardsScreen.accept(missing));
             return;
@@ -317,6 +321,7 @@ public final class GatheringNeoForgeClient {
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         // What one server told us is not true of the next one.
         ClientCardCache.get().clear();
+        dev.gathering.client.ClientWants.clear();
         ClientCardRequests.clear();
         ClientHoverState.clear();
         dev.gathering.client.ClientTableState.clear();

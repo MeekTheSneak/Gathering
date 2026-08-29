@@ -37,6 +37,11 @@ public final class GatheringNeoForge {
         NeoForge.EVENT_BUS.addListener(this::onServerStopped);
         NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onVillagerTrades);
         NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onEntityInteract);
+        // A player's wants list, read when they arrive and let go when they leave. Both are
+        // needed: without the first a client draws its first collection screen with no marks
+        // on it, and without the second a long-running server holds every list ever read.
+        NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onPlayerJoined);
+        NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onPlayerLeft);
 
         LOGGER.info("{} loaded. {}", Gathering.MOD_NAME, Gathering.FAN_CONTENT_DISCLAIMER);
     }
@@ -67,6 +72,20 @@ public final class GatheringNeoForge {
     }
 
     /** What a card shop's keeper sells, at each of their levels. */
+    private static void onPlayerJoined(
+            net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            dev.gathering.server.Wants.joined(player);
+        }
+    }
+
+    private static void onPlayerLeft(
+            net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            dev.gathering.server.Wants.left(player);
+        }
+    }
+
     private static void onVillagerTrades(
             net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
         if (event.getType() != dev.gathering.village.GatheringVillagers.SHOPKEEPER.get()) {
