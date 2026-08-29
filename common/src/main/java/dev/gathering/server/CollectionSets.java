@@ -4,8 +4,10 @@ import dev.gathering.block.CollectionBlockEntity;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.card.SetRelease;
+import dev.gathering.core.collection.MissingCards;
 import dev.gathering.core.collection.SetCompletion;
 import dev.gathering.network.Sending;
+import dev.gathering.network.SetMissingPayload;
 import dev.gathering.network.SetProgressPayload;
 import dev.gathering.service.CardDataService;
 import java.util.ArrayList;
@@ -112,6 +114,82 @@ public final class CollectionSets {
         if (!unnamed.isEmpty()) {
             service.findAll(unnamed.subList(0, Math.min(unnamed.size(), MOST_LOOKED_UP)));
         }
+    }
+
+    /**
+     * Which cards of one set this collection has not got.
+     *
+     * <p>The click behind the number. Everything about it is the same shape as the count
+     * above: the collection is here, the card details are here, and what a set contains is a
+     * fetch from Scryfall - so the subtraction happens here and a list goes back.
+     *
+     * <p><b>The set code came off a socket.</b> It is the one string in this file that sends
+     * the server looking something up, so it is checked against the sets the server already
+     * knows before anything is fetched. A code nothing recognizes is answered with silence
+     * rather than with a request to Scryfall: otherwise a client could walk an alphabet
+     * through somebody else's bandwidth.
+     *
+     * <p>Server thread only, except the lookup it starts.
+     */
+    public static void missing(ServerPlayer player, BlockPos where, String setCode) {
+        CollectionBlockEntity collection = CollectionView.at(player, where);
+        if (collection == null || tooSoon(player)) {
+            return;
+        }
+        CardDataService service = CardDataService.active().orElse(null);
+        if (service == null) {
+            return;
+        }
+        String wanted = setCode == null ? "" : setCode.trim().toLowerCase(java.util.Locale.ROOT);
+        if (wanted.isEmpty()) {
+            return;
+        }
+        Map<String, SetRelease> sets = service.allSets().getNow(null);
+        if (sets == null) {
+            // The set list has not arrived, so there is nothing to check the code against yet
+            // and nothing worth fetching on the strength of it. The count above asks for the
+            // same list, and this screen is only reachable through that one.
+            return;
+        }
+        SetRelease set = sets.get(wanted);
+        if (set == null) {
+            return;
+        }
+        service.everyPrintingIn(wanted)
+                .whenComplete((printings, failure) -> player.server.execute(() -> {
+                    if (player.hasDisconnected() || failure != null || printings == null) {
+                        return;
+                    }
+                    // The seat check again after a round trip to somebody else's host, the
+                    // same as every other lookup here: a player can walk away from a
+                    // collection while one is in flight.
+                    if (CollectionView.at(player, where) == null) {
+                        return;
+                    }
+                    Sending.to(player, SetMissingPayload.of(
+                            MissingCards.of(set, printings, ownedFrom(collection, service, wanted))));
+                }));
+    }
+
+    /**
+     * The cards this collection holds that carry one set's code.
+     *
+     * <p>Only the ones the server can name: a card it has never looked up has no set code to
+     * match on. That is the same softness the count above has, and it is said out loud there
+     * - which is the screen this one is opened from, so somebody who sees a list that looks
+     * long has already been told the count is still settling.
+     */
+    private static List<CardMetadata> ownedFrom(
+            CollectionBlockEntity collection, CardDataService service, String setCode) {
+        List<CardMetadata> found = new ArrayList<>();
+        for (CardIdentity card : collection.cards().cards()) {
+            CardMetadata about = CollectionView.known(service, card);
+            if (about != null && about.setCode() != null
+                    && about.setCode().trim().toLowerCase(java.util.Locale.ROOT).equals(setCode)) {
+                found.add(about);
+            }
+        }
+        return found;
     }
 
     /**

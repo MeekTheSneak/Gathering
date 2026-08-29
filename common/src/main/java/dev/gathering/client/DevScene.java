@@ -152,7 +152,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 231;
+    private static final int LAST_STEP = 233;
 
     private static int step;
     private static int waited;
@@ -2355,44 +2355,71 @@ public final class DevScene {
                     }
                     sets.mouseClicked(
                             client.getWindow().getGuiScaledWidth() / 2.0, SET_ROW_Y, 0);
+                    // And answered here, for the reason the set list itself is answered here:
+                    // what a set contains is a question for Scryfall, and what is being
+                    // checked is the screen and the wire it arrives over.
+                    whatIsStillMissing(client, pressedSet);
                 }
                 advance(SETTLE);
             }
             case 224 -> {
+                expectScreen(client, "the cards a set is still missing", MissingCardsScreen.class);
+                shoot(client, "74-what-is-still-missing");
+                if (client.screen instanceof MissingCardsScreen missing && missing.total() == 0) {
+                    fail("the missing list opened saying nothing is missing");
+                }
+                // Back to the set list, which is where a sub-screen of it goes.
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                advance(SETTLE);
+            }
+            case 225 -> {
+                expectScreen(client, "back on the set list", SetProgressScreen.class);
+                // The other half of the row: right for what you have rather than what you
+                // do not. Both halves are pressed, because a row that answers two questions
+                // is a row where one of them can quietly stop working.
+                if (client.screen instanceof SetProgressScreen sets) {
+                    sets.mouseClicked(
+                            client.getWindow().getGuiScaledWidth() / 2.0, SET_ROW_Y, 1);
+                }
+                advance(SETTLE);
+            }
+            case 226 -> {
                 expectScreen(client, "back in the collection, filtered", CollectionScreen.class);
                 if (client.screen instanceof CollectionScreen collection
                         && !pressedSet.equals(collection.query().setCode())) {
-                    fail("pressing " + pressedSet + " narrowed the collection to '"
+                    fail("right-clicking " + pressedSet + " narrowed the collection to '"
                             + collection.query().setCode() + "'");
                 }
-                shoot(client, "74-only-that-set");
+                shoot(client, "74b-only-that-set");
                 advance(SETTLE / 2);
             }
             // A look is put on in one step and photographed in the next, the way every other
             // change here is: a picture is taken of the frame that has already been drawn, so
             // a step that changes something and photographs it in the same breath photographs
             // what was there before. Three looks came out labelled as each other.
-            case 225 -> {
+            case 227 -> {
                 wearTheLook(client, "gathering:slate");
                 advance(SETTLE / 2);
             }
-            case 226 -> {
+            case 228 -> {
                 shoot(client, "75-the-slate-look");
                 wearTheLook(client, "gathering:walnut");
                 advance(SETTLE / 2);
             }
-            case 227 -> {
+            case 229 -> {
                 shoot(client, "76-the-walnut-look");
                 wearTheLook(client, "gathering:felt");
                 advance(SETTLE / 2);
             }
-            case 228 -> {
+            case 230 -> {
                 shoot(client, "77-back-to-the-felt");
                 client.setScreen(new net.minecraft.client.gui.screens.options.VideoSettingsScreen(
                         client.screen, client, client.options));
                 advance(SETTLE);
             }
-            case 229 -> {
+            case 231 -> {
                 expectScreen(client, "opening the game's video settings",
                         net.minecraft.client.gui.screens.options.VideoSettingsScreen.class);
                 // Scrolled to where the row actually is, which is the foot of the list: mod
@@ -2401,7 +2428,7 @@ public final class DevScene {
                 scrollToTheFoot(client);
                 advance(SETTLE / 2);
             }
-            case 230 -> {
+            case 232 -> {
                 shoot(client, "78-the-look-in-video-settings");
                 // Pressed rather than assumed. This row is put into a list vanilla built, and
                 // a mod that adds a widget to somebody else's screen finds out it has stopped
@@ -2409,7 +2436,7 @@ public final class DevScene {
                 pressTheLookRow(client);
                 advance(SETTLE);
             }
-            case 231 -> {
+            case 233 -> {
                 if (GuiThemes.active().id().toString().equals("gathering:felt")) {
                     fail("the look row in video settings was pressed and the look did not change");
                 }
@@ -4246,6 +4273,32 @@ public final class DevScene {
                 new dev.gathering.network.SetProgressPayload.Row("leg", "Legends", 4, 310, 21));
         SetProgressScreen.accept(new dev.gathering.network.SetProgressPayload(
                 collectionBlock, rows, 0));
+    }
+
+    /**
+     * Answers the question a pressed set asks, the way a server with a network would.
+     *
+     * <p>A short set rather than a real one: what is being checked is that the list draws,
+     * scrolls and reads a card into the inspect panel, none of which needs three hundred
+     * rows. Sent as the payload rather than poked into the screen, so the whole path from the
+     * wire in is what runs.
+     */
+    private static void whatIsStillMissing(Minecraft client, String setCode) {
+        java.util.List<dev.gathering.network.SetMissingPayload.Row> rows = java.util.List.of(
+                new dev.gathering.network.SetMissingPayload.Row(
+                        4, "Blistering Firecat", dev.gathering.core.card.Rarity.RARE,
+                        java.util.UUID.nameUUIDFromBytes("missing-4".getBytes(
+                                java.nio.charset.StandardCharsets.UTF_8))),
+                new dev.gathering.network.SetMissingPayload.Row(
+                        18, "Grizzly Bears", dev.gathering.core.card.Rarity.COMMON,
+                        java.util.UUID.nameUUIDFromBytes("missing-18".getBytes(
+                                java.nio.charset.StandardCharsets.UTF_8))),
+                new dev.gathering.network.SetMissingPayload.Row(
+                        99, "Sheoldred, the Apocalypse", dev.gathering.core.card.Rarity.MYTHIC,
+                        java.util.UUID.nameUUIDFromBytes("missing-99".getBytes(
+                                java.nio.charset.StandardCharsets.UTF_8))));
+        MissingCardsScreen.accept(new dev.gathering.network.SetMissingPayload(
+                setCode, "The Test Set", rows, rows.size()));
     }
 
     /** Shuts the board, for the steps that happen out in the world. */

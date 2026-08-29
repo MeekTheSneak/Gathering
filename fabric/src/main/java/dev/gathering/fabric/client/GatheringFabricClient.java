@@ -107,6 +107,10 @@ public final class GatheringFabricClient implements ClientModInitializer {
                         context.client().execute(() ->
                                 dev.gathering.client.SetProgressScreen.accept(payload)));
         ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.SetMissingPayload.TYPE, (payload, context) ->
+                        context.client().execute(() ->
+                                dev.gathering.client.MissingCardsScreen.accept(payload)));
+        ClientPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.TableSaidPayload.TYPE, (payload, context) ->
                         context.client().execute(() ->
                                 dev.gathering.client.ClientTableChat.accept(payload)));

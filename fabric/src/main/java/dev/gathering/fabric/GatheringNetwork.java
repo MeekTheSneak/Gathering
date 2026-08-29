@@ -64,6 +64,9 @@ final class GatheringNetwork {
                 dev.gathering.network.AskSetProgressPayload.TYPE,
                 dev.gathering.network.AskSetProgressPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.AskSetMissingPayload.TYPE,
+                dev.gathering.network.AskSetMissingPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.TableChatPayload.TYPE,
                 dev.gathering.network.TableChatPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
@@ -93,6 +96,9 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.SetProgressPayload.TYPE,
                 dev.gathering.network.SetProgressPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.SetMissingPayload.TYPE,
+                dev.gathering.network.SetMissingPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
                 dev.gathering.network.TableSaidPayload.TYPE,
                 dev.gathering.network.TableSaidPayload.STREAM_CODEC);
@@ -247,6 +253,10 @@ final class GatheringNetwork {
                 dev.gathering.network.AskSetProgressPayload.TYPE, (payload, context) ->
                         dev.gathering.server.CollectionSets.progress(
                                 context.player(), payload.collection()));
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.AskSetMissingPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.CollectionSets.missing(
+                                context.player(), payload.collection(), payload.setCode()));
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.TableChatPayload.TYPE, (payload, context) ->
                         dev.gathering.server.TableTalk.handle(context.player(), payload));

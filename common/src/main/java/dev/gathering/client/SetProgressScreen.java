@@ -190,6 +190,11 @@ public final class SetProgressScreen extends ChildScreen {
                     Component.translatable("screen.gathering.sets.more", hiddenBelow()),
                     this.width / 2, this.height - BOTTOM_BAR + 10, this.width / 2, DIM);
         }
+        // Said, because the two buttons now do two different things and a row that answers
+        // one question on the left and another on the right is a row nobody would guess at.
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.sets.hint"),
+                MARGIN, this.height - BOTTOM_BAR + 10, this.width / 2 - MARGIN, DIM);
     }
 
     /**
@@ -236,14 +241,29 @@ public final class SetProgressScreen extends ChildScreen {
         return hovered >= 0 && hovered < sets.size() ? sets.get(hovered).code() : "";
     }
 
+    /**
+     * Pressing a set.
+     *
+     * <p>Left for the list of what is missing, because that is the question the row raises:
+     * a number saying one of three hundred and seventy-three is not an answer to anything on
+     * its own. Right for the other half of it - back to the collection showing only this set,
+     * which is what you own rather than what you do not.
+     */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && hovered >= 0 && hovered < sets.size()) {
+        if (hovered >= 0 && hovered < sets.size() && (button == 0 || button == 1)) {
             GatheringButtons.clickSound();
-            // Back to the collection, showing only this set. The whole point of the row.
             SetCompletion set = sets.get(hovered);
-            Minecraft.getInstance().setScreen(collection);
-            collection.showOnly(set.code());
+            if (button == 1) {
+                Minecraft.getInstance().setScreen(collection);
+                collection.showOnly(set.code());
+                return true;
+            }
+            // Asked out loud, because the answer is what opens the screen and only the
+            // answer somebody asked for may. See MissingCardsScreen.asked.
+            MissingCardsScreen.asked(set.code());
+            ClientNetworking.send(
+                    new dev.gathering.network.AskSetMissingPayload(where, set.code()));
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);

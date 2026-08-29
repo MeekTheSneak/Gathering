@@ -168,6 +168,10 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> dev.gathering.client.SetProgressScreen.accept(progress));
             return;
         }
+        if (payload instanceof dev.gathering.network.SetMissingPayload missing) {
+            context.enqueueWork(() -> dev.gathering.client.MissingCardsScreen.accept(missing));
+            return;
+        }
         if (payload instanceof dev.gathering.network.TableSaidPayload said) {
             context.enqueueWork(() -> dev.gathering.client.ClientTableChat.accept(said));
             return;

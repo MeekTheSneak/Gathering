@@ -27,15 +27,27 @@ import net.minecraft.network.codec.StreamCodec;
 public record CardSummary(
         UUID scryfallId, CardFaceSummary front, Optional<CardFaceSummary> back, Rarity rarity) {
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, CardSummary> STREAM_CODEC = StreamCodec.composite(
-            UUIDUtil.STREAM_CODEC, CardSummary::scryfallId,
-            CardFaceSummary.STREAM_CODEC, CardSummary::front,
-            ByteBufCodecs.optional(CardFaceSummary.STREAM_CODEC), CardSummary::back,
+    /**
+     * How a rarity crosses the wire, written once.
+     *
+     * <p>An ordinal, because {@link Rarity} is in the pure core and the pure core has no
+     * Minecraft on its classpath to carry a codec of its own. A number out of range reads as
+     * {@link Rarity#UNKNOWN} rather than throwing: this comes off a socket, and a card whose
+     * rarity did not survive the trip is a card drawn without a colored ring, not a
+     * disconnect.
+     */
+    public static final StreamCodec<io.netty.buffer.ByteBuf, Rarity> RARITY_STREAM_CODEC =
             ByteBufCodecs.idMapper(
                     id -> id >= 0 && id < Rarity.values().length
                             ? Rarity.values()[id]
                             : Rarity.UNKNOWN,
-                    Rarity::ordinal), CardSummary::rarity,
+                    Rarity::ordinal);
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, CardSummary> STREAM_CODEC = StreamCodec.composite(
+            UUIDUtil.STREAM_CODEC, CardSummary::scryfallId,
+            CardFaceSummary.STREAM_CODEC, CardSummary::front,
+            ByteBufCodecs.optional(CardFaceSummary.STREAM_CODEC), CardSummary::back,
+            RARITY_STREAM_CODEC, CardSummary::rarity,
             CardSummary::new);
 
     public CardSummary {
