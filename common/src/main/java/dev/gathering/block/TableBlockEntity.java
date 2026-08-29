@@ -69,6 +69,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String DECK_SEAT_KEY = "seat";
     private static final String DECK_KEY = "deck";
     private static final String POOL_KEY = "pool";
+    private static final String DECK_OWNER_KEY = "owner";
     private static final String ANTE_KEY = "ante";
     private static final String FOR_KEEPS_KEY = "for_keeps";
     private static final String ANTE_SEAT_KEY = "seat";
@@ -138,6 +139,16 @@ public class TableBlockEntity extends BlockEntity {
      * somebody boards a card in and a pool never changes at all.
      */
     private final Map<SeatId, DraftedPool> pools = new LinkedHashMap<>();
+
+    /**
+     * Who put each held deck down, so it goes back to them rather than to the chair.
+     *
+     * <p>Decks used to be handed back to whoever was sitting in the seat when the match
+     * ended. A player who stood up mid-match got their deck dropped on the floor, and a
+     * player who took the vacated chair got somebody else's deck put in their inventory -
+     * which is a collection changing hands because of where a person was standing.
+     */
+    private final Map<SeatId, UUID> deckOwners = new LinkedHashMap<>();
 
     /**
      * The pot, when this table is playing for keeps.
@@ -303,8 +314,13 @@ public class TableBlockEntity extends BlockEntity {
      * would drop a pool every time somebody called the short form out of habit - which is a
      * deck quietly stopping being a drafted deck, and nothing to see when it happens.
      */
-    public void holdDeck(SeatId seat, DeckComponent deck, DraftedPool pool) {
+    public void holdDeck(SeatId seat, DeckComponent deck, DraftedPool pool, UUID owner) {
         decks.put(seat, deck);
+        if (owner == null) {
+            deckOwners.remove(seat);
+        } else {
+            deckOwners.put(seat, owner);
+        }
         if (pool == null || pool.isEmpty()) {
             pools.remove(seat);
         } else {
@@ -383,16 +399,44 @@ public class TableBlockEntity extends BlockEntity {
      */
     public Map<SeatId, HeldDeck> releaseDecks() {
         Map<SeatId, HeldDeck> released = new LinkedHashMap<>();
-        decks.forEach((seat, deck) -> released.put(seat, new HeldDeck(deck, pools.get(seat))));
+        decks.forEach((seat, deck) ->
+                released.put(seat, new HeldDeck(deck, pools.get(seat), deckOwners.get(seat))));
         decks.clear();
         pools.clear();
+        deckOwners.clear();
         setChanged();
         // Seat order, for the same reason: this decides what order decks are handed back in.
         return java.util.Collections.unmodifiableMap(released);
     }
 
-    /** A deck the table is holding, and what it may be built from if it was drafted. */
-    public record HeldDeck(DeckComponent deck, DraftedPool pool) {
+    /**
+     * A deck the table is holding, what it may be built from if it was drafted, and whose.
+     *
+     * <p>All three together in one value, because handing one back without the others is the
+     * bug this shape exists to prevent - and three calls that must all happen is two calls
+     * somebody forgets. The owner may be null for a deck held by a world saved before decks
+     * remembered whose they were; the table falls back to the chair for those.
+     */
+    public record HeldDeck(DeckComponent deck, DraftedPool pool, UUID owner) {
+    }
+
+    /**
+     * Hands one seat's deck back and forgets it, leaving everybody else's where it is.
+     *
+     * <p>For a player leaving the table, which is the moment they mean "give me my cards" and
+     * which used to hand them nothing: a deck came back only when the whole match ended, and
+     * ending a match is a thing the rest of the table is in the middle of.
+     */
+    public Optional<HeldDeck> releaseDeck(SeatId seat) {
+        DeckComponent deck = decks.remove(seat);
+        if (deck == null) {
+            pools.remove(seat);
+            deckOwners.remove(seat);
+            return Optional.empty();
+        }
+        HeldDeck held = new HeldDeck(deck, pools.remove(seat), deckOwners.remove(seat));
+        setChanged();
+        return Optional.of(held);
     }
 
     /** Records how a game went, without ending the set it belongs to. */
@@ -612,6 +656,7 @@ public class TableBlockEntity extends BlockEntity {
 
         decks.clear();
         pools.clear();
+        deckOwners.clear();
         ListTag heldDecks = tag.getList(DECKS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < heldDecks.size(); index++) {
             CompoundTag held = heldDecks.getCompound(index);
@@ -621,6 +666,9 @@ public class TableBlockEntity extends BlockEntity {
                     .resultOrPartial(problem -> LOGGER.error(
                             "A deck held at {} will not load: {}", worldPosition, problem))
                     .ifPresent(deck -> decks.put(seat, deck));
+            if (held.hasUUID(DECK_OWNER_KEY)) {
+                deckOwners.put(seat, held.getUUID(DECK_OWNER_KEY));
+            }
             if (held.contains(POOL_KEY)) {
                 DraftedPool.CODEC
                         .parse(net.minecraft.nbt.NbtOps.INSTANCE, held.get(POOL_KEY))
@@ -734,6 +782,10 @@ public class TableBlockEntity extends BlockEntity {
                 .ifPresent(encoded -> {
                     CompoundTag entry = new CompoundTag();
                     entry.putInt(DECK_SEAT_KEY, seat.index());
+                    UUID owner = deckOwners.get(seat);
+                    if (owner != null) {
+                        entry.putUUID(DECK_OWNER_KEY, owner);
+                    }
                     entry.put(DECK_KEY, encoded);
                     DraftedPool pool = pools.get(seat);
                     if (pool != null && !pool.isEmpty()) {

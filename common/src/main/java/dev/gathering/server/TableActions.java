@@ -63,8 +63,15 @@ public final class TableActions {
         // has just updated, and the block's record of who is sitting where, which is what
         // decides whose chair is free for the next player. Leaving either behind is a player
         // who has stood up in one of them and is still sitting down in the other.
-        if (event instanceof GameEvent.SeatReleased) {
+        if (event instanceof GameEvent.SeatReleased released) {
             TableSeats.leave(level, origin, player.getUUID());
+            // And their deck comes with them. Leaving the table is the moment a player means
+            // "I am done, give me my cards", and it used to give them nothing: a deck came
+            // back only when the whole match ended, which is a thing the rest of the table is
+            // in the middle of. The board they built stays on the felt either way - a seat
+            // outlasts its player on purpose - so this hands back the deck item the table
+            // took, not the game.
+            TableSessions.returnDeckTo(level, origin, released.actor());
             Antes.seatsChanged(level, origin);
         }
 

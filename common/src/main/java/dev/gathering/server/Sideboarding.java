@@ -74,7 +74,7 @@ public final class Sideboarding {
         // pool that vanished at the first sideboard step would stop a limited match being
         // limited halfway through.
         held.table().holdDeck(held.seat(), edited.get(),
-                held.table().poolOf(held.seat()).orElse(null));
+                held.table().poolOf(held.seat()).orElse(null), player.getUUID());
         Sending.to(player, new OpenSideboardPayload(
                 origin, edited.get(),
                 TableSessions.matchAt(level, origin).map(match -> match.gameNumber()).orElse(1),

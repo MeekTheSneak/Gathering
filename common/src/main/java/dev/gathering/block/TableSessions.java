@@ -192,23 +192,59 @@ public final class TableSessions {
      * explanation attached.
      */
     public static void returnDecks(Level level, BlockPos tableOrigin, TableBlockEntity table) {
-        List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
-        table.releaseDecks().forEach((seat, held) -> {
-            ItemStack stack = DeckItem.of(held.deck());
-            // The pool goes back with the deck. A drafted deck that came back without one
-            // would still look like a drafted deck and no longer be held to what was opened.
-            if (held.pool() != null && !held.pool().isEmpty()) {
-                stack.set(dev.gathering.registry.GatheringComponents.POOL.get(), held.pool());
-            }
+        table.releaseDecks().forEach((seat, held) -> giveBack(level, tableOrigin, seat, held));
+    }
 
-            Player owner = seat.index() < anchors.size()
+    /**
+     * Hands one seat's deck back, if the table is holding one.
+     *
+     * <p>Called when a player leaves the table, which is the moment they mean "give me my
+     * cards" and which used to hand them nothing at all: a deck came back only when the whole
+     * match ended, and ending a match is something the rest of the table is in the middle of.
+     * Silent when there is no deck to give, because leaving a table you never put a deck on
+     * is the ordinary case.
+     */
+    public static void returnDeckTo(Level level, BlockPos tableOrigin, SeatId seat) {
+        anchorOf(level, tableOrigin)
+                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
+                .flatMap(table -> table.releaseDeck(seat))
+                .ifPresent(held -> giveBack(level, tableOrigin, seat, held));
+    }
+
+    /**
+     * Puts a released deck into somebody's hands, or onto the table if nobody's are here.
+     *
+     * <p>To whoever put it down, wherever they are on the server - not to whoever is sitting
+     * in the chair now. Handing it to the chair meant a player who stood up mid-match had
+     * their deck dropped on the floor, and a player who took the vacated chair had somebody
+     * else's collection put into their inventory, which is cards changing hands because of
+     * where a person happened to be standing.
+     *
+     * <p>The seat is still the fallback, for a world saved before decks remembered whose they
+     * were, and the floor beside the table is the fallback after that: a deck is somebody's
+     * collection and hours of building, and losing one because its owner logged out is not a
+     * trade-off, it is a bug with an explanation attached.
+     */
+    private static void giveBack(
+            Level level, BlockPos tableOrigin, SeatId seat, TableBlockEntity.HeldDeck held) {
+        ItemStack stack = DeckItem.of(held.deck());
+        // The pool goes back with the deck. A drafted deck that came back without one would
+        // still look like a drafted deck and no longer be held to what was opened.
+        if (held.pool() != null && !held.pool().isEmpty()) {
+            stack.set(dev.gathering.registry.GatheringComponents.POOL.get(), held.pool());
+        }
+
+        Player owner = held.owner() == null ? null : level.getPlayerByUUID(held.owner());
+        if (owner == null) {
+            List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
+            owner = seat.index() < anchors.size()
                     ? occupantOf(level, tableOrigin, anchors.get(seat.index())).orElse(null)
                     : null;
-            if (owner == null || !owner.getInventory().add(stack)) {
-                Containers.dropItemStack(level,
-                        tableOrigin.getX() + 0.5, tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
-            }
-        });
+        }
+        if (owner == null || !owner.getInventory().add(stack)) {
+            Containers.dropItemStack(level,
+                    tableOrigin.getX() + 0.5, tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
+        }
     }
 
     /**

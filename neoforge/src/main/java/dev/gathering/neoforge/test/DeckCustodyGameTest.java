@@ -4,7 +4,10 @@ import dev.gathering.Gathering;
 import dev.gathering.block.TableBlock;
 import dev.gathering.block.TableBlockEntity;
 import dev.gathering.block.TablePart;
+import dev.gathering.block.TableClusters;
+import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
+import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.item.CardComponent;
@@ -18,6 +21,7 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -52,7 +56,7 @@ public final class DeckCustodyGameTest {
         DeckComponent deck = deck();
 
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(0), deck, null);
+        table.holdDeck(new SeatId(0), deck, null, null);
 
         TableSessions.returnDecks(helper.getLevel(), origin, table);
 
@@ -86,7 +90,7 @@ public final class DeckCustodyGameTest {
         clearItems(helper, origin);
 
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(0), deck(), null);
+        table.holdDeck(new SeatId(0), deck(), null, null);
 
         TableSessions.returnDecks(helper.getLevel(), origin, table);
 
@@ -100,7 +104,7 @@ public final class DeckCustodyGameTest {
     public static void breakingTheTableGivesTheDecksBack(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         clearItems(helper, origin);
-        tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null);
+        tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null, null);
 
         helper.getLevel().destroyBlock(TablePart.SOUTH_EAST.offsetFrom(origin), false);
 
@@ -115,7 +119,7 @@ public final class DeckCustodyGameTest {
         // A server restart mid-match must not eat four decks.
         BlockPos origin = place(helper, 1, 2, 1);
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(2), deck(), null);
+        table.holdDeck(new SeatId(2), deck(), null, null);
 
         var registries = helper.getLevel().registryAccess();
         var saved = table.saveWithoutMetadata(registries);
@@ -159,7 +163,7 @@ public final class DeckCustodyGameTest {
                 List.of(card(SOL_RING), card(SOL_RING), card(BOLT)), "a pod");
 
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(0), deck(), pool);
+        table.holdDeck(new SeatId(0), deck(), pool, null);
 
         if (!table.poolOf(new SeatId(0)).equals(java.util.Optional.of(pool))) {
             helper.fail("the table did not keep the pool it was handed");
@@ -205,7 +209,7 @@ public final class DeckCustodyGameTest {
         clearItems(helper, origin);
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(0), deck(), null);
+        table.holdDeck(new SeatId(0), deck(), null, null);
 
         TableSessions.returnDecks(helper.getLevel(), origin, table);
 
@@ -296,6 +300,72 @@ public final class DeckCustodyGameTest {
                 .forEach(ItemEntity::discard);
     }
 
+    /**
+     * A deck goes back to whoever put it down, not to whoever is in the chair.
+     *
+     * <p>It used to be handed to the seat's current occupant. A player who stood up mid-match
+     * had their deck dropped on the floor, and whoever took the vacated chair had somebody
+     * else's collection put into their inventory - cards changing hands because of where a
+     * person happened to be standing.
+     */
+    @GameTest(template = "empty")
+    public static void aDeckGoesBackToWhoeverPutItDown(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        ServerPlayer squatter = helper.makeMockServerPlayerInLevel();
+
+        // The owner puts a deck down at seat 0, then walks away and somebody else sits there.
+        TableBlockEntity table = tableAt(helper, origin);
+        table.holdDeck(new SeatId(0), deck(), null, owner.getUUID());
+        SeatAnchor seat = TableClusters.at(helper.getLevel(), origin).seats().get(0);
+        TableSeats.take(helper.getLevel(), origin, seat.cell(), seat.side(), squatter.getUUID());
+
+        TableSessions.returnDecks(helper.getLevel(), origin, table);
+
+        if (deckInInventory(squatter).isPresent()) {
+            helper.fail("somebody else's deck was handed to whoever took the chair");
+            return;
+        }
+        if (deckInInventory(owner).isEmpty()) {
+            helper.fail("the deck did not go back to the player who put it down");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Leaving the table hands your deck back without ending anybody's match.
+     *
+     * <p>Reported: "cant get deck back from table". A deck came back only when the whole match
+     * ended, and ending a match is a thing the rest of the table is in the middle of.
+     */
+    @GameTest(template = "empty")
+    public static void leavingTheTableHandsTheDeckBack(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+
+        TableBlockEntity table = tableAt(helper, origin);
+        table.holdDeck(new SeatId(1), deck(), null, owner.getUUID());
+        // Somebody else's deck is on the same table and must stay there.
+        table.holdDeck(new SeatId(0), deck(), null, new UUID(77L, 1L));
+
+        TableSessions.returnDeckTo(helper.getLevel(), origin, new SeatId(1));
+
+        if (deckInInventory(owner).isEmpty()) {
+            helper.fail("leaving the table did not hand the deck back");
+            return;
+        }
+        if (table.deckOf(new SeatId(0)).isEmpty()) {
+            helper.fail("one player leaving took another player's deck off the table");
+            return;
+        }
+        if (table.deckOf(new SeatId(1)).isPresent()) {
+            helper.fail("the table is still holding a deck it handed back");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
         BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
         var table = GatheringContent.TABLE.get().defaultBlockState();
@@ -326,7 +396,7 @@ public final class DeckCustodyGameTest {
         int[] order = {5, 1, 7, 3, 6, 0, 4, 2};
         List<SeatId> expected = new java.util.ArrayList<>();
         for (int seat : order) {
-            table.holdDeck(new SeatId(seat), deck(), null);
+            table.holdDeck(new SeatId(seat), deck(), null, null);
             expected.add(new SeatId(seat));
         }
         expected.sort(java.util.Comparator.comparingInt(SeatId::index));

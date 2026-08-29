@@ -377,7 +377,14 @@ public class TableBlock extends BaseEntityBlock {
         // Both, then, decided by whether there is a board to open: during a game the click
         // opens it and standing up is on its menu, and outside one the click is the way out.
         if (alreadySeatedHere) {
+            // Their seat, read before the claim goes, because that is what names the deck the
+            // table is holding for them. Between games of a set the table keeps everybody's
+            // deck to put it back down for the next one - so a player leaving then had no way
+            // at all to get theirs back short of the whole set ending.
+            java.util.Optional<dev.gathering.core.game.SeatId> leaving =
+                    TableSessions.seatIdOf(level, tableOrigin, player.getUUID());
             TableSeats.leave(level, tableOrigin, player.getUUID());
+            leaving.ifPresent(seat -> TableSessions.returnDeckTo(level, tableOrigin, seat));
             player.sendSystemMessage(Component.translatable("message.gathering.seat_left"));
             tellTheTableWhoIsSittingAtIt(level, tableOrigin);
             if (level instanceof net.minecraft.server.level.ServerLevel stood) {
@@ -686,7 +693,8 @@ public class TableBlock extends BaseEntityBlock {
         TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
                 .ifPresent(table -> table.holdDeck(seat, deck,
-                        stack.get(dev.gathering.registry.GatheringComponents.POOL.get())));
+                        stack.get(dev.gathering.registry.GatheringComponents.POOL.get()),
+                        player.getUUID()));
 
         stack.shrink(1);
         player.sendSystemMessage(Component.translatable(
