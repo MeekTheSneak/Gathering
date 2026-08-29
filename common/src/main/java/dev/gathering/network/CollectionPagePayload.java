@@ -22,7 +22,7 @@ public record CollectionPagePayload(
         implements CustomPacketPayload {
 
     /** As many rows as a page may hold, however tall the window asking is. */
-    public static final int ROWS_PER_PAGE = 60;
+    public static final int ROWS_PER_PAGE = 160;
 
     /**
      * How big the collection is and how much of it this search found.

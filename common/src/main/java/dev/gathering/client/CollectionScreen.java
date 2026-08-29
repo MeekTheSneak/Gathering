@@ -3,6 +3,8 @@ package dev.gathering.client;
 import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.card.Rarity;
 import dev.gathering.core.collection.CollectionSearch;
+import dev.gathering.core.ui.CardShape;
+import dev.gathering.core.ui.Rect;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.network.CardSummary;
@@ -20,26 +22,58 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 /**
- * A collection, read.
+ * A collection, as the cards themselves.
  *
- * <p>Rows rather than card faces. Ten thousand cards is a list you scan, and a grid of art
- * shows nine of them; what somebody opening a collection wants to know is whether a card is
- * in there and how many, which is a line of text.
+ * <p>This was a list of names, on the argument that ten thousand cards is a thing you scan
+ * and a grid of art shows nine of them. Playtesters put it plainly: "you can see the card
+ * names, but no card art... it would be better to only show the actual cards and you can see
+ * them in stacks based on how many of each card you have." They are right, and the old
+ * argument was answering the wrong question - a collection is a box you look through, and a
+ * box of cards you cannot see is a spreadsheet. Scanning is what the search box is for, and
+ * it was already there.
+ *
+ * <p>So: a grid of card faces, each drawn as a stack as deep as the number of copies, with
+ * the count on it. Resting on one puts it in {@link ClientHoverState}, so the read key opens
+ * the same panel it opens everywhere else in the mod - a collection is one of the places
+ * somebody most wants to read a card, and it should not be the one place that cannot.
  *
  * <p>Searching happens on the server, so nothing here filters anything: the box and the
  * buttons ask, and a page comes back. Which means the screen behaves the same on a collection
- * of ten cards and one of ten thousand.
+ * of ten cards and one of ten thousand - and the page is sized from how many cards this
+ * window has room for, so the server never sends a card nobody can see.
+ *
+ * <p>Deliberately <b>not</b> a {@link CardPreviewHost}. It used to say it was, which is the
+ * marker telling the read overlay to stay out of a screen that draws a preview of its own -
+ * and this one never drew one. So the read key did nothing at all in the collection, which is
+ * one of the two places in the mod somebody most wants to read a card. Reported as part of
+ * "holding alt should still open the card info screen".
  *
  * <p>Client-only.
  */
-public final class CollectionScreen extends Screen implements CardPreviewHost {
+public final class CollectionScreen extends Screen {
 
     private static final int MARGIN = 16;
 
     /** What "Build deck..." needs, and what the narrowest window has room for beside the pips. */
     private static final int BUILD_WIDTH = 86;
-    private static final int ROW_HEIGHT = 14;
     private static final int TOP_BAR = 80;
+
+    /** The width a card wants in the grid, before the columns are fitted around it. */
+    private static final int CARD_WIDTH_WANTED = 78;
+
+    /** Never narrower than this: below it a card is a coloured smudge rather than a card. */
+    private static final int CARD_WIDTH_LEAST = 34;
+
+    private static final int GRID_GAP = 6;
+
+    /** How far each card of a stack sits behind the one in front, so depth reads as depth. */
+    private static final int STACK_STEP = 3;
+
+    /** The most cards drawn behind the front one. Four copies and forty look the same anyway. */
+    private static final int STACK_DEEPEST = 3;
+
+    private static final int COUNT_TEXT = 0xFFFFF0D0;
+    private static final int FOIL_MARK = 0xFFE8C86A;
     private static final int BOTTOM_BAR = 34;
     private static final int TEXT = 0xFFDDE3EC;
     private static final int DIM = 0xFF8A94A3;
@@ -275,18 +309,77 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
     private void askFor(int wanted) {
         query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
         ClientNetworking.send(
-                new CollectionSearchPayload(where, query, descending, wanted, rowsThatFit()));
+                new CollectionSearchPayload(where, query, descending, wanted, cellsThatFit()));
     }
 
     /**
-     * How many rows this window has room for.
+     * The grid this window has room for: how wide a card is, and how many fit across and down.
      *
-     * <p>Sent with every search, because a page bigger than the box is rows nobody can see -
-     * and, worse, rows somebody can click on without seeing, since a click is a position and
-     * the list below the fold is still under the cursor.
+     * <p>Worked out once and asked for by everything, because the click test and the drawing
+     * have to agree exactly - a grid drawn to one rule and hit-tested against another is a
+     * screen that takes the card next to the one you pointed at.
+     *
+     * <p>Cards are fitted to a wanted width rather than a fixed column count, so a wide window
+     * shows more of the collection rather than the same nine cards blown up, and a narrow one
+     * falls to a single column rather than to slivers.
      */
-    private int rowsThatFit() {
-        return Math.max(1, (this.height - BOTTOM_BAR - TOP_BAR) / ROW_HEIGHT);
+    private record Grid(int cardWidth, int cardHeight, int columns, int rows, int left, int top) {
+
+        int cells() {
+            return Math.max(1, columns * rows);
+        }
+
+        Rect cellAt(int index) {
+            int column = index % columns;
+            int row = index / columns;
+            return new Rect(
+                    left + column * (cardWidth + GRID_GAP),
+                    top + row * (cardHeight + GRID_GAP),
+                    cardWidth, cardHeight);
+        }
+    }
+
+    private Grid grid() {
+        int room = Math.max(CARD_WIDTH_LEAST, this.width - MARGIN * 2);
+        int down = Math.max(1, this.height - BOTTOM_BAR - TOP_BAR);
+
+        int cardWidth = Math.min(CARD_WIDTH_WANTED, room);
+        int cardHeight = CardShape.heightFor(cardWidth);
+        // Never taller than the whole grid, whatever the width says.
+        if (cardHeight > down) {
+            cardHeight = down;
+            cardWidth = CardShape.widthFor(cardHeight);
+        }
+        // And small enough for two rows wherever a card that size is still a card. A
+        // collection showing one row of four is a page turn every four cards, which is the
+        // list this replaced with extra steps. Height drives the width here rather than the
+        // other way round, because the vertical room is what is short - deriving the height
+        // from a width fitted to fill the row grows the card straight back past the budget.
+        int forTwoRows = (down - GRID_GAP) / 2;
+        if (cardHeight > forTwoRows && CardShape.heightFor(CARD_WIDTH_LEAST) <= forTwoRows) {
+            cardHeight = forTwoRows;
+            cardWidth = CardShape.widthFor(cardHeight);
+        }
+
+        int columns = Math.max(1, (room + GRID_GAP) / (cardWidth + GRID_GAP));
+        int rows = Math.max(1, (down + GRID_GAP) / (cardHeight + GRID_GAP));
+
+        // Centred in what is left over, so the grid sits in its panel rather than against one
+        // edge of it with a wide gutter down the other.
+        int usedAcross = columns * cardWidth + GRID_GAP * (columns - 1);
+        return new Grid(cardWidth, cardHeight, columns, rows,
+                MARGIN + (room - usedAcross) / 2, TOP_BAR);
+    }
+
+    /**
+     * How many cards this window has room for.
+     *
+     * <p>Sent with every search, because a page bigger than the grid is cards nobody can see -
+     * and, worse, cards somebody can click on without seeing, since a click is a position and
+     * anything below the fold is still under the cursor.
+     */
+    private int cellsThatFit() {
+        return grid().cells();
     }
 
     @Override
@@ -362,52 +455,75 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
             return;
         }
 
+        Grid grid = grid();
         CollectionPagePayload.Row over = null;
-        for (int index = 0; index < rows.size() && index < rowsThatFit(); index++) {
+        int shown = Math.min(rows.size(), grid.cells());
+        for (int index = 0; index < shown; index++) {
             CollectionPagePayload.Row row = rows.get(index);
-            int y = top + index * ROW_HEIGHT;
-            boolean hovered = mouseX >= MARGIN && mouseX < this.width - MARGIN
-                    && mouseY >= y && mouseY < y + ROW_HEIGHT;
+            Rect cell = grid.cellAt(index);
+            boolean hovered = cell.contains(mouseX, mouseY);
+            drawCard(graphics, row, cell, hovered);
             if (hovered) {
-                GatheringSprites.draw(graphics, Element.ROW_HOVER,
-                        MARGIN - 2, y, this.width - MARGIN * 2 + 4, ROW_HEIGHT);
                 over = row;
-            } else if (index % 2 == 1) {
-                GatheringSprites.draw(graphics, Element.ROW_ODD,
-                        MARGIN - 2, y, this.width - MARGIN * 2 + 4, ROW_HEIGHT);
             }
-            drawRow(graphics, row, y);
         }
+        // Whatever the cursor is on, offered to the read key - the same door every other
+        // screen in the mod puts a card through, so Alt opens the panel here too.
         ClientHoverState.setHovered(over == null
                 ? net.minecraft.world.item.ItemStack.EMPTY
                 : CardItem.of(over.card()));
     }
 
-    private void drawRow(GuiGraphics graphics, CollectionPagePayload.Row row, int y) {
-        int text = y + 3;
-        graphics.drawString(this.font, Component.literal(row.count() + "x"),
-                MARGIN, text, DIM, false);
+    /**
+     * One card, drawn as a stack as deep as the number of copies.
+     *
+     * <p>The depth is the count, which is the thing the old list said as "4x" and the thing a
+     * person actually reading a binder gets from the thickness of the pile. It stops at three
+     * behind the front card because four copies and forty look the same in a stack anyway -
+     * the number in the corner is what says which, and it is only drawn where there is more
+     * than one, since "1" on every card in a collection is noise on every card.
+     */
+    private void drawCard(
+            GuiGraphics graphics, CollectionPagePayload.Row row, Rect cell, boolean hovered) {
+        int behind = Math.min(STACK_DEEPEST, Math.max(0, row.count() - 1));
+        for (int depth = behind; depth >= 1; depth--) {
+            int offset = depth * STACK_STEP;
+            graphics.blit(CardFaceRenderer.CARD_BACK,
+                    cell.x() + offset, cell.y() - offset, 0f, 0f,
+                    cell.width(), cell.height(), cell.width(), cell.height());
+        }
 
         CardSummary about = row.about().orElse(null);
-        Component name = about == null
-                ? Component.translatable("screen.gathering.collection.unnamed")
-                : Component.literal(about.front().name());
-        graphics.drawString(this.font, name, MARGIN + 26, text,
-                about == null ? DIM : TEXT, false);
-
         if (about == null) {
-            return;
+            // The server has the card and this client has never looked it up. Its own sleeve
+            // rather than an empty box, and the word for it, so a collection that is still
+            // fetching reads as one that is still fetching.
+            graphics.blit(CardFaceRenderer.CARD_BACK, cell.x(), cell.y(), 0f, 0f,
+                    cell.width(), cell.height(), cell.width(), cell.height());
+            GuiText.drawCentered(graphics, this.font,
+                    Component.translatable("screen.gathering.collection.unnamed"),
+                    (int) cell.centerX(), cell.y() + cell.height() / 2 - 4, cell.width() - 4, DIM);
+        } else {
+            CardInspectPanel.renderArt(graphics, about, row.card().flipped(),
+                    cell.x(), cell.y(), cell.width(), cell.height());
         }
-        String right = about.front().typeLine();
-        int rightWidth = this.font.width(right);
-        int rightX = this.width - MARGIN - rightWidth;
-        // Only where there is room for it. A type line running under the name is worse than
-        // no type line.
-        if (rightX > MARGIN + 32 + this.font.width(name)) {
-            graphics.drawString(this.font, right, rightX, text, DIM, false);
+
+        if (hovered) {
+            GatheringSprites.draw(graphics, Element.HOVER_RING,
+                    cell.x() - 2, cell.y() - 2, cell.width() + 4, cell.height() + 4);
         }
         if (row.card().foil()) {
-            graphics.drawString(this.font, "✦", MARGIN + 18, text, 0xFFE8C86A, false);
+            GuiText.drawFlushRight(graphics, this.font, Component.literal("\u2726"),
+                    cell.right() - 3, cell.y() + 2, 1f, FOIL_MARK);
+        }
+        if (row.count() > 1) {
+            Component many = Component.literal("x" + row.count());
+            int wide = this.font.width(many) + 6;
+            int line = this.font.lineHeight + 2;
+            GatheringSprites.draw(graphics, Element.NAME_BACKDROP,
+                    cell.right() - wide - 2, cell.bottom() - line - 2, wide, line);
+            GuiText.drawFlushRight(graphics, this.font, many,
+                    cell.right() - 5, cell.bottom() - line, 1f, COUNT_TEXT);
         }
     }
 
@@ -417,8 +533,10 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
                 "screen.gathering.collection.page", matched, page + 1, pages);
         graphics.drawString(this.font, found, MARGIN, y, DIM, false);
 
-        // Ending short of the Done button, which owns the corner now.
-        int hintRight = this.width - MARGIN - 64;
+        // Ending short of the buttons in that corner, which is both of them: Sets... sits at
+        // MARGIN + 118 from the right and Done at MARGIN + 56, so a hint measured against Done
+        // alone ran straight under Sets.
+        int hintRight = this.width - MARGIN - 124;
         Component how = mayTake ? whatAClickDoes()
                 : Component.translatable("screen.gathering.collection.hint_look");
         graphics.drawString(this.font, how,
@@ -468,12 +586,11 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         if (!mayTake) {
             return false;
         }
-        int index = rowUnder(mouseY);
+        int index = cardUnder(mouseX, mouseY);
         // Bounded by what is drawn, not only by what the page holds: between a window shrink
-        // and the re-asked page arriving, rows past rowsThatFit() exist but are not on the
-        // screen, and a click in the blank strip below the list took an unseen card.
-        if (index < 0 || index >= rows.size() || index >= rowsThatFit()
-                || mouseX < MARGIN || mouseX > this.width - MARGIN) {
+        // and the re-asked page arriving, cards past the grid exist but are not on the
+        // screen, and a click in the blank strip below took an unseen card.
+        if (index < 0 || index >= rows.size()) {
             return false;
         }
         CardComponent card = rows.get(index).card();
@@ -489,12 +606,15 @@ public final class CollectionScreen extends Screen implements CardPreviewHost {
         return true;
     }
 
-    private int rowUnder(double mouseY) {
-        int top = TOP_BAR;
-        if (mouseY < top || mouseY >= this.height - BOTTOM_BAR) {
-            return -1;
+    /** Which card of the grid this point is on, or -1 for the gaps and the margins. */
+    private int cardUnder(double mouseX, double mouseY) {
+        Grid grid = grid();
+        for (int index = 0; index < grid.cells(); index++) {
+            if (grid.cellAt(index).contains((int) mouseX, (int) mouseY)) {
+                return index;
+            }
         }
-        return (int) ((mouseY - top) / ROW_HEIGHT);
+        return -1;
     }
 
     @Override

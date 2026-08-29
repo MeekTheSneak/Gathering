@@ -197,6 +197,8 @@ set contains what that pack contained.
 - [ ] Set progress → left-click a set for what you're missing, coloured by rarity. Left-click a row
       to mark a card **wanted**; right-click a set to filter your collection to it. The wants list
       is saved per player — check it survives a relog.
+- [ ] **Read a card at full size** (Alt with it in hand, out in the world). It should be sharp:
+      cards drawn large now fetch Scryfall's best image rather than the board-sized one.
 - [ ] Hold **Alt** on a card you pulled, won or traded for. Cards remember where they came from and
       who had them before. Trade one twice and check it still reads sensibly.
 - [ ] Draft with 4–8 people, keep your pool, build out of it.
