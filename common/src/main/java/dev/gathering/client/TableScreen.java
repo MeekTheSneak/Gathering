@@ -1460,7 +1460,7 @@ public final class TableScreen extends Screen {
     private void renderFlights(GuiGraphics graphics, GameView board) {
         long now = ClientCardFlights.now();
         for (ClientCardFlights.Flight flight : ClientCardFlights.at(table, now)) {
-            Rect where = FlightPath.at(board(), table, pileCount(), flight, now);
+            Rect where = FlightPath.at(board(), pileCount(), flight, now);
             if (where.isEmpty()) {
                 continue;
             }
@@ -4387,7 +4387,7 @@ public final class TableScreen extends Screen {
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
         if (replay) {
-            return watcherPressed(key, scanCode);
+            return watcherPressed(key, scanCode, modifiers);
         }
         // Before everything, because while somebody is typing every other key is a letter.
         // A board where pressing D drew a card halfway through the word "dead" would be a
@@ -5321,7 +5321,7 @@ public final class TableScreen extends Screen {
      * world uses and nobody should have to be told. L still opens the log - a replay is mostly
      * read alongside it - and F1 still lists the keys.
      */
-    private boolean watcherPressed(int key, int scanCode) {
+    private boolean watcherPressed(int key, int scanCode, int modifiers) {
         switch (key) {
             case org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> {
                 if (showingLog || showingKeys) {
@@ -5361,7 +5361,7 @@ public final class TableScreen extends Screen {
                 return true;
             }
             default -> {
-                return super.keyPressed(key, scanCode, 0);
+                return super.keyPressed(key, scanCode, modifiers);
             }
         }
     }

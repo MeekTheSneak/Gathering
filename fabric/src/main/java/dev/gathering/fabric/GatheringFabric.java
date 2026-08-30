@@ -71,7 +71,10 @@ public final class GatheringFabric implements ModInitializer {
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register(
                 (handler, sender, server) -> dev.gathering.server.Wants.joined(handler.getPlayer()));
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
-                (handler, server) -> dev.gathering.server.Wants.left(handler.getPlayer()));
+                (handler, server) -> {
+                    dev.gathering.server.Wants.left(handler.getPlayer());
+                    dev.gathering.server.ReplayWatch.forget(handler.getPlayer().getUUID());
+                });
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             ServerSettings.load(Platform.get());
@@ -112,6 +115,7 @@ public final class GatheringFabric implements ModInitializer {
             ServerSettings.clear();
             dev.gathering.server.SealedLoot.clear();
             dev.gathering.server.Archive.clear();
+            dev.gathering.server.ReplayWatch.clear();
             dev.gathering.server.CardShop.clear();
             dev.gathering.server.CurrentSet.clear();
             dev.gathering.server.TradeSessions.clear();

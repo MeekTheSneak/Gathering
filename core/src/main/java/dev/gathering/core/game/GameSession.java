@@ -96,10 +96,44 @@ public final class GameSession {
             highest = Math.max(highest, record.sequence());
         }
         session.nextSequence = highest + 1;
-        session.state = session.refold();
-        // A restored session has a whole log's worth of lines nobody has described yet.
-        session.rebuildLog();
+        // The log and the board out of one walk. They are folded the same way past the same
+        // events, so doing them separately was folding the whole game twice - which a replay
+        // pays for on every frame anybody scrubs to.
+        session.state = session.rebuildLogAndFold();
         return session;
+    }
+
+    /**
+     * Applies more of a stored log to a session already folded from the front of it.
+     *
+     * <p>For watching a game back. A replay's frame is the board at step N, and the board at
+     * step N is the board at step N-1 with one more record on it - so stepping forward costs
+     * one event rather than a fold of the whole game, which at four frames a second is the
+     * difference between a watcher costing a server nothing and costing it a third of a tick.
+     *
+     * <p>Exact rather than approximate, because a stored record already carries whether it is
+     * still standing: an undo was resolved when the game was played, and nothing here has to
+     * decide it again. Folding forward past these is the same walk {@link #restore} makes,
+     * stopped earlier and continued.
+     *
+     * <p>Only ever the records that follow the ones already applied, in order. Nothing checks
+     * that, because the only caller is a replay reading its own file front to back.
+     */
+    public void extendWith(List<SessionRecord> more) {
+        for (SessionRecord record : more) {
+            records.add(record);
+            nextSequence = Math.max(nextSequence, record.sequence() + 1);
+            if (!(record instanceof SessionRecord.EventRecord event)) {
+                continue;
+            }
+            // Described against the board as it was before its own event, exactly as the
+            // whole-log walk describes it - which is why the line is written before the fold.
+            log.add(LogEntry.of(event.sequence(), event.event().describe(state),
+                    !event.isStanding()));
+            if (event.isStanding()) {
+                state = GameFold.apply(state, event.event(), seed);
+            }
+        }
     }
 
     /** A solo table. Goldfishing needs no other humans, and ships in the first playable phase. */
@@ -265,6 +299,18 @@ public final class GameSession {
      * event: undoing something in the middle changes what every later line was describing.
      */
     private void rebuildLog() {
+        rebuildLogAndFold();
+    }
+
+    /**
+     * Writes the log again and hands back the board it walked past on the way.
+     *
+     * <p>One walk rather than two. Describing a line needs the board as it was before its own
+     * event, so this fold has to happen anyway - and every caller that rebuilds the log also
+     * wants the state, which used to mean folding the whole game twice. A restored session of
+     * four thousand events paid for that twice on every replay frame somebody scrubbed to.
+     */
+    private GameState rebuildLogAndFold() {
         log.clear();
         GameState walking = initial;
         for (SessionRecord record : records) {
@@ -277,6 +323,7 @@ public final class GameSession {
                 walking = GameFold.apply(walking, eventRecord.event(), seed);
             }
         }
+        return walking;
     }
 
     /** Just the events still standing, which is what the board is folded from. */

@@ -8,7 +8,6 @@ import dev.gathering.core.ui.CardTravel;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.Traveling;
 import java.util.Optional;
-import net.minecraft.core.BlockPos;
 
 /**
  * Where a card in the air is, in whichever space the board being drawn is measured in.
@@ -28,7 +27,7 @@ final class FlightPath {
 
     /** Where this flight has got to, or nothing when neither end can be placed. */
     static Rect at(
-            BoardPlacement board, BlockPos table, int pileCount,
+            BoardPlacement board, int pileCount,
             ClientCardFlights.Flight flight, long now) {
         Rect from = rectOf(board, pileCount, flight.move().from(), flight.move().fromSpot());
         Rect to = rectOf(board, pileCount, flight.move().to(), flight.move().toSpot());

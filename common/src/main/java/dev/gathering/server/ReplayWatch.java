@@ -21,7 +21,43 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class ReplayWatch {
 
+    /**
+     * How many replays are held open at once.
+     *
+     * <p>One per watcher, and there are never many: a replay is something one or two people
+     * are looking at while everybody else plays. The oldest goes when the cap is reached,
+     * which costs whoever it belonged to one slow frame and nothing else.
+     */
+    private static final int HELD = 8;
+
+    /**
+     * The replay each watcher has open, so scrubbing forward is one event rather than a fold
+     * of the whole game. See {@link Replays.Watching}.
+     *
+     * <p>Server thread only, which is where every payload handler in this mod runs. Access
+     * ordered, so the entry that goes is the one nobody has looked at for longest rather than
+     * the one that happens to be first in a hash.
+     */
+    private static final java.util.LinkedHashMap<java.util.UUID, Replays.Watching> OPEN =
+            new java.util.LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(
+                        java.util.Map.Entry<java.util.UUID, Replays.Watching> eldest) {
+                    return size() > HELD;
+                }
+            };
+
     private ReplayWatch() {
+    }
+
+    /** Between servers, and when somebody logs out with a replay open. */
+    public static void forget(java.util.UUID who) {
+        OPEN.remove(who);
+    }
+
+    /** Between servers: one world's replays are not the next one's. */
+    public static void clear() {
+        OPEN.clear();
     }
 
     /** Whether this server writes a finished game down at all. */
@@ -88,26 +124,49 @@ public final class ReplayWatch {
         // Checked here as well as when the list went out. The list is a courtesy; this is the
         // fence, because an id is a string on the wire and nothing stops a client sending one
         // it was never shown.
-        Replays.Record kept = Replays.kept().stream()
-                .filter(record -> record.id().equals(id))
-                .findFirst()
-                .orElse(null);
+        //
+        // One header read rather than the whole shelf. A scrubbed replay asks for a frame
+        // several times a second, and listing every kept game to find one of them read and
+        // parsed sixty-four headers per step.
+        Replays.Record kept = Replays.headerOf(id).orElse(null);
         if (kept == null || !mayWatch(player, kept)) {
             player.sendSystemMessage(Component.translatable("message.gathering.replay_unreadable"));
             return;
         }
-        int steps = Replays.stepsIn(id);
+        Replays.Watching watching = heldFor(player, id);
+        if (watching == null) {
+            player.sendSystemMessage(Component.translatable("message.gathering.replay_unreadable"));
+            return;
+        }
+        int steps = watching.steps();
         int wanted = Math.clamp(step, 0, steps);
-        Replays.frameOf(id, wanted).ifPresentOrElse(frame -> {
-            try {
-                Sending.to(player, new ReplayFramePayload(
-                        id, wanted, steps, dev.gathering.core.game.persistence.ViewCodec.write(frame)));
-            } catch (IOException tooBigToSend) {
-                // A board that will not encode is a board nobody can be shown, and saying so
-                // is better than a screen that opens onto nothing.
-                player.sendSystemMessage(Component.translatable("message.gathering.replay_unreadable"));
-            }
-        }, () -> player.sendSystemMessage(
-                Component.translatable("message.gathering.replay_unreadable")));
+        try {
+            Sending.to(player, new ReplayFramePayload(id, wanted, steps,
+                    dev.gathering.core.game.persistence.ViewCodec.write(watching.frameAt(wanted))));
+        } catch (IOException tooBigToSend) {
+            // A board that will not encode is a board nobody can be shown, and saying so is
+            // better than a screen that opens onto nothing.
+            player.sendSystemMessage(Component.translatable("message.gathering.replay_unreadable"));
+        }
+    }
+
+    /**
+     * The replay this player has open, opening it if this is a different one.
+     *
+     * <p>One at a time per watcher: two open replays is two folded games held for somebody
+     * who is looking at one of them.
+     */
+    private static Replays.Watching heldFor(ServerPlayer player, String id) {
+        Replays.Watching open = OPEN.get(player.getUUID());
+        if (open != null && open.id().equals(id)) {
+            return open;
+        }
+        Replays.Watching fresh = Replays.hold(id).orElse(null);
+        if (fresh != null) {
+            OPEN.put(player.getUUID(), fresh);
+        } else {
+            OPEN.remove(player.getUUID());
+        }
+        return fresh;
     }
 }

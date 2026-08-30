@@ -42,6 +42,19 @@ public final class ClientReplay {
      */
     private static volatile int asked = -1;
 
+    /**
+     * How long a frame that was asked for has to arrive before the scrubber gives up on it.
+     *
+     * <p>Five seconds. The server refuses a frame with a chat line rather than a packet - a
+     * replay that has been deleted, a server that switched replays off mid-session - and
+     * without this the scrubber sat there having asked for a step that was never coming,
+     * refusing to ask for it again and refusing to play, with the bar frozen and nothing
+     * saying why.
+     */
+    private static final int WAITED_TOO_LONG = 100;
+
+    private static int waiting;
+
     private ClientReplay() {
     }
 
@@ -53,6 +66,7 @@ public final class ClientReplay {
         ClientReplay.steps = 0;
         ClientReplay.playing = false;
         ClientReplay.sinceStep = 0;
+        ClientReplay.waiting = 0;
         ask(0);
     }
 
@@ -86,6 +100,7 @@ public final class ClientReplay {
         }
         if (asked == payload.step()) {
             asked = -1;
+            waiting = 0;
         }
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         if (!(client.screen instanceof TableScreen table && table.isReplay())) {
@@ -123,9 +138,22 @@ public final class ClientReplay {
         sinceStep = 0;
     }
 
-    /** One client tick of playback. Does nothing at all unless something is playing. */
+    /** One client tick of a replay: the wait on the last frame, then playback if it is on. */
     public static void tick() {
-        if (!playing || id == null) {
+        if (id == null) {
+            return;
+        }
+        // Before the playing check, because a frame that is never coming has to be given up
+        // on whether or not it was playback that asked for it. Scrubbing pauses, so a scrub
+        // whose answer went missing would otherwise leave the bar refusing that step for
+        // ever - and refusing it silently, since it is the same step the player is dragging
+        // back to.
+        if (asked >= 0 && ++waiting >= WAITED_TOO_LONG) {
+            asked = -1;
+            waiting = 0;
+            playing = false;
+        }
+        if (!playing) {
             return;
         }
         if (step >= steps) {
@@ -133,8 +161,8 @@ public final class ClientReplay {
             return;
         }
         if (asked >= 0) {
-            // Still waiting on the last one. Playing faster than the server answers would
-            // queue up requests nobody is going to see.
+            // Still waiting. Playing faster than the server answers would queue up requests
+            // nobody is going to see.
             return;
         }
         if (++sinceStep < TICKS_PER_STEP) {
@@ -164,6 +192,7 @@ public final class ClientReplay {
         steps = 0;
         playing = false;
         asked = -1;
+        waiting = 0;
     }
 
     private static void ask(int which) {
@@ -171,6 +200,7 @@ public final class ClientReplay {
             return;
         }
         asked = which;
+        waiting = 0;
         ClientNetworking.send(new WatchReplayPayload(id, which));
     }
 }

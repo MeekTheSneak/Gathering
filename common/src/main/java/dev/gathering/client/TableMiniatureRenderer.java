@@ -292,7 +292,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             SurfaceBoard placement, BlockPos table, int piles, float span) {
         long now = ClientCardFlights.now();
         for (ClientCardFlights.Flight flight : ClientCardFlights.at(table, now)) {
-            Rect where = FlightPath.at(placement, table, piles, flight, now);
+            Rect where = FlightPath.at(placement, piles, flight, now);
             if (where.isEmpty()) {
                 continue;
             }

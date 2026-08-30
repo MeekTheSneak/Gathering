@@ -172,37 +172,121 @@ public final class Replays {
      * @param step how many of the game's actions to apply, from none to all of them
      */
     public static java.util.Optional<GameView> frameOf(String id, int step) {
-        return openedAt(id, step).map(session -> VisibilityRules.viewFor(
-                session.state(), Viewer.HISTORIAN, session.log()));
+        return hold(id).map(watching -> watching.frameAt(step));
     }
 
-    /** How many steps a replay has, which is what a scrubber is drawn against. */
-    public static int stepsIn(String id) {
-        for (Path file : files()) {
-            if (file.getFileName().toString().equals(id)) {
-                return headerOf(file).map(Record::steps).orElse(0);
-            }
+    /**
+     * A replay held open, so watching one costs a fold of the whole game once.
+     *
+     * <p>Playback asks for step N, then N+1, then N+2, several times a second, and the board
+     * at each of those is the board at the one before it with a single record applied. Folding
+     * from the start each time measured at thirty-three milliseconds on a four-thousand-event
+     * game - two thirds of a tick, per frame, per watcher - and this is what makes it one
+     * event instead. Scrubbing backwards folds again from the front, which is rare and is
+     * what somebody dragging a bar has already accepted the cost of.
+     *
+     * <p>Server thread only, like everything that touches a session.
+     */
+    public static final class Watching {
+
+        private final String id;
+        private final List<SessionRecord> records;
+        private final List<SeatId> seats;
+        private final int startingLife;
+        private final SessionSeed seed;
+        private final UndoMode undoMode;
+
+        private GameSession session;
+        private int at;
+
+        private Watching(String id, List<SessionRecord> records, List<SeatId> seats,
+                int startingLife, SessionSeed seed, UndoMode undoMode) {
+            this.id = id;
+            this.records = records;
+            this.seats = seats;
+            this.startingLife = startingLife;
+            this.seed = seed;
+            this.undoMode = undoMode;
+            this.session = GameSession.restore(seats, startingLife, seed, undoMode, List.of());
+            this.at = 0;
         }
-        return 0;
+
+        public String id() {
+            return id;
+        }
+
+        /** How many steps this game has, which is what a scrubber is drawn against. */
+        public int steps() {
+            return records.size();
+        }
+
+        /** The board at one step, as somebody entitled to all of it would have seen it. */
+        public GameView frameAt(int step) {
+            int wanted = Math.clamp(step, 0, records.size());
+            if (wanted < at) {
+                // Backwards. Nothing can be taken off a fold, so it starts again.
+                session = GameSession.restore(
+                        seats, startingLife, seed, undoMode, records.subList(0, wanted));
+            } else if (wanted > at) {
+                session.extendWith(records.subList(at, wanted));
+            }
+            at = wanted;
+            return VisibilityRules.viewFor(session.state(), Viewer.HISTORIAN, session.log());
+        }
     }
 
-    private static java.util.Optional<GameSession> openedAt(String id, int step) {
+    /**
+     * Opens a replay and holds it, ready to be scrubbed.
+     *
+     * <p>The id is matched against the names of the files that are really there rather than
+     * resolved as a path, so a client cannot name a file the server never offered it.
+     */
+    public static java.util.Optional<Watching> hold(String id) {
         for (Path file : files()) {
             if (file.getFileName().toString().equals(id)) {
-                return open(file, step);
+                return read(file).map(game -> new Watching(id, game.records(), game.seats(),
+                        game.startingLife(), game.seed(), game.undoMode()));
             }
         }
         return java.util.Optional.empty();
     }
 
+    /** How many steps a replay has, which is what a scrubber is drawn against. */
+    public static int stepsIn(String id) {
+        return headerOf(id).map(Record::steps).orElse(0);
+    }
+
     /**
-     * Opens a replay with only the first {@code step} of its actions applied.
+     * One kept game by its id, without reading the rest of the shelf.
      *
-     * <p>Restored from a truncated record list rather than folded by hand, so a frame of a
-     * replay is built by exactly the code that builds a live board. A step count past the end
-     * is the whole game, which is what a scrubber dragged to the right should give.
+     * <p>Its own method because scrubbing asks for a frame four times a second and the
+     * obvious way to answer - list everything and find the one - reads and parses every
+     * header on the server for each of those. The id is matched against the file names that
+     * are really there, exactly as {@link #frameOf} does, so a name the server never offered
+     * still opens nothing.
      */
-    private static java.util.Optional<GameSession> open(Path file, int step) {
+    public static java.util.Optional<Record> headerOf(String id) {
+        for (Path file : files()) {
+            if (file.getFileName().toString().equals(id)) {
+                return headerOf(file);
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    /** Everything a replay file holds, once it has been read. */
+    private record Game(
+            List<SeatId> seats, int startingLife, SessionSeed seed, UndoMode undoMode,
+            List<SessionRecord> records) {
+    }
+
+    /**
+     * Reads a replay file whole.
+     *
+     * <p>The records are handed back rather than folded, because what wants folding depends
+     * on which step somebody is looking at - see {@link Watching}.
+     */
+    private static java.util.Optional<Game> read(Path file) {
         try (DataInputStream in = new DataInputStream(
                 new ByteArrayInputStream(Files.readAllBytes(file)))) {
             if (in.readInt() != VERSION) {
@@ -226,11 +310,9 @@ public final class Replays {
             byte[] secretLog = new byte[in.readInt()];
             in.readFully(secretLog);
 
-            List<SessionRecord> records = SessionCodec.read(publicLog, secretLog);
-            List<SessionRecord> upTo = records.subList(
-                    0, Math.clamp(step, 0, records.size()));
-            return java.util.Optional.of(GameSession.restore(
-                    seatsOf(seats), startingLife, seed, undoMode, upTo));
+            return java.util.Optional.of(new Game(
+                    seatsOf(seats), startingLife, seed, undoMode,
+                    SessionCodec.read(publicLog, secretLog)));
         } catch (IOException | RuntimeException unreadable) {
             LOGGER.warn("A replay would not open: {}", unreadable.toString());
             return java.util.Optional.empty();

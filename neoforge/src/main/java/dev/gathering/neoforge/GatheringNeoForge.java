@@ -84,6 +84,7 @@ public final class GatheringNeoForge {
             net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             dev.gathering.server.Wants.left(player);
+            dev.gathering.server.ReplayWatch.forget(player.getUUID());
         }
     }
 
@@ -114,6 +115,7 @@ public final class GatheringNeoForge {
         ServerSettings.clear();
         dev.gathering.server.SealedLoot.clear();
         dev.gathering.server.Archive.clear();
+        dev.gathering.server.ReplayWatch.clear();
         dev.gathering.server.CardShop.clear();
         dev.gathering.server.CurrentSet.clear();
         dev.gathering.server.TradeSessions.clear();
