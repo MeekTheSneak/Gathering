@@ -1,5 +1,5 @@
 {
-  "__comment": "One quarter of a crying obsidian table, and the one that is not shaped like the others: no legs. Each quarter carries a piece of a stepped plinth at its INNER corner, so the four meet in the middle and the table stands on a single column. Read the numbers with that in mind - the local far corner is the table's centre once the blockstate has rotated it.",
+  "__comment": "One quarter of a crying obsidian table, and the one that is not shaped like the others: no legs. Each quarter carries a piece of a stepped plinth at its INNER corner, so the four meet in the middle and the table stands on a single column. Read the numbers with that in mind - the local far corner is the table's center once the blockstate has rotated it.",
   "parent": "block/block",
   "textures": {
     "particle": "minecraft:block/crying_obsidian",

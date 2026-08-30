@@ -23,7 +23,7 @@ import java.util.Set;
  * {@code t:creature c:rg mv<=3} into a search box before, and inventing a second dialect for
  * the same job would mean every player of the mod learning something they already know in a
  * shape nobody else uses. Only the parts a collection can answer are implemented - there is no
- * price data here and no format legality in the box - and a term this does not recognise is
+ * price data here and no format legality in the box - and a term this does not recognize is
  * matched against the name rather than thrown away, so a query typed hopefully still finds
  * something rather than nothing.
  *
@@ -82,8 +82,7 @@ public final class CardSearch {
             Map.entry("oracle", Field.ORACLE), Map.entry("o", Field.ORACLE),
             Map.entry("text", Field.ORACLE),
             Map.entry("type", Field.TYPE), Map.entry("t", Field.TYPE),
-            Map.entry("color", Field.COLOR), Map.entry("colour", Field.COLOR),
-            Map.entry("c", Field.COLOR),
+            Map.entry("color", Field.COLOR), Map.entry("c", Field.COLOR),
             Map.entry("identity", Field.IDENTITY), Map.entry("id", Field.IDENTITY),
             Map.entry("ci", Field.IDENTITY), Map.entry("commander", Field.IDENTITY),
             Map.entry("mana", Field.MANA_COST), Map.entry("m", Field.MANA_COST),
@@ -98,16 +97,15 @@ public final class CardSearch {
             Map.entry("is", Field.IS), Map.entry("has", Field.IS));
 
     /**
-     * Colours by every name somebody might reach for.
+     * Colors by every name somebody might reach for.
      *
-     * <p>The letters, the words, and the two- and three-colour guild and shard names, because
-     * "id:gruul" is how people actually talk about a colour pair and spelling it "id:rg" is a
+     * <p>The letters, the words, and the two- and three-color guild and shard names, because
+     * "id:gruul" is how people actually talk about a color pair and spelling it "id:rg" is a
      * translation they should not have to do.
      */
     private static final Map<String, String> COLOR_WORDS = Map.ofEntries(
             Map.entry("white", "W"), Map.entry("blue", "U"), Map.entry("black", "B"),
             Map.entry("red", "R"), Map.entry("green", "G"), Map.entry("colorless", "C"),
-            Map.entry("colourless", "C"),
             Map.entry("azorius", "WU"), Map.entry("dimir", "UB"), Map.entry("rakdos", "BR"),
             Map.entry("gruul", "RG"), Map.entry("selesnya", "GW"), Map.entry("orzhov", "WB"),
             Map.entry("izzet", "UR"), Map.entry("golgari", "BG"), Map.entry("boros", "RW"),
@@ -125,7 +123,7 @@ public final class CardSearch {
      * <p>Never throws and never refuses. A search box that answers a typo with an error has
      * turned a question into a form to fill in correctly; anything this cannot make sense of
      * becomes a plain word to look for, which is what the box did before there was a syntax at
-     * all and is the behaviour somebody typing hopefully expects.
+     * all and is the behavior somebody typing hopefully expects.
      */
     public static List<Term> parse(String typed) {
         List<Term> terms = new ArrayList<>();
@@ -269,9 +267,9 @@ public final class CardSearch {
     }
 
     /**
-     * Colour terms, which are the only ones where the operator changes the question.
+     * Color terms, which are the only ones where the operator changes the question.
      *
-     * <p>The three readings people actually want: <em>at least</em> these colours (the plain
+     * <p>The three readings people actually want: <em>at least</em> these colors (the plain
      * colon, and how somebody asks for "my Gruul cards"), <em>exactly</em> these, and
      * <em>within</em> these, which is the one a commander deck is built on - every card whose
      * identity fits inside the commander's.
@@ -280,8 +278,8 @@ public final class CardSearch {
         Set<String> wanted = colorsIn(term.value());
         Set<String> mine = upperCased(has);
         if (wanted.contains("C")) {
-            // Colourless is the absence of colour rather than one of them, so it is its own
-            // question: nothing else in the term matters and having any colour is a no.
+            // Colorless is the absence of color rather than one of them, so it is its own
+            // question: nothing else in the term matters and having any color is a no.
             return mine.isEmpty();
         }
         if (wanted.isEmpty()) {
@@ -295,7 +293,7 @@ public final class CardSearch {
         };
     }
 
-    /** The colours in a term: a guild name, a colour word, or a run of letters. */
+    /** The colors in a term: a guild name, a color word, or a run of letters. */
     private static Set<String> colorsIn(String value) {
         String word = value.trim().toLowerCase(Locale.ROOT);
         String letters = COLOR_WORDS.getOrDefault(word, word.toUpperCase(Locale.ROOT));

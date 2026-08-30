@@ -56,7 +56,7 @@ class TradeTableTest {
     @Test
     @DisplayName("even adding to your own side clears both agreements")
     void generosityIsStillAChange() {
-        // It does not matter whether a change is in the other person's favour. They agreed to
+        // It does not matter whether a change is in the other person's favor. They agreed to
         // a table, and anything that is not that table needs agreeing to again.
         TradeTable agreed = TradeTable.between(ANA, BEN)
                 .putUp(ANA, BOLT, 1).agree(ANA).agree(BEN);

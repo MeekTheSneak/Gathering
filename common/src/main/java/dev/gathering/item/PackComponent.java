@@ -45,7 +45,7 @@ public record PackComponent(String setCode, String kind) {
      * The set code an Archive Pack carries.
      *
      * <p>A word rather than a real code, and it lives here rather than beside the code that
-     * fills the pack because both the client and the server have to recognise one: the
+     * fills the pack because both the client and the server have to recognize one: the
      * client so it does not go looking for a set symbol that does not exist, the server so
      * it does not go looking for a set. Seven letters, which no real set code is.
      */

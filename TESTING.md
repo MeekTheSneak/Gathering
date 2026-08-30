@@ -317,7 +317,7 @@ first time any verb past "put your deck down" has been reachable at all.
   when a card would be too small to recognize.
 - **Scroll on the block with the cursor over a zone.** Whatever is under the pointer stays
   under the pointer, the same as the wheel on the seated board. It used to lower the eye
-  towards the middle of the view instead, so six notches in from the opening framing landed
+  toward the middle of the view instead, so six notches in from the opening framing landed
   on a screen of bare felt with everything the player was looking at off the edge.
 
 **Goldfishing works alone.** One person at a table is not a special mode: sit down, start,
@@ -375,7 +375,7 @@ more than eight blocks apart and it ends.
   and look for it. Or make your own - put a **shop counter** down next to an unemployed
   villager and wait a moment; they take the job the way they would take a lectern. Trade with
   them and they level up, the way any villager does.
-- **What they sell** is boosters at first. Levelling them up adds rungs rather than changing
+- **What they sell** is boosters at first. Leveling them up adds rungs rather than changing
   the ones they have: prerelease kits and Commander decks in the middle, display boxes higher,
   cases at master.
 - **Every card shop sells the same thing.** Two shopkeepers at the same level have the same two
@@ -520,8 +520,8 @@ In rough order of how much it would change what I build next:
   idea and not built.
 - **The looks are placeholders too.** **Options → Video Settings → Gathering look** switches
   between felt, slate, walnut and template, and a fourth is a folder of PNGs and a four-line
-  file in a resource pack — but the three coloured ones are `tools/gui_art.py`'s output rather
-  than drawn art, and template is a labelled diagram on purpose.
+  file in a resource pack — but the three colored ones are `tools/gui_art.py`'s output rather
+  than drawn art, and template is a labeled diagram on purpose.
 - **Placeholder art.** The booster wrapper and the collection block are generated templates,
   not drawn textures.
 
@@ -537,7 +537,7 @@ gives its paste box whatever is left. Long card names shrink to fit their row ra
 running under the foil tag, and only get cut with an ellipsis when shrinking any further
 would make them unreadable.
 
-The layout maths is checked at every size from 320x240 up to 3840x2160 by
+The layout math is checked at every size from 320x240 up to 3840x2160 by
 `DeckScreenLayoutTest`, so what I most want to know is whether it *looks* right, not whether
 it fits.
 

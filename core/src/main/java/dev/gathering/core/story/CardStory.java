@@ -18,7 +18,7 @@ import java.util.List;
  *
  * <p><b>Bounded, and it loses the middle rather than the ends.</b> A card that changed hands a
  * hundred times would otherwise be a hundred lines nobody reads and a hundred entries nobody
- * can store. What matters about a well-travelled card is where it started and how it got to
+ * can store. What matters about a well-traveled card is where it started and how it got to
  * you; the twelve owners in between are a number. So an overlong story keeps its first chapter
  * and its most recent ones and says how many it dropped.
  *

@@ -53,7 +53,7 @@ class CardSearchTest {
 
     @Test
     @DisplayName("a bare word looks at the name, the type and the set, as it always did")
-    void bareWordsAreTheOldBehaviour() {
+    void bareWordsAreTheOldBehavior() {
         assertThat(finds("bolt", BOLT)).isTrue();
         assertThat(finds("creature", BEARS)).isTrue();
         assertThat(finds("alpha", BOLT)).isTrue();
@@ -102,20 +102,20 @@ class CardSearchTest {
     }
 
     @Test
-    @DisplayName("colours read as at least, exactly, or within")
-    void coloursReadThreeWays() {
+    @DisplayName("colors read as at least, exactly, or within")
+    void colorsReadThreeWays() {
         assertThat(finds("c:r", BOLT)).isTrue();
         assertThat(finds("c:g", BOLT)).isFalse();
         assertThat(finds("c=r", BOLT)).isTrue();
-        // Within: every card whose colours fit inside green, which includes the colourless.
+        // Within: every card whose colors fit inside green, which includes the colorless.
         assertThat(finds("c<=g", BEARS)).isTrue();
         assertThat(finds("c<=g", SOL_RING)).isTrue();
         assertThat(finds("c<=g", BOLT)).isFalse();
     }
 
     @Test
-    @DisplayName("colours can be named as words and as guilds")
-    void coloursHaveNames() {
+    @DisplayName("colors can be named as words and as guilds")
+    void colorsHaveNames() {
         assertThat(finds("c:red", BOLT)).isTrue();
         assertThat(finds("c:green", ELF)).isTrue();
         assertThat(finds("id<=gruul", BOLT)).isTrue();
@@ -124,15 +124,15 @@ class CardSearchTest {
     }
 
     @Test
-    @DisplayName("colourless is the absence of colour, not a colour")
-    void colourlessIsItsOwnQuestion() {
+    @DisplayName("colorless is the absence of color, not a color")
+    void colorlessIsItsOwnQuestion() {
         assertThat(finds("c:c", SOL_RING)).isTrue();
         assertThat(finds("c:colorless", SOL_RING)).isTrue();
         assertThat(finds("c:c", BOLT)).isFalse();
     }
 
     @Test
-    @DisplayName("colour identity is asked separately from colour")
+    @DisplayName("color identity is asked separately from color")
     void identityIsItsOwnField() {
         assertThat(finds("id:g", ELF)).isTrue();
         assertThat(finds("id:u", TALRAND)).isTrue();

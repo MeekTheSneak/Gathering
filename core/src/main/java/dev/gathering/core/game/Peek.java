@@ -8,7 +8,7 @@ package dev.gathering.core.game;
  * Each is an event, each announces itself in the log, and each opens the library to exactly
  * one seat until something closes it again.
  *
- * <p>Modelling it this way rather than as a client-side "search screen" is the whole point. If
+ * <p>Modeling it this way rather than as a client-side "search screen" is the whole point. If
  * the looking were the client's business, the server would have to send the library to a
  * client that might be lying about looking at it, and the answer to "who can see this
  * library" would live in a screen rather than in the rules. Here it lives in the fold of the

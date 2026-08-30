@@ -350,7 +350,7 @@ class TableSurfaceTest {
                     assertThat(mat.contains(named.right(), named.bottom())).isTrue();
                     // Inward, so the writing runs across the table rather than off the edge.
                     assertThat(named.centerX() < slot.centerX())
-                            .describedAs("%s seats: seat %s zone %s is named towards the mat",
+                            .describedAs("%s seats: seat %s zone %s is named toward the mat",
                                     seats, seat, index)
                             .isEqualTo(!surface.isTurned(seat));
                 }
@@ -783,7 +783,7 @@ class TableSurfaceTest {
      * Both sides of a mat are printed the same distance in from its edge.
      *
      * <p>The inset used to come off the gap between buttons, which shrank with them - so
-     * flattening the buttons pulled the whole run towards the edge of the mat and left the
+     * flattening the buttons pulled the whole run toward the edge of the mat and left the
      * two sides visibly mismatched.
      */
     @Test

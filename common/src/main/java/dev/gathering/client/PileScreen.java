@@ -759,7 +759,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     /**
      * Whether a card read here is one this viewer could actually pick up.
      *
-     * <p>A hand somebody has turned towards you is a hand you may read and not one you may
+     * <p>A hand somebody has turned toward you is a hand you may read and not one you may
      * reach into - {@link dev.gathering.core.game.Authorization} refuses a move out of
      * somebody else's hidden zone, because naming a card inside one means having seen it. So
      * the menu does not open at all rather than offering seven moves the server will refuse

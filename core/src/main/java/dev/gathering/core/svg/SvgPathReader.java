@@ -212,7 +212,7 @@ public final class SvgPathReader {
      *
      * <p>Converted rather than drawn directly, so everything downstream sees curves of one
      * kind. The center and the sweep come from the endpoint form SVG writes arcs in, which is
-     * a different parameterisation from the one the maths wants.
+     * a different parameterization from the one the math wants.
      */
     private void arc(boolean relative) throws SvgException {
         do {

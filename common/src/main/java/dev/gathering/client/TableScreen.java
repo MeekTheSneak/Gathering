@@ -198,7 +198,7 @@ public final class TableScreen extends Screen {
     /**
      * The same list for somebody watching a game back, which is a much shorter one.
      *
-     * <p>Its own list rather than the game's with the verbs greyed out. A watcher cannot draw
+     * <p>Its own list rather than the game's with the verbs grayed out. A watcher cannot draw
      * a card or pass a turn, and a help panel that lists what you may not do is a panel that
      * has to be read twice before it says anything.
      */
@@ -1108,7 +1108,7 @@ public final class TableScreen extends Screen {
      *
      * <p>Backs or faces, and it is not this method's decision. What arrives in the view is
      * what is drawn - a card the server sent has a face because this client was entitled to
-     * it, and everything else is a back. So a hand turned face up towards you is face up
+     * it, and everything else is a back. So a hand turned face up toward you is face up
      * here, and a replay of a finished game shows all of them, without either case needing
      * to be special: the fence is the view, and it was passed before this ran.
      *
@@ -1570,7 +1570,7 @@ public final class TableScreen extends Screen {
         // Lit when the card in the air would land in this one. The board has always worked
         // out which slot a drag is aimed at - the board on the block has drawn it since it
         // had one - and the seated board computed the same answer every frame and then never
-        // looked at it. So a player dragging towards a column of four or five slots had the
+        // looked at it. So a player dragging toward a column of four or five slots had the
         // whole mat outlined and nothing saying which of them they were about to hit, which
         // is a question you could only answer by letting go and reading the log.
         if (ClientTableHighlight.isAimedAt(view.seat(), Zone.PILES.indexOf(zone))) {
@@ -3334,7 +3334,7 @@ public final class TableScreen extends Screen {
         if (playingOnTheBlock) {
             // Looking straight down, zoom is height - and anchored on what the cursor is
             // pointing at, the same as the seated board's wheel, so leaning in keeps the
-            // thing being leaned towards. The cursor is off the felt often enough to matter
+            // thing being leaned toward. The cursor is off the felt often enough to matter
             // here in a way it never is on the seated screen: over the hand, over the strip,
             // over the floor beside the table. Then there is nothing to anchor to and the
             // eye simply comes down.
@@ -4007,14 +4007,14 @@ public final class TableScreen extends Screen {
                 howMany -> ClientNetworking.send(new DiscardAtRandomPayload(table, howMany)))));
         entries.add(entry("sort_hand", () -> sortMyHand(me)));
         // Turning your hand round. Always your own: "target player reveals their hand" is
-        // resolved by that player pressing this, exactly as they would turn it towards you
+        // resolved by that player pressing this, exactly as they would turn it toward you
         // across a table - see GameEvent.HandShown.
         entries.add(entry("show_hand", () -> askWhoSeesMyHand(me)));
         view().ifPresent(board -> {
             if (board.seat(me).handIsShown()) {
                 entries.add(entry("hide_hand", () -> send(new GameEvent.HandShown(me, null, false))));
             }
-            // One row per player who has turned their hand towards me, named, because
+            // One row per player who has turned their hand toward me, named, because
             // being shown a hand and having nowhere to read it is the same as not being
             // shown one. It opens in the box every other pile opens in.
             for (SeatView theirs : board.seats()) {

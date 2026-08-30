@@ -11,8 +11,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 class DeckLinkTest {
 
     @Nested
-    @DisplayName("recognising links")
-    class Recognising {
+    @DisplayName("recognizing links")
+    class Recognizing {
 
         @ParameterizedTest
         @ValueSource(strings = {

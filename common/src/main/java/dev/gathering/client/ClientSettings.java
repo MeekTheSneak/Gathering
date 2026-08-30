@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
  * <p>Separate from {@link dev.gathering.service.ServerSettings} on purpose and not by
  * accident of layering. A server decides what a game is; a player decides what it looks like.
  * Putting the theme in the server's file would mean a player could not pick their own, and
- * putting it in the game's state would mean it travelled over the network - a preference
+ * putting it in the game's state would mean it traveled over the network - a preference
  * about PNGs has no business in either.
  *
  * <p>Read once, lazily, on the first screen that draws. Written whenever something changes,
@@ -45,7 +45,7 @@ public final class ClientSettings {
             # A theme is a folder of textures and a small file naming it - no colors and no
             # sizes live in this file or in the code. The ones that ship are gathering:felt,
             # gathering:slate, gathering:walnut and gathering:template, the last of which draws
-            # every element as a labelled diagram so you can see what you are painting over.
+            # every element as a labeled diagram so you can see what you are painting over.
             #
             # To make your own, copy a folder of art in a resource pack, repaint it, and put a
             # file beside it saying what it is called. Anything a theme leaves out falls back

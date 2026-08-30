@@ -182,7 +182,7 @@ public final class MissingCardsScreen extends ChildScreen {
     private static final int MARK_WIDTH = 5;
     private static final int WANTED_MARK = MARK_WIDTH + 3;
 
-    /** A card on the list is named in the colour of the list rather than of its rarity. */
+    /** A card on the list is named in the color of the list rather than of its rarity. */
     private static final int WANTED_TEXT = 0xFFFFD479;
 
     /**

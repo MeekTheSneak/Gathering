@@ -6,7 +6,7 @@ import dev.gathering.core.ui.Rect;
  * A card held at an angle, seen through a lens.
  *
  * <p>The interface draws in a flat projection, where turning a card is only ever a squash:
- * both edges keep their length, nothing comes towards you, and the eye reads it as a picture
+ * both edges keep their length, nothing comes toward you, and the eye reads it as a picture
  * being compressed rather than as a card being tipped. That is what the first attempt at this
  * did, and it is why it looked wrong without being easy to say why.
  *

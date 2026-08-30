@@ -58,7 +58,7 @@ class DeckBuildTest {
         assertThat(CardKind.of("Legendary Enchantment Artifact")).isEqualTo(CardKind.ARTIFACT);
         assertThat(CardKind.of("Basic Land — Forest")).isEqualTo(CardKind.LAND);
         assertThat(CardKind.of("Instant — Arcane")).isEqualTo(CardKind.INSTANT);
-        // Nothing recognisable is filed rather than dropped.
+        // Nothing recognizable is filed rather than dropped.
         assertThat(CardKind.of("Scheme")).isEqualTo(CardKind.OTHER);
         assertThat(CardKind.of("")).isEqualTo(CardKind.OTHER);
     }
@@ -100,7 +100,7 @@ class DeckBuildTest {
     }
 
     @Test
-    @DisplayName("a card outside the commander's colours is reported and not refused")
+    @DisplayName("a card outside the commander's colors is reported and not refused")
     void outsideIdentityIsSaidAndAllowed() {
         BuildCard commander = new BuildCard(UUID.randomUUID(), UUID.randomUUID(),
                 "Talrand", "Legendary Creature — Merfolk Wizard", "", 3, Set.of("U"), false);

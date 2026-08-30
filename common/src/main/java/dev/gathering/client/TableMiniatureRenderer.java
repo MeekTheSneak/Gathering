@@ -543,7 +543,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * <p>A zone name is longer than a zone is wide, so the line shrinks rather than running
      * out over the felt and off the edge of the mat. It shrinks as far as it has to, unlike
      * the seated board, which drops a name it cannot write whole: this writing is in the
-     * world, so a player who cannot read it can walk towards it.
+     * world, so a player who cannot read it can walk toward it.
      */
     private static float writingScale(Component text, float lineHeight, float maxWidth) {
         Font font = net.minecraft.client.Minecraft.getInstance().font;
@@ -891,7 +891,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      *
      * <p>Reported twice - "text rendered on cards" not working here, and "write on cards do
      * not render correctly on the actual table view". They were not being drawn at all: this
-     * view drew the picture and nothing else, so a face-down card somebody had labelled
+     * view drew the picture and nothing else, so a face-down card somebody had labeled
      * "morph - Brine Elemental" was a blank card back to everybody standing at the table,
      * which is the one case the label exists for.
      *
@@ -969,7 +969,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         Matrix4f pose = poseStack.last().pose();
         VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutout(texture));
 
-        // Wound anticlockwise seen from above, so the face points at the sky.
+        // Wound counterclockwise seen from above, so the face points at the sky.
         vertex(consumer, pose, -halfWidth, -halfDepth, 0f, 0f, packedLight);
         vertex(consumer, pose, -halfWidth, halfDepth, 0f, 1f, packedLight);
         vertex(consumer, pose, halfWidth, halfDepth, 1f, 1f, packedLight);

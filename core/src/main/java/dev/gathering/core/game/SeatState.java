@@ -190,7 +190,7 @@ public record SeatState(
      * Turns this hand face up to another seat, or face down again.
      *
      * <p>Adding rather than replacing, so showing Bob and then showing Chris shows both -
-     * which is what happens at a table, where turning your hand towards one more person does
+     * which is what happens at a table, where turning your hand toward one more person does
      * not turn it away from the last one.
      */
     public SeatState withHandShownTo(SeatId other, boolean showing) {

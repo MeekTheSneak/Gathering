@@ -170,7 +170,7 @@ public final class DeckEditGameTest {
             helper.fail("The card did not reach the sideboard: " + deckIn(deckStack).sideboard());
         }
         if (deckIn(deckStack).deckSize() != 1) {
-            helper.fail("A sideboarded card still counts towards the deck");
+            helper.fail("A sideboarded card still counts toward the deck");
         }
 
         move(player, DeckComponent.Section.SIDEBOARD, DeckComponent.Section.COMMANDERS, SOL);

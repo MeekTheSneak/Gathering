@@ -34,7 +34,7 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /**
      * How many units one table is across, both ways.
      *
-     * <p>The same number a card's position is measured in, so the maths is one step - but the
+     * <p>The same number a card's position is measured in, so the math is one step - but the
      * <em>surface</em> is no longer this square. Two tables pushed together are four blocks by
      * two, and squashing that into a square stretched every mat on it into something no card
      * was ever the right shape for. The surface is however many tables across by however many
@@ -341,7 +341,7 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         return new Rect(0, 0, (maxX - minX + 1) * SPAN, (maxZ - minZ + 1) * SPAN);
     }
 
-    // ------------------------------------------------------------ the maths
+    // ------------------------------------------------------------ the math
 
     public Rect matOf(int seat) {
         return seat >= 0 && seat < mats.size() ? mats.get(seat) : Rect.NONE;

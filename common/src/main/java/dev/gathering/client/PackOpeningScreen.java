@@ -77,7 +77,7 @@ public final class PackOpeningScreen extends Screen {
     private List<CardComponent> revealed = List.of();
 
     /**
-     * How far the pack is turned, and how far it is easing towards being turned.
+     * How far the pack is turned, and how far it is easing toward being turned.
      *
      * <p>Its own rather than {@link CardTilt}'s, which belongs to the inspect panel. Two
      * things easing one value would fight over it the moment a card was hovered on top of a
@@ -206,10 +206,10 @@ public final class PackOpeningScreen extends Screen {
         int tornTo = packX + tear.tornTo();
         int crimp = packY + (int) (packHeight * CRIMP);
 
-        // Turned towards the cursor while it is being looked at, and square while it is being
+        // Turned toward the cursor while it is being looked at, and square while it is being
         // torn. A pack is held still to tear it, and a pack that swung eighteen degrees under
         // the hand doing the tearing would be moving the very edge that hand is aiming at.
-        turnTowards(mouseX, mouseY);
+        turnToward(mouseX, mouseY);
         CardLens lens = CardLens.of(
                 new Rect(packX, packY, packWidth, packHeight), yaw, pitch);
         Matrix4f matrix = graphics.pose().last().pose();
@@ -275,10 +275,10 @@ public final class PackOpeningScreen extends Screen {
             int x = gridLeft + column * (laid.cardWidth() + GAP);
             int y = gridTop + row * (laid.cardHeight() + GAP);
             CardComponent card = revealed.get(index);
-            // Turned towards the cursor, most for the one nearest it. These are the cards
+            // Turned toward the cursor, most for the one nearest it. These are the cards
             // somebody has just been given: they are the point of the whole screen, and a
             // grid of them lying flat is a spreadsheet of what was in the pack rather than a
-            // handful of cards. The one you are looking at leans towards you, and a foil
+            // handful of cards. The one you are looking at leans toward you, and a foil
             // among them catches the light as it does.
             float toward = leanToward(mouseX, mouseY,
                     x + laid.cardWidth() / 2f, y + laid.cardHeight() / 2f, laid.cardWidth());
@@ -334,7 +334,7 @@ public final class PackOpeningScreen extends Screen {
     private float[] leans = new float[0];
 
     /**
-     * How far one of the pulled cards is turned towards the cursor, from nought to one.
+     * How far one of the pulled cards is turned toward the cursor, from nought to one.
      *
      * <p>For the scripted run, which cannot photograph this: the cards it opens are made up
      * and have no art, so they take the placeholder path and nothing turns. What can be
@@ -363,7 +363,7 @@ public final class PackOpeningScreen extends Screen {
         return chased;
     }
 
-    /** How far a card in the grid turns towards the cursor. */
+    /** How far a card in the grid turns toward the cursor. */
     private static final float CARD_YAW = 9f;
     private static final float CARD_PITCH = 5.5f;
 
@@ -419,7 +419,7 @@ public final class PackOpeningScreen extends Screen {
         return Math.max(16, Math.min(64, packWidth / 3));
     }
 
-    /** Where one column of the tear starts, so neighbouring columns meet without a seam. */
+    /** Where one column of the tear starts, so neighboring columns meet without a seam. */
     private int columnAt(int step, int steps) {
         return packX + Math.round(step * packWidth / (float) steps);
     }
@@ -466,14 +466,14 @@ public final class PackOpeningScreen extends Screen {
     }
 
     /**
-     * Turns the pack towards the cursor, a little way, easing rather than snapping.
+     * Turns the pack toward the cursor, a little way, easing rather than snapping.
      *
      * <p>Square while it is being torn: the tear follows the hand across the top edge, and an
      * edge that swung away from the hand aiming at it would be the interface arguing with the
      * gesture. Aimed at its own middle rather than switched off, so it settles over a few
      * frames the same way it arrived.
      */
-    private void turnTowards(int mouseX, int mouseY) {
+    private void turnToward(int mouseX, int mouseY) {
         boolean beingTorn = !tear.isUntouched() && !tear.isOpen();
         float wantedYaw = 0f;
         float wantedPitch = 0f;
@@ -542,7 +542,7 @@ public final class PackOpeningScreen extends Screen {
     private void drawSymbol(GuiGraphics graphics, CardLens lens, Matrix4f matrix) {
         float side = 0.42f;
         float acrossFrom = 0.5f - side / 2f;
-        // Centred in the body, which is what is left under the crimp.
+        // Centered in the body, which is what is left under the crimp.
         float down = (float) CRIMP + (1f - (float) CRIMP) / 2f;
         float tall = side * packWidth / Math.max(1f, packHeight);
         // The archive is not a set, so there is no symbol to print on it and asking would

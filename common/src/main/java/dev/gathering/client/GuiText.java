@@ -106,7 +106,7 @@ public final class GuiText {
     /**
      * Draws with its right-hand end at {@code rightX}, at exactly this scale.
      *
-     * <p>For a column of labels that belongs to something to one side of it. Centring each
+     * <p>For a column of labels that belongs to something to one side of it. Centering each
      * one in its own box gives a column with a ragged edge against the thing it names, and
      * the shorter the word the further it sits from what it is labeling - which reads as
      * the words having been dropped in rather than laid out.
@@ -153,7 +153,7 @@ public final class GuiText {
      * "writing on cards should not scale with scrolling out - stay one size". Shrinking is
      * right for a label in a panel, where the panel is the size it is and the label has to
      * live in it. It is wrong for a note on a card, where zooming out shrank every note on
-     * the board towards illegible while the player was still being asked to read them - and a
+     * the board toward illegible while the player was still being asked to read them - and a
      * word and a half at full size beats a whole sentence nobody can make out.
      *
      * <p>Nothing at all below {@code leastWidth}, because a note trimmed to one letter and an

@@ -11,7 +11,7 @@ import java.util.Optional;
 /**
  * One seat as one viewer sees it: the numbers beside it and its six zones.
  *
- * @param handShownTo which other seats this player has turned their hand towards. Public to
+ * @param handShownTo which other seats this player has turned their hand toward. Public to
  *     everybody, because turning your hand round is something the whole table watches you do
  *     - and because the person doing it has to be able to see, on their own screen, that
  *     their hand is still face up. A reveal nobody is reminded of is a hand left open.
@@ -71,7 +71,7 @@ public record SeatView(
         return other != null && (other.equals(seat) || handShownTo.contains(other));
     }
 
-    /** Whether this player has turned their hand towards anybody. */
+    /** Whether this player has turned their hand toward anybody. */
     public boolean handIsShown() {
         return !handShownTo.isEmpty();
     }

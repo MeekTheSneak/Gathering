@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * handful of sets in play at once rather than hundreds of cards, so nothing here needs an
  * eviction policy that card art cannot do without.
  *
- * <p>Never fetches, reads or rasterises on the render thread. Only the upload comes back to
+ * <p>Never fetches, reads or rasterizes on the render thread. Only the upload comes back to
  * the client thread, because that is where a texture may be registered.
  *
  * <p>Client-only. Nothing on a server may reference this class.
@@ -224,7 +224,7 @@ public final class ClientSetSymbols {
             return Optional.of(id);
         } catch (SvgException | RuntimeException couldNotDraw) {
             // Remembered, because this is the render thread: without it a symbol that will
-            // not rasterise is rasterised again on every frame the pack is on screen, for
+            // not rasterize is rasterized again on every frame the pack is on screen, for
             // the whole session.
             LOGGER.warn("Could not draw the set symbol {}: {}", key, couldNotDraw.toString());
             undrawable.add(key);

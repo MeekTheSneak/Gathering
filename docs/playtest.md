@@ -36,7 +36,7 @@ Or live, no restart: `/gathering config import.allow_all_players true`
 - [ ] Paste a real decklist. Moxfield, Archidekt, Arena, MTGO and deckstats exports all work, as do
       plain `1 Sol Ring` lines. Name it, press Import, deck lands in your inventory.
 - [ ] Paste an Archidekt link instead — it fetches the exact printings. (Moxfield links are
-      recognised but can't be fetched; use their More → Export → Text.)
+      recognized but can't be fetched; use their More → Export → Text.)
 - [ ] **Break it on purpose:** a typo in one line (`1 Sol Rong`) and a bad quantity (`0 Sol Ring`).
       Both should come back named with line numbers and every *other* card should still import.
 - [ ] Right-click the deck to open its list. Hover a row to read that card beside it, left-click
@@ -62,7 +62,7 @@ Or live, no restart: `/gathering config import.allow_all_players true`
       polished blackstone and crying obsidian versions exist and all cluster with each other.)
 - [ ] Push a second table against it edge to edge. 2 tables seat 4, 3 seat 6, 4 seat 8. A fifth
       should refuse. A table offset by one block should stay its own cluster — that's deliberate.
-- [ ] Right-click with a dye to colour the felt. Should survive a restart and a chunk reload.
+- [ ] Right-click with a dye to color the felt. Should survive a restart and a chunk reload.
 - [ ] **Walk up holding the deck and right-click.** You should be seated, shuffled and holding
       seven, in that one click.
 - [ ] Press **F1** at the board for every key. That list is the only teaching this mod does — tell
@@ -70,7 +70,7 @@ Or live, no restart: `/gathering config import.allow_all_players true`
 
 **How it looks**
 - [ ] Options → Video Settings → **Gathering look**: felt, slate, walnut, template. The template
-      look draws every element as a labelled diagram *on purpose* — it's a blueprint, not a bug.
+      look draws every element as a labeled diagram *on purpose* — it's a blueprint, not a bug.
 - [ ] Squash the window as small as it goes, then try GUI scale 1–4. Nothing should overlap, run off
       an edge, or disappear.
 
@@ -180,7 +180,7 @@ set contains what that pack contained.
 - [ ] `/gathering pack give <set>` for product out of nothing, or find it properly — packs turn up
       in loot and villages build a card shop (`/locate structure minecraft:village_plains`, look for
       a counter, a stock chest and two tables). Or put a shop counter next to an unemployed villager.
-- [ ] **Tear a pack open.** It comes to the middle of the screen, leans towards your cursor, and the
+- [ ] **Tear a pack open.** It comes to the middle of the screen, leans toward your cursor, and the
       tear follows your cursor across the wrapper. The torn edge glows before a card is shown.
       **Watch two things:** the tear should look *torn*, not cut, and the wrapper should end exactly
       at the tear with no gap. Both were wrong until recently.
@@ -195,7 +195,7 @@ set contains what that pack contained.
 - [ ] **Build a deck…** and paste a list — you get the deck it can make out of the box, and a list
       of what it was short of. Matches by card not printing; plain copies go in before foils; basics
       are conjured because basics are free.
-- [ ] Set progress → left-click a set for what you're missing, coloured by rarity. Left-click a row
+- [ ] Set progress → left-click a set for what you're missing, colored by rarity. Left-click a row
       to mark a card **wanted**; right-click a set to filter your collection to it. The wants list
       is saved per player — check it survives a relog.
 - [ ] **Read a card at full size** (Alt with it in hand, out in the world). It should be sharp:

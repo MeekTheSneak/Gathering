@@ -15,7 +15,7 @@ import org.joml.Matrix4f;
  *
  * <p>The same trick the inspect panel plays on a card, for the same reason: the interface
  * draws in an orthographic projection, where turning a flat picture is only ever a squash -
- * both edges keep their length and nothing comes towards you. So the pack is a rectangle in
+ * both edges keep their length and nothing comes toward you. So the pack is a rectangle in
  * space, turned about its own middle and projected through a pinhole a fixed distance in
  * front, drawn as a grid of quads so the picture does not warp across it. See {@link CardLens},
  * which is the pinhole, and {@link TiltedFace}, which does this for a card.

@@ -1280,7 +1280,7 @@ public final class DevScene {
             case 106 -> {
                 expectScreen(client, "tearing a pack open", PackOpeningScreen.class);
                 aSealedPackIsSealed(client);
-                // Off to one side, so the picture is of a pack turned towards the cursor
+                // Off to one side, so the picture is of a pack turned toward the cursor
                 // rather than of one facing straight ahead. A pack square on is what this
                 // looked like before it was a thing in space, so a photograph of that would
                 // prove nothing about whether it still is.
@@ -1312,7 +1312,7 @@ public final class DevScene {
             }
             case 110 -> {
                 shoot(client, "41-what-was-in-it");
-                thePulledCardsLeanTowardsTheCursor(client);
+                thePulledCardsLeanTowardTheCursor(client);
                 advance(SETTLE);
             }
             case 111 -> {
@@ -2378,7 +2378,7 @@ public final class DevScene {
             case 226 -> {
                 expectScreen(client, "opening a collection to count its sets", CollectionScreen.class);
                 // Pressed rather than assumed, like every other button on this screen: one
-                // that fits on a wide window and hides under its neighbour on a narrow one is
+                // that fits on a wide window and hides under its neighbor on a narrow one is
                 // a button nobody can find.
                 press(client, net.minecraft.network.chat.Component
                         .translatable("screen.gathering.collection.sets").getString());
@@ -2461,7 +2461,7 @@ public final class DevScene {
             // A look is put on in one step and photographed in the next, the way every other
             // change here is: a picture is taken of the frame that has already been drawn, so
             // a step that changes something and photographs it in the same breath photographs
-            // what was there before. Three looks came out labelled as each other.
+            // what was there before. Three looks came out labeled as each other.
             case 233 -> {
                 wearTheLook(client, "gathering:slate");
                 advance(SETTLE / 2);
@@ -3201,7 +3201,7 @@ public final class DevScene {
      *
      * <p>The plainest gesture on the table used to mean two things: every mis-click tapped
      * something, and a card could not be picked up and reconsidered without turning it. It was
-     * fixed, and nothing was holding it fixed - which is the state a behaviour is in right
+     * fixed, and nothing was holding it fixed - which is the state a behavior is in right
      * before it comes back. Tapping is E, untapping is Q, and a click is a click.
      */
     private static void clickingDoesNotTap(Minecraft client) {
@@ -4222,14 +4222,14 @@ public final class DevScene {
     }
 
     /**
-     * The card being looked at leans towards the cursor, and the ones away from it do not.
+     * The card being looked at leans toward the cursor, and the ones away from it do not.
      *
      * <p>A grid where every card leaned the same way was the first thing this did: a card
      * three widths to the left of the cursor is still to its left, so without a falloff the
      * whole handful tipped one way like a stack about to go over. So both halves are checked
      * - that the one under the cursor turns, and that the far one has all but stopped.
      */
-    private static void thePulledCardsLeanTowardsTheCursor(Minecraft client) {
+    private static void thePulledCardsLeanTowardTheCursor(Minecraft client) {
         if (!(client.screen instanceof PackOpeningScreen pack)) {
             fail("there was no pack screen to ask which way its cards were leaning");
             return;
@@ -4244,7 +4244,7 @@ public final class DevScene {
         System.out.println("[devscene] the pulled card under the cursor leans " + under
                 + " and the far one " + across);
         if (under <= 0f) {
-            fail("the pulled card under the cursor is not leaning towards it");
+            fail("the pulled card under the cursor is not leaning toward it");
         }
         if (across >= under) {
             fail("a pulled card across the grid leans as far as the one being looked at");
@@ -4849,7 +4849,7 @@ public final class DevScene {
      *
      * <p>Placed rather than crafted: what is being checked is how they look, and the recipe
      * is checked by the recipe file existing. Three tables two apart, so each is whole and
-     * none of them merge into a cluster - a row of separate tables reads as a catalogue,
+     * none of them merge into a cluster - a row of separate tables reads as a catalog,
      * where four merged ones read as one large table.
      */
     private static void standTheOtherTablesUp(Minecraft client) {
@@ -7405,7 +7405,7 @@ public final class DevScene {
      * Checks the picker away from the middle of the screen, where the projection matters.
      *
      * <p>The center only proves there is no constant offset: a camera looks along its forward
-     * axis whatever its lens does. An offset that grows towards the edges - the shape a wrong
+     * axis whatever its lens does. An offset that grows toward the edges - the shape a wrong
      * field of view or a wrong aspect ratio makes - passes that check and ruins every click
      * that is not dead center.
      *

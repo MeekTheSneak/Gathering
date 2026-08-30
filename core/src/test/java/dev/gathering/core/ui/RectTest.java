@@ -64,7 +64,7 @@ class RectTest {
         }
 
         @Test
-        @DisplayName("turning clockwise is not the same as turning anticlockwise")
+        @DisplayName("turning clockwise is not the same as turning counterclockwise")
         void theDirectionOfTheTurnIsTheScreensDirection() {
             // Every other case here is symmetric about one of the card's own axes, which
             // means they all pass just as happily with the rotation running backwards - and a

@@ -19,7 +19,7 @@ nothing tells you no.
 | **Loaders** | NeoForge and Fabric |
 | **Players** | Singleplayer, LAN, or a dedicated server |
 | **Needs** | An internet connection the first time it looks up a card |
-| **Licence** | MIT — free, and always will be |
+| **License** | MIT — free, and always will be |
 
 ---
 
@@ -163,7 +163,7 @@ won't work around that.
 **Can I change how it looks?** Yes, all of it. Nothing in the mod draws a colored rectangle:
 every panel, band, tint, ring, badge and bar is a texture, so a resource pack can replace any
 of it. Four sets of that art ship — felt, slate, walnut, and a template that draws every
-element as a labelled diagram — and **Options → Video Settings → Gathering look** switches
+element as a labeled diagram — and **Options → Video Settings → Gathering look** switches
 between them. Adding your own is a folder of PNGs and a four-line file in a resource pack, with
 no code: a look may leave elements out and inherit them, so repainting six things is a complete
 look. [`docs/themes.md`](docs/themes.md) is the guide, and
@@ -197,6 +197,6 @@ milliseconds as large as possible. Beside the gate sit checks for translation ke
 documentation, GUI art with nothing drawing it, and a scripted client that plays a whole game
 and photographs every step.
 
-## Licence
+## License
 
 Mod code is [MIT](LICENSE). It contains no Wizards of the Coast assets and no Scryfall data.

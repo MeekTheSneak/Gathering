@@ -262,7 +262,7 @@ cannot be inferred from reading the code.
 - **The tapered panel edge and the scrollbar on it agree by construction, not by
   arithmetic.** The scrollbar is an ordinary vertical bar drawn under a shear
   (`Matrix4f#m10`, which multiplies y into x) along the same line the texture's edge was
-  drawn along. Two separate pieces of maths would drift; the hit test undoes the same shear,
+  drawn along. Two separate pieces of math would drift; the hit test undoes the same shear,
   so the bar you can see and the bar you can grab stay together.
 - **`GuiText`, never `graphics.drawString`, for anything a player did not choose.** Card
   names are arbitrary text of arbitrary length and the font has one size, so text shrinks to

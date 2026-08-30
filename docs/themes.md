@@ -2,12 +2,12 @@
 
 Everything the mod draws is a texture. Not most of it — all of it: the felt, the mats, the
 ring under the cursor, the wash over a tapped card, the rime on a frozen one, the band under a
-counter, the progress bars, the blank card stock. There is no colour written in the Java. So a
+counter, the progress bars, the blank card stock. There is no color written in the Java. So a
 look is a folder of PNGs, and making one is painting, not programming.
 
 There are four in the box. **Felt** is the dark green table the mod ships as. **Slate** is cold
-and grey. **Walnut** is warm wood and brass. **Template** is not meant to be played on: every
-element is drawn as a labelled diagram so you can see what you are painting over.
+and gray. **Walnut** is warm wood and brass. **Template** is not meant to be played on: every
+element is drawn as a labeled diagram so you can see what you are painting over.
 
 ## The one page to paint from
 
@@ -96,17 +96,17 @@ change it:
 Higher-resolution art is fine — a 128×128 panel with a border of 32 draws a 32-pixel frame.
 That is a design choice about how heavy the mod's chrome looks, not just a resolution.
 
-## Colours are yours, with two exceptions
+## Colors are yours, with two exceptions
 
-Two elements are painted neutral on purpose and tinted by the game, because their colour is
+Two elements are painted neutral on purpose and tinted by the game, because their color is
 information rather than decoration:
 
-- `seat_ring` — drawn in each seat's own colour, which is what makes four identical rectangles
+- `seat_ring` — drawn in each seat's own color, which is what makes four identical rectangles
   four players' boards.
 - `rarity_ring` and `pack_spark` — the light a booster gives off, yellow for a rare and orange
   for a mythic, before any card is shown.
 
-Paint those in white or a pale grey. Everything else takes its colour from your file.
+Paint those in white or a pale gray. Everything else takes its color from your file.
 
 ## Trying it
 

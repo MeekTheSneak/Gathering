@@ -142,7 +142,7 @@ public final class VisibilityRules {
         }
 
         // A hand is full to its own seat and a count to everyone else - unless its owner has
-        // turned it towards somebody, which is a thing they do on purpose and take back on
+        // turned it toward somebody, which is a thing they do on purpose and take back on
         // purpose. Spectators stay in "everyone else" even then: showing your hand is
         // something you do to the players you are playing against, and the mod's one security
         // property is worth more than a watcher's convenience. The log says it happened, so
@@ -159,7 +159,7 @@ public final class VisibilityRules {
         return new ZoneView(ref, contents.size(), cards);
     }
 
-    /** Whether this hand's owner has turned it towards this viewer. */
+    /** Whether this hand's owner has turned it toward this viewer. */
     private static boolean shownTo(GameState state, SeatId owner, Viewer viewer) {
         return viewer instanceof Viewer.Seated seated
                 && state.seatState(owner).handIsShownTo(seated.seat());

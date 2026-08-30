@@ -61,7 +61,7 @@ public final class CollectionScreen extends Screen {
     /** The width a card wants in the grid, before the columns are fitted around it. */
     private static final int CARD_WIDTH_WANTED = 78;
 
-    /** Never narrower than this: below it a card is a coloured smudge rather than a card. */
+    /** Never narrower than this: below it a card is a colored smudge rather than a card. */
     private static final int CARD_WIDTH_LEAST = 34;
 
     private static final int GRID_GAP = 6;
@@ -385,7 +385,7 @@ public final class CollectionScreen extends Screen {
         int columns = Math.max(1, (room + GRID_GAP) / (cardWidth + GRID_GAP));
         int rows = Math.max(1, (down + GRID_GAP) / (cardHeight + GRID_GAP));
 
-        // Centred in what is left over, so the grid sits in its panel rather than against one
+        // Centered in what is left over, so the grid sits in its panel rather than against one
         // edge of it with a wide gutter down the other.
         int usedAcross = columns * cardWidth + GRID_GAP * (columns - 1);
         return new Grid(cardWidth, cardHeight, columns, rows,

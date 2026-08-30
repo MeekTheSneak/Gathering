@@ -4,7 +4,7 @@ package dev.gathering.core.ui;
  * Where something on its way from one rectangle to another is, part of the way through.
  *
  * <p>Eased rather than straight: a card that sets off at full speed and stops dead is a card
- * being teleported in instalments. It leaves gently, crosses quickly and settles - which is
+ * being teleported in installments. It leaves gently, crosses quickly and settles - which is
  * how a hand puts a card down, and is the whole reason for drawing the journey at all.
  */
 public final class Traveling {

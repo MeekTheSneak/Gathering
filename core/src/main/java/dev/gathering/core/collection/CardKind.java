@@ -50,7 +50,7 @@ public enum CardKind {
      * and not on the golem. Matched in the order the constants are declared, which is a
      * priority: the first pile that matches wins, so an artifact creature is a creature.
      *
-     * <p>A line that says nothing recognisable gets {@link #OTHER} rather than being dropped.
+     * <p>A line that says nothing recognizable gets {@link #OTHER} rather than being dropped.
      * A deck builder that silently loses a card because Scryfall printed a type it has never
      * heard of is worse than one with a pile called "other" in it.
      */

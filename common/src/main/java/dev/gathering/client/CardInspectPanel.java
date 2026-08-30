@@ -590,7 +590,7 @@ public final class CardInspectPanel {
                 : Component.translatable("story.gathering.on_day", said, chapter.day()).getString();
     }
 
-    /** The colour a card's history is written in: warm, because somebody did all of it. */
+    /** The color a card's history is written in: warm, because somebody did all of it. */
     private static final int STORY_TEXT = 0xFFD9A441;
 
     /**
@@ -687,7 +687,7 @@ public final class CardInspectPanel {
         GatheringSprites.draw(graphics, Element.NAME_BACKDROP,
                 art.x(), art.y() + 1, art.width(), font.lineHeight);
         // One size, whatever size the card is. Fitting it to the card meant zooming out
-        // shrank every note on the board towards illegible while still asking the player to
+        // shrank every note on the board toward illegible while still asking the player to
         // read them; a word and a half at full size beats a whole sentence nobody can make
         // out, and below a few characters' room it says nothing rather than a smudge.
         GuiText.drawTrimmed(graphics, font, Component.literal(note),
@@ -702,7 +702,7 @@ public final class CardInspectPanel {
      *
      * <p>The ordinary tier is 680 pixels tall, so anything drawn under about a third of that
      * is throwing detail away rather than missing it. Above this the card is being scaled up
-     * towards its own resolution and past it, which is where the softness the players
+     * toward its own resolution and past it, which is where the softness the players
      * reported actually lives - the read overlay and the pack, and nothing on a board.
      */
     private static final int CRISP_ABOVE = 220;

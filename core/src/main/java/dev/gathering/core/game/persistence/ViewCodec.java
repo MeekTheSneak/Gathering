@@ -246,7 +246,7 @@ public final class ViewCodec {
             out.writeInt(entry.getValue());
         }
 
-        // Who this hand is turned towards. Public, and the reason it has to be on the wire
+        // Who this hand is turned toward. Public, and the reason it has to be on the wire
         // rather than worked out: the player showing it needs their own screen to keep saying
         // so, and the players being shown it need to know why they can suddenly read it.
         out.writeInt(seat.handShownTo().size());

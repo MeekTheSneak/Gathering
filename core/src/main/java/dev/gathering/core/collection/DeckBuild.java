@@ -15,12 +15,12 @@ import java.util.UUID;
  *
  * <p>Everything a deck builder screen shows is worked out here: what is in the deck, grouped
  * into the piles a person reads it in, how many of each card, the mana curve, and whether the
- * commander's colour identity has anything to say about it. The screen adds and removes cards
+ * commander's color identity has anything to say about it. The screen adds and removes cards
  * and draws what comes back, which keeps the part that can be checked in milliseconds as large
  * as it can be - the screen has no arithmetic of its own to get wrong.
  *
  * <p><strong>It refuses nothing.</strong> Not the fifth copy of a card, not a card outside the
- * commander's colours, not a hundred and one cards in a hundred-card format. Those are all
+ * commander's colors, not a hundred and one cards in a hundred-card format. Those are all
  * reported and none of them are prevented, which is the same rule the rest of the mod plays
  * by: the deck check at the door is the one referee, and a builder that argues with somebody
  * about their own deck while they are still building it is a worse tool than one that tells
@@ -193,10 +193,10 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
     }
 
     /**
-     * The colour identity the commander gives this deck, or empty when there is no commander.
+     * The color identity the commander gives this deck, or empty when there is no commander.
      *
      * <p>Straight off the commander. A deck with no commander has no identity to be inside or
-     * outside of, which is different from having a colourless one - hence the empty optional
+     * outside of, which is different from having a colorless one - hence the empty optional
      * rather than an empty set.
      */
     public Optional<Set<String>> identity() {
@@ -204,7 +204,7 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
     }
 
     /**
-     * The cards that fall outside the commander's colour identity.
+     * The cards that fall outside the commander's color identity.
      *
      * <p>Reported, never prevented. This is the deck builder noticing something, which is what
      * a deck builder is for; refusing the card would be it deciding it knows the format better

@@ -73,8 +73,8 @@ public final class GameSession {
     /**
      * A session put back together from a stored log.
      *
-     * <p>Nothing is re-run and nothing is re-authorised: the log is what happened, and the
-     * board is folded from it exactly as it was. Re-authorising would be worse than
+     * <p>Nothing is re-run and nothing is re-authorized: the log is what happened, and the
+     * board is folded from it exactly as it was. Re-authorizing would be worse than
      * pointless, because the state each decision was made against is gone.
      *
      * <p>The next sequence number continues past the highest one restored rather than from

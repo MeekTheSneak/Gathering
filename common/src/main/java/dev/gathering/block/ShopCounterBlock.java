@@ -41,7 +41,7 @@ public class ShopCounterBlock extends HorizontalDirectionalBlock {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        // Towards whoever put it down, the way a furnace faces.
+        // Toward whoever put it down, the way a furnace faces.
         return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 

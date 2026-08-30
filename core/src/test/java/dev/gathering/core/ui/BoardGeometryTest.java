@@ -409,12 +409,12 @@ class BoardGeometryTest {
         }
 
         @Test
-        @DisplayName("the opening view leans towards the table without pushing your board off it")
-        void theViewLeansTowardsTheOpponent() {
+        @DisplayName("the opening view leans toward the table without pushing your board off it")
+        void theViewLeansTowardTheOpponent() {
             // Both boards at once and a readable card are not both possible on a small window:
             // two mats and the gap are the whole table, and fitting that into the strip above
             // the hand puts a card back at twenty-odd pixels. So the opening view keeps your
-            // own board whole and leans towards the middle, which brings the other player in
+            // own board whole and leans toward the middle, which brings the other player in
             // as soon as the window has any slack - and Home still shows everything.
             // Two windows: the smallest one, where the board barely fits and there is nothing
             // to lean with, and a tall one where there is real room to give away. Only the
@@ -436,7 +436,7 @@ class BoardGeometryTest {
                     assertThat(mine.bottom()).isLessThanOrEqualTo(visible);
 
                     // Whatever room is spare goes to the side the opponent is on rather than
-                    // being split evenly - which is what leaning towards the table means once
+                    // being split evenly - which is what leaning toward the table means once
                     // your own board has to stay whole.
                     //
                     // The opponent is always up the screen, for both players. The view itself

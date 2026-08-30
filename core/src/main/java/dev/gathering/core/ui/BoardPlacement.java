@@ -17,7 +17,7 @@ import dev.gathering.core.game.TablePosition;
  * showing, and it is why the whole of the screen's hit-testing works unchanged in either.
  *
  * <p>Rectangles are integers in both spaces. Pixels obviously are; surface units are tenths of
- * a millimetre on a two-block table, so rounding to one costs nothing and buys the same
+ * a millimeter on a two-block table, so rounding to one costs nothing and buys the same
  * rotation-aware hit test both views need.
  */
 public interface BoardPlacement {

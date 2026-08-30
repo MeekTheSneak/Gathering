@@ -139,7 +139,7 @@ public record TableCamera(
         return new TableCamera(across / 2.0, down / 2.0, fit, across, down, false);
     }
 
-    // ------------------------------------------------------------- the maths
+    // ------------------------------------------------------------- the math
 
     public double toScreenX(double tableX, int viewportWidth) {
         return viewportWidth / 2.0 + (tableX - centerX) * scale * sense();

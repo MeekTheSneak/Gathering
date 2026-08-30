@@ -22,7 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p>Measured from where the player is to the middle of the block they named, which is the
  * question being asked. Block-to-block was one of the two versions and it is the wrong one: it
- * ignores where in the block the player is standing and is short by up to most of a metre.
+ * ignores where in the block the player is standing and is short by up to most of a meter.
  *
  * <p>Server thread only.
  */
@@ -99,7 +99,7 @@ public final class TableReach {
      * All of that plus the seat, for the verbs that act on your own board.
      *
      * <p>The seat comes from the player the packet arrived from and never from the packet.
-     * That is the whole of the authorisation for these verbs: a client cannot ask to shuffle
+     * That is the whole of the authorization for these verbs: a client cannot ask to shuffle
      * somebody else's library because there is nowhere in the request to say whose.
      */
     public static Optional<Seated> seatedAt(ServerPlayer player, BlockPos clicked) {

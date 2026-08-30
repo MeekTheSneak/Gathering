@@ -24,7 +24,7 @@ import org.joml.Matrix4f;
  * <p><b>What it is made of.</b> Three things:
  *
  * <ul>
- *   <li>Two <b>spectra</b> crossing at different angles, one faint and travelling against the
+ *   <li>Two <b>spectra</b> crossing at different angles, one faint and traveling against the
  *       other. A single sweep, however smooth, reads as a gradient somebody laid over a
  *       picture; what a foil actually shows is two sets of colors interfering.</li>
  *   <li>A <b>catch</b>: one broad soft rise in brightness that slides further than the colors
@@ -209,7 +209,7 @@ public final class FoilSheen {
         };
     }
 
-    /** One channel of the iridescence, pulled towards white by however unsaturated it is. */
+    /** One channel of the iridescence, pulled toward white by however unsaturated it is. */
     private static float tinted(float phase, float offset) {
         float wave = 0.5f + 0.5f * Mth.sin(TAU * (phase + offset));
         return 1f - SATURATION + SATURATION * wave;

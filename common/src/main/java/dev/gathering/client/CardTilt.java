@@ -66,11 +66,11 @@ public final class CardTilt {
      * Aims the card at the cursor.
      *
      * <p>The card's face turns to point at the cursor: cursor to the right sends the card's
-     * right-hand edge away and brings its left towards you, which is what a card does when
+     * right-hand edge away and brings its left toward you, which is what a card does when
      * you tip it to show it to something over there. Getting this backwards reads as "wrong"
      * without anybody being able to say why.
      */
-    public static void towards(int mouseX, int mouseY, int centerX, int centerY, int width, int height) {
+    public static void toward(int mouseX, int mouseY, int centerX, int centerY, int width, int height) {
         float across = width <= 0 ? 0f : Mth.clamp((mouseX - centerX) / (width / 2f), -1f, 1f);
         float down = height <= 0 ? 0f : Mth.clamp((mouseY - centerY) / (height / 2f), -1f, 1f);
         ease(across * MOST_YAW, down * MOST_PITCH);
@@ -108,7 +108,7 @@ public final class CardTilt {
             player.setYRot(lookYaw + heldYaw);
             player.setXRot(lookPitch + heldPitch);
             // The previous rotation too, or the camera spends the next tick interpolating
-            // from where the mouse got to towards where it was put back - which reads as the
+            // from where the mouse got to toward where it was put back - which reads as the
             // view shuddering rather than stopping.
             player.yRotO = player.getYRot();
             player.xRotO = player.getXRot();

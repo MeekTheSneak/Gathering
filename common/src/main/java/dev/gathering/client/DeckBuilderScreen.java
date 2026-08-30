@@ -35,11 +35,11 @@ import net.minecraft.network.chat.Component;
  * out of - the collection is not touched until the deck is made.
  *
  * <p><b>All the arithmetic is somewhere else.</b> The piles, the counts, the curve and the
- * colour-identity check are {@link DeckBuild}'s, which is pure and checked in milliseconds;
+ * color-identity check are {@link DeckBuild}'s, which is pure and checked in milliseconds;
  * this class positions rectangles and sends two payloads. That split is the reason a screen
  * this size is worth having at all.
  *
- * <p><b>It refuses nothing.</b> Not a fifth copy, not an off-colour card, not a hundred and
+ * <p><b>It refuses nothing.</b> Not a fifth copy, not an off-color card, not a hundred and
  * one cards. Those are reported, which is what a builder is for, and the deck check at the
  * door is this mod's one referee.
  *
@@ -365,7 +365,7 @@ public final class DeckBuilderScreen extends Screen {
         List<BuildCard> outside = build.outsideIdentity();
         if (!outside.isEmpty()) {
             GuiText.draw(graphics, this.font,
-                    Component.translatable("screen.gathering.builder.off_colour", outside.size()),
+                    Component.translatable("screen.gathering.builder.off_color", outside.size()),
                     pane.x() + 2, pane.y() + ROW_HEIGHT, pane.width() - 4, WARN);
         }
 
@@ -405,7 +405,7 @@ public final class DeckBuilderScreen extends Screen {
     /**
      * The mana curve, as eight columns.
      *
-     * <p>Small and unlabelled past the numbers along the bottom: it is read as a shape rather
+     * <p>Small and unlabeled past the numbers along the bottom: it is read as a shape rather
      * than as data, and a chart with axes on it in the corner of a deck builder is a chart
      * nobody looks at twice.
      */

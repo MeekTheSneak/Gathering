@@ -61,7 +61,7 @@ public final class DeterministicRandom {
      *
      * <p>Rejection-sampled rather than taken modulo, because modulo skews toward low values
      * whenever the bound does not divide the range - a bias that in a shuffle would quietly
-     * favour certain positions.
+     * favor certain positions.
      */
     public int nextInt(int bound) {
         if (bound <= 0) {

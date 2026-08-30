@@ -345,7 +345,7 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
         }
         Map<CardComponent, Integer> carried = new LinkedHashMap<>();
         // The off hand too, and for the same reason the server counts it: a card held out
-        // towards somebody must not be the one card the trade cannot see.
+        // toward somebody must not be the one card the trade cannot see.
         List<ItemStack> holding = new ArrayList<>(this.minecraft.player.getInventory().items);
         holding.addAll(this.minecraft.player.getInventory().offhand);
         for (ItemStack stack : holding) {

@@ -41,7 +41,7 @@ public final class GatheringButtons {
      * A button whose label fits inside it.
      *
      * <p>Vanilla scrolls a label too wide for its button, back and forth, forever. On a button
-     * you press once that is not reading - it is a word arriving in instalments, and the
+     * you press once that is not reading - it is a word arriving in installments, and the
      * moment you look at it you are as likely to see "ack to printe" as anything. A screenshot
      * of this mod's own pen showed exactly that.
      *

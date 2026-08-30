@@ -479,7 +479,7 @@ public final class GameFold {
     }
 
     /**
-     * Turns a hand towards one seat, or towards the whole table, or away again.
+     * Turns a hand toward one seat, or toward the whole table, or away again.
      *
      * <p>The table means every other seat as it stands now, written out one by one rather than
      * kept as a flag. A player who shows the table and then shows one more person has done two

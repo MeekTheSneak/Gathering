@@ -131,7 +131,7 @@ public sealed interface GameEvent {
      *
      * <p>One event covers play-to-battlefield, send-to-graveyard, exile, bounce to hand, put
      * on top or bottom of library, and dragging a stolen creature to your own side of the
-     * table. They are all the same act and modelling them separately would only invite them
+     * table. They are all the same act and modeling them separately would only invite them
      * to drift apart.
      */
     record CardMoved(SeatId actor, CardInstanceId card, ZoneRef to, Placement placement) implements GameEvent {
@@ -712,7 +712,7 @@ public sealed interface GameEvent {
      *
      * <p>Always your own hand. Magic is full of cards that make an opponent reveal their hand
      * - Duress, Thoughtseize, Peek - and at a real table every one of them is resolved by the
-     * person being Duressed picking their hand up and turning it towards you. That is exactly
+     * person being Duressed picking their hand up and turning it toward you. That is exactly
      * what this is, and it is why nothing anybody else submits can open somebody's hand: the
      * one thing the mod ever says no to is an action that would show the actor a card they are
      * not entitled to, and "make that player reveal their hand" is that action written out in
@@ -724,7 +724,7 @@ public sealed interface GameEvent {
      * before they had read them.
      *
      * @param to the seat being shown, or null for the whole table at once
-     * @param showing whether it is being turned towards them or away again
+     * @param showing whether it is being turned toward them or away again
      */
     record HandShown(SeatId actor, SeatId to, boolean showing) implements GameEvent {
 
@@ -745,7 +745,7 @@ public sealed interface GameEvent {
 
         @Override
         public boolean revealsInformation(GameState before) {
-            // Only the turning towards. Taking a hand back shows nobody anything, and an undo
+            // Only the turning toward. Taking a hand back shows nobody anything, and an undo
             // that had to be agreed on unanimously just because somebody stopped revealing
             // would be a boundary in the wrong direction.
             return showing;

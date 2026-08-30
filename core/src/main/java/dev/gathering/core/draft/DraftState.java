@@ -15,7 +15,7 @@ import java.util.Map;
  * session can, and nothing about it depends on a table, a world or a player.
  *
  * <p>A turn resolves all at once. Real drafting is simultaneous - everybody looks at their
- * pack, everybody picks, then the packs move together - and modelling it as a queue of
+ * pack, everybody picks, then the packs move together - and modeling it as a queue of
  * individual picks would have let one fast drafter see a pack twice while a slow one had not
  * seen it at all. So a pick is <em>declared</em>, and nothing moves until every drafter with
  * cards in front of them has declared. What anybody declared stays theirs alone until then,

@@ -42,7 +42,7 @@ public record DeckLink(DeckLink.Provider provider, String deckId) {
             return displayName;
         }
 
-        /** Whether the mod can read a deck from this site, as opposed to merely recognising it. */
+        /** Whether the mod can read a deck from this site, as opposed to merely recognizing it. */
         public boolean isFetchable() {
             return fetchable;
         }

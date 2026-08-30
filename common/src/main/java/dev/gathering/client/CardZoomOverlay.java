@@ -94,7 +94,7 @@ public final class CardZoomOverlay {
         }
         // The panel already follows the cursor, so the cursor's place across the window is
         // what moves the shine. A card that also turned would be two answers to one hand.
-        CardTilt.towards(mouseX, mouseY, screenWidth / 2, screenHeight / 2, screenWidth, screenHeight);
+        CardTilt.toward(mouseX, mouseY, screenWidth / 2, screenHeight / 2, screenWidth, screenHeight);
         CardInspectPanel.renderBeside(graphics, under.summary(), under.foil(), under.story(),
                 under.strength(), mouseX, mouseY, screenWidth, screenHeight);
     }

@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  * <p>The one feature in the mod that deliberately opens a hidden zone, so it is the one that
  * has to be provably narrow: your own hand, to seats you named, until you take it back. Every
  * test here is really the same question asked from a different chair - can anybody see a hand
- * its owner did not turn towards them.
+ * its owner did not turn toward them.
  */
 class ShownHandTest {
 
@@ -46,7 +46,7 @@ class ShownHandTest {
     }
 
     @Test
-    @DisplayName("a hand turned towards one player is readable by that player")
+    @DisplayName("a hand turned toward one player is readable by that player")
     void oneSeatCanRead() {
         GameSession session = dealt();
 
@@ -63,7 +63,7 @@ class ShownHandTest {
         session.submit(new GameEvent.HandShown(ALICE, BOB, true));
 
         assertThat(handOf(session, ALICE, Viewer.SPECTATOR).cards())
-                .describedAs("a watcher was shown a hand that was turned towards a player")
+                .describedAs("a watcher was shown a hand that was turned toward a player")
                 .isEmpty();
     }
 

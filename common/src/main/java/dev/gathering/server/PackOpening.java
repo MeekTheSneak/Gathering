@@ -279,7 +279,7 @@ public final class PackOpening {
      *
      * <p>The same rule the ceremony's own glow and reveal order use - see
      * {@link dev.gathering.core.ui.PackGlow} - so the card that came out last, ringed in its
-     * rarity's colour, is the card that remembers coming out.
+     * rarity's color, is the card that remembers coming out.
      */
     private static CardIdentity bestOf(List<CardIdentity> giving, List<CardMetadata> about) {
         CardIdentity best = null;
@@ -386,7 +386,7 @@ public final class PackOpening {
         }
 
         if (ceremony) {
-            // After the cards, not before. The wrapper is theatre over something that has
+            // After the cards, not before. The wrapper is theater over something that has
             // already happened, so nothing about tearing it can go wrong enough to cost
             // somebody a booster.
             List<dev.gathering.item.CardComponent> shown = new ArrayList<>();

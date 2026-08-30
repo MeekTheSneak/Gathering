@@ -291,7 +291,7 @@ def fitted(art, room):
 
     Most of these are sixteen pixels square and want blowing up. The decklist panel is two
     hundred and fifty-six by five hundred and twelve and wants the opposite, and the first
-    version of this sheet drew it at life size straight over four of its neighbours.
+    version of this sheet drew it at life size straight over four of its neighbors.
     """
     biggest = max(art.width, art.height)
     if biggest * BLOWN_UP <= room:

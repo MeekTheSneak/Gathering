@@ -20,7 +20,7 @@ import java.util.UUID;
  *                 not by printing - four Lightning Bolts is four Bolts however they were
  *                 printed, and a commander deck is singleton by this and not by that
  * @param manaValue what the curve is drawn from
- * @param colorIdentity what a commander's colour identity is checked against
+ * @param colorIdentity what a commander's color identity is checked against
  */
 public record BuildCard(
         UUID printing,

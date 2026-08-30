@@ -175,7 +175,7 @@ class Build:
 def stair_facing(x, z, west, east, north, south):
     """Which way a roof stair on this ring points, taken from vanilla's own.
 
-    Every stair faces in towards the ridge, and the four corners are outer pieces. The corner
+    Every stair faces in toward the ridge, and the four corners are outer pieces. The corner
     shapes are the ones `plains_small_house_1` uses, rather than reasoned out, because a roof
     with one corner turned the wrong way is a roof somebody has to notice.
     """

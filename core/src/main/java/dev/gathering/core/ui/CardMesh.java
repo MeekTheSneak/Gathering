@@ -30,7 +30,7 @@ public final class CardMesh {
     /**
      * How big the corner cut is, as a share of the card's width.
      *
-     * <p>A Magic card is 63 by 88 millimetres with a corner radius of about three, which is
+     * <p>A Magic card is 63 by 88 millimeters with a corner radius of about three, which is
      * this. Taken off the width and converted for the height by the caller's aspect, so the
      * cut is a circle rather than an ellipse - a rounded corner that is wider than it is tall
      * is the thing that makes a shape look like a button instead of a card.

@@ -303,11 +303,11 @@ public final class TableCameraView {
     /**
      * The same, keeping whatever is under the cursor under the cursor.
      *
-     * <p>This used to just lower the eye towards the middle of the view, on the reasoning
-     * that leaning towards a table is what moving your head does. Looking at the pictures
+     * <p>This used to just lower the eye toward the middle of the view, on the reasoning
+     * that leaning toward a table is what moving your head does. Looking at the pictures
      * said otherwise: six notches in from the opening framing gave a screen of bare felt,
      * because what the player was pointing at slid out of the frame while they zoomed
-     * towards a spot that happened to be empty. Leaning towards a table is leaning towards
+     * toward a spot that happened to be empty. Leaning toward a table is leaning toward
      * the thing you are looking at, and the seated board has anchored its wheel to the
      * cursor since it had one.
      *
@@ -413,7 +413,7 @@ public final class TableCameraView {
      * whose own head is directly under the camera.
      *
      * <p>Players only. The board itself is drawn by the table's block entity rather than as an
-     * entity, and item frames, armour stands and everything else somebody has arranged around
+     * entity, and item frames, armor stands and everything else somebody has arranged around
      * their table are part of the room they built - hiding those would be tidying up after
      * them. A player is the only thing here that is in the way rather than in the scene.
      *
