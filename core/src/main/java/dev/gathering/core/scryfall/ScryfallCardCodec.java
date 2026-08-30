@@ -8,6 +8,7 @@ import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.card.ImageUris;
 import dev.gathering.core.card.Legality;
 import dev.gathering.core.card.Rarity;
+import dev.gathering.core.card.RelatedCard;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -67,7 +68,8 @@ public final class ScryfallCardCodec {
                 stringList(json, "games"),
                 parseLegalities(json),
                 parsePrices(json),
-                string(json, "scryfall_uri")));
+                string(json, "scryfall_uri"),
+                parseRelated(json)));
     }
 
     /**
@@ -105,6 +107,36 @@ public final class ScryfallCardCodec {
 
     /** A card and the JSON it was read from. */
     public record ParsedCard(CardMetadata metadata, JsonObject raw) {
+    }
+
+    /**
+     * Scryfall's {@code all_parts}, which most cards do not have at all.
+     *
+     * <p>Entries with no id are dropped rather than defaulted: the id is what makes an entry a
+     * card, and a nameless relationship to nothing is not worth a row in a menu.
+     */
+    private static List<RelatedCard> parseRelated(JsonObject json) {
+        JsonArray parts = array(json, "all_parts");
+        if (parts == null) {
+            return List.of();
+        }
+        List<RelatedCard> related = new ArrayList<>();
+        for (JsonElement element : parts) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject part = element.getAsJsonObject();
+            UUID id = uuid(part, "id");
+            if (id == null) {
+                continue;
+            }
+            related.add(new RelatedCard(
+                    id,
+                    string(part, "name"),
+                    string(part, "type_line"),
+                    string(part, "component")));
+        }
+        return related;
     }
 
     private static List<CardFace> parseFaces(JsonObject json) {

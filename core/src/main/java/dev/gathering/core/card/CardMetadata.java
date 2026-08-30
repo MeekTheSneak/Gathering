@@ -21,6 +21,9 @@ import java.util.UUID;
  * @param legalities    format key to status, straight from Scryfall, consumed by the
  *                      pre-game validator only
  * @param colorIdentity the commander color identity check operates on this
+ * @param related       Scryfall's {@code all_parts}: the tokens this card makes, the emblem
+ *                      it gives, the other half of a meld pair. Empty for most cards, and
+ *                      empty for every card cached before the field was read
  */
 public record CardMetadata(
         UUID scryfallId,
@@ -46,7 +49,28 @@ public record CardMetadata(
         List<String> games,
         Map<String, Legality> legalities,
         Map<String, String> prices,
-        String scryfallUri) {
+        String scryfallUri,
+        List<RelatedCard> related) {
+
+    /**
+     * The same printing with nothing related to it.
+     *
+     * <p>{@code all_parts} arrived after everything that builds one of these by hand, and a
+     * card with no tokens is the ordinary case, so the shorter form stays the one most
+     * callers write.
+     */
+    public CardMetadata(
+            UUID scryfallId, UUID oracleId, String name, String manaCost, double cmc,
+            String typeLine, String oracleText, Set<String> colors, Set<String> colorIdentity,
+            List<CardFace> faces, String layout, String setCode, String setName,
+            String collectorNumber, Rarity rarity, boolean reserved, boolean foilAvailable,
+            boolean nonfoilAvailable, boolean digitalOnly, boolean oversized, List<String> games,
+            Map<String, Legality> legalities, Map<String, String> prices, String scryfallUri) {
+        this(scryfallId, oracleId, name, manaCost, cmc, typeLine, oracleText, colors,
+                colorIdentity, faces, layout, setCode, setName, collectorNumber, rarity,
+                reserved, foilAvailable, nonfoilAvailable, digitalOnly, oversized, games,
+                legalities, prices, scryfallUri, List.of());
+    }
 
     public CardMetadata {
         colors = colors == null ? Set.of() : Set.copyOf(colors);
@@ -55,6 +79,25 @@ public record CardMetadata(
         games = games == null ? List.of() : List.copyOf(games);
         legalities = legalities == null ? Map.of() : Map.copyOf(legalities);
         prices = prices == null ? Map.of() : Collections.unmodifiableMap(new java.util.HashMap<>(prices));
+        related = related == null ? List.of() : List.copyOf(related);
+    }
+
+    /**
+     * The tokens and emblems this card makes, named once each, in Scryfall's order.
+     *
+     * <p>Names rather than ids, because that is what the token search takes and what a player
+     * would otherwise have typed. Deduplicated because a card that makes two Thrulls lists
+     * the Thrull once per printing it could use, and a menu with the same row twice reads as
+     * a bug.
+     */
+    public List<String> tokensMade() {
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        for (RelatedCard part : related) {
+            if (part.isMade() && !part.name().isBlank() && !part.id().equals(scryfallId)) {
+                names.add(part.name());
+            }
+        }
+        return List.copyOf(names);
     }
 
     /** The face the table shows by default, and the one the overlay opens on. */

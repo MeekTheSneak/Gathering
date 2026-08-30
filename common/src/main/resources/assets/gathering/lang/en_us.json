@@ -155,6 +155,7 @@
   "menu.gathering.table.cascade": "Cascade...",
   "menu.gathering.table.concede": "Concede",
   "menu.gathering.table.copy": "Make a token copy",
+  "menu.gathering.table.make_this_token": "Make a %s",
   "menu.gathering.table.counters": "Counters...",
   "menu.gathering.table.detach": "Detach",
   "menu.gathering.table.discard_at_random": "Discard at random...",

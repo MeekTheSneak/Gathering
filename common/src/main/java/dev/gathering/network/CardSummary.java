@@ -27,7 +27,19 @@ import net.minecraft.network.codec.StreamCodec;
  */
 public record CardSummary(
         UUID scryfallId, UUID oracleId, CardFaceSummary front, Optional<CardFaceSummary> back,
-        Rarity rarity, double manaValue, Set<String> colorIdentity) {
+        Rarity rarity, double manaValue, Set<String> colorIdentity, List<String> makes) {
+
+    /**
+     * The same card with nothing listed under it.
+     *
+     * <p>Most printings make no token, and every test that builds a summary by hand predates
+     * the field, so the shorter form stays the one most callers write.
+     */
+    public CardSummary(
+            UUID scryfallId, UUID oracleId, CardFaceSummary front, Optional<CardFaceSummary> back,
+            Rarity rarity, double manaValue, Set<String> colorIdentity) {
+        this(scryfallId, oracleId, front, back, rarity, manaValue, colorIdentity, List.of());
+    }
 
     /**
      * How a rarity crosses the wire, written once.
@@ -52,9 +64,20 @@ public record CardSummary(
     private static final int LONGEST_COLOR = 8;
 
     /**
+     * How many tokens one card is allowed to say it makes.
+     *
+     * <p>The real maximum on a printed card is small; this is the wire's limit, not Magic's,
+     * and it exists because the count is read off a socket before anything is allocated.
+     */
+    public static final int MOST_TOKENS = 16;
+
+    /** A card name's ceiling, matched to what the token search will accept. */
+    private static final int LONGEST_TOKEN_NAME = 128;
+
+    /**
      * Written out by hand rather than composed, for the reason {@link CardFaceSummary}'s is.
      *
-     * <p>Seven components and {@link StreamCodec#composite} stops at six. The order below is
+     * <p>Eight components and {@link StreamCodec#composite} stops at six. The order below is
      * the record's own, top to bottom, which is the only thing to keep right.
      */
     public static final StreamCodec<RegistryFriendlyByteBuf, CardSummary> STREAM_CODEC =
@@ -69,6 +92,8 @@ public record CardSummary(
                         buffer.writeDouble(card.manaValue());
                         buffer.writeVarInt(card.colorIdentity().size());
                         card.colorIdentity().forEach(buffer::writeUtf);
+                        buffer.writeVarInt(card.makes().size());
+                        card.makes().forEach(name -> buffer.writeUtf(name, LONGEST_TOKEN_NAME));
                     },
                     buffer -> {
                         UUID printing = UUIDUtil.STREAM_CODEC.decode(buffer);
@@ -86,8 +111,13 @@ public record CardSummary(
                         for (int index = 0; index < colors; index++) {
                             identity.add(buffer.readUtf(LONGEST_COLOR));
                         }
+                        int tokens = Math.min(buffer.readVarInt(), MOST_TOKENS);
+                        List<String> makes = new java.util.ArrayList<>();
+                        for (int index = 0; index < tokens; index++) {
+                            makes.add(buffer.readUtf(LONGEST_TOKEN_NAME));
+                        }
                         return new CardSummary(
-                                printing, oracle, front, back, rarity, manaValue, identity);
+                                printing, oracle, front, back, rarity, manaValue, identity, makes);
                     });
 
     public CardSummary {
@@ -98,6 +128,11 @@ public record CardSummary(
         colorIdentity = colorIdentity == null
                 ? Set.of()
                 : java.util.Collections.unmodifiableSet(new java.util.LinkedHashSet<>(colorIdentity));
+        // Trimmed here rather than at the menu, so a printing that lists thirty tokens cannot
+        // encode a packet the far side then refuses to read back.
+        makes = makes == null
+                ? List.of()
+                : List.copyOf(makes.subList(0, Math.min(makes.size(), MOST_TOKENS)));
     }
 
     public static final StreamCodec<RegistryFriendlyByteBuf, List<CardSummary>> LIST_STREAM_CODEC =
@@ -122,7 +157,8 @@ public record CardSummary(
                     Optional.empty(),
                     card.rarity(),
                     card.cmc(),
-                    card.colorIdentity());
+                    card.colorIdentity(),
+                    card.tokensMade());
         }
         return new CardSummary(
                 card.scryfallId(),
@@ -131,7 +167,8 @@ public record CardSummary(
                 faces.size() > 1 ? Optional.of(CardFaceSummary.of(faces.get(1))) : Optional.empty(),
                 card.rarity(),
                 card.cmc(),
-                card.colorIdentity());
+                card.colorIdentity(),
+                card.tokensMade());
     }
 
     public String name() {

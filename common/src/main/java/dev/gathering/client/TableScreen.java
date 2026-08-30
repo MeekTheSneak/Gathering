@@ -3598,6 +3598,16 @@ public final class TableScreen extends Screen {
             }
             entries.add(entry("copy", () -> eachTarget(board, targets, target ->
                     new GameEvent.TokenCopyCreated(me, target, me))));
+            // The tokens this card actually makes, named on the card's own menu. Scryfall
+            // knows them from all_parts, so a Thrull is one press rather than a screen, a
+            // guess at the spelling and a lookup that comes back with nothing. One press is
+            // one token: a card that makes two wants the row twice, which is still fewer
+            // steps than typing the name once.
+            for (String token : tokensMadeBy(card)) {
+                entries.add(ContextMenu.Entry.of(
+                        Component.translatable("menu.gathering.table.make_this_token", token),
+                        () -> ClientNetworking.send(new CreateTokenPayload(table, token, 1))));
+            }
             if (card.token()) {
                 entries.add(entry("remove_token", () -> eachCard(board, targets, seen ->
                         seen.token() ? new GameEvent.TokenRemoved(me, seen.id()) : null)));
@@ -5156,6 +5166,18 @@ public final class TableScreen extends Screen {
     /** The angle a card was left at, ignoring whatever tapping is doing on top of it. */
     private static int restingAngle(CardView card) {
         return card.placedAt().map(TablePosition::rotation).orElse(0);
+    }
+
+    /**
+     * The tokens and emblems this card makes, if the client has been told what the card is.
+     *
+     * <p>Off the summary the server already sent, so this costs nothing and asks nobody: a
+     * card whose metadata has not arrived yet simply offers no token rows, the same way it
+     * draws no name. The server does the lookup when a row is pressed, so what ends up on the
+     * table is still a real printing rather than a name a client chose.
+     */
+    private List<String> tokensMadeBy(CardView card) {
+        return summaryOf(card).map(CardSummary::makes).orElse(List.of());
     }
 
     /** What this client knows about the card, which for an anonymous one is nothing at all. */

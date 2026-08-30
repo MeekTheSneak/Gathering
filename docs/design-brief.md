@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.74
+## Design Brief v1.75
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -139,7 +139,7 @@ Card verbs: draw, play to battlefield, move (drop anywhere on any seat's region,
 
 Pile verbs: shuffle (server-side, seeded, announced in log), search, scry N / surveil N (owner-only look with reorder and bin to top/bottom/graveyard), **mill N**, **reveal top N to the whole table**, draw opening hand, mulligan. Looking through a library is state the log owns, not a screen: a search or a scry opens that library to exactly one seat until something closes it, and a reveal opens it to everyone including spectators.
 
-Counter and token verbs, kept in core because the reference deck demands them: **named counters on cards** - loyalty (Tevesh Szat is a planeswalker and cannot be played without them), +1/+1, -1/-1, and anything a player cares to name - create token via Scryfall token search (his +2 makes two Thrulls per activation), create copy-token of an existing card.
+Counter and token verbs, kept in core because the reference deck demands them: **named counters on cards** - loyalty (Tevesh Szat is a planeswalker and cannot be played without them), +1/+1, -1/-1, and anything a player cares to name - create token via Scryfall token search (his +2 makes two Thrulls per activation), create copy-token of an existing card. **A card names the tokens it prints**: Scryfall publishes what each printing makes, so the card's own menu offers those rows by name and a Thrull is one press rather than a screen, a spelling and a lookup a typo turns into nothing. Emblems count, meld results do not - melding moves cards somebody already owns.
 
 Player verbs: life total (40 in the Commander preset), commander damage grid, **named counters beside a seat** (poison, energy, experience, and anything else), concede, end session. Command zone with commander tax tracking as a displayed number, not an enforcement.
 

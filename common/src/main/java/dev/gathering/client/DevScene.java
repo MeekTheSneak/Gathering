@@ -88,6 +88,18 @@ public final class DevScene {
     private static final String LEVEL = "GatheringDevScene";
 
     /**
+     * A card whose printing names a token, and the token it names.
+     *
+     * <p>Both sides of the pair are here rather than only the card, because the row under
+     * test is labeled with the token's name: reading it back off the card's metadata would
+     * check the menu against itself.
+     */
+    private static final String MAKES_A_TOKEN = "Krenko, Mob Boss";
+
+    /** What {@link #MAKES_A_TOKEN} prints, and so what its row has to be called. */
+    private static final String THE_TOKEN_IT_MAKES = "Goblin";
+
+    /**
      * A deck small enough to import quickly and varied enough to look at.
      *
      * <p>Real cards, fetched from Scryfall like any other deck, because the whole point of
@@ -151,7 +163,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 253;
+    private static final int LAST_STEP = 257;
 
     private static int step;
     private static int waited;
@@ -1926,7 +1938,54 @@ public final class DevScene {
                 shoot(client, "54i-loyalty-on-the-card");
                 advance(SETTLE / 2);
             }
+            // The tokens a card prints, on the card's own menu. Scryfall knows what a card
+            // makes; before this, making a Goblin meant opening a screen, spelling "Goblin"
+            // and waiting on a lookup that a typo turned into nothing at all.
             case 175 -> {
+                playTheCardThatMakesAToken(client);
+                advance(SETTLE * 2);
+            }
+            case 176 -> {
+                if (maker == null || findOnTheBattlefield(maker).isEmpty()) {
+                    fail("the card that makes " + THE_TOKEN_IT_MAKES
+                            + "s never reached the battlefield");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                // Opened here and pressed a step later, so the picture is of a menu that
+                // exists rather than of the frame before it did.
+                if (openTheCardMenuOn(client, maker, "Make a " + THE_TOKEN_IT_MAKES) == null) {
+                    fail(MAKES_A_TOKEN + " prints a " + THE_TOKEN_IT_MAKES
+                            + " and its menu offers no way to make one");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                advance(SETTLE / 2);
+            }
+            case 177 -> {
+                shoot(client, "54j-the-token-this-card-makes");
+                onTheBattlefieldBeforeTheToken = countIn(Zone.BATTLEFIELD);
+                if (!(client.screen instanceof TableScreen board)
+                        || !board.pressMenuEntry("Make a " + THE_TOKEN_IT_MAKES)) {
+                    fail("the card's menu lost its token row between opening and pressing");
+                }
+                // Long enough for the row to go to the server, the server to look the token
+                // up and the board to come back: this one really does leave the machine.
+                advance(SETTLE * 4);
+            }
+            case 178 -> {
+                int now = countIn(Zone.BATTLEFIELD);
+                if (now != onTheBattlefieldBeforeTheToken + 1) {
+                    fail("a " + THE_TOKEN_IT_MAKES + " was asked for and the battlefield went "
+                            + "from " + onTheBattlefieldBeforeTheToken + " to " + now);
+                    advance(SETTLE / 2);
+                    return;
+                }
+                System.out.println("[devscene] a card makes the token it prints, off its own menu");
+                lookAwayFromTheCards(client);
+                advance(SETTLE);
+            }
+            case 179 -> {
                 // The pen itself. Everything written on a card so far in this run has been
                 // written by sending the event, which proves the card carries it and proves
                 // nothing at all about the screen a player actually types it into - and that
@@ -1935,7 +1994,7 @@ public final class DevScene {
                         ClientTableState.seatAt(table).orElseThrow(), loyal, "5/5"));
                 advance(SETTLE);
             }
-            case 176 -> {
+            case 180 -> {
                 if (!"5/5".equals(strengthOn(loyal))) {
                     fail("5/5 was written and the card says " + strengthOn(loyal));
                     advance(SETTLE / 2);
@@ -1944,14 +2003,14 @@ public final class DevScene {
                 openTheCardMenu(client, "Set power/toughness...");
                 advance(SETTLE / 2);
             }
-            case 177 -> {
+            case 181 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.strength").getString())) {
                     fail("the card's menu offers no way to set power and toughness");
                 }
                 advance(SETTLE);
             }
-            case 178 -> {
+            case 182 -> {
                 expectScreen(client, "the pen for power and toughness", NoteScreen.class);
                 shoot(client, "54j-the-pen");
                 // The other half of writing something is rubbing it out, and it has its own
@@ -1960,7 +2019,7 @@ public final class DevScene {
                 press(client, "Use printed");
                 advance(SETTLE);
             }
-            case 179 -> {
+            case 183 -> {
                 expectScreen(client, "back from the pen", TableScreen.class);
                 if (strengthOn(loyal) != null) {
                     fail("the pen was put down and the card still says " + strengthOn(loyal));
@@ -1970,7 +2029,7 @@ public final class DevScene {
                 System.out.println("[devscene] the pen writes numbers on a card and rubs them out");
                 advance(SETTLE / 2);
             }
-            case 180 -> {
+            case 184 -> {
                 // The user's report: "the actual table version is riddled with issues such as
                 // flipping cards doesn't work". Right-clicking a card on the block had never
                 // been in the run - the drag had, the buttons had, the menu had not.
@@ -1979,7 +2038,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 181 -> {
+            case 185 -> {
                 if (!(client.screen instanceof TableScreen board)
                         || !(board.board() instanceof dev.gathering.core.ui.SurfaceBoard)) {
                     fail("pressing V did not put the board on the block");
@@ -1992,7 +2051,7 @@ public final class DevScene {
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
-            case 182 -> {
+            case 186 -> {
                 if (!(client.screen instanceof TableScreen board)) {
                     fail("the board went away before a card could be right-clicked on it");
                     advance(SETTLE / 2);
@@ -2020,7 +2079,7 @@ public final class DevScene {
                 System.out.println("[devscene] turned a card face down from its menu on the block");
                 advance(SETTLE);
             }
-            case 183 -> {
+            case 187 -> {
                 int now = howManyAreFaceDown();
                 if (now != faceDownWas + 1) {
                     fail("turning a card face down on the block left " + now
@@ -2031,7 +2090,7 @@ public final class DevScene {
                 shoot(client, "55-flipped-on-the-block");
                 advance(SETTLE / 2);
             }
-            case 184 -> {
+            case 188 -> {
                 // The written card, put in the graveyard and read back through the pile
                 // screen. A card looked at through one screen and lying on the felt in
                 // another has to be the same card.
@@ -2044,11 +2103,11 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 185 -> {
+            case 189 -> {
                 clickAZone(client, Zone.PILES.indexOf(Zone.GRAVEYARD), 0);
                 advance(SETTLE);
             }
-            case 186 -> {
+            case 190 -> {
                 expectScreen(client, "a graveyard holding a written card", PileScreen.class);
                 if (!theGraveyardHoldsTheWrittenCard()) {
                     fail("the card written on is not in the graveyard the screen opened");
@@ -2061,7 +2120,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 187 -> {
+            case 191 -> {
                 // "Many of the elements of the table gui phase in and out as you scroll in
                 // and out." Photographed at four heights rather than reasoned about: whatever
                 // comes and goes has to be visible in the pictures side by side.
@@ -2070,7 +2129,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 188 -> {
+            case 192 -> {
                 expectScreen(client, "the board on the block to zoom", TableScreen.class);
                 // Aimed at the graveyard rather than at the middle of the window, because
                 // the middle is where the camera already is: a wheel that ignored the cursor
@@ -2080,7 +2139,7 @@ public final class DevScene {
                 scrollTheBoard(client, 6);
                 advance(SETTLE / 2);
             }
-            case 189 -> {
+            case 193 -> {
                 theWheelHeldItsPlace("after leaning all the way in");
                 shoot(client, "57-zoom-1-closest");
                 // Dragged here as well as at the whole-table framing, because how many blocks
@@ -2090,29 +2149,29 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 190 -> {
+            case 194 -> {
                 theBoardFollowedTheHand("dragged while leaning all the way in");
                 dragTheBoard(client, 0, -PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 191 -> {
+            case 195 -> {
                 theBoardFollowedTheHand("dragged back again");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 192 -> {
+            case 196 -> {
                 theWheelHeldItsPlace("two notches back out");
                 shoot(client, "57-zoom-2");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 193 -> {
+            case 197 -> {
                 theWheelHeldItsPlace("four notches back out");
                 shoot(client, "57-zoom-3");
                 scrollTheBoard(client, -2);
                 advance(SETTLE / 2);
             }
-            case 194 -> {
+            case 198 -> {
                 theWheelHeldItsPlace("all the way back out");
                 shoot(client, "57-zoom-4-furthest");
                 // And the same key the seated board has for it, on the block. Shot 26 is the
@@ -2125,7 +2184,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 195 -> {
+            case 199 -> {
                 expectScreen(client, "the whole table on the block", TableScreen.class);
                 System.out.println("[devscene] camera: " + TableCameraView.report());
                 theBlockFramesLikeTheScreen(client);
@@ -2136,12 +2195,12 @@ public final class DevScene {
                 dragTheBoard(client, 0, PAN_BY);
                 advance(SETTLE / 2);
             }
-            case 196 -> {
+            case 200 -> {
                 theBoardFollowedTheHand("dragged down the whole-table view");
                 dragTheBoard(client, PAN_BY, 0);
                 advance(SETTLE / 2);
             }
-            case 197 -> {
+            case 201 -> {
                 theBoardFollowedTheHand("dragged across it");
                 shoot(client, "59-the-board-panned");
                 // Dyed with the board still open and nothing else touching the world, which
@@ -2152,7 +2211,7 @@ public final class DevScene {
                 dyeTheTable(client);
                 advance(SETTLE);
             }
-            case 198 -> {
+            case 202 -> {
                 shoot(client, "60-the-felt-dyed");
                 // The rest of the family, stood in a row where they can be compared. A
                 // cosmetic table that is the wooden one with a different texture is a recolor
@@ -2161,36 +2220,36 @@ public final class DevScene {
                 standTheOtherTablesUp(client);
                 advance(SETTLE);
             }
-            case 199 -> {
+            case 203 -> {
                 lookAtTheOtherTables(client);
                 advance(SETTLE);
             }
-            case 200 -> {
+            case 204 -> {
                 shoot(client, "61-a-table-in-every-material");
                 advance(SETTLE / 2);
             }
-            case 201 -> {
+            case 205 -> {
                 // Back to the board for the two verbs the server decides. A die nobody else
                 // watched is a claim, so what matters is that the number reaches the log where
                 // the whole table reads it - which is what the last picture is of.
                 backToTheBoard(client);
                 advance(SETTLE);
             }
-            case 202 -> {
+            case 206 -> {
                 openTheDiceQuestion(client);
                 advance(SETTLE / 2);
             }
-            case 203 -> {
+            case 207 -> {
                 expectScreen(client, "asking which die", ChoiceScreen.class);
                 shoot(client, "62-which-die");
                 press(client, "d20");
                 advance(SETTLE);
             }
-            case 204 -> {
+            case 208 -> {
                 flipACoin(client);
                 advance(SETTLE);
             }
-            case 205 -> {
+            case 209 -> {
                 if (!logSays(client, "rolled a d20")) {
                     fail("a d20 was rolled and the log does not say so");
                 }
@@ -2211,7 +2270,7 @@ public final class DevScene {
                 openTheLog(client);
                 advance(SETTLE);
             }
-            case 206 -> {
+            case 210 -> {
                 shoot(client, "63-a-roll-and-a-flip-in-the-log");
                 // The log is over the board from here on, and the next thing to look at is
                 // the board. Closed rather than left up, because a picture of an emblem with
@@ -2219,55 +2278,55 @@ public final class DevScene {
                 openTheLog(client);
                 advance(SETTLE / 2);
             }
-            case 207 -> {
+            case 211 -> {
                 // Blank stock: the mod's answer to every table state it has no feature for.
                 // Worth photographing rather than only asserting, because the whole of what
                 // an emblem is is how it looks - there is no art to fall back on.
                 openThePaperQuestion(client, "make_emblem", "an emblem");
                 advance(SETTLE / 2);
             }
-            case 208 -> {
+            case 212 -> {
                 expectScreen(client, "asking what the emblem says", TextPromptScreen.class);
                 shoot(client, "64-what-does-the-emblem-say");
                 typeInto(client, "Creatures you control get +1/+1");
                 press(client, "OK");
                 advance(SETTLE);
             }
-            case 209 -> {
+            case 213 -> {
                 if (!logSays(client, "Creatures you control get +1/+1")) {
                     fail("an emblem was made and the log does not say what it says");
                 }
                 openThePaperQuestion(client, "note_card", "a blank card");
                 advance(SETTLE / 2);
             }
-            case 210 -> {
+            case 214 -> {
                 expectScreen(client, "asking what the blank card says", TextPromptScreen.class);
                 typeInto(client, "Dev has the monarch");
                 press(client, "OK");
                 advance(SETTLE);
             }
-            case 211 -> {
+            case 215 -> {
                 if (!logSays(client, "Dev has the monarch")) {
                     fail("a blank card was written and the log does not say what it says");
                 }
                 shoot(client, "65-an-emblem-and-a-written-card");
                 advance(SETTLE / 2);
             }
-            case 212 -> {
+            case 216 -> {
                 // Turning your hand round. The one feature that deliberately opens a hidden
                 // zone, so the picture is worth as much as the assertion: what has to be true
                 // is that the player doing it can see, on their own screen, that it is open.
                 openTheHandQuestion(client);
                 advance(SETTLE / 2);
             }
-            case 213 -> {
+            case 217 -> {
                 expectScreen(client, "asking who can see my hand", ChoiceScreen.class);
                 shoot(client, "66-who-can-see-my-hand");
                 press(client, net.minecraft.network.chat.Component
                         .translatable("screen.gathering.hand.everybody").getString());
                 advance(SETTLE);
             }
-            case 214 -> {
+            case 218 -> {
                 if (!logSays(client, "face up to the table")) {
                     fail("a hand was turned face up and the log does not say so");
                 }
@@ -2275,7 +2334,7 @@ public final class DevScene {
                 takeMyHandBack(client);
                 advance(SETTLE);
             }
-            case 215 -> {
+            case 219 -> {
                 if (!logSays(client, "took their hand back")) {
                     fail("a hand was taken back and the log does not say so");
                 }
@@ -2285,21 +2344,21 @@ public final class DevScene {
                 sayToTheTable(client, "attacking you with everything");
                 advance(SETTLE);
             }
-            case 216 -> {
+            case 220 -> {
                 if (theTableHasNotHeard(client, "attacking you with everything")) {
                     fail("something was said to the table and the table did not hear it");
                 }
                 shoot(client, "68-said-at-the-table");
                 advance(SETTLE / 2);
             }
-            case 217 -> {
+            case 221 -> {
                 // A dungeon starts outside the game, so something has to bring it in. Only
                 // the question is photographed: the card itself is a Scryfall lookup and this
                 // run has no network, exactly like the token search two hundred steps back.
                 pressTableEntry(client, "bring_in_dungeon", "bring in a dungeon");
                 advance(SETTLE / 2);
             }
-            case 218 -> {
+            case 222 -> {
                 expectScreen(client, "asking which dungeon", ChoiceScreen.class);
                 shoot(client, "69-which-dungeon");
                 if (client.screen != null) {
@@ -2307,7 +2366,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 219 -> {
+            case 223 -> {
                 // Out of the board and into the world, holding a foil, to look at the one
                 // thing in the mod that is drawn rather than fetched. There is no foil scan
                 // on Scryfall and never will be: a foil is the same picture doing something
@@ -2316,7 +2375,7 @@ public final class DevScene {
                 holdAFoil(client);
                 advance(SETTLE);
             }
-            case 220 -> {
+            case 224 -> {
                 if (theresNoCardInHand(client)) {
                     fail("nothing ended up in hand to read");
                 }
@@ -2327,7 +2386,7 @@ public final class DevScene {
                 CardZoomOverlay.bindKeyState(() -> true);
                 advance(SETTLE);
             }
-            case 221 -> {
+            case 225 -> {
                 shoot(client, "70-reading-a-foil");
                 // Turned both ways, so the three pictures are one card with the light in
                 // three places. A sheen that looked identical in all of them would be a sheen
@@ -2337,7 +2396,7 @@ public final class DevScene {
                 turnTheHead(client, 20f);
                 advance(SETTLE);
             }
-            case 222 -> {
+            case 226 -> {
                 if (CardTilt.yaw() < 1f) {
                     fail("the head turned one way and the card did not: yaw " + CardTilt.yaw());
                 }
@@ -2349,7 +2408,7 @@ public final class DevScene {
                 tipTheHead(client, 18f);
                 advance(SETTLE);
             }
-            case 223 -> {
+            case 227 -> {
                 if (CardTilt.yaw() > -1f) {
                     fail("the head turned back and the card did not: yaw " + CardTilt.yaw());
                 }
@@ -2364,7 +2423,7 @@ public final class DevScene {
                 backToTheBoard(client);
                 advance(SETTLE);
             }
-            case 224 -> {
+            case 228 -> {
                 // The planar die, which is not a d6: four blanks, a chaos and a planeswalk.
                 // Rolled through the same door every other die goes through, so what is being
                 // checked is that the face reaches the log at all - a symbol only the roller
@@ -2372,14 +2431,14 @@ public final class DevScene {
                 rollThePlanarDie(client);
                 advance(SETTLE);
             }
-            case 225 -> {
+            case 229 -> {
                 if (!logSays(client, "planar die")) {
                     fail("the planar die was rolled and the log does not say so");
                 }
                 openTheCollection(client);
                 advance(SETTLE);
             }
-            case 226 -> {
+            case 230 -> {
                 expectScreen(client, "opening a collection to count its sets", CollectionScreen.class);
                 // Pressed rather than assumed, like every other button on this screen: one
                 // that fits on a wide window and hides under its neighbor on a narrow one is
@@ -2393,13 +2452,13 @@ public final class DevScene {
                 howMuchOfEachSet(client);
                 advance(SETTLE);
             }
-            case 227 -> {
+            case 231 -> {
                 expectScreen(client, "how much of each set is here", SetProgressScreen.class);
                 shoot(client, "73-how-much-of-each-set");
                 hover(client, new int[] {client.getWindow().getGuiScaledWidth() / 2, SET_ROW_Y});
                 advance(SETTLE / 2);
             }
-            case 228 -> {
+            case 232 -> {
                 // Pressing a set takes the collection down to it. Without that the screen
                 // shows you where you are and then makes you go and find it again.
                 //
@@ -2421,7 +2480,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 229 -> {
+            case 233 -> {
                 expectScreen(client, "the cards a set is still missing", MissingCardsScreen.class);
                 shoot(client, "74-what-is-still-missing");
                 if (client.screen instanceof MissingCardsScreen missing && missing.total() == 0) {
@@ -2432,7 +2491,7 @@ public final class DevScene {
                 wantACardFromTheList(client);
                 advance(SETTLE);
             }
-            case 230 -> {
+            case 234 -> {
                 theWantedCardCameBack(client);
                 shoot(client, "74a-one-i-am-after");
                 // Back to the set list, which is where a sub-screen of it goes.
@@ -2441,7 +2500,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 231 -> {
+            case 235 -> {
                 expectScreen(client, "back on the set list", SetProgressScreen.class);
                 // The other half of the row: right for what you have rather than what you
                 // do not. Both halves are pressed, because a row that answers two questions
@@ -2452,7 +2511,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 232 -> {
+            case 236 -> {
                 expectScreen(client, "back in the collection, filtered", CollectionScreen.class);
                 if (client.screen instanceof CollectionScreen collection
                         && !pressedSet.equals(collection.query().setCode())) {
@@ -2466,27 +2525,27 @@ public final class DevScene {
             // change here is: a picture is taken of the frame that has already been drawn, so
             // a step that changes something and photographs it in the same breath photographs
             // what was there before. Three looks came out labeled as each other.
-            case 233 -> {
+            case 237 -> {
                 wearTheLook(client, "gathering:slate");
                 advance(SETTLE / 2);
             }
-            case 234 -> {
+            case 238 -> {
                 shoot(client, "75-the-slate-look");
                 wearTheLook(client, "gathering:walnut");
                 advance(SETTLE / 2);
             }
-            case 235 -> {
+            case 239 -> {
                 shoot(client, "76-the-walnut-look");
                 wearTheLook(client, "gathering:felt");
                 advance(SETTLE / 2);
             }
-            case 236 -> {
+            case 240 -> {
                 shoot(client, "77-back-to-the-felt");
                 client.setScreen(new net.minecraft.client.gui.screens.options.VideoSettingsScreen(
                         client.screen, client, client.options));
                 advance(SETTLE);
             }
-            case 237 -> {
+            case 241 -> {
                 expectScreen(client, "opening the game's video settings",
                         net.minecraft.client.gui.screens.options.VideoSettingsScreen.class);
                 // Scrolled to where the row actually is, which is the foot of the list: mod
@@ -2495,7 +2554,7 @@ public final class DevScene {
                 scrollToTheFoot(client);
                 advance(SETTLE / 2);
             }
-            case 238 -> {
+            case 242 -> {
                 shoot(client, "78-the-look-in-video-settings");
                 // Pressed rather than assumed. This row is put into a list vanilla built, and
                 // a mod that adds a widget to somebody else's screen finds out it has stopped
@@ -2503,7 +2562,7 @@ public final class DevScene {
                 pressTheLookRow(client);
                 advance(SETTLE);
             }
-            case 239 -> {
+            case 243 -> {
                 if (GuiThemes.active().id().toString().equals("gathering:felt")) {
                     fail("the look row in video settings was pressed and the look did not change");
                 }
@@ -2514,11 +2573,11 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 240 -> {
+            case 244 -> {
                 aCardWithAHistoryInHand(client);
                 advance(SETTLE);
             }
-            case 241 -> {
+            case 245 -> {
                 if (!CardZoomOverlay.isActive()) {
                     fail("the read-a-card overlay did not come up over a card with a history");
                 }
@@ -2533,28 +2592,28 @@ public final class DevScene {
             // More named counters on one card than the panel has room for. The seventh used
             // to be drawn nowhere and given no buttons, so a player who had put one on could
             // not see it, change it, or take it off.
-            case 242 -> {
+            case 246 -> {
                 aCardCoveredInCounters(client);
                 advance(SETTLE * 2);
             }
-            case 243 -> {
+            case 247 -> {
                 expectScreen(client, "a card with more counters than fit", CountersScreen.class);
                 everyCounterIsReachable(client);
                 shoot(client, "85-more-counters-than-fit");
                 advance(SETTLE / 2);
             }
-            case 244 -> {
+            case 248 -> {
                 shoot(client, "85a-scrolled-to-the-last-counter");
                 if (client.screen != null) {
                     client.screen.onClose();
                 }
                 advance(SETTLE / 2);
             }
-            case 245 -> {
+            case 249 -> {
                 aGameWorthWatchingBack(client);
                 advance(SETTLE * 2);
             }
-            case 246 -> {
+            case 250 -> {
                 expectScreen(client, "the list of finished games", ReplayListScreen.class);
                 if (client.screen instanceof ReplayListScreen replays && replays.listed() < 1) {
                     fail("a game was played out and ended, and the shelf came back empty");
@@ -2563,14 +2622,14 @@ public final class DevScene {
                 watchTheNewestGame(client);
                 advance(SETTLE * 2);
             }
-            case 247 -> {
+            case 251 -> {
                 expectAReplay(client, "watching the game back");
                 // Wound to the end, which is the board as the table was cleared - and the one
                 // frame where a hand full of cards proves the disclosure works.
                 ClientReplay.scrubTo(ClientReplay.steps());
                 advance(SETTLE * 2);
             }
-            case 248 -> {
+            case 252 -> {
                 expectAReplay(client, "wound to the end of the game");
                 aReplayShowsWhatWasHidden(client);
                 shoot(client, "82-the-whole-game-back");
@@ -2579,7 +2638,7 @@ public final class DevScene {
                 ClientReplay.scrubTo(0);
                 advance(SETTLE * 2);
             }
-            case 249 -> {
+            case 253 -> {
                 expectAReplay(client, "wound back to the start");
                 if (ClientReplay.step() != 0) {
                     fail("the scrubber was dragged home and stopped at step " + ClientReplay.step());
@@ -2591,7 +2650,7 @@ public final class DevScene {
                 aWatcherCannotTouchTheBoard(client);
                 advance(SETTLE);
             }
-            case 250 -> {
+            case 254 -> {
                 expectAReplay(client, "still watching after a watcher tried to play");
                 if (ClientReplay.step() != 0) {
                     fail("a click on the felt of a replay moved the game to step "
@@ -2603,7 +2662,7 @@ public final class DevScene {
                 client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
                 advance(SETTLE / 2);
             }
-            case 251 -> {
+            case 255 -> {
                 shoot(client, "84-what-a-watcher-can-do");
                 if (client.screen != null) {
                     client.screen.onClose();
@@ -2612,11 +2671,11 @@ public final class DevScene {
             }
             // A shelf of decks. The whole reason a box has a color is that this row is
             // otherwise eight identical objects with the name a hover away.
-            case 252 -> {
+            case 256 -> {
                 aShelfOfDecks(client);
                 advance(SETTLE * 2);
             }
-            case 253 -> {
+            case 257 -> {
                 everyDeckIsItsOwnColor(client);
                 shoot(client, "86-a-shelf-of-decks");
                 advance(SETTLE / 2);
@@ -3110,11 +3169,17 @@ public final class DevScene {
 
     /** Right-clicks the loyalty card and answers with the board if the row is there. */
     private static TableScreen openTheCardMenu(Minecraft client, String label) {
+        return openTheCardMenuOn(client, loyal, label);
+    }
+
+    /** The same, on whichever card is being worked on. */
+    private static TableScreen openTheCardMenuOn(
+            Minecraft client, CardInstanceId which, String label) {
         SeatId me = ClientTableState.seatAt(table).orElse(null);
-        if (me == null || loyal == null || !(client.screen instanceof TableScreen board)) {
+        if (me == null || which == null || !(client.screen instanceof TableScreen board)) {
             return null;
         }
-        TablePosition where = findOnTheBattlefield(loyal).flatMap(CardView::placedAt).orElse(null);
+        TablePosition where = findOnTheBattlefield(which).flatMap(CardView::placedAt).orElse(null);
         if (where == null) {
             return null;
         }
@@ -3161,6 +3226,12 @@ public final class DevScene {
 
     /** The card the loyalty steps are working on. */
     private static CardInstanceId loyal;
+
+    /** The card the token-row steps are working on, and what it says it makes. */
+    private static CardInstanceId maker;
+
+    /** How many cards were on the battlefield before a token row was pressed. */
+    private static int onTheBattlefieldBeforeTheToken;
 
     /** What the library held before the number row put something back under it. */
     private static int inTheLibraryBefore;
@@ -7862,6 +7933,63 @@ public final class DevScene {
             }
             DecklistImport.importFor(player, service, DECK);
             System.out.println("[devscene] importing a deck");
+        });
+    }
+
+    /**
+     * Puts a card that prints a token onto the battlefield.
+     *
+     * <p>Looked up by name and put down directly rather than found in the library: the deck
+     * on the table by this point in the run is three cards repeated twenty times, and which
+     * card is on the felt matters here in a way it does not for the loyalty steps - the row
+     * under test is named after what the card prints, so the run has to know what it played.
+     *
+     * <p>It arrives marked as a token, which is what every card the mod brings in from
+     * outside a deck is marked as. That changes nothing about the rows being checked: the
+     * tokens a card offers come off its printing, not off how it got to the table.
+     */
+    private static void playTheCardThatMakesAToken(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            fail("there was no server to put a token-making card on");
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            GameSession session = TableSessions.sessionAt(level, where).orElse(null);
+            CardDataService service = CardDataService.active().orElse(null);
+            ServerPlayer player = server.getPlayerList().getPlayers().stream().findFirst().orElse(null);
+            if (session == null || service == null || player == null) {
+                fail("no session, pipeline or player to put a token-making card down for");
+                return;
+            }
+            SeatId seat = TableSessions.seatIdOf(level, where, player.getUUID()).orElse(null);
+            if (seat == null) {
+                fail("nobody was sitting where the token-making card had to go");
+                return;
+            }
+            var known = service.findByName(MAKES_A_TOKEN).join().orElse(null);
+            if (known == null) {
+                fail("the card pipeline could not find " + MAKES_A_TOKEN);
+                return;
+            }
+            // The client is about to be told to draw a card it has never heard of, and the
+            // whole point of the step is what that card's metadata says - so the summary goes
+            // first, exactly as TokenCreation sends it.
+            dev.gathering.network.Sending.to(player, new dev.gathering.network.CardMetadataPayload(
+                    List.of(dev.gathering.network.CardSummary.of(known))));
+            java.util.List<CardInstanceId> before =
+                    session.state().contents(seat, Zone.BATTLEFIELD);
+            session.submit(new GameEvent.TokenCreated(seat, seat,
+                    dev.gathering.core.card.CardIdentity.ofPrinting(known.scryfallId()), 1));
+            maker = session.state().contents(seat, Zone.BATTLEFIELD).stream()
+                    .filter(id -> !before.contains(id))
+                    .findFirst()
+                    .orElse(null);
+            TableBroadcast.sendToTable(level, where);
+            System.out.println("[devscene] put " + known.name() + " on the table, which prints "
+                    + THE_TOKEN_IT_MAKES + "s");
         });
     }
 
