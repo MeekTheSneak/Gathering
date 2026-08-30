@@ -2320,6 +2320,10 @@ public final class DevScene {
                 if (theresNoCardInHand(client)) {
                     fail("nothing ended up in hand to read");
                 }
+                // The card as it is really held, before anything is opened over it. Reported
+                // as a foil in the hand drawing flat: the sheen existed only in the reading
+                // overlay, so out here it was a picture of a foil rather than a foil.
+                shoot(client, "69a-a-foil-in-the-hand");
                 CardZoomOverlay.bindKeyState(() -> true);
                 advance(SETTLE);
             }
@@ -3512,7 +3516,7 @@ public final class DevScene {
                     + " are below, out of " + CROWDED_COUNTERS);
             return;
         }
-        if (counters.showing(LAST_COUNTER)) {
+        if (counters.isShowing(LAST_COUNTER)) {
             fail("the last counter is on screen before anything was scrolled, so the window "
                     + "is not where it says it is");
             return;
@@ -3523,7 +3527,8 @@ public final class DevScene {
                     client.getWindow().getGuiScaledWidth() / 2.0,
                     client.getWindow().getGuiScaledHeight() / 2.0, 0, -1);
         }
-        if (!(client.screen instanceof CountersScreen scrolled) || !scrolled.showing(LAST_COUNTER)) {
+        if (!(client.screen instanceof CountersScreen scrolled)
+                || !scrolled.isShowing(LAST_COUNTER)) {
             fail("scrolling to the foot of the list still does not show '" + LAST_COUNTER + "'");
             return;
         }

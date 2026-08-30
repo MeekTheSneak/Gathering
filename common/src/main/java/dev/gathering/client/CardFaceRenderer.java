@@ -64,6 +64,12 @@ public final class CardFaceRenderer {
 
         Matrix4f pose = poseStack.last().pose();
         drawFace(buffers, pose, facing, packedLight, HALF_THICKNESS);
+        // A foil in the hand catches the light the same way one being read does. Only over a
+        // printed face: the reverse of every card is its sleeve, and a sleeve is not foil -
+        // nor is the sleeve a card falls back to while its picture is still being fetched.
+        card.filter(CardComponent::foil)
+                .filter(held -> !facing.equals(CARD_BACK))
+                .ifPresent(held -> drawSheen(buffers, pose, held));
         // The reverse is always the sleeve, never the printed face behind it. Think of every
         // card as sleeved: the back of a sleeve is opaque.
         //
@@ -113,6 +119,56 @@ public final class CardFaceRenderer {
                 .flatMap(url -> ClientCardImages.get().texture(url))
                 .orElse(CARD_BACK);
     }
+
+    /**
+     * The holographic layer over a foil's printed face.
+     *
+     * <p>Reported as a foil in the hand rendering as a flat picture. The shine already
+     * existed for a card being read on a screen; what it had no way to know out here is which
+     * way the card is turned, because there is no cursor and there are many cards at once -
+     * a hand, a slot, an item frame across the room. So it is read off the card's own pose:
+     * how far each of its axes has tilted toward the camera is exactly the rake the sheen
+     * wants, per card, with nothing shared between them.
+     *
+     * <p>Untextured translucent quads on the main target, which is what {@code debugQuads}
+     * is - vanilla's name for the state rather than a debugging tool. Drawn just in front of
+     * the face so it lies on the picture rather than fighting it.
+     */
+    private static void drawSheen(MultiBufferSource buffers, Matrix4f pose, CardComponent card) {
+        FoilSheen.paintFlat(
+                buffers.getBuffer(RenderType.debugQuads()), pose,
+                WIDTH / 2f, HEIGHT / 2f, HALF_THICKNESS * SHEEN_LIFT,
+                // The z parts of the card's own axes once posed: zero when an axis lies
+                // across the view, one when it points at the eye. Turning the card, or
+                // walking round it, moves both - which is the whole of what a foil answers to.
+                pose.m20(), pose.m21(),
+                grainOf(card), SHEEN_COLUMNS, SHEEN_ROWS);
+    }
+
+    /**
+     * A number that belongs to this printing, so two foils on a table do not glitter alike.
+     *
+     * <p>The same one the reading screen uses, from the same id, so a card picked up off the
+     * felt has the grain it had a moment ago on the board.
+     */
+    private static long grainOf(CardComponent card) {
+        return card.scryfallId()
+                .map(id -> id.getMostSignificantBits() ^ id.getLeastSignificantBits())
+                .orElseGet(() -> card.customId().map(String::hashCode).orElse(0).longValue());
+    }
+
+    /** How far in front of the face the sheen lies, in half-thicknesses. Enough not to fight. */
+    private static final float SHEEN_LIFT = 1.5f;
+
+    /**
+     * How finely the sheen is cut up on a card held in the hand.
+     *
+     * <p>Far coarser than the reading screen's, which is twenty-six by thirty-six: this card
+     * is an inch of screen, and a full inventory of foils at the reading mesh would be tens
+     * of thousands of quads a frame for a shimmer nobody can resolve.
+     */
+    private static final int SHEEN_COLUMNS = 7;
+    private static final int SHEEN_ROWS = 10;
 
     /**
      * One textured quad.

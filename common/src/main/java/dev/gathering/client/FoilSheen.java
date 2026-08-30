@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.gathering.core.ui.CardMesh;
 import net.minecraft.client.renderer.GameRenderer;
@@ -124,20 +125,15 @@ public final class FoilSheen {
     static void paint(
             Matrix4f matrix, CardLens lens, float shineX, float shineY, long grain,
             int columns, int rows) {
-        float acrossCard = Mth.clamp(shineX, -1f, 1f);
-        float downCard = Mth.clamp(shineY, -1f, 1f);
-        float cosRake = (float) Math.cos(Math.toRadians(RAKE));
-        float sinRake = (float) Math.sin(Math.toRadians(RAKE));
-        float cosCross = (float) Math.cos(Math.toRadians(CROSS_RAKE));
-        float sinCross = (float) Math.sin(Math.toRadians(CROSS_RAKE));
-
-        // How much of the movement runs along each rake. The two rakes cross, so the same
-        // tip of the hand moves them by different amounts - which is what stops the pair
-        // reading as one gradient sliding about.
-        float travel = acrossCard * cosRake + downCard * sinRake;
-        float crossTravel = -(acrossCard * cosCross + downCard * sinCross);
-        float middle = 0.5f + travel * CATCH_TRAVEL;
-        float crossMiddle = 0.5f + crossTravel * CATCH_TRAVEL;
+        Light light = Light.from(shineX, shineY);
+        float cosRake = light.cosRake();
+        float sinRake = light.sinRake();
+        float cosCross = light.cosCross();
+        float sinCross = light.sinCross();
+        float travel = light.travel();
+        float crossTravel = light.crossTravel();
+        float middle = light.middle();
+        float crossMiddle = light.crossMiddle();
 
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.enableBlend();
@@ -168,22 +164,73 @@ public final class FoilSheen {
             BufferBuilder buffer, Matrix4f matrix, CardLens lens, float[] corner,
             float u, float v, float travel, float crossTravel, float middle, float crossMiddle,
             float cosRake, float sinRake, float cosCross, float sinCross) {
-        float along = lens.alongRake(u, v, cosRake, sinRake);
-        float across = lens.alongRake(u, v, cosCross, sinCross);
+        int color = colorAt(
+                lens.alongRake(u, v, cosRake, sinRake),
+                lens.alongRake(u, v, cosCross, sinCross),
+                travel, crossTravel, middle, crossMiddle);
+        lens.at(u, v, corner);
+        buffer.addVertex(matrix, corner[0], corner[1], 0f).setColor(color);
+    }
 
+    /**
+     * The color the sheen shows at one point, given how far along each rake that point is.
+     *
+     * <p>The whole rule of what a foil looks like, in one place. Two things draw one now - a
+     * card being read on a screen, through a lens, and a card held in the hand, as flat
+     * geometry - and they agree because this is the only thing that decides.
+     *
+     * @return packed ARGB, or zero where the sheen shows nothing at all
+     */
+    private static int colorAt(
+            float along, float across,
+            float travel, float crossTravel, float middle, float crossMiddle) {
         float[] first = spectrum(along, travel, middle, 1f);
         float[] second = spectrum(across, crossTravel, crossMiddle, CROSS_SHARE);
         // The faint one under the strong one, composited the ordinary way rather than added,
         // so two spectra crossing stay a sheen instead of stacking up into a fog.
         float alpha = first[3] + second[3] * (1f - first[3]);
-        int color = alpha <= 0.001f
+        return alpha <= 0.001f
                 ? 0
                 : pack(alpha,
                         blend(first, second, 0, alpha),
                         blend(first, second, 1, alpha),
                         blend(first, second, 2, alpha));
-        lens.at(u, v, corner);
-        buffer.addVertex(matrix, corner[0], corner[1], 0f).setColor(color);
+    }
+
+    /**
+     * Where the light is, worked out once for a card.
+     *
+     * <p>The two rakes and how far the shine has slid along each of them. Its own type
+     * because both painters need all eight numbers and computing them twice from the same
+     * two inputs is how the screen's foil and the hand's foil would drift apart.
+     */
+    record Light(
+            float cosRake, float sinRake, float cosCross, float sinCross,
+            float travel, float crossTravel, float middle, float crossMiddle) {
+
+        static Light from(float shineX, float shineY) {
+            float acrossCard = Mth.clamp(shineX, -1f, 1f);
+            float downCard = Mth.clamp(shineY, -1f, 1f);
+            float cosRake = (float) Math.cos(Math.toRadians(RAKE));
+            float sinRake = (float) Math.sin(Math.toRadians(RAKE));
+            float cosCross = (float) Math.cos(Math.toRadians(CROSS_RAKE));
+            float sinCross = (float) Math.sin(Math.toRadians(CROSS_RAKE));
+            // How much of the movement runs along each rake. The two rakes cross, so the
+            // same tip of the hand moves them by different amounts - which is what stops the
+            // pair reading as one gradient sliding about.
+            float travel = acrossCard * cosRake + downCard * sinRake;
+            float crossTravel = -(acrossCard * cosCross + downCard * sinCross);
+            return new Light(cosRake, sinRake, cosCross, sinCross, travel, crossTravel,
+                    0.5f + travel * CATCH_TRAVEL, 0.5f + crossTravel * CATCH_TRAVEL);
+        }
+
+        /** How far along one rake a point of the flat card is, from zero to one. */
+        float alongRake(float u, float v, float width, float height, float cos, float sin) {
+            float across = (u - 0.5f) * width;
+            float down = (v - 0.5f) * height;
+            float span = Math.abs(width * cos) + Math.abs(height * sin);
+            return span <= 0f ? 0.5f : 0.5f + (across * cos + down * sin) / span;
+        }
     }
 
     private static float blend(float[] over, float[] under, int channel, float alpha) {
@@ -266,6 +313,96 @@ public final class FoilSheen {
             float u, float v, int color) {
         lens.at(u, v, corner);
         buffer.addVertex(matrix, corner[0], corner[1], 0f).setColor(color);
+    }
+
+    /**
+     * The same sheen on a card that is real geometry rather than a picture on a screen.
+     *
+     * <p>For the card item: in a hand, in a slot, on the ground, in an item frame. It is the
+     * same rule as the screen's - see {@link #colorAt} - and differs only in where the points
+     * are and how they are drawn: flat in the card's own space, into the batched buffer every
+     * other part of the item goes through, rather than projected through a lens and uploaded
+     * on its own.
+     *
+     * <p>Coarser than the screen's mesh on purpose. A card being read fills a window; a card
+     * in a slot is sixteen pixels across, and a full inventory of foils drawn at the reading
+     * mesh would be a hundred thousand quads for a shimmer nobody can resolve.
+     *
+     * @param halfWidth  and {@code halfHeight}, the card's own half-extents in model space
+     * @param z          how far in front of the printed face to lay it
+     */
+    static void paintFlat(
+            VertexConsumer consumer, Matrix4f matrix,
+            float halfWidth, float halfHeight, float z,
+            float shineX, float shineY, long grain, int columns, int rows) {
+        Light light = Light.from(shineX, shineY);
+        float width = halfWidth * 2f;
+        float height = halfHeight * 2f;
+        float aspect = height / Math.max(0.0001f, width);
+
+        CardMesh.walk(aspect, columns, rows, FLAT_ARC,
+                (u1, v1, u2, v2, u3, v3, u4, v4) -> {
+                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u1, v1);
+                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u2, v2);
+                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u3, v3);
+                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u4, v4);
+                });
+        flatGrain(consumer, matrix, light, width, height, halfWidth, halfHeight, z, aspect, grain);
+    }
+
+    /** How finely the cut corners are followed on a card in the hand. Coarse: it is small. */
+    private static final int FLAT_ARC = 4;
+
+    private static void flat(
+            VertexConsumer consumer, Matrix4f matrix, Light light,
+            float width, float height, float halfWidth, float halfHeight, float z,
+            float u, float v) {
+        int color = colorAt(
+                light.alongRake(u, v, width, height, light.cosRake(), light.sinRake()),
+                light.alongRake(u, v, width, height, light.cosCross(), light.sinCross()),
+                light.travel(), light.crossTravel(), light.middle(), light.crossMiddle());
+        // v runs down the picture and y runs up the model, so the card is not upside down.
+        consumer.addVertex(matrix,
+                        -halfWidth + u * width, halfHeight - v * height, z)
+                .setColor(color);
+    }
+
+    /** The points of grain on a card in the hand, placed the same way and at the same seed. */
+    private static void flatGrain(
+            VertexConsumer consumer, Matrix4f matrix, Light light,
+            float width, float height, float halfWidth, float halfHeight, float z,
+            float aspect, long seed) {
+        java.util.Random scatter = new java.util.Random(seed * 0x9E3779B97F4A7C15L + 0x2545F491L);
+        for (int index = 0; index < GRAINS; index++) {
+            float u = scatter.nextFloat();
+            float v = scatter.nextFloat();
+            float lit = bell(
+                    light.alongRake(u, v, width, height, light.cosRake(), light.sinRake())
+                            - light.middle(),
+                    GRAIN_WIDTH);
+            if (lit < 0.05f || !CardMesh.holds(u, v, aspect, 0f)) {
+                continue;
+            }
+            int color = pack(GRAIN_ALPHA * lit * lit, 1f, 1f, 1f);
+            float halfU = GRAIN_SIZE / 2f;
+            float halfV = halfU * aspect;
+            float leftU = Math.max(0f, u - halfU);
+            float rightU = Math.min(1f, u + halfU);
+            float topV = Math.max(0f, v - halfV);
+            float bottomV = Math.min(1f, v + halfV);
+            speck(consumer, matrix, halfWidth, halfHeight, width, height, z, leftU, topV, color);
+            speck(consumer, matrix, halfWidth, halfHeight, width, height, z, leftU, bottomV, color);
+            speck(consumer, matrix, halfWidth, halfHeight, width, height, z, rightU, bottomV, color);
+            speck(consumer, matrix, halfWidth, halfHeight, width, height, z, rightU, topV, color);
+        }
+    }
+
+    private static void speck(
+            VertexConsumer consumer, Matrix4f matrix,
+            float halfWidth, float halfHeight, float width, float height, float z,
+            float u, float v, int color) {
+        consumer.addVertex(matrix, -halfWidth + u * width, halfHeight - v * height, z)
+                .setColor(color);
     }
 
     private static int pack(float alpha, float red, float green, float blue) {
