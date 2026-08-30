@@ -114,11 +114,21 @@ public final class CollectionScreen extends Screen {
         net.minecraft.client.Minecraft.getInstance().setScreen(new CollectionScreen(opened));
     }
 
-    /** A page arriving for the collection that is open. Ignored for any other. */
+    /**
+     * A page arriving for whichever screen asked for it.
+     *
+     * <p>Two screens read a collection - this one and the deck builder - and both ask through
+     * the same payload, so the answer goes to whichever is open. Routed here rather than each
+     * screen registering itself, because a page is answered by exactly one screen at a time
+     * and the alternative is two handlers racing to claim it.
+     */
     public static void accept(CollectionPagePayload payload) {
-        if (net.minecraft.client.Minecraft.getInstance().screen
-                instanceof CollectionScreen screen && screen.where.equals(payload.where())) {
+        net.minecraft.client.gui.screens.Screen open =
+                net.minecraft.client.Minecraft.getInstance().screen;
+        if (open instanceof CollectionScreen screen && screen.where.equals(payload.where())) {
             screen.take(payload);
+        } else if (open instanceof DeckBuilderScreen builder) {
+            builder.accept(payload);
         }
     }
 
@@ -185,7 +195,7 @@ public final class CollectionScreen extends Screen {
         addRenderableWidget(GatheringButtons.of(
                 Math.max(afterRarity, this.width - MARGIN - BUILD_WIDTH), pipsY, BUILD_WIDTH, 16,
                 Component.translatable("screen.gathering.collection.build_deck"),
-                () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
+                () -> this.minecraft.setScreen(new DeckBuilderScreen(where, label))));
 
         // How much of each set is in here, which is the one question a binder cannot answer
         // by being looked at. Beside the way out because it is a place to go rather than a
@@ -309,7 +319,7 @@ public final class CollectionScreen extends Screen {
     private void askFor(int wanted) {
         query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
         ClientNetworking.send(
-                new CollectionSearchPayload(where, query, descending, wanted, cellsThatFit()));
+                CollectionSearchPayload.of(where, query, descending, wanted, cellsThatFit()));
     }
 
     /**

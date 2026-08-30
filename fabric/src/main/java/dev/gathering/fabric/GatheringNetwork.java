@@ -94,6 +94,9 @@ final class GatheringNetwork {
                 dev.gathering.network.CollectionTakePayload.TYPE,
                 dev.gathering.network.CollectionTakePayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.BuildDeckPayload.TYPE,
+                dev.gathering.network.BuildDeckPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.AnteAnswerPayload.TYPE,
                 dev.gathering.network.AnteAnswerPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(
@@ -222,13 +225,17 @@ final class GatheringNetwork {
                 dev.gathering.network.CollectionSearchPayload.TYPE, (payload, context) ->
                         dev.gathering.server.CollectionView.search(
                                 context.player(), payload.where(), payload.query(),
-                                payload.descending(), payload.page(), payload.perPage()));
+                                payload.descending(), payload.page(), payload.perPage(), payload.suggestFor()));
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.CollectionTakePayload.TYPE, (payload, context) ->
                         dev.gathering.server.CollectionView.take(
                                 context.player(), payload.where(), payload.card(),
                                 payload.howMany()));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.BuildDeckPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.CollectionView.build(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.AnteAnswerPayload.TYPE, (payload, context) ->

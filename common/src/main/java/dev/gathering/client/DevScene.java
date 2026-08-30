@@ -1343,11 +1343,18 @@ public final class DevScene {
             }
             case 115 -> {
                 expectScreen(client, "building a deck from a collection",
-                        DecklistImportScreen.class);
-                shoot(client, "44-building-from-a-collection");
-                advance(SETTLE / 2);
+                        DeckBuilderScreen.class);
+                shoot(client, "44-the-deck-builder");
+                // A card into the deck, and one of them made the commander, so the picture
+                // after this has a list on the right rather than an empty column - and so the
+                // suggestions button has something to rank against.
+                buildADeck(client);
+                advance(SETTLE);
             }
             case 116 -> {
+                // Photographed a step after the clicks, which is the convention: a shot asked
+                // for in the same step catches the frame that was already drawn.
+                shoot(client, "44a-a-deck-taking-shape");
                 client.setScreen(null);
                 cardsInHandToTradeWith(client);
                 advance(SETTLE);
@@ -7221,6 +7228,33 @@ public final class DevScene {
             return;
         }
         board.pressMenuEntry(wanted);
+    }
+
+    /**
+     * Puts a couple of cards in the deck being built, and names one of them commander.
+     *
+     * <p>Through the screen's own clicks rather than by reaching into its state, because what
+     * is worth checking is that the cells are where the click test thinks they are - a grid
+     * drawn to one rule and hit-tested against another is the bug this catches.
+     */
+    private static void buildADeck(Minecraft client) {
+        if (!(client.screen instanceof DeckBuilderScreen builder)) {
+            fail("there was no deck builder to build in");
+            return;
+        }
+        if (builder.showing() <= 0) {
+            fail("the deck builder was showing no cards to build from");
+            return;
+        }
+        builder.clickCard(0, 1);
+        builder.clickCard(1, 0);
+        builder.clickCard(1, 0);
+        if (builder.deckSize() < 3) {
+            fail("three clicks in the deck builder put " + builder.deckSize() + " cards in the deck");
+        }
+        if (builder.commanderName().isEmpty()) {
+            fail("right-clicking a card in the deck builder did not name a commander");
+        }
     }
 
     /** Asks the table to take back the last thing this player did, off its own menu. */

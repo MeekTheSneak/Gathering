@@ -246,13 +246,18 @@ public final class GatheringNetwork {
                 (payload, context) -> dev.gathering.server.CollectionView.search(
                         (net.minecraft.server.level.ServerPlayer) context.player(),
                         payload.where(), payload.query(), payload.descending(), payload.page(),
-                        payload.perPage()));
+                        payload.perPage(), payload.suggestFor()));
         registrar.playToServer(
                 dev.gathering.network.CollectionTakePayload.TYPE,
                 dev.gathering.network.CollectionTakePayload.STREAM_CODEC,
                 (payload, context) -> dev.gathering.server.CollectionView.take(
                         (net.minecraft.server.level.ServerPlayer) context.player(),
                         payload.where(), payload.card(), payload.howMany()));
+        registrar.playToServer(
+                dev.gathering.network.BuildDeckPayload.TYPE,
+                dev.gathering.network.BuildDeckPayload.STREAM_CODEC,
+                (payload, context) -> dev.gathering.server.CollectionView.build(
+                        (net.minecraft.server.level.ServerPlayer) context.player(), payload));
 
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.

@@ -12,6 +12,7 @@ import dev.gathering.item.CardItem;
 import dev.gathering.item.DeckComponent;
 import dev.gathering.item.DeckItem;
 import dev.gathering.network.CollectionPagePayload;
+import dev.gathering.network.BuildDeckPayload;
 import dev.gathering.network.CollectionQuery;
 import dev.gathering.network.OpenCollectionPayload;
 import dev.gathering.registry.GatheringComponents;
@@ -99,13 +100,28 @@ public final class CollectionView {
     /** Answers one search with one page. */
     public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
             boolean descending, int page, int rowsThatFit) {
+        search(player, where, query, descending, page, rowsThatFit, Optional.empty());
+    }
+
+    /**
+     * The same, ranked against a commander when the deck builder asks for suggestions.
+     *
+     * <p>Ranked here rather than on the client because the client has one page and the answer
+     * needs the whole box: a suggestion list built from the sixty cards that happened to be on
+     * screen would recommend whatever was alphabetically early. See
+     * {@link dev.gathering.core.collection.CardFit} for what the ranking is, and for why it is a
+     * reading of the player's own cards rather than a question asked of somebody else's site.
+     */
+    public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
+            boolean descending, int page, int rowsThatFit, Optional<UUID> suggestFor) {
         CollectionBlockEntity collection = at(player, where);
         if (collection == null || tooSoon(player)) {
             return;
         }
         List<CollectionSearch.Row> rows = rowsOf(collection.cards());
-        List<CollectionSearch.Row> found =
-                CollectionSearch.run(rows, query.asSearch(descending));
+        List<CollectionSearch.Row> found = suggestFor
+                .map(commander -> suggested(rows, commander))
+                .orElseGet(() -> CollectionSearch.run(rows, query.asSearch(descending)));
 
         // As many as the window asking has room for, and never more than a page holds. A
         // page larger than the box is rows nobody can see and rows somebody can click on
@@ -139,6 +155,55 @@ public final class CollectionView {
         // fetched is not worth ten thousand requests, and the cards a player actually looks
         // at are the ones worth having.
         fetchLater(unnamed);
+    }
+
+    /**
+     * The collection ranked against one commander, best fit first.
+     *
+     * <p>The commander is named by printing and looked up in the same cache everything else
+     * here reads; a printing the server cannot name ranks nothing, which comes back as an
+     * empty list rather than as the whole box in an arbitrary order.
+     */
+    private static List<CollectionSearch.Row> suggested(
+            List<CollectionSearch.Row> rows, UUID commanderPrinting) {
+        CardDataService service = CardDataService.active().orElse(null);
+        CardMetadata leader = service == null
+                ? null
+                : service.store().find(CardQuery.byId(commanderPrinting)).orElse(null);
+        if (leader == null) {
+            return List.of();
+        }
+
+        Map<UUID, CollectionSearch.Row> byPrinting = new java.util.LinkedHashMap<>();
+        List<dev.gathering.core.collection.BuildCard> candidates = new ArrayList<>();
+        for (CollectionSearch.Row row : rows) {
+            UUID printing = row.card().printing().orElse(null);
+            if (printing == null || row.about() == null) {
+                // Nothing is known about it yet, so there is nothing to rank it on. It will be
+                // rankable next time: the ordinary search fetches whatever it could not name.
+                continue;
+            }
+            byPrinting.put(printing, row);
+            candidates.add(buildCardOf(printing, row.about()));
+        }
+
+        List<CollectionSearch.Row> ranked = new ArrayList<>();
+        for (dev.gathering.core.collection.CardFit.Fit fit : dev.gathering.core.collection.CardFit.forCommander(
+                buildCardOf(commanderPrinting, leader), candidates,
+                dev.gathering.core.collection.DeckBuild.EMPTY,
+                CollectionPagePayload.ROWS_PER_PAGE)) {
+            CollectionSearch.Row row = byPrinting.get(fit.card().printing());
+            if (row != null) {
+                ranked.add(row);
+            }
+        }
+        return List.copyOf(ranked);
+    }
+
+    private static dev.gathering.core.collection.BuildCard buildCardOf(UUID printing, CardMetadata card) {
+        return new dev.gathering.core.collection.BuildCard(
+                printing, card.oracleId(), card.name(), card.typeLine(), card.oracleText(),
+                card.cmc(), card.colorIdentity(), false);
     }
 
     /**
@@ -198,6 +263,108 @@ public final class CollectionView {
             }
         }
         return took;
+    }
+
+    /**
+     * Takes a whole built deck out of the box at once, and hands it over as a deck.
+     *
+     * <p>The commit end of the deck builder. Every card the client named is checked against
+     * what the collection actually holds and taken out one at a time by the same call a single
+     * click uses, so a client asking for cards that are not there gets a deck without them
+     * rather than a deck the box never had - and the arithmetic that decides which physical
+     * copy leaves, plain before storied, is the one that was already there.
+     *
+     * <p>Basics are conjured rather than taken, exactly as building from a list does: they are
+     * given away everywhere else in this mod and charging for them here would be a charge for
+     * something that is not for sale.
+     *
+     * <p>Told what it could not find, by name and count. A deck that quietly came out four
+     * cards short is a deck somebody takes to a table and discovers is illegal.
+     */
+    public static void build(ServerPlayer player, BuildDeckPayload asked) {
+        CollectionBlockEntity collection = at(player, asked.where());
+        if (collection == null) {
+            return;
+        }
+        if (!collection.rights().mayTake(player.getUUID())) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.collection_may_not_take"));
+            return;
+        }
+
+        CardDataService service = CardDataService.active().orElse(null);
+        List<CardComponent> got = new ArrayList<>();
+        List<CardComponent> commanders = new ArrayList<>();
+        int missed = 0;
+        for (CardComponent wanted : asked.commander().map(List::of).orElse(List.of())) {
+            if (claim(service, collection, wanted)) {
+                commanders.add(wanted.faceUp());
+            } else {
+                missed++;
+            }
+        }
+        for (CardComponent wanted : asked.cards()) {
+            if (claim(service, collection, wanted)) {
+                got.add(wanted.faceUp());
+            } else {
+                missed++;
+            }
+        }
+
+        DeckComponent deck = new DeckComponent(
+                asked.name(), asked.description(), Optional.of(player.getUUID()),
+                List.copyOf(got), List.copyOf(commanders), List.of());
+        ItemStack stack = DeckItem.of(deck);
+        if (!player.getInventory().add(stack)) {
+            player.drop(stack, false);
+        }
+        player.sendSystemMessage(Component.translatable(
+                "message.gathering.deck_built", deck.totalCards()));
+        if (missed > 0) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.deck_built_short", missed));
+        }
+    }
+
+    /**
+     * Takes one copy out of the box for a deck being built, or says the box did not have it.
+     *
+     * <p>A basic land is never taken and always granted, which is what building from a list
+     * already does. Everything else has to actually be in there: this is the check that makes
+     * the payload's card list a request rather than an instruction.
+     */
+    private static boolean claim(
+            CardDataService service, CollectionBlockEntity collection, CardComponent wanted) {
+        if (wanted == null) {
+            return false;
+        }
+        CardIdentity identity = wanted.faceUp().toIdentity();
+        if (isBasic(service, identity)) {
+            return true;
+        }
+        return collection.take(identity, 1) > 0;
+    }
+
+    /**
+     * Whether this printing is a basic land, and so free.
+     *
+     * <p>Asked of the card cache rather than believed from the client, because "this one is
+     * free" is exactly the claim a client should not be allowed to make about a card it wants
+     * out of somebody's box. A printing the server has never looked up is not free: the
+     * conservative answer costs a card that was probably a Forest, and the other way round
+     * costs whatever a client cares to name.
+     */
+    private static boolean isBasic(CardDataService service, CardIdentity identity) {
+        CardMetadata card = known(service, identity);
+        if (card == null) {
+            return false;
+        }
+        for (dev.gathering.core.card.BasicLand basic : dev.gathering.core.card.BasicLand.values()) {
+            if (basic.printedName().equalsIgnoreCase(card.name())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
