@@ -413,6 +413,7 @@ public final class DevScene {
             }
             case 22 -> {
                 shoot(client, "07-card-played");
+                clickingDoesNotTap(client);
                 hover(client, cardPoint(client));
                 advance(SETTLE / 2);
             }
@@ -3129,6 +3130,40 @@ public final class DevScene {
     /** Whether the board says that card is frozen. */
     private static boolean isFrozen(CardInstanceId card) {
         return findOnTheBattlefield(card).map(CardView::frozen).orElse(false);
+    }
+
+    /**
+     * A card picked up and put straight back down is not a card that was turned sideways.
+     *
+     * <p>The plainest gesture on the table used to mean two things: every mis-click tapped
+     * something, and a card could not be picked up and reconsidered without turning it. It was
+     * fixed, and nothing was holding it fixed - which is the state a behaviour is in right
+     * before it comes back. Tapping is E, untapping is Q, and a click is a click.
+     */
+    private static void clickingDoesNotTap(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("there was no board to click a card on");
+            return;
+        }
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        CardInstanceId card = me == null || view == null
+                ? null
+                : view.seat(me).zone(Zone.BATTLEFIELD).cards().stream()
+                        .filter(CardView.Visible.class::isInstance)
+                        .map(seen -> ((CardView.Visible) seen).id())
+                        .findFirst().orElse(null);
+        if (card == null) {
+            fail("no card was on the battlefield to click");
+            return;
+        }
+        boolean before = isTapped(card);
+        int[] at = cardPoint(client);
+        board.mouseClicked(at[0], at[1], 0);
+        board.mouseReleased(at[0], at[1], 0);
+        if (isTapped(card) != before) {
+            fail("clicking a card turned it sideways - a click is one gesture and E is the other");
+        }
     }
 
     /** Whether the board says that card is tapped. */
