@@ -114,6 +114,7 @@ public final class GatheringNeoForgeClient {
         for (var item : GatheringContent.tableItems()) {
             event.register((stack, tintIndex) -> TableColors.itemTintOf(tintIndex), item.get());
         }
+        event.register(dev.gathering.item.DeckItem::tintOf, GatheringContent.DECK.get());
     }
 
 

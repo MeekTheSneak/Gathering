@@ -207,7 +207,8 @@ public final class DecklistImport {
     }
 
     private static void deliver(ServerPlayer player, ResolvedDeck deck, String deckName, String description) {
-        DeckComponent component = toComponent(deck, player.getUUID(), deckName, description);
+        DeckComponent component = toComponent(deck, player.getUUID(), deckName, description)
+                .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()));
         ItemStack stack = DeckItem.of(component);
 
         if (!player.getInventory().add(stack)) {

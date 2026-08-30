@@ -134,7 +134,8 @@ public final class DraftActions {
                     Optional.of(drafter.getUUID()),
                     List.of(),
                     List.of(),
-                    cards));
+                    cards)
+                    .colored(dev.gathering.core.card.DeckColors.pick(level.getRandom().nextLong())));
             // And what it may be built from, which never changes while the deck inside it
             // changes constantly. Limited is "play what you opened", and this is the record
             // of what was opened - so it travels with the deck rather than living at the

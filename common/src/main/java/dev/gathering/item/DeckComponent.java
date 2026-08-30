@@ -28,6 +28,8 @@ import net.minecraft.network.codec.StreamCodec;
  * @param entries mainboard, in decklist order
  * @param commanders the command zone, empty outside commander formats
  * @param sideboard the sideboard, empty in singleton formats
+ * @param color the box's own color, as ARGB. Empty on a deck made before boxes had one, and
+ *     on the stand-ins tests build; the item draws those white, which is what the texture is.
  */
 public record DeckComponent(
         String name,
@@ -35,7 +37,22 @@ public record DeckComponent(
         Optional<UUID> owner,
         List<CardComponent> entries,
         List<CardComponent> commanders,
-        List<CardComponent> sideboard) {
+        List<CardComponent> sideboard,
+        Optional<Integer> color) {
+
+    /**
+     * A deck with no color yet, which is every deck the moment before it is handed over.
+     *
+     * <p>Here so that the twenty-odd places that build a deck did not all have to learn about
+     * boxes at once. Whoever hands the deck to a player paints it; everything that only
+     * rearranges one carries the color it already had.
+     */
+    public DeckComponent(
+            String name, String description, Optional<UUID> owner,
+            List<CardComponent> entries, List<CardComponent> commanders,
+            List<CardComponent> sideboard) {
+        this(name, description, owner, entries, commanders, sideboard, Optional.empty());
+    }
 
     /**
      * How many cards one deck may hold, across every section.
@@ -53,17 +70,50 @@ public record DeckComponent(
             UUIDUtil.STRING_CODEC.optionalFieldOf("owner").forGetter(DeckComponent::owner),
             CardComponent.CODEC.listOf().optionalFieldOf("entries", List.of()).forGetter(DeckComponent::entries),
             CardComponent.CODEC.listOf().optionalFieldOf("commanders", List.of()).forGetter(DeckComponent::commanders),
-            CardComponent.CODEC.listOf().optionalFieldOf("sideboard", List.of()).forGetter(DeckComponent::sideboard))
+            CardComponent.CODEC.listOf().optionalFieldOf("sideboard", List.of()).forGetter(DeckComponent::sideboard),
+            Codec.INT.optionalFieldOf("color").forGetter(DeckComponent::color))
             .apply(instance, DeckComponent::new));
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, DeckComponent> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.STRING_UTF8, DeckComponent::name,
-            ByteBufCodecs.STRING_UTF8, DeckComponent::description,
-            ByteBufCodecs.optional(UUIDUtil.STREAM_CODEC), DeckComponent::owner,
-            CardComponent.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_CARDS)), DeckComponent::entries,
-            CardComponent.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_CARDS)), DeckComponent::commanders,
-            CardComponent.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_CARDS)), DeckComponent::sideboard,
-            DeckComponent::new);
+    /** One section of a deck on the wire, bounded so a bad packet cannot allocate the world. */
+    private static final StreamCodec<RegistryFriendlyByteBuf, List<CardComponent>> SECTION =
+            CardComponent.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_CARDS));
+
+    private static final StreamCodec<ByteBuf, Optional<UUID>> OWNER =
+            ByteBufCodecs.optional(UUIDUtil.STREAM_CODEC);
+
+    private static final StreamCodec<ByteBuf, Optional<Integer>> COLOR =
+            ByteBufCodecs.optional(ByteBufCodecs.INT);
+
+    /**
+     * Written out by hand rather than composed.
+     *
+     * <p>{@code StreamCodec.composite} stops at six parts in this version and a deck has seven.
+     * There is nothing clever here - it is the same fields in the same order, and the only
+     * thing to keep right is that the two halves stay in step.
+     */
+    public static final StreamCodec<RegistryFriendlyByteBuf, DeckComponent> STREAM_CODEC =
+            StreamCodec.of(DeckComponent::toNetwork, DeckComponent::fromNetwork);
+
+    private static void toNetwork(RegistryFriendlyByteBuf out, DeckComponent deck) {
+        ByteBufCodecs.STRING_UTF8.encode(out, deck.name());
+        ByteBufCodecs.STRING_UTF8.encode(out, deck.description());
+        OWNER.encode(out, deck.owner());
+        SECTION.encode(out, deck.entries());
+        SECTION.encode(out, deck.commanders());
+        SECTION.encode(out, deck.sideboard());
+        COLOR.encode(out, deck.color());
+    }
+
+    private static DeckComponent fromNetwork(RegistryFriendlyByteBuf in) {
+        return new DeckComponent(
+                ByteBufCodecs.STRING_UTF8.decode(in),
+                ByteBufCodecs.STRING_UTF8.decode(in),
+                OWNER.decode(in),
+                SECTION.decode(in),
+                SECTION.decode(in),
+                SECTION.decode(in),
+                COLOR.decode(in));
+    }
 
     public DeckComponent {
         description = description == null ? "" : description;
@@ -81,7 +131,20 @@ public record DeckComponent(
     public DeckComponent named(String newName) {
         return new DeckComponent(
                 newName == null ? "" : newName.strip(),
-                description, owner, entries, commanders, sideboard);
+                description, owner, entries, commanders, sideboard, color);
+    }
+
+    /**
+     * The same deck in a box of this color.
+     *
+     * <p>Set once, where a deck is handed to somebody, and carried by everything after: a
+     * deck that changed color when a card came out of it would be a different deck on the
+     * shelf every time it was edited.
+     */
+    public DeckComponent colored(int argb) {
+        return new DeckComponent(
+                name, description, owner, entries, commanders, sideboard,
+                Optional.of(0xFF000000 | argb));
     }
 
     /** Physical cards in the deck proper - mainboard plus command zone, never the sideboard. */
@@ -157,9 +220,12 @@ public record DeckComponent(
 
     private DeckComponent withSection(Section section, List<CardComponent> cards) {
         return switch (section) {
-            case COMMANDERS -> new DeckComponent(name, description, owner, entries, cards, sideboard);
-            case MAINBOARD -> new DeckComponent(name, description, owner, cards, commanders, sideboard);
-            case SIDEBOARD -> new DeckComponent(name, description, owner, entries, commanders, cards);
+            case COMMANDERS ->
+                    new DeckComponent(name, description, owner, entries, cards, sideboard, color);
+            case MAINBOARD ->
+                    new DeckComponent(name, description, owner, cards, commanders, sideboard, color);
+            case SIDEBOARD ->
+                    new DeckComponent(name, description, owner, entries, commanders, cards, color);
         };
     }
 

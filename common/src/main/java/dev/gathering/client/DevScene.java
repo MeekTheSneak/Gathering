@@ -151,7 +151,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 251;
+    private static final int LAST_STEP = 253;
 
     private static int step;
     private static int waited;
@@ -2610,6 +2610,17 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
+            // A shelf of decks. The whole reason a box has a color is that this row is
+            // otherwise eight identical objects with the name a hover away.
+            case 252 -> {
+                aShelfOfDecks(client);
+                advance(SETTLE * 2);
+            }
+            case 253 -> {
+                everyDeckIsItsOwnColor(client);
+                shoot(client, "86-a-shelf-of-decks");
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -4877,6 +4888,83 @@ public final class DevScene {
             client.screen.onClose();
         }
         client.setScreen(null);
+    }
+
+    /** How many decks go on the shelf, each in its own box. */
+    private static final int SHELF_DECKS = 8;
+
+    /**
+     * Fills the hotbar with decks, each painted the way a newly built one is.
+     *
+     * <p>Rolled rather than handed fixed colors, because what is being photographed is the
+     * thing a player actually gets: eight decks made one after another, and whether they come
+     * out telling apart.
+     */
+    private static void aShelfOfDecks(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player to put a shelf of decks on");
+            return;
+        }
+        // Put on the client rather than handed over by the server, and that is not a shortcut
+        // being taken. The scripted run plays in creative, where the inventory is the
+        // client's own and a server-side write never arrives - eight decks went in and the
+        // hotbar stayed empty. What this step is for is whether a painted deck draws in its
+        // color, and the item renderer draws whatever the stack in front of it says. That the
+        // color survives the wire is a different question, asked where it can be answered:
+        // see DeckBoxColorGameTest.
+        java.util.Random shelf = new java.util.Random(0x5EA7L);
+        java.util.UUID who = client.player.getUUID();
+        for (int slot = 0; slot < SHELF_DECKS; slot++) {
+            dev.gathering.item.DeckComponent deck = new dev.gathering.item.DeckComponent(
+                    "Deck " + (slot + 1), "", java.util.Optional.of(who),
+                    List.of(), List.of(), List.of())
+                    .colored(dev.gathering.core.card.DeckColors.pick(shelf.nextLong()));
+            client.player.getInventory().items.set(
+                    slot, dev.gathering.item.DeckItem.of(deck));
+        }
+        System.out.println("[devscene] " + SHELF_DECKS + " decks onto the shelf");
+    }
+
+    /**
+     * Every deck on the shelf came out in a color, and they are not all the same one.
+     *
+     * <p>Two failures this catches, both of which look fine in a screenshot taken from the
+     * wrong angle: a box drawn white because the color never reached the item, and a wheel
+     * that has collapsed so eight decks are three colors.
+     */
+    private static void everyDeckIsItsOwnColor(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player to read a shelf off");
+            return;
+        }
+        java.util.Set<Integer> colors = new java.util.LinkedHashSet<>();
+        int found = 0;
+        for (int slot = 0; slot < SHELF_DECKS; slot++) {
+            net.minecraft.world.item.ItemStack stack = client.player.getInventory().getItem(slot);
+            dev.gathering.item.DeckComponent deck =
+                    dev.gathering.item.DeckItem.deckOf(stack).orElse(null);
+            if (deck == null || deck.color().isEmpty()) {
+                continue;
+            }
+            found++;
+            if (dev.gathering.item.DeckItem.tintOf(stack, 0) == 0xFFFFFFFF) {
+                fail("a deck in slot " + slot + " is drawn white, so its color never "
+                        + "reached the item");
+                return;
+            }
+            colors.add(deck.color().orElseThrow());
+        }
+        if (found < SHELF_DECKS) {
+            fail("the shelf was handed " + SHELF_DECKS + " painted decks and the client can "
+                    + "see " + found);
+            return;
+        }
+        // Eight rolls off a wheel of twenty-four repeat sometimes; three or fewer distinct
+        // colors out of eight is the wheel being broken rather than luck.
+        if (colors.size() <= 3) {
+            fail("eight decks came out in " + colors.size() + " color(s)");
+        }
+        System.out.println("[devscene] eight decks in " + colors.size() + " colors");
     }
 
     /**

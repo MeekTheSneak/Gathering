@@ -45,6 +45,26 @@ public class DeckItem extends Item {
     }
 
     /**
+     * What color to draw the box.
+     *
+     * <p>A shelf of decks is a row of identical objects and the name is a hover away, so the
+     * box carries its own color and you find your deck by looking rather than by picking
+     * things up. See {@code DeckColors} for where the color comes from.
+     *
+     * <p>White is "leave it alone", which is what the texture already is - so a deck built
+     * before boxes had a color, or one a test made without one, draws exactly as it did.
+     *
+     * <p>Read by both loaders' item color handlers. No client class is named here, so this
+     * stays a plain question about a stack.
+     */
+    public static int tintOf(ItemStack stack, int tintIndex) {
+        if (tintIndex != 0) {
+            return 0xFFFFFFFF;
+        }
+        return deckOf(stack).flatMap(DeckComponent::color).orElse(0xFFFFFFFF);
+    }
+
+    /**
      * Right-click to look inside.
      *
      * <p>Opens on the client from the stack's own data, so there is no round trip just to see

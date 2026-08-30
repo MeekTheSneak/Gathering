@@ -209,7 +209,10 @@ public final class CardShop {
                 deck.name(), "", Optional.empty(),
                 components(deck.mainboard()),
                 components(deck.commanders()),
-                components(deck.sideboard())));
+                components(deck.sideboard()))
+                // A precon is a printed product: every copy of it is the same box, the way
+                // two of the same deck on a shop shelf are.
+                .colored(dev.gathering.core.card.DeckColors.pick(deck.name().hashCode())));
     }
 
     private static List<CardComponent> components(List<CardIdentity> cards) {

@@ -137,7 +137,8 @@ public final class CollectionDecks {
 
         Assembled assembled = assemble(
                 collection, built, free, list, player.getUUID(), deckName, description);
-        DeckComponent deck = assembled.deck();
+        DeckComponent deck = assembled.deck()
+                .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()));
         ItemStack stack = DeckItem.of(deck);
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);

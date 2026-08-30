@@ -95,7 +95,12 @@ public class CardItem extends Item {
                 Optional.of(player.getUUID()),
                 List.of(beneath.get().faceUp(), carried.get().faceUp()),
                 List.of(),
-                List.of()));
+                List.of())
+                // Painted the moment it becomes a deck. A deck started this way has no name
+                // yet - naming a pile of two cards is a decision for later - so its color is
+                // the only thing telling it from the next one on the shelf.
+                .colored(dev.gathering.core.card.DeckColors.pick(
+                        player.level().getRandom().nextLong())));
         if (!slot.mayPlace(deck)) {
             // Somewhere a deck cannot go - a fuel slot, a crafting result. Leave the cards be.
             return false;

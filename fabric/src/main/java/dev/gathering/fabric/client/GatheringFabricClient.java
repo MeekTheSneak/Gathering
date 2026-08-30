@@ -94,6 +94,8 @@ public final class GatheringFabricClient implements ClientModInitializer {
             net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.ITEM.register(
                     (stack, tintIndex) -> TableColors.itemTintOf(tintIndex), item.get());
         }
+        net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.ITEM.register(
+                dev.gathering.item.DeckItem::tintOf, GatheringContent.DECK.get());
 
         ClientPlayNetworking.registerGlobalReceiver(CardMetadataPayload.TYPE, (payload, context) ->
                 ClientCardCache.get().accept(payload.cards()));

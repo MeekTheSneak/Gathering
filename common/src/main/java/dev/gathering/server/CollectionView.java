@@ -248,7 +248,8 @@ public final class CollectionView {
 
         DeckComponent deck = new DeckComponent(
                 asked.name(), asked.description(), Optional.of(player.getUUID()),
-                List.copyOf(got), List.copyOf(commanders), List.of());
+                List.copyOf(got), List.copyOf(commanders), List.of())
+                .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()));
         ItemStack stack = DeckItem.of(deck);
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);

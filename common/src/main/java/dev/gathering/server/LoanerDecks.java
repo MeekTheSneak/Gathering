@@ -117,7 +117,10 @@ public final class LoanerDecks {
         }
         return Optional.of(new DeckComponent(
                 deck.name(), deck.description(), Optional.ofNullable(borrower),
-                deck.entries(), deck.commanders(), deck.sideboard()));
+                deck.entries(), deck.commanders(), deck.sideboard())
+                // The shelf's own, not the borrower's: two people who took the same deck
+                // should be able to see at a glance that they did.
+                .colored(dev.gathering.core.card.DeckColors.pick(deck.name().hashCode())));
     }
 
     /**
