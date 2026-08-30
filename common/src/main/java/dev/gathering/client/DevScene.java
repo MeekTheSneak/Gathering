@@ -151,7 +151,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 241;
+    private static final int LAST_STEP = 248;
 
     private static int step;
     private static int waited;
@@ -2522,6 +2522,70 @@ public final class DevScene {
                 CardZoomOverlay.bindKeyState(() -> false);
                 advance(SETTLE / 2);
             }
+            // A game is played out and ended for real, rather than a list of replays being
+            // faked: the whole feature is the round trip - a session written to disk, read
+            // back, folded to a board and sent as a picture - and a fake would photograph
+            // none of it.
+            case 242 -> {
+                aGameWorthWatchingBack(client);
+                advance(SETTLE * 2);
+            }
+            case 243 -> {
+                expectScreen(client, "the list of finished games", ReplayListScreen.class);
+                if (client.screen instanceof ReplayListScreen replays && replays.listed() < 1) {
+                    fail("a game was played out and ended, and the shelf came back empty");
+                }
+                shoot(client, "81-games-that-finished");
+                watchTheNewestGame(client);
+                advance(SETTLE * 2);
+            }
+            case 244 -> {
+                expectAReplay(client, "watching the game back");
+                // Wound to the end, which is the board as the table was cleared - and the one
+                // frame where a hand full of cards proves the disclosure works.
+                ClientReplay.scrubTo(ClientReplay.steps());
+                advance(SETTLE * 2);
+            }
+            case 245 -> {
+                expectAReplay(client, "wound to the end of the game");
+                aReplayShowsWhatWasHidden(client);
+                shoot(client, "82-the-whole-game-back");
+                // And wound back to the opening, so the scrubber is photographed at both ends
+                // rather than only at the one it happened to stop at.
+                ClientReplay.scrubTo(0);
+                advance(SETTLE * 2);
+            }
+            case 246 -> {
+                expectAReplay(client, "wound back to the start");
+                if (ClientReplay.step() != 0) {
+                    fail("the scrubber was dragged home and stopped at step " + ClientReplay.step());
+                }
+                shoot(client, "83-back-to-the-start");
+                // The one thing a watcher must not be able to do. Pressed rather than
+                // reasoned about: the guards are spread over four handlers, and a gesture
+                // that got through one of them would be a finished game being played on.
+                aWatcherCannotTouchTheBoard(client);
+                advance(SETTLE);
+            }
+            case 247 -> {
+                expectAReplay(client, "still watching after a watcher tried to play");
+                if (ClientReplay.step() != 0) {
+                    fail("a click on the felt of a replay moved the game to step "
+                            + ClientReplay.step());
+                }
+                // The help a watcher gets, which is a different list from a player's: the
+                // panel that teaches the table's verbs would be teaching a watcher things
+                // they are not allowed to do.
+                client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
+                advance(SETTLE / 2);
+            }
+            case 248 -> {
+                shoot(client, "84-what-a-watcher-can-do");
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -3459,6 +3523,157 @@ public final class DevScene {
             dev.gathering.server.Sideboarding.offerTo(player, where);
             System.out.println("[devscene] game one is over, sideboarding");
         });
+    }
+
+    /**
+     * Plays a short game out on a real table and ends it, then asks for the shelf.
+     *
+     * <p>Two seats, a deck down, a hand drawn, and the session ended the way the command ends
+     * one - so what lands on the shelf came through the same code a real game does. The hand
+     * matters: a replay of a board with nothing hidden on it would photograph nothing worth
+     * checking, and the one thing a replay is allowed to do that a live board never may is
+     * show it.
+     */
+    private static void aGameWorthWatchingBack(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to play a game worth keeping on");
+            return;
+        }
+        List<dev.gathering.item.CardComponent> deck = someCards(client, 20);
+        if (deck.isEmpty()) {
+            fail("there were no looked-up cards to build a replay's deck out of");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        BlockPos where = client.player.blockPosition().offset(6, -1, -6);
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player == null) {
+                fail("the player went away before a game could be kept");
+                return;
+            }
+            BlockState state = GatheringContent.TABLE.get().defaultBlockState();
+            for (TablePart part : TablePart.values()) {
+                level.setBlock(part.offsetFrom(where), state.setValue(TableBlock.PART, part), 3);
+            }
+            var seats = dev.gathering.block.TableClusters.at(level, where).seats();
+            if (seats.size() < 2) {
+                fail("a table put down for a replay had " + seats.size() + " seats");
+                return;
+            }
+            dev.gathering.block.TableSeats.take(level, where, seats.get(0).cell(),
+                    seats.get(0).side(), who);
+            dev.gathering.block.TableSeats.take(level, where, seats.get(1).cell(),
+                    seats.get(1).side(), java.util.UUID.nameUUIDFromBytes(
+                            "devscene-historian".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            if (dev.gathering.block.TableSessions.start(level, where,
+                    new dev.gathering.core.match.MatchRules(
+                            dev.gathering.core.format.FormatPresets.MODERN, 1))
+                    != dev.gathering.block.TableSessions.Outcome.STARTED) {
+                fail("a game to be kept would not start");
+                return;
+            }
+            TableBlock.putDown(level, where, player, dev.gathering.item.DeckItem.of(
+                    new dev.gathering.item.DeckComponent("Kept Deck", "",
+                            java.util.Optional.of(who), deck, List.of(), List.of())));
+            var session = dev.gathering.block.TableSessions.sessionAt(level, where).orElse(null);
+            if (session == null) {
+                fail("the game went away before it could be played");
+                return;
+            }
+            session.submit(new GameEvent.CardsDrawn(new SeatId(0), new SeatId(0), REPLAY_HAND));
+            if (dev.gathering.block.TableSessions.end(level, where, new SeatId(0), "devscene")
+                    != dev.gathering.block.TableSessions.Outcome.ENDED) {
+                fail("the game would not end, so there was nothing to keep");
+                return;
+            }
+            dev.gathering.server.ReplayWatch.sendList(player);
+            System.out.println("[devscene] a game was played out, ended and kept");
+        });
+    }
+
+    /** How many cards the kept game drew, and therefore what a replay of it must show. */
+    private static final int REPLAY_HAND = 4;
+
+    /**
+     * Clicks the top row of the list, which is the game that just finished.
+     *
+     * <p>By position rather than by label, unlike everything else here: a row's label is the
+     * names of whoever played and the minute they played at, so there is nothing stable to
+     * name it by. The first widget of the panel is the newest game, which is the ordering the
+     * list promises.
+     */
+    private static void watchTheNewestGame(Minecraft client) {
+        if (!(client.screen instanceof ReplayListScreen)) {
+            fail("there was no list of finished games to pick from");
+            return;
+        }
+        for (GuiEventListener child : client.screen.children()) {
+            if (child instanceof AbstractWidget row) {
+                row.onClick(row.getX() + row.getWidth() / 2.0,
+                        row.getY() + row.getHeight() / 2.0);
+                System.out.println("[devscene] watching " + row.getMessage().getString());
+                return;
+            }
+        }
+        fail("the list of finished games had no rows to press");
+    }
+
+    /** Whether the table screen currently up is showing a replay rather than a live game. */
+    private static void expectAReplay(Minecraft client, String what) {
+        if (!(client.screen instanceof TableScreen table) || !table.isReplay()) {
+            fail(what + ": the screen is "
+                    + (client.screen == null ? "none" : client.screen.getClass().getSimpleName())
+                    + " rather than a replay");
+            return;
+        }
+        if (ClientReplay.frame().isEmpty()) {
+            fail(what + ": the replay screen is up with no frame in it");
+        }
+    }
+
+    /**
+     * The disclosure, checked on screen rather than only in a test.
+     *
+     * <p>A hand is a count and nothing else to everybody at a live table, including the
+     * spectator this scene has been watching as. If a replay of a finished game showed it the
+     * same way, the whole feature would be a slideshow of empty boards.
+     */
+    private static void aReplayShowsWhatWasHidden(Minecraft client) {
+        dev.gathering.core.game.visibility.GameView board = ClientReplay.frame().orElse(null);
+        if (board == null) {
+            fail("there was no replay frame to read a hand out of");
+            return;
+        }
+        int shown = board.seat(new SeatId(0)).zone(Zone.HAND).cards().size();
+        if (shown != REPLAY_HAND) {
+            fail("a replay of a game where " + REPLAY_HAND + " cards were drawn shows "
+                    + shown + " of them");
+        }
+    }
+
+    /**
+     * Every gesture a player would use on a live board, on a replay.
+     *
+     * <p>None of them may do anything. The guards live in four separate handlers, so this
+     * presses through all four: a click on the felt, a drag, the tap key, and the key that
+     * passes the turn.
+     */
+    private static void aWatcherCannotTouchTheBoard(Minecraft client) {
+        if (!(client.screen instanceof TableScreen table)) {
+            fail("there was no replay to try to play on");
+            return;
+        }
+        double middleX = client.getWindow().getGuiScaledWidth() / 2.0;
+        double middleY = client.getWindow().getGuiScaledHeight() / 2.0;
+        table.mouseClicked(middleX, middleY, 0);
+        table.mouseClicked(middleX, middleY, 1);
+        table.mouseDragged(middleX + 20, middleY + 20, 0, 20, 20);
+        table.mouseReleased(middleX + 20, middleY + 20, 0);
+        table.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_E, 0, 0);
+        table.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_P, 0, 0);
     }
 
     /** A sideboard screen shows the deck and the sideboard, not one of them. */

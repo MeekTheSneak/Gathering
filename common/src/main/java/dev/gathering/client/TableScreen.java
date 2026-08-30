@@ -195,6 +195,30 @@ public final class TableScreen extends Screen {
                 "screen.gathering.table.key_leave",
             });
 
+    /**
+     * The same list for somebody watching a game back, which is a much shorter one.
+     *
+     * <p>Its own list rather than the game's with the verbs greyed out. A watcher cannot draw
+     * a card or pass a turn, and a help panel that lists what you may not do is a panel that
+     * has to be read twice before it says anything.
+     */
+    private static final List<String[]> KEY_HELP_REPLAY = List.of(
+            new String[] {
+                "screen.gathering.table.keys_camera",
+                "screen.gathering.table.key_zoom",
+                "screen.gathering.table.key_pan",
+                "screen.gathering.table.key_frame",
+            },
+            new String[] {
+                "screen.gathering.replay.keys_watching",
+                "screen.gathering.replay.key_play",
+                "screen.gathering.replay.key_step",
+                "screen.gathering.replay.key_ends",
+                "screen.gathering.replay.key_drag",
+                "screen.gathering.table.key_log",
+                "screen.gathering.table.key_leave",
+            });
+
     /** How much one wheel notch zooms. A shallow step, because zoom is used constantly. */
     private static final double ZOOM_STEP = 1.18;
 
@@ -1075,13 +1099,18 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * Everybody else's hand, as the backs of the cards they are holding.
+     * Everybody else's hand, held where they are sitting.
      *
-     * <p>Reported as "cant see cards in opponents hand". What is hidden stays hidden - these
-     * are card backs, and the identities were never sent to this client to draw - but a hand
-     * that is not drawn at all reads as a player who has nothing, and at a four-player table
-     * three of the four boards looked empty. A real table shows you a fan of backs across
-     * from you: how many, held where their player is sitting, and no more than that.
+     * <p>Reported as "cant see cards in opponents hand". A hand that is not drawn at all
+     * reads as a player who has nothing, and at a four-player table three of the four boards
+     * looked empty. A real table shows you a fan across from you: how many, held where their
+     * player is sitting.
+     *
+     * <p>Backs or faces, and it is not this method's decision. What arrives in the view is
+     * what is drawn - a card the server sent has a face because this client was entitled to
+     * it, and everything else is a back. So a hand turned face up towards you is face up
+     * here, and a replay of a finished game shows all of them, without either case needing
+     * to be special: the fence is the view, and it was passed before this ran.
      *
      * <p>At {@link SurfaceBoard#handEdgeRect}, which is the place the board already says a
      * hand is - just outside the near edge of that seat's mat, where a person holds theirs -
@@ -1114,13 +1143,22 @@ public final class TableScreen extends Screen {
             }
             // Fanned about the middle of that edge, overlapping so a big hand stays a hand
             // rather than a row of cards wider than the mat it belongs to.
+            List<CardView> faces = board.seat(seat.seat()).zone(Zone.HAND).cards();
+            // A fan wide enough to read when the cards are face up, and no wider when they
+            // are not: a row of backs spread as far apart as a row of faces reads as a much
+            // bigger hand than it is.
             int shown = Math.min(held, MOST_BACKS_SHOWN);
-            int step = Math.max(2, edge.width() / 3);
+            int step = Math.max(2, faces.isEmpty() ? edge.width() / 3 : edge.width() * 2 / 3);
             int left = (int) Math.round(edge.centerX()) - (step * (shown - 1) + edge.width()) / 2;
             for (int index = 0; index < shown; index++) {
-                graphics.blit(CardFaceRenderer.CARD_BACK,
-                        left + index * step, edge.y(), 0f, 0f,
-                        edge.width(), edge.height(), edge.width(), edge.height());
+                Rect at = new Rect(left + index * step, edge.y(), edge.width(), edge.height());
+                if (index < faces.size()) {
+                    drawCard(graphics, faces.get(index), at, 0, false, true);
+                } else {
+                    graphics.blit(CardFaceRenderer.CARD_BACK,
+                            at.x(), at.y(), 0f, 0f,
+                            at.width(), at.height(), at.width(), at.height());
+                }
             }
         }
     }
@@ -2502,9 +2540,31 @@ public final class TableScreen extends Screen {
         int lastLine = top + available - line - 6;
         int perColumn = Math.max(1, (lastLine - firstLine) / line + 1);
         int columns = Math.max(1, (linesOfKeyHelp() + perColumn - 1) / perColumn);
+        // Never more columns than the window can hold a legible line in. Text shrinks to fit
+        // its column but only down to the smallest size that is still letters, and past that
+        // it simply overran: at a large GUI scale the longest line was drawn a third of the
+        // way past the panel and off the side of the screen, cut mid-sentence. Columns only
+        // come off while what is left still has room for every line, so this can narrow the
+        // list but never lose a line of it.
+        int leastColumn = Math.round(widestKeyLine() * dev.gathering.core.ui.TextScale.SMALLEST) + 14;
+        int acrossThatFit = Math.max(1, (this.width - margin * 2 - 10) / Math.max(1, leastColumn));
+        while (columns > acrossThatFit && (columns - 1) * perColumn >= linesOfKeyHelp()) {
+            columns--;
+        }
         int columnWidth = widestKeyLine() + 14;
         int wanted = Math.min(this.width - margin * 2, columns * columnWidth + 10);
         columnWidth = Math.max(40, (wanted - 10) / columns);
+
+        // As tall as what is in it, rather than as tall as the window. Measuring against the
+        // window is right when the list fills it and reads as broken when it does not - a
+        // watcher's seven lines sat at the top of a panel four hundred pixels deep, which
+        // looks like a list that failed to load rather than a short one.
+        int rows = (linesOfKeyHelp() + columns - 1) / columns;
+        // A line of slack, because the draw loop breaks a column when the next line would
+        // pass the foot: sized to the row count exactly, one section's spacing tips the last
+        // line into a column that does not exist and it is drawn outside the panel.
+        available = Math.min(available,
+                line * (rows + 3) + keyHelp().size() * 2 + 12);
 
         Rect area = new Rect((this.width - wanted) / 2, top - 4, wanted, available + 4);
         GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
@@ -2524,7 +2584,7 @@ public final class TableScreen extends Screen {
 
         int column = 0;
         int y = top;
-        for (String[] section : KEY_HELP) {
+        for (String[] section : keyHelp()) {
             // A heading with nothing under it is worse than a heading in the next column.
             if (y + line * 2 > bottom && column + 1 < columns) {
                 column++;
@@ -2563,7 +2623,7 @@ public final class TableScreen extends Screen {
             keyListRoom = room;
             Component longest = null;
             int widest = -1;
-            for (String[] section : KEY_HELP) {
+            for (String[] section : keyHelp()) {
                 for (String name : section) {
                     Component line = keyLine(name);
                     int width = this.font.width(line);
@@ -2611,10 +2671,15 @@ public final class TableScreen extends Screen {
         return java.util.Collections.unmodifiableMap(named);
     }
 
+    /** Whichever list this screen is teaching: the game's keys, or a watcher's. */
+    private List<String[]> keyHelp() {
+        return replay ? KEY_HELP_REPLAY : KEY_HELP;
+    }
+
     /** How many lines the whole key list wants, headings included. */
-    private static int linesOfKeyHelp() {
+    private int linesOfKeyHelp() {
         int lines = 0;
-        for (String[] section : KEY_HELP) {
+        for (String[] section : keyHelp()) {
             lines += section.length;
         }
         return lines;
@@ -2623,7 +2688,7 @@ public final class TableScreen extends Screen {
     /** The longest line in the key list, so a column can be built to hold it whole. */
     private int widestKeyLine() {
         int widest = 0;
-        for (String[] section : KEY_HELP) {
+        for (String[] section : keyHelp()) {
             for (String key : section) {
                 widest = Math.max(widest, this.font.width(keyLine(key)));
             }
@@ -5154,7 +5219,9 @@ public final class TableScreen extends Screen {
 
     // --------------------------------------------------------------- replay
 
-    /** The scrubber's three buttons: a step back, play or pause, a step on. */
+    /** The scrubber's buttons: back to the start, a step back, play or pause, a step on. */
+    private static final int SCRUB_BUTTONS = 4;
+
     private static final int SCRUB_BUTTON = 18;
 
     private static final int SCRUB_GAP = 4;
@@ -5177,7 +5244,7 @@ public final class TableScreen extends Screen {
     /** The bar between the buttons and the count at the right-hand end. */
     private Rect scrubBar() {
         Rect strip = layout().hand();
-        int left = scrubButton(2).right() + SCRUB_GAP * 2;
+        int left = scrubButton(SCRUB_BUTTONS - 1).right() + SCRUB_GAP * 2;
         int right = strip.right() - SCRUB_GAP * 2 - countWidth();
         return new Rect(left, strip.y() + (strip.height() - SCRUB_BAR) / 2,
                 Math.max(1, right - left), SCRUB_BAR);
@@ -5222,14 +5289,18 @@ public final class TableScreen extends Screen {
             return true;
         }
         if (scrubButton(0).contains(x, y)) {
-            ClientReplay.nudge(-1);
+            ClientReplay.scrubTo(0);
             return true;
         }
         if (scrubButton(1).contains(x, y)) {
-            ClientReplay.playPause();
+            ClientReplay.nudge(-1);
             return true;
         }
         if (scrubButton(2).contains(x, y)) {
+            ClientReplay.playPause();
+            return true;
+        }
+        if (scrubButton(3).contains(x, y)) {
             ClientReplay.nudge(1);
             return true;
         }
@@ -5308,9 +5379,12 @@ public final class TableScreen extends Screen {
         }
         panel(graphics, strip);
 
-        drawScrubButton(graphics, scrubButton(0), "|<");
-        drawScrubButton(graphics, scrubButton(1), ClientReplay.playing() ? "||" : ">");
-        drawScrubButton(graphics, scrubButton(2), ">|");
+        drawScrubButton(graphics, scrubButton(0), "|<", "start");
+        drawScrubButton(graphics, scrubButton(1), "<<", "back");
+        drawScrubButton(graphics, scrubButton(2),
+                ClientReplay.playing() ? "||" : ">",
+                ClientReplay.playing() ? "pause" : "play");
+        drawScrubButton(graphics, scrubButton(3), ">>", "on");
 
         Rect bar = scrubBar();
         graphics.fill(bar.x(), bar.y(), bar.right(), bar.bottom(), SCRUB_TRACK);
@@ -5332,11 +5406,24 @@ public final class TableScreen extends Screen {
                 countWidth(), LABEL);
     }
 
-    private void drawScrubButton(GuiGraphics graphics, Rect where, String face) {
+    /**
+     * One transport button, and what it says when the cursor rests on it.
+     *
+     * <p>Four arrows eighteen pixels wide can only be told apart by somebody who already
+     * knows what they do, and the moment anybody wants to know is the moment they are already
+     * pointing at one. So the name and the key are on the tooltip, exactly as the mat buttons
+     * carry theirs.
+     */
+    private void drawScrubButton(GuiGraphics graphics, Rect where, String face, String name) {
         panel(graphics, where);
         GuiText.drawCentered(graphics, this.font, Component.literal(face),
                 (int) where.centerX(), where.y() + (where.height() - this.font.lineHeight) / 2,
                 where.width(), LABEL);
+        if (where.contains(cursorX, cursorY)) {
+            tooltip = tipFor(
+                    Component.translatable("screen.gathering.replay." + name),
+                    Component.translatable("screen.gathering.replay." + name + ".key"));
+        }
     }
 
     private TableScreenLayout layout() {

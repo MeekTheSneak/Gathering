@@ -137,6 +137,17 @@ public final class ReplayListScreen extends Screen {
                         : "screen.gathering.replays.note"),
                 panelLeft() + panelWidth() / 2,
                 panelTop() + PADDING + this.font.lineHeight + 1, inner, DIM);
+
+        // A shelf holds sixty-four games and a window holds five of them. Without this the
+        // rest are reachable only by somebody who thought to try the wheel on a list that
+        // gave no sign of having anything below it.
+        int below = games.size() - rowsThatFit() - this.scroll;
+        if (below > 0) {
+            GuiText.drawCentered(graphics, this.font,
+                    Component.translatable("screen.gathering.replays.more", below),
+                    panelLeft() + panelWidth() / 2,
+                    listTop() + rowsThatFit() * (ROW_HEIGHT + GAP) + 1, inner, DIM);
+        }
     }
 
     @Override
