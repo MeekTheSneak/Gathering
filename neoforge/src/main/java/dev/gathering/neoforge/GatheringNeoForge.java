@@ -59,6 +59,7 @@ public final class GatheringNeoForge {
         cardData.warmCache().thenAccept(count -> LOGGER.info("Card metadata cache warmed: {} printings", count));
         dev.gathering.server.CurrentSet.resolve();
         dev.gathering.server.SealedLoot.warm();
+        dev.gathering.server.Archive.warm();
         dev.gathering.server.CardShop.warm();
         dev.gathering.server.LoanerDecks.warm();
         // The one line the access transformer exists for. Everything about which building
@@ -112,6 +113,7 @@ public final class GatheringNeoForge {
     private void onServerStopped(ServerStoppedEvent event) {
         ServerSettings.clear();
         dev.gathering.server.SealedLoot.clear();
+        dev.gathering.server.Archive.clear();
         dev.gathering.server.CardShop.clear();
         dev.gathering.server.CurrentSet.clear();
         dev.gathering.server.TradeSessions.clear();

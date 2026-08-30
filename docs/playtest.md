@@ -203,6 +203,10 @@ set contains what that pack contained.
 - [ ] Hold **Alt** on a card you pulled, won or traded for. Cards remember where they came from and
       who had them before. Trade one twice and check it still reads sensibly.
 - [ ] Draft with 4–8 people, keep your pool, build out of it.
+- [ ] **The Archive Pack.** `/gathering coverage` says how many cards on this server nothing
+      else can give you — promos, buy-a-box cards, the long tail. Those are what an Archive
+      Pack holds, and it is never sold: it comes out of a boss, an end-city-grade chest, or
+      the sea. `/gathering pack give archive` to see one without waiting for the sea.
 
 ## 6. Watching a game back
 
@@ -237,7 +241,7 @@ information — the game is over, so there is nothing left in it to exploit.
 | `/gathering replay` | anyone | The finished games this server kept. Pick one to watch it back — every hand and every library face up, because the game is over. Space plays, arrows step, drag the bar. |
 | `/gathering config` | anyone | Every setting and its value. Add a name to read one, a value after that (op) to change it, no restart. |
 | `/gathering pack give <set>` | op | Sealed product from nothing. `open` opens one, `list` says what that set was sold as. |
-| `/gathering coverage <set>` | op | Whether that set's own packs can produce all of it. |
+| `/gathering coverage <set>` | op | Whether that set's own packs can produce all of it. With no set: how many cards on this server nothing but an Archive Pack reaches. |
 | `/gathering loaners` | anyone | What the server lends. `reload` (op) re-reads the folder without a restart — the file name is what players see. |
 
 ## Every key at the table (or just press F1)

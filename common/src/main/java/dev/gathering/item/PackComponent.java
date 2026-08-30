@@ -41,9 +41,24 @@ public record PackComponent(String setCode, String kind) {
         kind = kind == null ? "" : kind.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
+    /**
+     * The set code an Archive Pack carries.
+     *
+     * <p>A word rather than a real code, and it lives here rather than beside the code that
+     * fills the pack because both the client and the server have to recognise one: the
+     * client so it does not go looking for a set symbol that does not exist, the server so
+     * it does not go looking for a set. Seven letters, which no real set code is.
+     */
+    public static final String ARCHIVE = "archive";
+
     /** Whether this is a pack of anything at all. */
     public boolean isReal() {
         return !setCode.isEmpty();
+    }
+
+    /** Whether this is the Archive Pack rather than one of a set's real products. */
+    public boolean isArchive() {
+        return ARCHIVE.equals(setCode);
     }
 
     /** What to call this pack when two of them have to be told apart. */

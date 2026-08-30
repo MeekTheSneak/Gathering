@@ -84,6 +84,10 @@ public final class PackOpening {
     public static void openFor(
             ServerPlayer player, String setCode, String kind, Runnable giveBack,
             boolean ceremony) {
+        if (Archive.SET.equals(setCode)) {
+            openTheArchive(player, giveBack, ceremony);
+            return;
+        }
         String refusal = whyNot();
         if (refusal != null) {
             player.sendSystemMessage(Component.translatable(refusal));
@@ -326,26 +330,52 @@ public final class PackOpening {
         // string it was given draws a play booster in the draft booster's black.
         String set = opened.config().setCode();
         String kind = opened.config().kind();
+        Delivery delivery = whatToGive(opened.pack(), opened.cards());
+        handOver(player, delivery.giving(), opened.cards(), set, kind, ceremony);
+        if (delivery.unnameable() == 1) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.pack_unresolved_one"));
+        } else if (delivery.unnameable() > 1) {
+            player.sendSystemMessage(Component.translatable(
+                    "message.gathering.pack_unresolved", delivery.unnameable()));
+        }
+    }
+
+    /**
+     * Hands over what came out of a pack, whatever kind of pack it was.
+     *
+     * <p>Everything after the cards have been chosen: the details go down the wire first so
+     * no client ever renders a blank, the cards go into the inventory, the best of them
+     * remembers being pulled, and there is a wrapper to tear unless the player sneaked. The
+     * archive pack shares all of it and differs only in where its cards came from.
+     *
+     * @param giving what the player is about to hold
+     * @param named  whatever of it this server can describe, which may be less
+     *
+     *               <p>Server thread only.
+     */
+    private static void handOver(
+            ServerPlayer player, List<CardIdentity> giving, List<CardMetadata> named,
+            String set, String kind, boolean ceremony) {
         // Everything the client is about to hold, in one go rather than a packet a card:
         // a client told about a card before it holds one never renders a blank.
         List<CardSummary> summaries = new ArrayList<>();
-        for (CardMetadata card : opened.cards()) {
+        for (CardMetadata card : named) {
             summaries.add(CardSummary.of(card));
         }
         for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summaries)) {
             Sending.to(player, packet);
         }
 
-        Delivery delivery = whatToGive(opened.pack(), opened.cards());
         // The one the pack was opened for remembers being opened. Only that one: a story on
         // every common out of every booster would be a story on every card in the game, which
         // is the same as no card having one. See CardStories.
-        CardIdentity best = bestOf(delivery.giving(), opened.cards());
+        CardIdentity best = bestOf(giving, named);
         Achievements.award(player, Achievements.FIRST_PACK);
-        if (holdsAMythic(delivery.giving(), opened.cards())) {
+        if (holdsAMythic(giving, named)) {
             Achievements.award(player, Achievements.FIRST_MYTHIC);
         }
-        for (CardIdentity card : delivery.giving()) {
+        for (CardIdentity card : giving) {
             ItemStack stack = CardItem.of(CardComponent.of(card));
             if (card.equals(best)) {
                 CardStories.remember(stack, CardStories.pulledBy(player, set));
@@ -360,7 +390,7 @@ public final class PackOpening {
             // already happened, so nothing about tearing it can go wrong enough to cost
             // somebody a booster.
             List<dev.gathering.item.CardComponent> shown = new ArrayList<>();
-            for (CardIdentity card : delivery.giving()) {
+            for (CardIdentity card : giving) {
                 shown.add(dev.gathering.item.CardComponent.of(card));
             }
             Sending.to(player,
@@ -369,15 +399,57 @@ public final class PackOpening {
             // Quick opened, so there is no screen to say it on.
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.pack_opened", set.toUpperCase(Locale.ROOT), kind,
-                    delivery.giving().size()));
+                    giving.size()));
         }
-        if (delivery.unnameable() == 1) {
-            player.sendSystemMessage(
-                    Component.translatable("message.gathering.pack_unresolved_one"));
-        } else if (delivery.unnameable() > 1) {
-            player.sendSystemMessage(Component.translatable(
-                    "message.gathering.pack_unresolved", delivery.unnameable()));
+    }
+
+    /**
+     * Opens an Archive Pack, which has no set and no print sheet behind it.
+     *
+     * <p>Its own path because it is its own thing: the cards were chosen when the server
+     * worked out what its faucets miss, not by a collation, so there is nothing to fetch and
+     * nothing to pick a booster variant out of. What it shares with every other pack is
+     * everything after that - the cards are given, the best one remembers where it came from,
+     * and there is a wrapper to tear if the player did not sneak.
+     *
+     * <p>Server thread only, past the lookup it starts.
+     */
+    private static void openTheArchive(ServerPlayer player, Runnable giveBack, boolean ceremony) {
+        String refusal = whyNot();
+        if (refusal != null) {
+            player.sendSystemMessage(Component.translatable(refusal));
+            giveBack.run();
+            return;
         }
+        List<CardIdentity> giving = Archive.open(player.level().getRandom());
+        if (giving.isEmpty()) {
+            // The remainder is empty, or the server has not worked it out yet. Either way the
+            // pack is handed back rather than swallowed: a player who found one of these
+            // found the rarest thing on the server.
+            player.sendSystemMessage(Component.translatable("message.gathering.archive_empty"));
+            giveBack.run();
+            return;
+        }
+        CardDataService cards = CardDataService.active().orElse(null);
+        if (cards == null) {
+            player.sendSystemMessage(Component.translatable("message.gathering.pipeline_unavailable"));
+            giveBack.run();
+            return;
+        }
+        List<UUID> printings = new ArrayList<>(giving.size());
+        for (CardIdentity card : giving) {
+            card.printing().ifPresent(printings::add);
+        }
+        cards.findAll(printings).whenComplete((named, failure) -> player.server.execute(() -> {
+            if (player.hasDisconnected()) {
+                return;
+            }
+            // A card the server could not name is still a card. The archive's whole point is
+            // the long tail, which is exactly the part of a collection least likely to be in
+            // a cache already - refusing to hand it over would refuse it most of the time.
+            handOver(player, giving, failure == null && named != null ? named : List.of(),
+                    Archive.SET, "", ceremony);
+        }));
     }
 
     /**

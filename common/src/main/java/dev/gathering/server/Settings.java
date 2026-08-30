@@ -126,6 +126,7 @@ public final class Settings {
     public static boolean rewarm() {
         CurrentSet.resolve();
         SealedLoot.warm();
+        Archive.warm();
         CardShop.warm();
         LoanerDecks.warm();
         return true;

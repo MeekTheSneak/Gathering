@@ -52,6 +52,10 @@ public record BoosterSheet(
 
     }
 
+    /** A sheet with nothing on it, for a server whose faucets already reach everything. */
+    public static final BoosterSheet EMPTY =
+            new BoosterSheet("", false, false, false, Map.of());
+
     public boolean isEmpty() {
         return weights.isEmpty();
     }

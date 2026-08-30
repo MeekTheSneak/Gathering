@@ -131,6 +131,13 @@ public final class SealedLoot {
      * did not ask for, nothing resolved yet, or simply the odds.
      */
     public static Optional<ItemStack> rollFor(String tableId, RandomSource random) {
+        // The archive first, and answering means the ordinary pack is not asked at all: two
+        // packs out of one chest reads as a fault rather than as luck, and the rarer of the
+        // two is the one worth having come out.
+        Optional<ItemStack> archive = Archive.rollFor(tableId, random);
+        if (archive.isPresent()) {
+            return archive;
+        }
         // Before the string is touched at all. On NeoForge this runs for every loot table the
         // game rolls, so a server that is not collecting must pay one volatile read for every
         // zombie that dies and not a pair of allocations.

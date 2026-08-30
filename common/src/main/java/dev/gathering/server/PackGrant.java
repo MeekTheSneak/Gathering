@@ -54,6 +54,18 @@ public final class PackGrant {
         }
         String set = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
         String wanted = kind == null ? "" : kind.trim().toLowerCase(Locale.ROOT);
+        // The archive is not a set and has no published product to read, so it is handed over
+        // here rather than looked up. It is the one pack an admin cannot get any other way -
+        // it is never sold, and finding one is the point.
+        if (dev.gathering.item.PackComponent.ARCHIVE.equals(set)) {
+            ItemStack archive = Archive.pack();
+            if (!player.getInventory().add(archive)) {
+                player.drop(archive, false);
+            }
+            player.sendSystemMessage(Component.translatable(
+                    "message.gathering.archive_given", Archive.size()));
+            return;
+        }
 
         collation.productsFor(set).whenComplete((reading, failure) -> player.server.execute(() -> {
             if (player.hasDisconnected()) {

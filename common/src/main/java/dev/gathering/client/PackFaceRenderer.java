@@ -81,7 +81,9 @@ public final class PackFaceRenderer {
      * asking is what starts the fetch the first time. Nothing here blocks.
      */
     private static Optional<ResourceLocation> symbolFor(PackComponent pack) {
-        if (pack == null || !pack.isReal()) {
+        // The archive is not a set, so there is no symbol to fetch and asking would spend a
+        // request on a URL that cannot exist. A plain wrapper is the right answer for it.
+        if (pack == null || !pack.isReal() || pack.isArchive()) {
             return Optional.empty();
         }
         return ClientSetSymbols.get().symbol(

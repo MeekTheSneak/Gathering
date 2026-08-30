@@ -86,6 +86,11 @@ public final class GatheringCommands {
                 // it" is the question you ask before enabling it.
                 .then(Commands.literal("coverage")
                         .requires(source -> source.hasPermission(2))
+                        // With no set: the whole server, which is the number the Archive Pack
+                        // is built out of. "How many cards can nobody here ever get" is the
+                        // question the auditor exists to answer, and it had no way to be
+                        // asked - only one set at a time.
+                        .executes(context -> reportTheArchive(context.getSource()))
                         .then(Commands.argument("set", StringArgumentType.word())
                                 .executes(context -> auditSet(
                                         context.getSource(),
@@ -307,6 +312,21 @@ public final class GatheringCommands {
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         PackGrant.list(source.getPlayerOrException(), set);
         return 1;
+    }
+
+    /**
+     * How much of this server's own catalog nothing but the archive reaches.
+     *
+     * <p>Read off what the server worked out at start rather than audited again here: the
+     * audit is a file and a search per set, and a command that ran it would take a minute and
+     * report a different number from the one the loot tables are using.
+     */
+    private static int reportTheArchive(CommandSourceStack source) {
+        int size = dev.gathering.server.Archive.size();
+        source.sendSuccess(() -> Component.translatable(
+                size == 0 ? "message.gathering.archive_none" : "message.gathering.archive_size",
+                size), false);
+        return size;
     }
 
     private static int auditSet(CommandSourceStack source, String set)

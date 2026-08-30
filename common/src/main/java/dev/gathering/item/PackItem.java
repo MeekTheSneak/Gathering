@@ -76,10 +76,19 @@ public class PackItem extends Item {
     public void appendHoverText(ItemStack stack, TooltipContext context,
             java.util.List<Component> lines, TooltipFlag flag) {
         packOf(stack).filter(PackComponent::isReal).ifPresent(pack -> {
-            lines.add(Component.translatable("tooltip.gathering.pack_set",
-                    pack.setCode().toUpperCase(java.util.Locale.ROOT)));
-            if (!pack.kind().isEmpty()) {
-                lines.add(Component.translatable("tooltip.gathering.pack_kind", pack.kind()));
+            // The archive is not a set and naming it as one would print "ARCHIVE" where a set
+            // code goes, which reads as a set nobody has heard of rather than as what it is.
+            if (pack.isArchive()) {
+                lines.add(Component.translatable("tooltip.gathering.archive")
+                        .withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE));
+                lines.add(Component.translatable("tooltip.gathering.archive_what")
+                        .withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+            } else {
+                lines.add(Component.translatable("tooltip.gathering.pack_set",
+                        pack.setCode().toUpperCase(java.util.Locale.ROOT)));
+                if (!pack.kind().isEmpty()) {
+                    lines.add(Component.translatable("tooltip.gathering.pack_kind", pack.kind()));
+                }
             }
             // Both gestures, said here, because a pack is the first thing in collection mode
             // a player picks up and there is nowhere else for it to be said. The ceremony is

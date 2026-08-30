@@ -545,6 +545,11 @@ public final class PackOpeningScreen extends Screen {
         // Centred in the body, which is what is left under the crimp.
         float down = (float) CRIMP + (1f - (float) CRIMP) / 2f;
         float tall = side * packWidth / Math.max(1f, packHeight);
+        // The archive is not a set, so there is no symbol to print on it and asking would
+        // spend a request on a URL that cannot exist. Plain paper is the right answer.
+        if (dev.gathering.item.PackComponent.ARCHIVE.equals(setCode)) {
+            return;
+        }
         int color = PackWrapper.symbolColor(kind);
         ClientSetSymbols.get().symbol(setCode, color, 128).ifPresent(symbol ->
                 TiltedPack.print(matrix, lens, symbol,

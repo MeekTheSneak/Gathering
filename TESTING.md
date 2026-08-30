@@ -554,7 +554,8 @@ Everything below works in single player and on a server. `<>` marks an argument.
 | `/gathering config` | anyone | Every setting and what it is set to. Add a setting name to read one, and a value after that (op) to change it — no restart. |
 | `/gathering import <decklist>` | as configured | Imports a list without opening the screen. `/gathering import 60 Forest` is a legal deck in one line. |
 | `/gathering card <name>` | as configured | One named card in your hand. `/gathering foil <name>` for the foil. |
-| `/gathering pack give <set>` | op | Sealed product from nothing. `open` opens one instead, `list` says what a set was sold as. |
+| `/gathering pack give <set>` | op | Sealed product from nothing. `open` opens one instead, `list` says what a set was sold as. `give archive` hands over an Archive Pack, which is otherwise only ever found. |
+| `/gathering coverage` | op | How many cards in this server's sets nothing but an Archive Pack reaches. Name a set to audit that one instead. |
 | `/gathering coverage <set>` | op | Whether that set's own packs can produce all of it. |
 | `/gathering loaners` | anyone | What the server lends. `reload` (op) re-reads the folder without a restart. |
 
