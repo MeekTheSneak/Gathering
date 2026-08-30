@@ -147,6 +147,15 @@ public final class GatheringFabricClient implements ClientModInitializer {
                                 dev.gathering.client.CollectionScreen.accept(payload)));
 
         ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.ReplayListPayload.TYPE, (payload, context) ->
+                        context.client().execute(() ->
+                                dev.gathering.client.ReplayListScreen.accept(payload)));
+        ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.ReplayFramePayload.TYPE, (payload, context) ->
+                        context.client().execute(() ->
+                                dev.gathering.client.ClientReplay.accept(payload)));
+
+        ClientPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.DraftViewPayload.TYPE, (payload, context) ->
                         context.client().execute(() -> dev.gathering.client.DraftScreen.show(
                                 payload.pod(), payload.view(), payload.open())));

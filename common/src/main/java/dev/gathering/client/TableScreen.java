@@ -201,7 +201,14 @@ public final class TableScreen extends Screen {
     /** How far one press of a pan key slides the table. */
     private static final int PAN_STEP = 60;
 
+    /** The table in the world, or {@link #NOT_A_TABLE} when this is a replay. */
     private final BlockPos table;
+
+    /** Whether this is a replay. Set once at construction; nothing switches it. */
+    private final boolean replay;
+
+    /** Where the scrubber was grabbed, so a drag along the bar keeps scrubbing. */
+    private boolean scrubbing;
 
     private TableScreenLayout layout;
 
@@ -283,13 +290,57 @@ public final class TableScreen extends Screen {
     private int cursorY;
 
     public TableScreen(BlockPos table) {
-        super(Component.translatable("screen.gathering.table"));
+        this(java.util.Objects.requireNonNull(table, "table"), false);
+    }
+
+    private TableScreen(BlockPos table, boolean replay) {
+        super(Component.translatable(replay
+                ? "screen.gathering.replay" : "screen.gathering.table"));
         this.table = table;
+        this.replay = replay;
+    }
+
+    /**
+     * Where a replay's board is filed in the client's per-table maps.
+     *
+     * <p>The flights, the chat lines and the roll announcements are all kept by table, and a
+     * replay has no table. Rather than teach four of them what a null means, it is given a
+     * place no table can be - the world does not go down that far, so nothing a player builds
+     * can ever share a drawer with a game that is over.
+     */
+    private static final BlockPos NOT_A_TABLE = new BlockPos(0, Integer.MIN_VALUE, 0);
+
+    /**
+     * The same screen, showing a finished game instead of a live one.
+     *
+     * <p>The same screen deliberately. A replay drawn by a second renderer would be a second
+     * copy of every layout rule on the table, free to drift from the one people play on - and
+     * the whole point of watching a game back is that it looks like the game did. What
+     * changes is where the board comes from and that nothing can be done to it: see
+     * {@link #view()} and {@link #send}.
+     */
+    public static TableScreen watching() {
+        return new TableScreen(NOT_A_TABLE, true);
+    }
+
+    /** Where a replay files its flights and its news. See {@link #NOT_A_TABLE}. */
+    static BlockPos replayTable() {
+        return NOT_A_TABLE;
+    }
+
+    /**
+     * Whether this screen is showing a finished game rather than a table in the world.
+     *
+     * <p>Every guard in the screen that stops a watcher touching the board reads this, and so
+     * does the frame handler, which must not open a second screen over the first.
+     */
+    public boolean isReplay() {
+        return replay;
     }
 
     /** Whether this screen is showing that table, for anything deciding where to go back to. */
     public boolean isAbout(BlockPos which) {
-        return table.equals(which);
+        return !replay && table.equals(which);
     }
 
     /** The seat the camera is currently framed for, or null for the whole table. */
@@ -467,7 +518,7 @@ public final class TableScreen extends Screen {
 
     @Override
     protected void init() {
-        layout = TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
+        layout = freshLayout();
         if (geometry == null) {
             geometry = new BoardGeometry(anchors(), this.width, this.height,
                     layout.status().height(), layout.hand().height());
@@ -629,13 +680,15 @@ public final class TableScreen extends Screen {
         TablePointer.forget();
         ClientTableHighlight.clear();
         ClientTableRolls.forget();
+        // A frame that arrives after the screen has gone must not put it back up.
+        ClientReplay.stop();
         super.removed();
     }
 
     // ------------------------------------------------------------- the board
 
     private Optional<GameView> view() {
-        return ClientTableState.viewOf(table);
+        return replay ? ClientReplay.frame() : ClientTableState.viewOf(table);
     }
 
     private Optional<SeatId> mySeat() {
@@ -643,6 +696,28 @@ public final class TableScreen extends Screen {
                 .filter(Viewer.Seated.class::isInstance)
                 .map(Viewer.Seated.class::cast)
                 .map(Viewer.Seated::seat);
+    }
+
+    /**
+     * Whether the game on this board was played with a command zone.
+     *
+     * <p>For a replay, where there is no block left to ask. A seat that named a commander or
+     * has one in its command zone played Commander; nothing else in a view says so, and a
+     * board drawn with the wrong number of piles puts every pile in the wrong place.
+     */
+    private static boolean hadACommandZone(GameView board) {
+        for (SeatView seat : board.seats()) {
+            if (!seat.commanders().isEmpty()) {
+                return true;
+            }
+            for (Zone slot : Zone.COMMAND_SLOTS) {
+                ZoneView command = seat.zones().get(slot);
+                if (command != null && command.count() > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -660,8 +735,15 @@ public final class TableScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
-        piles = Zone.pilesFor(
-                net.minecraft.client.Minecraft.getInstance().level != null
+        if (replay) {
+            ClientReplay.tick();
+        }
+        // Which piles a mat has. A live table asks the block, because the block is what a
+        // format was chosen on; a finished game has no block left to ask, so it is read off
+        // the board itself - a seat that named commanders played with a command zone.
+        piles = Zone.pilesFor(replay
+                ? view().map(TableScreen::hadACommandZone).orElse(false)
+                : net.minecraft.client.Minecraft.getInstance().level != null
                         && net.minecraft.client.Minecraft.getInstance().level
                                 .getBlockEntity(table) instanceof TableBlockEntity entity
                         && entity.hasCommandZone());
@@ -692,7 +774,7 @@ public final class TableScreen extends Screen {
             // The strip along the bottom belongs to a hand, and somebody who has just stood
             // up no longer has one. Laid out again before the camera is framed, because the
             // camera is fitted to what is left of the window after the strip is taken out.
-            layout = TableScreenLayout.of(this.width, this.height, sitting != null);
+            layout = freshLayout();
             geometry.reshape(anchors(), this.width, this.height,
                     layout.status().height(), layout.hand().height());
             frameTheBoard(sitting);
@@ -858,6 +940,10 @@ public final class TableScreen extends Screen {
         //
         // Nor while the read key is down: that draws the card full size at the cursor, and a
         // tooltip under it is a second answer to a question already being answered better.
+        if (replay) {
+            renderScrubber(graphics);
+        }
+
         if (!tooltip.isEmpty() && !showingLog && !showingKeys && held == null
                 && !CardZoomOverlay.isActive()) {
             // Pushed down far enough that it cannot land on the status bar. Vanilla clamps a
@@ -2714,6 +2800,10 @@ public final class TableScreen extends Screen {
         int x = (int) mouseX;
         int y = (int) mouseY;
 
+        if (replay) {
+            return watcherClicked(x, y, button);
+        }
+
         // An open menu eats every click, including the one that dismisses it - otherwise
         // clicking away from a menu also does whatever was underneath.
         if (menu != null) {
@@ -2939,6 +3029,10 @@ public final class TableScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (scrubbing) {
+            ClientReplay.scrubTo(stepUnder((int) mouseX));
+            return true;
+        }
         if (panFrom != null && button == 2) {
             pan(dragX, dragY);
             return true;
@@ -2954,6 +3048,10 @@ public final class TableScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (scrubbing) {
+            scrubbing = false;
+            return true;
+        }
         if (panFrom != null && button == 2) {
             panFrom = null;
             return true;
@@ -4223,6 +4321,9 @@ public final class TableScreen extends Screen {
      */
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (replay) {
+            return watcherPressed(key, scanCode);
+        }
         // Before everything, because while somebody is typing every other key is a letter.
         // A board where pressing D drew a card halfway through the word "dead" would be a
         // board nobody could talk at.
@@ -4680,6 +4781,12 @@ public final class TableScreen extends Screen {
      * that moved it.
      */
     private void send(GameEvent event) {
+        if (replay) {
+            // The last fence rather than the first. Every gesture that could reach here is
+            // already refused above, and this is what makes that a belt rather than a hope:
+            // a game that is over cannot be played, whatever a screen thinks it is doing.
+            return;
+        }
         long now = ClientCardFlights.now();
         if (event instanceof GameEvent.CardMoved moved) {
             ClientCardFlights.movedItOurselves(moved.card(), now);
@@ -5044,11 +5151,211 @@ public final class TableScreen extends Screen {
         }
     }
 
+
+    // --------------------------------------------------------------- replay
+
+    /** The scrubber's three buttons: a step back, play or pause, a step on. */
+    private static final int SCRUB_BUTTON = 18;
+
+    private static final int SCRUB_GAP = 4;
+
+    /** How tall the bar itself is inside its strip. Thin: it is a ruler, not a trough. */
+    private static final int SCRUB_BAR = 6;
+
+    private static final int SCRUB_TRACK = 0xFF3A3A3A;
+    private static final int SCRUB_FILL = 0xFF6FD3E8;
+    private static final int SCRUB_HEAD = 0xFFF2EEE6;
+
+    /** Where the nth scrubber button is, from the left of the strip. */
+    private Rect scrubButton(int index) {
+        Rect strip = layout().hand();
+        int top = strip.y() + (strip.height() - SCRUB_BUTTON) / 2;
+        return new Rect(SCRUB_GAP + index * (SCRUB_BUTTON + SCRUB_GAP), top,
+                SCRUB_BUTTON, SCRUB_BUTTON);
+    }
+
+    /** The bar between the buttons and the count at the right-hand end. */
+    private Rect scrubBar() {
+        Rect strip = layout().hand();
+        int left = scrubButton(2).right() + SCRUB_GAP * 2;
+        int right = strip.right() - SCRUB_GAP * 2 - countWidth();
+        return new Rect(left, strip.y() + (strip.height() - SCRUB_BAR) / 2,
+                Math.max(1, right - left), SCRUB_BAR);
+    }
+
+    /**
+     * Room for "Replay 128 / 340", measured rather than guessed so the bar never runs under it.
+     *
+     * <p>The word is in the line rather than off in a banner of its own because this strip is
+     * the one piece of furniture a replay has that a game does not, and somebody who opened it
+     * by accident should be able to read what they are looking at without pressing anything.
+     */
+    private int countWidth() {
+        return this.font.width(Component.translatable(
+                "screen.gathering.replay.at", "0000", "0000")) + 4;
+    }
+
+    /** Which step a point along the bar means. Clamped, so a drag off either end holds. */
+    private int stepUnder(int x) {
+        Rect bar = scrubBar();
+        int steps = ClientReplay.steps();
+        if (steps <= 0 || bar.width() <= 1) {
+            return 0;
+        }
+        double along = (x - bar.x()) / (double) bar.width();
+        return (int) Math.round(Math.clamp(along, 0, 1) * steps);
+    }
+
+    /**
+     * A watcher's click. Three buttons, a bar, and nothing else on the whole screen.
+     *
+     * <p>Everything is swallowed rather than passed on, which is the point: a finished game
+     * has no verbs, and a click that fell through to the board would be looking for one.
+     */
+    private boolean watcherClicked(int x, int y, int button) {
+        if (button == 2) {
+            // Panning is looking, not playing, and a replay is entirely for looking.
+            panFrom = new int[] {x, y};
+            return true;
+        }
+        if (button != 0) {
+            return true;
+        }
+        if (scrubButton(0).contains(x, y)) {
+            ClientReplay.nudge(-1);
+            return true;
+        }
+        if (scrubButton(1).contains(x, y)) {
+            ClientReplay.playPause();
+            return true;
+        }
+        if (scrubButton(2).contains(x, y)) {
+            ClientReplay.nudge(1);
+            return true;
+        }
+        // The whole strip answers, not the six pixels of bar: a ruler you have to hit exactly
+        // is a ruler nobody uses.
+        if (layout().hand().contains(x, y) && x >= scrubBar().x()) {
+            scrubbing = true;
+            ClientReplay.scrubTo(stepUnder(x));
+            return true;
+        }
+        return true;
+    }
+
+    /**
+     * A watcher's key. The panels that read the game, the transport, and the way out.
+     *
+     * <p>Space, the arrows and Home and End, because that is what every video scrubber in the
+     * world uses and nobody should have to be told. L still opens the log - a replay is mostly
+     * read alongside it - and F1 still lists the keys.
+     */
+    private boolean watcherPressed(int key, int scanCode) {
+        switch (key) {
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> {
+                if (showingLog || showingKeys) {
+                    showingLog = false;
+                    showingKeys = false;
+                } else {
+                    onClose();
+                }
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE -> {
+                ClientReplay.playPause();
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT -> {
+                ClientReplay.nudge(-1);
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT -> {
+                ClientReplay.nudge(1);
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> {
+                ClientReplay.scrubTo(0);
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> {
+                ClientReplay.scrubTo(ClientReplay.steps());
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_L -> {
+                showingLog = !showingLog;
+                return true;
+            }
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_F1 -> {
+                showingKeys = !showingKeys;
+                return true;
+            }
+            default -> {
+                return super.keyPressed(key, scanCode, 0);
+            }
+        }
+    }
+
+    /**
+     * The strip along the bottom of a replay: where you are in the game, and the way about it.
+     *
+     * <p>Drawn last, over the felt, because the board is fitted to the window above it and
+     * anything that reached down here would be a card half under a control.
+     */
+    private void renderScrubber(GuiGraphics graphics) {
+        Rect strip = layout().hand();
+        if (strip.isEmpty()) {
+            return;
+        }
+        panel(graphics, strip);
+
+        drawScrubButton(graphics, scrubButton(0), "|<");
+        drawScrubButton(graphics, scrubButton(1), ClientReplay.playing() ? "||" : ">");
+        drawScrubButton(graphics, scrubButton(2), ">|");
+
+        Rect bar = scrubBar();
+        graphics.fill(bar.x(), bar.y(), bar.right(), bar.bottom(), SCRUB_TRACK);
+        int steps = ClientReplay.steps();
+        int filled = steps <= 0 ? bar.width()
+                : (int) Math.round(bar.width() * (ClientReplay.step() / (double) steps));
+        if (filled > 0) {
+            graphics.fill(bar.x(), bar.y(), bar.x() + filled, bar.bottom(), SCRUB_FILL);
+        }
+        // The head, so a paused replay says where it is even when the fill is a hairline.
+        int head = bar.x() + Math.clamp(filled, 0, Math.max(0, bar.width() - 2));
+        graphics.fill(head, bar.y() - 2, head + 2, bar.bottom() + 2, SCRUB_HEAD);
+
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.replay.at",
+                        String.valueOf(ClientReplay.step()), String.valueOf(steps)),
+                bar.right() + SCRUB_GAP * 2,
+                strip.y() + (strip.height() - this.font.lineHeight) / 2,
+                countWidth(), LABEL);
+    }
+
+    private void drawScrubButton(GuiGraphics graphics, Rect where, String face) {
+        panel(graphics, where);
+        GuiText.drawCentered(graphics, this.font, Component.literal(face),
+                (int) where.centerX(), where.y() + (where.height() - this.font.lineHeight) / 2,
+                where.width(), LABEL);
+    }
+
     private TableScreenLayout layout() {
         if (layout == null) {
-            layout = TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
+            layout = freshLayout();
         }
         return layout;
+    }
+
+    /**
+     * The furniture around the felt, for whichever kind of screen this is.
+     *
+     * <p>One place, because the three that used to build it separately are the three that
+     * would have to learn about a replay's scrubber one at a time.
+     */
+    private TableScreenLayout freshLayout() {
+        return replay
+                ? TableScreenLayout.watching(this.width, this.height)
+                : TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
     }
 
     /**

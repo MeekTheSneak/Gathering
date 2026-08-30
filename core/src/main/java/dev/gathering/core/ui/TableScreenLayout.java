@@ -49,20 +49,45 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
      * card still has a hand; it is empty, and the strip is where the next one arrives.
      */
     public static TableScreenLayout of(int screenWidth, int screenHeight, boolean holdingAHand) {
-        int width = Math.max(1, screenWidth);
         int height = Math.max(1, screenHeight);
-
         int handHeight = holdingAHand
                 ? Math.min(clamp(Math.round(height * HAND_HEIGHT_FRACTION),
                         HAND_HEIGHT_MIN, HAND_HEIGHT_MAX), height / 2)
                 : 0;
+        return withStrip(screenWidth, screenHeight, handHeight);
+    }
 
-        // The felt goes under the hand rather than stopping at it. A table that ended where
+    /**
+     * How deep the strip along the bottom of a replay is.
+     *
+     * <p>A row of three buttons and a bar. Deliberately nothing like a hand: somebody watching
+     * a game back has no cards, and giving the scrubber a hand's worth of screen would take a
+     * fifth of the table away to hold four controls.
+     */
+    public static final int SCRUBBER_HEIGHT = 26;
+
+    /**
+     * The layout for somebody watching a finished game: no hand, but a scrubber.
+     *
+     * <p>The strip goes in the same slot the hand would, so everything already fitted around
+     * a hand - the camera, the chat lines, the felt's hit-testing - fits around this without
+     * knowing what is in it.
+     */
+    public static TableScreenLayout watching(int screenWidth, int screenHeight) {
+        return withStrip(screenWidth, screenHeight,
+                Math.min(SCRUBBER_HEIGHT, Math.max(1, screenHeight) / 2));
+    }
+
+    private static TableScreenLayout withStrip(int screenWidth, int screenHeight, int stripHeight) {
+        int width = Math.max(1, screenWidth);
+        int height = Math.max(1, screenHeight);
+
+        // The felt goes under the strip rather than stopping at it. A table that ended where
         // your cards begin would have a strip you could see across but never put anything on,
         // and panning would keep sliding cards under a lip.
         return new TableScreenLayout(
                 new Rect(0, 0, width, height),
-                handHeight <= 0 ? Rect.NONE : new Rect(0, height - handHeight, width, handHeight),
+                stripHeight <= 0 ? Rect.NONE : new Rect(0, height - stripHeight, width, stripHeight),
                 new Rect(0, 0, width, Math.min(STATUS_HEIGHT, height / 4)));
     }
 

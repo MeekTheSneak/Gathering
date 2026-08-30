@@ -259,6 +259,12 @@ public final class GatheringNetwork {
                 (payload, context) -> dev.gathering.server.CollectionView.build(
                         (net.minecraft.server.level.ServerPlayer) context.player(), payload));
 
+        registrar.playToServer(
+                dev.gathering.network.WatchReplayPayload.TYPE,
+                dev.gathering.network.WatchReplayPayload.STREAM_CODEC,
+                (payload, context) -> dev.gathering.server.ReplayWatch.handle(
+                        (net.minecraft.server.level.ServerPlayer) context.player(), payload));
+
         // Registered here so both sides agree on the protocol; the handlers are supplied by
         // the client bootstrap, which is the only place allowed to name a client class.
         registrar.playToClient(
@@ -332,6 +338,14 @@ public final class GatheringNetwork {
         registrar.playToClient(
                 dev.gathering.network.AnteConsentPayload.TYPE,
                 dev.gathering.network.AnteConsentPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.ReplayListPayload.TYPE,
+                dev.gathering.network.ReplayListPayload.STREAM_CODEC,
+                (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
+        registrar.playToClient(
+                dev.gathering.network.ReplayFramePayload.TYPE,
+                dev.gathering.network.ReplayFramePayload.STREAM_CODEC,
                 (payload, context) -> GatheringClientPayloadHandlers.handle(payload, context));
         registrar.playToClient(
                 OpenSideboardPayload.TYPE,

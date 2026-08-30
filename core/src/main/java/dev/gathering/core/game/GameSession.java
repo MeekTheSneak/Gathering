@@ -47,19 +47,27 @@ public final class GameSession {
      */
     private final List<LogEntry> log = new ArrayList<>();
 
+    /**
+     * The life every seat opened on. Kept beside the board rather than read back off it,
+     * because a seat's life moves the moment play starts and a replay has to be able to
+     * rebuild the same opening board from the log alone.
+     */
+    private final int startingLife;
+
     private UndoMode undoMode;
     private GameState state;
     private long nextSequence = 1;
 
-    private GameSession(SessionSeed seed, GameState initial, UndoMode undoMode) {
+    private GameSession(SessionSeed seed, GameState initial, int startingLife, UndoMode undoMode) {
         this.seed = seed;
         this.initial = initial;
         this.state = initial;
+        this.startingLife = startingLife;
         this.undoMode = undoMode;
     }
 
     public static GameSession create(List<SeatId> seats, int startingLife, SessionSeed seed, UndoMode undoMode) {
-        return new GameSession(seed, GameState.empty(seats, startingLife), undoMode);
+        return new GameSession(seed, GameState.empty(seats, startingLife), startingLife, undoMode);
     }
 
     /**
@@ -214,6 +222,11 @@ public final class GameSession {
 
     public SessionSeed seed() {
         return seed;
+    }
+
+    /** The life every seat opened on, as the format asked for it. */
+    public int startingLife() {
+        return startingLife;
     }
 
     public UndoMode undoMode() {

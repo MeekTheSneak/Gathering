@@ -54,6 +54,7 @@ public final class Settings {
         return switch (path) {
             case "modes.import_enabled" -> String.valueOf(now.modes().importEnabled());
             case "modes.collection_enabled" -> String.valueOf(now.modes().collectionEnabled());
+            case "modes.replays_enabled" -> String.valueOf(now.modes().replaysEnabled());
             case "import.allow_all_players" -> String.valueOf(now.importing().allowAllPlayers());
             case "import.formats" -> String.join(", ", now.importing().formats());
             case "collection.pack_loot_sources" ->

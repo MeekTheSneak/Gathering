@@ -70,7 +70,13 @@ public final class VisibilityRules {
         return new GameView(viewer, seats, state.turn(), state.ended(), log);
     }
 
-    /** Every seated view plus the spectator view, for tests and for broadcast. */
+    /**
+     * Every seated view plus the spectator view, for tests and for broadcast.
+     *
+     * <p><b>Never a historian.</b> This is what the invariant suites walk, and what a live
+     * table hands out; a viewer entitled to hidden information has no business in either. The
+     * omission is the enforcement - see {@link Viewer.Historian}.
+     */
     public static Map<Viewer, GameView> allViews(GameState state) {
         Map<Viewer, GameView> views = new java.util.LinkedHashMap<>();
         for (SeatId seat : state.seats()) {
@@ -103,6 +109,18 @@ public final class VisibilityRules {
 
     private static ZoneView zoneView(GameState state, ZoneRef ref, Viewer viewer) {
         List<CardInstanceId> contents = state.contents(ref);
+
+        // A game that is over, read by somebody entitled to all of it. Every rule below is
+        // about protecting information that is still live; none of it is, so none of them
+        // apply. See Viewer.Historian for why this is the one safe exception and what keeps
+        // it from becoming a live one.
+        if (viewer.seesEverything()) {
+            List<CardView> everything = new ArrayList<>(contents.size());
+            for (CardInstanceId id : contents) {
+                everything.add(cardView(state, state.requireCard(id), viewer));
+            }
+            return new ZoneView(ref, contents.size(), everything);
+        }
 
         // A library is a count to everybody, its owner included - unless the log says this
         // viewer is looking through it right now, in which case they see exactly as far down
@@ -148,7 +166,8 @@ public final class VisibilityRules {
     }
 
     private static CardView cardView(GameState state, CardInstance card, Viewer viewer) {
-        boolean entitled = !card.isFaceDown() || viewer.isSeatedAt(card.owner());
+        boolean entitled = !card.isFaceDown() || viewer.isSeatedAt(card.owner())
+                || viewer.seesEverything();
         // The host this card sits on, named only to viewers whose world holds that id. A
         // face-down host is anonymous to everyone but its owner - its view carries a marker
         // and no id - and an instance id is a decklist position, so writing the real id into
@@ -157,7 +176,8 @@ public final class VisibilityRules {
         CardInstanceId host = card.attachedTo();
         if (host != null) {
             CardInstance hostCard = state.card(host).orElse(null);
-            if (hostCard != null && hostCard.isFaceDown() && !viewer.isSeatedAt(hostCard.owner())) {
+            if (hostCard != null && hostCard.isFaceDown() && !viewer.isSeatedAt(hostCard.owner())
+                    && !viewer.seesEverything()) {
                 host = null;
             }
         }

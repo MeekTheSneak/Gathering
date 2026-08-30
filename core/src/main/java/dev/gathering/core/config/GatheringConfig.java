@@ -33,8 +33,16 @@ public record GatheringConfig(
         Ante ante,
         List<String> notes) {
 
-    /** The two master switches. */
-    public record Modes(boolean importEnabled, boolean collectionEnabled) {
+    /**
+     * The master switches.
+     *
+     * @param replaysEnabled whether a finished game is kept and can be watched back. On by
+     *                       default: a replay only ever shows a game that is over, so there
+     *                       is nothing left in it to exploit. A server running a tournament
+     *                       where the same decks meet again may still prefer it off, which is
+     *                       the one line that does it.
+     */
+    public record Modes(boolean importEnabled, boolean collectionEnabled, boolean replaysEnabled) {
     }
 
     /**
@@ -118,6 +126,7 @@ public record GatheringConfig(
         return new LinkedHashSet<>(List.of(
                 "modes.import_enabled",
                 "modes.collection_enabled",
+                "modes.replays_enabled",
                 "import.allow_all_players",
                 "import.formats",
                 "collection.pack_loot_sources",
@@ -161,6 +170,7 @@ public record GatheringConfig(
         // somebody a deck. A server that would rather everyone typed their own says so in
         // one line: import.allow_all_players.
         boolean collectionEnabled = toml.flag("modes.collection_enabled", true);
+        boolean replaysEnabled = toml.flag("modes.replays_enabled", true);
 
         Importing importing = new Importing(
                 toml.flag("import.allow_all_players", false),
@@ -232,7 +242,8 @@ public record GatheringConfig(
             notes.add("'" + unknown + "' is not a setting this version knows about");
         }
         return new GatheringConfig(
-                new Modes(importEnabled, collectionEnabled), importing, collecting, tables, ante,
+                new Modes(importEnabled, collectionEnabled, replaysEnabled),
+                importing, collecting, tables, ante,
                 notes);
     }
 
@@ -355,6 +366,10 @@ public record GatheringConfig(
                 [modes]
                 import_enabled = true
                 collection_enabled = true
+                # Finished games are kept so anybody can watch them back, hidden information
+                # and all. Safe because the game is over; turn it off for a server where the
+                # same decks meet again the next evening.
+                replays_enabled = true
 
                 [import]
                 # true lets every player import a decklist. false keeps it to operators, which

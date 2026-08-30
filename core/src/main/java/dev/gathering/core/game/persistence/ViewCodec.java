@@ -171,16 +171,28 @@ public final class ViewCodec {
 
     private static void viewer(DataOutput out, Viewer viewer) throws IOException {
         switch (viewer) {
+            case Viewer.Historian ignored -> {
+                out.writeBoolean(false);
+                out.writeBoolean(true);
+            }
             case Viewer.Seated seated -> {
                 out.writeBoolean(true);
                 out.writeInt(seated.seat().index());
             }
-            case Viewer.Spectator ignored -> out.writeBoolean(false);
+            case Viewer.Spectator ignored -> {
+                out.writeBoolean(false);
+                out.writeBoolean(false);
+            }
         }
     }
 
     private static Viewer viewer(DataInput in) throws IOException {
-        return in.readBoolean() ? new Viewer.Seated(new SeatId(in.readInt())) : new Viewer.Spectator();
+        if (in.readBoolean()) {
+            return new Viewer.Seated(new SeatId(in.readInt()));
+        }
+        // A second flag rather than a third state on the first, so a seated view's bytes are
+        // exactly what they were: this is read on every board a live table sends.
+        return in.readBoolean() ? new Viewer.Historian() : new Viewer.Spectator();
     }
 
     private static void turn(DataOutput out, TurnMarker turn) throws IOException {

@@ -212,6 +212,14 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> dev.gathering.client.CollectionScreen.accept(page));
             return;
         }
+        if (payload instanceof dev.gathering.network.ReplayListPayload listed) {
+            context.enqueueWork(() -> dev.gathering.client.ReplayListScreen.accept(listed));
+            return;
+        }
+        if (payload instanceof dev.gathering.network.ReplayFramePayload frame) {
+            context.enqueueWork(() -> dev.gathering.client.ClientReplay.accept(frame));
+            return;
+        }
         if (payload instanceof dev.gathering.network.DraftViewPayload pod) {
             context.enqueueWork(() -> acceptDraftView(pod));
             return;

@@ -120,6 +120,12 @@ public final class GatheringCommands {
                         .then(Commands.literal("reload")
                                 .requires(source -> source.hasPermission(2))
                                 .executes(context -> reloadLoaners(context.getSource()))))
+                // Watching a game back. A command rather than a block, because the game it is
+                // about is over and the table it was played on may well have been broken up
+                // since - and because a player who wants last night's game does not want to
+                // walk to where it happened first.
+                .then(Commands.literal("replay")
+                        .executes(context -> listReplays(context.getSource())))
                 // Ending a game is a command rather than a click, because it cannot be undone
                 // and a table is a thing people lean on.
                 .then(Commands.literal("table")
@@ -144,6 +150,26 @@ public final class GatheringCommands {
                                                 context.getSource(),
                                                 com.mojang.brigadier.arguments.IntegerArgumentType
                                                         .getInteger(context, "cards"))))));
+    }
+
+    /**
+     * Sends the finished games to whoever asked, which opens the list on their client.
+     *
+     * <p>No permission. A replay only shows a game that has already ended, and every one of
+     * them was played in public on a table anybody could stand at.
+     */
+    private static int listReplays(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.translatable("message.gathering.player_only"));
+            return 0;
+        }
+        if (!dev.gathering.server.ReplayWatch.allowed()) {
+            source.sendFailure(Component.translatable("message.gathering.replays_off"));
+            return 0;
+        }
+        dev.gathering.server.ReplayWatch.sendList(player);
+        return 1;
     }
 
     /** Every setting and what it is currently set to. */

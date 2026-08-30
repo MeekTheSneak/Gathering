@@ -170,7 +170,13 @@ public final class TableSessions {
         if (table == null || !table.hasSession()) {
             return Outcome.NOT_RUNNING;
         }
-        table.session().ifPresent(session -> session.submit(new GameEvent.SessionEnded(actor, reason)));
+        table.session().ifPresent(session -> {
+            session.submit(new GameEvent.SessionEnded(actor, reason));
+            // Written down before the table forgets it. A session is an event log and a seed,
+            // so a finished game reproduces exactly - and every one of them used to be thrown
+            // away at exactly this line.
+            rememberTheGame(level, tableOrigin, session);
+        });
         returnDecks(level, tableOrigin, table);
         // Nobody won this one, so every card goes back to whoever staked it.
         settlePot(level, tableOrigin, table, null);
@@ -181,6 +187,33 @@ public final class TableSessions {
             dev.gathering.server.TableBroadcast.closeAtTable(server, tableOrigin);
         }
         return Outcome.ENDED;
+    }
+
+    /**
+     * Keeps the finished game, and tells the people who played it that it was kept.
+     *
+     * <p>Named here rather than folded into the line above because it is the one thing in
+     * {@code end} that is not about tidying the table away. Failure is silent past a log line:
+     * a replay that could not be written is a replay nobody watches, and it must never be the
+     * reason a game cannot end.
+     */
+    private static void rememberTheGame(Level level, BlockPos tableOrigin, GameSession session) {
+        List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
+        List<String> played = new ArrayList<>();
+        for (int index = 0; index < anchors.size(); index++) {
+            occupantOf(level, tableOrigin, anchors.get(index))
+                    .map(player -> player.getGameProfile().getName())
+                    .ifPresent(played::add);
+        }
+        if (!dev.gathering.server.Replays.keep(session, session.startingLife(), played)) {
+            return;
+        }
+        for (SeatAnchor seat : anchors) {
+            occupantOf(level, tableOrigin, seat).ifPresent(player ->
+                    player.sendSystemMessage(
+                            net.minecraft.network.chat.Component.translatable(
+                                    "message.gathering.game_recorded")));
+        }
     }
 
     /**

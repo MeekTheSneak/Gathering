@@ -148,6 +148,15 @@ final class GatheringNetwork {
         PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.ToBottomAtRandomPayload.TYPE,
                 dev.gathering.network.ToBottomAtRandomPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.WatchReplayPayload.TYPE,
+                dev.gathering.network.WatchReplayPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.ReplayListPayload.TYPE,
+                dev.gathering.network.ReplayListPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(
+                dev.gathering.network.ReplayFramePayload.TYPE,
+                dev.gathering.network.ReplayFramePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CloseTablePayload.TYPE, CloseTablePayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(ImportResultPayload.TYPE, ImportResultPayload.STREAM_CODEC);
@@ -194,6 +203,10 @@ final class GatheringNetwork {
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.RevealUntilPayload.TYPE, (payload, context) ->
                         dev.gathering.server.LibraryReveals.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.WatchReplayPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.ReplayWatch.handle(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.DiscardAtRandomPayload.TYPE, (payload, context) ->
