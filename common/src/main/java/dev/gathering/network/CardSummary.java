@@ -6,6 +6,7 @@ import dev.gathering.core.card.ImageTier;
 import dev.gathering.core.card.Rarity;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -25,7 +26,8 @@ import net.minecraft.network.codec.StreamCodec;
  * rarity, and the light that comes out of a booster being torn open.
  */
 public record CardSummary(
-        UUID scryfallId, CardFaceSummary front, Optional<CardFaceSummary> back, Rarity rarity) {
+        UUID scryfallId, UUID oracleId, CardFaceSummary front, Optional<CardFaceSummary> back,
+        Rarity rarity, double manaValue, Set<String> colorIdentity) {
 
     /**
      * How a rarity crosses the wire, written once.
@@ -43,15 +45,59 @@ public record CardSummary(
                             : Rarity.UNKNOWN,
                     Rarity::ordinal);
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, CardSummary> STREAM_CODEC = StreamCodec.composite(
-            UUIDUtil.STREAM_CODEC, CardSummary::scryfallId,
-            CardFaceSummary.STREAM_CODEC, CardSummary::front,
-            ByteBufCodecs.optional(CardFaceSummary.STREAM_CODEC), CardSummary::back,
-            RARITY_STREAM_CODEC, CardSummary::rarity,
-            CardSummary::new);
+    /** Five colors, and a little room for whatever Scryfall decides a color is next. */
+    private static final int MOST_COLORS = 8;
+
+    /** A color is one letter. Bounded anyway, because the length comes off the wire. */
+    private static final int LONGEST_COLOR = 8;
+
+    /**
+     * Written out by hand rather than composed, for the reason {@link CardFaceSummary}'s is.
+     *
+     * <p>Seven components and {@link StreamCodec#composite} stops at six. The order below is
+     * the record's own, top to bottom, which is the only thing to keep right.
+     */
+    public static final StreamCodec<RegistryFriendlyByteBuf, CardSummary> STREAM_CODEC =
+            StreamCodec.of(
+                    (buffer, card) -> {
+                        UUIDUtil.STREAM_CODEC.encode(buffer, card.scryfallId());
+                        UUIDUtil.STREAM_CODEC.encode(buffer, card.oracleId());
+                        CardFaceSummary.STREAM_CODEC.encode(buffer, card.front());
+                        buffer.writeBoolean(card.back().isPresent());
+                        card.back().ifPresent(back -> CardFaceSummary.STREAM_CODEC.encode(buffer, back));
+                        RARITY_STREAM_CODEC.encode(buffer, card.rarity());
+                        buffer.writeDouble(card.manaValue());
+                        buffer.writeVarInt(card.colorIdentity().size());
+                        card.colorIdentity().forEach(buffer::writeUtf);
+                    },
+                    buffer -> {
+                        UUID printing = UUIDUtil.STREAM_CODEC.decode(buffer);
+                        UUID oracle = UUIDUtil.STREAM_CODEC.decode(buffer);
+                        CardFaceSummary front = CardFaceSummary.STREAM_CODEC.decode(buffer);
+                        Optional<CardFaceSummary> back = buffer.readBoolean()
+                                ? Optional.of(CardFaceSummary.STREAM_CODEC.decode(buffer))
+                                : Optional.empty();
+                        Rarity rarity = RARITY_STREAM_CODEC.decode(buffer);
+                        double manaValue = buffer.readDouble();
+                        // Bounded, because this comes off a socket: five colors exist and a
+                        // length read from the wire is a length somebody could have written.
+                        int colors = Math.min(buffer.readVarInt(), MOST_COLORS);
+                        Set<String> identity = new java.util.LinkedHashSet<>();
+                        for (int index = 0; index < colors; index++) {
+                            identity.add(buffer.readUtf(LONGEST_COLOR));
+                        }
+                        return new CardSummary(
+                                printing, oracle, front, back, rarity, manaValue, identity);
+                    });
 
     public CardSummary {
         rarity = rarity == null ? Rarity.UNKNOWN : rarity;
+        oracleId = oracleId == null ? scryfallId : oracleId;
+        // Kept in order rather than sorted into a hash order salted once per launch, so two
+        // clients encode the same card the same way.
+        colorIdentity = colorIdentity == null
+                ? Set.of()
+                : java.util.Collections.unmodifiableSet(new java.util.LinkedHashSet<>(colorIdentity));
     }
 
     public static final StreamCodec<RegistryFriendlyByteBuf, List<CardSummary>> LIST_STREAM_CODEC =
@@ -63,6 +109,7 @@ public record CardSummary(
             // A printing with no face data at all still needs a name to show.
             return new CardSummary(
                     card.scryfallId(),
+                    card.oracleId(),
                     new CardFaceSummary(
                             card.name(),
                             card.manaCost(),
@@ -73,13 +120,18 @@ public record CardSummary(
                             card.images().bestFor(ImageTier.NORMAL).orElse(""),
                             card.images().bestFor(ImageTier.PNG).orElse("")),
                     Optional.empty(),
-                    card.rarity());
+                    card.rarity(),
+                    card.cmc(),
+                    card.colorIdentity());
         }
         return new CardSummary(
                 card.scryfallId(),
+                card.oracleId(),
                 CardFaceSummary.of(faces.get(0)),
                 faces.size() > 1 ? Optional.of(CardFaceSummary.of(faces.get(1))) : Optional.empty(),
-                card.rarity());
+                card.rarity(),
+                card.cmc(),
+                card.colorIdentity());
     }
 
     public String name() {

@@ -3708,10 +3708,11 @@ public final class DevScene {
                     ("ceremony-" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             summaries.add(new dev.gathering.network.CardSummary(
                     id,
+                    id,
                     new dev.gathering.network.CardFaceSummary(
                             "Pulled Card " + index, "{1}", "Artifact", "", "", "", "", ""),
                     java.util.Optional.empty(),
-                    rarities[index]));
+                    rarities[index], 1.0, java.util.Set.of()));
             cards.add(dev.gathering.item.CardComponent.of(
                     dev.gathering.core.card.CardIdentity.ofPrinting(id, false)));
         }
@@ -4449,10 +4450,11 @@ public final class DevScene {
                 "storied".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         ClientCardCache.get().accept(java.util.List.of(new dev.gathering.network.CardSummary(
                 printing,
+                printing,
                 new dev.gathering.network.CardFaceSummary(
                         "Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "", "", "", ""),
                 java.util.Optional.empty(),
-                dev.gathering.core.card.Rarity.UNCOMMON)));
+                dev.gathering.core.card.Rarity.UNCOMMON, 1.0, java.util.Set.of())));
 
         dev.gathering.core.story.CardStory story = dev.gathering.core.story.CardStory
                 .begunWith(new dev.gathering.core.story.CardStory.Chapter(
