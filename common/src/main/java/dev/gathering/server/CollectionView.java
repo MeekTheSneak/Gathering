@@ -255,6 +255,7 @@ public final class CollectionView {
         }
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.deck_built", deck.totalCards()));
+        Achievements.award(player, Achievements.FIRST_DECK);
         if (missed > 0) {
             player.sendSystemMessage(
                     Component.translatable("message.gathering.deck_built_short", missed));

@@ -164,7 +164,7 @@ public final class GatheringCommands {
             source.sendFailure(Component.translatable("message.gathering.player_only"));
             return 0;
         }
-        if (!dev.gathering.server.ReplayWatch.allowed()) {
+        if (!dev.gathering.server.ReplayWatch.keeping()) {
             source.sendFailure(Component.translatable("message.gathering.replays_off"));
             return 0;
         }

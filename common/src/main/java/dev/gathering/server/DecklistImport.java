@@ -224,6 +224,8 @@ public final class DecklistImport {
 
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.import_complete", component.name(), component.totalCards()));
+        dev.gathering.server.Achievements.award(
+                player, dev.gathering.server.Achievements.FIRST_DECK);
     }
 
     /**

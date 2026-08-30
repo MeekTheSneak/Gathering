@@ -54,7 +54,7 @@ public final class Settings {
         return switch (path) {
             case "modes.import_enabled" -> String.valueOf(now.modes().importEnabled());
             case "modes.collection_enabled" -> String.valueOf(now.modes().collectionEnabled());
-            case "modes.replays_enabled" -> String.valueOf(now.modes().replaysEnabled());
+            case "modes.replays" -> now.modes().replays().toString();
             case "import.allow_all_players" -> String.valueOf(now.importing().allowAllPlayers());
             case "import.formats" -> String.join(", ", now.importing().formats());
             case "collection.pack_loot_sources" ->
@@ -96,12 +96,12 @@ public final class Settings {
      *              file's - {@code on}, {@code 12}, {@code basic lands, foils}
      */
     public static Changed set(String path, String typed) {
-        String value = ConfigEdit.asToml(flagWords(typed)).orElse(null);
-        if (value == null) {
-            return new Changed("No value given.", List.of(), false);
-        }
         if (!names().contains(path)) {
             return new Changed("No setting called " + path + ".", List.of(), false);
+        }
+        String value = ConfigEdit.asToml(wordsFor(path, typed)).orElse(null);
+        if (value == null) {
+            return new Changed("No value given.", List.of(), false);
         }
 
         String problem = ServerSettings.set(Platform.get(), path, value);
@@ -129,6 +129,19 @@ public final class Settings {
         CardShop.warm();
         LoanerDecks.warm();
         return true;
+    }
+
+    /**
+     * Whether this setting is one where "off" means false, or one where it is a word.
+     *
+     * <p>Asked of the setting rather than of the word. Every setting used to go through
+     * {@link #flagWords}, which was right while every switch was a switch - and the moment
+     * one grew a third state, typing "off" at it wrote {@code false} into a line the file
+     * expects a word on, and the whole config stopped loading on the next start.
+     */
+    private static String wordsFor(String path, String typed) {
+        String now = valueOf(path);
+        return "true".equals(now) || "false".equals(now) ? flagWords(typed) : typed;
     }
 
     /**

@@ -24,6 +24,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 LANG = ROOT / "common/src/main/resources/assets/gathering/lang/en_us.json"
 SOUNDS = ROOT / "common/src/main/resources/assets/gathering/sounds.json"
 THEMES = ROOT / "common/src/main/resources/assets/gathering/gui_themes"
+DATA = ROOT / "common/src/main/resources/data/gathering"
 
 # Entries nothing in the source asks for by name, on purpose. Listing them here rather than
 # letting them show up as unused every run is the difference between a check people read and a
@@ -77,6 +78,9 @@ def sources():
 
 
 SHORTCUT = re.compile(r'Map\.entry\("([a-z0-9_]+)",\s*Component\.literal')
+
+# A key named by a data file: {"translate": "advancements.gathering.root.title"}.
+TRANSLATED = re.compile(r'"translate"\s*:\s*"([^"]+)"')
 
 # The prefix every menu entry's label is built under. A shortcut is written beside one of
 # those labels, so the label existing is exactly what makes the shortcut real.
@@ -142,11 +146,30 @@ def themeNames():
     return named
 
 
+def translatedInData():
+    """
+    The keys the mod's own data files ask for.
+
+    Advancements name their title and description by key and nothing in Java mentions either,
+    so without this every one of them reads as an unused entry - and a real typo in one would
+    sit in that list where nobody would pick it out. Data is source too; it just is not Java.
+    """
+    if not DATA.is_dir():
+        return {}
+    named = {}
+    for file in sorted(DATA.rglob("*.json")):
+        text = file.read_text(encoding="utf-8")
+        for key in TRANSLATED.findall(text):
+            named.setdefault(key, file.relative_to(ROOT).as_posix())
+    return named
+
+
 def main() -> int:
     entries = json.loads(LANG.read_text(encoding="utf-8"))
 
     whole = dict(subtitles())
     whole.update(themeNames())
+    whole.update(translatedInData())
     prefixes = {}
     for source in sources():
         where = source.relative_to(ROOT).as_posix()

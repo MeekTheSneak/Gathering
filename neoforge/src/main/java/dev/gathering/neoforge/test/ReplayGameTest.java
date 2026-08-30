@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -53,7 +54,7 @@ public final class ReplayGameTest {
     public static void aFinishedGameIsKept(GameTestHelper helper) {
         withReplaysOn(helper, () -> {
             GameSession session = aFinishedGame();
-            if (!Replays.keep(session, 40, List.of("Alice", "Bob"))) {
+            if (!Replays.keep(session, 40, twoPlayers())) {
                 helper.fail("a finished game was not kept");
                 return;
             }
@@ -62,8 +63,13 @@ public final class ReplayGameTest {
                 helper.fail("the shelf is empty right after a game was put on it");
                 return;
             }
-            if (!kept.players().contains("Alice") || !kept.players().contains("Bob")) {
-                helper.fail("the replay does not say who played it: " + kept.players());
+            if (!kept.names().contains("Alice") || !kept.names().contains("Bob")) {
+                helper.fail("the replay does not say who played it: " + kept.names());
+                return;
+            }
+            if (!kept.wasPlayedBy(ALICE_ACCOUNT) || kept.wasPlayedBy(UUID.randomUUID())) {
+                helper.fail("the replay does not remember whose game it was, so a server that"
+                        + " keeps them for the people who played cannot tell");
                 return;
             }
             if (kept.steps() != session.records().size()) {
@@ -89,7 +95,7 @@ public final class ReplayGameTest {
     @GameTest(template = "empty")
     public static void aHistorianSeesWhatThePlayersHid(GameTestHelper helper) {
         withReplaysOn(helper, () -> {
-            Replays.keep(aFinishedGame(), 40, List.of("Alice", "Bob"));
+            Replays.keep(aFinishedGame(), 40, twoPlayers());
             Replays.Record kept = newest().orElse(null);
             if (kept == null) {
                 helper.fail("nothing was kept");
@@ -117,7 +123,7 @@ public final class ReplayGameTest {
     @GameTest(template = "empty")
     public static void scrubbingWindsTheGameBack(GameTestHelper helper) {
         withReplaysOn(helper, () -> {
-            Replays.keep(aFinishedGame(), 40, List.of("Alice", "Bob"));
+            Replays.keep(aFinishedGame(), 40, twoPlayers());
             Replays.Record kept = newest().orElse(null);
             if (kept == null) {
                 helper.fail("nothing was kept");
@@ -174,16 +180,54 @@ public final class ReplayGameTest {
     /** A server with replays off keeps none, which is the whole of what the switch does. */
     @GameTest(template = "empty")
     public static void aServerWithReplaysOffKeepsNone(GameTestHelper helper) {
-        boolean before = ServerSettings.get().modes().replaysEnabled();
+        var before = ServerSettings.get().modes().replays();
         try {
-            Settings.set("modes.replays_enabled", "off");
-            if (Replays.keep(aFinishedGame(), 40, List.of("Alice", "Bob"))) {
+            Settings.set("modes.replays", "off");
+            if (Replays.keep(aFinishedGame(), 40, twoPlayers())) {
                 helper.fail("a game was kept on a server that keeps none");
                 return;
             }
             helper.succeed();
         } finally {
-            Settings.set("modes.replays_enabled", before ? "on" : "off");
+            Settings.set("modes.replays", before.toString());
+        }
+    }
+
+    /**
+     * With replays kept for the people who played them, nobody else may open one.
+     *
+     * <p>The setting the brief asked for and the one most groups actually want. What it is
+     * protecting is small and real: a deck list, read off a replay, before the rematch.
+     */
+    @GameTest(template = "empty")
+    public static void participantsOnlyMeansTheyPlayedIt(GameTestHelper helper) {
+        var before = ServerSettings.get().modes().replays();
+        try {
+            Settings.set("modes.replays", "public");
+            Replays.keep(aFinishedGame(), 40, twoPlayers());
+            Replays.Record kept = newest().orElse(null);
+            if (kept == null) {
+                helper.fail("nothing was kept");
+                return;
+            }
+            ServerPlayer stranger = helper.makeMockServerPlayerInLevel();
+            if (!dev.gathering.server.ReplayWatch.mayWatch(stranger, kept)) {
+                helper.fail("a public replay was refused to somebody on the server");
+                return;
+            }
+            Settings.set("modes.replays", "participants");
+            if (dev.gathering.server.ReplayWatch.mayWatch(stranger, kept)) {
+                helper.fail("somebody who was not at the table can read the game back");
+                return;
+            }
+            Settings.set("modes.replays", "off");
+            if (dev.gathering.server.ReplayWatch.keeping()) {
+                helper.fail("a server with replays off is still keeping them");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            Settings.set("modes.replays", before.toString());
         }
     }
 
@@ -207,6 +251,25 @@ public final class ReplayGameTest {
         return session;
     }
 
+    /**
+     * The two who played, account and all.
+     *
+     * <p>Fixed accounts rather than random ones, because half of what the header is for is
+     * answering "was this your game" on a server that keeps replays for the people who played
+     * them - and a random id cannot be asked that question afterwards.
+     */
+    private static List<Replays.Played> twoPlayers() {
+        return List.of(
+                new Replays.Played("Alice", ALICE_ACCOUNT),
+                new Replays.Played("Bob", BOB_ACCOUNT));
+    }
+
+    private static final UUID ALICE_ACCOUNT =
+            UUID.nameUUIDFromBytes("gathering-replay-alice".getBytes(StandardCharsets.UTF_8));
+
+    private static final UUID BOB_ACCOUNT =
+            UUID.nameUUIDFromBytes("gathering-replay-bob".getBytes(StandardCharsets.UTF_8));
+
     private static SessionSeed seed() {
         return SessionSeed.fromBytes(
                 "gathering-replay-test-seed-0123456789".getBytes(StandardCharsets.UTF_8));
@@ -228,17 +291,17 @@ public final class ReplayGameTest {
 
     /** Runs a body with replays on, and puts the setting back however it started. */
     private static void withReplaysOn(GameTestHelper helper, Runnable body) {
-        boolean before = ServerSettings.get().modes().replaysEnabled();
+        var before = ServerSettings.get().modes().replays();
         try {
-            if (!before) {
-                Settings.set("modes.replays_enabled", "on");
+            if (before != dev.gathering.core.config.GatheringConfig.Replays.PUBLIC) {
+                Settings.set("modes.replays", "public");
             }
             body.run();
         } catch (RuntimeException broke) {
             helper.fail("a replay threw: " + broke);
         } finally {
-            if (!before) {
-                Settings.set("modes.replays_enabled", "off");
+            if (before != dev.gathering.core.config.GatheringConfig.Replays.PUBLIC) {
+                Settings.set("modes.replays", before.toString());
             }
         }
     }

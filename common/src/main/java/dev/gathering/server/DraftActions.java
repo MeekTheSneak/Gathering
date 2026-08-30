@@ -146,6 +146,7 @@ public final class DraftActions {
             }
             drafter.sendSystemMessage(Component.translatable(
                     "message.gathering.draft_finished", pool.size()));
+            Achievements.award(drafter, Achievements.FIRST_DRAFT);
         }
         DraftPods.end(level, tableOrigin);
     }

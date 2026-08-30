@@ -296,6 +296,29 @@ public final class PackOpening {
         return best;
     }
 
+    /**
+     * Whether any card actually handed over is a mythic.
+     *
+     * <p>What was given rather than what the pack held: a booster whose mythic slot rolled a
+     * card the collection already had still opened one, but the moment worth remembering is
+     * holding it. Only cards this mod could name are considered - an unknown printing is not
+     * evidence either way, and guessing would hand out the rarest advancement in the tree for
+     * a lookup that had not come back yet.
+     */
+    private static boolean holdsAMythic(List<CardIdentity> giving, List<CardMetadata> about) {
+        for (CardIdentity card : giving) {
+            for (CardMetadata detail : about) {
+                if (card.printing().filter(detail.scryfallId()::equals).isPresent()) {
+                    if (detail.rarity() == dev.gathering.core.card.Rarity.MYTHIC) {
+                        return true;
+                    }
+                    break;
+                }
+            }
+        }
+        return false;
+    }
+
     /** Server thread only. */
     private static void deliver(ServerPlayer player, Opened opened, boolean ceremony) {
         // What was actually opened, not what was asked for. Asking for a set and no kind is
@@ -318,6 +341,10 @@ public final class PackOpening {
         // every common out of every booster would be a story on every card in the game, which
         // is the same as no card having one. See CardStories.
         CardIdentity best = bestOf(delivery.giving(), opened.cards());
+        Achievements.award(player, Achievements.FIRST_PACK);
+        if (holdsAMythic(delivery.giving(), opened.cards())) {
+            Achievements.award(player, Achievements.FIRST_MYTHIC);
+        }
         for (CardIdentity card : delivery.giving()) {
             ItemStack stack = CardItem.of(CardComponent.of(card));
             if (card.equals(best)) {

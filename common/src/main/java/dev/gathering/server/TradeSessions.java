@@ -204,6 +204,8 @@ public final class TradeSessions {
         TABLES.remove(table.right());
         say(left, "message.gathering.trade_done");
         say(right, "message.gathering.trade_done");
+        Achievements.award(left, Achievements.FIRST_TRADE);
+        Achievements.award(right, Achievements.FIRST_TRADE);
         Sending.to(left, TradeViewPayload.over(right.getGameProfile().getName()));
         Sending.to(right, TradeViewPayload.over(left.getGameProfile().getName()));
     }

@@ -1,0 +1,12 @@
+{
+  "parent": "gathering:first_pack",
+  "display": {
+    "icon": { "id": "gathering:card" },
+    "title": { "translate": "advancements.gathering.first_mythic.title" },
+    "description": { "translate": "advancements.gathering.first_mythic.description" },
+    "frame": "goal"
+  },
+  "criteria": {
+    "pulled": { "trigger": "minecraft:impossible" }
+  }
+}

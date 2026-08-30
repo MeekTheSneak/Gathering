@@ -36,13 +36,55 @@ public record GatheringConfig(
     /**
      * The master switches.
      *
-     * @param replaysEnabled whether a finished game is kept and can be watched back. On by
-     *                       default: a replay only ever shows a game that is over, so there
-     *                       is nothing left in it to exploit. A server running a tournament
-     *                       where the same decks meet again may still prefer it off, which is
-     *                       the one line that does it.
+     * @param replays who may watch a finished game back. Public by default: a replay only
+     *                ever shows a game that is over, so there is nothing left in it to
+     *                exploit, and a game played at a table anybody could stand at was public
+     *                while it happened. A server running a tournament where the same decks
+     *                meet again the next evening has the other two.
      */
-    public record Modes(boolean importEnabled, boolean collectionEnabled, boolean replaysEnabled) {
+    public record Modes(boolean importEnabled, boolean collectionEnabled, Replays replays) {
+    }
+
+    /**
+     * Who a kept game is shown to.
+     *
+     * <p>Three states rather than a switch because the middle one is the one most servers
+     * actually want: a group can settle their own argument about what was on top of the
+     * library without a stranger reading their deck for the rematch.
+     */
+    public enum Replays {
+
+        /** Anybody on the server may watch any finished game. */
+        PUBLIC,
+
+        /** Only the people who sat at the table may watch that game. */
+        PARTICIPANTS,
+
+        /** Nothing is kept at all. */
+        OFF;
+
+        /** What a word in the file means, falling back rather than refusing the whole file. */
+        public static Replays parse(String raw, Replays fallback) {
+            if (raw == null) {
+                return fallback;
+            }
+            return switch (raw.trim().toLowerCase(java.util.Locale.ROOT)) {
+                case "public", "on", "true", "everybody" -> PUBLIC;
+                case "participants", "players", "table" -> PARTICIPANTS;
+                case "off", "false", "none" -> OFF;
+                default -> fallback;
+            };
+        }
+
+        /** Whether a finished game is written down at all. */
+        public boolean keeps() {
+            return this != OFF;
+        }
+
+        @Override
+        public String toString() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
     }
 
     /**
@@ -126,7 +168,7 @@ public record GatheringConfig(
         return new LinkedHashSet<>(List.of(
                 "modes.import_enabled",
                 "modes.collection_enabled",
-                "modes.replays_enabled",
+                "modes.replays",
                 "import.allow_all_players",
                 "import.formats",
                 "collection.pack_loot_sources",
@@ -170,7 +212,7 @@ public record GatheringConfig(
         // somebody a deck. A server that would rather everyone typed their own says so in
         // one line: import.allow_all_players.
         boolean collectionEnabled = toml.flag("modes.collection_enabled", true);
-        boolean replaysEnabled = toml.flag("modes.replays_enabled", true);
+        Replays replays = Replays.parse(toml.string("modes.replays", "public"), Replays.PUBLIC);
 
         Importing importing = new Importing(
                 toml.flag("import.allow_all_players", false),
@@ -242,7 +284,7 @@ public record GatheringConfig(
             notes.add("'" + unknown + "' is not a setting this version knows about");
         }
         return new GatheringConfig(
-                new Modes(importEnabled, collectionEnabled, replaysEnabled),
+                new Modes(importEnabled, collectionEnabled, replays),
                 importing, collecting, tables, ante,
                 notes);
     }
@@ -366,10 +408,11 @@ public record GatheringConfig(
                 [modes]
                 import_enabled = true
                 collection_enabled = true
-                # Finished games are kept so anybody can watch them back, hidden information
-                # and all. Safe because the game is over; turn it off for a server where the
-                # same decks meet again the next evening.
-                replays_enabled = true
+                # Who may watch a finished game back, hidden information and all: public,
+                # participants (only the people who sat at that table), or off. Safe because
+                # the game is over - but a server where the same decks meet again the next
+                # evening may want one of the other two.
+                replays = "public"
 
                 [import]
                 # true lets every player import a decklist. false keeps it to operators, which

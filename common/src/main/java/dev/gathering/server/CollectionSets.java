@@ -98,6 +98,12 @@ public final class CollectionSets {
         }
 
         List<SetCompletion> progress = SetCompletion.of(named, sets);
+        for (SetCompletion set : progress) {
+            if (set.isComplete()) {
+                Achievements.award(player, Achievements.SET_COMPLETE);
+                break;
+            }
+        }
         List<SetProgressPayload.Row> rows = new ArrayList<>(
                 Math.min(progress.size(), SetProgressPayload.MOST_SETS));
         for (SetCompletion set : progress) {

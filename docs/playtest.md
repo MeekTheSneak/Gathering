@@ -23,6 +23,7 @@ me what broke.
 allow_all_players = true     # everyone can paste a decklist
 [modes]
 collection_enabled = true    # leave on to test packs, shops and trading
+replays = "public"           # so anybody can watch a finished game back
 ```
 
 Or live, no restart: `/gathering config import.allow_all_players true`
@@ -203,6 +204,26 @@ set contains what that pack contained.
       who had them before. Trade one twice and check it still reads sensibly.
 - [ ] Draft with 4–8 people, keep your pool, build out of it.
 
+## 6. Watching a game back
+
+Every finished game is kept, and a replay is the one place this mod ever shows you hidden
+information — the game is over, so there is nothing left in it to exploit.
+
+- [ ] End a game (`/gathering table end`), then `/gathering replay`. Your game should be at the
+      top of the list, named by whoever played it and when.
+- [ ] Pick it. The table opens on the same screen you played on, wound back to before the first
+      shuffle — an empty felt.
+- [ ] **Press space.** It plays. Every hand is face up, every library is readable. That is the
+      point, and it is worth checking it really is face up rather than a fan of backs.
+- [ ] Drag the bar along the bottom to any moment; the arrows step one action at a time and Home
+      and End go to either end. **F1** lists what a watcher can do, which is a shorter list than
+      a player's.
+- [ ] **Try to play.** Click a card, drag one, press E. Nothing should move. A finished game
+      cannot be played on, and if anything at all happens that is the most serious kind of bug
+      this mod can have.
+- [ ] Ask somebody who was not in the game to run `/gathering replay`. With
+      `modes.replays = "public"` they see it; set it to `participants` and they should not.
+
 ## Every command
 
 | command | who | what |
@@ -213,6 +234,7 @@ set contains what that pack contained.
 | `/gathering table info` | anyone | **Paste this when something looks wrong.** Cluster shape, who's in which chair, whether a session is running, whose turn, cards per zone. It never names a card. |
 | `/gathering table fill <n>` | op | Plays that many cards off your library onto your mat, on a grid. Defaults to 12. |
 | `/gathering table end` | anyone at it | Ends the game at the table you're looking at. |
+| `/gathering replay` | anyone | The finished games this server kept. Pick one to watch it back — every hand and every library face up, because the game is over. Space plays, arrows step, drag the bar. |
 | `/gathering config` | anyone | Every setting and its value. Add a name to read one, a value after that (op) to change it, no restart. |
 | `/gathering pack give <set>` | op | Sealed product from nothing. `open` opens one, `list` says what that set was sold as. |
 | `/gathering coverage <set>` | op | Whether that set's own packs can produce all of it. |

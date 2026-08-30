@@ -177,6 +177,7 @@ public final class TableSessions {
             // away at exactly this line.
             rememberTheGame(level, tableOrigin, session);
         });
+        creditEverybodyWhoPlayed(level, tableOrigin);
         returnDecks(level, tableOrigin, table);
         // Nobody won this one, so every card goes back to whoever staked it.
         settlePot(level, tableOrigin, table, null);
@@ -190,6 +191,24 @@ public final class TableSessions {
     }
 
     /**
+     * Marks a game finished for everybody still sitting at it.
+     *
+     * <p>Everybody rather than a winner, because this mod has no idea who won one and is
+     * never going to: it does not enforce a rule and does not read a board. Playing a game
+     * through to the end is the thing worth remembering, and the table can honestly say that
+     * happened.
+     */
+    private static void creditEverybodyWhoPlayed(Level level, BlockPos tableOrigin) {
+        for (SeatAnchor seat : TableClusters.at(level, tableOrigin).seats()) {
+            occupantOf(level, tableOrigin, seat)
+                    .filter(net.minecraft.server.level.ServerPlayer.class::isInstance)
+                    .map(net.minecraft.server.level.ServerPlayer.class::cast)
+                    .ifPresent(player -> dev.gathering.server.Achievements.award(
+                            player, dev.gathering.server.Achievements.FIRST_GAME));
+        }
+    }
+
+    /**
      * Keeps the finished game, and tells the people who played it that it was kept.
      *
      * <p>Named here rather than folded into the line above because it is the one thing in
@@ -199,10 +218,11 @@ public final class TableSessions {
      */
     private static void rememberTheGame(Level level, BlockPos tableOrigin, GameSession session) {
         List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
-        List<String> played = new ArrayList<>();
+        List<dev.gathering.server.Replays.Played> played = new ArrayList<>();
         for (int index = 0; index < anchors.size(); index++) {
             occupantOf(level, tableOrigin, anchors.get(index))
-                    .map(player -> player.getGameProfile().getName())
+                    .map(player -> new dev.gathering.server.Replays.Played(
+                            player.getGameProfile().getName(), player.getUUID()))
                     .ifPresent(played::add);
         }
         if (!dev.gathering.server.Replays.keep(session, session.startingLife(), played)) {

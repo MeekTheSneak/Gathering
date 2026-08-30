@@ -1,0 +1,8 @@
+{
+  "values": [
+    "gathering:card",
+    "gathering:deck",
+    "gathering:pack",
+    "gathering:sealed"
+  ]
+}

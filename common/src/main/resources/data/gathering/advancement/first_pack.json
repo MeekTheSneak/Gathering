@@ -1,0 +1,12 @@
+{
+  "parent": "gathering:root",
+  "display": {
+    "icon": { "id": "gathering:pack" },
+    "title": { "translate": "advancements.gathering.first_pack.title" },
+    "description": { "translate": "advancements.gathering.first_pack.description" },
+    "frame": "task"
+  },
+  "criteria": {
+    "opened": { "trigger": "minecraft:impossible" }
+  }
+}

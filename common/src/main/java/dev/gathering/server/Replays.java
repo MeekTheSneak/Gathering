@@ -53,13 +53,42 @@ public final class Replays {
     public static final int KEPT = 64;
 
     /** The byte layout's own version, so a later change can refuse an older file plainly. */
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
 
     private Replays() {
     }
 
-    /** One finished game, as much as a list of them needs to say. */
-    public record Record(String id, long when, List<String> players, int turns, int steps, int seats) {
+    /**
+     * One finished game, as much as a list of them needs to say.
+     *
+     * @param players who sat at the table, name and account both. The name is what the list
+     *                shows; the account is what decides who may open it on a server that
+     *                keeps replays for the people who played them
+     */
+    public record Record(String id, long when, List<Played> players, int turns, int steps, int seats) {
+
+        /** The names, in the order they sat, for anything that only wants to print them. */
+        public List<String> names() {
+            List<String> named = new ArrayList<>(players.size());
+            for (Played played : players) {
+                named.add(played.name());
+            }
+            return List.copyOf(named);
+        }
+
+        /** Whether this account is one of the people who played this game. */
+        public boolean wasPlayedBy(java.util.UUID who) {
+            for (Played played : players) {
+                if (played.id().equals(who)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    /** Somebody who sat at the table this game was played on. */
+    public record Played(String name, java.util.UUID id) {
     }
 
     /**
@@ -74,8 +103,8 @@ public final class Replays {
      * @return whether a file was actually written, so nobody is told a game was kept when the
      *         server has replays switched off or the disk refused it
      */
-    public static boolean keep(GameSession session, int startingLife, List<String> players) {
-        if (session == null || !session.state().ended() || !ReplayWatch.allowed()) {
+    public static boolean keep(GameSession session, int startingLife, List<Played> players) {
+        if (session == null || !session.state().ended() || !ReplayWatch.keeping()) {
             return false;
         }
         try {
@@ -98,8 +127,10 @@ public final class Replays {
                 out.writeInt(seed.length);
                 out.write(seed);
                 out.writeInt(players.size());
-                for (String player : players) {
-                    out.writeUTF(player);
+                for (Played player : players) {
+                    out.writeUTF(player.name());
+                    out.writeLong(player.id().getMostSignificantBits());
+                    out.writeLong(player.id().getLeastSignificantBits());
                 }
                 out.writeInt(streams.publicLog().length);
                 out.write(streams.publicLog());
@@ -187,6 +218,8 @@ public final class Replays {
             int players = in.readInt();
             for (int index = 0; index < players; index++) {
                 in.readUTF();
+                in.readLong();
+                in.readLong();
             }
             byte[] publicLog = new byte[in.readInt()];
             in.readFully(publicLog);
@@ -218,9 +251,10 @@ public final class Replays {
             in.readUTF();
             in.readNBytes(in.readInt());
             int players = in.readInt();
-            List<String> named = new ArrayList<>(players);
+            List<Played> named = new ArrayList<>(players);
             for (int index = 0; index < players; index++) {
-                named.add(in.readUTF());
+                String name = in.readUTF();
+                named.add(new Played(name, new java.util.UUID(in.readLong(), in.readLong())));
             }
             return java.util.Optional.of(new Record(
                     file.getFileName().toString(), when, named, turns, steps, seats));
