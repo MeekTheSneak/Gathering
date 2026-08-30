@@ -74,12 +74,9 @@ public final class DeckBuilderScreen extends Screen {
     private int pages = 1;
     private List<CollectionPagePayload.Row> rows = List.of();
 
-    /** Whether the box pane is showing suggestions for the commander rather than the box. */
-    private boolean suggesting;
 
     private EditBox searchBox;
     private EditBox nameBox;
-    private Button suggestButton;
 
     private int deckScroll;
 
@@ -103,21 +100,13 @@ public final class DeckBuilderScreen extends Screen {
         addRenderableWidget(this.nameBox);
 
         int searchTop = MARGIN + 32;
-        this.searchBox = new EditBox(this.font, MARGIN, searchTop, Math.max(60, boxWidth - 96), 16,
+        this.searchBox = new EditBox(this.font, MARGIN, searchTop, Math.max(60, boxWidth), 16,
                 Component.translatable("screen.gathering.collection.search"));
         this.searchBox.setHint(Component.translatable("screen.gathering.collection.search_hint"));
         this.searchBox.setValue(searching);
         this.searchBox.setResponder(text -> askFor(0));
         addRenderableWidget(this.searchBox);
 
-        // The one button that changes what the left pane is. Off unless a commander has been
-        // named, because there is nothing to rank against until then and a button that
-        // cannot do anything is a button somebody presses once and stops trusting.
-        this.suggestButton = GatheringButtons.of(
-                MARGIN + Math.max(60, boxWidth - 96) + GAP, searchTop, 90, 16,
-                Component.translatable("screen.gathering.builder.suggest"),
-                this::flipSuggesting);
-        addRenderableWidget(this.suggestButton);
 
         int buttonTop = this.height - BOTTOM_BAR + 6;
         addRenderableWidget(GatheringButtons.of(MARGIN, buttonTop, 84, 18,
@@ -189,11 +178,8 @@ public final class DeckBuilderScreen extends Screen {
 
     private void askFor(int wanted) {
         query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
-        Optional<UUID> commander = suggesting
-                ? build.commander().map(BuildCard::printing)
-                : Optional.empty();
         ClientNetworking.send(new CollectionSearchPayload(
-                where, query, false, Math.max(0, wanted), grid().cells(), commander));
+                where, query, false, Math.max(0, wanted), grid().cells()));
     }
 
     /** A page came back. Kept whether or not it is the one asked for; the server decides. */
@@ -206,13 +192,6 @@ public final class DeckBuilderScreen extends Screen {
         this.pages = payload.pages();
     }
 
-    private void flipSuggesting() {
-        if (build.commander().isEmpty()) {
-            return;
-        }
-        suggesting = !suggesting;
-        askFor(0);
-    }
 
     // ---------------------------------------------------------------- editing
 
@@ -232,9 +211,6 @@ public final class DeckBuilderScreen extends Screen {
                     .isPresent()
                     ? build.led(null).with(card)
                     : build.led(card);
-            if (build.commander().isEmpty() && suggesting) {
-                suggesting = false;
-            }
             askFor(0);
             GatheringButtons.clickSound();
         });
@@ -305,9 +281,6 @@ public final class DeckBuilderScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        if (suggestButton != null) {
-            suggestButton.active = build.commander().isPresent();
-        }
         graphics.drawString(this.font,
                 label.isEmpty() ? Component.translatable("screen.gathering.builder") : Component.literal(label),
                 MARGIN, MARGIN, TEXT, false);
@@ -369,9 +342,7 @@ public final class DeckBuilderScreen extends Screen {
 
         if (rows.isEmpty()) {
             GuiText.drawCentered(graphics, this.font,
-                    Component.translatable(suggesting
-                            ? "screen.gathering.builder.no_suggestions"
-                            : "screen.gathering.collection.nothing_found"),
+                    Component.translatable("screen.gathering.collection.nothing_found"),
                     boxPane().x() + boxPane().width() / 2,
                     boxPane().y() + boxPane().height() / 2 - 4, boxPane().width() - 8, DIM);
         }
@@ -461,9 +432,7 @@ public final class DeckBuilderScreen extends Screen {
 
     private void drawFooter(GuiGraphics graphics) {
         int y = this.height - BOTTOM_BAR + 10;
-        Component how = Component.translatable(suggesting
-                ? "screen.gathering.builder.hint_suggest"
-                : "screen.gathering.builder.hint");
+        Component how = Component.translatable("screen.gathering.builder.hint");
         // The gap between the button on the left and the pair on the right, measured rather
         // than guessed at: a hint given a fixed share of the window is one that runs under a
         // button on a narrow one and is cut off in the middle of a word on this one.

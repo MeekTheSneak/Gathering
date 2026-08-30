@@ -13,10 +13,11 @@ import java.util.Set;
 /**
  * Finding one card in a collection of ten thousand.
  *
- * <p>A binder you cannot search is a box. What people actually ask of one is narrow and
- * always the same: what red cards have I got, how many of this rare, what is in this set,
- * where is that thing called something-Bolt - so those are the questions, and there is no
- * query language to learn.
+ * <p>A binder you cannot search is a box. The buttons answer the questions somebody asks
+ * without thinking - what red cards have I got, what is in this set - and the box answers the
+ * rest through {@link CardSearch}, which is Scryfall's syntax because everybody who plays this
+ * game has already typed it somewhere else. Bare words still just look for a name, so nothing
+ * has to be learned before the box is useful.
  *
  * <p>Every filter is "and". Typing a word and picking a color means both, which is what
  * anybody would expect and the only rule that does not need explaining.
@@ -150,7 +151,7 @@ public final class CollectionSearch {
         if (!isColors(about, asked.colors())) {
             return false;
         }
-        return saysAll(about, asked.text());
+        return CardSearch.matches(about, row.count(), CardSearch.parse(asked.text()));
     }
 
     // ------------------------------------------------------------- the rules
@@ -177,27 +178,6 @@ public final class CollectionSearch {
                 continue;
             }
             if (!has.contains(color)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Whether every word typed appears somewhere in the card.
-     *
-     * <p>Word by word rather than as one string, because "bolt light" and "light bolt" are the
-     * same question and somebody typing half-remembered names types them in any order.
-     */
-    private static boolean saysAll(CardMetadata about, String text) {
-        if (text.isEmpty()) {
-            return true;
-        }
-        String haystack = lower(about.name()) + " " + lower(about.typeLine()) + " "
-                + lower(about.setName()) + " " + lower(about.setCode()) + " "
-                + lower(about.oracleText());
-        for (String word : text.split("\\s+")) {
-            if (!word.isEmpty() && !haystack.contains(word)) {
                 return false;
             }
         }

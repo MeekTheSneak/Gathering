@@ -100,28 +100,12 @@ public final class CollectionView {
     /** Answers one search with one page. */
     public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
             boolean descending, int page, int rowsThatFit) {
-        search(player, where, query, descending, page, rowsThatFit, Optional.empty());
-    }
-
-    /**
-     * The same, ranked against a commander when the deck builder asks for suggestions.
-     *
-     * <p>Ranked here rather than on the client because the client has one page and the answer
-     * needs the whole box: a suggestion list built from the sixty cards that happened to be on
-     * screen would recommend whatever was alphabetically early. See
-     * {@link dev.gathering.core.collection.CardFit} for what the ranking is, and for why it is a
-     * reading of the player's own cards rather than a question asked of somebody else's site.
-     */
-    public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
-            boolean descending, int page, int rowsThatFit, Optional<UUID> suggestFor) {
         CollectionBlockEntity collection = at(player, where);
         if (collection == null || tooSoon(player)) {
             return;
         }
         List<CollectionSearch.Row> rows = rowsOf(collection.cards());
-        List<CollectionSearch.Row> found = suggestFor
-                .map(commander -> suggested(rows, commander))
-                .orElseGet(() -> CollectionSearch.run(rows, query.asSearch(descending)));
+        List<CollectionSearch.Row> found = CollectionSearch.run(rows, query.asSearch(descending));
 
         // As many as the window asking has room for, and never more than a page holds. A
         // page larger than the box is rows nobody can see and rows somebody can click on
@@ -155,55 +139,6 @@ public final class CollectionView {
         // fetched is not worth ten thousand requests, and the cards a player actually looks
         // at are the ones worth having.
         fetchLater(unnamed);
-    }
-
-    /**
-     * The collection ranked against one commander, best fit first.
-     *
-     * <p>The commander is named by printing and looked up in the same cache everything else
-     * here reads; a printing the server cannot name ranks nothing, which comes back as an
-     * empty list rather than as the whole box in an arbitrary order.
-     */
-    private static List<CollectionSearch.Row> suggested(
-            List<CollectionSearch.Row> rows, UUID commanderPrinting) {
-        CardDataService service = CardDataService.active().orElse(null);
-        CardMetadata leader = service == null
-                ? null
-                : service.store().find(CardQuery.byId(commanderPrinting)).orElse(null);
-        if (leader == null) {
-            return List.of();
-        }
-
-        Map<UUID, CollectionSearch.Row> byPrinting = new java.util.LinkedHashMap<>();
-        List<dev.gathering.core.collection.BuildCard> candidates = new ArrayList<>();
-        for (CollectionSearch.Row row : rows) {
-            UUID printing = row.card().printing().orElse(null);
-            if (printing == null || row.about() == null) {
-                // Nothing is known about it yet, so there is nothing to rank it on. It will be
-                // rankable next time: the ordinary search fetches whatever it could not name.
-                continue;
-            }
-            byPrinting.put(printing, row);
-            candidates.add(buildCardOf(printing, row.about()));
-        }
-
-        List<CollectionSearch.Row> ranked = new ArrayList<>();
-        for (dev.gathering.core.collection.CardFit.Fit fit : dev.gathering.core.collection.CardFit.forCommander(
-                buildCardOf(commanderPrinting, leader), candidates,
-                dev.gathering.core.collection.DeckBuild.EMPTY,
-                CollectionPagePayload.ROWS_PER_PAGE)) {
-            CollectionSearch.Row row = byPrinting.get(fit.card().printing());
-            if (row != null) {
-                ranked.add(row);
-            }
-        }
-        return List.copyOf(ranked);
-    }
-
-    private static dev.gathering.core.collection.BuildCard buildCardOf(UUID printing, CardMetadata card) {
-        return new dev.gathering.core.collection.BuildCard(
-                printing, card.oracleId(), card.name(), card.typeLine(), card.oracleText(),
-                card.cmc(), card.colorIdentity(), false);
     }
 
     /**

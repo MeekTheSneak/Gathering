@@ -92,6 +92,9 @@ public final class CollectionScreen extends Screen {
     private int matched;
     private List<CollectionPagePayload.Row> rows = List.of();
 
+    /** Whether the syntax card is up over the grid. Off by default: it is a reminder, not a page. */
+    private boolean showingSyntax;
+
     private EditBox searchBox;
     private Button sortButton;
     private Button directionButton;
@@ -144,7 +147,7 @@ public final class CollectionScreen extends Screen {
 
     @Override
     protected void init() {
-        searchBox = new EditBox(this.font, MARGIN, MARGIN + 20, this.width - 2 * MARGIN - 148, 18,
+        searchBox = new EditBox(this.font, MARGIN, MARGIN + 20, this.width - 2 * MARGIN - 166, 18,
                 Component.translatable("screen.gathering.collection.search"));
         searchBox.setMaxLength(CollectionQuery.MOST_CHARACTERS);
         searchBox.setHint(Component.translatable("screen.gathering.collection.search_hint"));
@@ -153,6 +156,14 @@ public final class CollectionScreen extends Screen {
         // keystroke would be a packet and a pass over the whole collection.
         searchBox.setResponder(text -> { });
         addRenderableWidget(searchBox);
+
+        // The one thing that says the box takes more than a name. A search language nobody is
+        // told about is a search language nobody uses, and the hint in the box only has room
+        // for one example - so the rest is behind a button beside it, which is also the only
+        // place a player who half-remembers "is it t: or type:" can go and check.
+        addRenderableWidget(GatheringButtons.of(
+                this.width - MARGIN - 164, MARGIN + 20, 16, 18,
+                Component.literal("?"), () -> showingSyntax = !showingSyntax));
 
         sortButton = GatheringButtons.of(this.width - MARGIN - 144, MARGIN + 20, 70, 18,
                 sortLabel(), this::nextSort);
@@ -319,7 +330,7 @@ public final class CollectionScreen extends Screen {
     private void askFor(int wanted) {
         query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
         ClientNetworking.send(
-                CollectionSearchPayload.of(where, query, descending, wanted, cellsThatFit()));
+                new CollectionSearchPayload(where, query, descending, wanted, cellsThatFit()));
     }
 
     /**
@@ -433,6 +444,9 @@ public final class CollectionScreen extends Screen {
         drawColorsOn(graphics);
         drawRows(graphics, mouseX, mouseY);
         drawFooter(graphics);
+        if (showingSyntax) {
+            drawSyntax(graphics);
+        }
     }
 
     /**
@@ -536,6 +550,38 @@ public final class CollectionScreen extends Screen {
                     cell.right() - 5, cell.bottom() - line, 1f, COUNT_TEXT);
         }
     }
+
+    /**
+     * What the search box understands, over the grid.
+     *
+     * <p>Every line is an example rather than a rule, because a search language is learned by
+     * copying a line that looks like the question being asked and changing a word. The list is
+     * short on purpose: these are the ones worth knowing, and the box takes more.
+     */
+    private void drawSyntax(GuiGraphics graphics) {
+        int line = this.font.lineHeight + 2;
+        int wide = 0;
+        for (int at = 0; at < SYNTAX_LINES; at++) {
+            wide = Math.max(wide, this.font.width(
+                    Component.translatable("screen.gathering.search.help_" + at)));
+        }
+        Rect panel = new Rect(
+                MARGIN, TOP_BAR, Math.min(this.width - MARGIN * 2, wide + 16),
+                Math.min(this.height - BOTTOM_BAR - TOP_BAR, SYNTAX_LINES * line + 12));
+        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
+        for (int at = 0; at < SYNTAX_LINES; at++) {
+            int y = panel.y() + 6 + at * line;
+            if (y + line > panel.bottom()) {
+                break;
+            }
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("screen.gathering.search.help_" + at),
+                    panel.x() + 8, y, panel.width() - 16, at == 0 ? TEXT : DIM);
+        }
+    }
+
+    /** How many lines the syntax card has. Written out so the strings and the loop agree. */
+    private static final int SYNTAX_LINES = 10;
 
     private void drawFooter(GuiGraphics graphics) {
         int y = this.height - BOTTOM_BAR + 6;

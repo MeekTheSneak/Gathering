@@ -100,7 +100,9 @@ your server says otherwise, cards are things you own rather than things you type
   shown. Shift-right-click if you'd rather just have the cards.
 - **Real collation.** Packs are built from the actual print sheets a set was really sold with,
   read from published set data — so a pack from a given set contains what that pack contained.
-- **Keep a collection**, search it, and build a whole deck from a list in one go.
+- **Keep a collection** and search it the way you search a card site - `t:elf c:g mv<=3`,
+  the syntax you already know - then build a deck out of it card by card, or from a list in
+  one go.
 - **Draft** with four to eight players, keep your pool, and build out of it.
 - **Trade** with another player, lend a deck to a friend who has none, or **play for keeps**
   with an ante — which only ever happens when everyone at the table agrees to it.

@@ -246,7 +246,7 @@ public final class GatheringNetwork {
                 (payload, context) -> dev.gathering.server.CollectionView.search(
                         (net.minecraft.server.level.ServerPlayer) context.player(),
                         payload.where(), payload.query(), payload.descending(), payload.page(),
-                        payload.perPage(), payload.suggestFor()));
+                        payload.perPage()));
         registrar.playToServer(
                 dev.gathering.network.CollectionTakePayload.TYPE,
                 dev.gathering.network.CollectionTakePayload.STREAM_CODEC,

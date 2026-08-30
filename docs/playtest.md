@@ -258,13 +258,10 @@ Matched to Tabletop Simulator's defaults where they exist.
   unless it's unreadable, which is worth knowing.
 - **A village may get two card shops, or none.** A jigsaw pool can only say how often to try.
 - **Moxfield links can't be fetched.** Their API refuses other tools. Use More → Export → Text.
-- **The deck builder's suggestions are not EDHREC.** EDHREC publishes no API for other tools —
-  only the endpoint their own site calls — and this mod already refuses that trade for Moxfield,
-  so pointing every copy of it at an endpoint its owners never offered would be the same act with
-  a different hostname. What it does instead is read your commander's own rules text against the
-  cards actually in your box, which is the narrower question and the one you are really asking at
-  a collection block. It is a text match, not crowd data, and it says which word it matched on so
-  you can see which it is.
+- **There are no card recommendations.** A suggestions tab was built and cut: EDHREC publishes no
+  API for other tools, and what could be built without them was a substring match against a list
+  of hand-typed words — which looks like recommendations and is not. Search is the answer instead,
+  and it is a real one.
 - **Nothing enforces the rules, ever.** You can tap a tapped creature, set your life to minus
   eleven, or draw six on turn one. That's the design — the rules live in your heads and the log
   records who did what.
