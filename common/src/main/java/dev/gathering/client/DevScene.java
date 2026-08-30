@@ -1905,7 +1905,7 @@ public final class DevScene {
                 // it lands on the menu rather than on the card, which is what a player would
                 // find too - so the run does what a player does and presses the row.
                 if (!(client.screen instanceof TableScreen board)
-                        || !board.pressMenuEntry("Loyalty +1")) {
+                        || !board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.loyalty_up").getString())) {
                     fail("the card's menu lost its Loyalty +1 between opening and pressing");
                 }
                 advance(SETTLE);
@@ -1946,7 +1946,7 @@ public final class DevScene {
             }
             case 177 -> {
                 if (!(client.screen instanceof TableScreen board)
-                        || !board.pressMenuEntry("Set power/toughness...")) {
+                        || !board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.strength").getString())) {
                     fail("the card's menu offers no way to set power and toughness");
                 }
                 advance(SETTLE);
@@ -2006,7 +2006,7 @@ public final class DevScene {
                 faceDownWas = howManyAreFaceDown();
                 int[] at = cardPoint(client);
                 board.mouseClicked(at[0], at[1], 1);
-                if (!board.pressMenuEntry("Turn face down")) {
+                if (!board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.turn_face_down").getString())) {
                     // Both halves, because they fail differently: no menu at all means the
                     // pick missed the card, and a menu without the entry means the felt's
                     // menu opened instead of the card's.
@@ -2964,11 +2964,11 @@ public final class DevScene {
             fail("there was no board to discard from");
             return;
         }
-        if (!openTheTableMenu(client, board, "Discard at random...")) {
+        if (!openTheTableMenu(client, board, net.minecraft.network.chat.Component.translatable("menu.gathering.table.discard_at_random").getString())) {
             fail("the table menu offers no way to discard at random");
             return;
         }
-        board.pressMenuEntry("Discard at random...");
+        board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.discard_at_random").getString());
     }
 
     /**
@@ -2979,11 +2979,11 @@ public final class DevScene {
             fail("there was no board to sort a hand on");
             return;
         }
-        if (!openTheTableMenu(client, board, "Sort hand by cost")) {
+        if (!openTheTableMenu(client, board, net.minecraft.network.chat.Component.translatable("menu.gathering.table.sort_hand").getString())) {
             fail("the table menu offers no way to sort a hand");
             return;
         }
-        board.pressMenuEntry("Sort hand by cost");
+        board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.sort_hand").getString());
     }
 
     /**
@@ -3059,7 +3059,7 @@ public final class DevScene {
             return;
         }
         clickAZone(client, Zone.PILES.indexOf(Zone.LIBRARY), 1);
-        if (!board.pressMenuEntry("Fetch a basic land from your deck...")) {
+        if (!board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.fetch_basic").getString())) {
             fail("the library's menu offers no way to fetch a basic land");
         }
     }
@@ -3187,7 +3187,7 @@ public final class DevScene {
             Rect at = board.board().rectOf(me, where);
             hover(client, new int[] {(int) at.centerX(), (int) at.centerY()});
             board.mouseClicked(at.centerX(), at.centerY(), 1);
-            if (!board.pressMenuEntry("Freeze (won't untap)")) {
+            if (!board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.freeze").getString())) {
                 fail("a card's menu offers no way to freeze it");
             }
             return;
@@ -6498,11 +6498,11 @@ public final class DevScene {
             return;
         }
         Screen before = client.screen;
-        if (!openTheTableMenu(client, board, "Concede")) {
+        if (!openTheTableMenu(client, board, net.minecraft.network.chat.Component.translatable("menu.gathering.table.concede").getString())) {
             fail("no felt on the board offered a table menu to concede from");
             return;
         }
-        if (!board.pressMenuEntry("Concede")) {
+        if (!board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.concede").getString())) {
             fail("the table menu offers no way to concede");
             return;
         }
@@ -6604,11 +6604,11 @@ public final class DevScene {
             fail("there was no board to leave the table from");
             return;
         }
-        if (!openTheTableMenu(client, board, "Leave the table")) {
+        if (!openTheTableMenu(client, board, net.minecraft.network.chat.Component.translatable("menu.gathering.table.leave_table").getString())) {
             fail("no felt on the board offered a table menu with a way to leave the table");
             return;
         }
-        board.pressMenuEntry("Leave the table");
+        board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.leave_table").getString());
         System.out.println("[devscene] left the table from its own menu");
         // Leaving puts the board away, which is what standing up and walking off means. The
         // run wants to go on watching the same table without a seat, so it opens it again the
@@ -7653,11 +7653,11 @@ public final class DevScene {
             fail("there was no board to undo anything from");
             return;
         }
-        if (!openTheTableMenu(client, board, "Undo my last action")) {
+        if (!openTheTableMenu(client, board, net.minecraft.network.chat.Component.translatable("menu.gathering.table.undo").getString())) {
             fail("the table menu offers no way to take back a misclick");
             return;
         }
-        board.pressMenuEntry("Undo my last action");
+        board.pressMenuEntry(net.minecraft.network.chat.Component.translatable("menu.gathering.table.undo").getString());
     }
 
     /**

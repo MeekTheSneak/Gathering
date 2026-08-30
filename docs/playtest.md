@@ -95,7 +95,7 @@ sizes, keys and drag feel are all first guesses.
       the counters panel, so the second card you put a "flying" counter on is one click.
 - [ ] Right-click the felt: Mulligan, Search library, Make a token…, Write a card…, Make an
       emblem…, Bring in a dungeon…, Roll a die…, Flip a coin, Sort hand by cost, Discard at
-      random…, Undo my last action, Concede.
+      random…, Undo, Concede.
 - [ ] Roll the **planar die** (on the Roll a die… list). Four blanks, a chaos and a planeswalk. The
       server rolls, so nobody has to be trusted. The result is announced across the felt for a few
       seconds as well as going in the log.
@@ -158,7 +158,7 @@ The deliverable everything has been waiting on. Four tables merged = eight seats
 - [ ] **Sit down after the game has already started.** Your seat should say your name, not
       "(away)", and you should be able to act. This was broken and is the fix most worth
       re-testing with four people.
-- [ ] **Leave the table** (right-click felt → Leave the table) and your deck comes back to you.
+- [ ] **Leave table** (right-click felt → Leave table) and your deck comes back to you.
       Your board stays on the felt. A deck always returns to whoever put it down, even if
       somebody else has taken the chair since.
 - [ ] Play one game **for keeps**. Everyone is asked by name, every game, and one "Not tonight"
