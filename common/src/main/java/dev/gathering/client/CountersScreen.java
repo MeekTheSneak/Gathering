@@ -57,8 +57,46 @@ public final class CountersScreen extends ChildScreen {
     private static final int GAP = 4;
     private static final int STEP_WIDTH = 18;
 
-    /** How many named counters fit before the list scrolls. Nothing has ever needed more. */
+    /**
+     * How many named counters the panel shows at once. The rest are a wheel away.
+     *
+     * <p>Six because a card with seven different named counters on it is rare, and a panel
+     * built for the rare case is a panel that is too tall every other time. This used to be a
+     * cap rather than a window: the seventh counter was drawn nowhere and had no buttons, so
+     * a player who had put one on could not see it, change it, or take it off again.
+     */
     private static final int MAX_ROWS = 6;
+
+    /** Which counter is at the top of the list, when there are more than fit. */
+    private int scroll;
+
+    /**
+     * How many counter rows this window has room for, worked out when the panel is laid out.
+     *
+     * <p>Usually {@link #MAX_ROWS}. Less on a short window or a crowded table, because the
+     * rest of the panel - the commander damage grid, the tax grid, the way to add one, the
+     * way out - is not optional and a panel that did not shrink for them drew its own buttons
+     * off the bottom of the screen, where nothing could be pressed.
+     */
+    private int showing = MAX_ROWS;
+
+    /**
+     * How many counter rows fit under everything else the panel has to hold.
+     *
+     * <p>The height below is the same sum {@code init} builds the panel from, with the rows
+     * taken out of it - so what is left is the room they have. Never fewer than one while
+     * there is a counter to show: a list with no rows at all cannot be scrolled back into.
+     */
+    private int rowsThatFit(int commonRows, int opponents, int taxed) {
+        int fixed = MARGIN * 2 + ROW * 2
+                + commonRows * (ROW + GAP)
+                + (opponents == 0 ? 0 : (opponents + 1) * (ROW + GAP))
+                + (taxed == 0 ? 0 : (taxed + 1) * (ROW + GAP))
+                + ROW + GAP * 3
+                + ROW + GAP;
+        int room = this.height - MARGIN * 2 - fixed;
+        return Math.max(1, Math.min(MAX_ROWS, room / (ROW + GAP)));
+    }
 
     /** A counter name long enough for anything real and short enough not to be a payload. */
     private static final int MAX_NAME = 24;
@@ -226,12 +264,18 @@ public final class CountersScreen extends ChildScreen {
     @Override
     protected void init() {
         List<String> present = new ArrayList<>(current().keySet());
-        int rows = Math.min(MAX_ROWS, present.size());
         buttonsShown = common();
         int commonRows = (buttonsShown.size() + 2) / 3;
         List<CardInstanceId> opponents = commanderDamageFrom();
         List<CardInstanceId> taxed = taxedCommanders();
         taxedShown = taxed;
+
+        int rows = Math.min(rowsThatFit(commonRows, opponents.size(), taxed.size()), present.size());
+        // Clamped here rather than where the wheel turns, because the list also shortens
+        // under it: taking the last counter off a scrolled list would otherwise leave the
+        // panel looking at rows that are no longer there.
+        this.scroll = Math.max(0, Math.min(this.scroll, present.size() - rows));
+        this.showing = rows;
 
         int height = MARGIN * 2 + ROW * 2
                 + rows * (ROW + GAP)
@@ -251,7 +295,7 @@ public final class CountersScreen extends ChildScreen {
 
         // What is on it now, each with a minus and a plus.
         for (int index = 0; index < rows; index++) {
-            String name = present.get(index);
+            String name = present.get(this.scroll + index);
             int rowY = y + index * (ROW + GAP);
             addRenderableWidget(GatheringButtons.of(
                     panel.right() - MARGIN - STEP_WIDTH * 2 - GAP, rowY, STEP_WIDTH, ROW,
@@ -576,6 +620,66 @@ public final class CountersScreen extends ChildScreen {
         }
     }
 
+    /**
+     * The counters on screen right now, in order, at most as many as {@link #showing}.
+     *
+     * <p>One place, because the rows are drawn here and their plus and minus are built in
+     * {@code init} - and a window those two disagreed about is a minus that takes a counter
+     * off a different card than the one whose name is beside it.
+     */
+    private Map<String, Integer> shownRows(Map<String, Integer> counters) {
+        Map<String, Integer> shown = new java.util.LinkedHashMap<>();
+        int index = 0;
+        for (Map.Entry<String, Integer> entry : counters.entrySet()) {
+            if (index >= scroll && shown.size() < showing) {
+                shown.put(entry.getKey(), entry.getValue());
+            }
+            index++;
+        }
+        return shown;
+    }
+
+    /** How many counters are below the window, which is what the hint at the foot says. */
+    private int belowTheWindow() {
+        return Math.max(0, current().size() - scroll - showing);
+    }
+
+    /** How many counter rows are on screen. For the scripted run. */
+    int rowsOnScreen() {
+        return shownRows(current()).size();
+    }
+
+    /** Whether this counter is one of the rows on screen. For the scripted run. */
+    boolean showing(String name) {
+        return shownRows(current()).containsKey(name);
+    }
+
+    /** How many counters are out of sight below. For the scripted run. */
+    int moreBelow() {
+        return belowTheWindow();
+    }
+
+    /**
+     * The wheel moves the counter list, when there is more of it than fits.
+     *
+     * <p>Anywhere on the panel rather than only over the six rows: this screen scrolls one
+     * thing, and a wheel that only works inside a strip forty pixels tall is a wheel most
+     * people conclude does nothing.
+     */
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        int most = Math.max(0, current().size() - showing);
+        if (most > 0) {
+            int wanted = Math.max(0, Math.min(scroll - (int) Math.signum(scrollY), most));
+            if (wanted != scroll) {
+                scroll = wanted;
+                rebuildWidgets();
+            }
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
     /** Behind the widgets. Drawn in render(), the panel covers every button on the screen. */
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
@@ -594,10 +698,7 @@ public final class CountersScreen extends ChildScreen {
         rowsShown = List.copyOf(counters.keySet());
         int y = panel.y() + MARGIN + ROW;
         int index = 0;
-        for (Map.Entry<String, Integer> entry : counters.entrySet()) {
-            if (index >= MAX_ROWS) {
-                break;
-            }
+        for (Map.Entry<String, Integer> entry : shownRows(counters).entrySet()) {
             int rowY = y + index * (ROW + GAP);
             GuiText.draw(graphics, this.font, Component.literal(entry.getKey()),
                     panel.x() + MARGIN, rowY + 5, panel.width() - MARGIN * 2 - 60, LABEL);
@@ -610,6 +711,15 @@ public final class CountersScreen extends ChildScreen {
                     Component.translatable("screen.gathering.counters.none"),
                     panel.x() + panel.width() / 2, y + 5, panel.width() - MARGIN * 2, DIM);
         }
+        // Said out loud, because a list that scrolls and gives no sign of it is a list
+        // whose seventh row may as well not exist - which is what this used to be.
+        int below = belowTheWindow();
+        if (below > 0) {
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("screen.gathering.counters.more", below),
+                    panel.x() + MARGIN, y + index * (ROW + GAP) - GAP + 1,
+                    panel.width() - MARGIN * 2, DIM);
+        }
 
         List<CardInstanceId> opponents = commanderDamageFrom();
         opponentsShown = opponents;
@@ -618,7 +728,7 @@ public final class CountersScreen extends ChildScreen {
             return;
         }
         int commonRows = (common().size() + 2) / 3;
-        int damageTop = y + Math.min(MAX_ROWS, counters.size()) * (ROW + GAP) + ROW
+        int damageTop = y + Math.min(showing, counters.size()) * (ROW + GAP) + ROW
                 + commonRows * (ROW + GAP) + GAP;
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.counters.commander_damage"),
@@ -650,7 +760,7 @@ public final class CountersScreen extends ChildScreen {
         }
         List<CardInstanceId> opponents = opponentsShown;
         int commonRows = (common().size() + 2) / 3;
-        int taxTop = y + Math.min(MAX_ROWS, current().size()) * (ROW + GAP) + ROW
+        int taxTop = y + Math.min(showing, current().size()) * (ROW + GAP) + ROW
                 + commonRows * (ROW + GAP) + GAP
                 + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP));
         GuiText.draw(graphics, this.font,

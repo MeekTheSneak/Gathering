@@ -151,7 +151,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 248;
+    private static final int LAST_STEP = 251;
 
     private static int step;
     private static int waited;
@@ -2526,11 +2526,31 @@ public final class DevScene {
             // faked: the whole feature is the round trip - a session written to disk, read
             // back, folded to a board and sent as a picture - and a fake would photograph
             // none of it.
+            // More named counters on one card than the panel has room for. The seventh used
+            // to be drawn nowhere and given no buttons, so a player who had put one on could
+            // not see it, change it, or take it off.
             case 242 -> {
-                aGameWorthWatchingBack(client);
+                aCardCoveredInCounters(client);
                 advance(SETTLE * 2);
             }
             case 243 -> {
+                expectScreen(client, "a card with more counters than fit", CountersScreen.class);
+                everyCounterIsReachable(client);
+                shoot(client, "85-more-counters-than-fit");
+                advance(SETTLE / 2);
+            }
+            case 244 -> {
+                shoot(client, "85a-scrolled-to-the-last-counter");
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                advance(SETTLE / 2);
+            }
+            case 245 -> {
+                aGameWorthWatchingBack(client);
+                advance(SETTLE * 2);
+            }
+            case 246 -> {
                 expectScreen(client, "the list of finished games", ReplayListScreen.class);
                 if (client.screen instanceof ReplayListScreen replays && replays.listed() < 1) {
                     fail("a game was played out and ended, and the shelf came back empty");
@@ -2539,14 +2559,14 @@ public final class DevScene {
                 watchTheNewestGame(client);
                 advance(SETTLE * 2);
             }
-            case 244 -> {
+            case 247 -> {
                 expectAReplay(client, "watching the game back");
                 // Wound to the end, which is the board as the table was cleared - and the one
                 // frame where a hand full of cards proves the disclosure works.
                 ClientReplay.scrubTo(ClientReplay.steps());
                 advance(SETTLE * 2);
             }
-            case 245 -> {
+            case 248 -> {
                 expectAReplay(client, "wound to the end of the game");
                 aReplayShowsWhatWasHidden(client);
                 shoot(client, "82-the-whole-game-back");
@@ -2555,7 +2575,7 @@ public final class DevScene {
                 ClientReplay.scrubTo(0);
                 advance(SETTLE * 2);
             }
-            case 246 -> {
+            case 249 -> {
                 expectAReplay(client, "wound back to the start");
                 if (ClientReplay.step() != 0) {
                     fail("the scrubber was dragged home and stopped at step " + ClientReplay.step());
@@ -2567,7 +2587,7 @@ public final class DevScene {
                 aWatcherCannotTouchTheBoard(client);
                 advance(SETTLE);
             }
-            case 247 -> {
+            case 250 -> {
                 expectAReplay(client, "still watching after a watcher tried to play");
                 if (ClientReplay.step() != 0) {
                     fail("a click on the felt of a replay moved the game to step "
@@ -2579,7 +2599,7 @@ public final class DevScene {
                 client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F1, 0, 0);
                 advance(SETTLE / 2);
             }
-            case 248 -> {
+            case 251 -> {
                 shoot(client, "84-what-a-watcher-can-do");
                 if (client.screen != null) {
                     client.screen.onClose();
@@ -3421,6 +3441,97 @@ public final class DevScene {
 
     /** The card the last step put counters on, so the step after can read them back. */
     private static CardInstanceId countered;
+
+    /** How many differently named counters the crowded card gets. Two more than fit. */
+    private static final int CROWDED_COUNTERS = 8;
+
+    /** The last of them, which is the one that used to be unreachable. */
+    private static final String LAST_COUNTER = "shield";
+
+    /**
+     * A card carrying more differently named counters than the panel has room for.
+     *
+     * <p>Eight, because the panel shows six. Named after things that really go on a card, so
+     * the picture reads as a game rather than as a test.
+     */
+    private static void aCardCoveredInCounters(Minecraft client) {
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            fail("there was no board to crowd a card on");
+            return;
+        }
+        CardInstanceId target = null;
+        for (CardView card : view.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible) {
+                target = visible.id();
+                break;
+            }
+        }
+        if (target == null) {
+            fail("there was nothing on the battlefield to crowd with counters");
+            return;
+        }
+        List<String> names = List.of(
+                "loyalty", "charge", "quest", "lore", "stun", "flying", "poison", LAST_COUNTER);
+        for (int index = 0; index < CROWDED_COUNTERS; index++) {
+            ClientTableActions.send(table,
+                    new GameEvent.CounterChanged(me, target, names.get(index), index + 1));
+        }
+        countered = target;
+        client.setScreen(new CountersScreen(table,
+                new CountersScreen.Subject.Cards(List.of(target),
+                        Component.literal("A crowded card")),
+                null));
+        System.out.println("[devscene] " + CROWDED_COUNTERS + " named counters onto " + target);
+    }
+
+    /**
+     * The panel shows a window of the counters, says how many are below it, and scrolls.
+     *
+     * <p>What this is really checking is that the last one can be reached at all. A list that
+     * stopped at six and gave no sign of it left every counter past the sixth invisible and
+     * unchangeable - which is not a small bug on a card somebody has been stacking counters
+     * on all game.
+     */
+    private static void everyCounterIsReachable(Minecraft client) {
+        if (!(client.screen instanceof CountersScreen counters)) {
+            fail("there was no counters panel to read");
+            return;
+        }
+        // How many rows fit is the window's business - a short one shows fewer - so what is
+        // checked is that it really is a window onto a longer list and that it says so.
+        int shown = counters.rowsOnScreen();
+        if (shown < 1 || shown >= CROWDED_COUNTERS) {
+            fail("the counters panel shows " + shown + " rows of " + CROWDED_COUNTERS
+                    + ", so it is not a window onto anything");
+            return;
+        }
+        if (counters.moreBelow() != CROWDED_COUNTERS - shown) {
+            fail("the panel shows " + shown + " counters and says " + counters.moreBelow()
+                    + " are below, out of " + CROWDED_COUNTERS);
+            return;
+        }
+        if (counters.showing(LAST_COUNTER)) {
+            fail("the last counter is on screen before anything was scrolled, so the window "
+                    + "is not where it says it is");
+            return;
+        }
+        // Down to the end, which is where the counter that used to be unreachable lives.
+        for (int turn = 0; turn < CROWDED_COUNTERS; turn++) {
+            client.screen.mouseScrolled(
+                    client.getWindow().getGuiScaledWidth() / 2.0,
+                    client.getWindow().getGuiScaledHeight() / 2.0, 0, -1);
+        }
+        if (!(client.screen instanceof CountersScreen scrolled) || !scrolled.showing(LAST_COUNTER)) {
+            fail("scrolling to the foot of the list still does not show '" + LAST_COUNTER + "'");
+            return;
+        }
+        if (scrolled.moreBelow() != 0) {
+            fail("the list says " + scrolled.moreBelow() + " are still below the foot of it");
+        }
+    }
+
 
     /** Untaps that card, so its counters can be photographed the right way up. */
     private static void straightenTheCounteredCard() {
