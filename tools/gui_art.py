@@ -697,6 +697,122 @@ def bar(size, look, kind):
     return image
 
 
+def capsule(size, look, sunken=False, alpha=255, face=None):
+    """A scroll bar: a pill standing on end, rather than a small rectangular panel.
+
+    A scroll bar is six pixels wide and as tall as the list beside it, which is the one shape
+    a panel construction is wrong for - drawn as a plate it came out a long thin box with four
+    square corners, and every pixel-art bar anybody has ever drawn is capped and lit.
+
+    Everything here is arranged around what a nine-slice does to it. The four corner tiles are
+    drawn once, so the cap and the chamfer live there; the rows between them are stretched, so
+    every one of them is identical and the light runs down the sides rather than down the
+    length. A gradient written along the length would be stretched into three flat bands - the
+    first attempt at this was exactly that, and it read as a bar somebody had painted in
+    stripes.
+    """
+    ink = darker(look.ink, 0.2)
+    body = face if face is not None else (look.sunk if sunken else look.body)
+    lit, low = lighter(body, 0.5), darker(body, 0.42)
+    if sunken:
+        # A track is a hole, so its light is the other way up and never bright: an unscrolled
+        # list must not look like a scrolled one.
+        lit, low = darker(body, 0.55), mix(body, lighter(body, 0.3), 0.5)
+    band = bandOf(size)
+    image = Image.new("RGBA", (size, size))
+    pixels = image.load()
+    for y in range(size):
+        for x in range(size):
+            # One pixel off each corner, which is a rounded end at the width a scroll bar is
+            # really drawn at. It has to stay inside the nine-slice's own corner tile - two
+            # pixels of eight - or the curve reaches into the stretched middle and repeats all
+            # the way down the bar as a row of scallops.
+            if min(x, size - 1 - x) + min(y, size - 1 - y) < 1:
+                continue
+            top, bottom = y < band, y >= size - band
+            if min(x, y, size - 1 - x, size - 1 - y) == 0:
+                tone = ink
+            elif top:
+                tone = lit
+            elif bottom:
+                tone = low
+            elif x == 1:
+                tone = lit
+            elif x == size - 2:
+                tone = low
+            else:
+                tone = body
+            pixels[x, y] = rgba(tone, alpha)
+    return image
+
+
+#: How big an arrow is drawn. Odd, so its point sits on a pixel rather than between two, and
+#: small enough to leave a margin inside an eighteen-pixel button.
+ARROW_SIZE = 9
+
+#: Which way each arrow points, as a step in x and y.
+ARROWS = {"left": (-1, 0), "right": (1, 0), "up": (0, -1), "down": (0, 1)}
+
+
+def arrow(size, look, which):
+    """A direction, as a shape rather than as the character for one.
+
+    The page turns were the letters "<" and ">" set in the game's font, which is a button
+    labelled with punctuation: at a glance it reads as text somebody forgot to finish rather
+    than as a control. A triangle with an outline and a lit face is what one of these is in
+    every pixel-art kit, and it says which way it goes without being read.
+
+    A forty-five degree taper - one row narrower per column - because that is the only slope a
+    small triangle can take without the stair-stepping showing, and it is what the reference
+    sheet's own arrows are drawn on. Blitted at its own size in the middle of whatever button
+    it sits on, never scaled.
+    """
+    # The colour of a label, not of a button. An arrow is what is written on the button, and
+    # painting it in the look's body would be painting it the same colour as the face behind
+    # it - which is exactly what the first attempt did, in fourteen themes at once. TEXT is
+    # already guaranteed readable on every look's button, because that is the colour every
+    # button's words are set in.
+    ink = darker(look.ink, 0.2)
+    face = TEXT
+    dx, dy = ARROWS[which]
+    middle = (size - 1) // 2
+    image = Image.new("RGBA", (size, size))
+    pixels = image.load()
+    for y in range(size):
+        for x in range(size):
+            # How far from the base, and how far off the middle line. The base is at the tail
+            # and the point is at the head, so a right arrow's base is its left-hand column.
+            if dx:
+                along = x - (size - 1 - middle) if dx < 0 else middle - x
+                across = abs(y - middle)
+            else:
+                along = y - (size - 1 - middle) if dy < 0 else middle - y
+                across = abs(x - middle)
+            along = -along
+            if along < 0 or across > middle - along:
+                continue
+            if across == middle - along or along == 0:
+                tone = ink
+            elif across == middle - along - 1 and (y if dx else x) < middle:
+                # One lit pixel along the upper edge and one shaded along the lower, so the
+                # triangle has a form rather than being a flat wedge - the same one-pixel
+                # bevel every other raised thing here gets.
+                tone = lighter(face, 0.4)
+            elif across == middle - along - 1:
+                tone = darker(face, 0.25)
+            else:
+                tone = face
+            pixels[x, y] = rgba(tone)
+    # Middled in its own canvas. The triangle is nine across its base and five from base to
+    # point, so left to itself it sits hard against one side and the button it is blitted into
+    # looks as though the arrow slipped.
+    box = image.getbbox()
+    middled = Image.new("RGBA", (size, size))
+    middled.paste(image.crop(box),
+                  ((size - (box[2] - box[0])) // 2, (size - (box[3] - box[1])) // 2))
+    return middled
+
+
 def wash(size, color, alpha=255):
     return Image.new("RGBA", (size, size), rgba(color, alpha))
 
@@ -872,9 +988,8 @@ ELEMENTS = [
      lambda k: plate(32, k, body=k.accent, alpha=0x38, ink=k.accent,
                      lit=lighter(k.accent, 0.4), low=k.accent)),
     ("deck_panel", STRETCH, deck_panel),
-    ("scroll_track", NINE_16_TILED, lambda k: plate(16, k, sunken=True)),
-    ("scroll_thumb", NINE_16_TILED,
-     lambda k: plate(16, k, body=darker(k.accent, 0.45), lit=k.glow, low=darker(k.accent, 0.7))),
+    ("scroll_track", NINE_8, lambda k: capsule(8, k, sunken=True)),
+    ("scroll_thumb", NINE_8, lambda k: capsule(8, k, face=darker(k.accent, 0.45))),
     ("button", NINE_16, lambda k: plate(16, k, body=mix(k.body, k.bevel, 0.10))),
     ("button_hover", NINE_16,
      lambda k: plate(16, k, body=mix(k.body, k.accent, 0.34), lit=k.glow,
@@ -882,6 +997,12 @@ ELEMENTS = [
     ("button_off", NINE_16,
      lambda k: plate(16, k, body=darker(k.body, 0.45), lit=k.shade,
                      low=darker(k.shade, 0.35))),
+
+    # Directions. Blitted at their own size in the middle of a button, never stretched.
+    ("arrow_left", STRETCH, lambda k: arrow(ARROW_SIZE, k, "left")),
+    ("arrow_right", STRETCH, lambda k: arrow(ARROW_SIZE, k, "right")),
+    ("arrow_up", STRETCH, lambda k: arrow(ARROW_SIZE, k, "up")),
+    ("arrow_down", STRETCH, lambda k: arrow(ARROW_SIZE, k, "down")),
 
     # Whole-screen washes.
     ("screen_scrim", STRETCH, lambda k: wash(16, k.wash, 0x80)),

@@ -3,10 +3,12 @@ package dev.gathering.client;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.gathering.client.GatheringSprites.Element;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
@@ -88,6 +90,111 @@ public final class GatheringButtons {
                     getX() + getWidth() / 2,
                     getY() + (getHeight() - font.lineHeight) / 2 + 1,
                     getWidth() - TEXT_MARGIN * 2, color);
+        }
+    }
+
+    /**
+     * A button whose label is a direction rather than a word.
+     *
+     * <p>Page turns were the characters "&lt;" and "&gt;" set in the game's font. That is a
+     * button labelled with punctuation: at a glance it reads as text somebody forgot to
+     * finish rather than as a control, and it says nothing to a screen reader either. This
+     * draws the arrow and keeps a real sentence as the message, so the narration and the
+     * tooltip both say what pressing it does while the face says which way it goes.
+     *
+     * @param says what this arrow does, for the tooltip and the narrator - never drawn
+     */
+    public static Button arrow(
+            int x, int y, int width, int height, Element which, Component says, Runnable action) {
+        return arrow(x, y, width, height, () -> which, says, action);
+    }
+
+    /**
+     * The same, for a button whose arrow turns round - a sort order, say.
+     *
+     * <p>Asks a supplier rather than holding the direction, for the reason {@link #toggle}
+     * does: a button that remembers its own answer is a button that can disagree with the
+     * screen about which way the list is currently sorted.
+     */
+    public static Button arrow(int x, int y, int width, int height, Supplier<Element> which,
+            Component says, Runnable action) {
+        Pointing button = new Pointing(x, y, width, height, says, ignored -> action.run(), which);
+        button.setTooltip(Tooltip.create(says));
+        return button;
+    }
+
+    /**
+     * A button whose face is one character but whose message is a sentence.
+     *
+     * <p>The same problem the arrows solve, for the one control where the mark really is the
+     * label: a help button is a question mark everywhere, and drawing an arrow on it would be
+     * worse. What it must not do is <em>be</em> a question mark to everything that reads the
+     * button - the tooltip, the narrator, and the test that looks for exactly this.
+     *
+     * @param mark what is drawn on it, one or two characters
+     * @param says what pressing it does, for the tooltip and the narrator
+     */
+    public static Button glyph(
+            int x, int y, int width, int height, String mark, Component says, Runnable action) {
+        Marked button = new Marked(x, y, width, height, says, ignored -> action.run(), mark);
+        button.setTooltip(Tooltip.create(says));
+        return button;
+    }
+
+    private static final class Marked extends Fitting {
+
+        private final Component mark;
+
+        private Marked(int x, int y, int width, int height, Component says, OnPress onPress,
+                String mark) {
+            super(x, y, width, height, says, onPress);
+            this.mark = Component.literal(mark);
+        }
+
+        @Override
+        public void renderString(GuiGraphics graphics, Font font, int color) {
+            GuiText.drawCentered(graphics, font, mark,
+                    getX() + getWidth() / 2,
+                    getY() + (getHeight() - font.lineHeight) / 2 + 1,
+                    getWidth() - TEXT_MARGIN * 2, color);
+        }
+    }
+
+    private static final class Pointing extends Fitting {
+
+        private final Supplier<Element> which;
+
+        private Pointing(int x, int y, int width, int height, Component says, OnPress onPress,
+                Supplier<Element> which) {
+            super(x, y, width, height, says, onPress);
+            this.which = which;
+        }
+
+        /**
+         * Keeps the tooltip saying whatever the message says.
+         *
+         * <p>A sort order's arrow turns round and its sentence turns with it; a tooltip set
+         * once when the button was made would go on describing the other direction forever.
+         */
+        @Override
+        public void setMessage(Component says) {
+            super.setMessage(says);
+            setTooltip(Tooltip.create(says));
+        }
+
+        /**
+         * The arrow instead of the words, dimmed when the button will not do anything.
+         *
+         * <p>Dimming matters more here than on a worded button: a label greys out on its own
+         * because the text is drawn in a second colour, and an arrow blitted at full strength
+         * onto a dead button is the one part of it still claiming to work.
+         */
+        @Override
+        public void renderString(GuiGraphics graphics, Font font, int color) {
+            float shade = active ? 1.0F : 0.55F;
+            graphics.setColor(shade, shade, shade, alpha);
+            GatheringSprites.arrow(graphics, which.get(), getX(), getY(), getWidth(), getHeight());
+            graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
 

@@ -1392,6 +1392,7 @@ public final class DevScene {
             case 119 -> {
                 expectScreen(client, "opening a collection", CollectionScreen.class);
                 aCollectionShowsWhatIsInIt(client);
+                everyButtonSaysSomething(client);
                 shoot(client, "42-a-collection");
                 searchTheCollection(client, "forest");
                 advance(SETTLE);
@@ -1414,7 +1415,10 @@ public final class DevScene {
                     fail("t:creature mv<=2 found nothing in a box that holds Grizzly Bears");
                 }
                 shoot(client, "43a-searching-by-what-a-card-is");
-                press(client, "?");
+                // By what the button says rather than by what is drawn on it. The mark is a
+                // question mark; the button is "What can I search for?".
+                press(client, Component.translatable(
+                        "screen.gathering.collection.search_help").getString());
                 advance(SETTLE / 2);
             }
             case 122 -> {
@@ -1422,7 +1426,8 @@ public final class DevScene {
                 // understands anything - a search language nobody is told about is one
                 // nobody uses.
                 shoot(client, "43b-what-the-box-understands");
-                press(client, "?");
+                press(client, Component.translatable(
+                        "screen.gathering.collection.search_help").getString());
                 searchTheCollection(client, "");
                 advance(SETTLE / 2);
             }
@@ -8188,6 +8193,36 @@ public final class DevScene {
         }
         fail("no button labeled " + label + " on "
                 + client.screen.getClass().getSimpleName());
+    }
+
+    /**
+     * No control on this screen is labelled with a piece of punctuation.
+     *
+     * <p>The page turns were "&lt;" and "&gt;". A button labelled that way reads at a glance
+     * as text somebody forgot to finish, and it is what a screen reader is handed too - so
+     * they are arrows now, with a real sentence behind them for the tooltip and the narrator.
+     * This is what stops one being written back: a message that is one or two characters of
+     * punctuation is not a sentence, whatever is drawn on top of it.
+     */
+    private static void everyButtonSaysSomething(Minecraft client) {
+        if (client.screen == null) {
+            fail("there was no screen to read the buttons of");
+            return;
+        }
+        for (GuiEventListener child : client.screen.children()) {
+            if (!(child instanceof AbstractWidget widget)) {
+                continue;
+            }
+            String said = widget.getMessage().getString();
+            if (!said.isEmpty() && said.length() <= 2
+                    && said.chars().noneMatch(Character::isLetterOrDigit)) {
+                fail("a control on " + client.screen.getClass().getSimpleName()
+                        + " is labelled \"" + said + "\", which is punctuation rather than a"
+                        + " sentence - the narrator and the tooltip get that too");
+                return;
+            }
+        }
+        System.out.println("[devscene] every control on the collection says what it does");
     }
 
     private static void shoot(Minecraft client, String name) {

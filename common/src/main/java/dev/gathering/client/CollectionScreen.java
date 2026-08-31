@@ -161,24 +161,32 @@ public final class CollectionScreen extends Screen {
         // told about is a search language nobody uses, and the hint in the box only has room
         // for one example - so the rest is behind a button beside it, which is also the only
         // place a player who half-remembers "is it t: or type:" can go and check.
-        addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - 164, MARGIN + 20, 16, 18,
-                Component.literal("?"), () -> showingSyntax = !showingSyntax));
+        addRenderableWidget(GatheringButtons.glyph(
+                this.width - MARGIN - 164, MARGIN + 20, 16, 18, "?",
+                Component.translatable("screen.gathering.collection.search_help"),
+                () -> showingSyntax = !showingSyntax));
 
         sortButton = GatheringButtons.of(this.width - MARGIN - 144, MARGIN + 20, 70, 18,
                 sortLabel(), this::nextSort);
         addRenderableWidget(sortButton);
         // Its own button rather than a wrap-around on the first one. Turning the order round
         // is a thing people do constantly and it should not take five presses to reach.
-        directionButton = GatheringButtons.of(this.width - MARGIN - 72, MARGIN + 20, 18, 18,
+        directionButton = GatheringButtons.arrow(this.width - MARGIN - 72, MARGIN + 20, 18, 18,
+                () -> descending
+                        ? GatheringSprites.Element.ARROW_DOWN
+                        : GatheringSprites.Element.ARROW_UP,
                 directionLabel(), this::flipDirection);
         addRenderableWidget(directionButton);
 
-        previousButton = GatheringButtons.of(this.width - MARGIN - 52, MARGIN + 20, 24, 18,
-                Component.literal("<"), () -> turnTo(page - 1));
+        previousButton = GatheringButtons.arrow(this.width - MARGIN - 52, MARGIN + 20, 24, 18,
+                GatheringSprites.Element.ARROW_LEFT,
+                Component.translatable("screen.gathering.collection.previous_page"),
+                () -> turnTo(page - 1));
         addRenderableWidget(previousButton);
-        nextButton = GatheringButtons.of(this.width - MARGIN - 26, MARGIN + 20, 26, 18,
-                Component.literal(">"), () -> turnTo(page + 1));
+        nextButton = GatheringButtons.arrow(this.width - MARGIN - 26, MARGIN + 20, 26, 18,
+                GatheringSprites.Element.ARROW_RIGHT,
+                Component.translatable("screen.gathering.collection.next_page"),
+                () -> turnTo(page + 1));
         addRenderableWidget(nextButton);
 
         // Color and rarity are buttons rather than something to type, because a search box
@@ -302,8 +310,18 @@ public final class CollectionScreen extends Screen {
                 + query.sort().name().toLowerCase(java.util.Locale.ROOT));
     }
 
+    /**
+     * Which way the list runs, said rather than drawn.
+     *
+     * <p>This used to be the character for a triangle, which is a control labelled with a
+     * symbol the font may or may not have and which a screen reader can make nothing of. The
+     * triangle is the mod's own arrow now, and this is the sentence behind it - the tooltip
+     * and the narration both read it, and it names the order rather than the press.
+     */
     private Component directionLabel() {
-        return Component.literal(descending ? "▲" : "▼");
+        return Component.translatable(descending
+                ? "screen.gathering.collection.descending"
+                : "screen.gathering.collection.ascending");
     }
 
     /**

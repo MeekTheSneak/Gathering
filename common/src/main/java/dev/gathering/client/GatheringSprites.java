@@ -58,6 +58,18 @@ public final class GatheringSprites {
         BUTTON_OFF("button_off"),
 
         /**
+         * The four directions, as shapes.
+         *
+         * <p>Blitted at {@link #ARROW} pixels square in the middle of a button rather than
+         * stretched to fit it: an arrow is what is written on the button, and a triangle
+         * scaled to a twenty-four by eighteen box is a triangle nobody drew.
+         */
+        ARROW_LEFT("arrow_left"),
+        ARROW_RIGHT("arrow_right"),
+        ARROW_UP("arrow_up"),
+        ARROW_DOWN("arrow_down"),
+
+        /**
          * Over the board, when a sub-screen is open on top of it.
          *
          * <p>Enough to push the board back behind the screen in front of it, not enough to
@@ -333,6 +345,14 @@ public final class GatheringSprites {
                 ((color >>> 24) & 0xFF) / 255f);
         graphics.blitSprite(of(element), x, y, width, height);
         graphics.setColor(1f, 1f, 1f, 1f);
+    }
+
+    /** How big an arrow is drawn - see {@code ARROW_SIZE} in tools/gui_art.py. */
+    public static final int ARROW = 9;
+
+    /** One of the four arrows, at its own size, in the middle of the given box. */
+    public static void arrow(GuiGraphics graphics, Element which, int x, int y, int width, int height) {
+        draw(graphics, which, x + (width - ARROW) / 2, y + (height - ARROW) / 2, ARROW, ARROW);
     }
 
     public static void panel(GuiGraphics graphics, int x, int y, int width, int height) {
