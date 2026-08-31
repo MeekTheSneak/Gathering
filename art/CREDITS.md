@@ -7,14 +7,23 @@ capped and lit, the capsule shapes — is drawn from BDragon1727's pixel UI pack
 
 - [Basic Pixel Health bar and Scroll bar](https://bdragon1727.itch.io/basic-pixel-health-bar-and-scroll-bar)
 - [Pixel Buttons pack All](https://bdragon1727.itch.io/pixel-buttons-pack-all)
+- Custom Border and Panels Menu
 
 Both are free to use in non-commercial games, which this is, and both say "modify as desired".
 The author asks for a mention and gets one here. If Gathering is ever released commercially the
 packs' terms ask for a contribution of any amount, and that is a debt to settle before it is.
 
-What is in this repository is our own rendering: the sprites are painted by `tools/gui_art.py`
-from the mod's own palettes, in the shapes and with the shading structure those packs taught.
-None of the packs' own files are in the tree.
+What is in this repository, precisely:
+
+- Every sprite under `textures/gui/sprites` is painted by `tools/gui_art.py` from the mod's own
+  palettes. None of the packs' own files are in the tree.
+- `art/gui/frames/` holds four 64x64 frames cut from the border pack's own sheets, colours and
+  all. Four looks - Ember, Arcane, Verdant and Royal - are built around them: the frame is what
+  those looks are, so it is his, and the rest of each set is drawn flat in colours taken off it.
+  The other ten looks contain nothing of his.
+
+The rest - the constructions, the palettes, the bars, the card back, the sleeves, the mana
+badges - is the project's own, drawn in the idiom those packs taught.
 
 ## Everything else
 

@@ -89,10 +89,11 @@ class Look:
     """One look's colors. Everything drawn below comes out of these and nothing else."""
 
     def __init__(self, name, order, ink, bevel, shade, body, sunk, accent, glow,
-                 warn, good, paper, rule, cloth, wash, style="flat"):
+                 warn, good, paper, rule, cloth, wash, style="flat", frame=None):
         self.name = name
         self.order = order
         self.style = style      # how its edges are built - see plate()
+        self.frame = frame      # a ready-made ornamental panel, by name - see framed()
         self.ink = ink          # the outline, on everything
         self.bevel = bevel      # lit edge, top and left
         self.shade = shade      # shaded edge, bottom and right
@@ -198,6 +199,45 @@ LOOKS = {
         paper=(0xEE, 0xE0, 0xBE), rule=(0xA8, 0x8C, 0x5C),
         cloth=(0x3A, 0x2A, 0x1A), wash=(0x26, 0x1A, 0x0E), style="retro"),
 }
+
+# Four more, each built around one of BDragon1727's coloured frames rather than around a
+# construction of ours. The frame is the whole point of them, so the panel is the frame - cut
+# from his sheet, colours and all - and the rest of the set is drawn flat in colours taken off
+# it, which is what keeps a screen looking like one thing. The looks above are untouched.
+LOOKS.update({
+    "ember": Look(
+        "Ember", 100,
+        ink=(0x00, 0x00, 0x00), bevel=(0xF8, 0x9F, 0x73), shade=(0x8A, 0x33, 0x38),
+        body=(0x2C, 0x28, 0x33), sunk=(0x20, 0x1E, 0x26),
+        accent=(0xE2, 0x5A, 0x61), glow=(0xFC, 0xD2, 0xA8),
+        warn=(0xF8, 0xC4, 0x6A), good=(0x8A, 0xB0, 0x74),
+        paper=(0xF6, 0xE6, 0xDC), rule=(0xC0, 0x8E, 0x80),
+        cloth=(0x2A, 0x1C, 0x22), wash=(0x1C, 0x12, 0x16), frame="ember"),
+    "arcane": Look(
+        "Arcane", 110,
+        ink=(0x00, 0x00, 0x00), bevel=(0xFF, 0x64, 0xEF), shade=(0x60, 0x1E, 0x74),
+        body=(0x2C, 0x26, 0x36), sunk=(0x20, 0x1E, 0x26),
+        accent=(0xC0, 0x40, 0xE8), glow=(0xF8, 0xB8, 0xF8),
+        warn=(0xF0, 0xC8, 0x6A), good=(0x6A, 0xD0, 0xC0),
+        paper=(0xF2, 0xE4, 0xF8), rule=(0xB0, 0x8C, 0xC4),
+        cloth=(0x24, 0x18, 0x30), wash=(0x16, 0x0E, 0x22), frame="arcane"),
+    "verdant": Look(
+        "Verdant", 120,
+        ink=(0x00, 0x00, 0x00), bevel=(0x2C, 0x8A, 0x4D), shade=(0x14, 0x44, 0x38),
+        body=(0x26, 0x2E, 0x2A), sunk=(0x1C, 0x22, 0x1F),
+        accent=(0x4E, 0xC0, 0x76), glow=(0xC0, 0xF0, 0xC4),
+        warn=(0xE0, 0xC0, 0x60), good=(0x6E, 0xC8, 0x8A),
+        paper=(0xEE, 0xF4, 0xE4), rule=(0x9C, 0xB4, 0x94),
+        cloth=(0x1C, 0x2C, 0x24), wash=(0x10, 0x1C, 0x16), frame="verdant"),
+    "royal": Look(
+        "Royal", 130,
+        ink=(0x00, 0x00, 0x00), bevel=(0x4D, 0x9B, 0xE5), shade=(0x28, 0x36, 0x70),
+        body=(0x28, 0x2C, 0x3A), sunk=(0x20, 0x22, 0x2E),
+        accent=(0x49, 0x61, 0xB0), glow=(0xB8, 0xDC, 0xF8),
+        warn=(0xE8, 0xC8, 0x74), good=(0x62, 0xC0, 0xA0),
+        paper=(0xE8, 0xEE, 0xF8), rule=(0x94, 0xA8, 0xC8),
+        cloth=(0x1E, 0x24, 0x38), wash=(0x12, 0x16, 0x26), frame="royal"),
+})
 
 #: The one every other look falls back to, and the only one that has to be complete.
 BASE = "basic"
@@ -350,11 +390,11 @@ def ramp(tones, steps):
 # built rather than tinted.
 # ---------------------------------------------------------------------------
 
-def flatPlate(size, tones, sunken, alpha):
+def flatPlate(size, tones, sunken, alpha, band=None):
     """The Minecraft button: outline, one lit pixel, one quiet step, body."""
     ink, lit, low, body = tones
     top, bottom = (low, lit) if sunken else (lit, low)
-    band = bandOf(size)
+    band = band or bandOf(size)
     image = Image.new("RGBA", (size, size))
     pixels = image.load()
     for y in range(size):
@@ -377,7 +417,7 @@ def flatPlate(size, tones, sunken, alpha):
     return image
 
 
-def futurePlate(size, tones, sunken, alpha, glow):
+def futurePlate(size, tones, sunken, alpha, glow, band=None):
     """The Future Sight frame.
 
     Four things make that frame what it is and all four are here. Two opposite corners open
@@ -390,7 +430,7 @@ def futurePlate(size, tones, sunken, alpha, glow):
     so one boss in the art is a row of them down the panel.
     """
     ink, lit, low, body = tones
-    band = bandOf(size)
+    band = band or bandOf(size)
     radius = min(ROUNDING["future"], band)
     steps = max(1, band - 3)
     chrome = ramp((lit, mix(low, body, 0.4)), steps)
@@ -434,7 +474,7 @@ def futurePlate(size, tones, sunken, alpha, glow):
     return image
 
 
-def retroPlate(size, tones, sunken, alpha, rule):
+def retroPlate(size, tones, sunken, alpha, rule, band=None):
     """The old card border.
 
     A raised band of mottled stone, lit across its width rather than by one bevel line: light
@@ -446,7 +486,7 @@ def retroPlate(size, tones, sunken, alpha, rule):
     Then a stud at each corner, which is the ornament that frame steps into its corners.
     """
     ink, lit, low, body = tones
-    width = bandOf(size)
+    width = band or bandOf(size)
     steps = max(1, width - 5)
     stone = ramp((lit, low), steps)
     if sunken:
@@ -484,7 +524,7 @@ def retroPlate(size, tones, sunken, alpha, rule):
     return image
 
 
-def bubblePlate(size, tones, sunken, alpha, glow):
+def bubblePlate(size, tones, sunken, alpha, glow, band=None):
     """Blown rather than cut.
 
     A surface, not an edge. The rim is bright all round and brightest along the top, the whole
@@ -495,7 +535,7 @@ def bubblePlate(size, tones, sunken, alpha, glow):
     highlight along its top rather than a row of repeats.
     """
     ink, lit, low, body = tones
-    band = bandOf(size)
+    band = band or bandOf(size)
     radius = min(ROUNDING["bubble"], band)
     image = Image.new("RGBA", (size, size))
     pixels = image.load()
@@ -536,7 +576,7 @@ def bubblePlate(size, tones, sunken, alpha, glow):
     return image
 
 
-def arcadePlate(size, tones, sunken, alpha, glow):
+def arcadePlate(size, tones, sunken, alpha, glow, band=None):
     """A cabinet button: black outline, a bright rail along the top, a lit body under it.
 
     Traced from BDragon1727's pixel UI bars, which is where the rail comes from - two pixels
@@ -546,7 +586,7 @@ def arcadePlate(size, tones, sunken, alpha, glow):
     and the rail depends only on how deep a pixel is.
     """
     ink, lit, low, body = tones
-    band = bandOf(size)
+    band = band or bandOf(size)
     radius = min(ROUNDING["arcade"], band)
     image = Image.new("RGBA", (size, size))
     pixels = image.load()
@@ -576,21 +616,53 @@ def arcadePlate(size, tones, sunken, alpha, glow):
     return image
 
 
-def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, low=None):
-    """A raised or recessed rectangle, built the way its look builds things."""
+def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, low=None,
+          band=None):
+    """A raised or recessed rectangle, built the way its look builds things.
+
+    The band may be given rather than taken from the size, for a canvas that is bigger than
+    the construction it carries: the window panel is drawn on sixty-four so it has room for an
+    ornament, but its edge is still the same eight pixels of frame as everything else.
+    """
     tones = (ink if ink is not None else look.ink,
              lit if lit is not None else look.bevel,
              low if low is not None else look.shade,
              body if body is not None else (look.sunk if sunken else look.body))
     if look.style == "future":
-        return futurePlate(size, tones, sunken, alpha, look.glow)
+        return futurePlate(size, tones, sunken, alpha, look.glow, band)
     if look.style == "retro":
-        return retroPlate(size, tones, sunken, alpha, look.accent)
+        return retroPlate(size, tones, sunken, alpha, look.accent, band)
     if look.style == "bubble":
-        return bubblePlate(size, tones, sunken, alpha, look.glow)
+        return bubblePlate(size, tones, sunken, alpha, look.glow, band)
     if look.style == "arcade":
-        return arcadePlate(size, tones, sunken, alpha, look.glow)
-    return flatPlate(size, tones, sunken, alpha)
+        return arcadePlate(size, tones, sunken, alpha, look.glow, band)
+    return flatPlate(size, tones, sunken, alpha, band)
+
+
+#: Where the ornamental frames live, one per look built around one.
+FRAMES = os.path.join(ROOT, "art", "gui", "frames")
+
+#: How far in from the edge of the window panel the ornament is drawn, and how wide the panel
+#: is. Sixty-four rather than thirty-two because an ornament needs room to be one: it has to
+#: sit clear of the frame's own edge and still be a shape rather than three pixels.
+PANEL_SIZE = 64
+PANEL_BAND = 8
+
+
+def framed(look):
+    """The window panel.
+
+    For most looks that is a plate drawn the way that look draws things. For the four built
+    around one of BDragon1727's frames it is the frame itself, cut off his sheet with its own
+    colours - the frame is what those looks are, and repainting it would leave nothing.
+
+    Returns its own nine-slice along with the art, because it is sixty-four across where
+    everything else is thirty-two: an ornament needs room to be an ornament rather than three
+    pixels, and its corners have to fit inside a nine-slice corner tile to survive tiling.
+    """
+    if not look.frame:
+        return plate(32, look)
+    return Image.open(os.path.join(FRAMES, look.frame + ".png")).convert("RGBA"), NINE_64_TILED
 
 
 def bar(size, look, kind):
@@ -783,6 +855,7 @@ NINE_32 = ("nine_slice", 32, 8, True)
 NINE_16 = ("nine_slice", 16, 4, True)
 NINE_8 = ("nine_slice", 8, 2, True)
 NINE_32_TILED = ("nine_slice", 32, 8, False)
+NINE_64_TILED = ("nine_slice", 64, 16, False)
 NINE_16_TILED = ("nine_slice", 16, 4, False)
 STRETCH = ("stretch", 0, 0, False)
 
@@ -793,7 +866,7 @@ STRETCH = ("stretch", 0, 0, False)
 #: here unchanged: the alpha is the design, and only the color follows the look.
 ELEMENTS = [
     # Structure.
-    ("panel", NINE_32_TILED, lambda k: plate(32, k)),
+    ("panel", NINE_32_TILED, lambda k: framed(k)),
     ("panel_inset", NINE_32_TILED, lambda k: plate(32, k, sunken=True)),
     ("row_highlight", NINE_32_TILED,
      lambda k: plate(32, k, body=k.accent, alpha=0x38, ink=k.accent,
@@ -996,15 +1069,22 @@ def main():
     for key, look in LOOKS.items():
         folder = os.path.join(SPRITES, key)
         os.makedirs(folder, exist_ok=True)
-        for name, (kind, size, border, inner), paint in ELEMENTS:
-            paint(look).save(os.path.join(folder, name + ".png"))
+        for name, spec, paint in ELEMENTS:
+            art = paint(look)
+            if isinstance(art, tuple):
+                art, spec = art
+            art.save(os.path.join(folder, name + ".png"))
+            kind, size, border, inner = spec
             with open(os.path.join(folder, name + ".png.mcmeta"), "w") as out:
                 out.write(mcmeta(kind, size, border, inner))
         os.makedirs(THEME_FILES, exist_ok=True)
         with open(os.path.join(THEME_FILES, key + ".json"), "w") as out:
             out.write(theme_file(key, look.order))
 
-    base = {name: paint(LOOKS[BASE]) for name, _, paint in ELEMENTS}
+    base = {}
+    for name, _, paint in ELEMENTS:
+        art = paint(LOOKS[BASE])
+        base[name] = art[0] if isinstance(art, tuple) else art
     folder = os.path.join(SPRITES, "template")
     os.makedirs(folder, exist_ok=True)
     for name, (kind, size, border, inner), _ in ELEMENTS:
