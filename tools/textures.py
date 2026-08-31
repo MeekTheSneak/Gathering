@@ -87,8 +87,32 @@ def rgba(color, alpha=255):
     return color + (alpha,)
 
 
+# Art that is somebody's rather than this script's.
+#
+# Everything here was generated once and has since been repainted by hand. Running main()
+# would put the generated version back, silently, and the only sign would be a texture that
+# used to be good going plain again - so it refuses instead. Take a file off this list when
+# you want the generator to own it again.
+PROTECTED = {
+    "block/table_felt.png",
+    "item/card.png",
+    "item/deck.png",
+    "item/pack.png",
+    "item/sealed.png",
+}
+
+
+def isProtected(path):
+    tail = path.replace("\\", "/").split("/textures/", 1)
+    return len(tail) == 2 and tail[1] in PROTECTED
+
+
 def write_png(path, width, height, pixels):
     """pixels: list of rows, each a list of (r, g, b, a)."""
+    if isProtected(path):
+        raise SystemExit(
+            "refusing to overwrite " + path + "\n"
+            "It is hand-painted; see PROTECTED at the top of this file.")
     raw = bytearray()
     for row in pixels:
         raw.append(0)  # filter: none
@@ -268,6 +292,156 @@ FACE = {
 }
 
 
+# An 11x11 pictogram, for the symbols that are pictures rather than letters.
+#
+# Our own drawings of the things the printed symbols depict - a spiked sun, a drop, a skull,
+# a flame, a tree - rather than copies of the printed ones: the symbols on a real card are
+# Wizards' trade dress, and section 15 says none of their artwork ships here. What each color
+# depicts is not theirs to own; how they drew it is.
+#
+# Eleven across, stamped at scale 2 and clipped to the disc, because these end up nine to
+# twenty-seven pixels across depending on the interface scale. Bold silhouettes only: at the
+# small end anything finer is a smudge, and a shape that is not instantly the right thing is
+# worse than a letter.
+PICTURE = {
+    # A sun: a solid middle with eight spikes off it. The spikes are the whole read - without
+    # them a dark blob in a pale disc is an eye, which is what the first attempt looked like.
+    "w": ("....###....",
+          ".#..###..#.",
+          ".##.###.##.",
+          "..#######..",
+          "###########",
+          "##.#####.##",
+          "###########",
+          "..#######..",
+          ".##.###.##.",
+          ".#..###..#.",
+          "....###...."),
+    # A drop: a point at the top, widest low, round at the bottom.
+    "u": (".....#.....",
+          "....###....",
+          "...#####...",
+          "...#####...",
+          "..#######..",
+          ".#########.",
+          ".#########.",
+          ".#########.",
+          ".#########.",
+          "..#######..",
+          "...#####..."),
+    # A skull: cranium, two sockets, a row of teeth under it.
+    "b": ("...#####...",
+          "..#######..",
+          ".#########.",
+          ".#########.",
+          ".##..#..##.",
+          ".##..#..##.",
+          ".#########.",
+          "..#######..",
+          "...#####...",
+          "..#.#.#.#..",
+          "...#####..."),
+    # A flame, which is a drop's opposite: the tip leans, the sides are uneven, and a second
+    # tongue comes off one shoulder. Drawn symmetrical it reads as a drop, which is the note
+    # the first attempt came back with.
+    "r": ("......#....",
+          ".....##....",
+          "....###....",
+          "....####...",
+          "...#####...",
+          "..######.#.",
+          "..#######..",
+          ".#########.",
+          ".#########.",
+          "..#######..",
+          "...#####..."),
+    # A tree: a broad canopy over a short trunk.
+    "g": ("...#####...",
+          "..#######..",
+          ".#########.",
+          ".#########.",
+          ".#########.",
+          "..#######..",
+          "...#####...",
+          ".....#.....",
+          ".....#.....",
+          "....###....",
+          "...#####..."),
+    # Colorless has no element to draw, so it is the four-pointed star the frame gives it.
+    "c": (".....#.....",
+          "....###....",
+          "....###....",
+          "...#####...",
+          "..#######..",
+          "###########",
+          "..#######..",
+          "...#####...",
+          "....###....",
+          "....###....",
+          ".....#....."),
+    # Snow: arms out of a middle, in every direction.
+    "s": (".....#.....",
+          ".#...#...#.",
+          "..#..#..#..",
+          "...#.#.#...",
+          "....###....",
+          "###########",
+          "....###....",
+          "...#.#.#...",
+          "..#..#..#..",
+          ".#...#...#.",
+          ".....#....."),
+    # Tapping is a turn: a hook with an arrowhead on the end of it.
+    "tap": ("...........",
+            "....#####..",
+            "...##...##.",
+            "..##.....#.",
+            "..#........",
+            "..#........",
+            "..#..#.....",
+            "..#.###....",
+            "..######...",
+            "...####....",
+            "....##....."),
+    # Untapping is the same turn going back.
+    "untap": ("...........",
+              "..#####....",
+              ".##...##...",
+              ".#.....##..",
+              "........#..",
+              "........#..",
+              ".....#..#..",
+              "....###.#..",
+              "...######..",
+              "....####...",
+              ".....##...."),
+    # Energy, as the bolt it is counted in.
+    "energy": (".....###...",
+               "....###....",
+               "...###.....",
+               "..###......",
+               ".########..",
+               "....#####..",
+               "...####....",
+               "..####.....",
+               ".###.......",
+               ".##........",
+               ".#........."),
+    # Phyrexian mana, as a sigil of our own rather than theirs.
+    "p": (".....#.....",
+          "...#####...",
+          "..##.#.##..",
+          ".##..#..##.",
+          ".#...#...#.",
+          ".#...#...#.",
+          ".#...#...#.",
+          ".##..#..##.",
+          "..##.#.##..",
+          "...#####...",
+          ".....#....."),
+}
+
+
 def over(under, above):
     """Alpha-composites `above` onto `under`, both RGBA tuples."""
     alpha = above[3] / 255.0
@@ -305,7 +479,15 @@ def disc_sample(fx, fy, size, left, right, split):
 
 
 def draw_face(px, glyph, size, scale, offset_x, offset_y):
-    rows = FACE.get(glyph)
+    stamp(px, FACE.get(glyph), size, scale, offset_x, offset_y)
+
+
+def draw_picture(px, name, size, scale, offset_x, offset_y):
+    stamp(px, PICTURE.get(name), size, scale, offset_x, offset_y)
+
+
+def stamp(px, rows, size, scale, offset_x, offset_y):
+    """Inks a bitmap onto the disc, centered, clipped to the disc's own shape."""
     if rows is None:
         return
     width = len(rows[0]) * scale
@@ -331,19 +513,22 @@ def symbol(name):
     left = right = GENERIC
     split = None
     glyphs = []
+    picture = None
 
     if name in MANA_COLORS:
         left = right = MANA_COLORS[name]
-        glyphs = [name.upper()]
+        picture = name
     elif name in ("tap", "untap", "energy"):
-        glyphs = [{"tap": "T", "untap": "Q", "energy": "E"}[name]]
+        picture = name
     elif name in ("x", "y", "z"):
+        # Letters on a real card too: X is a letter, and drawing a picture of one would be
+        # inventing a symbol nobody has seen.
         glyphs = [name.upper()]
     elif name.isdigit():
         glyphs = list(name)
     elif len(name) == 2 and name[1] == "p":
         left = right = MANA_COLORS[name[0]]
-        glyphs = ["P"]
+        picture = "p"
     elif len(name) == 2 and name[0] == "2":
         left, right = GENERIC, MANA_COLORS[name[1]]
         split = "diagonal"
@@ -371,7 +556,12 @@ def symbol(name):
             px[y][x] = (0, 0, 0, 0) if a <= 0 else (
                 round(r / a), round(g / a), round(b / a), round(a / samples))
 
-    if len(glyphs) == 1:
+    if picture is not None:
+        # Scale 2 gives an 18x18 picture inside a 30px disc. Three would be 27 and would ride
+        # over the rim; the pictures are square where a letter is tall, so they cannot use the
+        # room a letter can.
+        draw_picture(px, picture, size, 2, 0, 0)
+    elif len(glyphs) == 1:
         # Scale 3 gives a 15x21 glyph inside a 30px disc: clear of the rim at the corners,
         # where a taller one pokes through and the symbol stops looking like a disc.
         draw_face(px, glyphs[0], size, 3, 0, 0)

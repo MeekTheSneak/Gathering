@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.76
+## Design Brief v1.77
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -378,6 +378,9 @@ Sequencing rationale: phases 0 through 2 produce the thing nobody else has built
 ## 15. Legal posture
 
 - Complies with the WotC Fan Content Policy: free, no paywalls or real-money hooks, clear "unofficial Fan Content" disclaimer in the mod description and title screen credit line, no WotC trademarks in the mod name or logo.
+- **The mana symbols are theirs, they are in the jar, and the Fan Content Policy does not permit it.** Said plainly because it is the one place the mod knowingly steps outside that policy. The policy carries a list of "trademarks and logos that you may not include in your Fan Content" and Mana Symbols are named on it. Its one carve-out is the opposite of what this needs - *"if the Wizards' IP you are incorporating into your Fan Content already has logos or trademarks existing within it, don't remove them"* - which covers showing a whole card that has symbols printed on it, and does not cover lifting the symbols out to use as interface icons.
+- Drawing our own was tried and abandoned. They are read at a glance by people who already know them, so a sun that is nearly right reads as wrong; two attempts were rejected on exactly that. The set now ships from a community redraw, vendored at `tools/mana-symbols.svg` and credited in its own header.
+- This is a deliberate exception taken by the project owner with the policy in front of them, not an oversight, and it is the only one. Everything else the mod draws is still its own: the card back, the sleeves, every screen, every sprite. Card images themselves are unaffected either way - a card from Scryfall is Wizards' IP with their symbols already inside it, which is the case the carve-out was written for.
 - Complies with Scryfall API guidelines: attribution in the UI where card data appears, respectful request rates, proper User-Agent, no bulk redistribution of their data or images in the jar.
 - Mod code under MIT, matching the ecosystem norm and permitting the reference-reading courtesy we benefited from.
 
