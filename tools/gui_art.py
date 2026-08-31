@@ -177,6 +177,17 @@ LOOKS = {
         paper=(0xE8, 0xF8, 0xF6), rule=(0xA0, 0xC8, 0xC4),
         cloth=(0x1E, 0x3A, 0x40), wash=(0x10, 0x26, 0x2C), style="bubble"),
 
+    # Arcade: the cabinet. Black outline, a tube of light along the top of everything, and
+    # colours that would look wrong anywhere but on a screen in a dark room.
+    "arcade": Look(
+        "Arcade", 65,
+        ink=(0x08, 0x08, 0x0C), bevel=(0x4E, 0x7E, 0xE8), shade=(0x14, 0x18, 0x38),
+        body=(0x22, 0x28, 0x5E), sunk=(0x12, 0x14, 0x33),
+        accent=(0xFF, 0x4D, 0xD2), glow=(0xE8, 0xF4, 0xFF),
+        warn=(0xFF, 0xC4, 0x3D), good=(0x3D, 0xE8, 0x9E),
+        paper=(0xE8, 0xEC, 0xFA), rule=(0x8A, 0x92, 0xC0),
+        cloth=(0x14, 0x16, 0x36), wash=(0x0C, 0x0E, 0x28), style="arcade"),
+
     # Retro: the brown-bordered frame. Sepia, tarnished gold, and a parchment stock.
     "retro": Look(
         "Retro", 70,
@@ -237,7 +248,7 @@ def stencil(image, kind, size, border):
 # of it, which is exactly the nine-slice border at all three sizes the mod uses (32/8, 16/4,
 # 8/2): round further than the border and the curve spills into the stretched edge strips,
 # which then repeat down a long panel as a row of scallops.
-ROUNDING = {"flat": 0, "retro": 0, "future": 8, "bubble": 8}
+ROUNDING = {"flat": 0, "retro": 0, "future": 8, "bubble": 8, "arcade": 3}
 
 #: Future Sight rounds two opposite corners hard and leaves the other two nearly square. That
 #: asymmetry is the frame: a sweep entering at one corner and leaving at the other, rather than
@@ -525,6 +536,46 @@ def bubblePlate(size, tones, sunken, alpha, glow):
     return image
 
 
+def arcadePlate(size, tones, sunken, alpha, glow):
+    """A cabinet button: black outline, a bright rail along the top, a lit body under it.
+
+    Traced from BDragon1727's pixel UI bars, which is where the rail comes from - two pixels
+    of near-white running the length of the top edge, and nothing like it on the other three.
+    That one asymmetry is what makes the whole thing look lit from a tube above rather than
+    bevelled, and it survives a nine-slice because the top strip repeats along its own length
+    and the rail depends only on how deep a pixel is.
+    """
+    ink, lit, low, body = tones
+    band = bandOf(size)
+    radius = min(ROUNDING["arcade"], band)
+    image = Image.new("RGBA", (size, size))
+    pixels = image.load()
+    for y in range(size):
+        for x in range(size):
+            depth = depthAt(x, y, size, radius)
+            if depth is None:
+                continue
+            side = sideOf(x, y, size)
+            up = side == "bottom" if sunken else side == "top"
+            down = side == "top" if sunken else side == "bottom"
+            if depth == 0:
+                tone = ink
+            elif up and depth <= 2:
+                tone = glow if depth == 1 else lighter(lit, 0.15)
+            elif down and depth == 1:
+                tone = darker(low, 0.45)
+            elif depth == 1:
+                tone = low
+            elif depth < band:
+                # Lit from the rail down, so the face falls away from it rather than sitting
+                # flat under a line.
+                tone = mix(lit, body, min(1.0, (depth - 1) / max(1, band - 2)))
+            else:
+                tone = body
+            pixels[x, y] = rgba(tone, alpha)
+    return image
+
+
 def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, low=None):
     """A raised or recessed rectangle, built the way its look builds things."""
     tones = (ink if ink is not None else look.ink,
@@ -537,6 +588,8 @@ def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, lo
         return retroPlate(size, tones, sunken, alpha, look.accent)
     if look.style == "bubble":
         return bubblePlate(size, tones, sunken, alpha, look.glow)
+    if look.style == "arcade":
+        return arcadePlate(size, tones, sunken, alpha, look.glow)
     return flatPlate(size, tones, sunken, alpha)
 
 
@@ -609,6 +662,8 @@ def stock(size, look, dark=False):
         return futurePlate(size, tones, False, 255, mix(face, rule, 0.5))
     if look.style == "bubble":
         return bubblePlate(size, tones, False, 255, lighter(face, 0.5))
+    if look.style == "arcade":
+        return arcadePlate(size, tones, False, 255, lighter(face, 0.5))
     image = Image.new("RGBA", (size, size), rgba(face))
     pixels = image.load()
     for y in range(size):
@@ -635,6 +690,9 @@ def cloth(size, look):
             elif look.style == "bubble":
                 near = ((x - 8) ** 2 + (y - 8) ** 2) ** 0.5
                 pixels[x, y] = rgba(mix(look.cloth, look.bevel, 0.05 if near < 3 else 0))
+            elif look.style == "arcade":
+                # A scanline, which is the one thing a screen in a dark room always has.
+                pixels[x, y] = rgba(mix(look.cloth, look.bevel, 0.09 if y % 4 == 0 else 0))
             elif (x // 2 + y // 2) % 2 == 0:
                 pixels[x, y] = rgba(lighter(look.cloth, 0.05))
     return image
