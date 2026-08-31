@@ -19,6 +19,17 @@ import org.junit.jupiter.api.Test;
 class RevealedTopTest {
 
     @Test
+    @DisplayName("exiling off the top takes the revealed window with it")
+    void exilingClearsTheRevealedTop() {
+        GameSession session = GameFixtures.twoPlayerTable(10);
+        session.submit(new GameEvent.LibraryRevealed(GameFixtures.ALICE, GameFixtures.ALICE, 3));
+
+        session.submit(new GameEvent.LibraryExiled(GameFixtures.ALICE, GameFixtures.ALICE, 1));
+
+        assertThat(session.state().revealedIn(GameFixtures.ALICE)).isZero();
+    }
+
+    @Test
     @DisplayName("drawing takes the revealed window with it")
     void drawingClearsTheRevealedTop() {
         GameSession session = GameFixtures.twoPlayerTable(10);

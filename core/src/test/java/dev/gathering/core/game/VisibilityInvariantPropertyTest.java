@@ -30,7 +30,7 @@ import net.jqwik.api.Provide;
  */
 class VisibilityInvariantPropertyTest {
 
-    private static final int ACTION_KINDS = 15;
+    private static final int ACTION_KINDS = 16;
     private static final int SEATS = 2;
 
     @Property(tries = 500)
@@ -264,6 +264,7 @@ class VisibilityInvariantPropertyTest {
             case 12 -> session.submit(new GameEvent.LibraryRevealed(actor, actor, 2));
             case 13 -> session.submit(new GameEvent.LibraryRevealed(actor, actor, 0));
             case 14 -> session.submit(new GameEvent.LibraryMilled(actor, actor, 2));
+            case 15 -> session.submit(new GameEvent.LibraryExiled(actor, actor, 2));
             default -> throw new IllegalStateException("Unhandled action " + action);
         }
     }

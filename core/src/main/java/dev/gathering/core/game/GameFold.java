@@ -94,7 +94,11 @@ public final class GameFold {
 
             case GameEvent.LibraryClosed closed -> state.withoutPeekBy(closed.actor());
 
-            case GameEvent.LibraryMilled milled -> mill(state, milled.seat(), milled.count());
+            case GameEvent.LibraryMilled milled ->
+                    topInto(state, milled.seat(), Zone.GRAVEYARD, milled.count());
+
+            case GameEvent.LibraryExiled exiled ->
+                    topInto(state, exiled.seat(), Zone.EXILE, exiled.count());
 
             case GameEvent.LibraryRevealed revealed ->
                     state.withRevealed(revealed.seat(), revealed.count());
@@ -303,16 +307,16 @@ public final class GameFold {
      * rules question, and there is no rules engine here to answer it - the same answer drawing
      * from an empty library gets.
      */
-    private static GameState mill(GameState state, SeatId seat, int count) {
+    private static GameState topInto(GameState state, SeatId seat, Zone pile, int count) {
         ZoneRef library = ZoneRef.of(seat, Zone.LIBRARY);
-        ZoneRef graveyard = ZoneRef.of(seat, Zone.GRAVEYARD);
+        ZoneRef into = ZoneRef.of(seat, pile);
         GameState updated = state;
-        for (int milled = 0; milled < count; milled++) {
+        for (int moved = 0; moved < count; moved++) {
             List<CardInstanceId> contents = updated.contents(library);
             if (contents.isEmpty()) {
                 break;
             }
-            updated = updated.place(contents.get(0), graveyard, Placement.TOP);
+            updated = updated.place(contents.get(0), into, Placement.TOP);
         }
         // Whatever was revealed off the top is not on top any more.
         return count > 0 ? updated.withRevealed(seat, 0) : updated;

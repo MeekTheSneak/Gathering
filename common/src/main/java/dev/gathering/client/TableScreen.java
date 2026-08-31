@@ -3843,6 +3843,12 @@ public final class TableScreen extends Screen {
             })));
             entries.add(entry("mill", () -> ask("mill", 1,
                     count -> send(new GameEvent.LibraryMilled(me, me, count)))));
+            // The other place the top of a library goes. Beside mill rather than folded into
+            // it, because "exile the top four" and "mill four" are different sentences on the
+            // cards that say them, and a player reaching for one should not have to mill and
+            // then drag four cards across the felt to get it.
+            entries.add(entry("exile_top", () -> ask("exile_top", 1,
+                    count -> send(new GameEvent.LibraryExiled(me, me, count)))));
             entries.add(showing
                     ? entry("stop_revealing", () -> send(new GameEvent.LibraryRevealed(me, me, 0)))
                     : entry("reveal", () -> ask("reveal", 1,

@@ -535,6 +535,31 @@ public sealed interface GameEvent {
     }
 
     /**
+     * Cards off the top of a library into exile.
+     *
+     * <p>The same shape as {@link LibraryMilled} and for the same reason: nobody may name a
+     * card in a library, so the only honest way to move the top few is to say how many. Exile
+     * rather than the graveyard because a great many effects put the top of a library there
+     * instead, and doing it as a mill followed by dragging every card across is both slower
+     * and a lie in the log.
+     *
+     * <p>Public. Exile is a pile anybody may read, so what landed there is common knowledge
+     * the moment it arrives.
+     */
+    record LibraryExiled(SeatId actor, SeatId seat, int count) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of(oneOrMany("log.gathering.library_exiled_one",
+                    "log.gathering.library_exiled", count), actor, seat, count);
+        }
+
+        @Override
+        public boolean revealsInformation(GameState before) {
+            return true;
+        }
+    }
+
+    /**
      * Turning the top of a library face up for the whole table.
      *
      * <p>Distinct from {@link LibraryLooked}, which opens a library to one seat. This opens it
@@ -936,6 +961,7 @@ public sealed interface GameEvent {
             case LibrarySearched searched -> Optional.of(searched.seat());
             case LibraryLooked looked -> Optional.of(looked.seat());
             case LibraryMilled milled -> Optional.of(milled.seat());
+            case LibraryExiled exiled -> Optional.of(exiled.seat());
             case LibraryRevealed revealed -> Optional.of(revealed.seat());
             case LibraryReordered reordered -> Optional.of(reordered.seat());
             case Surveiled surveiled -> Optional.of(surveiled.seat());
@@ -974,6 +1000,7 @@ public sealed interface GameEvent {
             case CardsDrawn ignored -> List.of(Zone.LIBRARY, Zone.HAND);
             case Mulliganed ignored -> List.of(Zone.LIBRARY, Zone.HAND);
             case LibraryMilled ignored -> List.of(Zone.LIBRARY, Zone.GRAVEYARD);
+            case LibraryExiled ignored -> List.of(Zone.LIBRARY, Zone.EXILE);
             case LibraryRevealed ignored -> List.of(Zone.LIBRARY);
             case LibraryShuffled ignored -> List.of(Zone.LIBRARY);
             case LibrarySearched ignored -> List.of(Zone.LIBRARY);
