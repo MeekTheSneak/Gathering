@@ -233,7 +233,16 @@ def stencil(image, kind, size, border):
 # Never more than a quarter of the source, which is exactly the nine-slice border on all three
 # sizes the mod uses (32/8, 16/4, 8/2). Round further than the border and the curve spills into
 # the stretched edge strips, which then repeat down a long panel as a row of scallops.
-ROUNDING = {"flat": 0, "retro": 0, "future": 7, "bubble": 8}
+# How round each style's corners are, in pixels of a 32-wide source. Never more than a quarter
+# of it, which is exactly the nine-slice border at all three sizes the mod uses (32/8, 16/4,
+# 8/2): round further than the border and the curve spills into the stretched edge strips,
+# which then repeat down a long panel as a row of scallops.
+ROUNDING = {"flat": 0, "retro": 0, "future": 8, "bubble": 8}
+
+#: Future Sight rounds two opposite corners hard and leaves the other two nearly square. That
+#: asymmetry is the frame: a sweep entering at one corner and leaving at the other, rather than
+#: a box with its edges filed off. As (top-left, top-right, bottom-right, bottom-left).
+SWEEP = (1.0, 0.18, 1.0, 0.18)
 
 #: The noise repeats on this, so a nine-slice's tiled middle joins itself without a seam.
 PERIOD = 16
@@ -271,26 +280,36 @@ def weathered(color, x, y, amount, seed=0):
     return mix(color, (255, 255, 255) if step > 0 else (0, 0, 0), abs(step))
 
 
-def depthAt(x, y, size, radius):
-    """How many pixels inside the shape a pixel is, or None if the rounding cut it away."""
+def sideOf(x, y, size):
+    """Which edge of a rectangle a pixel belongs to. A bevel that only knows a diagonal cannot
+    put a gloss along the top and a bounce along the bottom, which is most of what makes a
+    surface look like one."""
+    room = ((x, "left"), (size - 1 - x, "right"), (y, "top"), (size - 1 - y, "bottom"))
+    return min(room)[1]
+
+
+def depthAt(x, y, size, radius, sweep=None):
+    """How many pixels inside the shape a pixel is, or None if the rounding cut it away.
+
+    Each corner may round by a different amount, which is how a frame gets a sweep rather than
+    a fillet: two corners open right up and the other two stay nearly square.
+    """
     depth = min(x, y, size - 1 - x, size - 1 - y)
     if radius <= 0:
         return depth
-    at = radius - 0.5
-    cx = at if x < radius else (size - 1 - at if x >= size - radius else None)
-    cy = at if y < radius else (size - 1 - at if y >= size - radius else None)
-    if cx is None or cy is None:
+    left, top = x < size / 2, y < size / 2
+    which = 0 if (left and top) else 1 if top else 2 if not left else 3
+    here = radius * (sweep[which] if sweep else 1.0)
+    if here < 1.0:
+        return depth
+    cx = here - 0.5 if left else size - 0.5 - here
+    cy = here - 0.5 if top else size - 0.5 - here
+    if (x - cx) * (1 if left else -1) > 0 or (y - cy) * (1 if top else -1) > 0:
         return depth
     away = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
-    if away > radius - 0.15:
+    if away > here - 0.15:
         return None
-    return min(depth, int(radius - away))
-
-
-def inCorner(x, y, size, span):
-    """True inside one of the four corner squares of a nine-slice, where a nine-slice may
-    carry an ornament: the corners are the only part of one that is drawn exactly once."""
-    return min(x, size - 1 - x) < span and min(y, size - 1 - y) < span
+    return min(depth, int(here - away))
 
 
 def cornerDepth(x, y, size):
@@ -298,27 +317,49 @@ def cornerDepth(x, y, size):
     return min(x, size - 1 - x) + min(y, size - 1 - y)
 
 
+def bandOf(size):
+    """How wide a nine-slice's border is, from the size of its source.
+
+    Every nine-slice the mod uses is a quarter: 32/8, 16/4, 8/2. It matters because everything
+    at that depth or deeper is the stretched middle, so a frame drawn without knowing it comes
+    out fine on a panel and swallows a button whole.
+    """
+    return max(2, size // 4)
+
+
+def ramp(tones, steps):
+    """A run of colors from the first tone to the second, for a band that has to read as
+    metal rather than as a line."""
+    first, last = tones
+    return [mix(first, last, step / max(1, steps - 1)) for step in range(steps)]
+
+
 # ---------------------------------------------------------------------------
 # Four constructions. Three of the looks are a card frame rather than a color, so they are
-# built rather than tinted - the whole point of the last pass being wrong.
+# built rather than tinted.
 # ---------------------------------------------------------------------------
 
 def flatPlate(size, tones, sunken, alpha):
     """The Minecraft button: outline, one lit pixel, one quiet step, body."""
     ink, lit, low, body = tones
     top, bottom = (low, lit) if sunken else (lit, low)
+    band = bandOf(size)
     image = Image.new("RGBA", (size, size))
     pixels = image.load()
     for y in range(size):
         for x in range(size):
             depth = min(x, y, size - 1 - x, size - 1 - y)
             outward = top if x + y < size - 1 else bottom
-            if depth == 0:
+            if depth >= band:
+                tone = body
+            elif depth == 0:
                 tone = ink
             elif depth == 1:
                 tone = outward
-            elif depth == 2 and size >= 16:
-                tone = mix(body, outward, 0.26 if x + y < size - 1 else 0.4)
+            elif depth == 2:
+                tone = mix(body, outward, 0.45)
+            elif depth == 3:
+                tone = mix(body, outward, 0.18)
             else:
                 tone = body
             pixels[x, y] = rgba(tone, alpha)
@@ -328,114 +369,158 @@ def flatPlate(size, tones, sunken, alpha):
 def futurePlate(size, tones, sunken, alpha, glow):
     """The Future Sight frame.
 
-    Wide rounded corners, and two hairlines rather than a bevel: one soft line on the edge
-    itself and a second held three pixels in, with the field between them left plain. That gap
-    is the whole trick - it is what makes a panel read as a sheet of something with a curve cut
-    out of it rather than as a box with a border drawn on.
-
-    Then a pip in each corner, which is the little circle that frame puts at every junction.
+    Four things make that frame what it is and all four are here. Two opposite corners open
+    into a wide sweep while the other two stay nearly square, so the border reads as something
+    entering and leaving rather than as a box. The band itself is chrome - four steps from
+    near-white at the outer edge down into shadow, not one bevel line - and it closes on a dark
+    inner edge. Inside that the field is left plain for a pixel and then a single hairline is
+    struck, which is the doubled line that frame draws everywhere. And a boss is set into each
+    long edge, the row of little discs running down the sweep; the edges of a nine-slice tile,
+    so one boss in the art is a row of them down the panel.
     """
     ink, lit, low, body = tones
-    top, bottom = (low, lit) if sunken else (lit, low)
-    radius = min(ROUNDING["future"], size // 4)
+    band = bandOf(size)
+    radius = min(ROUNDING["future"], band)
+    steps = max(1, band - 3)
+    chrome = ramp((lit, mix(low, body, 0.4)), steps)
+    if sunken:
+        chrome = list(reversed(chrome))
     image = Image.new("RGBA", (size, size))
     pixels = image.load()
+    middle = size / 2.0
     for y in range(size):
         for x in range(size):
-            depth = depthAt(x, y, size, radius)
+            depth = depthAt(x, y, size, radius, SWEEP)
             if depth is None:
                 continue
-            outward = top if x + y < size - 1 else bottom
-            if depth == 0:
-                tone = mix(ink, body, 0.3)
-            elif depth == 3:
-                tone = outward
+            if depth >= band:
+                tone = body
+            elif depth == 0:
+                tone = mix(ink, body, 0.35)
+            elif depth <= steps:
+                tone = chrome[depth - 1]
+            elif depth == steps + 1:
+                tone = mix(ink, body, 0.55)
+            elif depth == band - 1 and band >= 7:
+                tone = mix(lit, body, 0.45)
             else:
                 tone = body
-            # The pip: a lit dot set into the corner, on the diagonal, clear of both lines.
-            if size >= 16 and inCorner(x, y, size, radius) and cornerDepth(x, y, size) in (5, 6) \
-                    and abs(min(x, size - 1 - x) - min(y, size - 1 - y)) <= 1:
-                tone = glow
             pixels[x, y] = rgba(tone, alpha)
+
+    # The bosses: a small disc set into the middle of each long edge, ringed like the ones
+    # running down that frame's sweep. Only where the band is wide enough to hold one.
+    if size >= 32:
+        for at in ((3.0, middle), (size - 3.0, middle), (middle, 3.0), (middle, size - 3.0)):
+            for y in range(size):
+                for x in range(size):
+                    if pixels[x, y][3] == 0:
+                        continue
+                    away = ((x + 0.5 - at[0]) ** 2 + (y + 0.5 - at[1]) ** 2) ** 0.5
+                    if away < 1.4:
+                        pixels[x, y] = rgba(glow, alpha)
+                    elif away < 2.4:
+                        pixels[x, y] = rgba(mix(ink, body, 0.5), alpha)
     return image
 
 
 def retroPlate(size, tones, sunken, alpha, rule):
     """The old card border.
 
-    Four steps, which is what makes a border look pressed rather than drawn: an outer bevel, a
-    groove cut into it, an inner bevel the other way up, and a hairline of tarnished gold
-    holding the field. The border itself is mottled stone rather than a flat brown, and the
-    field inside it is board with a finer grain - the two are different materials on the card
-    and they are different here.
+    A raised band of mottled stone, lit across its width rather than by one bevel line: light
+    at the outer edge, mid, then shadow, so the frame has thickness. A groove cut into it, a
+    hairline of tarnished gold holding the field, and a dark line under the gold so the gold
+    sits in something. The field inside is board with a finer grain, because the border and the
+    card face are two materials and they were two materials on the card.
 
-    The corners get a stepped notch, the way that frame steps its corner ornament in.
+    Then a stud at each corner, which is the ornament that frame steps into its corners.
     """
     ink, lit, low, body = tones
-    top, bottom = (low, lit) if sunken else (lit, low)
+    width = bandOf(size)
+    steps = max(1, width - 5)
+    stone = ramp((lit, low), steps)
+    if sunken:
+        stone = list(reversed(stone))
     image = Image.new("RGBA", (size, size))
     pixels = image.load()
     for y in range(size):
         for x in range(size):
             depth = min(x, y, size - 1 - x, size - 1 - y)
-            outward = top if x + y < size - 1 else bottom
-            inward = bottom if x + y < size - 1 else top
-            if depth == 0:
+            if depth >= width:
+                tone = weathered(body, x, y, 0.04, 11)
+            elif depth == 0:
                 tone = ink
-            elif depth == 1:
-                tone = weathered(outward, x, y, 0.16, 3)
-            elif depth == 2:
+            elif depth <= steps:
+                tone = weathered(stone[depth - 1], x, y, 0.18, 3)
+            elif depth == steps + 1 and width >= 6:
                 tone = ink
-            elif depth == 3:
-                tone = weathered(inward, x, y, 0.14, 3)
-            elif depth == 4 and size >= 16:
+            elif depth == width - 2 or (width < 6 and depth == steps + 1):
                 tone = rule
+            elif depth == width - 1:
+                tone = darker(ink, 0.2)
             else:
-                tone = weathered(body, x, y, 0.10, 11)
-            # The notch: two pixels of gold stepped into each corner of the frame.
-            if size >= 16 and depth in (1, 3) and cornerDepth(x, y, size) <= 4:
-                tone = rule
+                tone = weathered(body, x, y, 0.04, 11)
             pixels[x, y] = rgba(tone, alpha)
+
+    # The stud: a small block of gold set into each corner of the band, with a dark eye in it.
+    if size >= 16:
+        reach = width // 2 + 2
+        for y in range(size):
+            for x in range(size):
+                depth = min(x, y, size - 1 - x, size - 1 - y)
+                near = cornerDepth(x, y, size)
+                if 0 < depth <= max(1, steps) and near <= reach:
+                    pixels[x, y] = rgba(rule if near > 1 else darker(rule, 0.55), alpha)
     return image
 
 
 def bubblePlate(size, tones, sunken, alpha, glow):
     """Blown rather than cut.
 
-    Rounder than anything else here, a two-pixel lit rim carried well down the top left, and a
-    specular - a bright patch off the corner, not on it, which is where the light would land on
-    something with a surface. A bevel alone reads as a flat tile with an edge; this reads as a
-    thing with a top.
+    A surface, not an edge. The rim is bright all round and brightest along the top, the whole
+    upper band is glossed toward the light, the bottom band carries the bounce that comes back
+    off whatever it is sitting on, and a specular sits off the top-left corner rather than on
+    it. The gloss and the bounce depend only on which edge a pixel is on and how deep it is, so
+    they stay uniform along a nine-slice's strips and a wide panel keeps one continuous
+    highlight along its top rather than a row of repeats.
     """
     ink, lit, low, body = tones
-    top, bottom = (low, lit) if sunken else (lit, low)
-    radius = min(ROUNDING["bubble"], size // 4)
+    band = bandOf(size)
+    radius = min(ROUNDING["bubble"], band)
     image = Image.new("RGBA", (size, size))
     pixels = image.load()
-    middle = size / 2.0
-    # A specular belongs on a surface that is catching light. On a nearly black face - the
-    # emblem stock - it is a grey smudge instead, so it fades out with the face.
     shine = min(1.0, luminance(body) * 5.0)
     for y in range(size):
         for x in range(size):
             depth = depthAt(x, y, size, radius)
             if depth is None:
                 continue
-            outward = top if x + y < size - 1 else bottom
-            if depth <= 1:
-                tone = outward
-            elif depth == 2:
-                tone = mix(body, outward, 0.55)
-            elif depth == 3:
-                tone = mix(body, outward, 0.22)
-            else:
+            side = sideOf(x, y, size)
+            up = side == "top"
+            down = side == "bottom"
+            if sunken:
+                up, down = down, up
+            if depth >= band:
                 tone = body
-            if size >= 16 and not sunken and shine:
-                away = (((x + 0.5) - middle * 0.52) ** 2
-                        + ((y + 0.5) - middle * 0.46) ** 2) ** 0.5
-                if away < middle * 0.34 and depth >= 2:
-                    strength = (0.55 if away < middle * 0.2 else 0.3) * shine
-                    tone = mix(tone, glow, strength)
+            elif depth == 0:
+                tone = mix(ink, lit, 0.45 if up else 0.15)
+            elif depth == 1:
+                tone = lighter(lit, 0.35) if up else lit
+            elif depth == 2:
+                tone = mix(body, lit, 0.7 if up else 0.42)
+            elif up:
+                tone = mix(body, lit, 0.42 * (band - depth) / max(1, band - 3))
+            elif down:
+                tone = mix(body, glow, 0.16)
+            else:
+                tone = mix(body, low, 0.3) if depth == 3 else body
+            # The specular, kept inside the top-left corner tile. A nine-slice repeats
+            # everything else, and a highlight in the repeated part is not a highlight - it is
+            # a field of little chevrons across the whole panel, which is what it was.
+            if not sunken and shine and x < band and y < band:
+                away = (((x + 0.5) - band * 0.46) ** 2
+                        + ((y + 0.5) - band * 0.42) ** 2) ** 0.5
+                if away < band * 0.4 and depth >= 2:
+                    tone = mix(tone, glow, (0.6 if away < band * 0.22 else 0.34) * shine)
             pixels[x, y] = rgba(tone, alpha)
     return image
 
