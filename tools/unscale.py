@@ -36,6 +36,12 @@ def ground(px):
     return Counter(edge).most_common(1)[0][0]
 
 
+# What a re-encoded sheet is allowed to have drifted, per channel, before two colours count
+# as different ones. Wide enough to swallow jpeg ringing, narrow enough to keep neighbouring
+# bands apart.
+TOLERANCE = 14
+
+
 def near(one, two, tol):
     return all(abs(a - b) <= tol for a, b in zip(one[:3], two[:3]))
 
@@ -191,14 +197,14 @@ def grid(px, across, down, scale, size):
             for row in range(down) for col in range(across)]
 
 
-def take(path, scale, size=None, tol=0, shape=None):
+def take(path, scale, size=None, tol=0, shape=None, flatten=True):
     """Every cell of a sheet, back at its original size."""
     sheet = read_png(path)
     back = ground(sheet)
     boxes = grid(sheet, shape[0], shape[1], scale, size) if shape \
         else cells(sheet, back, tol)
     pieces = [shrink(sheet, box, scale) for box in boxes]
-    if tol:
+    if tol and flatten:
         pieces = snap(pieces, tol)
     for piece in pieces:
         clear(piece, back, tol)
