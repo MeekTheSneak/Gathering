@@ -441,7 +441,37 @@ public final class TableScreen extends Screen {
         return aimReport;
     }
 
+    /**
+     * Which zone slot the last frame aimed a held card at, and which one lit up, or -1.
+     *
+     * <p>Two numbers rather than one because they are worked out in two places that cannot
+     * see each other - the aim while the held card is drawn, the light while the column is -
+     * and the whole question is whether they agree. For the scripted harness.
+     */
+    int aimedSlot() {
+        return aimedSlotLastFrame;
+    }
+
+    int litSlot() {
+        return litPile;
+    }
+
     private String aimReport = "no frame drawn yet";
+
+    /**
+     * Which zone slot actually lit up as the target, last frame, or -1.
+     *
+     * <p>Recorded where the ring is drawn rather than where the aim is worked out, because
+     * those are two different places and the whole point is to find out whether they agree.
+     * The aim is computed in {@link #renderHeldCard} and read back in {@link #drawPile}, and
+     * a run that printed only the first of them could say a card was aimed at the graveyard
+     * while nothing on the felt lit up.
+     */
+    private SeatId litSeat;
+    private int litPile = -1;
+
+    /** And the slot the aim arrived at, kept for the same comparison. */
+    private int aimedSlotLastFrame = -1;
 
     /** How many zones this board is drawing per seat. For the harness, as above. */
     int pilesShowing() {
@@ -1316,6 +1346,9 @@ public final class TableScreen extends Screen {
      * board answer "where is their graveyard" without counting.
      */
     private void renderPiles(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
+        // Forgotten before the column is walked, so what it holds is this frame's answer.
+        litSeat = null;
+        litPile = -1;
         int count = pileCount();
         boardsDrawn = 0;
         for (SeatView seat : board.seats()) {
@@ -1577,6 +1610,8 @@ public final class TableScreen extends Screen {
         // whole mat outlined and nothing saying which of them they were about to hit, which
         // is a question you could only answer by letting go and reading the log.
         if (ClientTableHighlight.isAimedAt(view.seat(), Zone.PILES.indexOf(zone))) {
+            litSeat = view.seat();
+            litPile = Zone.PILES.indexOf(zone);
             // Two rings and a wash rather than one thin outline. This is answering "which of
             // five", and the slots are a stack of boxes that already have borders - a single
             // line one shade brighter than the ones above and below it is a difference you
@@ -2689,6 +2724,36 @@ public final class TableScreen extends Screen {
         return lines;
     }
 
+    /**
+     * Which of a seat's zone slots a point is over, or -1 for none of them.
+     *
+     * <p>Its own method because two different things have to agree about it and neither can
+     * see the other: {@code pileAt} decides, walking slot rectangles, and {@code pileRect}
+     * draws. They are built from the same arithmetic and could still drift - a count passed
+     * to one and not the other is enough - and the symptom is a card that lands in a zone the
+     * felt never lit up, which reads as the highlight being broken rather than as the two
+     * disagreeing. See {@link #slotUnder}, which the scripted run uses to check exactly that.
+     */
+    private int slotAimedAt(SeatId landing, double[] at) {
+        return board().pileAt(landing, pileCount(), at[0], at[1]);
+    }
+
+    /**
+     * The same question asked from outside a frame, for the harness.
+     *
+     * <p>A held card's aim cannot be scripted directly: the board works out what is under a
+     * card in the air from the cursor the game hands it while drawing, and moving the real
+     * cursor mid-drag does not reach a frame that already has a button held. So the run
+     * checks the half that decides everything instead - that aiming at the middle of a slot's
+     * own drawn rectangle names that slot.
+     *
+     * @return the slot index, or -1 if that point is on no slot of that seat
+     */
+    int slotUnder(SeatId seat, int screenX, int screenY) {
+        double[] at = pointer(screenX, screenY);
+        return at == null ? -1 : slotAimedAt(seat, at);
+    }
+
     /** The longest line in the key list, so a column can be built to hold it whole. */
     private int widestKeyLine() {
         int widest = 0;
@@ -2710,6 +2775,7 @@ public final class TableScreen extends Screen {
     private void renderHeldCard(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         if (held == null) {
             aimReport = "nothing held";
+            aimedSlotLastFrame = -1;
             ClientTableHighlight.aimAt(null, -1);
             ClientTableHighlight.landingOn(null);
             return;
@@ -2725,16 +2791,18 @@ public final class TableScreen extends Screen {
         int aimedSlot = -1;
 
         if (landing != null && at != null) {
-            int slot = board().pileAt(landing, pileCount(), at[0], at[1]);
+            int slot = slotAimedAt(landing, at);
             aimedSlot = slot;
             aimReport = "cursor " + mouseX + "," + mouseY
                     + " -> board " + Math.round(at[0]) + "," + Math.round(at[1])
-                    + " seat " + landing.index() + " slot " + slot + " of " + pileCount();
+                    + " seat " + landing.index() + " slot " + slot + " of " + pileCount()
+                    + "; lit " + (litSeat == null ? "nothing" : litSeat.index() + " slot " + litPile);
             ClientTableHighlight.aimAt(landing, slot);
         } else {
             aimReport = "cursor " + mouseX + "," + mouseY + " is on nobody's mat";
             ClientTableHighlight.aimAt(null, -1);
         }
+        aimedSlotLastFrame = aimedSlot;
         // Whose side of the table it would land on, which the board on the block draws as a
         // lit mat. Most of a mat is not a zone, so aiming alone left a card being dragged
         // across the felt with nothing at all saying where it was about to go.
