@@ -33,7 +33,7 @@ public final class CollectionBlockGameTest {
     private static final UUID FOREST = UUID.fromString("22222222-2222-4222-8222-222222222222");
     private static final UUID STRANGER = UUID.fromString("99999999-9999-4999-8999-999999999999");
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aCardInHandGoesIn(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -60,7 +60,7 @@ public final class CollectionBlockGameTest {
     }
 
     /** Somebody else's collection is somebody else's. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aStrangerMayNotPutCardsIn(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -87,7 +87,7 @@ public final class CollectionBlockGameTest {
     }
 
     /** A collection is claimed by whoever puts it down, once. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void whoeverPlacesItOwnsIt(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -108,7 +108,7 @@ public final class CollectionBlockGameTest {
     }
 
     /** What is in it survives being written down and read back. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void itSurvivesBeingSaved(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -148,7 +148,7 @@ public final class CollectionBlockGameTest {
     }
 
     /** Breaking it leaves an item carrying everything, not ten thousand cards. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void itDropsAsOneItemHoldingEverything(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -188,7 +188,7 @@ public final class CollectionBlockGameTest {
      * the two answers the block gives before it gets that far: that a stranger may look, and
      * that holding a pickaxe does not turn a right-click into nothing happening.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void anybodyMayLookAndAnythingInHandStillOpensIt(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -221,7 +221,7 @@ public final class CollectionBlockGameTest {
     }
 
     /** Nothing in a collection reads as nothing, whichever way it is asked. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void anEmptyOneIsEmpty(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         place(helper, at);
@@ -240,7 +240,7 @@ public final class CollectionBlockGameTest {
      * table. Holding a deck is the whole of the gesture, so this is the one that must not
      * quietly stop working.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void cardsGoIntoTheDeckInHand(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -281,7 +281,7 @@ public final class CollectionBlockGameTest {
     }
 
     /** With nothing in hand the cards come out loose, as they always did. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void withoutADeckTheyComeOutLoose(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -311,7 +311,7 @@ public final class CollectionBlockGameTest {
     }
 
     /** A deck poured back in is every card of it, from every section. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aDeckDissolvesBackIntoIt(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -351,7 +351,7 @@ public final class CollectionBlockGameTest {
     }
 
     /** And a stranger cannot pour a deck into somebody else's collection. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aStrangerMayNotDissolveIntoIt(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -380,7 +380,7 @@ public final class CollectionBlockGameTest {
     }
 
     /** A collection across the world is not one anybody is standing at. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void takingNeedsSomebodyStandingThere(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);

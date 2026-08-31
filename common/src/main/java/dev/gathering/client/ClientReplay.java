@@ -67,6 +67,12 @@ public final class ClientReplay {
         ClientReplay.playing = false;
         ClientReplay.sinceStep = 0;
         ClientReplay.waiting = 0;
+        // Cleared before asking, not after. What is outstanding is a step of the game that
+        // was being watched a moment ago, and ask() refuses to send a request for the step it
+        // is already waiting on - so picking a second game from the list before the first
+        // one's opening frame arrived used to send nothing at all, and sit on the list screen
+        // for ever with no way to tell that anything had gone wrong.
+        ClientReplay.asked = -1;
         ask(0);
     }
 

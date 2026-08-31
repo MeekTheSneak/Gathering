@@ -49,7 +49,7 @@ public final class DeckCustodyGameTest {
     private static final UUID SOL_RING = UUID.fromString("5805f64c-dd88-4e94-8f0a-a01dae67e3ba");
     private static final UUID BOLT = UUID.fromString("11bf83bb-c95b-4b4f-9a56-ce7a1816307a");
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aDeckHandedBackIsTheWholeDeck(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
@@ -83,7 +83,7 @@ public final class DeckCustodyGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aDeckWithNobodyToTakeItLandsOnTheTable(GameTestHelper helper) {
         // Everybody walked away mid-match. The deck is still theirs.
         BlockPos origin = place(helper, 1, 2, 1);
@@ -100,7 +100,7 @@ public final class DeckCustodyGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void breakingTheTableGivesTheDecksBack(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         clearItems(helper, origin);
@@ -114,7 +114,7 @@ public final class DeckCustodyGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aHeldDeckSurvivesBeingWrittenDownAndReadBack(GameTestHelper helper) {
         // A server restart mid-match must not eat four decks.
         BlockPos origin = place(helper, 1, 2, 1);
@@ -154,7 +154,7 @@ public final class DeckCustodyGameTest {
      * onwards - the sort of failure nobody notices until somebody wins with a card they
      * never opened.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aDraftedDeckKeepsItsPoolThroughAMatch(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         clearItems(helper, origin);
@@ -203,7 +203,7 @@ public final class DeckCustodyGameTest {
     }
 
     /** An ordinary imported deck has no pool, and must not acquire one. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void anOrdinaryDeckComesBackWithNoPool(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         clearItems(helper, origin);
@@ -308,7 +308,7 @@ public final class DeckCustodyGameTest {
      * else's collection put into their inventory - cards changing hands because of where a
      * person happened to be standing.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aDeckGoesBackToWhoeverPutItDown(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         ServerPlayer owner = helper.makeMockServerPlayerInLevel();
@@ -339,7 +339,7 @@ public final class DeckCustodyGameTest {
      * <p>Reported: "cant get deck back from table". A deck came back only when the whole match
      * ended, and ending a match is a thing the rest of the table is in the middle of.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void leavingTheTableHandsTheDeckBack(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         ServerPlayer owner = helper.makeMockServerPlayerInLevel();
@@ -385,7 +385,7 @@ public final class DeckCustodyGameTest {
      * hash salted once per launch, the same match would have read differently every time the
      * server started.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void decksAreHeldAndHandedBackInSeatOrder(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         clearItems(helper, origin);

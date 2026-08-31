@@ -41,7 +41,7 @@ public final class CardStoryGameTest {
         return new CardStory.Chapter(HowItCame.WON, "Winner", "Loser", "", "2026-03-14");
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aStoryGoesOntoACard(GameTestHelper helper) {
         ItemStack card = CardItem.of(CardComponent.of(CARD));
         CardStories.remember(card, won());
@@ -59,7 +59,7 @@ public final class CardStoryGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void nothingIsWrittenOnSomethingThatIsNotACard(GameTestHelper helper) {
         ItemStack notACard = new ItemStack(net.minecraft.world.item.Items.STONE);
         CardStories.remember(notACard, won());
@@ -71,7 +71,7 @@ public final class CardStoryGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aCollectionKeepsAStoryRatherThanEatingIt(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -93,7 +93,7 @@ public final class CardStoryGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void theOrdinaryCopyLeavesFirst(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);
@@ -124,7 +124,7 @@ public final class CardStoryGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aStorySurvivesTheDisk(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);
         CollectionBlockEntity collection = place(helper, at);

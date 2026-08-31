@@ -112,15 +112,7 @@ public final class GatheringFabric implements ModInitializer {
                 });
 
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
-            ServerSettings.clear();
-            dev.gathering.server.SealedLoot.clear();
-            dev.gathering.server.Archive.clear();
-            dev.gathering.server.ReplayWatch.clear();
-            dev.gathering.server.CardShop.clear();
-            dev.gathering.server.CurrentSet.clear();
-            dev.gathering.server.TradeSessions.clear();
-            dev.gathering.server.LoanerDecks.clear();
-            dev.gathering.server.Antes.clear();
+            dev.gathering.server.ServerState.forgetTheWorld();
             if (cardData != null) {
                 cardData.close();
                 cardData = null;

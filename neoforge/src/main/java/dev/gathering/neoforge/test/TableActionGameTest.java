@@ -39,7 +39,7 @@ public final class TableActionGameTest {
     private static final UUID ALICE = new UUID(0L, 1L);
     private static final UUID STRANGER = new UUID(0L, 2L);
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void yourOwnMoveIsAccepted(GameTestHelper helper) {
         BlockPos origin = seatedGame(helper, 1, 2, 1);
 
@@ -52,7 +52,7 @@ public final class TableActionGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aMoveSignedWithSomebodyElsesSeatIsRefused(GameTestHelper helper) {
         // The whole reason the actor is checked rather than trusted. Without this a client
         // could take a card off an opponent's board and have the log say the opponent did it.
@@ -67,7 +67,7 @@ public final class TableActionGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void somebodyWithNoSeatCannotMoveAtAll(GameTestHelper helper) {
         BlockPos origin = seatedGame(helper, 9, 2, 1);
 
@@ -80,7 +80,7 @@ public final class TableActionGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void nonsenseIsRefusedRatherThanGuessedAt(GameTestHelper helper) {
         BlockPos origin = seatedGame(helper, 13, 2, 1);
 
@@ -93,9 +93,9 @@ public final class TableActionGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void thereIsNothingToDoAtATableWithNoGame(GameTestHelper helper) {
-        BlockPos origin = place(helper, 17, 2, 1);
+        BlockPos origin = place(helper, 1, 2, 1);
 
         boolean accepted = TableActions.accept(helper.getLevel(), origin, ALICE,
                 encoded(new GameEvent.LifeChanged(new SeatId(0), new SeatId(0), -1))).isPresent();

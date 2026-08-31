@@ -328,12 +328,6 @@ public final class GatheringNeoForgeClient {
     }
 
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
-        // What one server told us is not true of the next one.
-        ClientCardCache.get().clear();
-        dev.gathering.client.ClientWants.clear();
-        ClientCardRequests.clear();
-        ClientHoverState.clear();
-        dev.gathering.client.ClientTableState.clear();
-        dev.gathering.client.ClientTableChat.clear();
+        dev.gathering.client.ClientState.forgetTheServer();
     }
 }

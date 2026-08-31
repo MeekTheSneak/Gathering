@@ -46,7 +46,7 @@ public final class MatchGameTest {
 
     private static final UUID SOL_RING = UUID.fromString("5805f64c-dd88-4e94-8f0a-a01dae67e3ba");
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aBestOfThreeAtOneEachIsNotOver(GameTestHelper helper) {
         BlockPos origin = seatedTable(helper);
         startMatch(helper, origin, 3);
@@ -72,7 +72,7 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void betweenGamesTheBoardGoesAndTheDecksStay(GameTestHelper helper) {
         BlockPos origin = seatedTable(helper);
         startMatch(helper, origin, 3);
@@ -92,7 +92,7 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void takingTheMatchEndsItAndReturnsTheDecks(GameTestHelper helper) {
         BlockPos origin = seatedTable(helper);
         clearItems(helper, origin);
@@ -118,7 +118,7 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aSingleGameEndsTheWholeThing(GameTestHelper helper) {
         // Commander, best of one: winning the game is winning the set, and there is no
         // between-games state to be in.
@@ -133,7 +133,7 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void thenextGameKeepsTheScoreAndPutsTheDecksBackDown(GameTestHelper helper) {
         BlockPos origin = seatedTable(helper);
         startMatch(helper, origin, 3);
@@ -159,7 +159,7 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void sideboardingOnlyHappensWhereAFormatHasOne(GameTestHelper helper) {
         BlockPos origin = seatedTable(helper);
         // Commander has no sideboard, so a best-of-three of it still never offers one.
@@ -184,7 +184,7 @@ public final class MatchGameTest {
      * seat's name lives in the session, so every game of a set except the last credited an
      * empty chair. The last one was right, which is exactly why nobody saw it.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aWonGameOfASetNamesWhoWonIt(GameTestHelper helper) {
         BlockPos origin = seatedTable(helper);
         startMatch(helper, origin, 3);
@@ -214,7 +214,7 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aSoloGameKeepsRunningWhileYouPlayIt(GameTestHelper helper) {
         // Goldfishing: one player, one table, no opponent. This broke because one player left
         // standing out of one looked like a last player standing, so the game settled itself
@@ -232,7 +232,7 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aSoloGameEndsWhenYouScoop(GameTestHelper helper) {
         BlockPos origin = seatedTable(helper, 1);
         startMatch(helper, origin, 1);
@@ -247,7 +247,7 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void crouchingOnAnEmptyTableSitsYouDown(GameTestHelper helper) {
         // The first thing anybody does alone is put a table down and crouch on it. Making that
         // fail because they had not clicked an edge first is how a mod looks broken to
@@ -263,7 +263,7 @@ public final class MatchGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void sittingDownDoesNotMoveSomebodyAlreadySeated(GameTestHelper helper) {
         BlockPos origin = place(helper);
         var player = helper.makeMockPlayer(GameType.SURVIVAL);

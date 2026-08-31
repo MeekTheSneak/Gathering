@@ -3808,6 +3808,13 @@ public final class DevScene {
             fail("there was no list of finished games to pick from");
             return;
         }
+        // A game that does not exist, asked for first and on purpose. The client refuses to
+        // re-ask for a step it is already waiting on, so a game picked while the one before
+        // it had not answered yet used to send nothing at all - and the list screen sat there
+        // for ever with nothing to say why. The server answers this one with a refusal and no
+        // frame, which is exactly the state that used to wedge it; if it still does, the
+        // replay steps below find a list screen where a board should be.
+        ClientReplay.watch("no-such-replay");
         for (GuiEventListener child : client.screen.children()) {
             if (child instanceof AbstractWidget row) {
                 row.onClick(row.getX() + row.getWidth() / 2.0,
@@ -5656,8 +5663,8 @@ public final class DevScene {
     /**
      * Presses a card in hand and drags it over a zone, without letting go.
      *
-     * <p>Split from {@link #dropIntoAZone} so there is a frame to photograph while the card
-     * is still in the air. What lands where is already checked; what was never looked at is
+     * <p>Split from {@link #dropWhereItIsAimed} so there is a frame to photograph while the
+     * card is still in the air. What lands where is already checked; what was never looked at is
      * whether the player can tell, before they commit, which of four slots a card an inch
      * from the column is going into.
      */
@@ -5761,24 +5768,6 @@ public final class DevScene {
         }
         board.mouseReleased(aimedAt[0], aimedAt[1], 0);
         System.out.println("[devscene] dropped the card where it was aimed");
-    }
-
-    /** Drags the first card in hand onto one of the zones, which is how cards go there now. */
-    private static void dropIntoAZone(Minecraft client, int index) {
-        Rect zone = zoneRect(client, index);
-        if (zone.isEmpty() || !(client.screen instanceof TableScreen board)) {
-            System.out.println("[devscene] no zone " + index + " to drop into");
-            return;
-        }
-        Rect from = HandFan.slot(
-                TableScreenLayout.of(client.getWindow().getGuiScaledWidth(),
-                        client.getWindow().getGuiScaledHeight()).hand(),
-                6, 0, -1).where();
-        board.mouseClicked(from.centerX(), from.centerY(), 0);
-        board.mouseDragged(zone.centerX(), zone.centerY(), 0,
-                zone.centerX() - from.centerX(), zone.centerY() - from.centerY());
-        board.mouseReleased(zone.centerX(), zone.centerY(), 0);
-        System.out.println("[devscene] dropped a card into zone " + index);
     }
 
     /**

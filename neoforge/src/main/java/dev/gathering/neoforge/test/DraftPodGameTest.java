@@ -38,7 +38,7 @@ import dev.gathering.block.TablePart;
 @PrefixGameTestTemplate(false)
 public final class DraftPodGameTest {
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aPodFormsFromThePeopleSittingAtTheTables(GameTestHelper helper) {
         BlockPos origin = twoTables(helper);
         sitFour(helper, origin);
@@ -66,7 +66,7 @@ public final class DraftPodGameTest {
     }
 
     /** Three people is not a pod, and being told so is better than a draft that plays badly. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void threePeopleAreNotAPod(GameTestHelper helper) {
         BlockPos origin = twoTables(helper);
         sitAt(helper, origin, new TableCell(0, 0), Side.NORTH, 1);
@@ -91,7 +91,7 @@ public final class DraftPodGameTest {
     }
 
     /** And a cube too thin to make packs out of is refused before anything is dealt. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aCubeTooThinToMakePacksIsRefused(GameTestHelper helper) {
         BlockPos origin = twoTables(helper);
         sitFour(helper, origin);
@@ -108,7 +108,7 @@ public final class DraftPodGameTest {
     }
 
     /** Two drafts on one cluster would be two screens with no way to say which was meant. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void oneClusterRunsOneDraft(GameTestHelper helper) {
         BlockPos origin = twoTables(helper);
         sitFour(helper, origin);
@@ -129,7 +129,7 @@ public final class DraftPodGameTest {
      * noticed as somebody holding cards that are not theirs, an hour later, with no way to
      * work out what happened.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aDraftSurvivesASaveAndLoad(GameTestHelper helper) {
         BlockPos origin = twoTables(helper);
         sitFour(helper, origin);
@@ -172,7 +172,7 @@ public final class DraftPodGameTest {
      * went through it, rather than something along the way handing the same list out four
      * times.
      */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void noTwoDraftersOpenTheSameCard(GameTestHelper helper) {
         BlockPos origin = twoTables(helper);
         sitFour(helper, origin);

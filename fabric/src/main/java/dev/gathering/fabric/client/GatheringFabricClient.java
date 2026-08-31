@@ -257,13 +257,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
                                 mouseY)));
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            // What one server told us is not true of the next one.
-            ClientCardCache.get().clear();
-            dev.gathering.client.ClientWants.clear();
-            ClientCardRequests.clear();
-            ClientHoverState.clear();
-            dev.gathering.client.ClientTableState.clear();
-            dev.gathering.client.ClientTableChat.clear();
+            dev.gathering.client.ClientState.forgetTheServer();
         });
     }
 }

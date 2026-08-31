@@ -132,6 +132,32 @@ else
     FAILED=1
 fi
 
+# And every holder that can be emptied is emptied when the world or the connection goes. The
+# lists used to live in the loaders, once each, and three client holders were added to neither
+# - so leaving one server and joining another carried the last table's pings across. See
+# tools/statecheck.py.
+printf '%-24s ' "teardown lists"
+if STATE_OUT=$(python3 tools/statecheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$STATE_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
+# And no game test writes blocks into the plot next door. The server packs test structures
+# side by side, so a test that reaches past its own template decides another test's result -
+# which is how a row of four tables in a three-block template failed two runs in three, at a
+# different place every time. See tools/plotcheck.py.
+printf '%-24s ' "game test plots"
+if PLOT_OUT=$(python3 tools/plotcheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$PLOT_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
 # And every element a screen can draw has art in every theme. A sprite nobody painted is
 # drawn as the purple checkerboard and logged nowhere, so it survives a whole run of the
 # scene looking like a texture somebody chose - see tools/spritecheck.py.

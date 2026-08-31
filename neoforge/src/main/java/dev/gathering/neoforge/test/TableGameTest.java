@@ -40,7 +40,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class TableGameTest {
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aTableIsFourBlocksWithOneOwner(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
 
@@ -63,7 +63,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void breakingOneQuarterTakesTheWholeTable(GameTestHelper helper) {
         // A table missing a corner is not a smaller table.
         BlockPos origin = place(helper, 1, 2, 1);
@@ -79,7 +79,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void oneTableIsOneClusterSeatingTwo(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
 
@@ -92,7 +92,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void tablesPushedTogetherBecomeOneCluster(GameTestHelper helper) {
         // The gesture the whole design is built on.
         BlockPos first = place(helper, 1, 2, 1);
@@ -107,7 +107,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void tablesWithAGapBetweenThemStaySeparate(GameTestHelper helper) {
         BlockPos first = place(helper, 1, 2, 1);
         place(helper, 5, 2, 1);
@@ -118,7 +118,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aFifthTableWillNotJoinAFullCluster(GameTestHelper helper) {
         // A cluster is capped, and the answer has to arrive when the table is placed rather
         // than as a table that sits next to a cluster without being part of it.
@@ -136,7 +136,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void everySeatIsOnTheOutsideOfTheCluster(GameTestHelper helper) {
         // The world coordinates, which the pure arithmetic cannot check on its own: a table
         // is two blocks across, so its far edges are one further out than its corner.
@@ -153,7 +153,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aSeatIsTakenOnceAndSurvivesASaveAndLoad(GameTestHelper helper) {
         // A seat is a registration, and the design says leaving does not drop it - so it has
         // to be written with the table and come back with it.
@@ -190,7 +190,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aTableInUseCannotBeBrokenOrExtended(GameTestHelper helper) {
         // Adding or removing a table reshapes the perimeter, which moves the seats. Somebody
         // registered at an edge should not find that edge is now the middle of the surface.
@@ -213,7 +213,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aTableCannotBeBurntOrPushedApart(GameTestHelper helper) {
         // Both of these break a table in a way nothing else can: lava takes it out from under
         // a game nobody agreed to end, and a piston moves one quarter and leaves three.
@@ -233,7 +233,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void feltColorIsKeptAndIsToldToClients(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
         TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
@@ -262,7 +262,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void whetherThereIsACommandZoneIsToldToClients(GameTestHelper helper) {
         // A client never receives the match, so it cannot work out whether this game has a
         // command zone - and it has to know, because it draws the box. An empty box labeled
@@ -295,7 +295,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aGameNeedsSomebodySittingAtTheTable(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);
 
@@ -308,7 +308,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aGameStartsWithASeatForEveryPlaceAtTheTable(GameTestHelper helper) {
         // Every seat the cluster has becomes a seat in the game, occupied or not: the shape
         // is frozen for the duration, so somebody arriving later should find a seat waiting
@@ -337,7 +337,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aGameSurvivesTheWorldBeingSavedAndLoaded(GameTestHelper helper) {
         // The whole reason a session lives on a block entity. State is the fold of the log,
         // so a log that does not come back is a board that never existed.
@@ -371,7 +371,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aSavedGameKeepsItsLibraryOutOfTheReadableHalf(GameTestHelper helper) {
         // The security property, checked where it actually lands: in the block entity's NBT,
         // which is what ends up in a world folder somebody could copy.
@@ -402,7 +402,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void aTableWithAGameOnItCannotBeBroken(GameTestHelper helper) {
         // Not only because the seats would move. The game lives on one of these tables, so
         // breaking that one takes the game with it.
@@ -430,7 +430,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void oneplayerCanGoldfishAlone(GameTestHelper helper) {
         // Sandbox mode, which the design says ships in the first playable phase: all the same
         // verbs, no other humans required. It is not a separate mode - it is one person at a
@@ -453,7 +453,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void twoPlayersGetOppositeEdgesAndCannotReadEachOther(GameTestHelper helper) {
         // The game this mod is for. One person at a table is the easy case and the one every
         // other test here happens to exercise; two people facing each other is where the seats
@@ -544,7 +544,7 @@ public final class TableGameTest {
     }
 
     /** Places a whole table with its corner at these relative coordinates. */
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void everyMaterialOfTableIsStillATable(GameTestHelper helper) {
         // The block entity type names the blocks it will attach to, and a table missing from
         // that list is not an error - it is a table that silently has no block entity, and so
@@ -562,7 +562,7 @@ public final class TableGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "tables")
     public static void tablesOfDifferentMaterialsShareOneCluster(GameTestHelper helper) {
         // The brief's promise, and the reason none of the mod's rules ask what a table is
         // made of: push a stone table against a wooden one and it is one table for four.
