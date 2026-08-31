@@ -29,8 +29,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import textures  # noqa: E402
 import unscale  # noqa: E402
-from mana_art import (BADGES, FONT, INK, MARKS, OUT, RADIUS, RIM_DEPTH, SIZE,  # noqa: E402
-                       font, inside, keyFor, markName, markPath, onRim, read_png, write_png)
+from mana_art import (BADGES, FONT, INK, MARKS, OUT, RADIUS, SIZE,  # noqa: E402
+                       font, inside, keyFor, markName, markPath, onRim, read_png,
+                       regions, write_png)
 
 # The sheet's layout, and the close-up's.
 SHEET_ACROSS, SHEET_DOWN, SHEET_SCALE = 11, 5, 2
@@ -44,6 +45,11 @@ SHEET_SEAM, GOOD_SEAM = "minus", "plus"
 
 # The badge every other badge is measured against: the one the most symbols wear.
 REFERENCE = "generic"
+
+# How much more saturated the set ships than it was measured. The originals were a shade
+# chalky on a felt background; this lifts the colour without touching how light or dark any
+# band is, so the shading is exactly the shading that was recovered.
+VIBRANCE = 1.20
 
 # How close two colours have to be to count as the same one, and how many of a badge's views
 # have to agree before a pixel is taken as certain.
@@ -217,6 +223,13 @@ def tonesOf(shots, looks, bands, count):
     return out
 
 
+def vivid(color, amount=VIBRANCE):
+    """More colour, same brightness: each channel moves away from the pixel's own grey."""
+    grey = 0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]
+    return tuple(max(0, min(255, round(grey + (v - grey) * amount)))
+                 for v in color[:3]) + (color[3],)
+
+
 def paint(bands, tones):
     """A badge, straight from the band map and one colour's tones. No holes to heal, because
     nothing was ever measured pixel by pixel."""
@@ -226,17 +239,25 @@ def paint(bands, tones):
     return out
 
 
-def compose(base, other, rim):
-    """A hybrid's badge: each half from its own colour, and one rim, which is the base's -
-    the close-up shows a red half wearing the grey badge's outline all the way round."""
-    if not other:
-        return [row[:] for row in base]
+def compose(base, other, rims):
+    """A hybrid's badge: each half from its own colour, and one outline, which is the base's -
+    the close-up shows a red half wearing the grey badge's outline all the way round.
+
+    Only pixels that are actually the second colour's outline get repainted. Repainting
+    everything within a pixel of the edge instead puts the outline over the lit edge - the
+    bright arc the light catches just inside it - and four pixels of it come out dark, which
+    reads as a shadow sitting in the top left of every hybrid.
+    """
+    if not other[0]:
+        return [row[:] for row in base[0]]
     out = textures.blank(SIZE, SIZE)
     for y in range(SIZE):
         for x in range(SIZE):
-            here = other if split(x, y, GOOD_SEAM) else base
-            if here[y][x][3]:
-                out[y][x] = rim if onRim(x, y) else here[y][x]
+            second = split(x, y, GOOD_SEAM)
+            here = other[0] if second else base[0]
+            if not here[y][x][3]:
+                continue
+            out[y][x] = rims[0] if second and here[y][x] == other[1] else here[y][x]
     return out
 
 
@@ -352,7 +373,8 @@ def halfMarks(truth, badges, rims, inks):
     got = {}
     for name in ZOOM_NAMES:
         base, other = keyFor(name)
-        whole = compose(badges[base], badges[other], rims[base])
+        whole = compose((badges[base], rims[base]), (badges[other], rims[other]),
+                        (rims[base],))
         for region in ("tl", "br"):
             key = base if region == "tl" else other
             got[(region, markName(name, region))] = \
@@ -389,6 +411,9 @@ def main(argv):
     grey, _ = assemble(shots, looks[REFERENCE])
     bands, count = bandsOf(grey)
 
+    # Measured first, brightened second. Everything below - which pixels are ink, how much of
+    # one covers a pixel - is solved against the sheet, so it has to be solved against what the
+    # sheet actually holds. The lift is applied to what ships, not to what is measured.
     badges, rims, inks = {}, {}, {}
     for key in looks:
         tones = tonesOf(shots, looks[key], bands, count)
@@ -401,23 +426,28 @@ def main(argv):
     whole, seen = {}, {}
     for name in textures.SYMBOL_NAMES:
         base, other = keyFor(name)
-        whole[name] = compose(badges[base], badges[other] if other else None, rims[base])
+        whole[name] = compose((badges[base], rims[base]),
+                              (badges[other], rims[other]) if other else (None, None),
+                              (rims[base],))
         if not other:
             seen.setdefault(("full", markName(name, "full")), []).append(
                 alphaOf(shots[name], whole[name], inks[base], "full", SHEET_SEAM))
     marks = {spot: vote(masks) for spot, masks in seen.items()}
     marks.update(halfMarks(truth, badges, rims, inks)[0])
 
+    # Two versions of every symbol: the one that was measured, which is what the close-up is
+    # checked against, and the one that ships, which is the same art with more colour in it.
     made = {}
     for name in textures.SYMBOL_NAMES:
-        base, other = keyFor(name)
-        art = whole[name]
-        for region in (("full",) if not other else ("tl", "br")):
-            key = base if region != "br" else other
-            art = press(art, marks[(region, markName(name, region))], inks[key])
-        made[name] = art
-        write_png(os.path.join(BADGES, name + ".png"), whole[name])
-        write_png(os.path.join(OUT, name + ".png"), art)
+        bare = [[vivid(p) if p[3] else p for p in row] for row in whole[name]]
+        write_png(os.path.join(BADGES, name + ".png"), bare)
+        asFound, toShip = whole[name], bare
+        for region, key in regions(name):
+            mark = marks[(region, markName(name, region))]
+            asFound = press(asFound, mark, inks[key])
+            toShip = press(toShip, mark, vivid(inks[key]))
+        made[name] = asFound
+        write_png(os.path.join(OUT, name + ".png"), toShip)
     for (region, name), mark in marks.items():
         write_png(markPath(region, name), mark)
     # The ink a badge draws its marks in is part of the badge, not of the mark - a mark is a
@@ -425,7 +455,7 @@ def main(argv):
     # composing needs nothing but the files.
     with open(INK, "w") as handle:
         handle.write("{\n" + ",\n".join(
-            '  "%s": "#%02X%02X%02X"' % ((key,) + inks[key][:3])
+            '  "%s": "#%02X%02X%02X"' % ((key,) + vivid(inks[key])[:3])
             for key in sorted(inks) if inks[key]) + "\n}\n")
     font(textures.SYMBOL_NAMES, FONT)
 
