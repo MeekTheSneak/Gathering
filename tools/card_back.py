@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""Paints the sleeve every card in the mod shows on its reverse.
+
+Every card in Gathering is sleeved: the back of a card is this and never the printed face
+behind it, which is a security property as much as a look - a face-down card has to be
+unreadable from every angle. So there is exactly one back, and it is ours.
+
+Drawn here rather than saved out of an image editor for the reason tools/textures.py exists:
+a palette at the top of a file can be re-tinted for a theme, and a sleeve nobody can regenerate
+is a sleeve that can never match one.
+
+Deliberately its own artwork. The card back it is in the spirit of is Wizards' trade dress, and
+the brief's legal posture (section 15) is that none of their imagery ships in the jar - so this
+is a brown oval, a blue rim and five colored beads, painted from arithmetic, carrying no text,
+no logo and no traced line.
+
+Run from the repository root:
+
+    python3 tools/card_back.py
+"""
+import math
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from textures import write_png  # noqa: E402  - the PNG writer, kept in one place
+
+OUT = "common/src/main/resources/assets/gathering/textures/card/back.png"
+
+# Twice the old sleeve, which was softer than the card fronts sitting next to it: Scryfall's
+# "normal" images are 488 across, so a back at 128 was the one blurry thing on the table.
+WIDTH, HEIGHT = 256, 352
+
+# Painted at this multiple and averaged down, which is where the smooth oval and the round
+# beads come from - there is no anti-aliasing here otherwise.
+OVERSAMPLE = 3
+
+# ---------------------------------------------------------------------------
+# Palette. A theme is this block and nothing else.
+# ---------------------------------------------------------------------------
+EDGE = (0x0E, 0x0C, 0x0B)          # the card's own black rim
+BORDER_TOP = (0x8A, 0x76, 0x3A)    # weathered gold, lit from above
+BORDER_BOTTOM = (0x7A, 0x42, 0x28) # rust, where the gold has gone
+BORDER_RULE = (0x2E, 0x22, 0x11)   # the fine inset lines
+GEM = (0xC0, 0x36, 0x27)           # the four corner studs
+GEM_LIGHT = (0xF0, 0x86, 0x72)
+RING_DARK = (0x12, 0x0F, 0x0D)     # the oval's outline
+RIM = (0x33, 0x47, 0x84)           # the blue band inside it
+RIM_LIGHT = (0x8C, 0xA6, 0xDE)
+FIELD = (0xC6, 0x8A, 0x6B)         # the leather the beads sit on
+FIELD_DEEP = (0x9E, 0x60, 0x48)
+
+# White, green, blue, red, black - the five, in the order they are laid out.
+BEADS = [
+    ((0xF2, 0xEF, 0xE4), (0xFF, 0xFF, 0xFA)),
+    ((0x53, 0x9E, 0x47), (0x93, 0xD0, 0x80)),
+    ((0x4E, 0xB6, 0xD8), (0x9C, 0xE2, 0xF2)),
+    ((0xC3, 0x37, 0x2C), (0xE8, 0x77, 0x62)),
+    ((0x23, 0x1D, 0x25), (0x6A, 0x5E, 0x6E)),
+]
+
+# ---------------------------------------------------------------------------
+# Shape, as fractions of the card so the numbers survive a change of size.
+# ---------------------------------------------------------------------------
+RIM_WIDTH = 0.020        # the black edge of the card
+RULE_INSET = 0.055       # where the fine double line runs
+RULE_GAP = 0.018         # and how far apart its two strokes are
+GEM_INSET = 0.086        # the corner studs, on the diagonal
+GEM_RADIUS = 0.027
+OVAL_X, OVAL_Y = 0.416, 0.450
+RING_WIDTH = 0.011       # the black outline around the oval
+BAND_WIDTH = 0.023       # and the blue band inside it
+BEAD_RING = 0.140        # how far the five sit from the middle
+BEAD_RADIUS = 0.031
+
+
+def mix(one, two, amount):
+    return tuple(round(a + (b - a) * amount) for a, b in zip(one, two))
+
+
+def shade(color, amount):
+    """Lighter for a positive amount, darker for a negative one."""
+    if amount >= 0:
+        return mix(color, (255, 255, 255), amount)
+    return mix(color, (0, 0, 0), -amount)
+
+
+def hashed(x, y, salt):
+    """A repeatable number in 0..1 for a grid point. The same file every run."""
+    n = (x * 374761393 + y * 668265263 + salt * 2654435761) & 0xFFFFFFFF
+    n = ((n ^ (n >> 13)) * 1274126177) & 0xFFFFFFFF
+    return ((n ^ (n >> 16)) & 0xFFFF) / 65535.0
+
+
+def blotches(x, y, scale, salt):
+    """Smooth value noise: the mottling that stops a flat fill looking printed."""
+    gx, gy = x / scale, y / scale
+    x0, y0 = math.floor(gx), math.floor(gy)
+    fx, fy = gx - x0, gy - y0
+    # Smoothstep, so the grid the noise is built on does not show as squares.
+    fx = fx * fx * (3 - 2 * fx)
+    fy = fy * fy * (3 - 2 * fy)
+    top = hashed(x0, y0, salt) * (1 - fx) + hashed(x0 + 1, y0, salt) * fx
+    bottom = hashed(x0, y0 + 1, salt) * (1 - fx) + hashed(x0 + 1, y0 + 1, salt) * fx
+    return top * (1 - fy) + bottom * fy
+
+
+def weathered(x, y, width, height):
+    """The border: gold at the top going to rust at the bottom, worn unevenly."""
+    base = mix(BORDER_TOP, BORDER_BOTTOM, y / height)
+    # Two sizes of blotch. One large enough to read as wear across a whole corner, one small
+    # enough to read as the grain of whatever it was printed on.
+    wear = (blotches(x, y, width * 0.30, 1) * 0.55
+            + blotches(x, y, width * 0.09, 2) * 0.30
+            + blotches(x, y, width * 0.02, 5) * 0.15)
+    return shade(base, (wear - 0.5) * 0.80)
+
+
+def leather(x, y, width, height, distance):
+    """The oval's field: warm, uneven, and darker towards its edge."""
+    base = mix(FIELD, FIELD_DEEP, min(1.0, max(0.0, (distance - 0.55) / 0.45)) * 0.8)
+    grain = (blotches(x, y, width * 0.14, 3) * 0.40
+             + blotches(x, y, width * 0.045, 4) * 0.35
+             + blotches(x, y, width * 0.012, 6) * 0.25)
+    return shade(base, (grain - 0.5) * 0.22)
+
+
+def sphere(color, light, offset, spot=0.0):
+    """A bead lit from the upper left, darkened where it turns away, with a highlight.
+
+    @param offset where on the bead this is, -1 at the lit edge and 1 at the shaded one
+    @param spot   how much of the small bright catchlight falls here
+    """
+    lit = mix(color, light, max(0.0, -offset) ** 1.5)
+    lit = shade(lit, offset * 0.40)
+    return mix(lit, (255, 255, 255), spot * 0.85)
+
+
+def catchlight(x, y, centerX, centerY, radius):
+    """How much of the small bright point sitting up and left of a bead's middle falls here."""
+    spot = radius * 0.34
+    gap = math.hypot(x - (centerX - radius * 0.34), y - (centerY - radius * 0.34))
+    return max(0.0, 1.0 - gap / spot) ** 2
+
+
+def paint():
+    big_width, big_height = WIDTH * OVERSAMPLE, HEIGHT * OVERSAMPLE
+    width, height = float(big_width), float(big_height)
+
+    rim = RIM_WIDTH * width
+    rule_at = RULE_INSET * width
+    rule_gap = RULE_GAP * width
+    gem_at = GEM_INSET * width
+    gem_radius = GEM_RADIUS * width
+    cx, cy = width / 2, height / 2
+    rx, ry = OVAL_X * width, OVAL_Y * height
+    ring = RING_WIDTH * width
+    band = BAND_WIDTH * width
+    bead_ring = BEAD_RING * width
+    bead_radius = BEAD_RADIUS * width
+
+    # The five, laid out as a regular pentagon with one at the top.
+    beads = []
+    for index, (color, light) in enumerate(BEADS):
+        # White at the top, then the other four outward from it - the order the palette is
+        # written in is the order they are laid out, going left before right.
+        angle = math.radians([0, -72, 72, -144, 144][index] - 90)
+        beads.append((cx + math.cos(angle) * bead_ring,
+                      cy + math.sin(angle) * bead_ring, color, light))
+
+    rows = []
+    for by in range(big_height):
+        row = []
+        for bx in range(big_width):
+            row.append(pixel(bx + 0.5, by + 0.5, width, height, rim, rule_at, rule_gap,
+                             gem_at, gem_radius, cx, cy, rx, ry, ring, band,
+                             beads, bead_radius))
+        rows.append(row)
+
+    return downsample(rows, big_width, big_height)
+
+
+def pixel(x, y, width, height, rim, rule_at, rule_gap, gem_at, gem_radius,
+          cx, cy, rx, ry, ring, band, beads, bead_radius):
+    # The card's own black edge, outermost and over everything.
+    if x < rim or y < rim or x > width - rim or y > height - rim:
+        return EDGE + (255,)
+
+    # Inside the oval, or on one of the two rings around it. Measured as a ratio rather than
+    # a distance, because an ellipse has no single radius to compare against.
+    away = math.hypot((x - cx) / rx, (y - cy) / ry)
+    if away <= 1.0:
+        inner = (rx - ring - band) / rx
+        middle = (rx - ring) / rx
+        if away >= middle:
+            return RING_DARK + (255,)
+        if away >= inner:
+            # Lit along the top left of the band, which is what makes it read as raised.
+            lean = ((cx - x) / rx + (cy - y) / ry) / 2
+            lit = max(0.0, min(1.0, lean * 1.5 + 0.5))
+            return shade(mix(RIM, RIM_LIGHT, lit), (lit - 0.5) * 0.30) + (255,)
+
+        for beadX, beadY, color, light in beads:
+            gap = math.hypot(x - beadX, y - beadY)
+            if gap <= bead_radius:
+                if gap >= bead_radius - max(1.0, bead_radius * 0.10):
+                    return RING_DARK + (255,)
+                # Where on the bead this is, from the lit side to the shaded one.
+                offset = ((x - beadX) + (y - beadY)) / (2 * bead_radius)
+                return sphere(color, light, offset,
+                              catchlight(x, y, beadX, beadY, bead_radius)) + (255,)
+
+        return leather(x, y, width, height, away) + (255,)
+
+    # The border, and what is drawn on it.
+    for corner in ((gem_at, gem_at), (width - gem_at, gem_at),
+                   (gem_at, height - gem_at), (width - gem_at, height - gem_at)):
+        gap = math.hypot(x - corner[0], y - corner[1])
+        if gap <= gem_radius:
+            if gap >= gem_radius - max(1.0, gem_radius * 0.18):
+                return RING_DARK + (255,)
+            offset = ((x - corner[0]) + (y - corner[1])) / (2 * gem_radius)
+            return sphere(GEM, GEM_LIGHT, offset,
+                          catchlight(x, y, corner[0], corner[1], gem_radius)) + (255,)
+
+    for inset in (rule_at, rule_at + rule_gap):
+        edge = min(x, y, width - x, height - y)
+        if abs(edge - inset) <= max(1.0, width * 0.0035):
+            return BORDER_RULE + (255,)
+
+    return weathered(x, y, width, height) + (255,)
+
+
+# How coarsely the finished colors are rounded. Two levels is under a percent of the range.
+QUANTIZE = 3
+
+
+def step(value):
+    return min(255, (value + QUANTIZE // 2) // QUANTIZE * QUANTIZE)
+
+
+def downsample(rows, big_width, big_height):
+    out = []
+    for y in range(HEIGHT):
+        row = []
+        for x in range(WIDTH):
+            r = g = b = a = 0
+            for dy in range(OVERSAMPLE):
+                source = rows[y * OVERSAMPLE + dy]
+                for dx in range(OVERSAMPLE):
+                    pr, pg, pb, pa = source[x * OVERSAMPLE + dx]
+                    r += pr
+                    g += pg
+                    b += pb
+                    a += pa
+            count = OVERSAMPLE * OVERSAMPLE
+            # Rounded to a step, which is invisible on a mottled surface and is most of the
+            # file size: noise at full depth gives the compressor nothing to work with, and a
+            # sleeve is one texture every card in the game loads.
+            row.append((step(r // count), step(g // count), step(b // count), a // count))
+        out.append(row)
+    return out
+
+
+def main():
+    write_png(OUT, WIDTH, HEIGHT, paint())
+
+
+if __name__ == "__main__":
+    main()
