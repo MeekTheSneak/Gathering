@@ -128,8 +128,18 @@ public final class CountersScreen extends ChildScreen {
     private Rect panel = Rect.NONE;
     private EditBox customName;
 
-    /** Which rows were drawn last frame, so the screen knows when it needs rebuilding. */
-    private List<String> rowsShown = List.of();
+    /**
+     * What the panel was last laid out for, so the screen knows when it needs rebuilding.
+     *
+     * <p>Set where the layout is built and nowhere else. These used to be set while drawing,
+     * which meant they recorded what the last frame happened to draw rather than what the
+     * widgets were placed against - and a frame always runs before the tick that compares
+     * them. So a counter arriving after the panel opened was drawn immediately, recorded as
+     * "already known", and never triggered the rebuild that would have made room for it: the
+     * panel stayed sized for the counters it opened with and drew the new rows straight
+     * through the button grid underneath.
+     */
+    private List<String> builtRows = List.of();
 
     /**
      * The counters as of the last board this screen saw, and which board that was.
@@ -144,11 +154,11 @@ public final class CountersScreen extends ChildScreen {
     private GameView countedFrom;
     private Map<String, Integer> counted = Map.of();
 
-    /** And which enemy commanders there were to take damage from, for the same reason. */
-    private List<CardInstanceId> opponentsShown = List.of();
+    /** And which enemy commanders it was built to take damage from. */
+    private List<CardInstanceId> builtOpponents = List.of();
 
     /** The commanders whose tax rows have widgets, to notice a new cast needing buttons. */
-    private List<CardInstanceId> taxedShown = List.of();
+    private List<CardInstanceId> builtTaxed = List.of();
 
     /**
      * What the counters are on.
@@ -264,7 +274,10 @@ public final class CountersScreen extends ChildScreen {
     private List<String> buttons;
 
     /** Which buttons were drawn last rebuild, so tick can notice the table naming a new counter. */
-    private List<String> buttonsShown = List.of();
+    private List<String> builtButtons = List.of();
+
+    /** And how many counter rows it made room for, which is what the scripted run checks. */
+    private int builtRowCount;
 
     /** The board the button list was built from, so it is built once per board and not once per frame. */
     private GameView namedFrom;
@@ -274,17 +287,20 @@ public final class CountersScreen extends ChildScreen {
     @Override
     protected void init() {
         List<String> present = new ArrayList<>(current().keySet());
-        buttonsShown = common();
-        int commonRows = (buttonsShown.size() + 2) / 3;
+        builtRows = List.copyOf(present);
+        builtButtons = common();
+        int commonRows = (builtButtons.size() + 2) / 3;
         List<CardInstanceId> opponents = commanderDamageFrom();
         List<CardInstanceId> taxed = taxedCommanders();
-        taxedShown = taxed;
+        builtOpponents = opponents;
+        builtTaxed = taxed;
 
         int rows = Math.min(rowsThatFit(commonRows, opponents.size(), taxed.size()), present.size());
         // Clamped here rather than where the wheel turns, because the list also shortens
         // under it: taking the last counter off a scrolled list would otherwise leave the
         // panel looking at rows that are no longer there.
         this.scroll = Math.max(0, Math.min(this.scroll, present.size() - rows));
+        builtRowCount = rows;
 
         int height = MARGIN * 2 + ROW * 2
                 + rows * (ROW + GAP)
@@ -615,16 +631,16 @@ public final class CountersScreen extends ChildScreen {
         // A counter that has just come into existence needs a row, and one that has just gone
         // needs to stop having one. So does an opponent: somebody sitting down opposite adds
         // a commander to take damage from, and this screen is open for the length of a turn.
-        if (!List.copyOf(current().keySet()).equals(rowsShown)
-                || !commanderDamageFrom().equals(opponentsShown)
+        if (!List.copyOf(current().keySet()).equals(builtRows)
+                || !commanderDamageFrom().equals(builtOpponents)
                 // And a commander newly cast: its tax row is drawn regardless, but the
                 // +/- buttons beside it only exist after a rebuild - a row with no way to
                 // change it until some unrelated counter happened to change too.
-                || !taxedCommanders().equals(taxedShown)
+                || !taxedCommanders().equals(builtTaxed)
                 // And a counter name nobody at this table had used before, which becomes a
                 // button - the panel is sized around how many there are, so one appearing
                 // without a rebuild is a button drawn off the bottom of its own box.
-                || !common().equals(buttonsShown)) {
+                || !common().equals(builtButtons)) {
             rebuildWidgets();
         }
     }
@@ -657,6 +673,17 @@ public final class CountersScreen extends ChildScreen {
     /** How many counter rows are on screen. For the scripted run. */
     int rowsOnScreen() {
         return shownRows(current()).size();
+    }
+
+    /**
+     * How many counter rows the panel made room for. For the scripted run.
+     *
+     * <p>Worth checking against {@link #rowsOnScreen()}: everything below the counter list is
+     * positioned from this number, so a panel drawing more rows than it was built for is a
+     * panel drawing them straight through its own button grid.
+     */
+    int rowsLaidOut() {
+        return builtRowCount;
     }
 
     /** Whether this counter is one of the rows on screen. For the scripted run. */
@@ -705,7 +732,6 @@ public final class CountersScreen extends ChildScreen {
                 panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);
 
         Map<String, Integer> counters = current();
-        rowsShown = List.copyOf(counters.keySet());
         int y = panel.y() + MARGIN + ROW;
         int index = 0;
         for (Map.Entry<String, Integer> entry : shownRows(counters).entrySet()) {
@@ -732,7 +758,6 @@ public final class CountersScreen extends ChildScreen {
         }
 
         List<CardInstanceId> opponents = commanderDamageFrom();
-        opponentsShown = opponents;
         renderCommanderTax(graphics, y);
         if (opponents.isEmpty()) {
             return;
@@ -768,7 +793,7 @@ public final class CountersScreen extends ChildScreen {
         if (commanders.isEmpty()) {
             return;
         }
-        List<CardInstanceId> opponents = opponentsShown;
+        List<CardInstanceId> opponents = builtOpponents;
         int commonRows = (common().size() + 2) / 3;
         int taxTop = y + Math.min(showing(), current().size()) * (ROW + GAP) + ROW
                 + commonRows * (ROW + GAP) + GAP

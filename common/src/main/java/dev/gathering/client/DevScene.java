@@ -3614,6 +3614,15 @@ public final class DevScene {
             fail("there was no counters panel to read");
             return;
         }
+        // Everything under the counter list is positioned from the number of rows the panel
+        // made room for, so drawing a different number is drawing them through the button
+        // grid underneath. It did, for every counter that arrived after the panel opened.
+        if (counters.rowsOnScreen() != counters.rowsLaidOut()) {
+            fail("the counters panel draws " + counters.rowsOnScreen()
+                    + " rows but was laid out for " + counters.rowsLaidOut()
+                    + ", so they are on top of what comes after them");
+            return;
+        }
         // How many rows fit is the window's business - a short one shows fewer - so what is
         // checked is that it really is a window onto a longer list and that it says so.
         int shown = counters.rowsOnScreen();

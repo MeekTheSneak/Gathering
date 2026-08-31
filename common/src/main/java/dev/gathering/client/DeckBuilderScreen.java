@@ -68,6 +68,23 @@ public final class DeckBuilderScreen extends Screen {
     private final BlockPos where;
     private final String label;
 
+    /**
+     * The bar along the foot: two buttons at each end and the hint between them.
+     *
+     * <p>Named rather than written into both the layout and the drawing, because they were
+     * written into both and then only one of them was updated.
+     */
+    private static final int ROW = 18;
+    private static final int FROM_LIST = 84;
+    private static final int SLEEVES = 78;
+    private static final int CANCEL = 70;
+    private static final int FINISH = 78;
+    private static final int FOOT_LEFT = FROM_LIST + GAP + SLEEVES;
+    private static final int FOOT_RIGHT = CANCEL + GAP + FINISH;
+
+    /** Narrower than this and the hint is not drawn at all. */
+    private static final int LEAST_HINT = 60;
+
     /** What the deck being built will be sleeved in. Picked here, carried to the deck. */
     private dev.gathering.core.card.Sleeve sleeve = dev.gathering.core.card.Sleeve.DEFAULT;
 
@@ -112,20 +129,21 @@ public final class DeckBuilderScreen extends Screen {
 
 
         int buttonTop = this.height - BOTTOM_BAR + 6;
-        addRenderableWidget(GatheringButtons.of(MARGIN, buttonTop, 84, 18,
+        addRenderableWidget(GatheringButtons.of(MARGIN, buttonTop, FROM_LIST, ROW,
                 Component.translatable("screen.gathering.builder.from_list"),
                 () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
         // Chosen while the deck is being built rather than after it exists, because a deck
         // handed over in somebody else's sleeves is a deck they have to go and fix.
-        addRenderableWidget(GatheringButtons.of(MARGIN + 88, buttonTop, 78, 18,
+        addRenderableWidget(GatheringButtons.of(
+                MARGIN + FROM_LIST + GAP, buttonTop, SLEEVES, ROW,
                 Component.translatable("screen.gathering.deck.sleeves"),
                 () -> this.minecraft.setScreen(
                         new SleeveScreen(sleeve, picked -> sleeve = picked, this))));
         addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - 152, buttonTop, 70, 18,
+                this.width - MARGIN - FOOT_RIGHT, buttonTop, CANCEL, ROW,
                 Component.translatable("gui.cancel"), this::onClose));
         addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - 78, buttonTop, 78, 18,
+                this.width - MARGIN - FINISH, buttonTop, FINISH, ROW,
                 Component.translatable("screen.gathering.builder.finish"), this::finish));
 
         askFor(page);
@@ -443,13 +461,18 @@ public final class DeckBuilderScreen extends Screen {
     private void drawFooter(GuiGraphics graphics) {
         int y = this.height - BOTTOM_BAR + 10;
         Component how = Component.translatable("screen.gathering.builder.hint");
-        // The gap between the button on the left and the pair on the right, measured rather
-        // than guessed at: a hint given a fixed share of the window is one that runs under a
-        // button on a narrow one and is cut off in the middle of a word on this one.
-        int from = MARGIN + 84 + GAP;
-        int to = this.width - MARGIN - 152 - GAP;
-        GuiText.drawCentered(graphics, this.font, how,
-                (from + to) / 2, y, Math.max(0, to - from), DIM);
+        // The gap between the buttons on the left and the pair on the right, taken from the
+        // same widths those buttons are built with. It used to be written out again here, and
+        // when a second button was added on the left the hint went on being drawn from where
+        // the first one ended - straight through the new one.
+        int from = MARGIN + FOOT_LEFT + GAP;
+        int to = this.width - MARGIN - FOOT_RIGHT - GAP;
+        // And on a window too narrow to hold it, nothing rather than two letters and an
+        // ellipsis, which reads as a fault rather than as a hint.
+        if (to - from < LEAST_HINT) {
+            return;
+        }
+        GuiText.drawCentered(graphics, this.font, how, (from + to) / 2, y, to - from, DIM);
     }
 
     /** Where each drawn deck row is, so a click can find the card it named. */

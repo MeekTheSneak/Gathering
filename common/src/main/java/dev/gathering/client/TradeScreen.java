@@ -40,6 +40,15 @@ import net.minecraft.world.item.ItemStack;
 public final class TradeScreen extends Screen implements CardPreviewHost {
 
     private static final int MARGIN = 16;
+
+    /**
+     * How far the count on the right of a row is held off the pane's own edge.
+     *
+     * <p>Without it the number sits against the frame with nothing between them, and beside
+     * the second pane - whose names start a few pixels in - it reads as one run of characters
+     * rather than as two columns.
+     */
+    private static final int COUNT_INSET = 4;
     private static final int PADDING = 8;
     private static final int ROW_HEIGHT = 14;
     private static final int GAP = 6;
@@ -281,8 +290,8 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
             // through it, and the number - which is the thing being changed by clicking - was
             // the half that lost.
             GuiText.draw(graphics, this.font, nameOf(row.card()), x, y + 3,
-                    width - countWidth - GAP, row.up() > 0 ? TEXT : DIM);
-            graphics.drawString(this.font, count, x + width - countWidth, y + 3,
+                    width - countWidth - GAP - COUNT_INSET, row.up() > 0 ? TEXT : DIM);
+            graphics.drawString(this.font, count, x + width - countWidth - COUNT_INSET, y + 3,
                     row.up() > 0 ? UP : DIM, false);
         }
         ClientHoverState.setHovered(hovered);
@@ -301,8 +310,9 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
             String count = String.valueOf(pile.count());
             int countWidth = this.font.width(count);
             GuiText.draw(graphics, this.font, nameOf(pile.card()), x, y + 3,
-                    width - countWidth - GAP, TEXT);
-            graphics.drawString(this.font, count, x + width - countWidth, y + 3, UP, false);
+                    width - countWidth - GAP - COUNT_INSET, TEXT);
+            graphics.drawString(this.font, count, x + width - countWidth - COUNT_INSET, y + 3,
+                    UP, false);
         }
     }
 
