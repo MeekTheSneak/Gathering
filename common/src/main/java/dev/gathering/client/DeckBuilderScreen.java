@@ -68,6 +68,9 @@ public final class DeckBuilderScreen extends Screen {
     private final BlockPos where;
     private final String label;
 
+    /** What the deck being built will be sleeved in. Picked here, carried to the deck. */
+    private dev.gathering.core.card.Sleeve sleeve = dev.gathering.core.card.Sleeve.DEFAULT;
+
     private DeckBuild build = DeckBuild.EMPTY;
     private CollectionQuery query = CollectionQuery.EVERYTHING;
     private int page;
@@ -112,6 +115,12 @@ public final class DeckBuilderScreen extends Screen {
         addRenderableWidget(GatheringButtons.of(MARGIN, buttonTop, 84, 18,
                 Component.translatable("screen.gathering.builder.from_list"),
                 () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
+        // Chosen while the deck is being built rather than after it exists, because a deck
+        // handed over in somebody else's sleeves is a deck they have to go and fix.
+        addRenderableWidget(GatheringButtons.of(MARGIN + 88, buttonTop, 78, 18,
+                Component.translatable("screen.gathering.deck.sleeves"),
+                () -> this.minecraft.setScreen(
+                        new SleeveScreen(sleeve, picked -> sleeve = picked, this))));
         addRenderableWidget(GatheringButtons.of(
                 this.width - MARGIN - 152, buttonTop, 70, 18,
                 Component.translatable("gui.cancel"), this::onClose));
@@ -262,7 +271,8 @@ public final class DeckBuilderScreen extends Screen {
                 cards,
                 build.commander().map(card -> CardComponent.of(
                         dev.gathering.core.card.CardIdentity.ofPrinting(
-                                card.printing(), card.foil())))));
+                                card.printing(), card.foil()))),
+                sleeve));
         this.onClose();
     }
 

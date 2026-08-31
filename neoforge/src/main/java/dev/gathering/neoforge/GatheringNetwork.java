@@ -77,6 +77,11 @@ public final class GatheringNetwork {
                 GatheringNetwork::onDeckRename);
 
         registrar.playToServer(
+                dev.gathering.network.SleeveDeckPayload.TYPE,
+                dev.gathering.network.SleeveDeckPayload.STREAM_CODEC,
+                GatheringNetwork::onDeckSleeve);
+
+        registrar.playToServer(
                 dev.gathering.network.TradeActionPayload.TYPE,
                 dev.gathering.network.TradeActionPayload.STREAM_CODEC,
                 GatheringNetwork::onTradeAction);
@@ -416,6 +421,13 @@ public final class GatheringNetwork {
             dev.gathering.network.RenameDeckPayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
             DeckEdits.rename(player, payload);
+        }
+    }
+
+    private static void onDeckSleeve(
+            dev.gathering.network.SleeveDeckPayload payload, IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) {
+            DeckEdits.sleeve(player, payload);
         }
     }
 

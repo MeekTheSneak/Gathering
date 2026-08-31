@@ -58,6 +58,26 @@ public final class DeckEdits {
         stack.set(GatheringComponents.DECK.get(), deck.named(asked.name()));
     }
 
+    /**
+     * Sleeves the deck in hand.
+     *
+     * <p>The same shape as a rename and for the same reasons: the deck is the one being held,
+     * a choice that changes nothing is dropped rather than written, and what a player picks
+     * decides only what their own cards look like from behind.
+     */
+    public static void sleeve(Player player, dev.gathering.network.SleeveDeckPayload asked) {
+        InteractionHand hand = asked.hand();
+        ItemStack stack = player.getItemInHand(hand);
+        if (!(stack.getItem() instanceof DeckItem) || stack.getCount() != 1) {
+            return;
+        }
+        DeckComponent deck = DeckItem.deckOf(stack).orElse(null);
+        if (deck == null || deck.sleeve() == asked.chosen()) {
+            return;
+        }
+        stack.set(GatheringComponents.DECK.get(), deck.sleeved(asked.chosen()));
+    }
+
     public static void handle(Player player, DeckEditPayload edit) {
         InteractionHand hand = edit.hand();
         ItemStack stack = player.getItemInHand(hand);

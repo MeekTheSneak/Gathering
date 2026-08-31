@@ -47,7 +47,7 @@ import java.util.UUID;
  */
 public final class ViewCodec {
 
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     /** A ceiling on any length read from the wire, checked before it sizes anything. */
     public static final int MAX_ENTRIES = 20_000;
@@ -234,6 +234,10 @@ public final class ViewCodec {
             out.writeInt(commander.value());
         }
 
+        // An ordinal rather than a name: the list is ours and short, and a board view is sent
+        // on every change to every viewer.
+        out.writeInt(seat.sleeve().ordinal());
+
         out.writeInt(seat.commanderTax().size());
         for (Map.Entry<CardInstanceId, Integer> entry : seat.commanderTax().entrySet()) {
             out.writeInt(entry.getKey().value());
@@ -283,6 +287,11 @@ public final class ViewCodec {
             commanders.add(new CardInstanceId(in.readInt()));
         }
 
+        // Out of range reads as the ordinary back rather than throwing: this comes off a
+        // socket, and a sleeve that did not survive the trip is a card drawn plain.
+        dev.gathering.core.card.Sleeve sleeve =
+                dev.gathering.core.card.Sleeve.byOrdinal(in.readInt());
+
         Map<CardInstanceId, Integer> tax = new LinkedHashMap<>();
         int taxCount = size(in.readInt());
         for (int index = 0; index < taxCount; index++) {
@@ -309,7 +318,7 @@ public final class ViewCodec {
         }
         return new SeatView(
                 id, player, lastPlayer, life, damage, tax, commanders, counters, conceded,
-                handShownTo, zones);
+                handShownTo, sleeve, zones);
     }
 
     private static PlayerRef readPlayer(DataInput in) throws IOException {

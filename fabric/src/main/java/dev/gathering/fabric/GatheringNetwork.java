@@ -45,6 +45,9 @@ final class GatheringNetwork {
                 dev.gathering.network.RenameDeckPayload.TYPE,
                 dev.gathering.network.RenameDeckPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.SleeveDeckPayload.TYPE,
+                dev.gathering.network.SleeveDeckPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.TradeActionPayload.TYPE,
                 dev.gathering.network.TradeActionPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(TableActionPayload.TYPE, TableActionPayload.STREAM_CODEC);
@@ -195,6 +198,10 @@ final class GatheringNetwork {
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.RenameDeckPayload.TYPE, (payload, context) ->
                         DeckEdits.rename(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.SleeveDeckPayload.TYPE, (payload, context) ->
+                        DeckEdits.sleeve(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.TradeActionPayload.TYPE, (payload, context) ->

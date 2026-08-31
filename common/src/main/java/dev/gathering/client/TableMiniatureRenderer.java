@@ -124,6 +124,16 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** The card on a zone sits just above the slot it is in, so the two do not z-fight. */
     private static final float SLOT_LIFT = 0.0006f;
 
+    /** The gray sleeve every colored one is a tint of. One file; see {@link CardSleeves}. */
+    private static final ResourceLocation PLAIN_SLEEVE = ResourceLocation.fromNamespaceAndPath(
+            dev.gathering.Gathering.MOD_ID, "textures/card/sleeve.png");
+
+    /** How much of a card the picture on a sleeve takes. The same fraction the screen uses. */
+    private static final float EMBLEM_SPAN = 0.44f;
+
+    /** Far enough above the sleeve not to z-fight with it, and far below one card's thickness. */
+    private static final float EMBLEM_LIFT = SLOT_LIFT / 4f;
+
     /** Zone names and counts, just clear of the sleeve drawn in the slot. */
     private static final float WRITING_LIFT = 0.0012f;
 
@@ -299,10 +309,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             CardView card = flight.move().card()
                     .flatMap(id -> cardIn(board, id))
                     .orElse(null);
-            ResourceLocation texture = card == null || card.isFaceDown()
-                    ? CardFaceRenderer.CARD_BACK
-                    : textureFor(card);
-            draw(poseStack, buffers, packedLight, texture,
+            drawSleeved(poseStack, buffers, packedLight, card,
+                    CardSleeves.of(board, flight.move().to().seat()),
                     onSurface(where.x(), span), onSurface(where.y(), span),
                     onSurface(where.width(), span), onSurface(where.height(), span),
                     surface(board).facingDegrees(flight.move().to().seat().index()),
@@ -455,11 +463,8 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             int angle = surface.facingDegrees(seatIndex);
             if (held > 0) {
                 CardView top = topOf(contents);
-                ResourceLocation texture = top == null || top.isFaceDown()
-                        ? CardFaceRenderer.CARD_BACK
-                        : textureFor(top);
-                draw(poseStack, buffers, packedLight, texture, x, z, width, depth,
-                        angle, false, SLOT_LIFT);
+                drawSleeved(poseStack, buffers, packedLight, top, seat.sleeve(),
+                        x, z, width, depth, angle, false, SLOT_LIFT);
             }
 
             // The board played on the block said nothing about which box was which or how
@@ -832,11 +837,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // right way up to them and upside down from the chair opposite - which is what a
             // card on a table between two people does.
             int angle = where.rotation() + surface.facingDegrees(seatIndex);
-            draw(poseStack, buffers, packedLight, textureFor(card), x, z, cardWidth, cardDepth,
-                    angle, isTapped(card), lift);
+            drawSleeved(poseStack, buffers, packedLight, card, seat.sleeve(),
+                    x, z, cardWidth, cardDepth, angle, isTapped(card), lift);
             drawn++;
-            drawn += drawAttached(poseStack, buffers, packedLight, attachments, card, placed,
-                    angle, lift, span, budget - drawn);
+            drawn += drawAttached(poseStack, buffers, packedLight, attachments, card,
+                    seat.sleeve(), placed, angle, lift, span, budget - drawn);
             writeOn(poseStack, buffers, packedLight, card, x, z, cardWidth, cardDepth, angle);
         }
         return drawn;
@@ -857,6 +862,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private int drawAttached(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
             java.util.Map<CardInstanceId, List<CardView>> attachments, CardView host,
+            dev.gathering.core.card.Sleeve sleeve,
             Rect hostRect, int angle, float lift, float span, int budget) {
         List<CardView> attached = dev.gathering.core.ui.TableAttachments.on(attachments, host);
         if (attached.isEmpty() || budget <= 0) {
@@ -873,7 +879,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             Rect at = left
                     ? dev.gathering.core.ui.TableAttachments.slot(hostRect, slot)
                     : dev.gathering.core.ui.TableAttachments.slotOnTheRight(hostRect, slot);
-            draw(poseStack, buffers, packedLight, textureFor(card),
+            drawSleeved(poseStack, buffers, packedLight, card, sleeve,
                     onSurface(at.x(), span), onSurface(at.y(), span),
                     onSurface(at.width(), span), onSurface(at.height(), span),
                     angle, isTapped(card), lift + STACK_LIFT * (slot + 1));
@@ -953,10 +959,45 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * turned clockwise from above, and looking down at the surface flips the sense of a
      * rotation about the vertical.
      */
+    private void drawSleeved(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight, CardView card,
+            dev.gathering.core.card.Sleeve sleeve, float x, float z, float width, float depth,
+            int angle, boolean tapped, float lift) {
+        if (card != null && !card.isFaceDown() && card instanceof CardView.Visible) {
+            draw(poseStack, buffers, packedLight, textureFor(card), x, z, width, depth,
+                    angle, tapped, lift);
+            return;
+        }
+        dev.gathering.core.card.Sleeve drawn =
+                sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
+        if (drawn.isPrinted()) {
+            draw(poseStack, buffers, packedLight, CardFaceRenderer.CARD_BACK, x, z, width, depth,
+                    angle, tapped, lift);
+            return;
+        }
+        draw(poseStack, buffers, packedLight, PLAIN_SLEEVE, x, z, width, depth,
+                angle, tapped, lift, 0xFF000000 | drawn.tint());
+        if (!drawn.hasEmblem()) {
+            return;
+        }
+        float span = width * EMBLEM_SPAN;
+        draw(poseStack, buffers, packedLight, CardSleeves.emblem(drawn),
+                x + (width - span) / 2f, z + (depth - span) / 2f, span, span,
+                angle, tapped, lift + EMBLEM_LIFT);
+    }
+
     private void draw(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
             ResourceLocation texture, float x, float z, float width, float depth,
             int angle, boolean tapped, float lift) {
+        draw(poseStack, buffers, packedLight, texture, x, z, width, depth, angle, tapped, lift,
+                0xFFFFFFFF);
+    }
+
+    private void draw(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight,
+            ResourceLocation texture, float x, float z, float width, float depth,
+            int angle, boolean tapped, float lift, int tint) {
         poseStack.pushPose();
         poseStack.translate(x + width / 2f, lift, z + depth / 2f);
         int turned = angle + (tapped ? TablePosition.QUARTER_TURN : 0);
@@ -970,18 +1011,26 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutout(texture));
 
         // Wound counterclockwise seen from above, so the face points at the sky.
-        vertex(consumer, pose, -halfWidth, -halfDepth, 0f, 0f, packedLight);
-        vertex(consumer, pose, -halfWidth, halfDepth, 0f, 1f, packedLight);
-        vertex(consumer, pose, halfWidth, halfDepth, 1f, 1f, packedLight);
-        vertex(consumer, pose, halfWidth, -halfDepth, 1f, 0f, packedLight);
+        vertex(consumer, pose, -halfWidth, -halfDepth, 0f, 0f, packedLight, tint);
+        vertex(consumer, pose, -halfWidth, halfDepth, 0f, 1f, packedLight, tint);
+        vertex(consumer, pose, halfWidth, halfDepth, 1f, 1f, packedLight, tint);
+        vertex(consumer, pose, halfWidth, -halfDepth, 1f, 0f, packedLight, tint);
 
         poseStack.popPose();
     }
 
+    /**
+     * A card as it sits on the block: its own face, or the sleeves its owner brought.
+     *
+     * <p>Two quads for a sleeve with something printed on it, because the picture is
+     * Minecraft's own item art and it is drawn in its own colors on top of a tinted sleeve -
+     * one texture cannot be both.
+     */
     private static void vertex(
-            VertexConsumer consumer, Matrix4f pose, float x, float z, float u, float v, int light) {
+            VertexConsumer consumer, Matrix4f pose, float x, float z, float u, float v, int light,
+            int tint) {
         consumer.addVertex(pose, x, 0f, z)
-                .setColor(0xFFFFFFFF)
+                .setColor(tint)
                 .setUv(u, v)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(light)

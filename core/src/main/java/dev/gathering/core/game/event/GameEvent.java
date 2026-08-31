@@ -97,12 +97,22 @@ public sealed interface GameEvent {
      * <p>Secret, and the most secret thing in the log after the seed itself. The library's
      * order at this moment plus the seed determines every draw in the game.
      */
-    record DeckLoaded(SeatId actor, List<CardIdentity> library, List<CardIdentity> commanders)
-            implements GameEvent {
+    record DeckLoaded(
+            SeatId actor, List<CardIdentity> library, List<CardIdentity> commanders,
+            dev.gathering.core.card.Sleeve sleeve) implements GameEvent {
+
+        /** The same deck, in the sleeves a deck arrives in when nobody has picked any. */
+        public DeckLoaded(SeatId actor, List<CardIdentity> library, List<CardIdentity> commanders) {
+            this(actor, library, commanders, dev.gathering.core.card.Sleeve.DEFAULT);
+        }
 
         public DeckLoaded {
             library = List.copyOf(library);
             commanders = List.copyOf(commanders);
+            // The sleeve is the one part of this event that is not a secret: what a deck is
+            // sleeved in is the first thing everybody at the table sees. Defaulted rather
+            // than rejected, because logs written before sleeves existed have none.
+            sleeve = sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
         }
 
         @Override

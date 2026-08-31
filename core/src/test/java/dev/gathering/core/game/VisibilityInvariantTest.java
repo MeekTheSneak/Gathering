@@ -158,7 +158,7 @@ class VisibilityInvariantTest {
 
         SeatView seat = new SeatView(
                 GameFixtures.ALICE, null, null, 40, Map.of(), Map.of(), java.util.List.of(), counters, false,
-                java.util.Set.of(), Map.of());
+                java.util.Set.of(), dev.gathering.core.card.Sleeve.DEFAULT, Map.of());
         assertThat(seat.counters().keySet())
                 .describedAs("a seat's counters came back in a different order")
                 .containsExactlyElementsOf(names);
@@ -169,7 +169,7 @@ class VisibilityInvariantTest {
     void anEmptyChairHasNoBoard() {
         SeatView empty = new SeatView(
                 GameFixtures.ALICE, null, null, 40, Map.of(), Map.of(), java.util.List.of(), Map.of(), false,
-                java.util.Set.of(), Map.of());
+                java.util.Set.of(), dev.gathering.core.card.Sleeve.DEFAULT, Map.of());
 
         assertThat(empty.hasABoard()).isFalse();
         assertThat(empty.whoseBoard())

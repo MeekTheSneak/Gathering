@@ -15,6 +15,8 @@ import java.util.Optional;
  *     everybody, because turning your hand round is something the whole table watches you do
  *     - and because the person doing it has to be able to see, on their own screen, that
  *     their hand is still face up. A reveal nobody is reminded of is a hand left open.
+ * @param sleeve what this seat's cards look like from behind. Public to everybody, because
+ *     the whole point of a sleeve is that the table can tell whose cards are whose across it.
  */
 public record SeatView(
         SeatId seat,
@@ -27,6 +29,7 @@ public record SeatView(
         Map<String, Integer> counters,
         boolean conceded,
         java.util.Set<SeatId> handShownTo,
+        dev.gathering.core.card.Sleeve sleeve,
         Map<Zone, ZoneView> zones) {
 
     public SeatView {
@@ -50,6 +53,8 @@ public record SeatView(
         handShownTo = handShownTo == null || handShownTo.isEmpty()
                 ? java.util.Set.of()
                 : java.util.Collections.unmodifiableSet(new java.util.LinkedHashSet<>(handShownTo));
+        // A board still being assembled has no sleeve yet, and draws the ordinary back.
+        sleeve = sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
         // Sorted into zone order, so two views of the same board list their zones the same
         // way. Built from the enum rather than from the map: EnumMap cannot be handed an
         // empty map - it has nothing to infer the key type from and throws - so a seat with

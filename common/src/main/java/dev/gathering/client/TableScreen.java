@@ -899,7 +899,8 @@ public final class TableScreen extends Screen {
                     // share gets, which is exactly the shape of the complaint.
                     continue;
                 }
-                drawCard(graphics, placed.card(), placed.where(), placed.angle(),
+                drawCard(graphics, placed.card(), CardSleeves.of(board, placed.seat()),
+                        placed.where(), placed.angle(),
                         placed == hovered || isSelected(placed.card()), true);
             }
             renderPileBadges(graphics, board, onTable);
@@ -1153,11 +1154,10 @@ public final class TableScreen extends Screen {
             for (int index = 0; index < shown; index++) {
                 Rect at = new Rect(left + index * step, edge.y(), edge.width(), edge.height());
                 if (index < faces.size()) {
-                    drawCard(graphics, faces.get(index), at, 0, false, true);
+                    drawCard(graphics, faces.get(index), seat.sleeve(), at, 0, false, true);
                 } else {
-                    graphics.blit(CardFaceRenderer.CARD_BACK,
-                            at.x(), at.y(), 0f, 0f,
-                            at.width(), at.height(), at.width(), at.height());
+                    CardSleeves.draw(graphics, seat.sleeve(),
+                            at.x(), at.y(), at.width(), at.height());
                 }
             }
         }
@@ -1470,7 +1470,10 @@ public final class TableScreen extends Screen {
             CardView card = flight.move().card()
                     .flatMap(id -> findCard(board, id))
                     .orElse(A_SLEEVE);
-            drawCard(graphics, card, where, 0, false, true);
+            // Whoever the card is on its way to or from, which is the seat whose sleeves it
+            // is wearing while it crosses the felt.
+            drawCard(graphics, card, CardSleeves.of(board, flight.move().to().seat()),
+                    where, 0, false, true);
         }
     }
 
@@ -1595,8 +1598,8 @@ public final class TableScreen extends Screen {
                             graphics, summary, art.x(), art.y(), art.width(), art.height()),
                     () -> PaperFace.drawOrInset(graphics, this.font, top.get(), art));
         } else {
-            graphics.blit(CardFaceRenderer.CARD_BACK, art.x(), art.y(), 0f, 0f,
-                    art.width(), art.height(), art.width(), art.height());
+            CardSleeves.draw(graphics, view.sleeve(),
+                    art.x(), art.y(), art.width(), art.height());
         }
 
         // Name on the felt beside the slot, count in the slot's own corner. Four unlabeled
@@ -2197,7 +2200,8 @@ public final class TableScreen extends Screen {
                     continue;
                 }
                 HandFan.Slot slot = HandFan.slot(area, hand.size(), index, lifted);
-                drawCard(graphics, hand.get(index), slot.where(), slot.angle(), false, false);
+                drawCard(graphics, hand.get(index), CardSleeves.of(board, seat),
+                        slot.where(), slot.angle(), false, false);
             }
         }
         // Over the cards, last, because it is the one thing here that has to be seen. Drawn
@@ -2800,7 +2804,7 @@ public final class TableScreen extends Screen {
         if (held.whole() && held.fromPile() != null) {
             drawHeldPile(graphics, board, card, airborne);
         } else {
-            drawCard(graphics, card, airborne,
+            drawCard(graphics, card, CardSleeves.of(board, held.from()), airborne,
                     tappedInAir ? TablePosition.QUARTER_TURN : 0, false, false);
         }
         graphics.pose().popPose();
@@ -2820,15 +2824,15 @@ public final class TableScreen extends Screen {
         int step = Math.max(2, airborne.height() / 24);
         for (int behind = Math.min(3, count - 1); behind >= 1; behind--) {
             int offset = behind * step;
-            graphics.blit(CardFaceRenderer.CARD_BACK,
-                    airborne.x() + offset, airborne.y() - offset, 0f, 0f,
-                    airborne.width(), airborne.height(), airborne.width(), airborne.height());
+            CardSleeves.draw(graphics, CardSleeves.of(board, held.from()),
+                    airborne.x() + offset, airborne.y() - offset,
+                    airborne.width(), airborne.height());
         }
         if (top != null) {
-            drawCard(graphics, top, airborne, 0, false, false);
+            drawCard(graphics, top, CardSleeves.of(board, held.from()), airborne, 0, false, false);
         } else {
-            graphics.blit(CardFaceRenderer.CARD_BACK, airborne.x(), airborne.y(), 0f, 0f,
-                    airborne.width(), airborne.height(), airborne.width(), airborne.height());
+            CardSleeves.draw(graphics, CardSleeves.of(board, held.from()),
+                    airborne.x(), airborne.y(), airborne.width(), airborne.height());
         }
         drawCountInTheCorner(graphics, airborne, count);
     }
@@ -4944,10 +4948,15 @@ public final class TableScreen extends Screen {
      *
      * @param onTheFelt whether this is a card lying on the table, which is what earns it a
      *     shadow and a tapped tint - a card in a hand or in a list has neither
+     *
+     * <p>The sleeve is handed in rather than looked up, because a face-down card carries
+     * no owner - that is the visibility rule, and it is right. Whose card it is was never
+     * a secret, but it is a fact about the zone it is lying in rather than about the card,
+     * so it is known at the place that walks the zones and nowhere else.
      */
     private void drawCard(
-            GuiGraphics graphics, CardView card, Rect where, int angle,
-            boolean hovered, boolean onTheFelt) {
+            GuiGraphics graphics, CardView card, dev.gathering.core.card.Sleeve sleeve,
+            Rect where, int angle, boolean hovered, boolean onTheFelt) {
         if (where.isEmpty()) {
             return;
         }
@@ -4972,8 +4981,8 @@ public final class TableScreen extends Screen {
         if (card.isFaceDown()) {
             // Even to the player who knows what it is. Their board has to look to them the
             // way it looks to everyone else, or they cannot tell what they have given away.
-            graphics.blit(CardFaceRenderer.CARD_BACK, where.x(), where.y(), 0f, 0f,
-                    where.width(), where.height(), where.width(), where.height());
+            CardSleeves.draw(graphics, sleeve,
+                    where.x(), where.y(), where.width(), where.height());
         } else {
             summaryOf(card).ifPresentOrElse(
                     summary -> CardInspectPanel.renderArt(

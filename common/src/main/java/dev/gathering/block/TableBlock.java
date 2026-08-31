@@ -683,7 +683,7 @@ public class TableBlock extends BaseEntityBlock {
             }
         }
 
-        session.submit(new GameEvent.DeckLoaded(seat, library, commanders));
+        session.submit(new GameEvent.DeckLoaded(seat, library, commanders, deck.sleeve()));
         session.submit(new GameEvent.LibraryShuffled(seat, seat));
 
         // The table takes the deck rather than the game eating it. The sideboard never went

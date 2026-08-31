@@ -26,37 +26,41 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from textures import write_png  # noqa: E402  - the PNG writer, kept in one place
 
 OUT = "common/src/main/resources/assets/gathering/textures/card/back.png"
+PLAIN_OUT = "common/src/main/resources/assets/gathering/textures/card/sleeve.png"
 
-# Twice the old sleeve, which was softer than the card fronts sitting next to it: Scryfall's
-# "normal" images are 488 across, so a back at 128 was the one blurry thing on the table.
-WIDTH, HEIGHT = 256, 352
+# The size of a real card in millimetres, which lands where the rest of the mod lives: the
+# card fronts come off Scryfall at 488 across and there is nothing to be done about that, but
+# everything the mod draws itself is pixel art, and a smooth photographic back beside a
+# blocky world was the one thing on the table that looked imported.
+WIDTH, HEIGHT = 64, 88
 
-# Painted at this multiple and averaged down, which is where the smooth oval and the round
-# beads come from - there is no anti-aliasing here otherwise.
-OVERSAMPLE = 3
+# Painted at this multiple and averaged down. Two rather than three or more: enough that the
+# oval does not stair-step down its flanks, little enough that every edge still lands on a
+# pixel you can count. Anti-aliasing an ellipse smooth is what made the old one look imported.
+OVERSAMPLE = 2
 
 # ---------------------------------------------------------------------------
 # Palette. A theme is this block and nothing else.
 # ---------------------------------------------------------------------------
-EDGE = (0x0E, 0x0C, 0x0B)          # the card's own black rim
-BORDER_TOP = (0x8A, 0x76, 0x3A)    # weathered gold, lit from above
-BORDER_BOTTOM = (0x7A, 0x42, 0x28) # rust, where the gold has gone
-BORDER_RULE = (0x2E, 0x22, 0x11)   # the fine inset lines
-GEM = (0xC0, 0x36, 0x27)           # the four corner studs
-GEM_LIGHT = (0xF0, 0x86, 0x72)
-RING_DARK = (0x12, 0x0F, 0x0D)     # the oval's outline
-RIM = (0x33, 0x47, 0x84)           # the blue band inside it
-RIM_LIGHT = (0x8C, 0xA6, 0xDE)
-FIELD = (0xC6, 0x8A, 0x6B)         # the leather the beads sit on
-FIELD_DEEP = (0x9E, 0x60, 0x48)
+EDGE = (0x08, 0x07, 0x06)          # the card's own black rim
+BORDER_TOP = (0x5E, 0x50, 0x26)    # weathered gold, lit from above
+BORDER_BOTTOM = (0x4E, 0x2A, 0x19) # rust, where the gold has gone
+BORDER_RULE = (0x1E, 0x16, 0x0B)   # the fine inset lines
+GEM = (0x8E, 0x25, 0x1B)           # the four corner studs
+GEM_LIGHT = (0xC8, 0x5B, 0x46)
+RING_DARK = (0x0B, 0x09, 0x08)     # the oval's outline
+RIM = (0x25, 0x33, 0x60)           # the blue band inside it
+RIM_LIGHT = (0x52, 0x68, 0x9E)
+FIELD = (0x8E, 0x5E, 0x46)         # the leather the beads sit on
+FIELD_DEEP = (0x6A, 0x40, 0x2E)
 
 # White, green, blue, red, black - the five, in the order they are laid out.
 BEADS = [
-    ((0xF2, 0xEF, 0xE4), (0xFF, 0xFF, 0xFA)),
-    ((0x53, 0x9E, 0x47), (0x93, 0xD0, 0x80)),
-    ((0x4E, 0xB6, 0xD8), (0x9C, 0xE2, 0xF2)),
-    ((0xC3, 0x37, 0x2C), (0xE8, 0x77, 0x62)),
-    ((0x23, 0x1D, 0x25), (0x6A, 0x5E, 0x6E)),
+    ((0xCF, 0xC9, 0xB6), (0xF4, 0xF2, 0xE8)),
+    ((0x3E, 0x7A, 0x36), (0x6E, 0xA8, 0x5C)),
+    ((0x38, 0x8C, 0xAA), (0x74, 0xBA, 0xD2)),
+    ((0x96, 0x28, 0x20), (0xC4, 0x58, 0x46)),
+    ((0x18, 0x14, 0x1A), (0x4C, 0x44, 0x50)),
 ]
 
 # ---------------------------------------------------------------------------
@@ -64,14 +68,14 @@ BEADS = [
 # ---------------------------------------------------------------------------
 RIM_WIDTH = 0.020        # the black edge of the card
 RULE_INSET = 0.055       # where the fine double line runs
-RULE_GAP = 0.018         # and how far apart its two strokes are
-GEM_INSET = 0.086        # the corner studs, on the diagonal
-GEM_RADIUS = 0.027
+RULE_GAP = 0.031         # and how far apart its two strokes are
+GEM_INSET = 0.090        # the corner studs, on the diagonal
+GEM_RADIUS = 0.042
 OVAL_X, OVAL_Y = 0.416, 0.450
 RING_WIDTH = 0.011       # the black outline around the oval
 BAND_WIDTH = 0.023       # and the blue band inside it
-BEAD_RING = 0.140        # how far the five sit from the middle
-BEAD_RADIUS = 0.031
+BEAD_RING = 0.150        # how far the five sit from the middle
+BEAD_RADIUS = 0.047
 
 
 def mix(one, two, amount):
@@ -138,8 +142,8 @@ def sphere(color, light, offset, spot=0.0):
 
 def catchlight(x, y, centerX, centerY, radius):
     """How much of the small bright point sitting up and left of a bead's middle falls here."""
-    spot = radius * 0.34
-    gap = math.hypot(x - (centerX - radius * 0.34), y - (centerY - radius * 0.34))
+    spot = max(OVERSAMPLE * 1.0, radius * 0.34)
+    gap = math.hypot(x - (centerX - radius * 0.30), y - (centerY - radius * 0.30))
     return max(0.0, 1.0 - gap / spot) ** 2
 
 
@@ -203,7 +207,7 @@ def pixel(x, y, width, height, rim, rule_at, rule_gap, gem_at, gem_radius,
         for beadX, beadY, color, light in beads:
             gap = math.hypot(x - beadX, y - beadY)
             if gap <= bead_radius:
-                if gap >= bead_radius - max(1.0, bead_radius * 0.10):
+                if gap >= bead_radius - OVERSAMPLE * 0.8:
                     return RING_DARK + (255,)
                 # Where on the bead this is, from the lit side to the shaded one.
                 offset = ((x - beadX) + (y - beadY)) / (2 * bead_radius)
@@ -217,7 +221,7 @@ def pixel(x, y, width, height, rim, rule_at, rule_gap, gem_at, gem_radius,
                    (gem_at, height - gem_at), (width - gem_at, height - gem_at)):
         gap = math.hypot(x - corner[0], y - corner[1])
         if gap <= gem_radius:
-            if gap >= gem_radius - max(1.0, gem_radius * 0.18):
+            if gap >= gem_radius - OVERSAMPLE * 0.7:
                 return RING_DARK + (255,)
             offset = ((x - corner[0]) + (y - corner[1])) / (2 * gem_radius)
             return sphere(GEM, GEM_LIGHT, offset,
@@ -225,7 +229,7 @@ def pixel(x, y, width, height, rim, rule_at, rule_gap, gem_at, gem_radius,
 
     for inset in (rule_at, rule_at + rule_gap):
         edge = min(x, y, width - x, height - y)
-        if abs(edge - inset) <= max(1.0, width * 0.0035):
+        if abs(edge - inset) <= OVERSAMPLE * 0.5:
             return BORDER_RULE + (255,)
 
     return weathered(x, y, width, height) + (255,)
@@ -262,8 +266,54 @@ def downsample(rows, big_width, big_height):
     return out
 
 
+# ---------------------------------------------------------------------------
+# The plain sleeve: one texture that every colored sleeve is a tint of.
+# ---------------------------------------------------------------------------
+
+# Near-white, because the color arrives as a multiply. A base painted in its own mid-gray
+# would drag every dye a shade towards mud, and the black sleeve would come out invisible
+# against the black rim.
+PLAIN_PANEL = (0xF0, 0xF0, 0xF0)   # the field a picture sits on
+PLAIN_BORDER = (0xB4, 0xB4, 0xB4)  # the band around it
+PLAIN_RULE = (0x7E, 0x7E, 0x7E)    # the line between the two
+
+
+def plain():
+    """A bordered card with nothing on it, in gray, waiting for a dye and maybe a picture."""
+    big_width, big_height = WIDTH * OVERSAMPLE, HEIGHT * OVERSAMPLE
+    width, height = float(big_width), float(big_height)
+    rim = RIM_WIDTH * width
+    band = 0.105 * width
+    rule = band - OVERSAMPLE * 1.0
+
+    rows = []
+    for by in range(big_height):
+        row = []
+        for bx in range(big_width):
+            x, y = bx + 0.5, by + 0.5
+            edge = min(x, y, width - x, height - y)
+            if edge <= rim:
+                row.append(EDGE + (255,))
+                continue
+            if edge <= rule:
+                # The band, woven rather than flat: a sleeve is fabric and a solid rectangle
+                # of one color is the one thing that would give that away.
+                weave = blotches(x, y, width * 0.05, 7)
+                row.append(shade(PLAIN_BORDER, (weave - 0.5) * 0.16) + (255,))
+                continue
+            if edge <= band:
+                row.append(PLAIN_RULE + (255,))
+                continue
+            grain = (blotches(x, y, width * 0.18, 8) * 0.6
+                     + blotches(x, y, width * 0.04, 9) * 0.4)
+            row.append(shade(PLAIN_PANEL, (grain - 0.5) * 0.12) + (255,))
+        rows.append(row)
+    return downsample(rows, big_width, big_height)
+
+
 def main():
     write_png(OUT, WIDTH, HEIGHT, paint())
+    write_png(PLAIN_OUT, WIDTH, HEIGHT, plain())
 
 
 if __name__ == "__main__":

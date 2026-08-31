@@ -249,7 +249,11 @@ public final class CollectionView {
         DeckComponent deck = new DeckComponent(
                 asked.name(), asked.description(), Optional.of(player.getUUID()),
                 List.copyOf(got), List.copyOf(commanders), List.of())
-                .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()));
+                .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()))
+                // In whatever the builder was showing when Finish was pressed. The server
+                // still decides what the deck contains; the sleeve is the one thing the
+                // client picks, and it decides nothing but what the cards look like.
+                .sleeved(asked.sleeve());
         ItemStack stack = DeckItem.of(deck);
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);

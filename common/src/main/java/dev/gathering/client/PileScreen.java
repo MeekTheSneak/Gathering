@@ -477,6 +477,11 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     /** Whether the decision has been sent, so closing does not also close the library again. */
     private boolean decided;
 
+    /** What the owner of this pile has their cards sleeved in. */
+    private dev.gathering.core.card.Sleeve sleeve() {
+        return CardSleeves.of(ClientTableState.viewOf(table).orElse(null), owner);
+    }
+
     /** Whether this card is currently marked to be sent away rather than kept on top. */
     private boolean isSentAway(CardView card) {
         return card instanceof CardView.Visible visible && sendingAway.contains(visible.id());
@@ -488,8 +493,8 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         boolean away = isSentAway(card);
 
         if (card.isFaceDown()) {
-            graphics.blit(CardFaceRenderer.CARD_BACK, art.x(), art.y(), 0f, 0f,
-                    art.width(), art.height(), art.width(), art.height());
+            // The pile's owner's sleeves, because that is whose pile this screen opened.
+            CardSleeves.draw(graphics, sleeve(), art.x(), art.y(), art.width(), art.height());
         } else {
             // Whichever side the table has it turned to. A card looked at through this
             // screen and the same card on the felt have to be the same card.

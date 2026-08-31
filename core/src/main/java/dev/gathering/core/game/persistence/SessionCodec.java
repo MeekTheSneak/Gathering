@@ -35,7 +35,7 @@ import java.util.Map;
 public final class SessionCodec {
 
     /** Bumped when the format changes in a way an older reader cannot handle. */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     /**
      * A ceiling on any length read from a stream, checked before it sizes anything.
@@ -53,6 +53,15 @@ public final class SessionCodec {
 
     /** The format before a rewind could be stored: every record an event, and none of them said so. */
     private static final int BEFORE_REWINDS = 1;
+
+    /**
+     * The format before a deck could be sleeved: DeckLoaded ended after its commanders.
+     *
+     * <p>Kept readable for the same reason {@link #BEFORE_REWINDS} is - somebody's
+     * half-finished game and the replays of every game they have already played are on disk
+     * in it, and a version bump that puts those out of reach costs more than the branch does.
+     */
+    private static final int BEFORE_SLEEVES = 2;
 
     private SessionCodec() {
     }
@@ -121,14 +130,15 @@ public final class SessionCodec {
 
         try (DataInputStream open = new DataInputStream(new ByteArrayInputStream(publicLog))) {
             int version = open.readInt();
-            if (version != VERSION && version != BEFORE_REWINDS) {
+            if (!readable(version)) {
                 throw new IOException("Session log is version " + version + ", this reads " + VERSION);
             }
             // A log written before rewinds could be stored has no kind byte on its records,
             // because everything in it was an event. Reading it as though each record said so
             // is the whole of the difference, and it costs nothing to keep somebody's
             // half-finished game openable.
-            boolean tagged = version == VERSION;
+            boolean tagged = version != BEFORE_REWINDS;
+            boolean sleeved = version > BEFORE_SLEEVES;
             int count = readSize(open.readInt());
 
             List<SessionRecord> records = new ArrayList<>(Math.min(count, 1024));
@@ -156,7 +166,7 @@ public final class SessionCodec {
                         throw new IOException("The sealed part of this session is missing event " + sequence);
                     }
                 } else {
-                    event = EventCodec.read(open);
+                    event = EventCodec.read(open, sleeved);
                 }
                 if (event == null) {
                     // A verb this build has retired - see EventCodec's read. The record is
@@ -172,6 +182,11 @@ public final class SessionCodec {
         }
     }
 
+    /** Whether this build can read a log stamped with that version. */
+    private static boolean readable(int version) {
+        return version == VERSION || version == BEFORE_REWINDS || version == BEFORE_SLEEVES;
+    }
+
     private static Map<Long, GameEvent> readSecrets(byte[] secretLog) throws IOException {
         Map<Long, GameEvent> secrets = new LinkedHashMap<>();
         if (secretLog == null || secretLog.length == 0) {
@@ -182,15 +197,16 @@ public final class SessionCodec {
             // The sealed stream did not change when rewinds became storable - it holds only
             // events and always did - so an older one still reads, and refusing it would put
             // the hidden half of somebody's game out of reach for no reason.
-            if (version != VERSION && version != BEFORE_REWINDS) {
+            if (!readable(version)) {
                 throw new IOException("Sealed log is version " + version + ", this reads " + VERSION);
             }
+            boolean sleeved = version > BEFORE_SLEEVES;
             while (true) {
                 long sequence = sealed.readLong();
                 if (sequence < 0) {
                     return secrets;
                 }
-                secrets.put(sequence, EventCodec.read(sealed));
+                secrets.put(sequence, EventCodec.read(sealed, sleeved));
                 if (secrets.size() > MAX_LIST) {
                     throw new IOException("Implausibly many sealed events");
                 }

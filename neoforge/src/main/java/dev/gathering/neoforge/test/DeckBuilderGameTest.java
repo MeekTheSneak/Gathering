@@ -50,7 +50,7 @@ public final class DeckBuilderGameTest {
 
         CollectionView.build(player, new BuildDeckPayload(where, "Test Deck", "",
                 List.of(card(SOL_RING), card(SOL_RING)),
-                Optional.of(card(BOLT))));
+                Optional.of(card(BOLT)), dev.gathering.core.card.Sleeve.RED));
 
         DeckComponent deck = deckInInventory(player);
         if (deck == null) {
@@ -91,7 +91,7 @@ public final class DeckBuilderGameTest {
 
         CollectionView.build(player, new BuildDeckPayload(where, "Wishful", "",
                 List.of(card(SOL_RING), card(NEVER_OWNED), card(NEVER_OWNED)),
-                Optional.empty()));
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
 
         DeckComponent deck = deckInInventory(player);
         if (deck == null) {

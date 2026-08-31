@@ -104,6 +104,7 @@ public final class VisibilityRules {
                 seatState.counters(),
                 seatState.conceded(),
                 seatState.handShownTo(),
+                seatState.sleeve(),
                 zones);
     }
 

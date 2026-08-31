@@ -30,6 +30,9 @@ import net.minecraft.network.codec.StreamCodec;
  * @param sideboard the sideboard, empty in singleton formats
  * @param color the box's own color, as ARGB. Empty on a deck made before boxes had one, and
  *     on the stand-ins tests build; the item draws those white, which is what the texture is.
+ * @param sleeve what its cards look like from behind once it is on a table. The box's color
+ *     is how a deck is told from another on a shelf; this is how it is told from another
+ *     across a table, and they are separate choices because a player owns one of each
  */
 public record DeckComponent(
         String name,
@@ -38,7 +41,17 @@ public record DeckComponent(
         List<CardComponent> entries,
         List<CardComponent> commanders,
         List<CardComponent> sideboard,
-        Optional<Integer> color) {
+        Optional<Integer> color,
+        dev.gathering.core.card.Sleeve sleeve) {
+
+    /** The same deck in the sleeves a deck arrives in when nobody has picked any. */
+    public DeckComponent(
+            String name, String description, Optional<UUID> owner,
+            List<CardComponent> entries, List<CardComponent> commanders,
+            List<CardComponent> sideboard, Optional<Integer> color) {
+        this(name, description, owner, entries, commanders, sideboard, color,
+                dev.gathering.core.card.Sleeve.DEFAULT);
+    }
 
     /**
      * A deck with no color yet, which is every deck the moment before it is handed over.
@@ -71,7 +84,10 @@ public record DeckComponent(
             CardComponent.CODEC.listOf().optionalFieldOf("entries", List.of()).forGetter(DeckComponent::entries),
             CardComponent.CODEC.listOf().optionalFieldOf("commanders", List.of()).forGetter(DeckComponent::commanders),
             CardComponent.CODEC.listOf().optionalFieldOf("sideboard", List.of()).forGetter(DeckComponent::sideboard),
-            Codec.INT.optionalFieldOf("color").forGetter(DeckComponent::color))
+            Codec.INT.optionalFieldOf("color").forGetter(DeckComponent::color),
+            Codec.STRING.optionalFieldOf("sleeve", dev.gathering.core.card.Sleeve.DEFAULT.name())
+                    .xmap(dev.gathering.core.card.Sleeve::named, dev.gathering.core.card.Sleeve::name)
+                    .forGetter(DeckComponent::sleeve))
             .apply(instance, DeckComponent::new));
 
     /** One section of a deck on the wire, bounded so a bad packet cannot allocate the world. */
@@ -85,9 +101,21 @@ public record DeckComponent(
             ByteBufCodecs.optional(ByteBufCodecs.INT);
 
     /**
+     * The sleeve, as a place in the list.
+     *
+     * <p>Out of range reads as the ordinary back rather than throwing: a deck component
+     * crosses the wire on every held-item sync, and a sleeve that did not survive the trip is
+     * a deck drawn plain, not a disconnect.
+     */
+    private static final StreamCodec<ByteBuf, dev.gathering.core.card.Sleeve> SLEEVE =
+            ByteBufCodecs.idMapper(
+                    dev.gathering.core.card.Sleeve::byOrdinal,
+                    dev.gathering.core.card.Sleeve::ordinal);
+
+    /**
      * Written out by hand rather than composed.
      *
-     * <p>{@code StreamCodec.composite} stops at six parts in this version and a deck has seven.
+     * <p>{@code StreamCodec.composite} stops at six parts in this version and a deck has eight.
      * There is nothing clever here - it is the same fields in the same order, and the only
      * thing to keep right is that the two halves stay in step.
      */
@@ -102,6 +130,7 @@ public record DeckComponent(
         SECTION.encode(out, deck.commanders());
         SECTION.encode(out, deck.sideboard());
         COLOR.encode(out, deck.color());
+        SLEEVE.encode(out, deck.sleeve());
     }
 
     private static DeckComponent fromNetwork(RegistryFriendlyByteBuf in) {
@@ -112,11 +141,13 @@ public record DeckComponent(
                 SECTION.decode(in),
                 SECTION.decode(in),
                 SECTION.decode(in),
-                COLOR.decode(in));
+                COLOR.decode(in),
+                SLEEVE.decode(in));
     }
 
     public DeckComponent {
         description = description == null ? "" : description;
+        sleeve = sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
         entries = List.copyOf(entries);
         commanders = List.copyOf(commanders);
         sideboard = List.copyOf(sideboard);
@@ -131,7 +162,7 @@ public record DeckComponent(
     public DeckComponent named(String newName) {
         return new DeckComponent(
                 newName == null ? "" : newName.strip(),
-                description, owner, entries, commanders, sideboard, color);
+                description, owner, entries, commanders, sideboard, color, sleeve);
     }
 
     /**
@@ -144,7 +175,19 @@ public record DeckComponent(
     public DeckComponent colored(int argb) {
         return new DeckComponent(
                 name, description, owner, entries, commanders, sideboard,
-                Optional.of(0xFF000000 | argb));
+                Optional.of(0xFF000000 | argb), sleeve);
+    }
+
+    /**
+     * The same deck in different sleeves.
+     *
+     * <p>Changed as freely as the name is, and by the same person: sleeves are something a
+     * player swaps between games, so nothing here treats the first choice as final.
+     */
+    public DeckComponent sleeved(dev.gathering.core.card.Sleeve chosen) {
+        return new DeckComponent(
+                name, description, owner, entries, commanders, sideboard, color,
+                chosen == null ? dev.gathering.core.card.Sleeve.DEFAULT : chosen);
     }
 
     /** Physical cards in the deck proper - mainboard plus command zone, never the sideboard. */
@@ -221,11 +264,11 @@ public record DeckComponent(
     private DeckComponent withSection(Section section, List<CardComponent> cards) {
         return switch (section) {
             case COMMANDERS ->
-                    new DeckComponent(name, description, owner, entries, cards, sideboard, color);
+                    new DeckComponent(name, description, owner, entries, cards, sideboard, color, sleeve);
             case MAINBOARD ->
-                    new DeckComponent(name, description, owner, cards, commanders, sideboard, color);
+                    new DeckComponent(name, description, owner, cards, commanders, sideboard, color, sleeve);
             case SIDEBOARD ->
-                    new DeckComponent(name, description, owner, entries, commanders, cards, color);
+                    new DeckComponent(name, description, owner, entries, commanders, cards, color, sleeve);
         };
     }
 

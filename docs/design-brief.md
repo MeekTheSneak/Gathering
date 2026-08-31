@@ -1,5 +1,5 @@
 # Gathering
-## Design Brief v1.75
+## Design Brief v1.76
 
 Working name, chosen. The name must not contain "Magic: The Gathering," "MTG," or imply official endorsement, per the WotC Fan Content Policy; "Gathering" gestures at the game without claiming the trademark, and the title screen carries the unofficial Fan Content disclaimer.
 
@@ -142,6 +142,8 @@ Pile verbs: shuffle (server-side, seeded, announced in log), search, scry N / su
 Counter and token verbs, kept in core because the reference deck demands them: **named counters on cards** - loyalty (Tevesh Szat is a planeswalker and cannot be played without them), +1/+1, -1/-1, and anything a player cares to name - create token via Scryfall token search (his +2 makes two Thrulls per activation), create copy-token of an existing card. **A card names the tokens it prints**: Scryfall publishes what each printing makes, so the card's own menu offers those rows by name and a Thrull is one press rather than a screen, a spelling and a lookup a typo turns into nothing. Emblems count, meld results do not - melding moves cards somebody already owns.
 
 Player verbs: life total (40 in the Commander preset), commander damage grid, **named counters beside a seat** (poison, energy, experience, and anything else), concede, end session. Command zone with commander tax tracking as a displayed number, not an enforcement.
+
+**Sleeves.** A deck carries a sleeve, chosen when it is built and changeable from the deck screen, and every card its owner has face down at a table is drawn in it. The point is the one a real table makes: a face-down card gives away nothing about what it is, and whose it is is the one thing anybody may read off the back of it. Two kinds - the sixteen dyes, tinted onto a single gray texture the way everything else in Minecraft comes in sixteen colors, and a handful carrying Minecraft's own item and block art (grass, a sword, a pickaxe, an ender pearl, a nether star, redstone, gold, a book). The pictures are the game's rather than ours, which makes them the only art the mod draws that it did not paint; the sleeve behind them is ours. Public information, carried on the seat beside its life total, and recorded when the deck goes down exactly as the commanders are - both are facts about what somebody brought rather than about where any card is.
 
 **Turned over is not face down.** A transforming card has two printed faces and both of them are public: turning one over shows the table its other side, on the screen and on the block, and the read key shows the side it is turned to rather than the side it was printed on. A face-down card is a sleeve nobody may name. The two are separate state, so a transformed permanent turned face down for a trick comes back up transformed - and so a sleeve never reports which side it would be showing, because that would be a tell. Whether a card *has* a second face is a fact about a printing rather than about the game: the session records which side is up and the drawing decides what that means, which is why nothing in the rules layer has to know what a werewolf is.
 

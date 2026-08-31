@@ -155,7 +155,8 @@ public final class TableSessions {
             }
             session.submit(new GameEvent.DeckLoaded(seat,
                     deck.entries().stream().map(dev.gathering.item.CardComponent::toIdentity).toList(),
-                    deck.commanders().stream().map(dev.gathering.item.CardComponent::toIdentity).toList()));
+                    deck.commanders().stream().map(dev.gathering.item.CardComponent::toIdentity).toList(),
+                    deck.sleeve()));
             session.submit(new GameEvent.LibraryShuffled(seat, seat));
         });
         return Outcome.STARTED;

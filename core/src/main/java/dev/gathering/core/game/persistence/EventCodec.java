@@ -50,6 +50,7 @@ public final class EventCodec {
                 seat(out, e.actor());
                 identities(out, e.library());
                 identities(out, e.commanders());
+                out.writeUTF(e.sleeve().name());
             }
             case GameEvent.SessionEnded e -> {
                 seat(out, e.actor());
@@ -251,12 +252,40 @@ public final class EventCodec {
         }
     }
 
+    /** A deck arriving, from either shape of log. */
+    private static GameEvent deckLoaded(DataInput in, boolean sleeved) throws IOException {
+        SeatId actor = seat(in);
+        java.util.List<dev.gathering.core.card.CardIdentity> library = identities(in);
+        java.util.List<dev.gathering.core.card.CardIdentity> commanders = identities(in);
+        return new GameEvent.DeckLoaded(actor, library, commanders,
+                sleeved ? dev.gathering.core.card.Sleeve.named(in.readUTF())
+                        : dev.gathering.core.card.Sleeve.DEFAULT);
+    }
+
+    /**
+     * Reads an event written by the current build.
+     *
+     * <p>What comes off a socket is always current, because both ends are this build. Only a
+     * log read back off disk can be older, and that one says how old it is.
+     */
     public static GameEvent read(DataInput in) throws IOException {
+        return read(in, true);
+    }
+
+    /**
+     * Reads an event, told whether the stream is new enough to carry a deck's sleeve.
+     *
+     * @param sleeved false for a log written before decks could be sleeved, whose DeckLoaded
+     *     ends after the commanders. Passing true for one of those reads the next record's
+     *     tag as a sleeve name and everything after it is nonsense - which is why the caller
+     *     is made to say rather than being allowed to guess.
+     */
+    public static GameEvent read(DataInput in, boolean sleeved) throws IOException {
         String tag = in.readUTF();
         return switch (tag) {
             case "SeatTaken" -> new GameEvent.SeatTaken(seat(in), player(in));
             case "SeatReleased" -> new GameEvent.SeatReleased(seat(in));
-            case "DeckLoaded" -> new GameEvent.DeckLoaded(seat(in), identities(in), identities(in));
+            case "DeckLoaded" -> deckLoaded(in, sleeved);
             case "SessionEnded" -> new GameEvent.SessionEnded(seat(in), in.readUTF());
             case "CardMoved" -> new GameEvent.CardMoved(seat(in), card(in), zone(in), placement(in));
             case "ZoneMoved" -> new GameEvent.ZoneMoved(

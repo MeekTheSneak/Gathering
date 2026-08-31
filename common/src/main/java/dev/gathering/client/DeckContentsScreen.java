@@ -115,6 +115,18 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
                 .bounds(done.x(), done.y(), done.width(), done.height())
                 .build());
 
+        // Sleeves. Beside Done because it is a property of the deck rather than of any card
+        // in it, and because this is the screen a player has open when they are thinking
+        // about the deck as an object.
+        Rect sleeves = layout.sleeves();
+        if (!sleeves.isEmpty()) {
+            this.addRenderableWidget(Button.builder(
+                            Component.translatable("screen.gathering.deck.sleeves"),
+                            button -> openSleeves())
+                    .bounds(sleeves.x(), sleeves.y(), sleeves.width(), sleeves.height())
+                    .build());
+        }
+
         // The title is the name, and the name is editable. A deck started by putting two
         // cards together has none and had no way to get one, which made starting a deck
         // something you could do and never finish. Borderless and in the title's own color,
@@ -131,6 +143,25 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         this.nameField.setHint(Component.translatable("screen.gathering.deck.name_hint"));
         this.nameField.setValue(typed);
         this.addRenderableWidget(this.nameField);
+    }
+
+    /**
+     * Opens the sleeve picker, and sends whatever comes back.
+     *
+     * <p>Sent on the choice rather than on the way out, unlike the name: a name is typed a
+     * letter at a time and a sleeve is picked once, so there is nothing to batch and waiting
+     * would only mean the deck in your hand did not change when you said so.
+     */
+    private void openSleeves() {
+        DeckComponent deck = deck().orElse(null);
+        if (deck == null) {
+            return;
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new SleeveScreen(
+                deck.sleeve(),
+                picked -> ClientNetworking.send(
+                        dev.gathering.network.SleeveDeckPayload.of(hand, picked)),
+                this));
     }
 
     /**

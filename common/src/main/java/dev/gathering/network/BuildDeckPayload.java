@@ -31,7 +31,8 @@ public record BuildDeckPayload(
         String name,
         String description,
         List<CardComponent> cards,
-        Optional<CardComponent> commander)
+        Optional<CardComponent> commander,
+        dev.gathering.core.card.Sleeve sleeve)
         implements CustomPacketPayload {
 
     /** As many as a deck holds. Past this is a clipboard, not a deck. */
@@ -53,6 +54,11 @@ public record BuildDeckPayload(
                     CardComponent.STREAM_CODEC.apply(ByteBufCodecs.list(MOST_CARDS)),
                     BuildDeckPayload::cards,
                     ByteBufCodecs.optional(CardComponent.STREAM_CODEC), BuildDeckPayload::commander,
+                    // Six is what composite() takes in this version, and this is the sixth.
+                    ByteBufCodecs.idMapper(
+                            dev.gathering.core.card.Sleeve::byOrdinal,
+                            dev.gathering.core.card.Sleeve::ordinal),
+                    BuildDeckPayload::sleeve,
                     BuildDeckPayload::new);
 
     public BuildDeckPayload {
@@ -63,6 +69,7 @@ public record BuildDeckPayload(
         description = trimmed(description, LONGEST_DESCRIPTION);
         cards = cards == null ? List.of() : List.copyOf(cards.subList(0, Math.min(cards.size(), MOST_CARDS)));
         commander = commander == null ? Optional.empty() : commander;
+        sleeve = sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
     }
 
     private static String trimmed(String value, int longest) {

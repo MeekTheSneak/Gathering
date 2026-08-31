@@ -25,6 +25,7 @@ public record DeckScreenLayout(
         Rect hint,
         Rect lands,
         Rect done,
+        Rect sleeves,
         Rect card,
         Rect info) {
 
@@ -104,7 +105,19 @@ public record DeckScreenLayout(
         Rect title = new Rect(PAD, PAD, contentWidth, line);
 
         int buttonTop = height - PAD - BUTTON_HEIGHT;
-        Rect done = new Rect(PAD, buttonTop, Math.min(BUTTON_WIDTH, contentWidth), BUTTON_HEIGHT);
+        // Two buttons on the bottom row, sharing it. Done keeps its own width where there is
+        // room for both at full size and gives half the row away where there is not, because
+        // the choice is between two buttons that fit and one that does not: a deck whose
+        // sleeves can only be picked on a wide window is a deck most people cannot sleeve.
+        int row = Math.max(1, contentWidth - GAP);
+        int doneWidth = Math.min(BUTTON_WIDTH, row / 2);
+        Rect done = new Rect(PAD, buttonTop, doneWidth, BUTTON_HEIGHT);
+        // Beside Done rather than above it, because it belongs to the deck as a whole the way
+        // the name does - and because the rows above are the cards, which is what the rest of
+        // this panel is for.
+        int sleevesLeft = done.right() + GAP;
+        Rect sleeves = new Rect(sleevesLeft, buttonTop,
+                Math.max(1, PAD + contentWidth - sleevesLeft), BUTTON_HEIGHT);
         // Two lines, one per mouse button. One line has to say what both buttons do, and in
         // a panel this narrow that is more text than there is room for - it shrank to the
         // smallest readable size and was then cut off anyway.
@@ -126,7 +139,7 @@ public record DeckScreenLayout(
         Rect scrollbar = new Rect(scrollLeft, rows.y(), SCROLL_WIDTH, rows.height());
 
         return new DeckScreenLayout(
-                panel, title, rows, scrollbar, hint, lands, done,
+                panel, title, rows, scrollbar, hint, lands, done, sleeves,
                 cardOf(panel, width, height), infoOf(panel, width, height));
     }
 

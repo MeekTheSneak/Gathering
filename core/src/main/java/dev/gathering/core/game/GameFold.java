@@ -179,7 +179,10 @@ public final class GameFold {
         // Named on the seat, once, because a commander on the battlefield is still the
         // commander and nothing about its zone says so. This is what lets damage be recorded
         // against the card that dealt it wherever that card happens to be standing.
-        updated = updated.withSeatState(updated.seatState(seat).withCommanders(commanders));
+        // Named on the seat, and sleeved on the seat, for the same reason: both are facts
+        // about what this player brought rather than about where any card is.
+        updated = updated.withSeatState(
+                updated.seatState(seat).withCommanders(commanders).withSleeve(loaded.sleeve()));
         return updated.withNextCardId(nextId);
     }
 
