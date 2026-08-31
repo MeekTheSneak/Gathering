@@ -51,6 +51,10 @@ REFERENCE = "generic"
 # band is, so the shading is exactly the shading that was recovered.
 VIBRANCE = 1.20
 
+# What share of a badge's views have to call a pixel a misread band edge before it is mended
+# back into the badge. A glyph covers the pixel in some of them, so it is never all of them.
+MEND_SHARE = 0.3
+
 # How close two colours have to be to count as the same one, and how many of a badge's views
 # have to agree before a pixel is taken as certain.
 TOL = 6
@@ -322,7 +326,36 @@ def alphaOf(art, badge, ink, region, seam, tones):
             if amount < FAINT:
                 continue
             out[y][x] = (0, 0, 0, 255 if amount > SOLID else round(amount * 255))
-    return rooted(out)
+    return out
+
+
+def strays(mark):
+    """The part of a mark that is attached to nothing: badge, misread as ink."""
+    keep = rooted(mark)
+    return [(x, y) for y in range(SIZE) for x in range(SIZE)
+            if mark[y][x][3] and not keep[y][x][3]]
+
+
+def mend(badge, votes, tones, least):
+    """Put a misread band edge back where it belongs: in the badge.
+
+    These pixels are not ink and they are not what the band map says either - they are the
+    badge's own edge, fallen a pixel to one side of where the grey badge puts it. Dropping
+    them leaves the badge wrong there; keeping them in the mark makes every drawing of that
+    mark trail a shadow. So they go into the badge, snapped to one of its own tones, and the
+    marks are then measured again against a badge that no longer disagrees with the sheet.
+    """
+    usable = [tone for tone in tones if tone]
+    mended = 0
+    for (x, y), seen in votes.items():
+        if len(seen) < least:
+            continue
+        middle = middleOf(seen)
+        tone = min(usable, key=lambda k: sum((a - b) ** 2 for a, b in zip(middle[:3], k[:3])))
+        if tone != badge[y][x]:
+            badge[y][x] = tone
+            mended += 1
+    return mended
 
 
 def rooted(mark):
@@ -371,10 +404,6 @@ def markName(name, region):
     return name[0] if region == "tl" else name[1]
 
 
-def agree(one, two):
-    return all(a == b for ra, rb in zip(one, two) for a, b in zip(ra, rb))
-
-
 def vote(masks):
     """One mark from every view of it. The same phi sits on five badges; where the views
     disagree it is the re-encoding talking, and the middle of them is the mark."""
@@ -406,6 +435,21 @@ def halfMarks(truth, badges, rims, inks, palettes):
     right places. It shows each of the six in one corner only, so the other corner is the same
     art moved by the gap between the two - they are one drawing placed twice.
     """
+    # The close-up is lossless, so what it says about a band edge beats what the sheet says.
+    # Mend from it first, then read the marks off a badge that agrees with it.
+    votes = {}
+    for name in ZOOM_NAMES:
+        base, other = keyFor(name)
+        whole = compose((badges[base], rims[base]), (badges[other], rims[other]),
+                        (rims[base],))
+        for region in ("tl", "br"):
+            key = base if region == "tl" else other
+            raw = alphaOf(truth[name], whole, inks[key], region, GOOD_SEAM, palettes[key])
+            for x, y in strays(raw):
+                votes.setdefault(key, {}).setdefault((x, y), []).append(truth[name][y][x])
+    for key, seen in votes.items():
+        mend(badges[key], seen, palettes[key], 1)
+
     got = {}
     for name in ZOOM_NAMES:
         base, other = keyFor(name)
@@ -413,8 +457,8 @@ def halfMarks(truth, badges, rims, inks, palettes):
                         (rims[base],))
         for region in ("tl", "br"):
             key = base if region == "tl" else other
-            got[(region, markName(name, region))] = \
-                alphaOf(truth[name], whole, inks[key], region, GOOD_SEAM, palettes[key])
+            got[(region, markName(name, region))] = rooted(
+                alphaOf(truth[name], whole, inks[key], region, GOOD_SEAM, palettes[key]))
 
     here = [anchor(m) for (region, _), m in got.items() if region == "tl"]
     there = [anchor(m) for (region, _), m in got.items() if region == "br"]
@@ -458,6 +502,27 @@ def main(argv):
                          if badges[key][y][x][3] and onRim(x, y))
         inks[key] = inkOf(shots, badges[key], looks[key])
 
+    # A first read of the plain badges, to find where the band map is a pixel out. Those
+    # pixels are badge, not mark: they go back into the badge, and everything below is then
+    # measured against a badge that agrees with the sheet.
+    mended = {}
+    for key in looks:
+        votes = {}
+        for name in looks[key]:
+            raw = alphaOf(shots[name], badges[key], inks[key], "full", SHEET_SEAM,
+                          palettes[key])
+            for x, y in strays(raw):
+                votes.setdefault((x, y), []).append(shots[name][y][x])
+        least = max(1, round(len(looks[key]) * MEND_SHARE))
+        fixed = mend(badges[key], votes, palettes[key], least)
+        mended[key] = fixed
+        if fixed:
+            inks[key] = inkOf(shots, badges[key], looks[key])
+            rims[key] = next(badges[key][y][x] for y in range(SIZE) for x in range(SIZE)
+                             if badges[key][y][x][3] and onRim(x, y))
+
+    halves = halfMarks(truth, badges, rims, inks, palettes)[0]
+
     # Full-size marks come off the sheet, where the plain badges have no seam to get wrong.
     whole, seen = {}, {}
     for name in textures.SYMBOL_NAMES:
@@ -467,10 +532,10 @@ def main(argv):
                               (rims[base],))
         if not other:
             seen.setdefault(("full", markName(name, "full")), []).append(
-                alphaOf(shots[name], whole[name], inks[base], "full", SHEET_SEAM,
-                        palettes[base]))
+                rooted(alphaOf(shots[name], whole[name], inks[base], "full", SHEET_SEAM,
+                               palettes[base])))
     marks = {spot: vote(masks) for spot, masks in seen.items()}
-    marks.update(halfMarks(truth, badges, rims, inks, palettes)[0])
+    marks.update(halves)
 
     # Two versions of every symbol: the one that was measured, which is what the close-up is
     # checked against, and the one that ships, which is the same art with more colour in it.
@@ -496,6 +561,20 @@ def main(argv):
             for key in sorted(inks) if inks[key]) + "\n}\n")
     font(textures.SYMBOL_NAMES, FONT)
 
+    # Against the sheet the rebuild was measured from: the plain badges should come back very
+    # nearly as they went in, the difference being re-encoding noise the rebuild removes.
+    plain = [n for n in textures.SYMBOL_NAMES if not keyFor(n)[1]]
+    total = same = 0
+    for name in plain:
+        here, there = made[name], shots[name]
+        for y in range(SIZE):
+            for x in range(SIZE):
+                if not here[y][x][3] and not there[y][x][3]:
+                    continue
+                total += 1
+                same += here[y][x] == there[y][x]
+    print(f"  {len(plain)} plain symbols are {100 * same / total:.1f}% identical to the sheet")
+
     # The close-up never fed any of this. If the rebuild matches it, the rebuild is the
     # original - and where it does not, say exactly where rather than rounding it off.
     for name, want in truth.items():
@@ -504,7 +583,9 @@ def main(argv):
                for y in range(SIZE) for x in range(SIZE) if got[y][x] != want[y][x]]
         print(f"  {name}: {SIZE * SIZE - len(off)} of {SIZE * SIZE} match"
               + (f", {len(off)} off by up to {max(off)}" if off else " exactly"))
-    print(f"rebuilt {len(made)} symbols, {len(badges)} badges, {len(marks)} marks")
+    print(f"rebuilt {len(made)} symbols, {len(badges)} badges, {len(marks)} marks; "
+          f"{sum(mended.values())} band-edge pixels mended back into the badges "
+          f"({', '.join(f'{k} {n}' for k, n in sorted(mended.items()) if n)})")
 
 
 if __name__ == "__main__":
