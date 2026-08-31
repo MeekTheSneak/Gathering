@@ -35,6 +35,56 @@ THEME_FILES = os.path.join(
 # ---------------------------------------------------------------- the palette
 
 
+# The three ways one color becomes another. Everything below is built out of these.
+def rgba(color, alpha=255):
+    return (color[0], color[1], color[2], alpha)
+
+
+def mix(one, two, amount):
+    return tuple(round(a + (b - a) * amount) for a, b in zip(one[:3], two[:3]))
+
+
+def darker(color, amount):
+    return mix(color, (0, 0, 0), amount)
+
+
+def lighter(color, amount):
+    return mix(color, (255, 255, 255), amount)
+
+
+#: What every screen writes with, and the least contrast a field carrying it may have.
+#: 4.2 rather than 4.5 because the font draws a shadow, which the arithmetic cannot see.
+TEXT = (0xE8, 0xE4, 0xDC)
+LEAST_CONTRAST = 4.2
+
+
+def luminance(color):
+    def channel(value):
+        v = value / 255.0
+        return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+    return (0.2126 * channel(color[0]) + 0.7152 * channel(color[1])
+            + 0.0722 * channel(color[2]))
+
+
+def contrast(one, two):
+    a, b = luminance(one), luminance(two)
+    return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+
+
+def readable(color, least=LEAST_CONTRAST):
+    """The same color, darkened just until the text on it can be read.
+
+    A look is free to be as pale or as saturated as it likes right up to the point where a
+    name on it stops being a name. This is where that point is, applied rather than trusted -
+    Bubble came out at 2.8 to one and looked lovely and said nothing.
+    """
+    for step in range(0, 70):
+        tone = darker(color, step / 100.0)
+        if contrast(tone, TEXT) >= least:
+            return tone
+    return tone
+
+
 class Look:
     """One look's colors. Everything drawn below comes out of these and nothing else."""
 
@@ -46,8 +96,8 @@ class Look:
         self.ink = ink          # the outline, on everything
         self.bevel = bevel      # lit edge, top and left
         self.shade = shade      # shaded edge, bottom and right
-        self.body = body        # the flat middle of a raised thing
-        self.sunk = sunk        # and of a recessed one, which is darker
+        self.body = readable(body)   # the flat middle of a raised thing
+        self.sunk = readable(sunk)   # and of a recessed one, which is darker
         self.accent = accent    # focus, selection, the cursor
         self.glow = glow        # the accent's light end, for a two-tone ring
         self.warn = warn        # where a thing is about to land, and what is set
@@ -179,42 +229,46 @@ def stencil(image, kind, size, border):
 # ---------------------------------------------------------------- painting
 
 
-def rgba(color, alpha=255):
-    return (color[0], color[1], color[2], alpha)
-
-
-def mix(one, two, amount):
-    return tuple(round(a + (b - a) * amount) for a, b in zip(one[:3], two[:3]))
-
-
-def darker(color, amount):
-    return mix(color, (0, 0, 0), amount)
-
-
-def lighter(color, amount):
-    return mix(color, (255, 255, 255), amount)
-
-
-# How round each style's corners are, in pixels of a 32-wide source, and how much grain its
-# body carries. A nine-slice's corners are its border square, so a radius up to the border is
-# rounded entirely inside the corner tile and the stretched edges stay straight.
+# How round each style's corners are, in pixels of a 32-wide source.
+# Never more than a quarter of the source, which is exactly the nine-slice border on all three
+# sizes the mod uses (32/8, 16/4, 8/2). Round further than the border and the curve spills into
+# the stretched edge strips, which then repeat down a long panel as a row of scallops.
 ROUNDING = {"flat": 0, "retro": 0, "future": 7, "bubble": 8}
-GRAIN = {"flat": 0, "retro": 6, "future": 0, "bubble": 0}
+
+#: The noise repeats on this, so a nine-slice's tiled middle joins itself without a seam.
+PERIOD = 16
 
 
-def grain(x, y, amount, seed=0):
-    """A fixed speckle. The same pixel is always the same amount off, so the art does not
-    change between runs, and the inner tile repeats seamlessly with itself."""
-    if not amount:
-        return 0
-    scatter = (x * 73856093) ^ (y * 19349663) ^ (seed * 83492791)
-    scatter = (scatter * 2654435761) & 0xFFFFFFFF
-    return ((scatter >> 13) % (2 * amount + 1)) - amount
+def scatter(x, y, seed):
+    """A repeatable number in 0..1 for a lattice point, wrapped so the noise tiles."""
+    x, y = x % (PERIOD + 1), y % (PERIOD + 1)
+    value = (x * 374761393 + y * 668265263 + seed * 1013904223) & 0xFFFFFFFF
+    value = ((value ^ (value >> 13)) * 1274126177) & 0xFFFFFFFF
+    return ((value ^ (value >> 16)) & 0xFFFF) / 0xFFFF
 
 
-def speckled(color, x, y, amount, seed=0):
-    step = grain(x, y, amount, seed)
-    return tuple(max(0, min(255, channel + step)) for channel in color[:3])
+def smooth(x, y, cell, seed):
+    """Value noise: a lattice of random numbers, smoothly interpolated. Blotches rather than
+    static, which is what stone and board look like and what a per-pixel speckle never does."""
+    gx, gy = x / cell, y / cell
+    x0, y0 = int(gx), int(gy)
+    fx, fy = gx - x0, gy - y0
+    fx, fy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+    top = scatter(x0, y0, seed) + (scatter(x0 + 1, y0, seed) - scatter(x0, y0, seed)) * fx
+    low = (scatter(x0, y0 + 1, seed)
+           + (scatter(x0 + 1, y0 + 1, seed) - scatter(x0, y0 + 1, seed)) * fx)
+    return top + (low - top) * fy
+
+
+def mottle(x, y, seed=0):
+    """Two octaves of it, centered on zero: the mottling on an old card's border."""
+    return (smooth(x, y, 4, seed) * 0.62 + smooth(x, y, 2, seed + 31) * 0.38) - 0.5
+
+
+def weathered(color, x, y, amount, seed=0):
+    """A color with the mottling laid over it."""
+    step = mottle(x, y, seed) * 2 * amount
+    return mix(color, (255, 255, 255) if step > 0 else (0, 0, 0), abs(step))
 
 
 def depthAt(x, y, size, radius):
@@ -233,38 +287,57 @@ def depthAt(x, y, size, radius):
     return min(depth, int(radius - away))
 
 
-def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, low=None):
-    """A raised or recessed rectangle, built the way its look builds things.
+def inCorner(x, y, size, span):
+    """True inside one of the four corner squares of a nine-slice, where a nine-slice may
+    carry an ornament: the corners are the only part of one that is drawn exactly once."""
+    return min(x, size - 1 - x) < span and min(y, size - 1 - y) < span
 
-    The bevel is split corner to corner rather than side by side, which is the only way a
-    one-pixel bevel meets itself cleanly at a corner - side by side leaves the two corner
-    pixels arguing about which edge they belong to.
 
-    Four constructions, because three of the looks are a card frame rather than a color:
+def cornerDepth(x, y, size):
+    """How far a pixel is from the nearest corner, along the diagonal."""
+    return min(x, size - 1 - x) + min(y, size - 1 - y)
 
-    flat
-        outline, one lit pixel, one quiet step, body. The Minecraft button.
-    future
-        the Future Sight frame: a wide-radius rounded corner and a thin line held a pixel off
-        the edge, so the panel reads as a sheet of something with a curve cut out of it rather
-        than as a box.
-    retro
-        the old card border: an outer bevel, a groove cut into it, an inner bevel the other
-        way up, and a grainy stock inside. Four steps is what makes a border look pressed
-        rather than drawn.
-    bubble
-        rounder still, with a two-pixel lit edge and a highlight that carries further down the
-        top-left than a bevel would, which is what reads as blown rather than cut.
-    """
-    style = look.style
-    body = body if body is not None else (look.sunk if sunken else look.body)
-    ink = ink if ink is not None else look.ink
-    lit = lit if lit is not None else look.bevel
-    low = low if low is not None else look.shade
+
+# ---------------------------------------------------------------------------
+# Four constructions. Three of the looks are a card frame rather than a color, so they are
+# built rather than tinted - the whole point of the last pass being wrong.
+# ---------------------------------------------------------------------------
+
+def flatPlate(size, tones, sunken, alpha):
+    """The Minecraft button: outline, one lit pixel, one quiet step, body."""
+    ink, lit, low, body = tones
     top, bottom = (low, lit) if sunken else (lit, low)
-    radius = min(ROUNDING[style], size // 3)
-    speck = GRAIN[style] if size >= 16 else 0
+    image = Image.new("RGBA", (size, size))
+    pixels = image.load()
+    for y in range(size):
+        for x in range(size):
+            depth = min(x, y, size - 1 - x, size - 1 - y)
+            outward = top if x + y < size - 1 else bottom
+            if depth == 0:
+                tone = ink
+            elif depth == 1:
+                tone = outward
+            elif depth == 2 and size >= 16:
+                tone = mix(body, outward, 0.26 if x + y < size - 1 else 0.4)
+            else:
+                tone = body
+            pixels[x, y] = rgba(tone, alpha)
+    return image
 
+
+def futurePlate(size, tones, sunken, alpha, glow):
+    """The Future Sight frame.
+
+    Wide rounded corners, and two hairlines rather than a bevel: one soft line on the edge
+    itself and a second held three pixels in, with the field between them left plain. That gap
+    is the whole trick - it is what makes a panel read as a sheet of something with a curve cut
+    out of it rather than as a box with a border drawn on.
+
+    Then a pip in each corner, which is the little circle that frame puts at every junction.
+    """
+    ink, lit, low, body = tones
+    top, bottom = (low, lit) if sunken else (lit, low)
+    radius = min(ROUNDING["future"], size // 4)
     image = Image.new("RGBA", (size, size))
     pixels = image.load()
     for y in range(size):
@@ -274,30 +347,112 @@ def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, lo
                 continue
             outward = top if x + y < size - 1 else bottom
             if depth == 0:
-                tone = ink if style != "future" else mix(ink, body, 0.25)
-            elif style == "future":
-                # One hairline, held a pixel in, and nothing else. The frame is the curve.
-                tone = body if depth == 1 else (outward if depth == 2 else body)
-            elif style == "retro":
-                tone = (outward if depth == 1
-                        else ink if depth == 2
-                        else (bottom if x + y < size - 1 else top) if depth == 3
-                        else body)
-            elif style == "bubble":
-                tone = (outward if depth <= 1
-                        else mix(body, outward, 0.55) if depth == 2
-                        else mix(body, outward, 0.22) if depth == 3
-                        else body)
-            elif depth == 1:
+                tone = mix(ink, body, 0.3)
+            elif depth == 3:
                 tone = outward
-            elif depth == 2 and size >= 16:
-                # A second, much quieter step. One bevel line on a flat body reads as a
-                # border somebody drew; two read as a face somebody lit.
-                tone = mix(body, outward, 0.26 if x + y < size - 1 else 0.4)
             else:
                 tone = body
-            pixels[x, y] = rgba(speckled(tone, x, y, speck), alpha)
+            # The pip: a lit dot set into the corner, on the diagonal, clear of both lines.
+            if size >= 16 and inCorner(x, y, size, radius) and cornerDepth(x, y, size) in (5, 6) \
+                    and abs(min(x, size - 1 - x) - min(y, size - 1 - y)) <= 1:
+                tone = glow
+            pixels[x, y] = rgba(tone, alpha)
     return image
+
+
+def retroPlate(size, tones, sunken, alpha, rule):
+    """The old card border.
+
+    Four steps, which is what makes a border look pressed rather than drawn: an outer bevel, a
+    groove cut into it, an inner bevel the other way up, and a hairline of tarnished gold
+    holding the field. The border itself is mottled stone rather than a flat brown, and the
+    field inside it is board with a finer grain - the two are different materials on the card
+    and they are different here.
+
+    The corners get a stepped notch, the way that frame steps its corner ornament in.
+    """
+    ink, lit, low, body = tones
+    top, bottom = (low, lit) if sunken else (lit, low)
+    image = Image.new("RGBA", (size, size))
+    pixels = image.load()
+    for y in range(size):
+        for x in range(size):
+            depth = min(x, y, size - 1 - x, size - 1 - y)
+            outward = top if x + y < size - 1 else bottom
+            inward = bottom if x + y < size - 1 else top
+            if depth == 0:
+                tone = ink
+            elif depth == 1:
+                tone = weathered(outward, x, y, 0.16, 3)
+            elif depth == 2:
+                tone = ink
+            elif depth == 3:
+                tone = weathered(inward, x, y, 0.14, 3)
+            elif depth == 4 and size >= 16:
+                tone = rule
+            else:
+                tone = weathered(body, x, y, 0.10, 11)
+            # The notch: two pixels of gold stepped into each corner of the frame.
+            if size >= 16 and depth in (1, 3) and cornerDepth(x, y, size) <= 4:
+                tone = rule
+            pixels[x, y] = rgba(tone, alpha)
+    return image
+
+
+def bubblePlate(size, tones, sunken, alpha, glow):
+    """Blown rather than cut.
+
+    Rounder than anything else here, a two-pixel lit rim carried well down the top left, and a
+    specular - a bright patch off the corner, not on it, which is where the light would land on
+    something with a surface. A bevel alone reads as a flat tile with an edge; this reads as a
+    thing with a top.
+    """
+    ink, lit, low, body = tones
+    top, bottom = (low, lit) if sunken else (lit, low)
+    radius = min(ROUNDING["bubble"], size // 4)
+    image = Image.new("RGBA", (size, size))
+    pixels = image.load()
+    middle = size / 2.0
+    # A specular belongs on a surface that is catching light. On a nearly black face - the
+    # emblem stock - it is a grey smudge instead, so it fades out with the face.
+    shine = min(1.0, luminance(body) * 5.0)
+    for y in range(size):
+        for x in range(size):
+            depth = depthAt(x, y, size, radius)
+            if depth is None:
+                continue
+            outward = top if x + y < size - 1 else bottom
+            if depth <= 1:
+                tone = outward
+            elif depth == 2:
+                tone = mix(body, outward, 0.55)
+            elif depth == 3:
+                tone = mix(body, outward, 0.22)
+            else:
+                tone = body
+            if size >= 16 and not sunken and shine:
+                away = (((x + 0.5) - middle * 0.52) ** 2
+                        + ((y + 0.5) - middle * 0.46) ** 2) ** 0.5
+                if away < middle * 0.34 and depth >= 2:
+                    strength = (0.55 if away < middle * 0.2 else 0.3) * shine
+                    tone = mix(tone, glow, strength)
+            pixels[x, y] = rgba(tone, alpha)
+    return image
+
+
+def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, low=None):
+    """A raised or recessed rectangle, built the way its look builds things."""
+    tones = (ink if ink is not None else look.ink,
+             lit if lit is not None else look.bevel,
+             low if low is not None else look.shade,
+             body if body is not None else (look.sunk if sunken else look.body))
+    if look.style == "future":
+        return futurePlate(size, tones, sunken, alpha, look.glow)
+    if look.style == "retro":
+        return retroPlate(size, tones, sunken, alpha, look.accent)
+    if look.style == "bubble":
+        return bubblePlate(size, tones, sunken, alpha, look.glow)
+    return flatPlate(size, tones, sunken, alpha)
 
 
 def wash(size, color, alpha=255):
@@ -305,9 +460,9 @@ def wash(size, color, alpha=255):
 
 
 def ring(size, color, alpha=255, thickness=1, fill=None, fill_alpha=0, inner=None):
-    """An outline round nothing, or round a wash. The optional inner tone is a second,
-    lighter line just inside the first, which is what stops a bright ring reading as a
-    sticker laid on top of the thing it is marking."""
+    """An outline round nothing, or round a wash. The optional inner tone is a second, lighter
+    line just inside the first, which is what stops a bright ring reading as a sticker laid on
+    top of the thing it is marking."""
     image = Image.new("RGBA", (size, size),
                       rgba(fill, fill_alpha) if fill is not None else (0, 0, 0, 0))
     pixels = image.load()
@@ -322,45 +477,47 @@ def ring(size, color, alpha=255, thickness=1, fill=None, fill_alpha=0, inner=Non
 
 
 def stock(size, look, dark=False):
-    """Blank paper: the stock, its edge, and the inner rule that reads as a card.
+    """Blank paper - and in the looks that are a card frame, a small card frame.
 
-    Built the way the look builds everything else, so a Retro card is grainy board with a
-    pressed border and a Future Sight one is a rounded sheet with a hairline.
+    Retro gets the pressed border and the board it is printed on; Future Sight a rounded sheet
+    with its hairline and its corner pips; Bubble a rounded slab with the light on it. Which is
+    the point: a blank card in a look should look like a card in that look.
     """
     face = darker(look.paper, 0.90) if dark else look.paper
     rule = look.accent if dark else look.rule
-    radius = min(ROUNDING[look.style], size // 3)
-    speck = GRAIN[look.style]
-    image = Image.new("RGBA", (size, size))
+    tones = (look.ink, lighter(rule, 0.45), rule, face)
+    if look.style == "retro":
+        return retroPlate(size, tones, False, 255, rule)
+    if look.style == "future":
+        return futurePlate(size, tones, False, 255, mix(face, rule, 0.5))
+    if look.style == "bubble":
+        return bubblePlate(size, tones, False, 255, lighter(face, 0.5))
+    image = Image.new("RGBA", (size, size), rgba(face))
     pixels = image.load()
     for y in range(size):
         for x in range(size):
-            depth = depthAt(x, y, size, radius)
-            if depth is None:
-                continue
+            depth = min(x, y, size - 1 - x, size - 1 - y)
             if depth == 0:
-                tone = look.ink
-            elif look.style == "retro" and depth == 1:
-                tone = lighter(rule, 0.35)
+                pixels[x, y] = rgba(look.ink)
             elif depth == 2:
-                tone = rule
-            else:
-                tone = face
-            pixels[x, y] = rgba(speckled(tone, x, y, speck if depth > 2 else 0))
+                pixels[x, y] = rgba(rule)
     return image
 
 
 def cloth(size, look):
-    """The table. Never a slab of one color: a weave for the flat looks, a grain for Retro,
-    and for Future Sight nothing at all, because that frame's ground is smooth."""
+    """The table. Never a slab of one color: a weave for the flat looks, mottled board for
+    Retro, and for Future Sight a faint rule, because that frame's ground is smooth."""
     image = Image.new("RGBA", (size, size), rgba(look.cloth))
     pixels = image.load()
     for y in range(size):
         for x in range(size):
             if look.style == "retro":
-                pixels[x, y] = rgba(speckled(look.cloth, x, y, 5))
+                pixels[x, y] = rgba(weathered(look.cloth, x, y, 0.13, 5))
             elif look.style == "future":
-                pixels[x, y] = rgba(mix(look.cloth, look.bevel, 0.03 if (x + y) % 8 == 0 else 0))
+                pixels[x, y] = rgba(mix(look.cloth, look.bevel, 0.04 if (x + y) % 8 == 0 else 0))
+            elif look.style == "bubble":
+                near = ((x - 8) ** 2 + (y - 8) ** 2) ** 0.5
+                pixels[x, y] = rgba(mix(look.cloth, look.bevel, 0.05 if near < 3 else 0))
             elif (x // 2 + y // 2) % 2 == 0:
                 pixels[x, y] = rgba(lighter(look.cloth, 0.05))
     return image
@@ -371,26 +528,74 @@ TAPER_TOP, TAPER_BOTTOM = 0.90, 0.74
 
 
 def deck_panel(look, width=256, height=512):
-    """The deck list: flush left, tapering right, with the outline following the taper.
+    """The deck list: flush left, tapering right.
 
-    Stretched rather than nine-sliced, because the taper is the point - so it is drawn at the
-    size it is usually seen and the stretch is small.
+    Stretched rather than nine-sliced, which means it is one picture rather than nine tiles -
+    so this is the one element that can carry something spanning the whole panel. Each of the
+    three built looks uses that for the thing a nine-slice cannot do: Future Sight for the
+    sweep its frame is drawn around, Retro for a mottled stone border with a gold rule inside
+    it, Bubble for the light running down the whole length of it.
     """
+    style = look.style
     image = Image.new("RGBA", (width, height))
     pixels = image.load()
+    sweep = width * 0.95
+    # Darker than a button: this is a large field with a list of names on it, and the text is
+    # drawn in a fixed light color whatever the look.
+    field = readable(mix(look.sunk, look.body, 0.30))
     for y in range(height):
         edge = width * (TAPER_TOP + (TAPER_BOTTOM - TAPER_TOP) * (y / height))
         for x in range(width):
             if x > edge:
                 continue
-            if y < 2 or y > height - 3 or x > edge - 2:
-                pixels[x, y] = rgba(look.ink)
-            elif y < 4 or x < 2:
-                pixels[x, y] = rgba(look.bevel)
-            elif y > height - 6 or x > edge - 5:
-                pixels[x, y] = rgba(look.shade)
+            depth = min(x, y, height - 1 - y, edge - x)
+            if style == "retro":
+                if depth < 2:
+                    tone = look.ink
+                elif depth < 7:
+                    tone = weathered(look.bevel if depth < 4 else look.shade, x, y, 0.20, 3)
+                elif depth < 9:
+                    tone = look.ink
+                elif depth < 11:
+                    tone = look.accent
+                else:
+                    tone = weathered(field, x, y, 0.14, 11)
+            elif style == "future":
+                # The sweep: one wide arc struck through the panel, the way that frame is laid
+                # out around a circle. Two hairlines and a corner pip, as everywhere else.
+                away = abs(((x - width * 0.1) ** 2 + (y - height * 0.5) ** 2) ** 0.5 - sweep * 0.9)
+                tone = field
+                if away < 1.6:
+                    tone = mix(field, look.bevel, 0.55)
+                elif away < 5:
+                    tone = mix(field, look.bevel, 0.16)
+                if depth < 2:
+                    tone = mix(look.ink, look.body, 0.3)
+                elif depth in (4, 5):
+                    tone = look.bevel
+            elif style == "bubble":
+                run = 1.0 - abs((x / max(edge, 1)) - 0.22) * 2.2
+                tone = mix(field, look.glow, max(0.0, run) * 0.24)
+                if depth < 2:
+                    tone = look.ink
+                elif depth < 5:
+                    tone = look.bevel if x + y < width else look.shade
+                elif depth < 7:
+                    tone = mix(tone, look.bevel, 0.35)
+                elif depth < 9:
+                    tone = mix(tone, look.bevel, 0.12)
             else:
-                pixels[x, y] = rgba(look.body)
+                if depth < 2:
+                    tone = look.ink
+                elif depth < 4:
+                    tone = look.bevel if x + y < width else look.shade
+                elif depth < 6:
+                    tone = mix(field, look.bevel, 0.28)
+                elif depth < 8:
+                    tone = mix(field, look.bevel, 0.10)
+                else:
+                    tone = field
+            pixels[x, y] = rgba(tone)
     return image
 
 
