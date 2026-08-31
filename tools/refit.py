@@ -286,13 +286,21 @@ def inkOf(shots, badge, looks):
     return middleOf(min(groups, key=lambda g: sum(middleOf(g)[:3])))
 
 
-def alphaOf(art, badge, ink, region, seam):
+def alphaOf(art, badge, ink, region, seam, tones):
     """How much ink is on each pixel: the mark, as a silhouette with soft edges.
 
     Every pixel is somewhere on the line between its band and the ink, so where it sits on
     that line is the coverage. Solving for it rather than thresholding is what keeps the
     handful of half-covered pixels that a mark's diagonals are made of.
+
+    A pixel that is simply another band of the same badge is not ink, however much of the way
+    to the ink it happens to sit. The band map is taken from the grey badge, and a band edge
+    on another colour can fall a pixel to one side of it; without this the whole edge is read
+    as half-covered ink and the mark comes out trailing a shadow along one of its curves.
     """
+    # Bands that could be mistaken for the ink are no use as decoys - the outline sits three
+    # levels from the ink on the grey badge - so they are left out and the ink wins there.
+    decoys = [tone for tone in tones if tone and not unscale.near(tone, ink, TOL * 2)]
     out = textures.blank(SIZE, SIZE)
     for y in range(SIZE):
         for x in range(SIZE):
@@ -304,6 +312,8 @@ def alphaOf(art, badge, ink, region, seam):
             if not length:
                 continue
             along = sum((p - a) * v for p, a, v in zip(art[y][x][:3], under[:3], span))
+            if any(unscale.near(art[y][x], tone, TOL) for tone in decoys):
+                continue
             amount = max(0.0, min(1.0, along / length))
             # A band is a hundred-odd levels from its ink, so a few levels of re-encoding
             # noise reads as a few percent of coverage. Below the floor that is noise and the
@@ -312,6 +322,32 @@ def alphaOf(art, badge, ink, region, seam):
             if amount < FAINT:
                 continue
             out[y][x] = (0, 0, 0, 255 if amount > SOLID else round(amount * 255))
+    return rooted(out)
+
+
+def rooted(mark):
+    """Keep only the part of a mark that is attached to solid ink.
+
+    Colour cannot tell a mark's soft edge from a band edge: the badge's own ramp runs in very
+    nearly the same direction as the run from a band to the ink, so a pixel one band out and a
+    pixel two thirds covered are the same colour to within a level or two. Shape can. A glyph's
+    soft pixels touch its solid ones; a band edge read as half-covered ink is a thin curve
+    stranded on its own, out where the badge is darkest - which is what put a shadow along one
+    side of every mark.
+    """
+    out = textures.blank(SIZE, SIZE)
+    for y in range(SIZE):
+        for x in range(SIZE):
+            if mark[y][x][3] == 255:
+                out[y][x] = mark[y][x]
+    for y in range(SIZE):
+        for x in range(SIZE):
+            if not mark[y][x][3] or mark[y][x][3] == 255:
+                continue
+            if any(0 <= y + dy < SIZE and 0 <= x + dx < SIZE
+                   and mark[y + dy][x + dx][3] == 255
+                   for dy in (-1, 0, 1) for dx in (-1, 0, 1)):
+                out[y][x] = mark[y][x]
     return out
 
 
@@ -365,7 +401,7 @@ def shift(mark, by):
     return out
 
 
-def halfMarks(truth, badges, rims, inks):
+def halfMarks(truth, badges, rims, inks, palettes):
     """The half-size marks, off the close-up, which is the only picture that has them in the
     right places. It shows each of the six in one corner only, so the other corner is the same
     art moved by the gap between the two - they are one drawing placed twice.
@@ -378,7 +414,7 @@ def halfMarks(truth, badges, rims, inks):
         for region in ("tl", "br"):
             key = base if region == "tl" else other
             got[(region, markName(name, region))] = \
-                alphaOf(truth[name], whole, inks[key], region, GOOD_SEAM)
+                alphaOf(truth[name], whole, inks[key], region, GOOD_SEAM, palettes[key])
 
     here = [anchor(m) for (region, _), m in got.items() if region == "tl"]
     there = [anchor(m) for (region, _), m in got.items() if region == "br"]
@@ -414,9 +450,9 @@ def main(argv):
     # Measured first, brightened second. Everything below - which pixels are ink, how much of
     # one covers a pixel - is solved against the sheet, so it has to be solved against what the
     # sheet actually holds. The lift is applied to what ships, not to what is measured.
-    badges, rims, inks = {}, {}, {}
+    badges, rims, inks, palettes = {}, {}, {}, {}
     for key in looks:
-        tones = tonesOf(shots, looks[key], bands, count)
+        tones = palettes[key] = tonesOf(shots, looks[key], bands, count)
         badges[key] = paint(bands, tones)
         rims[key] = next(badges[key][y][x] for y in range(SIZE) for x in range(SIZE)
                          if badges[key][y][x][3] and onRim(x, y))
@@ -431,9 +467,10 @@ def main(argv):
                               (rims[base],))
         if not other:
             seen.setdefault(("full", markName(name, "full")), []).append(
-                alphaOf(shots[name], whole[name], inks[base], "full", SHEET_SEAM))
+                alphaOf(shots[name], whole[name], inks[base], "full", SHEET_SEAM,
+                        palettes[base]))
     marks = {spot: vote(masks) for spot, masks in seen.items()}
-    marks.update(halfMarks(truth, badges, rims, inks)[0])
+    marks.update(halfMarks(truth, badges, rims, inks, palettes)[0])
 
     # Two versions of every symbol: the one that was measured, which is what the close-up is
     # checked against, and the one that ships, which is the same art with more colour in it.
