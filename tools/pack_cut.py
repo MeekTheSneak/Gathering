@@ -41,6 +41,18 @@ CELLS = {
         "bar_fill": (51, 22, 42, 5),
     },
 
+    # A box of pips that fill one at a time, taken apart rather than whole. The box is a
+    # three-pixel cap, five identical five-pixel cells and a two-pixel cap, so cutting one
+    # cell of each kind lets a bar be built for a match of any length - and the game's own
+    # nine-slice cannot do it, because in 1.21.1 a nine-slice middle stretches and has no
+    # tiling option, which would smear five pips into one long smudge.
+    "06.png": {
+        "pip_left": (1, 3, 3, 10),
+        "pip_full": (4, 3, 5, 10),
+        "pip_empty": (164, 3, 5, 10),
+        "pip_right": (189, 3, 2, 10),
+    },
+
     # Five frames of a dashed ring with the lit dash travelling round it, in a row. Rows two
     # to forty-five: below that the same sheet carries a ring of wedges, which is a different
     # spinner and not this one.

@@ -58,6 +58,9 @@ def lighter(color, amount):
 TEXT = (0xE8, 0xE4, 0xDC)
 LEAST_CONTRAST = 4.2
 
+#: And how far above it a face is actually aimed, for whatever is drawn on afterwards.
+HEADROOM = 0.35
+
 
 def luminance(color):
     def channel(value):
@@ -72,18 +75,41 @@ def contrast(one, two):
     return (max(a, b) + 0.05) / (min(a, b) + 0.05)
 
 
-def readable(color, least=LEAST_CONTRAST):
+def readable(color, least=LEAST_CONTRAST + HEADROOM):
     """The same color, darkened just until the text on it can be read.
 
     A look is free to be as pale or as saturated as it likes right up to the point where a
     name on it stops being a name. This is where that point is, applied rather than trusted -
     Bubble came out at 2.8 to one and looked lovely and said nothing.
+
+    Aimed a little above the floor rather than exactly at it. Several of these faces are
+    grained after this runs - Retro's varies by a few levels per pixel, on purpose - and a
+    face that landed on 4.2 to the level came out at 3.96 in places once the grain was on it.
+    Anything a construction adds afterwards can only be a few levels, so a few levels is what
+    it gets.
     """
     for step in range(0, 70):
         tone = darker(color, step / 100.0)
         if contrast(tone, TEXT) >= least:
             return tone
     return tone
+
+
+#: How much colour a look's surfaces carry, above what was measured for them.
+#:
+#: The palettes were mixed muted on purpose - card art should be the brightest thing on any
+#: screen - and muted came out closer to tinted grey than to a colour. This lifts each surface
+#: away from its own grey without moving how light or dark it is, which is the same trick the
+#: mana badges use: more colour, same shading. It is deliberately not applied to the ink, the
+#: felt, the card stock or the washes. The felt is the surface card art actually sits on, and
+#: a table that got 55% more colour would be competing with every card on it.
+VIVIDNESS = 1.55
+
+
+def vivid(color, amount=VIVIDNESS):
+    """More colour, same brightness: every channel pushed away from the colour's own grey."""
+    grey = sum(color) / 3.0
+    return tuple(max(0, min(255, round(grey + (value - grey) * amount))) for value in color)
 
 
 class Look:
@@ -96,12 +122,12 @@ class Look:
         self.style = style      # how its edges are built - see plate()
         self.frame = frame      # a ready-made ornamental panel, by name - see framed()
         self.ink = ink          # the outline, on everything
-        self.bevel = bevel      # lit edge, top and left
-        self.shade = shade      # shaded edge, bottom and right
-        self.body = readable(body)   # the flat middle of a raised thing
-        self.sunk = readable(sunk)   # and of a recessed one, which is darker
-        self.accent = accent    # focus, selection, the cursor
-        self.glow = glow        # the accent's light end, for a two-tone ring
+        self.bevel = vivid(bevel)     # lit edge, top and left
+        self.shade = vivid(shade)     # shaded edge, bottom and right
+        self.body = readable(vivid(body))   # the flat middle of a raised thing
+        self.sunk = readable(vivid(sunk))   # and of a recessed one, which is darker
+        self.accent = vivid(accent)   # focus, selection, the cursor
+        self.glow = vivid(glow)       # the accent's light end, for a two-tone ring
         self.warn = warn        # where a thing is about to land, and what is set
         self.good = good        # a bar filling
         self.paper = paper      # card stock, which is light because a card is
@@ -397,7 +423,13 @@ def ramp(tones, steps):
 # ---------------------------------------------------------------------------
 
 def flatPlate(size, tones, sunken, alpha, band=None):
-    """The Minecraft button: outline, one lit pixel, one quiet step, body."""
+    """Two pixels of outline, one lit step, body.
+
+    A heavier frame than the one-pixel outline and soft four-step blend this used to draw.
+    Every sprite on the pixel sheets this GUI is aimed at is a drawn object with a real edge
+    round it, and the thing that reads as that at a glance is the weight of the outline
+    rather than what happens inside it - so the outline is two pixels and the blend is gone.
+    """
     ink, lit, low, body = tones
     top, bottom = (low, lit) if sunken else (lit, low)
     band = band or bandOf(size)
@@ -407,19 +439,42 @@ def flatPlate(size, tones, sunken, alpha, band=None):
         for x in range(size):
             depth = min(x, y, size - 1 - x, size - 1 - y)
             outward = top if x + y < size - 1 else bottom
-            if depth >= band:
-                tone = body
-            elif depth == 0:
+            if depth <= 1:
                 tone = ink
-            elif depth == 1:
-                tone = outward
             elif depth == 2:
-                tone = mix(body, outward, 0.45)
-            elif depth == 3:
-                tone = mix(body, outward, 0.18)
+                tone = outward
             else:
                 tone = body
             pixels[x, y] = rgba(tone, alpha)
+    return image
+
+
+def thicken(image, ink, alpha=255):
+    """A second pixel of outline, following whatever shape this already is.
+
+    For the four looks that build their own edges - Future Sight's sweep, Retro's inset
+    border, Bubble's rounding, Arcade's rail - which cannot simply be given flatPlate's ramp
+    without becoming it. This finds the ring of pixels one step inside the existing outline
+    and inks those too, so the frame gets its weight and the construction keeps everything it
+    does further in.
+
+    By where the shape ends rather than by distance from the edge of the canvas: two of those
+    four round their corners, and a rectangle's idea of depth cuts a chord across a curve.
+    """
+    pixels = image.load()
+    wide, tall = image.size
+
+    def clear(x, y):
+        return not (0 <= x < wide and 0 <= y < tall) or pixels[x, y][3] == 0
+
+    near = ((1, 0), (-1, 0), (0, 1), (0, -1))
+    rim = {(x, y) for y in range(tall) for x in range(wide)
+           if pixels[x, y][3] and any(clear(x + dx, y + dy) for dx, dy in near)}
+    inner = [(x, y) for y in range(tall) for x in range(wide)
+             if pixels[x, y][3] and (x, y) not in rim
+             and any((x + dx, y + dy) in rim for dx, dy in near)]
+    for x, y in inner:
+        pixels[x, y] = rgba(ink, alpha)
     return image
 
 
@@ -623,7 +678,7 @@ def arcadePlate(size, tones, sunken, alpha, glow, band=None):
 
 
 def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, low=None,
-          band=None):
+          band=None, heavy=False):
     """A raised or recessed rectangle, built the way its look builds things.
 
     The band may be given rather than taken from the size, for a canvas that is bigger than
@@ -635,14 +690,17 @@ def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, lo
              low if low is not None else look.shade,
              body if body is not None else (look.sunk if sunken else look.body))
     if look.style == "future":
-        return futurePlate(size, tones, sunken, alpha, look.glow, band)
-    if look.style == "retro":
-        return retroPlate(size, tones, sunken, alpha, look.accent, band)
-    if look.style == "bubble":
-        return bubblePlate(size, tones, sunken, alpha, look.glow, band)
-    if look.style == "arcade":
-        return arcadePlate(size, tones, sunken, alpha, look.glow, band)
-    return flatPlate(size, tones, sunken, alpha, band)
+        art = futurePlate(size, tones, sunken, alpha, look.glow, band)
+    elif look.style == "retro":
+        art = retroPlate(size, tones, sunken, alpha, look.accent, band)
+    elif look.style == "bubble":
+        art = bubblePlate(size, tones, sunken, alpha, look.glow, band)
+    elif look.style == "arcade":
+        art = arcadePlate(size, tones, sunken, alpha, look.glow, band)
+    else:
+        # flatPlate draws its own two pixels of outline, so it is already heavy enough.
+        return flatPlate(size, tones, sunken, alpha, band)
+    return thicken(art, tones[0], alpha) if heavy else art
 
 
 #: Where the ornamental frames live, one per look built around one.
@@ -667,7 +725,7 @@ def framed(look):
     pixels, and its corners have to fit inside a nine-slice corner tile to survive tiling.
     """
     if not look.frame:
-        return plate(32, look)
+        return plate(32, look, heavy=True)
     return Image.open(os.path.join(FRAMES, look.frame + ".png")).convert("RGBA"), NINE_64_TILED
 
 
@@ -834,6 +892,11 @@ PARTS = os.path.join(ROOT, "art", "gui", "parts")
 #: His button is forty-eight by twenty-two with an eight-pixel cap at each end. Every button
 #: the mod draws is at least sixteen each way, so the caps always have somewhere to go.
 BUTTON_SLICE = ("nine_slice", (48, 22), 8, True)
+
+
+def pipTones(look):
+    """A pip box's ramp: its rail is bright and its unlit cells sit in the middle of it."""
+    return (darker(look.ink, 0.1), lighter(look.bevel, 0.3))
 
 
 def arrowTones(look):
@@ -1100,7 +1163,7 @@ STRETCH = ("stretch", 0, 0, False)
 ELEMENTS = [
     # Structure.
     ("panel", NINE_32_TILED, lambda k: framed(k)),
-    ("panel_inset", NINE_32_TILED, lambda k: plate(32, k, sunken=True)),
+    ("panel_inset", NINE_32_TILED, lambda k: plate(32, k, sunken=True, heavy=True)),
     ("row_highlight", NINE_32_TILED,
      lambda k: plate(32, k, body=k.accent, alpha=0x38, ink=k.accent,
                      lit=lighter(k.accent, 0.4), low=k.accent)),
@@ -1111,18 +1174,18 @@ ELEMENTS = [
     # one the project prefers, and each look already builds its own edges - Future Sight's
     # sweep, Retro's inset border, Bubble's rounding - which one silhouette off a sheet would
     # have flattened into a single shape fourteen times over.
-    ("button", NINE_16, lambda k: plate(16, k, body=mix(k.body, k.bevel, 0.10))),
+    ("button", NINE_16, lambda k: plate(16, k, body=mix(k.body, k.bevel, 0.10), heavy=True)),
     # Through the readability floor, because mixing a third of the accent into a body that
     # was already exactly readable makes it lighter again - and the hover face is the one a
     # cursor is sitting on while somebody reads the word underneath it.
     ("button_hover", NINE_16,
      lambda k: plate(16, k, body=readable(mix(k.body, k.accent, 0.34)), lit=k.glow,
-                     low=darker(k.accent, 0.62))),
+                     low=darker(k.accent, 0.62), heavy=True)),
     ("button_off", NINE_16,
      lambda k: plate(16, k, body=darker(k.body, 0.45), lit=k.shade,
-                     low=darker(k.shade, 0.35))),
+                     low=darker(k.shade, 0.35), heavy=True)),
     ("button_down", NINE_16,
-     lambda k: plate(16, k, sunken=True, body=mix(k.body, k.shade, 0.22))),
+     lambda k: plate(16, k, sunken=True, body=mix(k.body, k.shade, 0.22), heavy=True)),
 
     # His arrows. Up and down are one of them turned a quarter, which on pixel art is exact -
     # every pixel lands on a pixel - where any other angle would resample it.
@@ -1231,6 +1294,16 @@ ELEMENTS = [
      lambda k: recut("bar_fill", k, (darker(k.good, 0.45), lighter(k.good, 0.35)), label=True)),
     ("bar_done", ("nine_slice", (42, 5), (4, 1, 4, 1), True),
      lambda k: recut("bar_fill", k, (darker(k.warn, 0.45), lighter(k.warn, 0.35)), label=True)),
+
+    # A box of pips, in pieces: a cap, a lit cell, a dim cell, a cap. Built rather than
+    # nine-sliced, because a nine-slice middle stretches in 1.21.1 and there is no tiling
+    # option for one - five pips stretched would be one long smudge. All four take the same
+    # ramp so the rail that runs through them is the same rail; the only thing that differs
+    # between a lit pip and a dim one is what he drew inside the cell.
+    ("pip_left", STRETCH, lambda k: recut("pip_left", k, pipTones(k), label=True)),
+    ("pip_full", STRETCH, lambda k: recut("pip_full", k, pipTones(k), label=True)),
+    ("pip_empty", STRETCH, lambda k: recut("pip_empty", k, pipTones(k), label=True)),
+    ("pip_right", STRETCH, lambda k: recut("pip_right", k, pipTones(k), label=True)),
 
     # The mana curve is the same idea standing up, and his bar only reads one way round - the
     # shear leans, the light is along the top. So the columns keep the mod's own, which was

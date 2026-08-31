@@ -184,6 +184,12 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         GuiText.drawCentered(graphics, this.font,
                 Component.translatable("screen.gathering.sideboard.title", gameNumber, bestOf),
                 this.width / 2, MARGIN, this.width - MARGIN * 2, LABEL);
+        // And the same thing as a shape. "Before game 2 of 3" is a sentence you have to read;
+        // a row of pips with one of three lit is where you are in the match at a glance, and
+        // this screen is the one place in a match where that question is being asked.
+        GatheringSprites.pips(graphics,
+                (this.width - GatheringSprites.pipsWide(bestOf)) / 2,
+                MARGIN + this.font.lineHeight + 3, gameNumber - 1, bestOf);
 
         drawColumn(graphics, mainboard, DeckComponent.Section.MAINBOARD, mainScroll, mouseX, mouseY,
                 Component.translatable("screen.gathering.deck.mainboard", deck.entries().size()));

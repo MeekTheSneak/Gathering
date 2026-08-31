@@ -93,6 +93,9 @@ def seen_through(where):
 LABEL = (0xE8, 0xE4, 0xDC)
 LEAST_CONTRAST = 4.2
 
+#: How much of a face a tone must cover before a word is read against it.
+SHARE_OF_THE_MIDDLE = 20
+
 
 def faintest(where):
     """The worst contrast the label sits on, over the part of this sprite it sits on.
@@ -100,8 +103,11 @@ def faintest(where):
     The middle of the nine-slice and nothing else. A button's outline and its one-pixel
     bevel are the brightest and darkest things in the file and neither has a word on it - the
     label is drawn across the stretched middle, which is the only region this can honestly
-    ask about. Measured against every pixel of it rather than the commonest, because a face
-    with a lit top band is a face whose top band still has letters over it.
+    ask about. Measured against the tones that actually cover that middle rather than every
+    tone in it: several of these faces are deliberately grained - Retro's varies by a few
+    levels per pixel, on purpose - and one pixel in sixty-four sitting six percent under the
+    floor is not a word anybody struggles with. A tone has to cover a twentieth of the middle
+    before it counts, which still catches a lit band, a rule, or a whole face.
     """
     try:
         from PIL import Image
@@ -114,11 +120,15 @@ def faintest(where):
         middle = [read[x, y]
                   for y in range(top, max(top + 1, rgba.height - bottom))
                   for x in range(left, max(left + 1, rgba.width - right))]
-    worst = None
-    for tone in {pixel[:3] for pixel in middle if pixel[3] > 0x40}:
-        here = contrast(LABEL, tone)
-        worst = here if worst is None else min(worst, here)
-    return worst
+    seen = {}
+    for pixel in middle:
+        if pixel[3] > 0x40:
+            seen[pixel[:3]] = seen.get(pixel[:3], 0) + 1
+    if not seen:
+        return None
+    enough = max(1, sum(seen.values()) // SHARE_OF_THE_MIDDLE)
+    covering = [tone for tone, count in seen.items() if count >= enough]
+    return min(contrast(LABEL, tone) for tone in covering or seen)
 
 
 def borderOf(where):

@@ -281,6 +281,18 @@ public final class GatheringSprites {
         BAR_DONE("bar_done"),
 
         /**
+         * A box of pips that fill one at a time: two caps, a lit cell and a dim one.
+         *
+         * <p>In pieces rather than whole, because a match is best of one, three or five and
+         * a nine-slice cannot repeat a cell - its middle stretches, and five pips stretched
+         * would be one long smudge. Drawn with {@link #pips}.
+         */
+        PIP_LEFT("pip_left"),
+        PIP_FULL("pip_full"),
+        PIP_EMPTY("pip_empty"),
+        PIP_RIGHT("pip_right"),
+
+        /**
          * A mana curve's columns, which are the same idea standing up.
          *
          * <p>Their own elements rather than the bar's, because his bar only reads one way
@@ -424,6 +436,34 @@ public final class GatheringSprites {
      */
     public static final int ARROW_ACROSS = 9;
     public static final int ARROW_ALONG = 12;
+
+    /** How big a pip box's pieces are: two caps, and one cell per game of the match. */
+    public static final int PIP_HIGH = 10;
+    private static final int PIP_LEFT_WIDE = 3;
+    private static final int PIP_CELL_WIDE = 5;
+    private static final int PIP_RIGHT_WIDE = 2;
+
+    /** How wide a box of this many pips comes out, so a caller can middle it. */
+    public static int pipsWide(int total) {
+        return PIP_LEFT_WIDE + PIP_CELL_WIDE * Math.max(0, total) + PIP_RIGHT_WIDE;
+    }
+
+    /**
+     * A row of pips, the first {@code filled} of them lit.
+     *
+     * <p>Built out of four sprites rather than drawn from one, so a match of any length gets
+     * a box that really is that many cells wide.
+     */
+    public static void pips(GuiGraphics graphics, int x, int y, int filled, int total) {
+        draw(graphics, Element.PIP_LEFT, x, y, PIP_LEFT_WIDE, PIP_HIGH);
+        int at = x + PIP_LEFT_WIDE;
+        for (int index = 0; index < total; index++) {
+            draw(graphics, index < filled ? Element.PIP_FULL : Element.PIP_EMPTY,
+                    at, y, PIP_CELL_WIDE, PIP_HIGH);
+            at += PIP_CELL_WIDE;
+        }
+        draw(graphics, Element.PIP_RIGHT, at, y, PIP_RIGHT_WIDE, PIP_HIGH);
+    }
 
     /** One of the four arrows, at its own size, in the middle of the given box. */
     public static void arrow(GuiGraphics graphics, Element which, int x, int y, int width, int height) {
