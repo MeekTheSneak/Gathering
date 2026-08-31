@@ -540,6 +540,38 @@ def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, lo
     return flatPlate(size, tones, sunken, alpha)
 
 
+def bar(size, look, kind):
+    """A progress bar, built the way a pixel-art bar is built rather than as a small panel.
+
+    Capped ends, a hard outline, and the fill lit along its top and shaded along its bottom so
+    it reads as something sitting in the track rather than as a second rectangle drawn over
+    it. Drawn from the same palette as everything else; the shape is the idiom, which is worth
+    having whatever look is on, so unlike the panels this one does not vary by style.
+    """
+    ink = darker(look.ink, 0.2)
+    face = {"track": look.sunk, "fill": look.good, "done": look.warn}[kind]
+    band = bandOf(size)
+    image = Image.new("RGBA", (size, size))
+    pixels = image.load()
+    for y in range(size):
+        for x in range(size):
+            depth = depthAt(x, y, size, band)
+            if depth is None:
+                continue
+            if depth == 0:
+                tone = ink
+            elif kind == "track":
+                # A track is a hole: dark at the top where the wall shades it, and never
+                # bright, or a bar that has not started looks like one that has.
+                tone = darker(face, 0.35) if y < size / 2 else face
+            elif depth == 1:
+                tone = lighter(face, 0.45) if y < size / 2 else darker(face, 0.35)
+            else:
+                tone = face
+            pixels[x, y] = rgba(tone)
+    return image
+
+
 def wash(size, color, alpha=255):
     return Image.new("RGBA", (size, size), rgba(color, alpha))
 
@@ -785,11 +817,9 @@ ELEMENTS = [
     ("rarity_ring", NINE_16, lambda k: ring(16, k.glow, thickness=2, inner=k.accent)),
 
     # Progress bars.
-    ("bar_track", NINE_8, lambda k: plate(8, k, sunken=True, alpha=0xCC)),
-    ("bar_fill", NINE_8,
-     lambda k: plate(8, k, body=k.good, lit=lighter(k.good, 0.4), low=darker(k.good, 0.4))),
-    ("bar_done", NINE_8,
-     lambda k: plate(8, k, body=k.warn, lit=lighter(k.warn, 0.4), low=darker(k.warn, 0.4))),
+    ("bar_track", NINE_8, lambda k: bar(8, k, "track")),
+    ("bar_fill", NINE_8, lambda k: bar(8, k, "fill")),
+    ("bar_done", NINE_8, lambda k: bar(8, k, "done")),
 ]
 
 # ---------------------------------------------------------------- writing
