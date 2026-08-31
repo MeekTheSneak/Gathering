@@ -4017,8 +4017,14 @@ public final class TableScreen extends Screen {
                     layout().status().bottom() + 2, watching);
             return;
         }
+        // Not draw, not shuffle and not untap-all, though all three used to be here. Each of
+        // them is a button on your own mat, in front of you, always visible, and each has a
+        // key the row that carries it prints. Draw and shuffle are also on the library's own
+        // menu, where a verb that acts on a pile belongs. A fourth way to reach them bought
+        // nothing and cost the thing this menu is for: right-clicking the felt asks "what can
+        // I do that is not about an object", and a list that also answers "draw a card" is a
+        // list nobody can skim. See tools/gesturecheck.py, which fails if one comes back.
         List<ContextMenu.Entry> entries = ContextMenu.entries();
-        entries.add(entry("draw", () -> send(new GameEvent.CardsDrawn(me, me, 1))));
         // The one verb here the server decides. Everything else on this menu is a move you
         // make and the table writes down; a discard at random is only worth anything because
         // you did not choose, and a client that picked its own cards would look exactly like
@@ -4067,8 +4073,6 @@ public final class TableScreen extends Screen {
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
         entries.add(themeEntry());
         view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
-        entries.add(entry("untap_all", () -> send(new GameEvent.SeatUntappedAll(me, me))));
-        entries.add(entry("shuffle", () -> send(new GameEvent.LibraryShuffled(me, me))));
         entries.add(entry("gain_life", () -> send(new GameEvent.LifeChanged(me, me, 1))));
         entries.add(entry("lose_life", () -> send(new GameEvent.LifeChanged(me, me, -1))));
         view().ifPresent(board -> entries.add(entry("my_counters",

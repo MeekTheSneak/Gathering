@@ -170,6 +170,18 @@ else
     FAILED=1
 fi
 
+# And no verb is reachable from two different menus. The same row on two lists opened by
+# right-clicking two different things means neither one is where the verb lives, and "how do
+# I draw a card" stops having an answer - see tools/gesturecheck.py.
+printf '%-24s ' "one gesture per verb"
+if GESTURE_OUT=$(python3 tools/gesturecheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$GESTURE_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
 # And every mana symbol in the jar is still its own badge with its own marks pressed into it.
 # The two halves are kept apart so somebody can repaint a mark; repaint one, forget to
 # regenerate, and the symbol the game draws quietly stops being the one on disk. See
