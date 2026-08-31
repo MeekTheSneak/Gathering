@@ -56,6 +56,8 @@ public final class GatheringSprites {
         BUTTON_HOVER("button_hover"),
         /** And one that will not do anything, which has to look like it will not. */
         BUTTON_OFF("button_off"),
+        /** And one with the mouse held down on it, which dips the way a real key does. */
+        BUTTON_DOWN("button_down"),
 
         /**
          * The four directions, as shapes.

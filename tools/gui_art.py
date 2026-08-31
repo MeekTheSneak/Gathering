@@ -689,8 +689,16 @@ def bar(size, look, kind):
                 # A track is a hole: dark at the top where the wall shades it, and never
                 # bright, or a bar that has not started looks like one that has.
                 tone = darker(face, 0.35) if y < size / 2 else face
+            elif y < band:
+                # The whole top cap lit rather than one pixel of it. A bar is drawn both ways
+                # round here - along, for how much of a set is owned, and upward, for a mana
+                # curve - and the top is the lit edge in the first and the leading edge in the
+                # second, so it is the one highlight that reads in both.
+                tone = lighter(face, 0.45)
+            elif y >= size - band:
+                tone = darker(face, 0.35)
             elif depth == 1:
-                tone = lighter(face, 0.45) if y < size / 2 else darker(face, 0.35)
+                tone = lighter(face, 0.2) if x < size / 2 else darker(face, 0.2)
             else:
                 tone = face
             pixels[x, y] = rgba(tone)
@@ -997,6 +1005,8 @@ ELEMENTS = [
     ("button_off", NINE_16,
      lambda k: plate(16, k, body=darker(k.body, 0.45), lit=k.shade,
                      low=darker(k.shade, 0.35))),
+    ("button_down", NINE_16,
+     lambda k: plate(16, k, sunken=True, body=mix(k.body, k.shade, 0.22))),
 
     # Directions. Blitted at their own size in the middle of a button, never stretched.
     ("arrow_left", STRETCH, lambda k: arrow(ARROW_SIZE, k, "left")),

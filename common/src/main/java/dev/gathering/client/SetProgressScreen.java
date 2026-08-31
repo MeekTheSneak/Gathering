@@ -217,8 +217,12 @@ public final class SetProgressScreen extends ChildScreen {
         GuiText.drawFlushRight(graphics, this.font, count, row.right(), row.y() + 1, 1f,
                 set.isComplete() ? DONE_TEXT : DIM);
 
+        // Six pixels rather than three. The bar art has a capped end, a lit top and an
+        // outline, and at three pixels the nine-slice's own borders meet in the middle and
+        // none of it is drawn - so it came out as a flat line whatever look was on. The row
+        // is twenty tall and the words take ten, so this costs nothing.
         int barTop = row.y() + this.font.lineHeight + 3;
-        int barHigh = 3;
+        int barHigh = 6;
         GatheringSprites.draw(graphics, Element.BAR_TRACK,
                 row.x(), barTop, row.width(), barHigh);
         int full = Math.round(row.width() * set.share());

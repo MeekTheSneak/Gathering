@@ -60,8 +60,31 @@ public final class GatheringButtons {
      */
     private static class Fitting extends Button {
 
+        /** Whether the mouse is currently held down on this button. */
+        private boolean held;
+
         private Fitting(int x, int y, int width, int height, Component label, OnPress onPress) {
             super(x, y, width, height, label, onPress, DEFAULT_NARRATION);
+        }
+
+        /**
+         * Remembers that the button is being held, so the face can dip.
+         *
+         * <p>Through {@code mouseClicked} and {@code mouseReleased} rather than through
+         * {@code onClick}, which NeoForge has deprecated in favour of a three-argument form
+         * it patched in. These two are vanilla, are not deprecated, and are the same on both
+         * loaders - and {@code common} may not name a Forge addition at all.
+         */
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            held = super.mouseClicked(mouseX, mouseY, button);
+            return held;
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            held = false;
+            return super.mouseReleased(mouseX, mouseY, button);
         }
 
         /**
@@ -73,15 +96,25 @@ public final class GatheringButtons {
          */
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            // Held only counts while the cursor is still on it: dragging off a button you
+            // are holding is how everybody cancels a press they did not mean, and a face that
+            // stayed dipped would say the press is still going to happen.
+            boolean down = held && isHovered();
             Element face = !active
                     ? Element.BUTTON_OFF
+                    : down ? Element.BUTTON_DOWN
                     : isHoveredOrFocused() ? Element.BUTTON_HOVER : Element.BUTTON;
             RenderSystem.enableBlend();
             graphics.setColor(1.0F, 1.0F, 1.0F, alpha);
             GatheringSprites.draw(graphics, face, getX(), getY(), getWidth(), getHeight());
             graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+            // And the label goes down with it. A face that dips under words that do not is a
+            // button with a sticker on it; the one pixel is most of why a press feels like one.
+            graphics.pose().pushPose();
+            graphics.pose().translate(0.0F, down ? 1.0F : 0.0F, 0.0F);
             renderString(graphics, Minecraft.getInstance().font,
                     (active ? LABEL : LABEL_OFF) | Mth.ceil(alpha * 255.0F) << 24);
+            graphics.pose().popPose();
         }
 
         @Override
