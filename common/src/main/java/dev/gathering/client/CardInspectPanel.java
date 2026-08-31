@@ -447,6 +447,7 @@ public final class CardInspectPanel {
         GuiText.drawCentered(graphics, font, Component.literal(face.name()),
                 x + width / 2, y + PADDING, room, TEXT);
 
+        boolean stillTrying = url.isPresent() && !ClientCardImages.get().hasFailed(url.get());
         Component message = url.isEmpty()
                 ? Component.translatable("overlay.gathering.no_image")
                 : ClientCardImages.get().hasFailed(url.get())
@@ -456,8 +457,22 @@ public final class CardInspectPanel {
         // says less than the empty box does, and the card's own name is already there.
         int lines = GuiText.linesNeeded(font, message, room);
         int needs = lines * (font.lineHeight + 1);
+        // The ring goes above the words, and only while there is still a fetch to be waiting
+        // on: a sentence cannot tell anybody whether it is still trying, and "Fetching art..."
+        // sitting still is the same picture as "Fetching art..." having given up. It gets the
+        // room first, and is left out entirely on a card too small to hold both.
+        boolean turning = stillTrying
+                && GatheringSprites.SPINNER + 2 + needs <= height - PADDING * 2 - font.lineHeight
+                && GatheringSprites.SPINNER <= room;
+        if (turning) {
+            needs += GatheringSprites.SPINNER + 2;
+        }
         if (needs <= height - PADDING * 2 - font.lineHeight) {
             int top = y + (height - needs) / 2;
+            if (turning) {
+                GatheringSprites.spinner(graphics, x, top, width, GatheringSprites.SPINNER);
+                top += GatheringSprites.SPINNER + 2;
+            }
             for (var row : font.split(message, room)) {
                 // Drawn as the wrapped sequence rather than turned back into a string:
                 // FormattedCharSequence has no readable toString, and the one it does have

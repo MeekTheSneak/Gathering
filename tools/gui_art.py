@@ -20,6 +20,7 @@ is what keeps eight of them consistent, and what makes a ninth an entry in one t
 Run it from the repo root:  python3 tools/gui_art.py
 """
 
+import math
 import os
 import sys
 
@@ -821,23 +822,81 @@ def arrow(size, look, which):
     return middled
 
 
+#: How many dots a spinner has, which is also how many frames it takes to go round.
+SPINNER_DOTS = 8
+
+#: How big one is drawn, and how far its dots sit from the middle.
+SPINNER_SIZE = 16
+SPINNER_RADIUS = 5.2
+
+#: And how big each dot is, square.
+SPINNER_DOT = 2
+
+
+def spinner(size, look, frame):
+    """One frame of a ring of dots going round.
+
+    A card whose art has not arrived says "Fetching art..." on it, and a sentence cannot tell
+    somebody that it is still trying. A ring that is turning can, and it is the one thing on
+    any of these screens that has to move to mean anything.
+
+    Frames rather than one sprite turned by the renderer: rotating pixel art by anything but a
+    right angle resamples it, and a nine-pixel dot smeared across a diagonal is not the shape
+    anybody drew. Eight dots and eight frames, so the pattern that comes back round is the one
+    that left.
+    """
+    lead = look.glow
+    trail = darker(look.accent, 0.55)
+    image = Image.new("RGBA", (size, size))
+    pixels = image.load()
+    middle = (size - SPINNER_DOT) / 2.0
+    for dot in range(SPINNER_DOTS):
+        # How far behind the leading dot this one is, which is how faint it is.
+        behind = (dot - frame) % SPINNER_DOTS
+        share = behind / (SPINNER_DOTS - 1)
+        tone = mix(lead, trail, share)
+        alpha = round(255 * (1.0 - 0.72 * share))
+        # Snapped to whole pixels and drawn as a square block, so every dot is the same dot.
+        # Testing a distance instead gave the four on the axes a square and the four on the
+        # diagonals a plus, which reads as a ring somebody drew badly rather than as one going
+        # round.
+        angle = 2.0 * math.pi * dot / SPINNER_DOTS
+        cx = int(round(middle + SPINNER_RADIUS * math.sin(angle)))
+        cy = int(round(middle - SPINNER_RADIUS * math.cos(angle)))
+        for y in range(cy, cy + SPINNER_DOT):
+            for x in range(cx, cx + SPINNER_DOT):
+                if 0 <= x < size and 0 <= y < size:
+                    pixels[x, y] = rgba(tone, alpha)
+    return image
+
+
 def wash(size, color, alpha=255):
     return Image.new("RGBA", (size, size), rgba(color, alpha))
 
 
-def ring(size, color, alpha=255, thickness=1, fill=None, fill_alpha=0, inner=None):
+def ring(size, color, alpha=255, thickness=1, fill=None, fill_alpha=0, inner=None, halo=False):
     """An outline round nothing, or round a wash. The optional inner tone is a second, lighter
     line just inside the first, which is what stops a bright ring reading as a sticker laid on
-    top of the thing it is marking."""
+    top of the thing it is marking.
+
+    A haloed ring puts a faint line of the same color outside the bright one, which is how a
+    ring that is meant to catch the eye is drawn in every pixel-art kit: the light appears to
+    come off the line rather than the line simply being brighter. It cannot go outside the
+    sprite - the ring is drawn at the exact bounds of the thing it marks - so the bright line
+    moves in by one and the faint one takes the edge.
+    """
     image = Image.new("RGBA", (size, size),
                       rgba(fill, fill_alpha) if fill is not None else (0, 0, 0, 0))
     pixels = image.load()
+    edge = 1 if halo else 0
     for y in range(size):
         for x in range(size):
             depth = min(x, y, size - 1 - x, size - 1 - y)
-            if depth < thickness:
+            if depth < edge:
+                pixels[x, y] = rgba(color, round(alpha * 0.4))
+            elif depth < edge + thickness:
                 pixels[x, y] = rgba(color, alpha)
-            elif inner is not None and depth == thickness:
+            elif inner is not None and depth == edge + thickness:
                 pixels[x, y] = rgba(inner, alpha)
     return image
 
@@ -1028,9 +1087,11 @@ ELEMENTS = [
     ("seat_divider", STRETCH, lambda k: wash(16, k.bevel, 0x66)),
     ("zone_border", NINE_16, lambda k: ring(16, k.bevel, 0x66)),
     ("seat_ring", NINE_16, lambda k: ring(16, k.bevel)),
-    ("focus_ring", NINE_16, lambda k: ring(16, k.accent, inner=darker(k.accent, 0.55))),
+    ("focus_ring", NINE_16,
+     lambda k: ring(16, k.accent, inner=darker(k.accent, 0.55), halo=True)),
     ("hover_ring", NINE_16, lambda k: ring(16, k.glow)),
-    ("chosen_ring", NINE_16, lambda k: ring(16, k.accent, thickness=2, inner=k.glow)),
+    ("chosen_ring", NINE_16,
+     lambda k: ring(16, k.accent, thickness=2, inner=k.glow, halo=True)),
     ("select_box", NINE_16,
      lambda k: ring(16, k.accent, fill=k.accent, fill_alpha=0x20)),
     ("aimed_pile", NINE_16,
@@ -1076,7 +1137,19 @@ ELEMENTS = [
     # Sealed product.
     ("pack_wrapper_edge", STRETCH, lambda k: wash(16, k.ink)),
     ("pack_spark", STRETCH, lambda k: wash(16, lighter(k.glow, 0.7))),
-    ("rarity_ring", NINE_16, lambda k: ring(16, k.glow, thickness=2, inner=k.accent)),
+    ("rarity_ring", NINE_16,
+     lambda k: ring(16, k.glow, thickness=2, inner=k.accent, halo=True)),
+
+    # The one thing on any of these screens that moves. Eight frames of a ring going round,
+    # for a card whose art has not arrived yet.
+    ("spinner_0", STRETCH, lambda k, f=0: spinner(SPINNER_SIZE, k, f)),
+    ("spinner_1", STRETCH, lambda k, f=1: spinner(SPINNER_SIZE, k, f)),
+    ("spinner_2", STRETCH, lambda k, f=2: spinner(SPINNER_SIZE, k, f)),
+    ("spinner_3", STRETCH, lambda k, f=3: spinner(SPINNER_SIZE, k, f)),
+    ("spinner_4", STRETCH, lambda k, f=4: spinner(SPINNER_SIZE, k, f)),
+    ("spinner_5", STRETCH, lambda k, f=5: spinner(SPINNER_SIZE, k, f)),
+    ("spinner_6", STRETCH, lambda k, f=6: spinner(SPINNER_SIZE, k, f)),
+    ("spinner_7", STRETCH, lambda k, f=7: spinner(SPINNER_SIZE, k, f)),
 
     # Progress bars.
     ("bar_track", NINE_8, lambda k: bar(8, k, "track")),

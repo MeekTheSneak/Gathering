@@ -254,6 +254,21 @@ public final class GatheringSprites {
          */
         RARITY_RING("rarity_ring"),
 
+        /**
+         * Eight frames of a ring going round, for a card whose art has not arrived.
+         *
+         * <p>Frames rather than one sprite turned by the renderer: rotating pixel art by
+         * anything but a right angle resamples it. Pick one with {@link #spinner}.
+         */
+        SPINNER_0("spinner_0"),
+        SPINNER_1("spinner_1"),
+        SPINNER_2("spinner_2"),
+        SPINNER_3("spinner_3"),
+        SPINNER_4("spinner_4"),
+        SPINNER_5("spinner_5"),
+        SPINNER_6("spinner_6"),
+        SPINNER_7("spinner_7"),
+
         /** How far there is to go. */
         BAR_TRACK("bar_track"),
         /** How far it has got. */
@@ -347,6 +362,36 @@ public final class GatheringSprites {
                 ((color >>> 24) & 0xFF) / 255f);
         graphics.blitSprite(of(element), x, y, width, height);
         graphics.setColor(1f, 1f, 1f, 1f);
+    }
+
+    /** How big a spinner is drawn, and how long one turn takes. */
+    public static final int SPINNER = 16;
+    private static final long SPINNER_TURN_MILLIS = 640L;
+
+    /**
+     * The frames in order, held once.
+     *
+     * <p>Rather than {@code Element.values()[...]} at the draw: an enum's {@code values()}
+     * clones its array every call, and this one is called on every frame of a screen that may
+     * have twenty cards on it still fetching.
+     */
+    private static final Element[] SPINNER_FRAMES = {
+        Element.SPINNER_0, Element.SPINNER_1, Element.SPINNER_2, Element.SPINNER_3,
+        Element.SPINNER_4, Element.SPINNER_5, Element.SPINNER_6, Element.SPINNER_7,
+    };
+
+    /**
+     * The frame of the spinner that belongs to right now, in the middle of the given box.
+     *
+     * <p>Off the wall clock rather than off a tick count, because this is drawn on screens
+     * that are open while the game is paused - and a spinner that stops whenever the world
+     * does says the fetch has stopped too.
+     */
+    public static void spinner(GuiGraphics graphics, int x, int y, int width, int height) {
+        int frame = (int) (net.minecraft.Util.getMillis() % SPINNER_TURN_MILLIS
+                * SPINNER_FRAMES.length / SPINNER_TURN_MILLIS);
+        draw(graphics, SPINNER_FRAMES[frame],
+                x + (width - SPINNER) / 2, y + (height - SPINNER) / 2, SPINNER, SPINNER);
     }
 
     /** How big an arrow is drawn - see {@code ARROW_SIZE} in tools/gui_art.py. */

@@ -146,6 +146,23 @@ def main():
                     f"{TEMPLATE_FOLDER}/{name}.png has transparent pixels, so it opens as"
                     " nothing in an image editor")
 
+    # And the spinner really turns. Eight frames built in a loop is the shape of the oldest
+    # Python mistake there is - a lambda closing over the loop variable instead of capturing
+    # it - and the result is eight identical files, which look exactly like a spinner that
+    # has stopped rather than like a bug.
+    frames = [name for name in java if name.startswith("spinner_")]
+    if frames:
+        folder = os.path.join(SPRITES, default)
+        seen = {}
+        for name in frames:
+            where = os.path.join(folder, name + ".png")
+            if os.path.isfile(where):
+                seen.setdefault(open(where, "rb").read(), []).append(name)
+        same = [names for names in seen.values() if len(names) > 1]
+        for names in same:
+            problems.append(
+                "the spinner does not turn: " + ", ".join(names) + " are the same picture")
+
     for note in notes:
         print(f"note: {note}")
     for problem in problems:
