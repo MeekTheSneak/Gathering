@@ -110,21 +110,23 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
             this.addRenderableWidget(new LandButton(where, land));
         }
 
+        // Both through GatheringButtons rather than the vanilla builder, which scrolls a label
+        // too wide for its button back and forth forever. "Sleeves..." on a panel this narrow
+        // arrived a letter at a time and read as "Sleeves." most of the time anybody looked at
+        // it; these shrink the words to fit and leave them still.
         Rect done = layout.done();
-        this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> this.onClose())
-                .bounds(done.x(), done.y(), done.width(), done.height())
-                .build());
+        this.addRenderableWidget(GatheringButtons.of(
+                done.x(), done.y(), done.width(), done.height(),
+                Component.translatable("gui.done"), this::onClose));
 
         // Sleeves. Beside Done because it is a property of the deck rather than of any card
         // in it, and because this is the screen a player has open when they are thinking
         // about the deck as an object.
         Rect sleeves = layout.sleeves();
         if (!sleeves.isEmpty()) {
-            this.addRenderableWidget(Button.builder(
-                            Component.translatable("screen.gathering.deck.sleeves"),
-                            button -> openSleeves())
-                    .bounds(sleeves.x(), sleeves.y(), sleeves.width(), sleeves.height())
-                    .build());
+            this.addRenderableWidget(GatheringButtons.of(
+                    sleeves.x(), sleeves.y(), sleeves.width(), sleeves.height(),
+                    Component.translatable("screen.gathering.deck.sleeves"), this::openSleeves));
         }
 
         // The title is the name, and the name is editable. A deck started by putting two

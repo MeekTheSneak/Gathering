@@ -54,7 +54,10 @@ public final class SleeveScreen extends ChildScreen {
     private int plainCount = Sleeve.values().length;
 
     public SleeveScreen(Sleeve current, Consumer<Sleeve> chosen, Screen back) {
-        super(Component.translatable("screen.gathering.sleeves"), back);
+        // Without the deck list behind it. Every swatch here is a picture of a card, and a
+        // list of card names showing through them is noise at best - see ChildScreen, where
+        // it is also what stopped the land buttons drawing over the grid.
+        super(Component.translatable("screen.gathering.sleeves"), back, false);
         this.current = current == null ? Sleeve.DEFAULT : current;
         this.chosen = chosen;
     }

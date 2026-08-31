@@ -110,7 +110,10 @@ public record DeckScreenLayout(
         // the choice is between two buttons that fit and one that does not: a deck whose
         // sleeves can only be picked on a wide window is a deck most people cannot sleeve.
         int row = Math.max(1, contentWidth - GAP);
-        int doneWidth = Math.min(BUTTON_WIDTH, row / 2);
+        // Not down the middle. "Done" is one short word and the other button's label is three
+        // times as long, so an even split leaves one button half empty and the other with its
+        // text touching both edges - which is what shipped, and it read as a mistake.
+        int doneWidth = Math.min(BUTTON_WIDTH, row * 2 / 5);
         Rect done = new Rect(PAD, buttonTop, doneWidth, BUTTON_HEIGHT);
         // Beside Done rather than above it, because it belongs to the deck as a whole the way
         // the name does - and because the rows above are the cards, which is what the rest of

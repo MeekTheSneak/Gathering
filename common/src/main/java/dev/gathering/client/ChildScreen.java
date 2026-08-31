@@ -25,9 +25,28 @@ public abstract class ChildScreen extends Screen {
     /** Where closing goes. Null means out, which is the ordinary behavior. */
     private final Screen back;
 
+    /**
+     * Whether the screen behind is drawn, as distinct from returned to.
+     *
+     * <p>Two questions that were one field. Almost every detour wants the board behind it -
+     * that is what {@link #renderBackground} is for - but a screen whose whole content is a
+     * grid of pictures gains nothing from it and loses something to it: the mod's mana
+     * symbols are a bitmap font with one texture per symbol, so each lands in a batch of its
+     * own, and a batch is drawn when the frame empties it rather than when it was written.
+     * The deck screen's land buttons came out on top of the sleeve picker's swatches for that
+     * reason, and flushing what the parent had drawn did not bring them down. Where the parent
+     * would be covered anyway, not drawing it is both the fix and the cheaper frame.
+     */
+    private final boolean showParent;
+
     protected ChildScreen(Component title, Screen back) {
+        this(title, back, true);
+    }
+
+    protected ChildScreen(Component title, Screen back, boolean showParent) {
         super(title);
         this.back = back;
+        this.showParent = showParent;
     }
 
     @Override
@@ -61,8 +80,9 @@ public abstract class ChildScreen extends Screen {
      */
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        if (back == null) {
-            super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        if (back == null || !showParent) {
+            GatheringSprites.draw(graphics, GatheringSprites.Element.SCREEN_BACKDROP,
+                    0, 0, this.width, this.height);
             return;
         }
         // A window resized while this was open resized this screen and not the one behind it,
@@ -71,6 +91,13 @@ public abstract class ChildScreen extends Screen {
             back.resize(Minecraft.getInstance(), this.width, this.height);
         }
         back.render(graphics, OFF_THE_SCREEN, OFF_THE_SCREEN, partialTick);
+        // Everything the parent drew, put on the screen before this one draws a pixel.
+        // Text goes into a batch that is drawn when somebody empties it rather than when it
+        // was written, and a batch left full outlives whatever is drawn next: the deck
+        // screen's mana glyphs sat on top of the sleeve picker that had covered them, because
+        // they were still queued when the panel went down. A screen drawn underneath has to
+        // be finished being drawn.
+        graphics.flush();
         GatheringSprites.draw(graphics, GatheringSprites.Element.SCREEN_SCRIM,
                 0, 0, this.width, this.height);
     }
