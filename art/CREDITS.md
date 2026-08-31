@@ -3,7 +3,10 @@
 ## Pixel UI, BDragon1727
 
 The GUI's construction — the rail along the top of an Arcade panel, the way a progress bar is
-capped and lit, the capsule shapes — is drawn from BDragon1727's pixel UI packs:
+capped and lit, the scroll bar as a pill standing on end, the four arrows on the page turns,
+the pressed face a button wears while it is held, the ring of dots that turns while a card's
+art is on its way, the halo outside a ring meant to catch the eye — is drawn from BDragon1727's
+pixel UI packs:
 
 - [Basic Pixel Health bar and Scroll bar](https://bdragon1727.itch.io/basic-pixel-health-bar-and-scroll-bar)
 - [Pixel Buttons pack All](https://bdragon1727.itch.io/pixel-buttons-pack-all)
