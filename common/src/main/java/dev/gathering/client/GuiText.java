@@ -38,6 +38,41 @@ public final class GuiText {
         return wrongScales;
     }
 
+    /**
+     * Which of the mod's own lines have had their tails cut off.
+     *
+     * <p>Trimming a card name is the job: those are arbitrary text nobody chose and a panel
+     * cannot be built around the longest one in Magic. Trimming a line the mod wrote is not -
+     * it is a label that has stopped saying what it was written to say, and the fix is more
+     * room or fewer words rather than an ellipsis. So the two are counted apart, by whether
+     * the line came from the language file.
+     *
+     * <p>Keys rather than a count, because a count says something is wrong and a key says
+     * which. Read by the scripted run at the end, which is the only place that sees the whole
+     * mod drawn; a set, because a label too long is too long on every frame.
+     */
+    private static final java.util.Set<String> trimmedCopy =
+            new java.util.LinkedHashSet<>();
+
+    /** The keys of any of the mod's own lines that had to be cut short. */
+    public static java.util.Set<String> trimmedCopy() {
+        return java.util.Set.copyOf(trimmedCopy);
+    }
+
+    /**
+     * Notes a line that lost its tail, if it was one of ours.
+     *
+     * <p>A translatable component is the mod talking; a literal is almost always a name out
+     * of a card or a deck. A translatable with arguments counts as ours too - "Look: %s" that
+     * does not fit is still a label nobody can read - and the key is enough to find it.
+     */
+    private static void noteTrim(Component text) {
+        if (text.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents
+                said) {
+            trimmedCopy.add(said.getKey());
+        }
+    }
+
     private static final String ELLIPSIS = "...";
 
     private GuiText() {
@@ -68,6 +103,25 @@ public final class GuiText {
      */
     public static int linesNeeded(Font font, Component text, int maxWidth) {
         return Math.max(1, font.split(text, Math.max(1, maxWidth)).size());
+    }
+
+    /**
+     * Draws text over as many lines as it needs, each line centered, and says how tall it
+     * came out.
+     *
+     * <p>For a whole sentence in a box that may be narrower than it - a message in the middle
+     * of an empty pile, say. Shrinking a sentence to fit one line makes it unreadable and
+     * trimming it makes it untrue; breaking it costs a line of height and keeps every word.
+     */
+    public static int drawWrappedCentered(
+            GuiGraphics graphics, Font font, Component text, int centerX, int y, int maxWidth,
+            int color) {
+        int line = y;
+        for (FormattedCharSequence row : font.split(text, Math.max(1, maxWidth))) {
+            graphics.drawString(font, row, centerX - font.width(row) / 2, line, color, false);
+            line += font.lineHeight + 1;
+        }
+        return line - y;
     }
 
     /** Draws text over as many lines as it needs, breaking on words. */
@@ -173,6 +227,7 @@ public final class GuiText {
             graphics.drawString(font, text, x, y, color, false);
             return;
         }
+        noteTrim(text);
         int room = maxWidth - font.width(ELLIPSIS);
         FormattedText shown = FormattedText.composite(
                 font.substrByWidth(text, Math.max(0, room)), FormattedText.of(ELLIPSIS));
@@ -202,6 +257,7 @@ public final class GuiText {
         FormattedText shown = text;
         if (width * scale > maxWidth) {
             // Even at the smallest readable size it does not fit, so the tail goes.
+            noteTrim(text);
             int room = Math.round(maxWidth / scale) - font.width(ELLIPSIS);
             shown = FormattedText.composite(
                     font.substrByWidth(text, Math.max(0, room)), FormattedText.of(ELLIPSIS));

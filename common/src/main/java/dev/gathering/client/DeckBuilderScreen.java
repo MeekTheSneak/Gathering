@@ -50,7 +50,26 @@ public final class DeckBuilderScreen extends Screen {
     private static final int MARGIN = 12;
     private static final int GAP = 6;
     private static final int TOP_BAR = 62;
-    private static final int BOTTOM_BAR = 30;
+    /**
+     * The foot is as tall as what has to go in it.
+     *
+     * <p>The hint used to be squeezed into the gap between the buttons at either end, which
+     * is not a width anybody chose - it is whatever those buttons left - and on an ordinary
+     * window it was not enough, so the line was cut off mid-word. A line that cannot be read
+     * is not a hint. It gets its own row now, across the whole foot, over as many lines as it
+     * needs, and the foot is built around that rather than the other way round.
+     */
+    private int bottomBar() {
+        return ROW + GAP * 3 + hintLines() * (this.font.lineHeight + 1);
+    }
+
+    private int hintLines() {
+        return GuiText.linesNeeded(this.font, hint(), Math.max(1, this.width - MARGIN * 2));
+    }
+
+    private static Component hint() {
+        return Component.translatable("screen.gathering.builder.hint");
+    }
 
     /** How much of the width the box gets. The rest is the deck, which is a list of text. */
     private static final float BOX_SHARE = 0.62f;
@@ -79,11 +98,7 @@ public final class DeckBuilderScreen extends Screen {
     private static final int SLEEVES = 78;
     private static final int CANCEL = 70;
     private static final int FINISH = 78;
-    private static final int FOOT_LEFT = FROM_LIST + GAP + SLEEVES;
     private static final int FOOT_RIGHT = CANCEL + GAP + FINISH;
-
-    /** Narrower than this and the hint is not drawn at all. */
-    private static final int LEAST_HINT = 60;
 
     /** What the deck being built will be sleeved in. Picked here, carried to the deck. */
     private dev.gathering.core.card.Sleeve sleeve = dev.gathering.core.card.Sleeve.DEFAULT;
@@ -128,7 +143,7 @@ public final class DeckBuilderScreen extends Screen {
         addRenderableWidget(this.searchBox);
 
 
-        int buttonTop = this.height - BOTTOM_BAR + 6;
+        int buttonTop = this.height - ROW - GAP;
         addRenderableWidget(GatheringButtons.of(MARGIN, buttonTop, FROM_LIST, ROW,
                 Component.translatable("screen.gathering.builder.from_list"),
                 () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
@@ -153,7 +168,8 @@ public final class DeckBuilderScreen extends Screen {
 
     private Rect boxPane() {
         int across = Math.max(80, (int) ((this.width - MARGIN * 2 - GAP) * BOX_SHARE));
-        return new Rect(MARGIN, TOP_BAR, across, Math.max(1, this.height - BOTTOM_BAR - TOP_BAR));
+        return new Rect(MARGIN, TOP_BAR, across,
+                Math.max(1, this.height - bottomBar() - TOP_BAR));
     }
 
     private Rect deckPane() {
@@ -459,20 +475,8 @@ public final class DeckBuilderScreen extends Screen {
     }
 
     private void drawFooter(GuiGraphics graphics) {
-        int y = this.height - BOTTOM_BAR + 10;
-        Component how = Component.translatable("screen.gathering.builder.hint");
-        // The gap between the buttons on the left and the pair on the right, taken from the
-        // same widths those buttons are built with. It used to be written out again here, and
-        // when a second button was added on the left the hint went on being drawn from where
-        // the first one ended - straight through the new one.
-        int from = MARGIN + FOOT_LEFT + GAP;
-        int to = this.width - MARGIN - FOOT_RIGHT - GAP;
-        // And on a window too narrow to hold it, nothing rather than two letters and an
-        // ellipsis, which reads as a fault rather than as a hint.
-        if (to - from < LEAST_HINT) {
-            return;
-        }
-        GuiText.drawCentered(graphics, this.font, how, (from + to) / 2, y, to - from, DIM);
+        GuiText.drawWrappedCentered(graphics, this.font, hint(), this.width / 2,
+                this.height - bottomBar() + GAP, this.width - MARGIN * 2, DIM);
     }
 
     /** Where each drawn deck row is, so a click can find the card it named. */

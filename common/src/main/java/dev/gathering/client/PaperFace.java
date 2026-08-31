@@ -111,9 +111,13 @@ public final class PaperFace {
 
         // The word, when there is room for it and a line of writing underneath. An emblem
         // with its title and nothing else would be a card that says less than its color did.
-        if (emblem && floor - top >= font.lineHeight * 2 + 2) {
-            GuiText.drawCentered(graphics, font, Component.translatable("card.gathering.emblem"),
-                    x + width / 2, top, room, EMBLEM_TITLE);
+        //
+        // And only when the whole word fits across: a card small enough to cut it short says
+        // "Em..." where it meant to say what kind of card it is, which is worse than not
+        // saying it - the writing underneath is the part that carries the meaning anyway.
+        Component title = Component.translatable("card.gathering.emblem");
+        if (emblem && floor - top >= font.lineHeight * 2 + 2 && font.width(title) <= room) {
+            GuiText.drawCentered(graphics, font, title, x + width / 2, top, room, EMBLEM_TITLE);
             top += font.lineHeight + 2;
         }
         writeAcross(graphics, font, text, left, top, room, floor - top,

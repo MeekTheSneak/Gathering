@@ -381,12 +381,17 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
         ClientHoverState.clear();
         if (cards.isEmpty()) {
-            GuiText.drawCentered(graphics, this.font,
-                    Component.translatable(count() == 0
-                            ? "screen.gathering.pile.empty"
-                            : "screen.gathering.pile.not_yours"),
-                    panel.x() + panel.width() / 2, grid.y() + grid.height() / 2,
-                    grid.width(), DIM);
+            // Wrapped rather than fitted: these are sentences, and a narrow pile - a
+            // graveyard on a small window - used to cut "Not yours to look through" down to
+            // something that no longer said whose it was not.
+            Component nothing = Component.translatable(count() == 0
+                    ? "screen.gathering.pile.empty"
+                    : "screen.gathering.pile.not_yours");
+            int high = GuiText.linesNeeded(this.font, nothing, grid.width())
+                    * (this.font.lineHeight + 1);
+            GuiText.drawWrappedCentered(graphics, this.font, nothing,
+                    panel.x() + panel.width() / 2,
+                    grid.y() + (grid.height() - high) / 2, grid.width(), DIM);
         }
 
         // Clipped to the grid. Skipping the rows that are entirely outside it is not enough:

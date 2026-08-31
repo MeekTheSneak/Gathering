@@ -8228,6 +8228,15 @@ public final class DevScene {
             fail("text was drawn at a scale nobody asked for " + GuiText.wrongScales()
                     + " times - an int width handed to a float scale, almost certainly");
         }
+        // A card name losing its tail is the job - those are arbitrary and a panel cannot be
+        // built around the longest one in Magic. A line the mod wrote losing its tail is a
+        // label that has stopped saying what it was written to say, and no screenshot makes
+        // that obvious: "Click to add - right-cli..." looks like a design until you read it.
+        if (!GuiText.trimmedCopy().isEmpty()) {
+            fail("the mod's own lines were cut short: "
+                    + String.join(", ", new java.util.TreeSet<>(GuiText.trimmedCopy()))
+                    + " - each needs more room or fewer words, not an ellipsis");
+        }
         System.out.println("[devscene] " + why + "; took " + TAKEN);
         // How far it actually got, on its own line, because "failures: 0" is only worth
         // anything alongside it. A run that stopped a third of the way through and found
