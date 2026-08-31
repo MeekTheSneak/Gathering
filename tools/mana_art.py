@@ -15,7 +15,7 @@ over it silently is the one thing a generator must never do. Delete a mark to ha
 
     python3 tools/mana_art.py            # writes the pngs and the font
     python3 tools/mana_art.py --sheet    # and a contact sheet to look at
-    python3 tools/mana_art.py --gloss    # the lit-sphere finish, for comparison
+    python3 tools/mana_art.py --matte    # the flat finish, for comparison
 """
 import os
 import sys
@@ -29,25 +29,40 @@ BADGES = "art/mana/badges"
 MARKS = "art/mana/symbols"
 SIZE = textures.SYMBOL_SIZE
 
-# Muted on purpose. The mod's own art - the card back, the sleeve, the deck box, the felt - is
-# matte and low contrast, and a set of saturated badges beside it reads as imported. The hues
-# carry the color and the values stay close together, so black is a violet grey rather than a
-# charcoal: it still reads as its own color beside colorless, and it still takes dark ink.
+# Saturated on purpose. These are lit spheres, and a lit sphere needs somewhere to travel: a
+# muted set was tried and the highlight had nowhere to go, so every badge came out chalky. The
+# hues are the ones the game uses, near enough that nobody has to be told which is which.
 BASE = {
-    "w": (0xD8, 0xCB, 0xA6),
-    "u": (0x7A, 0xA3, 0xC2),
-    "b": (0x8B, 0x80, 0x96),
-    "r": (0xC4, 0x7B, 0x6B),
-    "g": (0x83, 0xAB, 0x84),
-    "c": (0xB0, 0xB4, 0xB8),
-    "s": (0xC3, 0xD6, 0xDF),
-    "generic": (0xBD, 0xB6, 0xAE),
+    "w": (0xE6, 0xD8, 0xAC),
+    "u": (0x3D, 0x8F, 0xC9),
+    "b": (0x4B, 0x3B, 0x5C),
+    "r": (0xCB, 0x3E, 0x2E),
+    "g": (0x37, 0x9B, 0x4A),
+    "c": (0xA6, 0xA9, 0xAC),
+    "s": (0xA9, 0xD2, 0xE2),
+    "generic": (0xB6, 0xB1, 0xA8),
 }
 
-# One ink for every mark, on every badge. This is why the badges are all light: a mark is a
-# file somebody will open and repaint, and a mark whose color the layering step decides is a
-# mark they cannot really own. Light badges, dark ink, and the color says the color.
-INK = (0x26, 0x22, 0x1F)
+# One ink for every mark, on every badge, so that a mark is a file somebody can own: a mark
+# whose color the layering step decides is not really theirs. It reads on the dark badges too,
+# because the sphere puts a lit quarter under wherever the mark sits.
+INK = (0x1B, 0x17, 0x1C)
+
+# Where the light is, in units of the badge's own radius, and how far each band reaches from
+# it. Five tones: a small specular, two lit bands, the body, and the shadow.
+LIGHT = (-0.46, -0.50)
+BANDS = (0.26, 0.62, 1.04, 1.44)
+
+# The light that comes back off whatever the sphere is sitting on: one band brighter, along the
+# shadow side only, a couple of pixels in from the rim. Without it a pixel sphere reads as a
+# flat disc with a smudge on it.
+BOUNCE_DEPTH = 3.2
+BOUNCE_FROM = 0.48
+
+# How much of the 32-pixel canvas the sphere itself takes. Nearly all of it: the badge is drawn
+# at 32 and read at 9, and a badge that leaves a margin reads as a small badge rather than a
+# generous one.
+EDGE = 0.65
 
 
 def mix(one, two, amount):
@@ -62,21 +77,34 @@ def darker(color, amount):
     return mix(color, (0, 0, 0), amount)
 
 
-def badge(base, split=None, gloss=False):
-    """A round badge, 32 across.
+def toneset(base):
+    return [lighter(base, 0.92), lighter(base, 0.42), base,
+            darker(base, 0.26), darker(base, 0.48)]
 
-    Matte by default: a body, one darker crescent along the bottom right, a lighter arc along
-    the top left, and a dark rim - four tones, which is how the rest of the mod's art is drawn
-    and how a Minecraft item is drawn. The lit-sphere version is kept behind a flag because it
-    looked better on its own and worse beside everything else.
+
+def rimOf(base):
+    """The outline: near black with a little of the badge's own hue left in it, which is what
+    keeps a dark badge from looking like a hole and a pale one from looking pasted on."""
+    return mix(darker(base, 0.78), (0x14, 0x11, 0x16), 0.5)
+
+
+def badge(base, split=None, matte=False):
+    """A round badge, 32 across: a lit sphere with a near-black outline.
+
+    Hybrids are cut corner to corner. The cut runs bottom left to top right, which puts the
+    halves top-left and bottom-right - where the marks go, and where a printed hybrid puts
+    them. The other way round leaves both marks lying across the cut.
+
+    The flat version is kept behind matte=True. It is closer to how the rest of the mod's art
+    is drawn today, and it was tried, and the spheres are better - so the rest of the art is
+    what moves.
     """
-    tones = [lighter(base, 0.18), base, darker(base, 0.22), darker(base, 0.38)]
-    other = [lighter(split, 0.18), split, darker(split, 0.22), darker(split, 0.38)] if split \
-        else tones
-    rim = darker(base, 0.62)
+    tones = toneset(base)
+    other = toneset(split) if split else None
+    rim = rimOf(base)
 
     middle = SIZE / 2.0
-    radius = middle - 1.0
+    radius = middle - EDGE
     px = textures.blank(SIZE, SIZE)
     for y in range(SIZE):
         for x in range(SIZE):
@@ -85,24 +113,24 @@ def badge(base, split=None, gloss=False):
             away = (dx * dx + dy * dy) ** 0.5
             if away > radius:
                 continue
-            # Which half, for a hybrid. The seam runs bottom left to top right, which puts the
-            # halves top-left and bottom-right - where the marks go, and where a printed
-            # hybrid puts them. The other way round leaves both marks astride the seam.
-            here = other if (split and (dx + dy) > 0) else tones
-            # The rim, and on a hybrid the cut itself, so the two halves stay two halves even
-            # where the marks crowd the middle.
-            if away > radius - 1.2 or (split and abs(dx + dy) < 1.0):
+            here = other if (other and (dx + dy) > 0) else tones
+            if away > radius - 1.15:
                 px[y][x] = textures.rgba(rim)
                 continue
-            # Lit from above, not along the seam: bands parallel to a hybrid's cut make the
-            # two halves read as stripes instead of halves.
-            lean = (dx * 0.3 + dy) / (radius * 1.3)
-            if gloss:
-                toward = (((dx / radius) + 0.42) ** 2 + ((dy / radius) + 0.45) ** 2) ** 0.5
-                px[y][x] = textures.rgba(here[min(3, max(0, int(toward * 2.6)))])
+            nx, ny = dx / radius, dy / radius
+            if matte:
+                lean = (nx * 0.3 + ny) / 1.3
+                px[y][x] = textures.rgba(
+                    here[1] if lean < -0.22 else (here[2] if lean < 0.18 else here[3]))
                 continue
-            # Three bands rather than a gradient: lit arc, body, shaded crescent.
-            band = 0 if lean < -0.22 else (1 if lean < 0.18 else 2)
+            toward = ((nx - LIGHT[0]) ** 2 + (ny - LIGHT[1]) ** 2) ** 0.5
+            band = 4
+            for step, edge in enumerate(BANDS):
+                if toward < edge:
+                    band = step
+                    break
+            if band >= 3 and away > radius - BOUNCE_DEPTH and (nx + ny) > BOUNCE_FROM:
+                band -= 1
             px[y][x] = textures.rgba(here[band])
     return px
 
@@ -545,27 +573,44 @@ def half(px):
     return small
 
 
+# How bright the lip under a mark's lower-right edge gets. The mark is cut into the badge
+# rather than painted onto it, and this is the light catching the far wall of the cut.
+LIP = 0.75
+
+
 def press(under, over, left, top):
-    """Alpha-over, clipped to where the badge already is - a mark never spills off the rim."""
-    for y, row in enumerate(over):
-        for x, (r, g, b, a) in enumerate(row):
-            if a == 0:
-                continue
+    """Cut a mark into a badge: alpha-over, clipped to where the badge already is, with a lit
+    lip along the lower-right edge so the mark reads as pressed in rather than stuck on.
+
+    The lip is only lit where there is real mass above and left of it. A mark with a one-pixel
+    diagonal in it - the X, most of the numerals - otherwise lights every second pixel and
+    comes out as a checkerboard, which is exactly what happened the first time.
+    """
+    def ink(y, x):
+        return 0 <= y < len(over) and 0 <= x < len(over[0]) and over[y][x][3] > 127
+
+    for y in range(len(over)):
+        for x in range(len(over[0])):
             ty, tx = top + y, left + x
             if not (0 <= ty < len(under) and 0 <= tx < len(under[0])):
                 continue
             br, bg, bb, ba = under[ty][tx]
             if ba == 0:
                 continue
-            amount = a / 255.0
-            under[ty][tx] = (round(br + (r - br) * amount),
-                             round(bg + (g - bg) * amount),
-                             round(bb + (b - bb) * amount), ba)
+            r, g, b, a = over[y][x]
+            if a:
+                amount = a / 255.0
+                under[ty][tx] = (round(br + (r - br) * amount),
+                                 round(bg + (g - bg) * amount),
+                                 round(bb + (b - bb) * amount), ba)
+            elif ink(y - 1, x - 1) and ink(y - 2, x - 2):
+                lit = lighter((br, bg, bb), LIP)
+                under[ty][tx] = (lit[0], lit[1], lit[2], ba)
 
 
-def layer(name, marks, gloss=False):
-    base, split = badgeFor(name)
-    px = badge(base, split, gloss)
+def apply(px, name, marks):
+    """Press a symbol's marks into a badge that is already drawn - or already on disk, which
+    is what makes the split checkable rather than merely intended."""
     for what, where in markFor(name):
         if where == "full":
             press(px, marks[what], 0, 0)
@@ -573,6 +618,11 @@ def layer(name, marks, gloss=False):
             left, top = PLACE[where]
             press(px, half(marks[what]), left, top)
     return px
+
+
+def layer(name, marks, matte=False):
+    base, split = badgeFor(name)
+    return apply(badge(base, split, matte), name, marks)
 
 
 def contact(px_by_name, path, scale=3, across=10, ground=(0x2B, 0x27, 0x24)):
@@ -617,8 +667,29 @@ def font(names, path):
         handle.write('{\n  "providers": [\n' + ",\n".join(providers) + "\n  ]\n}\n")
 
 
+def check():
+    """Every shipped symbol is its own badge with its own marks pressed in, and nothing else.
+
+    This is the whole point of keeping the two apart, so it is worth a check rather than a
+    comment: repaint a mark, forget to regenerate, and the symbol in the jar quietly stops
+    being the one on disk. Reads all three off the filesystem and compares.
+    """
+    marks = {name: read_png(os.path.join(MARKS, name + ".png")) for name in MARK_NAMES}
+    wrong = []
+    for name in textures.SYMBOL_NAMES:
+        want = read_png(os.path.join(OUT, name + ".png"))
+        got = apply(read_png(os.path.join(BADGES, name + ".png")), name, marks)
+        if got != want:
+            wrong.append(name)
+    if wrong:
+        raise SystemExit("stale, rerun tools/mana_art.py: " + ", ".join(wrong))
+    print(f"{len(textures.SYMBOL_NAMES)} symbols match their badge and marks")
+
+
 def main(argv):
-    gloss = "--gloss" in argv
+    if "--check" in argv:
+        return check()
+    matte = "--matte" in argv
     sheet = "--sheet" in argv
     into = None
     if "--preview" in argv:
@@ -639,15 +710,15 @@ def main(argv):
     made = {}
     for name in textures.SYMBOL_NAMES:
         base, split = badgeFor(name)
-        write_png(os.path.join(badges, name + ".png"), badge(base, split, gloss))
-        made[name] = layer(name, marks, gloss)
+        write_png(os.path.join(badges, name + ".png"), badge(base, split, matte))
+        made[name] = layer(name, marks, matte)
         write_png(os.path.join(out, name + ".png"), made[name])
 
     font(textures.SYMBOL_NAMES, os.path.join(into, "mana.json") if into else FONT)
     if sheet:
         contact(made, os.path.join(into or ".", "contact.png"))
     print(f"drew {drawn} new marks, kept {len(MARK_NAMES) - drawn}, "
-          f"wrote {len(made)} symbols{' (gloss)' if gloss else ''}")
+          f"wrote {len(made)} symbols{' (matte)' if matte else ''}")
 
 
 if __name__ == "__main__":

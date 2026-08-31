@@ -170,6 +170,19 @@ else
     FAILED=1
 fi
 
+# And every mana symbol in the jar is still its own badge with its own marks pressed into it.
+# The two halves are kept apart so somebody can repaint a mark; repaint one, forget to
+# regenerate, and the symbol the game draws quietly stops being the one on disk. See
+# tools/mana_art.py --check.
+printf '%-24s ' "mana symbols"
+if MANA_OUT=$(python3 tools/mana_art.py --check 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$MANA_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
 if [ "$TARGET" = all ] || [ "$TARGET" = neoforge ]; then
     # "mod/gathering" is the mod's own resource pack. Without it the assets are not loaded.
     # The camera hook is a mixin, and a mixin that is never listed fails silently: the mod
