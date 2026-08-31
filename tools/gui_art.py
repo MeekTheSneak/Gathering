@@ -822,52 +822,94 @@ def arrow(size, look, which):
     return middled
 
 
-#: How many dots a spinner has, which is also how many frames it takes to go round.
-SPINNER_DOTS = 8
-
-#: How big one is drawn, and how far its dots sit from the middle.
-SPINNER_SIZE = 16
-SPINNER_RADIUS = 5.2
-
-#: And how big each dot is, square.
-SPINNER_DOT = 2
+#: Where the sprites cut off BDragon1727's sheets live. See tools/pack_cut.py.
+PARTS = os.path.join(ROOT, "art", "gui", "parts")
 
 
-def spinner(size, look, frame):
-    """One frame of a ring of dots going round.
+#: His button is forty-eight by twenty-two with an eight-pixel cap at each end. Every button
+#: the mod draws is at least sixteen each way, so the caps always have somewhere to go.
+BUTTON_SLICE = ("nine_slice", (48, 22), 8, True)
 
-    A card whose art has not arrived says "Fetching art..." on it, and a sentence cannot tell
-    somebody that it is still trying. A ring that is turning can, and it is the one thing on
-    any of these screens that has to move to mean anything.
 
-    Frames rather than one sprite turned by the renderer: rotating pixel art by anything but a
-    right angle resamples it, and a nine-pixel dot smeared across a diagonal is not the shape
-    anybody drew. Eight dots and eight frames, so the pattern that comes back round is the one
-    that left.
+def arrowTones(look):
+    """An arrow is a label, so it is set in the colour a label is set in."""
+    return (mix(TEXT, look.ink, 0.45), TEXT)
+
+
+def flipped(art):
+    """Turned upside down, which is what a raised thing looks like when it is pressed."""
+    return art.transpose(Image.FLIP_TOP_BOTTOM)
+
+
+#: One cut sprite, read once. Fourteen looks ask for the same handful of files.
+_parts = {}
+
+
+def part(name):
+    if name not in _parts:
+        _parts[name] = Image.open(os.path.join(PARTS, name + ".png")).convert("RGBA")
+    return _parts[name]
+
+
+def recut(name, look, tones=None, family=None, label=False):
+    """One of his sprites, in this look's colours.
+
+    His pixels, his shapes, his outline, his dithering and his highlights - only the hue
+    moves. The sheets ship each element in three colourways, which is three answers for
+    fourteen looks; picking whichever is nearest would give half the themes somebody else's
+    blue. So instead his tones are sorted by how light they are and laid onto a ramp built
+    out of this look's own, darkest to lightest. A pixel two steps up his ramp comes out two
+    steps up ours, which is what keeps a bevel a bevel.
+
+    The outline is held out of that and taken straight from the look's ink. It is nearly
+    black in every colourway he drew and it is the one tone that must not drift toward an
+    accent, or a button gets a coloured halo instead of an edge.
+
+    A family is a set of sprites whose ramp has to be worked out across all of them at once.
+    The spinner is five frames of the same ring lit at different points, and read one at a
+    time the darkest frame and the brightest frame each get the ramp spread over their own
+    tones - which makes them the same picture. The frames only mean anything relative to one
+    another, so the tones of all five decide the ramp and each frame takes its place in it.
     """
-    lead = look.glow
-    trail = darker(look.accent, 0.55)
-    image = Image.new("RGBA", (size, size))
-    pixels = image.load()
-    middle = (size - SPINNER_DOT) / 2.0
-    for dot in range(SPINNER_DOTS):
-        # How far behind the leading dot this one is, which is how faint it is.
-        behind = (dot - frame) % SPINNER_DOTS
-        share = behind / (SPINNER_DOTS - 1)
-        tone = mix(lead, trail, share)
-        alpha = round(255 * (1.0 - 0.72 * share))
-        # Snapped to whole pixels and drawn as a square block, so every dot is the same dot.
-        # Testing a distance instead gave the four on the axes a square and the four on the
-        # diagonals a plus, which reads as a ring somebody drew badly rather than as one going
-        # round.
-        angle = 2.0 * math.pi * dot / SPINNER_DOTS
-        cx = int(round(middle + SPINNER_RADIUS * math.sin(angle)))
-        cy = int(round(middle - SPINNER_RADIUS * math.cos(angle)))
-        for y in range(cy, cy + SPINNER_DOT):
-            for x in range(cx, cx + SPINNER_DOT):
-                if 0 <= x < size and 0 <= y < size:
-                    pixels[x, y] = rgba(tone, alpha)
-    return image
+    art = part(name).copy()
+    pixels = art.load()
+    dark, light = tones if tones else (darker(look.ink, 0.1), lighter(look.bevel, 0.35))
+    # A face has words written on it, so its light end is darkened until they can be read.
+    # His buttons are drawn to carry an icon rather than a label and their faces run bright:
+    # laid on our ramp unchecked they came out between 2.2 and 3.5 against the label colour
+    # in every theme, which is a button you can see and a word you cannot. Anything drawn on
+    # top of a face - an arrow is one - is exempt, or the fix would darken the label too.
+    if not label:
+        light = readable(light)
+        dark = readable(dark)
+    # Every tone he used, darkest first, ignoring what is transparent.
+    seen = set()
+    for source in (family or [name]):
+        held = part(source)
+        read = held.load()
+        for y in range(held.height):
+            for x in range(held.width):
+                if read[x, y][3]:
+                    seen.add(read[x, y][:3])
+    order = sorted(seen, key=luminance)
+    if not order:
+        return art
+    # His darkest tone is the outline and stays the outline. The rest spread over the ramp.
+    ours = {order[0]: darker(look.ink, 0.1)}
+    rest = order[1:]
+    for index, tone in enumerate(rest):
+        share = index / max(1, len(rest) - 1)
+        ours[tone] = mix(dark, light, share)
+    for y in range(art.height):
+        for x in range(art.width):
+            here = pixels[x, y]
+            if here[3]:
+                pixels[x, y] = rgba(ours[here[:3]], here[3])
+    return art
+
+
+#: The five spinner frames only mean anything against each other - see recut().
+SPINNER_FRAMES = ["spinner_%d" % index for index in range(5)]
 
 
 def wash(size, color, alpha=255):
@@ -1057,21 +1099,28 @@ ELEMENTS = [
     ("deck_panel", STRETCH, deck_panel),
     ("scroll_track", NINE_8, lambda k: capsule(8, k, sunken=True)),
     ("scroll_thumb", NINE_8, lambda k: capsule(8, k, face=darker(k.accent, 0.45))),
-    ("button", NINE_16, lambda k: plate(16, k, body=mix(k.body, k.bevel, 0.10))),
-    ("button_hover", NINE_16,
-     lambda k: plate(16, k, body=mix(k.body, k.accent, 0.34), lit=k.glow,
-                     low=darker(k.accent, 0.62))),
-    ("button_off", NINE_16,
-     lambda k: plate(16, k, body=darker(k.body, 0.45), lit=k.shade,
-                     low=darker(k.shade, 0.35))),
-    ("button_down", NINE_16,
-     lambda k: plate(16, k, sunken=True, body=mix(k.body, k.shade, 0.22))),
+    # His button, four times over. The three states are the same sprite on three ramps -
+    # brighter with the cursor on it, dimmed when it will do nothing, and turned upside down
+    # when it is held, which is what pressing a raised thing looks like.
+    ("button", BUTTON_SLICE, lambda k: recut("button", k)),
+    ("button_hover", BUTTON_SLICE,
+     lambda k: recut("button", k, (darker(k.accent, 0.55), lighter(k.glow, 0.2)))),
+    # Flat rather than dark. A dimmed version of the raised face reads as pressed, which is
+    # the one thing a dead button must not say - so almost all of his contrast comes out of
+    # it and what is left sits in the middle of the ramp, with no light end at all.
+    ("button_off", BUTTON_SLICE,
+     lambda k: recut("button", k, (darker(k.shade, 0.35), mix(k.shade, k.body, 0.35)))),
+    ("button_down", BUTTON_SLICE,
+     lambda k: flipped(recut("button", k, (darker(k.body, 0.4), mix(k.body, k.bevel, 0.3))))),
 
-    # Directions. Blitted at their own size in the middle of a button, never stretched.
-    ("arrow_left", STRETCH, lambda k: arrow(ARROW_SIZE, k, "left")),
-    ("arrow_right", STRETCH, lambda k: arrow(ARROW_SIZE, k, "right")),
-    ("arrow_up", STRETCH, lambda k: arrow(ARROW_SIZE, k, "up")),
-    ("arrow_down", STRETCH, lambda k: arrow(ARROW_SIZE, k, "down")),
+    # His arrows. Up and down are one of them turned a quarter, which on pixel art is exact -
+    # every pixel lands on a pixel - where any other angle would resample it.
+    ("arrow_left", STRETCH, lambda k: recut("arrow_left", k, arrowTones(k), label=True)),
+    ("arrow_right", STRETCH, lambda k: recut("arrow_right", k, arrowTones(k), label=True)),
+    ("arrow_up", STRETCH, lambda k: recut(
+        "arrow_right", k, arrowTones(k), label=True).transpose(Image.ROTATE_90)),
+    ("arrow_down", STRETCH, lambda k: recut(
+        "arrow_left", k, arrowTones(k), label=True).transpose(Image.ROTATE_90)),
 
     # Whole-screen washes.
     ("screen_scrim", STRETCH, lambda k: wash(16, k.wash, 0x80)),
@@ -1140,16 +1189,25 @@ ELEMENTS = [
     ("rarity_ring", NINE_16,
      lambda k: ring(16, k.glow, thickness=2, inner=k.accent, halo=True)),
 
-    # The one thing on any of these screens that moves. Eight frames of a ring going round,
-    # for a card whose art has not arrived yet.
-    ("spinner_0", STRETCH, lambda k, f=0: spinner(SPINNER_SIZE, k, f)),
-    ("spinner_1", STRETCH, lambda k, f=1: spinner(SPINNER_SIZE, k, f)),
-    ("spinner_2", STRETCH, lambda k, f=2: spinner(SPINNER_SIZE, k, f)),
-    ("spinner_3", STRETCH, lambda k, f=3: spinner(SPINNER_SIZE, k, f)),
-    ("spinner_4", STRETCH, lambda k, f=4: spinner(SPINNER_SIZE, k, f)),
-    ("spinner_5", STRETCH, lambda k, f=5: spinner(SPINNER_SIZE, k, f)),
-    ("spinner_6", STRETCH, lambda k, f=6: spinner(SPINNER_SIZE, k, f)),
-    ("spinner_7", STRETCH, lambda k, f=7: spinner(SPINNER_SIZE, k, f)),
+    # The one thing on any of these screens that moves: five frames of his dashed ring, with
+    # the lit dash travelling round it. Forty-four across, which is the size he drew it at -
+    # halving a ring of dashes turns every dash into a smudge, so it is drawn whole and left
+    # off a card too small to hold it.
+    ("spinner_0", STRETCH,
+     lambda k, f=0: recut("spinner_%d" % f, k, (darker(k.accent, 0.6), k.glow),
+                          SPINNER_FRAMES, label=True)),
+    ("spinner_1", STRETCH,
+     lambda k, f=1: recut("spinner_%d" % f, k, (darker(k.accent, 0.6), k.glow),
+                          SPINNER_FRAMES, label=True)),
+    ("spinner_2", STRETCH,
+     lambda k, f=2: recut("spinner_%d" % f, k, (darker(k.accent, 0.6), k.glow),
+                          SPINNER_FRAMES, label=True)),
+    ("spinner_3", STRETCH,
+     lambda k, f=3: recut("spinner_%d" % f, k, (darker(k.accent, 0.6), k.glow),
+                          SPINNER_FRAMES, label=True)),
+    ("spinner_4", STRETCH,
+     lambda k, f=4: recut("spinner_%d" % f, k, (darker(k.accent, 0.6), k.glow),
+                          SPINNER_FRAMES, label=True)),
 
     # Progress bars.
     ("bar_track", NINE_8, lambda k: bar(8, k, "track")),
@@ -1161,14 +1219,37 @@ ELEMENTS = [
 
 
 def mcmeta(kind, size, border, stretch_inner):
+    """The sprite's own scaling rule.
+
+    The size may be a pair rather than a number. Everything the mod paints itself is square,
+    but a sprite cut off somebody's sheet is whatever shape he drew it - a button forty-eight
+    across and twenty-two tall - and squaring it would either stretch his art or pad it with
+    nothing, which is a nine-slice border made of empty pixels.
+    """
     if kind == "stretch":
         scaling = '      "type": "stretch"\n'
     else:
+        wide, tall = size if isinstance(size, tuple) else (size, size)
+        # The border may be one number or one per side. Per side is what lets a sprite whose
+        # detail is banded along one axis survive: the scroll thumb's grip is seven rows down
+        # an eighteen-row sprite eight pixels wide, so it can only stay out of the stretched
+        # middle if the top and bottom borders are wider than the left and right ones. The
+        # game reads either form - GuiSpriteScaling.NineSlice.Border takes an int or a record.
+        if isinstance(border, tuple):
+            left, top, right, bottom = border
+            edge = ('{\n'
+                    f'        "left": {left},\n'
+                    f'        "top": {top},\n'
+                    f'        "right": {right},\n'
+                    f'        "bottom": {bottom}\n'
+                    '      }')
+        else:
+            edge = str(border)
         scaling = (
             '      "type": "nine_slice",\n'
-            f'      "width": {size},\n'
-            f'      "height": {size},\n'
-            f'      "border": {border},\n'
+            f'      "width": {wide},\n'
+            f'      "height": {tall},\n'
+            f'      "border": {edge},\n'
             f'      "stretch_inner": {"true" if stretch_inner else "false"}\n')
     return '{\n  "gui": {\n    "scaling": {\n' + scaling + "    }\n  }\n}\n"
 

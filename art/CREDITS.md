@@ -18,15 +18,21 @@ packs' terms ask for a contribution of any amount, and that is a debt to settle 
 
 What is in this repository, precisely:
 
-- Every sprite under `textures/gui/sprites` is painted by `tools/gui_art.py` from the mod's own
-  palettes. None of the packs' own files are in the tree.
+- `art/gui/parts/` holds his sprites, cut straight off the sheets by `tools/pack_cut.py` and
+  checked in so the build never needs the packs: the button, the two arrows, the scroll thumb
+  and the five frames of the spinner. Every theme's version of those is his pixels with the
+  hue moved - `recut()` in `tools/gui_art.py` sorts his tones by how light they are and lays
+  them on that look's own ramp, so the shapes, the outline, the dithering and the highlights
+  are all still his and only the colour is ours. The one thing changed on top of that is the
+  contrast floor: his faces are drawn to carry an icon and run bright, and a label set on
+  them unaltered cannot be read, so the light end is darkened until it can.
 - `art/gui/frames/` holds four 64x64 frames cut from the border pack's own sheets, colours and
   all. Four looks - Ember, Arcane, Verdant and Royal - are built around them: the frame is what
   those looks are, so it is his, and the rest of each set is drawn flat in colours taken off it.
-  The other ten looks contain nothing of his.
+- Everything else under `textures/gui/sprites` is painted by `tools/gui_art.py` from the mod's
+  own palettes: the panels, the rings, the washes, the felt, the card stock, the bars.
 
-The rest - the constructions, the palettes, the bars, the card back, the sleeves, the mana
-badges - is the project's own, drawn in the idiom those packs taught.
+The rest - the palettes, the card back, the sleeves, the mana badges - is the project's own.
 
 ## Everything else
 

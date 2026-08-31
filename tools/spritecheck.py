@@ -87,6 +87,46 @@ def seen_through(where):
         return alpha.getextrema()[0] == 0
 
 
+#: The label every button's words are set in, and the contrast they need against its face.
+#: Both live in tools/gui_art.py as TEXT and LEAST_CONTRAST; kept in step by hand because
+#: this script must run without importing the painter, which needs Pillow.
+LABEL = (0xE8, 0xE4, 0xDC)
+LEAST_CONTRAST = 4.2
+
+
+def faintest(where):
+    """The worst contrast any opaque pixel of this sprite has against the label colour."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    with Image.open(where) as art:
+        # getdata() is on its way out of Pillow; the pixel access object is not.
+        rgba = art.convert("RGBA")
+        read = rgba.load()
+        pixels = [read[x, y] for y in range(rgba.height) for x in range(rgba.width)]
+    worst = None
+    for tone in {pixel[:3] for pixel in pixels if pixel[3] > 0x40}:
+        here = contrast(LABEL, tone)
+        worst = here if worst is None else min(worst, here)
+    return worst
+
+
+def luminance(color):
+    channels = []
+    for value in color:
+        share = value / 255.0
+        channels.append(share / 12.92 if share <= 0.03928
+                        else ((share + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+
+def contrast(one, two):
+    first, second = luminance(one), luminance(two)
+    high, low = max(first, second), min(first, second)
+    return (high + 0.05) / (low + 0.05)
+
+
 def main():
     problems = []
     notes = []
@@ -145,6 +185,27 @@ def main():
                 problems.append(
                     f"{TEMPLATE_FOLDER}/{name}.png has transparent pixels, so it opens as"
                     " nothing in an image editor")
+
+    # And a button's face is dark enough for the words on it. The faces are cut off somebody
+    # else's sheet and laid on each look's own ramp, and his are drawn to carry an icon: laid
+    # on unchecked they came out between 2.2 and 3.5 against the label colour in every theme,
+    # which is a button you can see and a word you cannot. tools/gui_art.py darkens them, and
+    # this is what says it still does.
+    faces = [name for name in java if name.startswith("button")]
+    if faces:
+        for theme, art in sorted(themes.items()):
+            folder = os.path.join(SPRITES, art)
+            if art == TEMPLATE_FOLDER:
+                continue
+            for name in faces:
+                where = os.path.join(folder, name + ".png")
+                if not os.path.isfile(where):
+                    continue
+                worst = faintest(where)
+                if worst is not None and worst < LEAST_CONTRAST:
+                    problems.append(
+                        f"{art}/{name}.png has a face at {worst:.2f} against the label colour,"
+                        f" under the {LEAST_CONTRAST} floor - the words on it cannot be read")
 
     # And the spinner really turns. Eight frames built in a loop is the shape of the oldest
     # Python mistake there is - a lambda closing over the loop variable instead of capturing

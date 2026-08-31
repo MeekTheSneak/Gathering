@@ -255,7 +255,8 @@ public final class GatheringSprites {
         RARITY_RING("rarity_ring"),
 
         /**
-         * Eight frames of a ring going round, for a card whose art has not arrived.
+         * Five frames of a dashed ring with the lit dash travelling round it, cut off
+         * BDragon1727's sheet, for a card whose art has not arrived.
          *
          * <p>Frames rather than one sprite turned by the renderer: rotating pixel art by
          * anything but a right angle resamples it. Pick one with {@link #spinner}.
@@ -265,9 +266,6 @@ public final class GatheringSprites {
         SPINNER_2("spinner_2"),
         SPINNER_3("spinner_3"),
         SPINNER_4("spinner_4"),
-        SPINNER_5("spinner_5"),
-        SPINNER_6("spinner_6"),
-        SPINNER_7("spinner_7"),
 
         /** How far there is to go. */
         BAR_TRACK("bar_track"),
@@ -364,8 +362,14 @@ public final class GatheringSprites {
         graphics.setColor(1f, 1f, 1f, 1f);
     }
 
-    /** How big a spinner is drawn, and how long one turn takes. */
-    public static final int SPINNER = 16;
+    /**
+     * How big a spinner is drawn, and how long one turn takes.
+     *
+     * <p>Forty-four is the size the ring was drawn at. Halving a ring of dashes turns every
+     * dash into a smudge, so it is blitted whole and simply left off a card with no room for
+     * it - which the caller already checks, because the words underneath need room too.
+     */
+    public static final int SPINNER = 44;
     private static final long SPINNER_TURN_MILLIS = 640L;
 
     /**
@@ -377,7 +381,7 @@ public final class GatheringSprites {
      */
     private static final Element[] SPINNER_FRAMES = {
         Element.SPINNER_0, Element.SPINNER_1, Element.SPINNER_2, Element.SPINNER_3,
-        Element.SPINNER_4, Element.SPINNER_5, Element.SPINNER_6, Element.SPINNER_7,
+        Element.SPINNER_4,
     };
 
     /**
@@ -394,12 +398,23 @@ public final class GatheringSprites {
                 x + (width - SPINNER) / 2, y + (height - SPINNER) / 2, SPINNER, SPINNER);
     }
 
-    /** How big an arrow is drawn - see {@code ARROW_SIZE} in tools/gui_art.py. */
-    public static final int ARROW = 9;
+    /**
+     * How big an arrow is drawn: nine across the point, twelve along the base.
+     *
+     * <p>Not square, because the sprite is not. It is cut off BDragon1727's sheet at nine by
+     * twelve, and up and down are that turned a quarter - so which way round these two go
+     * depends on which arrow it is. Drawing every one of them nine by nine squashed the two
+     * that are taller than they are wide.
+     */
+    public static final int ARROW_ACROSS = 9;
+    public static final int ARROW_ALONG = 12;
 
     /** One of the four arrows, at its own size, in the middle of the given box. */
     public static void arrow(GuiGraphics graphics, Element which, int x, int y, int width, int height) {
-        draw(graphics, which, x + (width - ARROW) / 2, y + (height - ARROW) / 2, ARROW, ARROW);
+        boolean upright = which == Element.ARROW_LEFT || which == Element.ARROW_RIGHT;
+        int wide = upright ? ARROW_ACROSS : ARROW_ALONG;
+        int tall = upright ? ARROW_ALONG : ARROW_ACROSS;
+        draw(graphics, which, x + (width - wide) / 2, y + (height - tall) / 2, wide, tall);
     }
 
     public static void panel(GuiGraphics graphics, int x, int y, int width, int height) {

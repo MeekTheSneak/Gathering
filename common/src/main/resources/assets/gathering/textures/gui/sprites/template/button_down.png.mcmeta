@@ -2,9 +2,9 @@
   "gui": {
     "scaling": {
       "type": "nine_slice",
-      "width": 16,
-      "height": 16,
-      "border": 4,
+      "width": 48,
+      "height": 22,
+      "border": 8,
       "stretch_inner": true
     }
   }
