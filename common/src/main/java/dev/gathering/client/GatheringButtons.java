@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import dev.gathering.client.GatheringSprites.Element;
 import java.util.function.BooleanSupplier;
 import net.minecraft.client.Minecraft;
@@ -9,6 +10,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
 
 /**
  * Buttons that behave like buttons.
@@ -19,9 +21,11 @@ import net.minecraft.sounds.SoundEvents;
  * the keyboard. Losing any of those makes a screen feel broken even when it works, because you
  * cannot tell whether anything happened.
  *
- * <p>So these are vanilla {@link Button}s, drawn by vanilla, sounding like vanilla. Not a
- * reskin - a player already knows what these do, and a bespoke button that looks nearly like
- * the ones in every other screen is worse than one that looks exactly like them.
+ * <p>So these are vanilla {@link Button}s: vanilla's states, vanilla's focus, vanilla's click.
+ * Only the face is the mod's own, and only because the mod now has looks - a grey vanilla
+ * button sitting inside a brown Retro panel is exactly the "nearly like the others" problem
+ * this used to avoid by not skinning them at all. Everything a player already knows about
+ * these still holds; they are only painted in the look they are sitting in.
  *
  * <p>The one thing vanilla has no notion of is a button that is <em>currently chosen</em>,
  * which a format picker needs, so {@link #toggle} adds that on top and nothing else.
@@ -29,6 +33,10 @@ import net.minecraft.sounds.SoundEvents;
  * <p>Client-only.
  */
 public final class GatheringButtons {
+
+    /** The label on a button that will do something, and on one that will not. */
+    private static final int LABEL = 0xE8E4DC;
+    private static final int LABEL_OFF = 0x8A8681;
 
     private GatheringButtons() {
     }
@@ -52,6 +60,26 @@ public final class GatheringButtons {
 
         private Fitting(int x, int y, int width, int height, Component label, OnPress onPress) {
             super(x, y, width, height, label, onPress, DEFAULT_NARRATION);
+        }
+
+        /**
+         * The face, in whatever look is on, and then the label.
+         *
+         * <p>The same three states vanilla draws and in the same order, so that a button
+         * behaves identically and only looks different. The alpha is honored because screens
+         * fade widgets in and out and a face that ignored it would pop.
+         */
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            Element face = !active
+                    ? Element.BUTTON_OFF
+                    : isHoveredOrFocused() ? Element.BUTTON_HOVER : Element.BUTTON;
+            RenderSystem.enableBlend();
+            graphics.setColor(1.0F, 1.0F, 1.0F, alpha);
+            GatheringSprites.draw(graphics, face, getX(), getY(), getWidth(), getHeight());
+            graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+            renderString(graphics, Minecraft.getInstance().font,
+                    (active ? LABEL : LABEL_OFF) | Mth.ceil(alpha * 255.0F) << 24);
         }
 
         @Override

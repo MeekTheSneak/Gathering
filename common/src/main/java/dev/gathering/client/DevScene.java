@@ -2555,21 +2555,21 @@ public final class DevScene {
             // a step that changes something and photographs it in the same breath photographs
             // what was there before. Three looks came out labeled as each other.
             case 241 -> {
-                wearTheLook(client, "gathering:slate");
+                wearTheLook(client, "gathering:retro");
                 advance(SETTLE / 2);
             }
             case 242 -> {
-                shoot(client, "75-the-slate-look");
-                wearTheLook(client, "gathering:walnut");
+                shoot(client, "75-the-retro-look");
+                wearTheLook(client, "gathering:future");
                 advance(SETTLE / 2);
             }
             case 243 -> {
-                shoot(client, "76-the-walnut-look");
-                wearTheLook(client, "gathering:felt");
+                shoot(client, "76-the-future-sight-look");
+                wearTheLook(client, "gathering:basic");
                 advance(SETTLE / 2);
             }
             case 244 -> {
-                shoot(client, "77-back-to-the-felt");
+                shoot(client, "77-back-to-basic");
                 client.setScreen(new net.minecraft.client.gui.screens.options.VideoSettingsScreen(
                         client.screen, client, client.options));
                 advance(SETTLE);
@@ -2592,11 +2592,11 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 247 -> {
-                if (GuiThemes.active().id().toString().equals("gathering:felt")) {
+                if (GuiThemes.active().id().toString().equals("gathering:basic")) {
                     fail("the look row in video settings was pressed and the look did not change");
                 }
                 shoot(client, "79-a-look-picked-from-the-options");
-                wearTheLook(client, "gathering:felt");
+                wearTheLook(client, "gathering:basic");
                 if (client.screen != null) {
                     client.screen.onClose();
                 }

@@ -43,7 +43,7 @@ public final class ClientSettings {
             # Which set of GUI art to draw with. There is a picker in Options, Video Settings.
             #
             # A theme is a folder of textures and a small file naming it - no colors and no
-            # sizes live in this file or in the code. The ones that ship are gathering:felt,
+            # sizes live in this file or in the code. The ones that ship are gathering:basic,
             # gathering:slate, gathering:walnut and gathering:template, the last of which draws
             # every element as a labeled diagram so you can see what you are painting over.
             #
@@ -51,11 +51,11 @@ public final class ClientSettings {
             # file beside it saying what it is called. Anything a theme leaves out falls back
             # to felt, so a pack may repaint six elements and inherit the rest. See
             # docs/themes.md.
-            theme = "gathering:felt"
+            theme = "gathering:basic"
             """;
 
     /** What is drawn when this file has never been written. */
-    private static final String DEFAULT_THEME = "gathering:felt";
+    private static final String DEFAULT_THEME = "gathering:basic";
 
     private static String theme;
 

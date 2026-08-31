@@ -23,7 +23,7 @@ import net.minecraft.resources.ResourceLocation;
 public final class GuiTheme {
 
     /** Where a theme that says nothing about its art keeps it. */
-    public static final String DEFAULT_FOLDER = "felt";
+    public static final String DEFAULT_FOLDER = "basic";
 
     private final ResourceLocation id;
     private final Component name;
@@ -46,7 +46,7 @@ public final class GuiTheme {
         }
     }
 
-    /** What names this theme: {@code gathering:felt}, or a pack's own. */
+    /** What names this theme: {@code gathering:basic}, or a pack's own. */
     public ResourceLocation id() {
         return id;
     }

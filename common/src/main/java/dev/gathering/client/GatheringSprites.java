@@ -50,6 +50,12 @@ public final class GatheringSprites {
         SCROLL_TRACK("scroll_track"),
         /** And the part of it that moves. */
         SCROLL_THUMB("scroll_thumb"),
+        /** A button, at rest. */
+        BUTTON("button"),
+        /** The same button with the cursor on it, or the keyboard focus. */
+        BUTTON_HOVER("button_hover"),
+        /** And one that will not do anything, which has to look like it will not. */
+        BUTTON_OFF("button_off"),
 
         /**
          * Over the board, when a sub-screen is open on top of it.

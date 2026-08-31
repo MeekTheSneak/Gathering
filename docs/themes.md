@@ -1,6 +1,6 @@
 # Making a look for Gathering
 
-Everything the mod draws is a texture. Not most of it — all of it: the felt, the mats, the
+Everything the mod draws is a texture. Not most of it — all of it: the cloth, the mats, the
 ring under the cursor, the wash over a tapped card, the rime on a frozen one, the band under a
 counter, the progress bars, the blank card stock. There is no color written in the Java. So a
 look is a folder of PNGs, and making one is painting, not programming.
@@ -59,7 +59,7 @@ The file's own name is the look's id: `assets/mypack/gui_themes/bubble.json` is 
 ## You do not have to paint all of it
 
 A look inherits anything it does not draw. Repaint six elements and leave the other forty-nine
-alone and you have a complete look — the rest comes from felt. That is worth using: a "Retro"
+alone and you have a complete look — the rest comes from the basic look. That is worth using: a "Retro"
 pass that only changes the panels, the rings and the card stock is a real look and an
 afternoon's work, not a week's.
 
@@ -127,3 +127,15 @@ python3 tools/spritecheck.py
 
 Says which elements a look is missing (fine — it inherits them), which files it has that
 nothing draws (usually a typo in a name), and whether any `.mcmeta` is missing.
+
+## What ships
+
+Eight looks and a template. `basic` is the default and the one every other falls back to, so it
+is the only one that has to be complete. `blue`, `red`, `yellow` and `pink` are the same
+construction in another palette. `future`, `bubble` and `retro` are built differently as well as
+colored differently - rounded and hairlined, rounded and glossy, and grooved and grainy - because
+those three name a card frame rather than a color, and a palette alone does not make one.
+
+All of it comes out of `tools/gui_art.py`, where a look is one entry: a palette, and which of the
+four constructions it uses. Adding a ninth is a line in that table, or a folder in a resource pack
+if it is not ours to add.
