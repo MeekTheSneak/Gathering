@@ -32,7 +32,16 @@ public final class SetProgressScreen extends ChildScreen {
     private static final int MARGIN = 16;
     private static final int TOP_BAR = 34;
     private static final int BOTTOM_BAR = 30;
-    private static final int ROW_HEIGHT = 22;
+    /**
+     * How tall a row is, and the bar that sits under its words.
+     *
+     * <p>Twenty-six rather than twenty-two: the words take ten and the bar is eleven, which
+     * is the height its art was drawn at. The wall is how thick the track's box is, and is
+     * what the fill is inset by so it runs inside the box rather than over it.
+     */
+    private static final int ROW_HEIGHT = 26;
+    private static final int BAR_HIGH = 11;
+    private static final int BAR_WALL = 3;
 
     private static final int TEXT = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
@@ -217,19 +226,23 @@ public final class SetProgressScreen extends ChildScreen {
         GuiText.drawFlushRight(graphics, this.font, count, row.right(), row.y() + 1, 1f,
                 set.isComplete() ? DONE_TEXT : DIM);
 
-        // Six pixels rather than three. The bar art has a capped end, a lit top and an
-        // outline, and at three pixels the nine-slice's own borders meet in the middle and
-        // none of it is drawn - so it came out as a flat line whatever look was on. The row
-        // is twenty tall and the words take ten, so this costs nothing.
+        // Eleven pixels, which is the height the track was drawn at. It used to be three -
+        // shorter than the nine-slice's own borders, so the cut ends, the wall and the
+        // outline all met in the middle and none of them reached the screen, and the bar
+        // came out a flat line whatever look was on.
         int barTop = row.y() + this.font.lineHeight + 3;
-        int barHigh = 6;
+        int barHigh = BAR_HIGH;
         GatheringSprites.draw(graphics, Element.BAR_TRACK,
                 row.x(), barTop, row.width(), barHigh);
-        int full = Math.round(row.width() * set.share());
+        // Inside the track's wall rather than over it. The track is a hollow box and the
+        // fill is a separate bar that runs down the inside of it, so a fill drawn at the
+        // same rectangle would cover the box it is meant to be filling.
+        int room = row.width() - BAR_WALL * 2;
+        int full = Math.round(room * set.share());
         if (full > 0) {
             GatheringSprites.draw(graphics,
                     set.isComplete() ? Element.BAR_DONE : Element.BAR_FILL,
-                    row.x(), barTop, full, barHigh);
+                    row.x() + BAR_WALL, barTop + BAR_WALL, full, barHigh - BAR_WALL * 2);
         }
     }
 

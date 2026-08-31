@@ -270,9 +270,14 @@ def stencil(image, kind, size, border):
     out.alpha_composite(image.convert("RGBA"))
     paint = ImageDraw.Draw(out)
     if kind == "nine_slice":
-        for at in (border, wide - border):
+        # One number or one per side. A sprite cut off somebody else's sheet may need a
+        # different border on each edge - see mcmeta() - and the guide has to be drawn where
+        # the cut really is, or the template lies about the one thing it exists to show.
+        left, top, right, bottom = border if isinstance(border, tuple) \
+            else (border, border, border, border)
+        for at in (left, wide - right):
             paint.line([(at, 0), (at, high - 1)], fill=GUIDE)
-        for at in (border, high - border):
+        for at in (top, high - bottom):
             paint.line([(0, at), (wide - 1, at)], fill=GUIDE)
     paint.rectangle([0, 0, wide - 1, high - 1], outline=BOUNDS)
     return out
@@ -926,6 +931,9 @@ def ring(size, color, alpha=255, thickness=1, fill=None, fill_alpha=0, inner=Non
     come off the line rather than the line simply being brighter. It cannot go outside the
     sprite - the ring is drawn at the exact bounds of the thing it marks - so the bright line
     moves in by one and the faint one takes the edge.
+
+    A hard dark edge was tried here and rejected: it is what those sheets do, and on a ring
+    laid over a card it reads as a black box drawn round the card rather than as light.
     """
     image = Image.new("RGBA", (size, size),
                       rgba(fill, fill_alpha) if fill is not None else (0, 0, 0, 0))
@@ -1099,19 +1107,22 @@ ELEMENTS = [
     ("deck_panel", STRETCH, deck_panel),
     ("scroll_track", NINE_8, lambda k: capsule(8, k, sunken=True)),
     ("scroll_thumb", NINE_8, lambda k: capsule(8, k, face=darker(k.accent, 0.45))),
-    # His button, four times over. The three states are the same sprite on three ramps -
-    # brighter with the cursor on it, dimmed when it will do nothing, and turned upside down
-    # when it is held, which is what pressing a raised thing looks like.
-    ("button", BUTTON_SLICE, lambda k: recut("button", k)),
-    ("button_hover", BUTTON_SLICE,
-     lambda k: recut("button", k, (darker(k.accent, 0.55), lighter(k.glow, 0.2)))),
-    # Flat rather than dark. A dimmed version of the raised face reads as pressed, which is
-    # the one thing a dead button must not say - so almost all of his contrast comes out of
-    # it and what is left sits in the middle of the ramp, with no light end at all.
-    ("button_off", BUTTON_SLICE,
-     lambda k: recut("button", k, (darker(k.shade, 0.35), mix(k.shade, k.body, 0.35)))),
-    ("button_down", BUTTON_SLICE,
-     lambda k: flipped(recut("button", k, (darker(k.body, 0.4), mix(k.body, k.bevel, 0.3))))),
+    # The mod's own button, kept. His is a fine capsule and it was tried here; this is the
+    # one the project prefers, and each look already builds its own edges - Future Sight's
+    # sweep, Retro's inset border, Bubble's rounding - which one silhouette off a sheet would
+    # have flattened into a single shape fourteen times over.
+    ("button", NINE_16, lambda k: plate(16, k, body=mix(k.body, k.bevel, 0.10))),
+    # Through the readability floor, because mixing a third of the accent into a body that
+    # was already exactly readable makes it lighter again - and the hover face is the one a
+    # cursor is sitting on while somebody reads the word underneath it.
+    ("button_hover", NINE_16,
+     lambda k: plate(16, k, body=readable(mix(k.body, k.accent, 0.34)), lit=k.glow,
+                     low=darker(k.accent, 0.62))),
+    ("button_off", NINE_16,
+     lambda k: plate(16, k, body=darker(k.body, 0.45), lit=k.shade,
+                     low=darker(k.shade, 0.35))),
+    ("button_down", NINE_16,
+     lambda k: plate(16, k, sunken=True, body=mix(k.body, k.shade, 0.22))),
 
     # His arrows. Up and down are one of them turned a quarter, which on pixel art is exact -
     # every pixel lands on a pixel - where any other angle would resample it.
@@ -1209,10 +1220,23 @@ ELEMENTS = [
      lambda k, f=4: recut("spinner_%d" % f, k, (darker(k.accent, 0.6), k.glow),
                           SPINNER_FRAMES, label=True)),
 
-    # Progress bars.
-    ("bar_track", NINE_8, lambda k: bar(8, k, "track")),
-    ("bar_fill", NINE_8, lambda k: bar(8, k, "fill")),
-    ("bar_done", NINE_8, lambda k: bar(8, k, "done")),
+    # Progress bars: his. A hollow box with its ends cut on the diagonal, and a solid bar
+    # that runs inside it - which is why the two are drawn at different rectangles rather
+    # than one over the other. The shear is most of what makes them read as pixel art rather
+    # than as two rectangles, and it survives the nine-slice because each end's diagonal sits
+    # inside its own corner tile.
+    ("bar_track", ("nine_slice", (48, 11), (6, 4, 6, 4), True),
+     lambda k: recut("bar_track", k, (darker(k.sunk, 0.3), lighter(k.bevel, 0.1)), label=True)),
+    ("bar_fill", ("nine_slice", (42, 5), (4, 1, 4, 1), True),
+     lambda k: recut("bar_fill", k, (darker(k.good, 0.45), lighter(k.good, 0.35)), label=True)),
+    ("bar_done", ("nine_slice", (42, 5), (4, 1, 4, 1), True),
+     lambda k: recut("bar_fill", k, (darker(k.warn, 0.45), lighter(k.warn, 0.35)), label=True)),
+
+    # The mana curve is the same idea standing up, and his bar only reads one way round - the
+    # shear leans, the light is along the top. So the columns keep the mod's own, which was
+    # built to be drawn either way.
+    ("curve_track", NINE_8, lambda k: bar(8, k, "track")),
+    ("curve_fill", NINE_8, lambda k: bar(8, k, "fill")),
 ]
 
 # ---------------------------------------------------------------- writing

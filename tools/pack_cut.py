@@ -32,6 +32,15 @@ CELLS = {
         "scroll_thumb": (4 + 64, 7, 8, 18),
         "button": (0 + 64, 85, 48, 22),
     },
+    # The bar and the box it runs in. Both are sheared - the ends are cut on the diagonal -
+    # which is most of what makes them read as pixel art rather than as two rectangles. The
+    # grey track and the yellow fill, because recut() sorts by lightness and the colour of
+    # the one it is given never survives anyway.
+    "04.png": {
+        "bar_track": (0, 19, 48, 11),
+        "bar_fill": (51, 22, 42, 5),
+    },
+
     # Five frames of a dashed ring with the lit dash travelling round it, in a row. Rows two
     # to forty-five: below that the same sheet carries a ring of wedges, which is a different
     # spinner and not this one.

@@ -267,12 +267,28 @@ public final class GatheringSprites {
         SPINNER_3("spinner_3"),
         SPINNER_4("spinner_4"),
 
-        /** How far there is to go. */
+        /**
+         * How far there is to go, and how far it has got.
+         *
+         * <p>A hollow box with its ends cut on the diagonal, and a solid bar that runs
+         * inside it - cut off BDragon1727's sheet, so the fill is drawn inside the track's
+         * wall rather than over the top of it.
+         */
         BAR_TRACK("bar_track"),
         /** How far it has got. */
         BAR_FILL("bar_fill"),
         /** And how it looks when it is all the way, which is a set somebody finished. */
-        BAR_DONE("bar_done");
+        BAR_DONE("bar_done"),
+
+        /**
+         * A mana curve's columns, which are the same idea standing up.
+         *
+         * <p>Their own elements rather than the bar's, because his bar only reads one way
+         * round: the shear leans and the light runs along the top. These are the mod's own,
+         * built to be drawn either way.
+         */
+        CURVE_TRACK("curve_track"),
+        CURVE_FILL("curve_fill");
 
         private final String name;
 

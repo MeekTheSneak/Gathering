@@ -95,21 +95,43 @@ LEAST_CONTRAST = 4.2
 
 
 def faintest(where):
-    """The worst contrast any opaque pixel of this sprite has against the label colour."""
+    """The worst contrast the label sits on, over the part of this sprite it sits on.
+
+    The middle of the nine-slice and nothing else. A button's outline and its one-pixel
+    bevel are the brightest and darkest things in the file and neither has a word on it - the
+    label is drawn across the stretched middle, which is the only region this can honestly
+    ask about. Measured against every pixel of it rather than the commonest, because a face
+    with a lit top band is a face whose top band still has letters over it.
+    """
     try:
         from PIL import Image
     except ImportError:
         return None
+    left, top, right, bottom = borderOf(where + ".mcmeta")
     with Image.open(where) as art:
-        # getdata() is on its way out of Pillow; the pixel access object is not.
         rgba = art.convert("RGBA")
         read = rgba.load()
-        pixels = [read[x, y] for y in range(rgba.height) for x in range(rgba.width)]
+        middle = [read[x, y]
+                  for y in range(top, max(top + 1, rgba.height - bottom))
+                  for x in range(left, max(left + 1, rgba.width - right))]
     worst = None
-    for tone in {pixel[:3] for pixel in pixels if pixel[3] > 0x40}:
+    for tone in {pixel[:3] for pixel in middle if pixel[3] > 0x40}:
         here = contrast(LABEL, tone)
         worst = here if worst is None else min(worst, here)
     return worst
+
+
+def borderOf(where):
+    """A sprite's nine-slice border, as four sides. Nothing stretched has one."""
+    if not os.path.isfile(where):
+        return 0, 0, 0, 0
+    said = json.load(open(where))["gui"]["scaling"]
+    if said.get("type") != "nine_slice":
+        return 0, 0, 0, 0
+    edge = said["border"]
+    if isinstance(edge, int):
+        return edge, edge, edge, edge
+    return edge["left"], edge["top"], edge["right"], edge["bottom"]
 
 
 def luminance(color):

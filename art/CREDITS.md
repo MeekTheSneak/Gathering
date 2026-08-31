@@ -19,13 +19,13 @@ packs' terms ask for a contribution of any amount, and that is a debt to settle 
 What is in this repository, precisely:
 
 - `art/gui/parts/` holds his sprites, cut straight off the sheets by `tools/pack_cut.py` and
-  checked in so the build never needs the packs: the button, the two arrows, the scroll thumb
-  and the five frames of the spinner. Every theme's version of those is his pixels with the
+  checked in so the build never needs the packs: the progress bar and the hollow sheared box
+  it runs in, the two arrows, the scroll thumb and the five frames of the spinner. His button
+  was taken too and then given back - the mod's own is the one this project prefers. Every theme's version of those is his pixels with the
   hue moved - `recut()` in `tools/gui_art.py` sorts his tones by how light they are and lays
   them on that look's own ramp, so the shapes, the outline, the dithering and the highlights
   are all still his and only the colour is ours. The one thing changed on top of that is the
-  contrast floor: his faces are drawn to carry an icon and run bright, and a label set on
-  them unaltered cannot be read, so the light end is darkened until it can.
+  contrast floor, where one of his sprites carries a word.
 - `art/gui/frames/` holds four 64x64 frames cut from the border pack's own sheets, colours and
   all. Four looks - Ember, Arcane, Verdant and Royal - are built around them: the frame is what
   those looks are, so it is his, and the rest of each set is drawn flat in colours taken off it.

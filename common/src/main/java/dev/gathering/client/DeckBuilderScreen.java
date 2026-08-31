@@ -466,9 +466,13 @@ public final class DeckBuilderScreen extends Screen {
         for (int at = 0; at < DeckBuild.CURVE_BUCKETS; at++) {
             int high = Math.round(area.height() * (curve[at] / (float) tallest));
             int x = area.x() + at * columnWidth;
-            GatheringSprites.draw(graphics, Element.BAR_TRACK, x, area.y(), columnWidth - 1, area.height());
+            // The curve's own elements, not the progress bar's. A column stands up, and the
+            // bar the set list draws only reads one way round - its ends are cut on the
+            // diagonal and its light runs along the top.
+            GatheringSprites.draw(graphics, Element.CURVE_TRACK,
+                    x, area.y(), columnWidth - 1, area.height());
             if (high > 0) {
-                GatheringSprites.draw(graphics, Element.BAR_FILL,
+                GatheringSprites.draw(graphics, Element.CURVE_FILL,
                         x, area.bottom() - high, columnWidth - 1, high);
             }
         }
