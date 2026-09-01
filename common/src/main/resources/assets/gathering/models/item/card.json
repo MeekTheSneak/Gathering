@@ -6,7 +6,12 @@
     "",
     "These follow vanilla's item/generated, which is what every flat item in the game uses.",
     "Note the third-person rotation is [0,0,0]: item/handheld's [0,-90,55] is a fist grip on a",
-    "tool, and applying it to a flat card is what makes one look skewed and edge-on."
+    "tool, and applying it to a flat card is what makes one look skewed and edge-on.",
+    "",
+    "Ground is -90 about X, not +90. The renderer draws the printed side facing +Z and the",
+    "sleeve facing -Z, and rotating +90 about X sends +Z to -Y - so a card thrown on the",
+    "floor landed with its face in the dirt and its sleeve up. -90 sends +Z to +Y and it",
+    "lands face up, which is what dropping a card on a table does."
   ],
   "parent": "builtin/entity",
   "gui_light": "front",
@@ -47,7 +52,7 @@
     },
     "ground": {
       "rotation": [
-        90,
+        -90,
         0,
         0
       ],

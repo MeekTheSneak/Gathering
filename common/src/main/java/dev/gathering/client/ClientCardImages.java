@@ -73,6 +73,18 @@ public final class ClientCardImages {
 
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
     private final Set<String> failed = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Urls whose fetch went wrong in a way that might not go wrong next time, and when it is
+     * worth asking again - with how many goes each has had, so a dead one is eventually
+     * given up on for real.
+     */
+    private final java.util.Map<String, Long> waiting = new ConcurrentHashMap<>();
+    private final java.util.Map<String, Integer> attempts = new ConcurrentHashMap<>();
+
+    /** How long to wait before the first retry, doubling after that, and how many to allow. */
+    private static final long FIRST_RETRY_MILLIS = 2_000L;
+    private static final int MOST_ATTEMPTS = 5;
     private final AtomicInteger textureCounter = new AtomicInteger();
 
     private String userAgent = Gathering.MOD_NAME + " (Minecraft client)";
@@ -99,6 +111,10 @@ public final class ClientCardImages {
         if (url == null || url.isBlank() || failed.contains(url)) {
             return Optional.empty();
         }
+        Long notBefore = waiting.get(url);
+        if (notBefore != null && System.currentTimeMillis() < notBefore) {
+            return Optional.empty();
+        }
         ResourceLocation ready = resident.get(url);
         if (ready != null) {
             return Optional.of(ready);
@@ -109,7 +125,13 @@ public final class ClientCardImages {
         return Optional.empty();
     }
 
-    /** Whether this URL has been tried and will not be tried again this session. */
+    /**
+     * Whether this URL has been tried and will not be tried again this session.
+     *
+     * <p>Only for the failures that are really final - the picture is not there, or what came
+     * back is not an image. A fetch that timed out or came back 429 is waiting rather than
+     * failed, and the screen goes on saying it is still trying, because it is.
+     */
     public boolean hasFailed(String url) {
         return url != null && failed.contains(url);
     }
@@ -125,11 +147,22 @@ public final class ClientCardImages {
     private void fetch(String url) {
         boolean handedOff = false;
         try {
-            byte[] bytes = readCached(url).orElseGet(() -> download(url));
-            if (bytes == null || bytes.length == 0) {
-                markFailed(url);
-                return;
+            byte[] cached = readCached(url).orElse(null);
+            if (cached == null) {
+                Fetched came = download(url);
+                if (came.bytes() == null || came.bytes().length == 0) {
+                    if (came.worthRetrying()) {
+                        waitBeforeRetrying(url);
+                    } else {
+                        markFailed(url);
+                    }
+                    return;
+                }
+                cached = came.bytes();
             }
+            final byte[] bytes = cached;
+            waiting.remove(url);
+            attempts.remove(url);
             // Back to the client thread: NativeImage and the GL upload both belong there.
             // The url stays in flight until upload() has published the texture. Releasing it
             // here opened a gap - resident not yet filled, inFlight already empty - that the
@@ -226,7 +259,20 @@ public final class ClientCardImages {
         }
     }
 
-    private byte[] download(String url) {
+    /**
+     * What came back, and whether asking again could ever give a different answer.
+     *
+     * <p>The difference is the whole point. A 404 means the picture is not there and never
+     * will be; a timeout, a 429 or a 503 mean the network was busy, which is a thing that
+     * stops being true.
+     */
+    private record Fetched(byte[] bytes, boolean worthRetrying) {
+
+        static final Fetched GONE = new Fetched(null, false);
+        static final Fetched LATER = new Fetched(null, true);
+    }
+
+    private Fetched download(String url) {
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                     .timeout(TIMEOUT)
@@ -235,18 +281,25 @@ public final class ClientCardImages {
                     .GET()
                     .build();
             HttpResponse<byte[]> response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
-            if (response.statusCode() != 200) {
-                LOGGER.warn("Card art fetch returned HTTP {} for {}", response.statusCode(), url);
-                return null;
+            int status = response.statusCode();
+            if (status != 200) {
+                LOGGER.warn("Card art fetch returned HTTP {} for {}", status, url);
+                // Only "it is not there" is final. Everything else - a rate limit, a bad
+                // gateway, a proxy having a moment - is worth asking again about.
+                return status == 404 || status == 410 ? Fetched.GONE : Fetched.LATER;
             }
             writeCache(url, response.body());
-            return response.body();
+            return new Fetched(response.body(), false);
         } catch (IOException e) {
+            // A timeout or a dropped connection. This is the one that made whole cards look
+            // permanently broken: dozens of images are asked for at once when a collection
+            // opens, and whichever of them lost that race used to be given up on for the
+            // rest of the session while everything else about the card loaded fine.
             LOGGER.warn("Card art fetch failed for {}: {}", url, e.toString());
-            return null;
+            return Fetched.LATER;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return null;
+            return Fetched.LATER;
         }
     }
 
@@ -279,6 +332,22 @@ public final class ClientCardImages {
                 .resolve(CACHE_DIRECTORY)
                 .resolve(hash.substring(0, 2))
                 .resolve(hash + ".png");
+    }
+
+    /**
+     * Puts a url aside for a while rather than giving up on it.
+     *
+     * <p>Backing off each time so a host that is genuinely down is not hammered, and giving
+     * up for real after a few goes so a dead link cannot be retried forever.
+     */
+    private void waitBeforeRetrying(String url) {
+        int gone = attempts.merge(url, 1, Integer::sum);
+        if (gone >= MOST_ATTEMPTS) {
+            LOGGER.warn("Giving up on card art at {} after {} tries", url, gone);
+            markFailed(url);
+            return;
+        }
+        waiting.put(url, System.currentTimeMillis() + FIRST_RETRY_MILLIS * (1L << (gone - 1)));
     }
 
     private void markFailed(String url) {

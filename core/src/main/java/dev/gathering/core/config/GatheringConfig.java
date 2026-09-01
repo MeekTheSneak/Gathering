@@ -154,14 +154,22 @@ public record GatheringConfig(
     /** And by "the last few releases", however many {@code loot_recent_sets} says. */
     public static final String LOOT_SETS_RECENT = "recent";
 
+    /** And by "everything Wizards ever put in a booster". */
+    public static final String LOOT_SETS_ALL = "all";
+
     /**
      * Which sets a server's packs come from when it has not said.
      *
-     * <p>Just the current one. A server that wants more says so, because every extra set is
-     * another few megabytes fetched at start - and because a server pinned to one release is
-     * what most people mean by turning collecting on.
+     * <p>All of them. This used to be the current set alone, on the reasoning that a server
+     * pinned to one release is what most people mean by turning collecting on - but what it
+     * actually meant is that everything anybody ever fished out of the sea was from the same
+     * three months of Magic, and a collection is a thing you build out of the whole game. A
+     * server that wants an era or a season names it; a server that says nothing gets Magic.
+     *
+     * <p>It costs a longer list at startup and nothing else: the sealed data for a set is
+     * fetched when something needs it, not when the list is worked out.
      */
-    private static final List<String> DEFAULT_LOOT_SETS = List.of(LOOT_SETS_CURRENT);
+    private static final List<String> DEFAULT_LOOT_SETS = List.of(LOOT_SETS_ALL);
 
     /** Every setting name this understands, so a typo in the file can be spotted. */
     public static Set<String> knownKeys() {
@@ -319,10 +327,10 @@ public record GatheringConfig(
     /**
      * Which sets packs may be found from, keeping only what means something.
      *
-     * <p>Three shapes: {@code "current"} for whatever is out now, {@code "recent"} for the
-     * last few releases, and a set code for exactly that set. A seasonal server names the
-     * set it is about; an era server names the block it lives in; a server that says nothing
-     * gets the current one.
+     * <p>Four shapes: {@code "all"} for everything ever sold in a booster, {@code "current"}
+     * for whatever is out now, {@code "recent"} for the last few releases, and a set code for
+     * exactly that set. A seasonal server names the set it is about; an era server names the
+     * block it lives in; a server that says nothing gets all of them.
      *
      * <p>Anything else is dropped and said out loud. A set code with a typo in it is a set
      * that never drops anything, and finding that out from an empty chest is no way to find
@@ -332,7 +340,8 @@ public record GatheringConfig(
         List<String> kept = new ArrayList<>();
         for (String named : asked) {
             String wanted = named == null ? "" : named.trim().toLowerCase(Locale.ROOT);
-            if (wanted.equals(LOOT_SETS_CURRENT) || wanted.equals(LOOT_SETS_RECENT)) {
+            if (wanted.equals(LOOT_SETS_CURRENT) || wanted.equals(LOOT_SETS_RECENT)
+                    || wanted.equals(LOOT_SETS_ALL)) {
                 if (!kept.contains(wanted)) {
                     kept.add(wanted);
                 }
@@ -341,15 +350,15 @@ public record GatheringConfig(
             String code = dev.gathering.core.card.SetCode.of(wanted).orElse(null);
             if (code == null) {
                 notes.add("collection.loot_sets lists '" + named + "', which is not a set code "
-                        + "and not \"" + LOOT_SETS_CURRENT + "\" or \"" + LOOT_SETS_RECENT
-                        + "\".");
+                        + "and not \"" + LOOT_SETS_CURRENT + "\", \"" + LOOT_SETS_RECENT
+                        + "\" or \"" + LOOT_SETS_ALL + "\".");
             } else if (!kept.contains(code)) {
                 kept.add(code);
             }
         }
         if (kept.isEmpty() && !asked.isEmpty()) {
             notes.add("collection.loot_sets named nothing this understands, so packs come from "
-                    + "the current set.");
+                    + "every set.");
             return DEFAULT_LOOT_SETS;
         }
         return List.copyOf(kept);
@@ -432,11 +441,11 @@ public record GatheringConfig(
                 # Where sealed product turns up: any of "fishing", "structures", "archaeology".
                 # Needs collection_enabled.
                 pack_loot_sources = ["fishing", "structures", "archaeology"]
-                # Which sets those packs are from. "current" is whatever is out now, "recent"
-                # is the last few releases, and a set code is exactly that set - so a seasonal
-                # server names its set and an era server names its block. Every extra set is
-                # another few megabytes fetched when the server starts.
-                loot_sets = ["current"]
+                # Which sets those packs are from. "all" is everything ever sold in a booster,
+                # "current" is whatever is out now, "recent" is the last few releases, and a set
+                # code is exactly that set - so a seasonal server names its set and an era server
+                # names its block. They combine: ["mh3", "current"] is one set plus whatever is new.
+                loot_sets = ["all"]
                 # How far back "recent" reaches. Twelve is about three years of Magic.
                 loot_recent_sets = 12
                 # A card-shop villager sells sealed product only, never single cards. Anything

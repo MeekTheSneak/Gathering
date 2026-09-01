@@ -8,10 +8,10 @@ import java.util.Optional;
 /**
  * Which sets a server's packs are found from.
  *
- * <p>Three things can go in the config and they combine rather than compete: the sets named
- * outright, whatever is current, and the last few releases. A seasonal server names one set;
- * an era server names a block; a server that says nothing gets the current one; and a server
- * that wants its own set plus whatever is new says both.
+ * <p>Four things can go in the config and they combine rather than compete: the sets named
+ * outright, every set there is, whatever is current, and the last few releases. A seasonal
+ * server names one set; an era server names a block; a server that says nothing gets all of
+ * them; and a server that wants its own set plus whatever is new says both.
  *
  * <p>Named sets come first and nothing appears twice. Order matters because a set is chosen
  * by walking this list, and a list that reshuffled between restarts would be a server whose
@@ -44,7 +44,11 @@ public final class LootSets {
             if (named.contains(GatheringConfig.LOOT_SETS_CURRENT)) {
                 current.filter(code -> !wanted.contains(code)).ifPresent(wanted::add);
             }
-            if (named.contains(GatheringConfig.LOOT_SETS_RECENT) && recent != null) {
+            // "All" and "recent" take the same list; how long it is was decided when it was
+            // asked for. Both are handled here so a config saying both gets one list rather
+            // than the same codes twice.
+            if ((named.contains(GatheringConfig.LOOT_SETS_RECENT)
+                    || named.contains(GatheringConfig.LOOT_SETS_ALL)) && recent != null) {
                 for (String code : recent) {
                     if (code != null && !wanted.contains(code)) {
                         wanted.add(code);
@@ -59,16 +63,25 @@ public final class LootSets {
     public static boolean needsTheReleaseList(List<String> named) {
         return named != null
                 && (named.contains(GatheringConfig.LOOT_SETS_CURRENT)
-                        || named.contains(GatheringConfig.LOOT_SETS_RECENT));
+                        || named.contains(GatheringConfig.LOOT_SETS_RECENT)
+                        || named.contains(GatheringConfig.LOOT_SETS_ALL));
     }
 
     /** Whether the config asked for more than the newest release. */
     public static boolean needsMoreThanTheNewest(List<String> named) {
-        return named != null && named.contains(GatheringConfig.LOOT_SETS_RECENT);
+        return named != null
+                && (named.contains(GatheringConfig.LOOT_SETS_RECENT)
+                        || named.contains(GatheringConfig.LOOT_SETS_ALL));
+    }
+
+    /** Whether it asked for every set there is, rather than a window of them. */
+    public static boolean wantsEverySet(List<String> named) {
+        return named != null && named.contains(GatheringConfig.LOOT_SETS_ALL);
     }
 
     private static boolean isAWord(String one) {
         return one.equals(GatheringConfig.LOOT_SETS_CURRENT)
-                || one.equals(GatheringConfig.LOOT_SETS_RECENT);
+                || one.equals(GatheringConfig.LOOT_SETS_RECENT)
+                || one.equals(GatheringConfig.LOOT_SETS_ALL);
     }
 }

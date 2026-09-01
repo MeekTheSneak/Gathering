@@ -85,4 +85,30 @@ class LootSetsTest {
         assertThat(LootSets.needsMoreThanTheNewest(List.of("current"))).isFalse();
         assertThat(LootSets.needsMoreThanTheNewest(List.of("recent"))).isTrue();
     }
+
+    @Test
+    @DisplayName("\"all\" takes every release there is")
+    void allTakesEverything() {
+        assertThat(LootSets.wanted(List.of("all"), Optional.of("hob"), RECENT))
+                .containsExactlyElementsOf(RECENT);
+        assertThat(LootSets.wantsEverySet(List.of("all"))).isTrue();
+        assertThat(LootSets.needsTheReleaseList(List.of("all"))).isTrue();
+        assertThat(LootSets.needsMoreThanTheNewest(List.of("all"))).isTrue();
+    }
+
+    @Test
+    @DisplayName("\"all\" beside a named set still puts the named one first")
+    void allKeepsTheNamedSetFirst() {
+        // The order is what a set is picked by walking, so a config that names its own set
+        // and then asks for everything must not have that set arrive somewhere in the middle.
+        assertThat(LootSets.wanted(List.of("msh", "all"), Optional.empty(), RECENT).get(0))
+                .isEqualTo("msh");
+    }
+
+    @Test
+    @DisplayName("\"all\" and \"recent\" together list each set once")
+    void allAndRecentDoNotDouble() {
+        List<String> both = LootSets.wanted(List.of("all", "recent"), Optional.empty(), RECENT);
+        assertThat(both).doesNotHaveDuplicates().containsExactlyElementsOf(RECENT);
+    }
 }

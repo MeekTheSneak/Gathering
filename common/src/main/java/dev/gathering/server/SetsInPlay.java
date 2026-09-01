@@ -38,9 +38,14 @@ public final class SetsInPlay {
             return CompletableFuture.completedFuture(
                     LootSets.wanted(named, Optional.empty(), List.of()));
         }
+        // "All" and "recent" are the same request with a different limit, so asking for both
+        // costs one call - and asking for all of them is asking for no limit at all.
+        int howFarBack = LootSets.wantsEverySet(named)
+                ? Integer.MAX_VALUE
+                : settings.collecting().lootRecentSets();
         CompletableFuture<List<String>> recent =
                 LootSets.needsMoreThanTheNewest(named)
-                        ? CurrentSet.recent(settings.collecting().lootRecentSets())
+                        ? CurrentSet.recent(howFarBack)
                         : CompletableFuture.completedFuture(List.of());
         return CurrentSet.whenKnown().thenCombine(recent, (current, releases) -> {
             List<String> all = LootSets.wanted(named, current, releases);

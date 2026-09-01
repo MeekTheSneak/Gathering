@@ -215,7 +215,7 @@ class GatheringConfigTest {
     }
 
     @Test
-    @DisplayName("a loot_sets naming nothing usable falls back to the current set")
+    @DisplayName("a loot_sets naming nothing usable falls back to every set")
     void lootSetsFallBack() {
         // Note what is not here: "whatever" would be kept, because eight letters is a shape a
         // set code has and this cannot know which eight-letter words Wizards has used. What a
@@ -225,7 +225,7 @@ class GatheringConfigTest {
                 loot_sets = ["../etc", "a b c"]
                 """);
 
-        assertThat(config.collecting().lootSets()).containsExactly("current");
+        assertThat(config.collecting().lootSets()).containsExactly("all");
         assertThat(config.notes()).anyMatch(note -> note.contains("loot_sets"));
     }
 
