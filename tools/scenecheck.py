@@ -24,10 +24,36 @@ SCENE = ROOT / "common/src/main/java/dev/gathering/client/DevScene.java"
 CASE = re.compile(r"^\s*case (\d+) ->", re.MULTILINE)
 LAST = re.compile(r"private static final int LAST_STEP = (\d+);")
 
+#: The dispatcher, and only the dispatcher. Other switches in this file are numbered too -
+#: the gallery walks a look's three screens by phase - and counting those as scene steps
+#: reports every one of them as a step written twice.
+DISPATCH = "switch (step) {"
+
+
+def dispatcher(source):
+    """Just the dispatcher's own body, found by matching its braces."""
+    at = source.find(DISPATCH)
+    if at < 0:
+        return None
+    open_at = at + len(DISPATCH) - 1
+    depth = 0
+    for here in range(open_at, len(source)):
+        if source[here] == "{":
+            depth += 1
+        elif source[here] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[open_at:here + 1]
+    return None
+
 
 def main() -> int:
     source = SCENE.read_text()
-    steps = sorted(int(match.group(1)) for match in CASE.finditer(source))
+    body = dispatcher(source)
+    if body is None:
+        print("dev scene: the dispatcher's switch is gone, so nothing can be checked")
+        return 1
+    steps = sorted(int(match.group(1)) for match in CASE.finditer(body))
     problems = []
 
     if not steps:

@@ -85,6 +85,17 @@ public final class DevScene {
     /** Set {@code -Dgathering.devscene=1} to arm it. Absent everywhere else. */
     private static final String ENABLED = "gathering.devscene";
 
+    /**
+     * Set {@code -Dgathering.gallery=1} as well to photograph every look after the tour.
+     *
+     * <p>Its own switch because it is a different job. The tour is a check - it presses every
+     * gesture and fails when one is a dead end - and it has to stay quick enough to run on
+     * every change. The gallery presses nothing: it wears each look in turn and takes the
+     * same three pictures, which is a thing somebody asks for when they are choosing between
+     * them and never something to run in a gate.
+     */
+    private static final boolean GALLERY = System.getProperty("gathering.gallery") != null;
+
     private static final String LEVEL = "GatheringDevScene";
 
     /**
@@ -164,6 +175,23 @@ public final class DevScene {
      * Raise this when the last case number goes up.
      */
     private static final int LAST_STEP = 275;
+
+    /**
+     * The gallery, if it was asked for: three pictures of every look installed.
+     *
+     * <p>Six steps a look, because a screen has to be opened in one step and photographed in
+     * the next - a shot asked for in the same breath catches the frame that was already
+     * drawn, which is the convention the whole scene follows.
+     */
+    private static final int GALLERY_FIRST = LAST_STEP + 1;
+    private static final int STEPS_PER_LOOK = 6;
+
+    /** The last step this run will reach, which is further when the gallery is on. */
+    private static int lastStep() {
+        return GALLERY
+                ? GALLERY_FIRST + GuiThemes.all().size() * STEPS_PER_LOOK - 1
+                : LAST_STEP;
+    }
 
     private static int step;
     private static int waited;
@@ -2851,6 +2879,10 @@ public final class DevScene {
                 if (step < LAST_STEP) {
                     fail("the scene has no step " + step + ", so it stopped there instead of"
                             + " running to " + LAST_STEP + "; a case number was skipped");
+                }
+                if (GALLERY && step <= lastStep()) {
+                    gallery(client, step - GALLERY_FIRST);
+                    return;
                 }
                 finish(client, "done");
             }
@@ -5761,6 +5793,107 @@ public final class DevScene {
                 }
             }
         });
+    }
+
+    /**
+     * The gallery: every look wearing the same three screens.
+     *
+     * <p>Three because they are the three that show most of what a look is - a grid of cards
+     * in a recessed box, a panel with a list down it, and the full-screen read, which is the
+     * one thing drawn over the world rather than over a backdrop. A five-colour card for the
+     * read, so every mana orb is on screen at once.
+     *
+     * <p>Driven by arithmetic rather than by a case each: there are as many looks as the
+     * resource packs installed happen to declare, which is not a number this file can know.
+     */
+    private static void gallery(Minecraft client, int at) {
+        List<GuiTheme> looks = GuiThemes.all();
+        int which = at / STEPS_PER_LOOK;
+        int phase = at % STEPS_PER_LOOK;
+        if (which >= looks.size()) {
+            finish(client, "done");
+            return;
+        }
+        GuiTheme look = looks.get(which);
+        String named = look.id().getPath();
+        switch (phase) {
+            case 0 -> {
+                GuiThemes.wear(look);
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                readingACard(client, false);
+                openTheCollection(client);
+            }
+            case 1 -> shoot(client, "look-" + named + "-1-collection");
+            case 2 -> {
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                openTheDeckScreen(client);
+            }
+            case 3 -> shoot(client, "look-" + named + "-2-deck");
+            case 4 -> {
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                client.setScreen(null);
+                aFiveColorCardInHand(client);
+                readingACard(client, true);
+            }
+            default -> {
+                shoot(client, "look-" + named + "-3-reading");
+                readingACard(client, false);
+            }
+        }
+        advance(SETTLE);
+    }
+
+    /**
+     * Holds the read key down, or lets it go.
+     *
+     * <p>The overlay asks a supplier whether the key is held, so this answers that question
+     * rather than pretending to press anything: there is no way to hold a real key across a
+     * scripted frame, and a screenshot of a keyboard event is not what is wanted anyway.
+     *
+     * <p>The loader's own binding is replaced for the rest of the run. That is fine and only
+     * fine here: the gallery is the last thing this scene does before it quits.
+     */
+    private static void readingACard(Minecraft client, boolean held) {
+        CardZoomOverlay.bindKeyState(() -> held);
+    }
+
+    /**
+     * A card of all five colors in the player's hand, for the read.
+     *
+     * <p>Five colors so the whole palette of orbs is on one screen, which is the thing worth
+     * comparing between looks. Set client-side, because what the read draws is what this
+     * client believes it is holding.
+     */
+    private static void aFiveColorCardInHand(Minecraft client) {
+        if (client.player == null) {
+            fail("there was no player to hand a card to");
+            return;
+        }
+        var service = dev.gathering.service.CardDataService.active().orElse(null);
+        if (service == null) {
+            fail("there was no card service to look a five-color card up with");
+            return;
+        }
+        // Named rather than searched: this is the picture's subject, and a run that quietly
+        // photographed some other card would be a gallery of the wrong thing.
+        for (String name : List.of("Progenitus", "Cromat", "Sliver Queen", "Child of Alara")) {
+            var found = service.findByName(name).join().orElse(null);
+            if (found == null) {
+                continue;
+            }
+            var card = dev.gathering.item.CardComponent.of(
+                    dev.gathering.core.card.CardIdentity.ofPrinting(found.scryfallId(), false));
+            client.player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                    dev.gathering.item.CardItem.of(card));
+            return;
+        }
+        fail("none of the five-color cards could be looked up");
     }
 
     /** Empties both hands, so what is left to say about the block is the sweep. */

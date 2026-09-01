@@ -7,8 +7,9 @@
 # textures, fonts, the real camera and the real card art - and until now the only way to find
 # out was to ask somebody to open the game and describe it.
 #
-#   tools/shots.sh              # boot, set a table up, photograph it, quit
+#   tools/shots.sh                 # boot, set a table up, photograph it, quit
 #   LOADER=fabric tools/shots.sh   # the same run, on the other loader
+#   GALLERY=1 tools/shots.sh       # and then every look wearing the same three screens
 #
 # Pictures land in <loader>/run/screenshots. Needs xvfb-run and software GL, same as smoke.sh.
 #
@@ -30,9 +31,19 @@ if ! command -v xvfb-run >/dev/null 2>&1; then
     echo "needs xvfb-run"; exit 1
 fi
 
-timeout "${SHOT_SECONDS:-720}" xvfb-run -a -s "-screen 0 1280x800x24" \
+# The gallery adds three pictures a look on top of the tour, so it needs longer than the
+# tour's own budget - and a run cut off by the timer is a gallery missing whichever looks
+# came last, which is not obvious from the pictures that did arrive.
+EXTRA=""
+BUDGET="${SHOT_SECONDS:-720}"
+if [ "${GALLERY:-}" = 1 ]; then
+    EXTRA="-Pgallery"
+    BUDGET="${SHOT_SECONDS:-1500}"
+fi
+
+timeout "$BUDGET" xvfb-run -a -s "-screen 0 1280x800x24" \
     env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
-    ./gradlew ":$LOADER:runClient" -Pdevscene > /tmp/gathering-shots.log 2>&1
+    ./gradlew ":$LOADER:runClient" -Pdevscene $EXTRA > /tmp/gathering-shots.log 2>&1
 
 # The world goes with it. It holds a table with a live game in it, and the game test server
 # runs in this same directory: left behind, that table ticks on a server with no client to

@@ -31,6 +31,11 @@ neoForge {
             // session and photographs it. See DevScene.
             if (project.hasProperty('devscene')) {
                 systemProperty 'gathering.devscene', '1'
+                // And -Pgallery on top of it photographs every look wearing the same three
+                // screens. Separate because it is not a check and has no business in a gate.
+                if (project.hasProperty('gallery')) {
+                    systemProperty 'gathering.gallery', '1'
+                }
             }
         }
         server {
