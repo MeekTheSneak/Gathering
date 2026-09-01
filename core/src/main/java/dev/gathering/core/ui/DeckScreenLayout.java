@@ -26,6 +26,7 @@ public record DeckScreenLayout(
         Rect lands,
         Rect done,
         Rect sleeves,
+        Rect gather,
         Rect card,
         Rect info) {
 
@@ -125,15 +126,25 @@ public record DeckScreenLayout(
         // a panel this narrow that is more text than there is room for - it shrank to the
         // smallest readable size and was then cut off anyway.
         int hintHeight = line * HINT_LINES;
-        Rect hint = new Rect(PAD, buttonTop - GAP - hintHeight, contentWidth, hintHeight);
-
-        // Five buttons, one per basic land, in a strip above the hint. A deck built from a
-        // draft pool is forty-five spells and no lands, so without this there is no legal
-        // deck to build at all - and a Commander deck wants them too, which is why they are
-        // on the deck screen rather than on anything to do with drafting.
-        Rect lands = new Rect(PAD, hint.y() - GAP - LAND_HEIGHT, contentWidth, LAND_HEIGHT);
-
         int rowsTop = title.bottom() + GAP;
+
+        // A row of its own above the other two, because its label is a sentence and because
+        // what it does is neither of the things they do: it is the way in to picking cards
+        // out of your own pockets, which before this was a right-click per stack.
+        //
+        // The first thing to go when the window is short. Everything above it is the deck
+        // itself and every one of those has to be there; this one has another way in, at the
+        // collection block, so a panel too short for both keeps the cards.
+        Rect gather = new Rect(
+                PAD, buttonTop - GAP - BUTTON_HEIGHT, contentWidth, BUTTON_HEIGHT);
+        Rect hint = new Rect(PAD, gather.y() - GAP - hintHeight, contentWidth, hintHeight);
+        Rect lands = new Rect(PAD, hint.y() - GAP - LAND_HEIGHT, contentWidth, LAND_HEIGHT);
+        if (lands.y() - GAP - rowsTop < line) {
+            gather = Rect.NONE;
+            hint = new Rect(PAD, buttonTop - GAP - hintHeight, contentWidth, hintHeight);
+            lands = new Rect(PAD, hint.y() - GAP - LAND_HEIGHT, contentWidth, LAND_HEIGHT);
+        }
+
         Rect rows = new Rect(PAD, rowsTop, contentWidth, Math.max(line, lands.y() - GAP - rowsTop));
         // Anchored to where the edge is at the top, because the shear that lays the bar along
         // the taper carries it the rest of the way in. Anchoring it to the bottom edge and
@@ -142,7 +153,7 @@ public record DeckScreenLayout(
         Rect scrollbar = new Rect(scrollLeft, rows.y(), SCROLL_WIDTH, rows.height());
 
         return new DeckScreenLayout(
-                panel, title, rows, scrollbar, hint, lands, done, sleeves,
+                panel, title, rows, scrollbar, hint, lands, done, sleeves, gather,
                 cardOf(panel, width, height), infoOf(panel, width, height));
     }
 

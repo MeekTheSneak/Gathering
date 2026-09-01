@@ -219,6 +219,35 @@ class DeckScreenLayoutTest {
                 .isLessThanOrEqualTo(laid.hint().y());
     }
 
+    /**
+     * The row that opens the pockets builder sits between the hint and the buttons, or is
+     * given up altogether.
+     *
+     * <p>It is the one row on this panel that may go: everything above it is the deck, and a
+     * short window that kept this and squeezed the cards would be trading the screen for a
+     * button that has another way in.
+     */
+    @Property(tries = 2000)
+    void theGatherRowGivesWayRatherThanOverlapping(
+            @ForAll @IntRange(min = 200, max = 3840) int width,
+            @ForAll @IntRange(min = 160, max = 2160) int height,
+            @ForAll @IntRange(min = 6, max = 20) int lineHeight) {
+        DeckScreenLayout laid = DeckScreenLayout.of(width, height, lineHeight);
+
+        if (laid.gather().isEmpty()) {
+            return;
+        }
+        assertThat(laid.hint().bottom())
+                .describedAs("the hint runs into the gather row at %sx%s", width, height)
+                .isLessThanOrEqualTo(laid.gather().y());
+        assertThat(laid.gather().bottom())
+                .describedAs("the gather row runs into the buttons at %sx%s", width, height)
+                .isLessThanOrEqualTo(laid.done().y());
+        assertThat(laid.gather().right())
+                .describedAs("the gather row runs off the taper at %sx%s", width, height)
+                .isLessThanOrEqualTo(laid.edgeAt(laid.gather().bottom()));
+    }
+
     /** Asking for a land that does not exist gets nothing rather than a rectangle. */
     @Test
     void thereIsNoSixthBasicLand() {

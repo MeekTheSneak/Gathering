@@ -14,10 +14,15 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * player is standing next to, because a payload naming a position is a payload naming any
  * position: without that check this would be a way to read every collection on the server
  * from anywhere on it. Reading one is public, standing in front of it is not.
+ *
+ * @param pockets whether the loose cards this player is carrying count as part of the pool.
+ *                The builder says yes and the collection screen says no, and they mean
+ *                different things by the same search: a deck is built out of everything you
+ *                own, but a binder shows what is in the binder
  */
 public record CollectionSearchPayload(
-        BlockPos where, CollectionQuery query, boolean descending, int page, int perPage)
-        implements CustomPacketPayload {
+        BlockPos where, CollectionQuery query, boolean descending, int page, int perPage,
+        boolean pockets) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<CollectionSearchPayload> TYPE =
             GatheringPayloads.type("collection_search");
@@ -29,6 +34,7 @@ public record CollectionSearchPayload(
                     ByteBufCodecs.BOOL, CollectionSearchPayload::descending,
                     ByteBufCodecs.VAR_INT, CollectionSearchPayload::page,
                     ByteBufCodecs.VAR_INT, CollectionSearchPayload::perPage,
+                    ByteBufCodecs.BOOL, CollectionSearchPayload::pockets,
                     CollectionSearchPayload::new);
 
     public CollectionSearchPayload {

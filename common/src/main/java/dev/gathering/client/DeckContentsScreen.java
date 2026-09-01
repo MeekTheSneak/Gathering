@@ -129,6 +129,18 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
                     Component.translatable("screen.gathering.deck.sleeves"), this::openSleeves));
         }
 
+        // The way in to picking cards out of your own pockets. Right-clicking a stack with
+        // the deck in hand still works and always did, but that is one gesture per stack and
+        // a booster box is thirty-six of them; this is the same builder the collection block
+        // opens, over the cards you are carrying, and it puts them all in at once.
+        Rect gather = layout.gather();
+        if (!gather.isEmpty()) {
+            this.addRenderableWidget(GatheringButtons.of(
+                    gather.x(), gather.y(), gather.width(), gather.height(),
+                    Component.translatable("screen.gathering.deck.gather"),
+                    () -> this.minecraft.setScreen(new DeckBuilderScreen(hand))));
+        }
+
         // The title is the name, and the name is editable. A deck started by putting two
         // cards together has none and had no way to get one, which made starting a deck
         // something you could do and never finish. Borderless and in the title's own color,
@@ -353,7 +365,10 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
             // deck emptied a card at a time - and it drew as a blank panel with the land
             // buttons underneath and no word about why. Said here, where the way out of it
             // is the row of buttons directly below.
-            GuiText.draw(graphics, this.font,
+            // Wrapped rather than fitted to one line. The panel is a fraction of the window
+            // and this sentence has to name both ways out of an empty deck, so on any
+            // ordinary window one line meant the second way out was the part cut off.
+            GuiText.drawWrapped(graphics, this.font,
                     Component.translatable("screen.gathering.deck.empty"),
                     area.x() + 2, area.y() + 2, area.width() - 4, HEADING_COLOR);
             return;

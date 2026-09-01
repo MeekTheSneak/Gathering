@@ -246,12 +246,17 @@ public final class GatheringNetwork {
                 GatheringNetwork::onAddBasics);
 
         registrar.playToServer(
+                dev.gathering.network.PocketCardsPayload.TYPE,
+                dev.gathering.network.PocketCardsPayload.STREAM_CODEC,
+                GatheringNetwork::onPocketCards);
+
+        registrar.playToServer(
                 dev.gathering.network.CollectionSearchPayload.TYPE,
                 dev.gathering.network.CollectionSearchPayload.STREAM_CODEC,
                 (payload, context) -> dev.gathering.server.CollectionView.search(
                         (net.minecraft.server.level.ServerPlayer) context.player(),
                         payload.where(), payload.query(), payload.descending(), payload.page(),
-                        payload.perPage()));
+                        payload.perPage(), payload.pockets()));
         registrar.playToServer(
                 dev.gathering.network.CollectionTakePayload.TYPE,
                 dev.gathering.network.CollectionTakePayload.STREAM_CODEC,
@@ -435,6 +440,13 @@ public final class GatheringNetwork {
             dev.gathering.network.AddBasicsPayload payload, IPayloadContext context) {
         if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
             dev.gathering.server.BasicLands.handle(player, payload);
+        }
+    }
+
+    private static void onPocketCards(
+            dev.gathering.network.PocketCardsPayload payload, IPayloadContext context) {
+        if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+            dev.gathering.server.PocketCards.handle(player, payload);
         }
     }
 

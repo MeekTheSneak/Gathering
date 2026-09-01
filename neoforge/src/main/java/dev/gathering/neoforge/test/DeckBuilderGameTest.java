@@ -106,6 +106,95 @@ public final class DeckBuilderGameTest {
         helper.succeed();
     }
 
+    /**
+     * A card loose in the player's own pockets counts as one they own.
+     *
+     * <p>The box and the inventory are one pool to a builder, because they are one pool to
+     * the person: putting a card you just opened into the box only to take it straight back
+     * out is two errands for a card that never moved. What matters is that it is really
+     * taken - a deck built out of a card still sitting in the inventory would be a way to
+     * duplicate every card in the game.
+     */
+    @GameTest(template = "empty")
+    public static void cardsInYourPocketsCountTowardsTheDeck(GameTestHelper helper) {
+        BlockPos where = collection(helper);
+        ServerPlayer player = standing(helper, where);
+        CollectionBlockEntity box = boxAt(helper, where);
+        box.claimFor(player.getUUID());
+        box.put(CardIdentity.ofPrinting(SOL_RING, false), 1);
+        player.getInventory().add(
+                dev.gathering.item.CardItem.of(card(BOLT)).copyWithCount(2));
+
+        CollectionView.build(player, new BuildDeckPayload(where, "Pocket Deck", "",
+                List.of(card(SOL_RING), card(BOLT), card(BOLT)),
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
+
+        DeckComponent deck = deckInInventory(player);
+        if (deck == null) {
+            helper.fail("finishing a build handed over no deck");
+            return;
+        }
+        if (deck.entries().size() != 3) {
+            helper.fail("a deck built from one boxed card and two carried ones came out with "
+                    + deck.entries().size());
+            return;
+        }
+        if (looseCards(player) != 0) {
+            helper.fail("the carried cards were counted into the deck and kept: "
+                    + looseCards(player) + " left over");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Somebody who may not take from the box can still build out of their own pockets.
+     *
+     * <p>It used to refuse the whole press, which refused cards the box had no claim on.
+     */
+    @GameTest(template = "empty")
+    public static void aBoxYouMayNotTakeFromDoesNotStopYourOwnCards(GameTestHelper helper) {
+        BlockPos where = collection(helper);
+        ServerPlayer player = standing(helper, where);
+        CollectionBlockEntity box = boxAt(helper, where);
+        box.claimFor(UUID.fromString("00000000-0000-4000-8000-00000000dead"));
+        box.put(CardIdentity.ofPrinting(SOL_RING, false), 4);
+        player.getInventory().add(
+                dev.gathering.item.CardItem.of(card(BOLT)).copyWithCount(1));
+
+        CollectionView.build(player, new BuildDeckPayload(where, "Mine Only", "",
+                List.of(card(SOL_RING), card(BOLT)),
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
+
+        DeckComponent deck = deckInInventory(player);
+        if (deck == null) {
+            helper.fail("a build using only carried cards handed over no deck");
+            return;
+        }
+        if (deck.entries().size() != 1) {
+            helper.fail("a deck built beside somebody else's box came out with "
+                    + deck.entries().size() + " cards rather than the one that was carried");
+            return;
+        }
+        if (box.cards().of(CardIdentity.ofPrinting(SOL_RING, false)) != 4) {
+            helper.fail("cards were taken out of a box this player may not take from");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** How many loose cards the player is still carrying. */
+    private static int looseCards(ServerPlayer player) {
+        int loose = 0;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack.getItem() instanceof dev.gathering.item.CardItem) {
+                loose += stack.getCount();
+            }
+        }
+        return loose;
+    }
+
     private static CardComponent card(UUID printing) {
         return CardComponent.of(CardIdentity.ofPrinting(printing, false));
     }

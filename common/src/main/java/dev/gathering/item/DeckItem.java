@@ -159,7 +159,7 @@ public class DeckItem extends Item {
      * one reads as a click that did not register. {@code Player#playSound} excludes the
      * player it is given, so running this on both sides plays it exactly once.
      */
-    static void playAssembleSound(Player player) {
+    public static void playAssembleSound(Player player) {
         player.playSound(
                 SoundEvents.BUNDLE_INSERT, 0.8f, 0.8f + player.level().getRandom().nextFloat() * 0.4f);
     }

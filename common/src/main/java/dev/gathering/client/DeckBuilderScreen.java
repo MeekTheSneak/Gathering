@@ -13,6 +13,7 @@ import dev.gathering.network.CardSummary;
 import dev.gathering.network.CollectionPagePayload;
 import dev.gathering.network.CollectionQuery;
 import dev.gathering.network.CollectionSearchPayload;
+import dev.gathering.network.PocketCardsPayload;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
 
 /**
  * Building a deck out of a collection, a card at a time.
@@ -50,6 +52,17 @@ public final class DeckBuilderScreen extends Screen {
     private static final int MARGIN = 12;
     private static final int GAP = 6;
     private static final int TOP_BAR = 62;
+
+    /**
+     * How much room the head of the screen wants.
+     *
+     * <p>The name box and the search box, or neither. Adding cards to a deck you are already
+     * holding has nothing to type, and a head kept at its full height for two boxes that are
+     * not there is fifty pixels of nothing above the cards.
+     */
+    private int topBar() {
+        return fromPockets() ? MARGIN + 14 : TOP_BAR;
+    }
     /**
      * The foot is as tall as what has to go in it.
      *
@@ -67,8 +80,10 @@ public final class DeckBuilderScreen extends Screen {
         return GuiText.linesNeeded(this.font, hint(), Math.max(1, this.width - MARGIN * 2));
     }
 
-    private static Component hint() {
-        return Component.translatable("screen.gathering.builder.hint");
+    private Component hint() {
+        return Component.translatable(fromPockets()
+                ? "screen.gathering.builder.pockets_hint"
+                : "screen.gathering.builder.hint");
     }
 
     /** How much of the width the box gets. The rest is the deck, which is a list of text. */
@@ -125,53 +140,116 @@ public final class DeckBuilderScreen extends Screen {
     private EditBox searchBox;
     private EditBox nameBox;
 
+    /** Set when the cards come out of the player's own pockets - see the second constructor. */
+    private final InteractionHand hand;
+
     private int deckScroll;
 
     public DeckBuilderScreen(BlockPos where, String label) {
         super(Component.translatable("screen.gathering.builder"));
         this.where = where;
+        this.hand = null;
         this.label = label == null ? "" : label;
+    }
+
+    /**
+     * The same screen, over the cards in your pockets instead of a box.
+     *
+     * <p>Adding rather than building: the deck already exists and is in your hand, so there
+     * is no name to type, no commander to name and no sleeve to pick - only which of the
+     * cards you are carrying go in. Which is the whole of what took so long before, when the
+     * only way to do it was to carry the deck and right-click each stack in turn.
+     *
+     * <p>No search box and no paging beyond what the grid needs. A collection is thousands of
+     * cards and has to be searched; an inventory is thirty-six slots and can simply be shown.
+     */
+    public DeckBuilderScreen(InteractionHand hand) {
+        super(Component.translatable("screen.gathering.builder.pockets"));
+        this.where = null;
+        this.hand = hand;
+        this.label = "";
+    }
+
+    /** Whether this is adding to a deck in hand rather than building one out of a box. */
+    private boolean fromPockets() {
+        return hand != null;
+    }
+
+    /**
+     * How many more cards the deck in hand has room for, less what is already picked.
+     *
+     * <p>Only asked in pockets mode, where the deck already exists and is already part full.
+     * Without it the screen would happily take a hundred picks against a deck with sixty
+     * cards in it and let the server refuse forty of them afterwards, which is a screen that
+     * said yes to something that was never going to happen.
+     */
+    private int room() {
+        if (!fromPockets()) {
+            return dev.gathering.item.DeckComponent.MAX_CARDS;
+        }
+        return Math.max(0,
+                dev.gathering.item.DeckComponent.MAX_CARDS - alreadyInTheDeck() - build.total());
+    }
+
+    /** How many cards the deck in hand is already holding. Nothing outside pockets mode. */
+    private int alreadyInTheDeck() {
+        if (!fromPockets()) {
+            return 0;
+        }
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        return player == null
+                ? 0
+                : dev.gathering.item.DeckItem.deckOf(player.getItemInHand(hand))
+                        .map(dev.gathering.item.DeckComponent::totalCards)
+                        .orElse(0);
     }
 
     @Override
     protected void init() {
         String searching = searchBox == null ? query.text() : searchBox.getValue();
         String named = nameBox == null ? "" : nameBox.getValue();
-
-        int boxWidth = boxPane().width();
-        this.nameBox = new EditBox(this.font, MARGIN, MARGIN + 12, Math.min(180, boxWidth), 16,
-                Component.translatable("screen.gathering.builder.name"));
-        this.nameBox.setHint(Component.translatable("screen.gathering.builder.name_hint"));
-        this.nameBox.setValue(named);
-        this.nameBox.setMaxLength(BuildDeckPayload.LONGEST_NAME);
-        addRenderableWidget(this.nameBox);
-
-        int searchTop = MARGIN + 32;
-        this.searchBox = new EditBox(this.font, MARGIN, searchTop, Math.max(60, boxWidth), 16,
-                Component.translatable("screen.gathering.collection.search"));
-        this.searchBox.setHint(Component.translatable("screen.gathering.collection.search_hint"));
-        this.searchBox.setValue(searching);
-        this.searchBox.setResponder(text -> askFor(0));
-        addRenderableWidget(this.searchBox);
-
+        this.nameBox = null;
+        this.searchBox = null;
 
         int buttonTop = this.height - ROW - GAP;
-        addRenderableWidget(GatheringButtons.of(MARGIN, buttonTop, FROM_LIST, ROW,
-                Component.translatable("screen.gathering.builder.from_list"),
-                () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
-        // Chosen while the deck is being built rather than after it exists, because a deck
-        // handed over in somebody else's sleeves is a deck they have to go and fix.
-        addRenderableWidget(GatheringButtons.of(
-                MARGIN + FROM_LIST + GAP, buttonTop, SLEEVES, ROW,
-                Component.translatable("screen.gathering.deck.sleeves"),
-                () -> this.minecraft.setScreen(
-                        new SleeveScreen(sleeve, picked -> sleeve = picked, this))));
+        if (!fromPockets()) {
+            int boxWidth = boxPane().width();
+            this.nameBox = new EditBox(this.font, MARGIN, MARGIN + 12, Math.min(180, boxWidth), 16,
+                    Component.translatable("screen.gathering.builder.name"));
+            this.nameBox.setHint(Component.translatable("screen.gathering.builder.name_hint"));
+            this.nameBox.setValue(named);
+            this.nameBox.setMaxLength(BuildDeckPayload.LONGEST_NAME);
+            addRenderableWidget(this.nameBox);
+
+            int searchTop = MARGIN + 32;
+            this.searchBox = new EditBox(this.font, MARGIN, searchTop, Math.max(60, boxWidth), 16,
+                    Component.translatable("screen.gathering.collection.search"));
+            this.searchBox.setHint(
+                    Component.translatable("screen.gathering.collection.search_hint"));
+            this.searchBox.setValue(searching);
+            this.searchBox.setResponder(text -> askFor(0));
+            addRenderableWidget(this.searchBox);
+
+            addRenderableWidget(GatheringButtons.of(MARGIN, buttonTop, FROM_LIST, ROW,
+                    Component.translatable("screen.gathering.builder.from_list"),
+                    () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
+            // Chosen while the deck is being built rather than after it exists, because a deck
+            // handed over in somebody else's sleeves is a deck they have to go and fix.
+            addRenderableWidget(GatheringButtons.of(
+                    MARGIN + FROM_LIST + GAP, buttonTop, SLEEVES, ROW,
+                    Component.translatable("screen.gathering.deck.sleeves"),
+                    () -> this.minecraft.setScreen(
+                            new SleeveScreen(sleeve, picked -> sleeve = picked, this))));
+        }
         addRenderableWidget(GatheringButtons.of(
                 this.width - MARGIN - FOOT_RIGHT, buttonTop, CANCEL, ROW,
                 Component.translatable("gui.cancel"), this::onClose));
         addRenderableWidget(GatheringButtons.of(
                 this.width - MARGIN - FINISH, buttonTop, FINISH, ROW,
-                Component.translatable("screen.gathering.builder.finish"), this::finish));
+                Component.translatable(fromPockets()
+                        ? "screen.gathering.builder.add_them"
+                        : "screen.gathering.builder.finish"),
+                this::finish));
 
         askFor(page);
     }
@@ -180,13 +258,13 @@ public final class DeckBuilderScreen extends Screen {
 
     private Rect boxPane() {
         int across = Math.max(80, (int) ((this.width - MARGIN * 2 - GAP) * BOX_SHARE));
-        return new Rect(MARGIN, TOP_BAR, across,
-                Math.max(1, this.height - bottomBar() - TOP_BAR));
+        int top = topBar();
+        return new Rect(MARGIN, top, across, Math.max(1, this.height - bottomBar() - top));
     }
 
     private Rect deckPane() {
         Rect box = boxPane();
-        return new Rect(box.right() + GAP, TOP_BAR,
+        return new Rect(box.right() + GAP, topBar(),
                 Math.max(60, this.width - MARGIN - box.right() - GAP), box.height());
     }
 
@@ -256,14 +334,59 @@ public final class DeckBuilderScreen extends Screen {
     // ----------------------------------------------------------------- asking
 
     private void askFor(int wanted) {
+        if (fromPockets()) {
+            readThePockets(Math.max(0, wanted));
+            return;
+        }
         query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
         ClientNetworking.send(new CollectionSearchPayload(
-                where, query, false, Math.max(0, wanted), grid().cells()));
+                where, query, false, Math.max(0, wanted), grid().cells(), true));
+    }
+
+    /**
+     * The loose cards this player is carrying, as rows for the grid.
+     *
+     * <p>Read straight off the client's own inventory rather than asked for: it is already
+     * here, it is at most thirty-six slots, and a round trip to be told what is in your own
+     * pockets is a round trip that can be wrong.
+     *
+     * <p>What is picked is still only a request. The server checks every card against that
+     * player's real inventory before it moves anything - see PocketCards.
+     */
+    private void readThePockets(int wanted) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null) {
+            rows = List.of();
+            return;
+        }
+        // One row per distinct card, counted, so four copies read as one entry saying four
+        // rather than as four entries - which is how the collection shows them.
+        java.util.Map<CardComponent, Integer> counted = new java.util.LinkedHashMap<>();
+        for (net.minecraft.world.item.ItemStack stack : player.getInventory().items) {
+            if (stack.isEmpty() || !(stack.getItem() instanceof dev.gathering.item.CardItem)) {
+                continue;
+            }
+            dev.gathering.item.CardItem.cardOf(stack)
+                    .map(CardComponent::faceUp)
+                    .ifPresent(card -> counted.merge(card, stack.getCount(), Integer::sum));
+        }
+        List<CollectionPagePayload.Row> all = new ArrayList<>();
+        counted.forEach((card, count) -> all.add(new CollectionPagePayload.Row(
+                card, count, ClientCardCache.get().summary(card), count)));
+        all.sort(java.util.Comparator.comparing(row -> row.about()
+                .map(about -> about.front().name())
+                .orElse("")));
+
+        int perPage = Math.max(1, grid().cells());
+        this.pages = Math.max(1, (all.size() + perPage - 1) / perPage);
+        this.page = Math.max(0, Math.min(wanted, pages - 1));
+        int from = Math.min(page * perPage, all.size());
+        this.rows = List.copyOf(all.subList(from, Math.min(from + perPage, all.size())));
     }
 
     /** A page came back. Kept whether or not it is the one asked for; the server decides. */
     public void accept(CollectionPagePayload payload) {
-        if (!payload.where().equals(where)) {
+        if (where == null || !payload.where().equals(where)) {
             return;
         }
         this.rows = payload.rows();
@@ -275,13 +398,42 @@ public final class DeckBuilderScreen extends Screen {
     // ---------------------------------------------------------------- editing
 
     private void add(CollectionPagePayload.Row row) {
+        if (room() <= 0) {
+            return;
+        }
         buildCardOf(row).ifPresent(card -> {
             build = build.with(card);
             GatheringButtons.clickSound();
         });
     }
 
+    /**
+     * Every copy of this card that is still to be had, in one press.
+     *
+     * <p>Shift-click, the same modifier the basic-land buttons use for the same reason: a
+     * pool from a booster box has four of things in it, and four presses per card is what
+     * made putting a deck together take all evening. It stops where the deck stops, so a
+     * shift-click near the limit adds what fits rather than nothing.
+     */
+    private void addEvery(CollectionPagePayload.Row row) {
+        int wanted = Math.min(leftInTheBox(row), room());
+        if (wanted <= 0) {
+            return;
+        }
+        buildCardOf(row).ifPresent(card -> {
+            for (int one = 0; one < wanted; one++) {
+                build = build.with(card);
+            }
+            GatheringButtons.clickSound();
+        });
+    }
+
     private void lead(CollectionPagePayload.Row row) {
+        if (fromPockets()) {
+            // The deck already exists and already has whatever command zone it has. Naming a
+            // commander here would be naming one for a deck this screen is not building.
+            return;
+        }
         buildCardOf(row).ifPresent(card -> {
             // Pressed on the card that is already leading, this puts it back in the deck -
             // otherwise naming a commander would be a decision with no way out of it.
@@ -318,7 +470,13 @@ public final class DeckBuilderScreen extends Screen {
                 .orElse(false);
     }
 
-    /** How many of this printing the box still has, given what the deck has already taken. */
+    /**
+     * How many of this printing are still to be had, given what the deck has already taken.
+     *
+     * <p>The box and the player's own pockets together, because that is the pool the server
+     * built this page out of - see CollectionView.search. A count that only spoke for the box
+     * would dim a card somebody is holding four of.
+     */
     private int leftInTheBox(CollectionPagePayload.Row row) {
         return row.card().scryfallId()
                 .map(printing -> row.count() - build.printingsOf(printing)
@@ -333,6 +491,13 @@ public final class DeckBuilderScreen extends Screen {
         for (BuildCard card : build.cards()) {
             cards.add(CardComponent.of(
                     dev.gathering.core.card.CardIdentity.ofPrinting(card.printing(), card.foil())));
+        }
+        if (fromPockets()) {
+            // Adding to the deck already in hand rather than making one. Same screen, same
+            // picking, different verb at the end of it.
+            ClientNetworking.send(PocketCardsPayload.of(hand, cards));
+            this.onClose();
+            return;
         }
         ClientNetworking.send(new BuildDeckPayload(
                 where,
@@ -364,7 +529,10 @@ public final class DeckBuilderScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawString(this.font,
-                label.isEmpty() ? Component.translatable("screen.gathering.builder") : Component.literal(label),
+                fromPockets() ? getTitle()
+                        : label.isEmpty()
+                                ? Component.translatable("screen.gathering.builder")
+                                : Component.literal(label),
                 MARGIN, MARGIN, TEXT, false);
 
         drawBox(graphics, mouseX, mouseY);
@@ -441,8 +609,13 @@ public final class DeckBuilderScreen extends Screen {
         int curveHeight = 26;
         int listBottom = pane.bottom() - curveHeight;
 
-        graphics.drawString(this.font, Component.translatable(
-                "screen.gathering.builder.deck_total", build.total()), pane.x() + 2, pane.y(), TEXT, false);
+        graphics.drawString(this.font,
+                fromPockets()
+                        ? Component.translatable("screen.gathering.builder.picked",
+                                build.total(), alreadyInTheDeck())
+                        : Component.translatable(
+                                "screen.gathering.builder.deck_total", build.total()),
+                pane.x() + 2, pane.y(), TEXT, false);
 
         List<BuildCard> outside = build.outsideIdentity();
         if (!outside.isEmpty()) {
@@ -535,6 +708,17 @@ public final class DeckBuilderScreen extends Screen {
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
+        return clickAt(mouseX, mouseY, button, hasShiftDown());
+    }
+
+    /**
+     * A click on the box or the deck list, with the modifier said out loud.
+     *
+     * <p>Split out from {@link #mouseClicked} so the harness can press shift as well as the
+     * mouse: {@code hasShiftDown()} reads the window's real keyboard, which a scene driving
+     * the client cannot set - and a shortcut nothing can press is a shortcut nothing checks.
+     */
+    boolean clickAt(double mouseX, double mouseY, int button, boolean shift) {
         int x = (int) mouseX;
         int y = (int) mouseY;
 
@@ -547,7 +731,11 @@ public final class DeckBuilderScreen extends Screen {
             if (button == 1) {
                 lead(row);
             } else if (leftInTheBox(row) > 0) {
-                add(row);
+                if (shift) {
+                    addEvery(row);
+                } else {
+                    add(row);
+                }
             }
             return true;
         }
@@ -596,8 +784,23 @@ public final class DeckBuilderScreen extends Screen {
 
     /** Clicks the nth card of the box pane, through the same path a mouse takes. */
     void clickCard(int index, int button) {
+        clickCard(index, button, false);
+    }
+
+    /** The same, with shift held. */
+    void clickCard(int index, int button, boolean shift) {
         Rect cell = grid().cellAt(index);
-        mouseClicked(cell.centerX(), cell.centerY(), button);
+        clickAt(cell.centerX(), cell.centerY(), button, shift);
+    }
+
+    /** How many copies of the nth card are still to be had. For the harness. */
+    int leftOf(int index) {
+        return index < 0 || index >= rows.size() ? 0 : leftInTheBox(rows.get(index));
+    }
+
+    /** Whether this builder is over the player's own pockets rather than a box. */
+    boolean overThePockets() {
+        return fromPockets();
     }
 
     int deckSize() {

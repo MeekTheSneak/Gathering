@@ -363,7 +363,8 @@ public final class CollectionScreen extends Screen {
     private void askFor(int wanted) {
         query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
         ClientNetworking.send(
-                new CollectionSearchPayload(where, query, descending, wanted, cellsThatFit()));
+                new CollectionSearchPayload(
+                        where, query, descending, wanted, cellsThatFit(), false));
     }
 
     /**

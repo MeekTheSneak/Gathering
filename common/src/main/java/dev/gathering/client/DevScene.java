@@ -163,7 +163,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 266;
+    private static final int LAST_STEP = 271;
 
     private static int step;
     private static int waited;
@@ -2769,6 +2769,38 @@ public final class DevScene {
                 everyDeckIsItsOwnColor(client);
                 shoot(client, "86-a-shelf-of-decks");
                 advance(SETTLE / 2);
+            }
+            // Putting the cards you are carrying into the deck you are holding. The gesture
+            // it replaces is a right-click per stack, which is a booster box's worth of
+            // right-clicks - the one thing about deckbuilding that took all evening.
+            case 267 -> {
+                looseCardsToPickFrom(client);
+                advance(SETTLE);
+            }
+            case 268 -> {
+                openTheDeckScreen(client);
+                advance(SETTLE);
+            }
+            case 269 -> {
+                expectScreen(client, "opening a deck to add to it", DeckContentsScreen.class);
+                press(client, Component.translatable("screen.gathering.deck.gather").getString());
+                advance(SETTLE);
+            }
+            case 270 -> {
+                expectScreen(client, "picking cards out of my own pockets",
+                        DeckBuilderScreen.class);
+                theBuilderIsOverMyPockets(client);
+                everyCardStaysInItsBox(client);
+                oneShiftClickTakesEveryCopy(client);
+                advance(SETTLE);
+            }
+            case 271 -> {
+                // A step after the click, which is the convention here: a shot asked for in
+                // the same step catches the frame that was drawn before it, and the whole
+                // point of this picture is the column on the right with something in it.
+                shoot(client, "87-cards-you-are-carrying");
+                client.setScreen(null);
+                advance(SETTLE);
             }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
@@ -5653,6 +5685,82 @@ public final class DevScene {
             }
         }
         return java.util.Optional.empty();
+    }
+
+    /**
+     * A few loose cards in the inventory, so the pockets builder has something to show.
+     *
+     * <p>Handed out on the server, like every other thing this scene gives the player: the
+     * client's copy of the inventory is a copy, and a builder that read cards the server has
+     * never heard of would pick cards that cannot be sleeved.
+     */
+    private static void looseCardsToPickFrom(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to hand loose cards out on");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        List<dev.gathering.item.CardComponent> cards = someCards(client, 1);
+        if (cards.isEmpty()) {
+            fail("there were no looked-up cards to fill the pockets with");
+            return;
+        }
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player == null) {
+                fail("the player went away before their pockets could be filled");
+                return;
+            }
+            for (dev.gathering.item.CardComponent card : cards) {
+                ItemStack stack = dev.gathering.item.CardItem.of(card);
+                stack.setCount(4);
+                if (!player.getInventory().add(stack)) {
+                    fail("there was no room in the inventory for a loose card");
+                }
+            }
+        });
+    }
+
+    /** The builder opened from a deck screen is over the pockets, not over a box. */
+    private static void theBuilderIsOverMyPockets(Minecraft client) {
+        if (!(client.screen instanceof DeckBuilderScreen builder)) {
+            fail("there was no builder to check the source of");
+            return;
+        }
+        if (!builder.overThePockets()) {
+            fail("the deck screen opened a builder over a collection rather than over the"
+                    + " cards being carried");
+            return;
+        }
+        if (builder.showing() <= 0) {
+            fail("a builder over pockets holding twelve loose cards showed none of them");
+        }
+    }
+
+    /**
+     * Shift-click puts every copy in at once.
+     *
+     * <p>The whole point of the row: one press per printing rather than one per card. A
+     * shortcut that quietly added one would look identical in a photograph.
+     */
+    private static void oneShiftClickTakesEveryCopy(Minecraft client) {
+        if (!(client.screen instanceof DeckBuilderScreen builder)) {
+            fail("there was no builder to shift-click in");
+            return;
+        }
+        int copies = builder.leftOf(0);
+        if (copies < 2) {
+            fail("the first card of the pockets builder had " + copies
+                    + " copies, so shift-clicking it proves nothing");
+            return;
+        }
+        int before = builder.deckSize();
+        builder.clickCard(0, 0, true);
+        if (builder.deckSize() != before + copies) {
+            fail("shift-clicking a card with " + copies + " copies added "
+                    + (builder.deckSize() - before) + " of them");
+        }
     }
 
     /** A deck screen with a deck in it lists the deck. */

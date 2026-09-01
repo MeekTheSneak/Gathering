@@ -46,15 +46,25 @@ public record CollectionPagePayload(
     /**
      * One line: a card, how many, and what is known about it.
      *
-     * @param about the card's details, absent where the server has not looked it up yet
+     * @param about   the card's details, absent where the server has not looked it up yet
+     * @param carried how many of that count are loose in the player's own inventory rather
+     *                than in the box. Zero everywhere except the deck builder, which pools
+     *                the two - and the one place worth saying so, because a card taken out
+     *                of your pockets leaves your pockets
      */
-    public record Row(CardComponent card, int count, java.util.Optional<CardSummary> about) {
+    public record Row(
+            CardComponent card, int count, java.util.Optional<CardSummary> about, int carried) {
+
+        public Row(CardComponent card, int count, java.util.Optional<CardSummary> about) {
+            this(card, count, about, 0);
+        }
 
         public static final StreamCodec<RegistryFriendlyByteBuf, Row> STREAM_CODEC =
                 StreamCodec.composite(
                         CardComponent.STREAM_CODEC, Row::card,
                         ByteBufCodecs.VAR_INT, Row::count,
                         ByteBufCodecs.optional(CardSummary.STREAM_CODEC), Row::about,
+                        ByteBufCodecs.VAR_INT, Row::carried,
                         Row::new);
     }
 

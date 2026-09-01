@@ -91,6 +91,9 @@ final class GatheringNetwork {
                 dev.gathering.network.AddBasicsPayload.TYPE,
                 dev.gathering.network.AddBasicsPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.PocketCardsPayload.TYPE,
+                dev.gathering.network.PocketCardsPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.CollectionSearchPayload.TYPE,
                 dev.gathering.network.CollectionSearchPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
@@ -242,10 +245,15 @@ final class GatheringNetwork {
                         dev.gathering.server.BasicLands.handle(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.PocketCardsPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.PocketCards.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.CollectionSearchPayload.TYPE, (payload, context) ->
                         dev.gathering.server.CollectionView.search(
                                 context.player(), payload.where(), payload.query(),
-                                payload.descending(), payload.page(), payload.perPage()));
+                                payload.descending(), payload.page(), payload.perPage(),
+                                payload.pockets()));
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.CollectionTakePayload.TYPE, (payload, context) ->

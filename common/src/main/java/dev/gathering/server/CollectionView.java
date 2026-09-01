@@ -97,14 +97,26 @@ public final class CollectionView {
                 collection.rights().mayAdd(who)));
     }
 
-    /** Answers one search with one page. */
+    /**
+     * Answers one search with one page.
+     *
+     * <p>Over the box, and over the cards in the player's own pockets too when the thing
+     * asking is a builder. A deck is built out of everything somebody owns, and before this
+     * the only way to get a card from a pack you had just opened into a deck was to put it in
+     * the box first and take it straight back out - two errands for a card that never moved.
+     * The binder screen asks without them, because a binder shows what is in the binder.
+     */
     public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
-            boolean descending, int page, int rowsThatFit) {
+            boolean descending, int page, int rowsThatFit, boolean pockets) {
         CollectionBlockEntity collection = at(player, where);
         if (collection == null || tooSoon(player)) {
             return;
         }
-        List<CollectionSearch.Row> rows = rowsOf(collection.cards());
+        CardTally carried = pockets ? PocketCards.loose(player) : CardTally.EMPTY;
+        CardTally pool = carried.isEmpty()
+                ? collection.cards()
+                : collection.cards().plus(carried);
+        List<CollectionSearch.Row> rows = rowsOf(pool);
         List<CollectionSearch.Row> found = CollectionSearch.run(rows, query.asSearch(descending));
 
         // As many as the window asking has room for, and never more than a page holds. A
@@ -123,15 +135,15 @@ public final class CollectionView {
                     CardComponent.of(row.card()),
                     row.count(),
                     Optional.ofNullable(row.about())
-                            .map(dev.gathering.network.CardSummary::of)));
+                            .map(dev.gathering.network.CardSummary::of),
+                    carried.of(row.card())));
             if (row.about() == null) {
                 row.card().printing().ifPresent(unnamed::add);
             }
         }
         Sending.to(player, new CollectionPagePayload(
                 where, showing, pages,
-                new CollectionPagePayload.Counts(
-                        collection.cards().total(), collection.cards().distinct(), found.size()),
+                new CollectionPagePayload.Counts(pool.total(), pool.distinct(), found.size()),
                 sending));
 
         // Whatever this page could not name is looked up now, so a second look at the same
@@ -221,10 +233,13 @@ public final class CollectionView {
         if (collection == null) {
             return;
         }
-        if (!collection.rights().mayTake(player.getUUID())) {
+        // Somebody who may not take from this box may still build out of their own pockets.
+        // Refusing the whole press would refuse cards the box has no claim on, and the note
+        // is sent once here rather than once per card that could not be found.
+        boolean mayTake = collection.rights().mayTake(player.getUUID());
+        if (!mayTake) {
             player.sendSystemMessage(
                     Component.translatable("message.gathering.collection_may_not_take"));
-            return;
         }
 
         CardDataService service = CardDataService.active().orElse(null);
@@ -232,14 +247,14 @@ public final class CollectionView {
         List<CardComponent> commanders = new ArrayList<>();
         int missed = 0;
         for (CardComponent wanted : asked.commander().map(List::of).orElse(List.of())) {
-            if (claim(service, collection, wanted)) {
+            if (claim(service, player, mayTake ? collection : null, wanted)) {
                 commanders.add(wanted.faceUp());
             } else {
                 missed++;
             }
         }
         for (CardComponent wanted : asked.cards()) {
-            if (claim(service, collection, wanted)) {
+            if (claim(service, player, mayTake ? collection : null, wanted)) {
                 got.add(wanted.faceUp());
             } else {
                 missed++;
@@ -268,14 +283,21 @@ public final class CollectionView {
     }
 
     /**
-     * Takes one copy out of the box for a deck being built, or says the box did not have it.
+     * Takes one copy out for a deck being built, or says nobody had it.
      *
      * <p>A basic land is never taken and always granted, which is what building from a list
-     * already does. Everything else has to actually be in there: this is the check that makes
-     * the payload's card list a request rather than an instruction.
+     * already does. Everything else has to actually be somewhere: this is the check that
+     * makes the payload's card list a request rather than an instruction.
+     *
+     * <p>The box first and the pockets after. Both are the same player's cards and either
+     * would do, but taking from the box first leaves the copy in their hand - which is the
+     * one they can see, and the one they would be surprised to find gone if the deck was
+     * built out of the box's stock anyway.
+     *
+     * @param collection the box to take from, or null where this player may not take from it
      */
-    private static boolean claim(
-            CardDataService service, CollectionBlockEntity collection, CardComponent wanted) {
+    private static boolean claim(CardDataService service, ServerPlayer player,
+            CollectionBlockEntity collection, CardComponent wanted) {
         if (wanted == null) {
             return false;
         }
@@ -283,7 +305,10 @@ public final class CollectionView {
         if (isBasic(service, identity)) {
             return true;
         }
-        return collection.take(identity, 1) > 0;
+        if (collection != null && collection.take(identity, 1) > 0) {
+            return true;
+        }
+        return PocketCards.take(player, wanted);
     }
 
     /**
