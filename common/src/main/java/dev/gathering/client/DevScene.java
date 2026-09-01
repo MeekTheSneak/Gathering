@@ -1406,6 +1406,7 @@ public final class DevScene {
                 expectScreen(client, "opening a collection", CollectionScreen.class);
                 aCollectionShowsWhatIsInIt(client);
                 everyButtonSaysSomething(client);
+                everyCardStaysInItsBox(client);
                 shoot(client, "42-a-collection");
                 searchTheCollection(client, "forest");
                 advance(SETTLE);
@@ -8269,6 +8270,35 @@ public final class DevScene {
         }
         fail("no button labeled " + label + " on "
                 + client.screen.getClass().getSimpleName());
+    }
+
+    /**
+     * Nothing the collection draws for a card lands outside the box it is drawn in.
+     *
+     * <p>A cell is not the card. The stack of copies leans up and to the right of it by three
+     * pixels a card, and the ring round a hovered one sits two pixels outside it, so a grid
+     * laid out against cells alone puts every stack of two or more through the top of the
+     * box - which reads as the box being the wrong size rather than as the cards overflowing
+     * it. Asked of the box and the cells the screen itself reports, so the check cannot drift
+     * from the layout by agreeing with a copy of it.
+     */
+    private static void everyCardStaysInItsBox(Minecraft client) {
+        if (!(client.screen instanceof CollectionScreen box)) {
+            fail("there was no collection to measure the cards in");
+            return;
+        }
+        Rect inside = box.boxOnScreen();
+        for (int index = 0; index < box.cellsThatFit(); index++) {
+            Rect drawn = box.drawnAt(index);
+            if (drawn.x() < inside.x() || drawn.y() < inside.y()
+                    || drawn.right() > inside.right() || drawn.bottom() > inside.bottom()) {
+                fail("card " + index + " is drawn at " + drawn + ", which is outside the "
+                        + inside + " it is drawn in - a stack or a hover ring is spilling out");
+                return;
+            }
+        }
+        System.out.println("[devscene] all " + box.cellsThatFit()
+                + " card slots, stacks and rings included, stay inside the box");
     }
 
     /**

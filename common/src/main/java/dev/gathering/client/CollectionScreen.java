@@ -72,6 +72,21 @@ public final class CollectionScreen extends Screen {
     /** The most cards drawn behind the front one. Four copies and forty look the same anyway. */
     private static final int STACK_DEEPEST = 3;
 
+    /**
+     * How far past its own cell a card is actually drawn, on each side.
+     *
+     * <p>A cell is not the card: the stack of copies leans up and to the right of it by three
+     * pixels a card, and the ring round a hovered one sits two pixels outside it all round.
+     * The grid used to be laid out against the cell alone and started four pixels inside the
+     * box, so every stack of two or more spilled five pixels out of the top of it - which
+     * reads as the box being the wrong size rather than as the cards being drawn outside it.
+     */
+    private static final int HOVER_REACH = 2;
+    private static final int ROOM_ABOVE = STACK_DEEPEST * STACK_STEP;
+    private static final int ROOM_RIGHT = STACK_DEEPEST * STACK_STEP;
+    private static final int ROOM_LEFT = HOVER_REACH;
+    private static final int ROOM_BELOW = HOVER_REACH;
+
     private static final int COUNT_TEXT = 0xFFFFF0D0;
     private static final int FOIL_MARK = 0xFFE8C86A;
     private static final int BOTTOM_BAR = 34;
@@ -378,9 +393,34 @@ public final class CollectionScreen extends Screen {
         }
     }
 
+    /** The recessed box the grid is drawn in, which is the thing nothing may spill out of. */
+    Rect boxOnScreen() {
+        return new Rect(MARGIN - 4, TOP_BAR - 4,
+                this.width - 2 * MARGIN + 8, this.height - BOTTOM_BAR - TOP_BAR + 8);
+    }
+
+    /**
+     * Everything one cell's card really covers: the stack leaning off it and the hover ring.
+     *
+     * <p>Package-private, for the scripted run. A cell's own rectangle says nothing about
+     * this, and the one thing worth checking is that the two agree about staying inside the
+     * box.
+     */
+    Rect drawnAt(int index) {
+        Rect cell = grid().cellAt(index);
+        return new Rect(cell.x() - ROOM_LEFT, cell.y() - ROOM_ABOVE,
+                cell.width() + ROOM_LEFT + ROOM_RIGHT,
+                cell.height() + ROOM_ABOVE + ROOM_BELOW);
+    }
+
     private Grid grid() {
-        int room = Math.max(CARD_WIDTH_LEAST, this.width - MARGIN * 2);
-        int down = Math.max(1, this.height - BOTTOM_BAR - TOP_BAR);
+        // The room the cards get, not the room the box has: what a stack leans into and what
+        // a hover ring reaches into are taken off first, so a cell laid out here can be drawn
+        // in full without any of it landing outside the box.
+        int room = Math.max(CARD_WIDTH_LEAST,
+                this.width - MARGIN * 2 - ROOM_LEFT - ROOM_RIGHT);
+        int down = Math.max(1,
+                this.height - BOTTOM_BAR - TOP_BAR - ROOM_ABOVE - ROOM_BELOW);
 
         int cardWidth = Math.min(CARD_WIDTH_WANTED, room);
         int cardHeight = CardShape.heightFor(cardWidth);
@@ -407,7 +447,7 @@ public final class CollectionScreen extends Screen {
         // edge of it with a wide gutter down the other.
         int usedAcross = columns * cardWidth + GRID_GAP * (columns - 1);
         return new Grid(cardWidth, cardHeight, columns, rows,
-                MARGIN + (room - usedAcross) / 2, TOP_BAR);
+                MARGIN + ROOM_LEFT + (room - usedAcross) / 2, TOP_BAR + ROOM_ABOVE);
     }
 
     /**
@@ -417,7 +457,7 @@ public final class CollectionScreen extends Screen {
      * and, worse, cards somebody can click on without seeing, since a click is a position and
      * anything below the fold is still under the cursor.
      */
-    private int cellsThatFit() {
+    int cellsThatFit() {
         return grid().cells();
     }
 
