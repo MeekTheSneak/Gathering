@@ -1452,6 +1452,7 @@ public final class DevScene {
             case 125 -> {
                 expectScreen(client, "building a deck from a collection",
                         DeckBuilderScreen.class);
+                everyCardStaysInItsBox(client);
                 shoot(client, "44-the-deck-builder");
                 // A card into the deck, and one of them made the commander, so the picture
                 // after this has a list on the right rather than an empty column - and so the
@@ -8283,22 +8284,42 @@ public final class DevScene {
      * from the layout by agreeing with a copy of it.
      */
     private static void everyCardStaysInItsBox(Minecraft client) {
-        if (!(client.screen instanceof CollectionScreen box)) {
-            fail("there was no collection to measure the cards in");
-            return;
+        if (client.screen instanceof CollectionScreen box) {
+            cardsStayInside(box.boxOnScreen(), box.cellsThatFit(), box::drawnAt, "collection");
+        } else if (client.screen instanceof DeckBuilderScreen box) {
+            cardsStayInside(box.boxOnScreen(), box.cellsThatFit(), box::drawnAt, "deck builder");
+        } else {
+            fail("there was no card grid to measure on "
+                    + client.screen.getClass().getSimpleName());
         }
-        Rect inside = box.boxOnScreen();
-        for (int index = 0; index < box.cellsThatFit(); index++) {
-            Rect drawn = box.drawnAt(index);
+    }
+
+    /**
+     * How thick the wall of a recessed box is: two pixels of outline and the lit step.
+     *
+     * <p>Content belongs inside the frame, not on it. Measured against the box's outer
+     * rectangle a card can sit right on the border and still pass, which is what the deck
+     * builder's rings did - two pixels outside the cell and two pixels inside the box, so
+     * they landed exactly on the wall and looked like they were breaking out of it.
+     */
+    private static final int BOX_WALL = 3;
+
+    /** The check itself, so the two grids cannot be checked to two different standards. */
+    private static void cardsStayInside(
+            Rect box, int cells, java.util.function.IntFunction<Rect> drawnAt, String what) {
+        Rect inside = box.shrink(BOX_WALL);
+        for (int index = 0; index < cells; index++) {
+            Rect drawn = drawnAt.apply(index);
             if (drawn.x() < inside.x() || drawn.y() < inside.y()
                     || drawn.right() > inside.right() || drawn.bottom() > inside.bottom()) {
-                fail("card " + index + " is drawn at " + drawn + ", which is outside the "
-                        + inside + " it is drawn in - a stack or a hover ring is spilling out");
+                fail("card " + index + " of the " + what + " is drawn at " + drawn
+                        + ", which is not inside the " + inside + " that box leaves"
+                        + " for it - a stack or a ring is spilling onto the frame");
                 return;
             }
         }
-        System.out.println("[devscene] all " + box.cellsThatFit()
-                + " card slots, stacks and rings included, stay inside the box");
+        System.out.println("[devscene] all " + cells + " " + what
+                + " slots, stacks and rings included, stay inside the box");
     }
 
     /**

@@ -76,6 +76,9 @@ public final class DeckBuilderScreen extends Screen {
 
     private static final int CARD_WIDTH_WANTED = 62;
     private static final int CARD_WIDTH_LEAST = 34;
+
+    /** How far outside a cell the commander's ring and the hover ring are drawn. */
+    private static final int RING_REACH = 2;
     private static final int ROW_HEIGHT = 11;
 
     private static final int TEXT = 0xFFDDE3EC;
@@ -186,7 +189,12 @@ public final class DeckBuilderScreen extends Screen {
      * the collection's would look like a different feature.
      */
     private Grid grid() {
-        Rect pane = boxPane();
+        // Inside the room the rings need, not flush with the pane. A commander's ring and a
+        // hover ring are both drawn two pixels outside the cell, and a grid that started at
+        // the pane's own edge put them on the box's wall - the same mistake the collection's
+        // grid made with its stacks, in a screen where the ring is the only thing saying
+        // which card is the commander.
+        Rect pane = boxPane().shrink(RING_REACH);
         int cardWidth = Math.min(CARD_WIDTH_WANTED, pane.width());
         int cardHeight = CardShape.heightFor(cardWidth);
         if (cardHeight > pane.height()) {
@@ -201,6 +209,24 @@ public final class DeckBuilderScreen extends Screen {
         int columns = Math.max(1, (pane.width() + GAP) / (cardWidth + GAP));
         int rowCount = Math.max(1, (pane.height() + GAP) / (cardHeight + GAP));
         return new Grid(cardWidth, cardHeight, columns, rowCount, pane.x(), pane.y());
+    }
+
+    /** The recessed box the card grid is drawn in, which nothing may spill out of. */
+    Rect boxOnScreen() {
+        Rect box = boxPane();
+        return new Rect(box.x() - 4, box.y() - 4, box.width() + 8, box.height() + 8);
+    }
+
+    /** Everything one cell really covers: the cell, and the rings drawn outside it. */
+    Rect drawnAt(int index) {
+        Rect cell = grid().cellAt(index);
+        return new Rect(cell.x() - RING_REACH, cell.y() - RING_REACH,
+                cell.width() + RING_REACH * 2, cell.height() + RING_REACH * 2);
+    }
+
+    /** How many cells the grid is showing, for the same check. */
+    int cellsThatFit() {
+        return grid().cells();
     }
 
     private record Grid(int cardWidth, int cardHeight, int columns, int rows, int left, int top) {
