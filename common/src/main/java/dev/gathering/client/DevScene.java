@@ -163,7 +163,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 273;
+    private static final int LAST_STEP = 275;
 
     private static int step;
     private static int waited;
@@ -2596,6 +2596,17 @@ public final class DevScene {
                 // do not. Both halves are pressed, because a row that answers two questions
                 // is a row where one of them can quietly stop working.
                 if (client.screen instanceof SetProgressScreen sets) {
+                    // Read again rather than trusting what the left-click recorded. The set
+                    // list fills in from the network while the scene is off in the missing
+                    // cards screen, so the row at this height can be a different set by the
+                    // time the right-click lands - and then the check below compares a set
+                    // nobody pressed against one that was. What is being tested is that
+                    // right-clicking a row filters to that row's set, so the row has to be
+                    // asked at the moment it is pressed.
+                    pressedSet = sets.hoveredCode();
+                    if (pressedSet.isEmpty()) {
+                        fail("no set row was under the cursor to right-click");
+                    }
                     sets.mouseClicked(
                             client.getWindow().getGuiScaledWidth() / 2.0, SET_ROW_Y, 1);
                 }
@@ -2816,6 +2827,19 @@ public final class DevScene {
             }
             case 273 -> {
                 shoot(client, "88-put-every-loose-card-away");
+                // The color filter, which is six mana orbs rather than six letters. Pressed
+                // by the name behind the orb, which is the point of the message being a
+                // sentence: a button whose whole label is a symbol cannot be found by one.
+                press(client, Component.translatable(
+                        "screen.gathering.collection.color_u").getString());
+                advance(SETTLE);
+            }
+            case 274 -> {
+                aColorFilterIsOn(client, "U");
+                advance(SETTLE / 2);
+            }
+            case 275 -> {
+                shoot(client, "89-filtered-to-one-color");
                 client.setScreen(null);
                 advance(SETTLE / 2);
             }
@@ -5781,6 +5805,23 @@ public final class DevScene {
             }
         }
         return false;
+    }
+
+    /**
+     * Pressing a color's orb actually turns that color on.
+     *
+     * <p>The orb is a picture and the state is a line under it, so neither is something a
+     * photograph can be trusted to settle. Asked of the query the screen is really holding.
+     */
+    private static void aColorFilterIsOn(Minecraft client, String color) {
+        if (!(client.screen instanceof CollectionScreen box)) {
+            fail("there was no collection screen to read the color filter of");
+            return;
+        }
+        if (!box.colorsOn().contains(color)) {
+            fail("pressing the " + color + " orb left the filter showing \""
+                    + box.colorsOn() + "\"");
+        }
     }
 
     /**

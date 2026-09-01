@@ -247,7 +247,11 @@ def scrollbar():
 #
 # Order must match ManaSymbols.NAMES exactly - the index is the glyph's codepoint.
 # ---------------------------------------------------------------------------
-SYMBOL_SIZE = 32
+# Odd on purpose. A disc of an even width has no middle pixel - its centre is the corner
+# where four of them meet - so a mark drawn about its own middle pixel can only ever land half
+# a pixel off the badge it is pressed into. Thirty-three gives a thirty-one pixel disc whose
+# middle is pixel sixteen, which is exactly where every mark's ink is already centred.
+SYMBOL_SIZE = 33
 
 MANA_COLORS = {
     "w": (0xFF, 0xFB, 0xD5),

@@ -210,8 +210,15 @@ public final class CollectionScreen extends Screen {
         int pipsX = MARGIN;
         int pipsY = MARGIN + 42;
         for (String color : COLORS) {
-            addRenderableWidget(GatheringButtons.of(pipsX, pipsY, 18, 16,
-                    Component.literal(color), () -> toggleColor(color)));
+            // The orb is the face and the color's name is the message. A button whose whole
+            // label is a symbol says nothing to a tooltip or a narrator, which is the rule
+            // the page arrows and the help mark already follow.
+            //
+            // And a color that is on is a button that is down, which is what that face
+            // already means everywhere else in the mod.
+            addRenderableWidget(GatheringButtons.latch(pipsX, pipsY, 18, 16,
+                    pip(color), nameOf(color),
+                    () -> query.colors().contains(color), () -> toggleColor(color)));
             pipsX += 20;
         }
         rarityButton = GatheringButtons.of(pipsX + 6, pipsY, 92, 16, rarityLabel(), this::nextRarity);
@@ -263,6 +270,29 @@ public final class CollectionScreen extends Screen {
 
     /** WUBRG and colorless, in the order a player reads them. */
     private static final String[] COLORS = {"W", "U", "B", "R", "G", "C"};
+
+    /**
+     * One color's button face: the orb, not the letter.
+     *
+     * <p>The same symbol font every piece of card text in this mod is drawn with, so the pip
+     * on the filter and the pip in a card's cost are one picture rather than two things that
+     * mean the same. A letter had to be read and translated; the orb is the thing itself, and
+     * it is what a player has already learned by the time they open a collection.
+     */
+    private static Component pip(String color) {
+        return ManaText.of("{" + color + "}");
+    }
+
+    /** Which colors are on, for the scripted run. The orbs are pictures; this is the state. */
+    String colorsOn() {
+        return query.colors();
+    }
+
+    /** What that orb means, in words, for the tooltip and the narrator. */
+    private static Component nameOf(String color) {
+        return Component.translatable(
+                "screen.gathering.collection.color_" + color.toLowerCase(java.util.Locale.ROOT));
+    }
 
     /** The rarities worth filtering by, and off. */
     private static final Rarity[] RARITIES = {
@@ -511,28 +541,10 @@ public final class CollectionScreen extends Screen {
                 Component.translatable("screen.gathering.collection.holding", total, distinct),
                 MARGIN + this.font.width(title) + 8, MARGIN, DIM, false);
 
-        drawColorsOn(graphics);
         drawRows(graphics, mouseX, mouseY);
         drawFooter(graphics);
         if (showingSyntax) {
             drawSyntax(graphics);
-        }
-    }
-
-    /**
-     * A line under the colors that are on.
-     *
-     * <p>A vanilla button has no on state, and six buttons that all look the same whether
-     * they are doing anything is a filter nobody can read.
-     */
-    private void drawColorsOn(GuiGraphics graphics) {
-        int x = MARGIN;
-        int y = MARGIN + 42 + 15;
-        for (String color : COLORS) {
-            if (query.colors().contains(color)) {
-                GatheringSprites.draw(graphics, Element.FILTER_ON, x + 2, y, 14, 1);
-            }
-            x += 20;
         }
     }
 

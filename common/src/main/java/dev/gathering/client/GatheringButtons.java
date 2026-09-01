@@ -63,6 +63,18 @@ public final class GatheringButtons {
         /** Whether the mouse is currently held down on this button. */
         private boolean held;
 
+        /**
+         * Whether this button stays pressed in of its own accord.
+         *
+         * <p>An option that is currently on is a button that is currently down - which is
+         * what a pressed face already means, and what every physical control with two states
+         * has always looked like. Asked here rather than drawn on top, so a latched button
+         * and a held one are the same picture and there is one place that decides it.
+         */
+        boolean stuckDown() {
+            return false;
+        }
+
         private Fitting(int x, int y, int width, int height, Component label, OnPress onPress) {
             super(x, y, width, height, label, onPress, DEFAULT_NARRATION);
         }
@@ -99,7 +111,7 @@ public final class GatheringButtons {
             // Held only counts while the cursor is still on it: dragging off a button you
             // are holding is how everybody cancels a press they did not mean, and a face that
             // stayed dipped would say the press is still going to happen.
-            boolean down = held && isHovered();
+            boolean down = stuckDown() || (held && isHovered());
             Element face = !active
                     ? Element.BUTTON_OFF
                     : down ? Element.BUTTON_DOWN
@@ -169,19 +181,76 @@ public final class GatheringButtons {
      */
     public static Button glyph(
             int x, int y, int width, int height, String mark, Component says, Runnable action) {
+        return glyph(x, y, width, height, Component.literal(mark), says, action);
+    }
+
+    /**
+     * The same, for a face that is a symbol rather than a character of ordinary text.
+     *
+     * <p>A mana pip is a glyph in the mod's own font, and a font is carried on the component
+     * rather than on the string - so a face taken as text would arrive here as the private-use
+     * codepoint set in the game's font, which is a blank box. This is the whole reason the
+     * face is a component and the message is a different one: the pip is a picture, and a
+     * picture is not something the narrator can read out.
+     *
+     * @param mark what is drawn on it, styled however it needs to be
+     * @param says what pressing it does, for the tooltip and the narrator
+     */
+    public static Button glyph(
+            int x, int y, int width, int height, Component mark, Component says, Runnable action) {
         Marked button = new Marked(x, y, width, height, says, ignored -> action.run(), mark);
         button.setTooltip(Tooltip.create(says));
         return button;
     }
 
-    private static final class Marked extends Fitting {
+    /**
+     * A symbol-faced button that stays pressed in while its option is on.
+     *
+     * <p>For a filter: the mana orbs on a collection are six controls that are each either
+     * doing something or not, and the way to say that is the way every button says it, by
+     * being down. What was there before was a gold line drawn under the button - a second
+     * vocabulary invented for one row, which had to be learned and which nothing else in the
+     * mod used.
+     *
+     * <p>Asks a supplier rather than holding a flag, for the reason {@link #toggle} does: a
+     * button that remembers its own answer is a button that can disagree with the screen
+     * about what is currently filtered.
+     *
+     * @param mark what is drawn on it, styled however it needs to be
+     * @param says what pressing it does, for the tooltip and the narrator
+     * @param on   whether the option this button stands for is currently on
+     */
+    public static Button latch(int x, int y, int width, int height, Component mark,
+            Component says, BooleanSupplier on, Runnable action) {
+        Latched button = new Latched(x, y, width, height, says, ignored -> action.run(), mark, on);
+        button.setTooltip(Tooltip.create(says));
+        return button;
+    }
+
+    private static final class Latched extends Marked {
+
+        private final BooleanSupplier on;
+
+        private Latched(int x, int y, int width, int height, Component says, OnPress onPress,
+                Component mark, BooleanSupplier on) {
+            super(x, y, width, height, says, onPress, mark);
+            this.on = on;
+        }
+
+        @Override
+        boolean stuckDown() {
+            return on.getAsBoolean();
+        }
+    }
+
+    private static class Marked extends Fitting {
 
         private final Component mark;
 
-        private Marked(int x, int y, int width, int height, Component says, OnPress onPress,
-                String mark) {
+        Marked(int x, int y, int width, int height, Component says, OnPress onPress,
+                Component mark) {
             super(x, y, width, height, says, onPress);
-            this.mark = Component.literal(mark);
+            this.mark = mark;
         }
 
         @Override
