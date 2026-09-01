@@ -36,28 +36,10 @@ SIZE = textures.SYMBOL_SIZE
 # The badge: a thirty-pixel circle in a thirty-two pixel canvas, cut corner to corner when it
 # carries two colours, with the second colour on the bottom-right so that each half's mark
 # lands on its own colour rather than across the cut.
-MIDDLE = SIZE / 2.0
-RADIUS = MIDDLE - 1.0
-RIM_DEPTH = 1.15
-
-
-def inside(x, y):
-    dx, dy = (x + 0.5) - MIDDLE, (y + 0.5) - MIDDLE
-    return dx, dy, (dx * dx + dy * dy) ** 0.5
-
-
-def onRim(x, y):
-    return inside(x, y)[2] > RADIUS - RIM_DEPTH
-
-
-def split(x, y):
-    """True on the half a hybrid's second colour takes."""
-    dx, dy, _ = inside(x, y)
-    return dx + dy > 0
-
-
-def inRegion(x, y, region):
-    return region == "full" or split(x, y) == (region == "br")
+#: The one pixel everything is lined up on: the middle of the canvas, the middle of the
+#: badge's disc, and the middle of every full-size mark. That there is a single pixel to name
+#: here is the whole reason the disc is an odd number across - see tools/orb_grow.py.
+MIDDLE = SIZE // 2
 
 
 def keyFor(name):
@@ -203,6 +185,47 @@ def font(names, path):
         handle.write('{\n  "providers": [\n' + ",\n".join(providers) + "\n  ]\n}\n")
 
 
+def inkBox(mark):
+    """The mark's opaque bounding box, as (left, top, right, bottom), or None."""
+    ink = [(x, y) for y in range(SIZE) for x in range(SIZE) if mark[y][x][3]]
+    if not ink:
+        return None
+    xs = [p[0] for p in ink]
+    ys = [p[1] for p in ink]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def centred(mark, path):
+    """The mark moved so its own middle pixel sits on the badge's.
+
+    Where a symbol happens to sit in its own canvas is not something anybody should have to
+    get right by hand: it is drawn, and this is what puts it on the badge. So the mark's
+    middle pixel is the origin, and it lands on the badge's middle pixel.
+
+    A mark whose ink is an even number of pixels across has no middle pixel to use, so there
+    is no honest answer to where it goes - it is refused here rather than quietly put half a
+    pixel out, which is exactly the drift this whole arrangement exists to stop.
+    """
+    box = inkBox(mark)
+    if box is None:
+        return mark
+    left, top, right, bottom = box
+    if (right - left) % 2 or (bottom - top) % 2:
+        raise SystemExit(
+            f"{path} has no middle pixel: its ink is {right - left + 1}x{bottom - top + 1},"
+            " and an even run has no middle to stand on the badge's."
+            " Redraw it a pixel wider or taller, or run tools/orb_grow.py")
+    dx = MIDDLE - (left + right) // 2
+    dy = MIDDLE - (top + bottom) // 2
+    if not dx and not dy:
+        return mark
+    clear = (0, 0, 0, 0)
+    return [[mark[y - dy][x - dx]
+             if 0 <= y - dy < SIZE and 0 <= x - dx < SIZE else clear
+             for x in range(SIZE)]
+            for y in range(SIZE)]
+
+
 def press(badge, mark, ink):
     """Cut a mark into a badge, in the badge's own ink. Coverage comes from the mark's alpha,
     so a soft edge stays soft, and nothing is ever drawn outside the badge."""
@@ -228,7 +251,12 @@ def build(name, ink):
     """One symbol: its badge, with each of its marks pressed in."""
     art = read_png(os.path.join(BADGES, name + ".png"))
     for region, key in regions(name):
-        mark = read_png(markPath(region, markName(name, region)))
+        path = markPath(region, markName(name, region))
+        mark = read_png(path)
+        # A full-size mark is stood on the badge's middle pixel. A half mark is not: it sits
+        # in one half of a hybrid, so the centre is not what it is lined up against.
+        if region == "full":
+            mark = centred(mark, path)
         art = press(art, mark, ink[key])
     return art
 
