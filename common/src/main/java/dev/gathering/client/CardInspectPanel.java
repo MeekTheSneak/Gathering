@@ -50,7 +50,24 @@ public final class CardInspectPanel {
     private static final int WRITING_TEXT = 0xFFBFD8FF;
 
     private static final int GAP = 8;
-    private static final int PADDING = 8;
+
+    /**
+     * The panel's own nine-slice border, which is eight in every look there is.
+     *
+     * <p>Not a measurement of one theme: the sprite is thirty-two with a border of eight, so
+     * everything at that depth or deeper is the stretched field and everything shallower is
+     * frame, whatever the theme draws there.
+     */
+    private static final int FRAME = 8;
+
+    /**
+     * How far in from the panel's edge the words start.
+     *
+     * <p>Past the frame, not up against it. This used to be eight, which is exactly the
+     * frame's thickness - so the first pixel of every line was the first pixel of the field,
+     * and any look whose border reaches in at all had its text sitting on the border.
+     */
+    private static final int PADDING = FRAME + 6;
     private static final int SIDEBAR_WIDTH = 180;
     private static final float FULL_SCREEN_HEIGHT_FRACTION = 0.82f;
 

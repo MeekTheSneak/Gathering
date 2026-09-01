@@ -1332,7 +1332,8 @@ public final class DevScene {
             // than anywhere near a player's own settings: somebody with three decks sleeves
             // them differently, which is the whole reason sleeves tell them apart.
             case 105 -> {
-                press(client, "Sleeves...");
+                press(client, Component.translatable(
+                        "screen.gathering.deck.sleeves").getString());
                 advance(SETTLE / 2);
             }
             case 106 -> {

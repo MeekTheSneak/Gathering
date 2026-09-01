@@ -111,9 +111,9 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         }
 
         // Both through GatheringButtons rather than the vanilla builder, which scrolls a label
-        // too wide for its button back and forth forever. "Sleeves..." on a panel this narrow
-        // arrived a letter at a time and read as "Sleeves." most of the time anybody looked at
-        // it; these shrink the words to fit and leave them still.
+        // too wide for its button back and forth forever. A label on a panel this narrow
+        // arrived a letter at a time and read as half of itself most of the time anybody
+        // looked at it; these shrink the words to fit and leave them still.
         Rect done = layout.done();
         this.addRenderableWidget(GatheringButtons.of(
                 done.x(), done.y(), done.width(), done.height(),

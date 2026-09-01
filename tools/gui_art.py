@@ -1069,6 +1069,12 @@ def cloth(size, look):
 #: Where the deck list panel's right edge sits, top and bottom, as a fraction of its width.
 TAPER_TOP, TAPER_BOTTOM = 0.90, 0.74
 
+#: Future Sight's rail: a doubled hairline down the panel's left margin, with a boss set into
+#: it every so often. In the margin on purpose - the panel is a list of card names, and the
+#: one thing that must not happen to a list is something drawn across it.
+RAIL = 10
+BOSS_FIRST, BOSS_EVERY = 40, 96
+
 
 def deck_panel(look, width=256, height=512):
     """The deck list: flush left, tapering right.
@@ -1076,13 +1082,12 @@ def deck_panel(look, width=256, height=512):
     Stretched rather than nine-sliced, which means it is one picture rather than nine tiles -
     so this is the one element that can carry something spanning the whole panel. Each of the
     three built looks uses that for the thing a nine-slice cannot do: Future Sight for the
-    sweep its frame is drawn around, Retro for a mottled stone border with a gold rule inside
-    it, Bubble for the light running down the whole length of it.
+    rail and bosses running the panel's whole length, Retro for a mottled stone border with a
+    gold rule inside it, Bubble for the light running down the whole of it.
     """
     style = look.style
     image = Image.new("RGBA", (width, height))
     pixels = image.load()
-    sweep = width * 0.95
     # Darker than a button: this is a large field with a list of names on it, and the text is
     # drawn in a fixed light color whatever the look.
     field = readable(mix(look.sunk, look.body, 0.30))
@@ -1104,14 +1109,29 @@ def deck_panel(look, width=256, height=512):
                 else:
                     tone = weathered(field, x, y, 0.14, 11)
             elif style == "future":
-                # The sweep: one wide arc struck through the panel, the way that frame is laid
-                # out around a circle. Two hairlines and a corner pip, as everywhere else.
-                away = abs(((x - width * 0.1) ** 2 + (y - height * 0.5) ** 2) ** 0.5 - sweep * 0.9)
+                # A rail down the length of it, with that frame's little bosses set into it.
+                # There used to be one enormous arc struck across the whole panel here, on
+                # the reasoning that this frame is laid out around a circle - and it is, but
+                # at the size of a corner, not at the size of the panel. Blown up to span a
+                # deck list it stopped reading as a frame and started reading as a circle
+                # drawn behind the words, which is the one thing a list must not have.
+                #
+                # The rail says the same thing quietly: a doubled hairline is what that frame
+                # draws everywhere, and the bosses are the row of discs running down its
+                # sweep. Both live in the margin, so nothing crosses the names.
                 tone = field
-                if away < 1.6:
-                    tone = mix(field, look.bevel, 0.55)
-                elif away < 5:
-                    tone = mix(field, look.bevel, 0.16)
+                if x in (RAIL, RAIL + 2):
+                    tone = mix(field, look.bevel, 0.45)
+                elif RAIL < x < RAIL + 2:
+                    tone = mix(field, look.bevel, 0.10)
+                near = (y - BOSS_FIRST) % BOSS_EVERY
+                if near > BOSS_EVERY / 2:
+                    near -= BOSS_EVERY
+                away = ((x - (RAIL + 1)) ** 2 + near ** 2) ** 0.5
+                if away < 2.0:
+                    tone = look.glow
+                elif away < 3.4:
+                    tone = mix(look.ink, field, 0.45)
                 if depth < 2:
                     tone = mix(look.ink, look.body, 0.3)
                 elif depth in (4, 5):

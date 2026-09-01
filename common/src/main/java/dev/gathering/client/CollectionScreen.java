@@ -54,9 +54,34 @@ public final class CollectionScreen extends Screen {
 
     private static final int MARGIN = 16;
 
+    /**
+     * How thick a recessed box's frame is: its nine-slice border, which is eight.
+     *
+     * <p>The sprite is thirty-two with a border of eight, so everything at that depth or
+     * deeper is the stretched field and everything shallower is frame - true of every look
+     * there is or ever will be, rather than measured off one of them.
+     *
+     * <p>Not four. Four was the neutral theme's wall rather than its frame: Future Sight's
+     * chrome band is the full eight and Retro's pressed border reads wider, so on those two
+     * the top row of stacks sat on the frame, which looks exactly like a card coming out of
+     * the top of the box.
+     */
+    private static final int WALL = 8;
+
     /** What "Build deck..." needs, and what the narrowest window has room for beside the pips. */
     private static final int BUILD_WIDTH = 86;
-    private static final int TOP_BAR = 80;
+    /**
+     * Where the card box starts, worked out from the row of buttons above it.
+     *
+     * <p>Eighty was a number, and the number was wrong: the pips end at seventy-four and the
+     * box's own frame began at seventy-two, so every one of those buttons was drawn two
+     * pixels over it. Said as arithmetic instead - the last row of buttons, a gap, and the
+     * frame's own thickness - so moving the row moves the box with it.
+     */
+    private static final int PIP_ROW_HIGH = 16;
+    private static final int UNDER_THE_BUTTONS = 8;
+    private static final int TOP_BAR =
+            MARGIN + 42 + PIP_ROW_HIGH + UNDER_THE_BUTTONS + WALL;
 
     /** The width a card wants in the grid, before the columns are fitted around it. */
     private static final int CARD_WIDTH_WANTED = 78;
@@ -426,20 +451,10 @@ public final class CollectionScreen extends Screen {
 
     /** The recessed box the grid is drawn in, which is the thing nothing may spill out of. */
     Rect boxOnScreen() {
-        return new Rect(MARGIN - BOX_WALL, TOP_BAR - BOX_WALL,
-                this.width - 2 * MARGIN + BOX_WALL * 2,
-                this.height - BOTTOM_BAR - TOP_BAR + BOX_WALL * 2);
+        return new Rect(MARGIN - WALL, TOP_BAR - WALL,
+                this.width - 2 * MARGIN + WALL * 2,
+                this.height - BOTTOM_BAR - TOP_BAR + WALL * 2);
     }
-
-    /**
-     * How far the box's own frame reaches in, which is its nine-slice border.
-     *
-     * <p>The box is drawn this far outside the cards rather than four pixels, because four
-     * was the neutral theme's wall and not the frame. Future Sight's chrome band is the full
-     * eight and Retro's pressed border reads wider, so on those two the top row of stacks sat
-     * on the frame - which looks exactly like a card coming out of the top of the box.
-     */
-    private static final int BOX_WALL = 8;
 
     /**
      * Everything one cell's card really covers: the stack leaning off it and the hover ring.
