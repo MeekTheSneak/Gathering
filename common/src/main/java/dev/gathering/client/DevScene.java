@@ -163,7 +163,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 271;
+    private static final int LAST_STEP = 273;
 
     private static int step;
     private static int waited;
@@ -2799,8 +2799,25 @@ public final class DevScene {
                 // the same step catches the frame that was drawn before it, and the whole
                 // point of this picture is the column on the right with something in it.
                 shoot(client, "87-cards-you-are-carrying");
+                // Closed rather than finished, so the cards picked here are still loose in
+                // the inventory - which is what the next two steps are about. The deck goes
+                // away with it, because a hand holding one cannot crouch at a collection at
+                // all and the screen rightly offers that gesture instead.
                 client.setScreen(null);
+                putTheDeckAway(client);
+                openTheCollection(client);
                 advance(SETTLE);
+            }
+            case 272 -> {
+                expectScreen(client, "a collection opened while carrying loose cards",
+                        CollectionScreen.class);
+                theSweepIsOfferedToSomebodyCarryingCards(client);
+                advance(SETTLE / 2);
+            }
+            case 273 -> {
+                shoot(client, "88-put-every-loose-card-away");
+                client.setScreen(null);
+                advance(SETTLE / 2);
             }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
@@ -5720,6 +5737,72 @@ public final class DevScene {
                 }
             }
         });
+    }
+
+    /** Empties both hands, so what is left to say about the block is the sweep. */
+    private static void putTheDeckAway(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to put the deck away on");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player == null) {
+                fail("the player went away before their hands could be emptied");
+                return;
+            }
+            for (net.minecraft.world.InteractionHand hand
+                    : net.minecraft.world.InteractionHand.values()) {
+                ItemStack held = player.getItemInHand(hand);
+                if (held.isEmpty()) {
+                    continue;
+                }
+                player.setItemInHand(hand, ItemStack.EMPTY);
+                // Into the pack rather than the hotbar, and not through Inventory#add: that
+                // fills the first free slot, which is the hotbar slot just emptied, so the
+                // deck went straight back into the hand it was taken out of.
+                if (!intoThePack(player, held)) {
+                    fail("there was nowhere to put the deck down");
+                }
+            }
+        });
+    }
+
+    /** Puts one stack in a slot above the hotbar, so it cannot land back in the hand. */
+    private static boolean intoThePack(ServerPlayer player, ItemStack stack) {
+        var inventory = player.getInventory();
+        for (int slot = net.minecraft.world.entity.player.Inventory.getSelectionSize();
+                slot < inventory.items.size(); slot++) {
+            if (inventory.getItem(slot).isEmpty()) {
+                inventory.setItem(slot, stack);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A collection opened by somebody carrying loose cards offers to take all of them.
+     *
+     * <p>The gesture happens on the block, before this screen is open, so this line is the
+     * only place it can be found - which makes a line that stopped appearing a feature that
+     * silently stopped existing. Asked of the screen rather than read off the picture.
+     */
+    private static void theSweepIsOfferedToSomebodyCarryingCards(Minecraft client) {
+        if (!(client.screen instanceof CollectionScreen box)) {
+            fail("there was no collection screen to read the hint on");
+            return;
+        }
+        net.minecraft.network.chat.Component hint = box.blockGestureHint();
+        String wanted = net.minecraft.network.chat.Component
+                .translatable("screen.gathering.collection.hint_sweep").getString();
+        if (hint == null || !hint.getString().equals(wanted)) {
+            fail("a collection opened by somebody carrying loose cards said "
+                    + (hint == null ? "nothing" : "\"" + hint.getString() + "\"")
+                    + " rather than how to put them all away");
+        }
     }
 
     /** The builder opened from a deck screen is over the pockets, not over a box. */

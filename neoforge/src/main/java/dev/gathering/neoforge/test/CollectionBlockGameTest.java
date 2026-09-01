@@ -399,6 +399,90 @@ public final class CollectionBlockGameTest {
         helper.succeed();
     }
 
+    /**
+     * The sweep takes every loose card and nothing else.
+     *
+     * <p>The whole gesture in one assertion: cards go, the deck stays a deck, the sealed pack
+     * stays sealed. Those two are the ones worth pinning - a sweep that dissolved a hundred
+     * card Commander deck would be a misclick with no way back, and one that opened somebody's
+     * packs would be worse.
+     */
+    @GameTest(template = "tables")
+    public static void sweepingTakesLooseCardsAndNothingElse(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        var player = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(player.getUUID()));
+
+        ItemStack loose = CardItem.of(CardComponent.of(CardIdentity.ofPrinting(BOLT, false)));
+        loose.setCount(4);
+        player.getInventory().add(loose);
+        player.getInventory().add(
+                CardItem.of(CardComponent.of(CardIdentity.ofPrinting(FOREST, false))));
+
+        CardComponent forest = CardComponent.of(CardIdentity.ofPrinting(FOREST, false));
+        player.getInventory().add(dev.gathering.item.DeckItem.of(
+                new dev.gathering.item.DeckComponent("Keep me", "", java.util.Optional.empty(),
+                        java.util.List.of(forest, forest), java.util.List.of(),
+                        java.util.List.of())));
+
+        int swept = dev.gathering.server.CollectionView.sweepPockets(player, collection);
+
+        if (swept != 5) {
+            helper.fail("a sweep of four bolts and a forest took " + swept + " cards");
+            return;
+        }
+        if (collection.cards().of(CardIdentity.ofPrinting(BOLT, false)) != 4
+                || collection.cards().of(CardIdentity.ofPrinting(FOREST, false)) != 1) {
+            helper.fail("the swept cards did not land in the collection: it holds "
+                    + collection.cards().total());
+            return;
+        }
+        int decks = 0;
+        int cardsLeft = 0;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (dev.gathering.item.DeckItem.deckOf(stack).isPresent()) {
+                decks++;
+            } else if (stack.getItem() instanceof CardItem) {
+                cardsLeft += stack.getCount();
+            }
+        }
+        if (cardsLeft != 0) {
+            helper.fail("the sweep left " + cardsLeft + " loose card(s) behind");
+            return;
+        }
+        if (decks != 1) {
+            helper.fail("the sweep took the deck as well - " + decks + " left of one");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** And a stranger sweeping into somebody else's box keeps their own cards. */
+    @GameTest(template = "tables")
+    public static void aStrangerMayNotSweepIntoIt(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        collection.setRights(CollectionRights.ownedBy(STRANGER));
+        var player = helper.makeMockServerPlayerInLevel();
+        player.getInventory().add(
+                CardItem.of(CardComponent.of(CardIdentity.ofPrinting(BOLT, false))));
+
+        int swept = dev.gathering.server.CollectionView.sweepPockets(player, collection);
+
+        if (swept != 0 || !collection.cards().isEmpty()) {
+            helper.fail("a stranger swept cards into somebody else's collection");
+            return;
+        }
+        if (player.getInventory().countItem(
+                dev.gathering.item.GatheringContent.CARD.get()) != 1) {
+            helper.fail("a refused sweep took the cards off the player anyway");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static CollectionBlockEntity place(GameTestHelper helper, BlockPos at) {
         helper.setBlock(at, GatheringContent.COLLECTION.get().defaultBlockState());
         if (helper.getLevel().getBlockEntity(helper.absolutePos(at))

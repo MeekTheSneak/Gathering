@@ -123,7 +123,20 @@ public class CollectionBlock extends BaseEntityBlock {
         return ItemInteractionResult.SUCCESS;
     }
 
-    /** An empty hand opens it, for anybody. */
+    /**
+     * An empty hand opens it, for anybody. Crouching, it puts everything loose away instead.
+     *
+     * <p>Shift for "all of it", which is what shift means everywhere else in this game and
+     * in Minecraft. It is the same errand the deck builder's shift-click is: a booster box is
+     * thirty-six stacks, and putting them away one right-click at a time is an evening.
+     *
+     * <p><b>Both hands have to be empty for the crouching half to happen at all</b>, and that
+     * is vanilla's rule rather than this block's: {@code ServerPlayerGameMode#useItemOn}
+     * skips block interaction entirely when the player is crouching and holding anything in
+     * either hand, unless that item bypasses the sneak, so a collection cannot see the click.
+     * Nothing here can widen that without a mixin, and a mixin for a convenience is not a
+     * trade this mod makes. An empty hand is what the gesture is called anyway.
+     */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
             Player player, BlockHitResult hit) {
@@ -134,7 +147,11 @@ public class CollectionBlock extends BaseEntityBlock {
             return InteractionResult.SUCCESS;
         }
         if (player instanceof ServerPlayer opener) {
-            dev.gathering.server.CollectionView.open(opener, pos, collection);
+            if (opener.isSecondaryUseActive()) {
+                dev.gathering.server.CollectionView.sweepPockets(opener, collection);
+            } else {
+                dev.gathering.server.CollectionView.open(opener, pos, collection);
+            }
         }
         return InteractionResult.SUCCESS;
     }

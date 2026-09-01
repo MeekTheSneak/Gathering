@@ -672,12 +672,16 @@ public final class CollectionScreen extends Screen {
         GuiText.draw(graphics, this.font, found, MARGIN, y,
                 Math.max(0, hintRight - hintWidth - MARGIN - 8), DIM);
 
-        // The other half of the gesture, said where somebody is holding the deck it applies
-        // to. It is the only place it can be found, and a tooltip five lines long is not one.
-        if (heldDeckName() != null) {
-            Component back = Component.translatable("screen.gathering.collection.hint_dissolve");
-            graphics.drawString(this.font, back,
-                    hintRight - this.font.width(back), y + 11, DIM, false);
+        // The gestures that happen on the block rather than in here, said where somebody
+        // is in the state each one applies to. This is the only place either can be found,
+        // and a tooltip five lines long is not one.
+        //
+        // One at a time and the deck first, because holding a deck is the more particular
+        // state and two lines drawn at the same height would be one line on top of another.
+        Component onTheBlock = blockGestureHint();
+        if (onTheBlock != null) {
+            graphics.drawString(this.font, onTheBlock,
+                    hintRight - this.font.width(onTheBlock), y + 11, DIM, false);
         }
     }
 
@@ -693,6 +697,50 @@ public final class CollectionScreen extends Screen {
         return deck == null
                 ? Component.translatable("screen.gathering.collection.hint_take")
                 : Component.translatable("screen.gathering.collection.hint_sleeve", deck);
+    }
+
+    /**
+     * The line about the gesture that happens on the block rather than in here, or none.
+     *
+     * <p>One at a time and the deck first. Two lines drawn at the same height would be one
+     * line on top of another, and the deck is the right one to keep: crouching with anything
+     * in hand is a click a collection never sees, so somebody holding a deck cannot sweep
+     * even if they are carrying loose cards too. The line offers the gesture they can
+     * actually do right now.
+     *
+     * <p>Its own method so the scene can ask what the screen would say rather than reading
+     * it back off a photograph, which is the only way a line that stopped appearing would
+     * ever be noticed.
+     */
+    Component blockGestureHint() {
+        if (heldDeckName() != null) {
+            return Component.translatable("screen.gathering.collection.hint_dissolve");
+        }
+        if (mayAdd && carryingLooseCards()) {
+            return Component.translatable("screen.gathering.collection.hint_sweep");
+        }
+        return null;
+    }
+
+    /**
+     * Whether this player has any loose cards on them at all.
+     *
+     * <p>Read off this client's own inventory, like the held deck beside it: the line is
+     * about what they are carrying, so it changes the moment they pick a card up and there
+     * is nothing to keep in step with the server. The server checks the same thing before it
+     * moves anything.
+     */
+    private boolean carryingLooseCards() {
+        var player = this.minecraft == null ? null : this.minecraft.player;
+        if (player == null) {
+            return false;
+        }
+        for (net.minecraft.world.item.ItemStack stack : player.getInventory().items) {
+            if (!stack.isEmpty() && stack.getItem() instanceof CardItem) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The name of the deck in hand, or null where there is not one. */

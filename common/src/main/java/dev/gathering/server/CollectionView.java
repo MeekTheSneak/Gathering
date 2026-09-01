@@ -154,6 +154,97 @@ public final class CollectionView {
     }
 
     /**
+     * Sweeps every loose card the player is carrying into a collection.
+     *
+     * <p>Shift and an empty hand, which is the gesture for "all of it" everywhere else in
+     * this game. A booster box is thirty-six stacks and putting them away one right-click at
+     * a time is the same evening the deck builder just got back.
+     *
+     * <p><b>Only loose cards.</b> A deck is an object somebody assembled and it stays one -
+     * dissolving one is the deck screen's verb, and a shift-click that quietly took a
+     * hundred-card Commander deck apart would be a misclick nobody could undo. A sealed pack
+     * is not a card either, and neither is anything else in the inventory: this walks the
+     * slots and takes the ones holding a card item, and nothing else can match.
+     *
+     * <p>A card with a history keeps it, one entry per copy, exactly as putting one in by
+     * hand does. Two cards with different histories never stacked in the first place, so a
+     * stack is only ever more than one card when none of them has a story.
+     *
+     * @return how many cards went in, which is nothing where they were carrying none
+     */
+    public static int sweepPockets(
+            ServerPlayer player, CollectionBlockEntity collection) {
+        if (collection == null) {
+            return 0;
+        }
+        if (!collection.rights().mayAdd(player.getUUID())) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.collection_may_not_add"));
+            return 0;
+        }
+
+        // Counted into a tally and put in once rather than a slot at a time, so a sweep of
+        // forty stacks is one save rather than forty. Storied copies go in on their own,
+        // because each of those is an entry with a biography attached to it.
+        CardTally.Builder plain = CardTally.builder();
+        List<CollectionBlockEntity.StoriedCard> withStories = new ArrayList<>();
+        int swept = 0;
+        for (ItemStack stack : player.getInventory().items) {
+            swept += gather(stack, plain, withStories);
+        }
+        for (ItemStack stack : player.getInventory().offhand) {
+            swept += gather(stack, plain, withStories);
+        }
+        if (swept == 0) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.collection_nothing_loose"));
+            return 0;
+        }
+
+        collection.putAll(plain.build());
+        for (CollectionBlockEntity.StoriedCard one : withStories) {
+            collection.putStoried(one.card(), one.story());
+        }
+        DeckItem.playAssembleSound(player);
+        player.sendSystemMessage(Component.translatable(
+                "message.gathering.collection_swept", swept, collection.cards().total()));
+        return swept;
+    }
+
+    /**
+     * Takes one slot's cards, if that slot holds cards at all, and empties it.
+     *
+     * <p>Matched on the item rather than on whether a component happens to parse: a deck and
+     * a pack are not card items and cannot become ones, so nothing but a card can be picked
+     * up by this however it is written.
+     */
+    private static int gather(ItemStack stack, CardTally.Builder plain,
+            List<CollectionBlockEntity.StoriedCard> withStories) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof CardItem)) {
+            return 0;
+        }
+        CardIdentity card = CardItem.cardOf(stack)
+                .map(component -> component.faceUp().toIdentity())
+                .orElse(null);
+        if (card == null) {
+            // A blank creative card carries no identity to store, so there is nothing to put
+            // in and it is left where it is rather than deleted.
+            return 0;
+        }
+        int howMany = stack.getCount();
+        dev.gathering.core.story.CardStory story = CardStories.storyOf(stack);
+        if (story.isEmpty()) {
+            plain.add(card, howMany);
+        } else {
+            for (int one = 0; one < howMany; one++) {
+                withStories.add(new CollectionBlockEntity.StoriedCard(card, story));
+            }
+        }
+        stack.setCount(0);
+        return howMany;
+    }
+
+    /**
      * Takes cards out.
      *
      * <p>Into the deck in hand where there is one, and into the inventory otherwise. That is
