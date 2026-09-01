@@ -79,6 +79,15 @@ public final class DeckBuilderScreen extends Screen {
 
     /** How far outside a cell the commander's ring and the hover ring are drawn. */
     private static final int RING_REACH = 2;
+
+    /**
+     * How far a panel's own frame reaches in: its nine-slice border, which is eight.
+     *
+     * <p>Not four. Four is what the neutral theme's wall happens to measure; Future Sight's
+     * chrome band is the full eight and Retro's pressed border reads wider, so a box drawn
+     * only four pixels outside its cards put the top row of them on the frame.
+     */
+    private static final int BOX_WALL = 8;
     private static final int ROW_HEIGHT = 11;
 
     private static final int TEXT = 0xFFDDE3EC;
@@ -214,7 +223,8 @@ public final class DeckBuilderScreen extends Screen {
     /** The recessed box the card grid is drawn in, which nothing may spill out of. */
     Rect boxOnScreen() {
         Rect box = boxPane();
-        return new Rect(box.x() - 4, box.y() - 4, box.width() + 8, box.height() + 8);
+        return new Rect(box.x() - BOX_WALL, box.y() - BOX_WALL,
+                box.width() + BOX_WALL * 2, box.height() + BOX_WALL * 2);
     }
 
     /** Everything one cell really covers: the cell, and the rings drawn outside it. */
@@ -344,8 +354,10 @@ public final class DeckBuilderScreen extends Screen {
         GatheringSprites.draw(graphics, Element.SCREEN_BACKDROP, 0, 0, this.width, this.height);
         Rect box = boxPane();
         Rect deck = deckPane();
-        GatheringSprites.inset(graphics, box.x() - 4, box.y() - 4, box.width() + 8, box.height() + 8);
-        GatheringSprites.panel(graphics, deck.x() - 4, deck.y() - 4, deck.width() + 8, deck.height() + 8);
+        GatheringSprites.inset(graphics, box.x() - BOX_WALL, box.y() - BOX_WALL,
+                box.width() + BOX_WALL * 2, box.height() + BOX_WALL * 2);
+        GatheringSprites.panel(graphics, deck.x() - BOX_WALL, deck.y() - BOX_WALL,
+                deck.width() + BOX_WALL * 2, deck.height() + BOX_WALL * 2);
     }
 
     @Override

@@ -8295,14 +8295,16 @@ public final class DevScene {
     }
 
     /**
-     * How thick the wall of a recessed box is: two pixels of outline and the lit step.
+     * How thick the wall of a recessed box is: its nine-slice border, which is eight.
      *
-     * <p>Content belongs inside the frame, not on it. Measured against the box's outer
-     * rectangle a card can sit right on the border and still pass, which is what the deck
-     * builder's rings did - two pixels outside the cell and two pixels inside the box, so
-     * they landed exactly on the wall and looked like they were breaking out of it.
+     * <p>Content belongs inside the frame, not on it. Three was measured off the neutral
+     * theme's own inset and was only ever true there - Future Sight's chrome band is the full
+     * eight, Arcade's rail is seven, and Retro's pressed border reads wider still. Eight is
+     * the structural answer rather than a measured one: the sprite is thirty-two with a
+     * border of eight, so everything at that depth or deeper is the stretched field and
+     * everything shallower is frame, in every theme there is or ever will be.
      */
-    private static final int BOX_WALL = 3;
+    private static final int BOX_WALL = 8;
 
     /** The check itself, so the two grids cannot be checked to two different standards. */
     private static void cardsStayInside(

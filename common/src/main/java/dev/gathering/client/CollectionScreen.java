@@ -395,9 +395,20 @@ public final class CollectionScreen extends Screen {
 
     /** The recessed box the grid is drawn in, which is the thing nothing may spill out of. */
     Rect boxOnScreen() {
-        return new Rect(MARGIN - 4, TOP_BAR - 4,
-                this.width - 2 * MARGIN + 8, this.height - BOTTOM_BAR - TOP_BAR + 8);
+        return new Rect(MARGIN - BOX_WALL, TOP_BAR - BOX_WALL,
+                this.width - 2 * MARGIN + BOX_WALL * 2,
+                this.height - BOTTOM_BAR - TOP_BAR + BOX_WALL * 2);
     }
+
+    /**
+     * How far the box's own frame reaches in, which is its nine-slice border.
+     *
+     * <p>The box is drawn this far outside the cards rather than four pixels, because four
+     * was the neutral theme's wall and not the frame. Future Sight's chrome band is the full
+     * eight and Retro's pressed border reads wider, so on those two the top row of stacks sat
+     * on the frame - which looks exactly like a card coming out of the top of the box.
+     */
+    private static final int BOX_WALL = 8;
 
     /**
      * Everything one cell's card really covers: the stack leaning off it and the hover ring.
@@ -483,8 +494,8 @@ public final class CollectionScreen extends Screen {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
         GatheringSprites.draw(graphics, Element.SCREEN_BACKDROP,
                 0, 0, this.width, this.height);
-        GatheringSprites.inset(graphics, MARGIN - 4, TOP_BAR - 4,
-                this.width - 2 * MARGIN + 8, this.height - BOTTOM_BAR - TOP_BAR + 8);
+        Rect box = boxOnScreen();
+        GatheringSprites.inset(graphics, box.x(), box.y(), box.width(), box.height());
     }
 
     @Override
