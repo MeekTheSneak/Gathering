@@ -18,6 +18,10 @@ what ships is always exactly the parts on disk.
 
     python3 tools/mana_art.py            # write the font textures and mana.json
     python3 tools/mana_art.py --check    # fail if what ships is not the parts on disk
+    python3 tools/mana_art.py --marks    # what every mark measures and where it lands
+    python3 tools/mana_art.py --guide    # rewrite the template a mark is drawn on
+
+How to draw one is in art/mana/README.md, with a template to draw on beside it.
 """
 import json
 import os
@@ -195,26 +199,22 @@ def inkBox(mark):
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def centred(mark, path):
-    """The mark moved so its own middle pixel sits on the badge's.
+def centred(mark):
+    """The mark moved so its middle sits on the badge's middle pixel.
 
     Where a symbol happens to sit in its own canvas is not something anybody should have to
-    get right by hand: it is drawn, and this is what puts it on the badge. So the mark's
-    middle pixel is the origin, and it lands on the badge's middle pixel.
+    get right by hand. It is drawn; this is what puts it in the middle.
 
-    A mark whose ink is an even number of pixels across has no middle pixel to use, so there
-    is no honest answer to where it goes - it is refused here rather than quietly put half a
-    pixel out, which is exactly the drift this whole arrangement exists to stop.
+    A mark an odd number of pixels across has a middle pixel of its own, and it lands exactly
+    on the badge's. An even one has a seam instead, so it straddles that pixel with the extra
+    column or row on the right and below - a rule rather than a judgement, and one that is
+    only ever half a source pixel away from the ideal. These are drawn at thirty-three and
+    shown at nine, so half a pixel here is an eighth of one on the screen.
     """
     box = inkBox(mark)
     if box is None:
         return mark
     left, top, right, bottom = box
-    if (right - left) % 2 or (bottom - top) % 2:
-        raise SystemExit(
-            f"{path} has no middle pixel: its ink is {right - left + 1}x{bottom - top + 1},"
-            " and an even run has no middle to stand on the badge's."
-            " Redraw it a pixel wider or taller, or run tools/orb_grow.py")
     dx = MIDDLE - (left + right) // 2
     dy = MIDDLE - (top + bottom) // 2
     if not dx and not dy:
@@ -256,7 +256,7 @@ def build(name, ink):
         # A full-size mark is stood on the badge's middle pixel. A half mark is not: it sits
         # in one half of a hybrid, so the centre is not what it is lined up against.
         if region == "full":
-            mark = centred(mark, path)
+            mark = centred(mark)
         art = press(art, mark, ink[key])
     return art
 
@@ -269,8 +269,76 @@ def check(ink):
     print(f"{len(textures.SYMBOL_NAMES)} symbols match their badge and marks")
 
 
+def marks():
+    """What every mark measures and where it will land. For drawing new ones."""
+    print(f"canvas {SIZE}x{SIZE}, middle pixel ({MIDDLE},{MIDDLE}),"
+          f" badge disc {SIZE - 2} across")
+    print(f"{'mark':<18}{'ink':>9}  {'middle':>8}  note")
+    for name in sorted({markName(n, r) for n in textures.SYMBOL_NAMES for r, _ in regions(n)
+                        if r == "full"}):
+        path = markPath("full", name)
+        box = inkBox(read_png(path))
+        if box is None:
+            print(f"{name:<18}{'empty':>9}")
+            continue
+        left, top, right, bottom = box
+        wide, tall = right - left + 1, bottom - top + 1
+        # After centring, which is what the assembler does to it on the way in.
+        even = [word for word, span in (("width", wide), ("height", tall)) if not span % 2]
+        say = "on the middle pixel" if not even else (
+            f"straddles it - {' and '.join(even)} even, so it has no middle of its own")
+        print(f"{name:<18}{wide:>4}x{tall:<4}  {'yes' if wide % 2 and tall % 2 else 'no':>8}  {say}")
+    print("\nDraw a mark odd in both directions and it lands exactly on the middle pixel."
+          "\nAn even one straddles it, which is an eighth of a screen pixel out - see"
+          " art/mana/README.md")
+
+
+#: A layer to draw a mark on top of, written by --guide.
+GUIDE = "art/mana/guide.png"
+
+#: The guide's own colours. Loud on purpose - this is never part of a symbol, and a guide
+#: that could be mistaken for art is a guide somebody ships by accident.
+GUIDE_FIELD = (255, 255, 255, 26)
+GUIDE_RIM = (255, 96, 96, 64)
+GUIDE_CROSS = (0, 200, 255, 48)
+GUIDE_MIDDLE = (255, 0, 255, 255)
+
+#: How far in from the disc's edge its dark rim reaches. A mark drawn over the rim loses its
+#: edge against it, which is why the guide marks that ring rather than leaving it blank.
+RIM_DEPTH = 2
+
+
+def guide():
+    """Writes the template a mark is drawn on top of."""
+    badge = read_png(os.path.join(BADGES, "c.png"))
+    radius = (SIZE - 2) / 2.0
+    rows = []
+    for y in range(SIZE):
+        row = []
+        for x in range(SIZE):
+            away = ((x - MIDDLE) ** 2 + (y - MIDDLE) ** 2) ** 0.5
+            if x == MIDDLE and y == MIDDLE:
+                row.append(GUIDE_MIDDLE)
+            elif not badge[y][x][3]:
+                row.append((0, 0, 0, 0))
+            elif x == MIDDLE or y == MIDDLE:
+                row.append(GUIDE_CROSS)
+            elif away > radius - RIM_DEPTH:
+                row.append(GUIDE_RIM)
+            else:
+                row.append(GUIDE_FIELD)
+        rows.append(row)
+    write_png(GUIDE, rows)
+    print(f"wrote {GUIDE}: {SIZE}x{SIZE}, middle pixel ({MIDDLE},{MIDDLE}) in magenta,"
+          f" the rim in red, the room a mark has in white")
+
+
 def main(argv):
     ink = inks()
+    if "--guide" in argv:
+        return guide()
+    if "--marks" in argv:
+        return marks()
     if "--check" in argv:
         return check(ink)
     for name in textures.SYMBOL_NAMES:
