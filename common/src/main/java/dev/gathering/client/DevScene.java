@@ -1475,7 +1475,8 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 124 -> {
-                press(client, "Build deck...");
+                press(client, Component.translatable(
+                        "screen.gathering.collection.build_deck").getString());
                 advance(SETTLE);
             }
             case 125 -> {
@@ -2101,7 +2102,8 @@ public final class DevScene {
                     advance(SETTLE / 2);
                     return;
                 }
-                openTheCardMenu(client, "Set power/toughness...");
+                openTheCardMenu(client, Component.translatable(
+                        "menu.gathering.table.strength").getString());
                 advance(SETTLE / 2);
             }
             case 188 -> {

@@ -68,7 +68,7 @@ public final class CollectionScreen extends Screen {
      */
     private static final int WALL = 8;
 
-    /** What "Build deck..." needs, and what the narrowest window has room for beside the pips. */
+    /** What the build button needs, and what the narrowest window has room for beside the pips. */
     private static final int BUILD_WIDTH = 86;
     /**
      * Where the card box starts, worked out from the row of buttons above it.

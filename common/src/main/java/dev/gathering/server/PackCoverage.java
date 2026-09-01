@@ -165,7 +165,11 @@ public final class PackCoverage {
         List<String> shown = new ArrayList<>();
         for (UUID printing : report.uncovered()) {
             if (shown.size() >= NAMES_TO_SHOW) {
-                shown.add("...");
+                // How many are not listed rather than an ellipsis. A line that trails off
+                // says only that it was cut; this says by how much, which is the thing
+                // somebody reading a coverage report actually wants to know.
+                shown.add(Component.translatable("message.gathering.coverage_more",
+                        report.uncovered().size() - NAMES_TO_SHOW).getString());
                 break;
             }
             shown.add(names.getOrDefault(printing, printing.toString()));
