@@ -12,6 +12,15 @@ nowhere else. The trade-level badges two lines above it in the same file use
 `withDefaultNamespace` and really do live under `minecraft:`, which is the sort of near-miss
 that costs an afternoon.
 
+`art/villager/` is the working folder - the guides live here, and a texture kept here is a
+source, not something the game reads. The game only ever looks in `assets/`, so a new drawing
+has to be copied across before it does anything:
+
+    cp art/villager/shopkeeper.png \
+       common/src/main/resources/assets/gathering/textures/entity/villager/profession/shopkeeper.png
+
+and the zombie the same, into `entity/zombie_villager/profession/shopkeeper.png`.
+
 Transparent everywhere except the cloth. The villager underneath is already drawn, tinted by
 biome, and the profession layer goes over the top of it.
 
