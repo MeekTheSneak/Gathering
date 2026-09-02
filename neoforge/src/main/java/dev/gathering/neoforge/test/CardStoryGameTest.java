@@ -124,6 +124,60 @@ public final class CardStoryGameTest {
         helper.succeed();
     }
 
+    /**
+     * And when the trophy is the copy coming out, it comes out carrying its history.
+     *
+     * <p>The other half of the rule above. Ordinary copies leave first and the trophy stays
+     * at the bottom of the box - but eventually it is the only one left, and that is the take
+     * this got wrong. The number of storied copies was counted <em>after</em> the take, and
+     * every departure prunes the stories the box no longer has copies to hang on: so by the
+     * time it was asked, the answer was zero and every copy leaving looked ordinary. The card
+     * somebody won off somebody else came out of the box as a plain card, with its history
+     * already deleted behind it, and there was nothing anywhere to say it had ever had one.
+     */
+    @GameTest(template = "tables")
+    public static void theLastCopyBringsItsHistoryWithIt(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        var player = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(player.getUUID()));
+
+        ItemStack trophy = CardItem.of(CardComponent.of(CARD));
+        CardStories.remember(trophy, won());
+        put(helper, at, player, trophy);
+        player.setPos(net.minecraft.world.phys.Vec3.atCenterOf(helper.absolutePos(at)));
+
+        if (dev.gathering.server.CollectionView.take(
+                player, helper.absolutePos(at), CardComponent.of(CARD), 1) != 1) {
+            helper.fail("the only copy in the collection could not be taken out");
+            return;
+        }
+
+        ItemStack out = null;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack.is(dev.gathering.item.GatheringContent.CARD.get())) {
+                out = stack;
+                break;
+            }
+        }
+        if (out == null) {
+            helper.fail("the card taken out of the collection is nowhere in the inventory");
+            return;
+        }
+        CardStory story = CardStories.storyOf(out);
+        if (story.isEmpty()) {
+            helper.fail("the last copy came out of the box as a plain card, and its history"
+                    + " is gone from the box as well");
+            return;
+        }
+        if (story.latest() == null || !"Winner".equals(story.latest().who())) {
+            helper.fail("the card came out carrying somebody else's history: " + story);
+            return;
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "tables")
     public static void aStorySurvivesTheDisk(GameTestHelper helper) {
         BlockPos at = new BlockPos(1, 1, 1);

@@ -269,10 +269,17 @@ public final class CollectionView {
         }
         ItemStack held = player.getMainHandItem();
         DeckComponent deck = DeckItem.deckOf(held).orElse(null);
-        int took = collection.take(card.faceUp().toIdentity(), howMany);
+        CardIdentity identity = card.faceUp().toIdentity();
+        // Copies and histories together, because they cannot be asked for separately: the
+        // take prunes the histories the box no longer has copies for, so asking afterwards
+        // asks how many survived rather than how many left.
+        CollectionBlockEntity.Taken taken = collection.takeWithStories(identity, howMany);
+        int took = taken.took();
         if (took == 0) {
             return 0;
         }
+        java.util.List<dev.gathering.core.story.CardStory> histories =
+                new java.util.ArrayList<>(taken.stories());
         int sleeved = deck == null ? 0 : sleeve(held, deck, card, took);
         // Whatever the deck had no room for goes in the hand rather than back in the
         // collection: it came out because somebody asked for it, and a card that silently
@@ -281,16 +288,12 @@ public final class CollectionView {
         // won in an ante game stays at the bottom of the box until it is the only one left,
         // which is what a person does with a card like that - and it means a trophy cannot be
         // sleeved into a deck by a click that meant any copy.
-        // The count before the take, less the copies that have a history: that many ordinary
-        // ones come out first. Anything the box cannot back with a copy is dropped by take
-        // itself, so this never hands out a story for a card that has already gone.
-        CardIdentity identity = card.faceUp().toIdentity();
-        int plain = Math.max(0,
-                collection.cards().of(identity) + took - collection.storiedCount(identity));
+        // The plain copies of this take come out first, then the ones with a history.
+        int plain = took - histories.size();
         for (int one = sleeved; one < took; one++) {
             ItemStack stack = CardItem.of(card.faceUp());
-            if (one >= plain) {
-                dev.gathering.core.story.CardStory story = collection.takeStory(identity);
+            if (one >= plain && !histories.isEmpty()) {
+                dev.gathering.core.story.CardStory story = histories.remove(0);
                 if (!story.isEmpty()) {
                     stack.set(dev.gathering.registry.GatheringComponents.STORY.get(),
                             dev.gathering.item.StoryComponent.of(story));

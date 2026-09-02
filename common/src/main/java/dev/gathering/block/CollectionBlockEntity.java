@@ -196,6 +196,40 @@ public class CollectionBlockEntity extends BlockEntity {
         }
     }
 
+    /** Copies taken out, and the histories that came out with them. */
+    public record Taken(int took, List<CardStory> stories) {
+
+        public Taken {
+            stories = stories == null ? List.of() : List.copyOf(stories);
+        }
+    }
+
+    /**
+     * Takes copies out and hands back the histories that leave with them.
+     *
+     * <p>Not something a caller can do with {@link #take} and {@link #takeStory} in either
+     * order. Taking first prunes the stories the box no longer has copies for - that is what
+     * makes a history belong to a copy rather than to a printing - so by then they are gone;
+     * and taking the stories first means guessing how many copies will actually come out.
+     * Both were got wrong here in turn, and the visible result was the same either way: the
+     * card somebody won off somebody else came out of the box as an ordinary card, its
+     * history deleted behind it with nothing anywhere to say it had ever had one.
+     *
+     * <p>Ordinary copies leave first, so the histories that leave are the last ones: a box
+     * holding four copies of which one is a trophy hands out three plain cards before the
+     * trophy is touched at all.
+     */
+    public Taken takeWithStories(CardIdentity card, int howMany) {
+        int copies = cards.of(card);
+        int stories = storiedCount(card);
+        int leaving = Math.max(0, Math.min(howMany, copies) - (copies - stories));
+        List<CardStory> came = new java.util.ArrayList<>(leaving);
+        for (int one = 0; one < leaving; one++) {
+            came.add(takeStory(card));
+        }
+        return new Taken(take(card, howMany), came);
+    }
+
     /** Takes cards out, and says how many actually came. */
     public int take(CardIdentity card, int howMany) {
         CardTally.Taking taken = cards.take(card, howMany);
