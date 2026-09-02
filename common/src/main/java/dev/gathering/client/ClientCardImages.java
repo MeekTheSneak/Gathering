@@ -47,7 +47,13 @@ import org.slf4j.LoggerFactory;
  */
 public final class ClientCardImages {
 
-    /** Normal-tier images are 488x680; a few hundred resident is a manageable VRAM budget. */
+    /**
+     * How many card textures stay on the GPU before the least recently used is dropped.
+     * <p>256 of them is 324 MiB, not the "well under 200" the brief carried for a long time -
+     * a normal-tier card is 488x680 uploaded RGBA with no mipmaps, which is 1.27 MiB exactly.
+     * See {@link dev.gathering.core.card.TextureBudget}, which does the arithmetic and is
+     * checked against this number by a game test.
+     */
     public static final int MAX_RESIDENT_TEXTURES = 256;
 
     private static final String CACHE_DIRECTORY = "image-cache";
