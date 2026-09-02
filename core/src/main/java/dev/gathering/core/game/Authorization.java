@@ -55,6 +55,18 @@ public final class Authorization {
             // Naming a specific card inside a hidden zone means having seen it.
             case GameEvent.CardMoved moved -> movingOutOfHiddenZone(state, moved);
 
+            // Turning somebody else's card face up reveals it to the whole table, which is
+            // reading it by another name. Turning one face down is not restricted: it shows
+            // nobody anything, and this mod does not referee rudeness.
+            case GameEvent.CardFacingSet facing -> turningSomebodyElsesCardUp(state, facing);
+
+            // A copy carries the original's identity, so making one is a way of reading the
+            // original - and the copy lands face up on the copier's own battlefield, where
+            // they can simply look at it. Card instance ids are consecutive, so without this
+            // a modified client walks the numbers and prints an opponent's hand, library and
+            // face-down permanents onto its own side of the table, one token at a time.
+            case GameEvent.TokenCopyCreated copy -> copyingSomethingUnread(state, copy);
+
             // Emptying a hidden zone into the open shows the actor everything in it, which is
             // the same looking the four above are about - so only its owner may ask for it.
             case GameEvent.ZoneMoved moved -> !moved.fromRef().isHidden()
@@ -83,6 +95,57 @@ public final class Authorization {
         return actor.equals(owner)
                 ? Optional.empty()
                 : Optional.of("Only the owner of that library can " + what + ".");
+    }
+
+    /**
+     * Only a card's owner turns it face up.
+     *
+     * <p>A face-down permanent is the one thing on an open board that nobody else can read,
+     * and turning it over publishes it to everybody at the table. An honest client cannot
+     * even ask - a face-down card arrives at it with no instance id to name - but instance
+     * ids are consecutive integers, so a modified one only has to count. On a real table you
+     * do not turn over somebody else's morph, and this is that.
+     *
+     * <p>Face down is left alone. It reveals nothing, and refusing it would referee
+     * behaviour rather than protect information, which is not this mod's job.
+     */
+    private static Optional<String> turningSomebodyElsesCardUp(
+            GameState state, GameEvent.CardFacingSet event) {
+        if (event.facing() != Facing.FACE_UP) {
+            return Optional.empty();
+        }
+        CardInstance card = state.card(event.card()).orElse(null);
+        if (card == null) {
+            return Optional.of("That card is not in this session.");
+        }
+        return card.owner().equals(event.actor()) || !card.isFaceDown()
+                ? Optional.empty()
+                : Optional.of("Only the owner can turn that card face up.");
+    }
+
+    /**
+     * Whether the actor may copy this card, which is whether they may read it.
+     *
+     * <p>The same two questions the visibility rules ask, in the same order: a card in
+     * somebody else's hand or library is theirs to see, and a face-down card is its owner's
+     * whatever zone it is in. Everything else on the table is public and copying it is an
+     * ordinary thing to do at an ordinary game.
+     */
+    private static Optional<String> copyingSomethingUnread(
+            GameState state, GameEvent.TokenCopyCreated copy) {
+        CardInstance source = state.card(copy.source()).orElse(null);
+        if (source == null) {
+            return Optional.of("That card is not in this session.");
+        }
+        ZoneRef where = state.locationOf(copy.source()).orElse(null);
+        if (where != null && where.isHidden() && !where.seat().equals(copy.actor())) {
+            return Optional.of("Only the owner can copy a card in their "
+                    + where.zone().name().toLowerCase(java.util.Locale.ROOT) + ".");
+        }
+        if (source.isFaceDown() && !source.owner().equals(copy.actor())) {
+            return Optional.of("A face-down card can only be copied by its owner.");
+        }
+        return Optional.empty();
     }
 
     private static Optional<String> movingOutOfHiddenZone(GameState state, GameEvent.CardMoved moved) {

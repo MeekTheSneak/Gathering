@@ -306,6 +306,89 @@ class VisibilityInvariantTest {
         }
 
         /**
+         * Nobody but the owner turns a face-down card face up.
+         *
+         * <p>The other half of the same hole. A face-down permanent is the one thing on an
+         * open board nobody else can read, and turning it over publishes it to the table -
+         * so an event that anybody could send is that card's secrecy handed to whoever asks
+         * first. Turning one face <em>down</em> is left alone on purpose: it reveals nothing.
+         */
+        @Test
+        @DisplayName("only a card's owner can turn it face up")
+        void nobodyElseCanTurnAFaceDownCardOver() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.BOB, GameFixtures.BOB, 1));
+            CardInstanceId hidden = GameFixtures.firstInHand(session, GameFixtures.BOB);
+            for (GameEvent step : dev.gathering.core.game.event.PlayingFaceDown.onto(
+                    GameFixtures.BOB, hidden,
+                    ZoneRef.of(GameFixtures.BOB, Zone.BATTLEFIELD), Placement.BOTTOM)) {
+                session.submit(step);
+            }
+
+            assertThat(session.submit(new GameEvent.CardFacingSet(
+                    GameFixtures.ALICE, hidden, Facing.FACE_UP)))
+                    .describedAs("Alice turned Bob's face-down permanent over")
+                    .isInstanceOf(GameSession.Result.Rejected.class);
+            assertThat(VisibilityRules.viewFor(session.state(), Viewer.seat(GameFixtures.ALICE))
+                    .seat(GameFixtures.BOB).zone(Zone.BATTLEFIELD).cards())
+                    .singleElement().isInstanceOf(CardView.Anonymous.class);
+
+            // Bob still owns it, and turning it down again is nobody's business but rudeness.
+            assertThat(session.submit(new GameEvent.CardFacingSet(
+                    GameFixtures.BOB, hidden, Facing.FACE_UP)))
+                    .isNotInstanceOf(GameSession.Result.Rejected.class);
+        }
+
+        /**
+         * A token copy cannot be used to read a card the copier may not see.
+         *
+         * <p>A copy carries the original's identity, and it lands face up on the copier's own
+         * battlefield where they can simply look at it. Card instance ids are consecutive
+         * integers, so a client that could copy anything by id would only have to count: an
+         * opponent's whole hand and library printed onto its own side of the table, one token
+         * at a time, with the board never showing anything unusual to anybody else.
+         *
+         * <p>Authorization allows anything it does not name, which is the right default for a
+         * mod with no rules enforcement and the wrong one for the three events that are about
+         * reading rather than doing. This is the third.
+         */
+        @Test
+        @DisplayName("a token copy cannot print a card the copier is not entitled to")
+        void copyingCannotBeUsedToReadSomebodyElsesCards() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.BOB, GameFixtures.BOB, 1));
+            CardInstanceId inBobsHand = GameFixtures.firstInHand(session, GameFixtures.BOB);
+
+            assertThat(session.submit(new GameEvent.TokenCopyCreated(
+                    GameFixtures.ALICE, inBobsHand, GameFixtures.ALICE)))
+                    .describedAs("Alice copied a card out of Bob's hand")
+                    .isInstanceOf(GameSession.Result.Rejected.class);
+
+            // A face-down permanent is somebody else's card too, wherever it is sitting.
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.BOB, GameFixtures.BOB, 1));
+            CardInstanceId hidden = GameFixtures.firstInHand(session, GameFixtures.BOB);
+            for (GameEvent step : dev.gathering.core.game.event.PlayingFaceDown.onto(
+                    GameFixtures.BOB, hidden,
+                    ZoneRef.of(GameFixtures.BOB, Zone.BATTLEFIELD), Placement.BOTTOM)) {
+                session.submit(step);
+            }
+            assertThat(session.submit(new GameEvent.TokenCopyCreated(
+                    GameFixtures.ALICE, hidden, GameFixtures.ALICE)))
+                    .describedAs("Alice copied Bob's face-down permanent")
+                    .isInstanceOf(GameSession.Result.Rejected.class);
+
+            // And the ordinary thing still works: a face-up permanent is public.
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.BOB, GameFixtures.BOB, 1));
+            CardInstanceId open = GameFixtures.firstInHand(session, GameFixtures.BOB);
+            session.submit(new GameEvent.CardMoved(GameFixtures.BOB, open,
+                    ZoneRef.of(GameFixtures.BOB, Zone.BATTLEFIELD), Placement.BOTTOM));
+            assertThat(session.submit(new GameEvent.TokenCopyCreated(
+                    GameFixtures.ALICE, open, GameFixtures.ALICE)))
+                    .describedAs("Alice could not copy a permanent everyone can see")
+                    .isNotInstanceOf(GameSession.Result.Rejected.class);
+        }
+
+        /**
          * The order the two events go out in, checked between them and not only after.
          *
          * <p>One payload carries one event, and the server sends the whole table a fresh

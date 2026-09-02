@@ -131,14 +131,6 @@ public record DraftState(
     }
 
     /**
-     * Declares what this drafter is taking, and resolves the turn if they were the last.
-     *
-     * @param positions places in the pack in front of them, as many as {@link #picksDueFrom}
-     * @throws IllegalArgumentException if the pod is finished, this drafter has already
-     *                                  declared, or the positions are the wrong number,
-     *                                  repeated, or not in the pack
-     */
-    /**
      * Why this pick cannot be made, or empty when it can.
      *
      * <p>Every reason, including the ones about the positions themselves. It used to be only
@@ -183,6 +175,14 @@ public record DraftState(
         return Optional.empty();
     }
 
+    /**
+     * Declares what this drafter is taking, and resolves the turn if they were the last.
+     *
+     * @param positions places in the pack in front of them, as many as {@link #picksDueFrom}
+     * @throws IllegalArgumentException if the pod is finished, this drafter has already
+     *                                  declared, or the positions are the wrong number,
+     *                                  repeated, or not in the pack
+     */
     public DraftState declare(DrafterId drafter, List<Integer> positions) {
         String denial = denialFor(drafter, positions).orElse(null);
         if (denial != null) {
