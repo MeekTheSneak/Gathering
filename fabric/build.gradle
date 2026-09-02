@@ -71,6 +71,48 @@ tasks.named('jar', Jar) {
     sharedModules.each { from project(it).sourceSets.main.output }
 }
 
+// ---------------------------------------------------------------------------
+// The in-world checks for this loader.
+//
+// Its own source set and its own mod id, so none of it is in the jar a player installs -
+// unlike :neoforge, whose game tests sit in src/main because NeoForge's runner finds them by
+// annotation there. What is checked here is only what is this loader's own: the loot hook,
+// the registration bootstrap and the break rules. Everything else is :common's and is checked
+// once, on the other loader, because running the same assertions twice against the same code
+// proves nothing the first run did not.
+// ---------------------------------------------------------------------------
+sourceSets {
+    testmod {
+        compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+        runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+    }
+}
+
+// After the source set rather than inside it. A source set's classpath is copied at the moment
+// it is declared, and the shared outputs are added to main's a few lines further down - so the
+// testmod compiled against :common and then could not find a class in it at runtime.
+sharedModules.each {
+    sourceSets.testmod.compileClasspath += project(it).sourceSets.main.output
+    sourceSets.testmod.runtimeClasspath += project(it).sourceSets.main.output
+}
+
+loom.runs {
+    gametest {
+        server()
+        name 'Fabric game tests'
+        source sourceSets.testmod
+        property 'fabric-api.gametest'
+        property 'fabric-api.gametest.report-file',
+                "${project.layout.buildDirectory.get()}/test-results/fabric-gametest.xml"
+    }
+}
+
+loom.mods {
+    gathering_testmod {
+        sourceSet sourceSets.testmod
+    }
+}
+
 // Dev runs need the shared classes and assets without dragging :common's own Minecraft
 // dependency into Loom's remapped runtime, so take the outputs rather than the projects.
 sharedModules.each {

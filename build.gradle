@@ -61,11 +61,17 @@ subprojects {
 /**
  * The verification gate, in one command.
  *
- * Nothing is reported done until this exits zero. NeoForge runs the full gate; Fabric is a
- * port target, verified per phase rather than per commit, so its runs are not wired in here.
+ * Nothing is reported done until this exits zero.
+ *
+ * Both loaders run their in-world tests. NeoForge's are the game: every rule that lives in
+ * :common is checked once, there, because running the same assertions against the same code on
+ * a second loader proves nothing the first run did not. Fabric's are only what is this loader's
+ * own - the loot hook, the registration bootstrap, the break rules - which is the code that had
+ * no coverage at all while smoke.sh proved it booted, and the code that had already been wrong
+ * on one loader and right on the other for months at a time.
  */
 tasks.register('verify') {
     group = 'verification'
-    description = 'Compile, test, fences, data generation, and headless game tests.'
-    dependsOn ':build', ':neoforge:runData', ':neoforge:runGameTestServer'
+    description = 'Compile, test, fences, data generation, and both loaders\' game tests.'
+    dependsOn ':build', ':neoforge:runData', ':neoforge:runGameTestServer', ':fabric:runGametest'
 }

@@ -195,9 +195,10 @@ checklist. Gradle must run on **Java 21**.
 
 `core` is pure Java with no Minecraft on its classpath and `common` has no loader imports, both
 enforced by the build rather than by convention, which keeps the layer that can be tested in
-milliseconds as large as possible. Beside the gate sit eight checks - translation keys, stranded
+milliseconds as large as possible. Beside the gate sit nine checks - translation keys, stranded
 documentation, dev-scene steps, game-test plots, one gesture per verb, GUI art with nothing
-drawing it, teardown lists, and the mana symbols against their parts - plus `tools/smoke.sh`,
+drawing it, block and item textures against the models that name them, teardown lists, and the
+mana symbols against their parts - plus `tools/smoke.sh`,
 which boots both loaders, and `tools/shots.sh`, a scripted client that plays a whole game and
 photographs every step. [`tools/README.md`](tools/README.md) lists all of it.
 

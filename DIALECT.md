@@ -71,7 +71,7 @@ Four modules, in order of how cheaply they can be checked:
 | `:core` | Pure logic. **No `net.minecraft`, no loader.** Card identity, decklist parser, Scryfall client and cache, deck import, the event-sourced `GameSession`, zones, verbs, visibility rules, format validator | JUnit + jqwik, milliseconds |
 | `:common` | Minecraft-facing, loader-agnostic. Items, blocks, data components, payloads, block entities, persistence codecs. **Zero loader imports** | `runData`, `runGameTestServer` |
 | `:neoforge` | NeoForge entry point, registration bootstrap, network wiring, client init | full gate |
-| `:fabric` | Fabric entry point, the same small platform surface | per phase |
+| `:fabric` | Fabric entry point, the same small platform surface | full gate: its own in-world tests for what is this loader's own |
 
 The fences are mechanical, not conventional:
 

@@ -158,6 +158,19 @@ else
     FAILED=1
 fi
 
+# And every texture a model names is really there, and every texture that ships is named by
+# something. The first is drawn as the purple checkerboard wherever that item happens to be;
+# the second is how item/deck.png came to be deleted as unreferenced, its model being one the
+# generator writes rather than one checked in by hand - see tools/texturecheck.py.
+printf '%-24s ' "block and item art"
+if TEXTURE_OUT=$(python3 tools/texturecheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$TEXTURE_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
 # And every element a screen can draw has art in every theme. A sprite nobody painted is
 # drawn as the purple checkerboard and logged nowhere, so it survives a whole run of the
 # scene looking like a texture somebody chose - see tools/spritecheck.py.

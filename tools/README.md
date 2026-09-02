@@ -8,6 +8,7 @@ it is needed to build the mod, and none of it ships in the jar.
 | | |
 |---|---|
 | `smoke.sh` | Boots every target the mod claims to run on and says whether it did. Also runs every check below. |
+| `../gradlew verify` | The gate: build, unit tests, data generation, and both loaders' in-world tests. |
 | `shots.sh` | Drives a real client through the scripted session in `DevScene` and leaves the pictures in `neoforge/run/screenshots`. |
 | `langcheck.py` | Every translation key the mod asks for exists, and every entry is asked for. |
 | `doccheck.py` | No javadoc block sits directly above another, which is how a comment ends up describing nothing. |
@@ -16,6 +17,7 @@ it is needed to build the mod, and none of it ships in the jar.
 | `gesturecheck.py` | One gesture per verb, across the context menus, the mat buttons and the keys. |
 | `spritecheck.py` | Every element the mod draws has art, in every look. |
 | `statecheck.py` | Every in-memory holder is emptied when the thing that filled it goes away. |
+| `texturecheck.py` | Every texture a model names exists, and every texture that ships is named by something. |
 
 ## Art — the generators, and the one file they share
 

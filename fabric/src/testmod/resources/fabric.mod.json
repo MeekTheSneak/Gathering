@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "gathering_testmod",
+  "version": "1.0.0",
+  "name": "Gathering test mod",
+  "description": "In-world checks for the parts of Gathering that are the Fabric loader's own. Never shipped: its own source set and its own mod id, so nothing here is on a player's classpath.",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": [
+      "dev.gathering.fabric.test.FabricLootGameTest",
+      "dev.gathering.fabric.test.FabricRegistrationGameTest",
+      "dev.gathering.fabric.test.FabricBreakRulesGameTest",
+      "dev.gathering.fabric.test.FabricLootSourceGameTest"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "fabric-api": "*",
+    "gathering": "*"
+  }
+}

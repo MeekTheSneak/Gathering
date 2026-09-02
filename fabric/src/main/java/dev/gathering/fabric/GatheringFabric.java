@@ -28,6 +28,24 @@ public final class GatheringFabric implements ModInitializer {
     private CardDataService cardData;
     private CollationService collation;
 
+    /**
+     * Whether the mod may add its pool to a table from this source.
+     *
+     * <p>Everything except a table another mod built in {@code REPLACE}: there is no telling
+     * what that is meant to be any more. A data pack that rewrites a dungeon chest is still
+     * that dungeon chest, and this used to ask {@code isBuiltin()} - which is false for a data
+     * pack - so a server with a loot pack installed got no card packs from the chests it had
+     * edited, while the same world on NeoForge did. That modifier runs for every table there
+     * is and never had to ask the question at all.
+     *
+     * <p>Its own method so the rule can be checked against every value of the enum. The case
+     * that went wrong cannot be reproduced in a game test - a test world has no external data
+     * pack to make a table {@code DATA_PACK} - so the alternative was a rule nothing checked.
+     */
+    public static boolean mayModify(net.fabricmc.fabric.api.loot.v3.LootTableSource source) {
+        return source != net.fabricmc.fabric.api.loot.v3.LootTableSource.REPLACED;
+    }
+
     @Override
     public void onInitialize() {
         GatheringRegistration.bootstrap();
@@ -53,14 +71,7 @@ public final class GatheringFabric implements ModInitializer {
         // once per table at load, rather than on every roll. (NeoForge cannot append to a
         // loaded table and uses a global loot modifier instead - see PackLootModifier.)
         LootTableEvents.MODIFY.register((key, tableBuilder, source, registries) -> {
-            // Everything except a table another mod built in REPLACE. A data pack that
-            // rewrites a dungeon chest is still that dungeon chest, and this used to ask
-            // isBuiltin() - which is false for a data pack - so a server with a loot pack
-            // installed got no card packs from the chests it had edited. NeoForge's global
-            // modifier never asked the question, so the two loaders disagreed about the same
-            // world. A table another mod handed over whole is the one case still skipped:
-            // there is no telling what it is meant to be any more.
-            if (source == net.fabricmc.fabric.api.loot.v3.LootTableSource.REPLACED) {
+            if (!mayModify(source)) {
                 return;
             }
             String table = key.location().toString();
