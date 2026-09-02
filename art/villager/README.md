@@ -1,0 +1,91 @@
+# The shopkeeper's texture
+
+Two files, both 64x64 RGBA, both overlays drawn on top of the villager's own body:
+
+    common/src/main/resources/assets/gathering/textures/entity/villager/profession/shopkeeper.png
+    common/src/main/resources/assets/gathering/textures/entity/zombie_villager/profession/shopkeeper.png
+
+The paths are not a choice. `VillagerProfessionLayer` builds the lookup from the profession's
+registry key with `ResourceLocation.withPath`, which keeps the namespace and swaps the path -
+so a profession registered as `gathering:shopkeeper` is looked for under `gathering:` and
+nowhere else. The trade-level badges two lines above it in the same file use
+`withDefaultNamespace` and really do live under `minecraft:`, which is the sort of near-miss
+that costs an afternoon.
+
+Transparent everywhere except the cloth. The villager underneath is already drawn, tinted by
+biome, and the profession layer goes over the top of it.
+
+## Where each part of the sheet lands
+
+`art/villager/uv-guide.png` is the map, at ten times size with a pixel grid. Open it as a
+layer under the texture and paint by looking.
+
+It is generated, not drawn: `tools/villager_guide.py` reads the box list below straight out
+of 1.21.1's `VillagerModel.createBodyModel()`. If the model ever changes, re-run the script
+rather than correcting the picture by hand.
+
+Every cube at `texOffs(u, v)` with size `(w, h, d)` claims six rectangles around that corner,
+always in this arrangement:
+
+    top    (u+d,     v)      w x d        right  (u,         v+d)  d x h
+    bottom (u+d+w,   v)      w x d        front  (u+d,       v+d)  w x h
+                                          left   (u+d+w,     v+d)  d x h
+                                          back   (u+d+w+d,   v+d)  w x h
+
+| part    | texOffs  | size     | notes                                        |
+|---------|----------|----------|----------------------------------------------|
+| head    | (0, 0)   | 8x10x8   |                                              |
+| hat     | (32, 0)  | 8x10x8   | inflated 0.51, sits just outside the head    |
+| hat rim | (30, 47) | 16x16x1  | a flat disc, only on professions that use it |
+| nose    | (24, 0)  | 2x4x2    |                                              |
+| body    | (16, 20) | 8x12x6   |                                              |
+| jacket  | (0, 38)  | 8x20x6   | inflated 0.5, the robe over the body         |
+| arm     | (44, 22) | 4x8x4    | both arms share it; the left one is mirrored |
+| arm bar | (40, 38) | 8x4x4    | the crossed-forearms piece                   |
+| leg     | (0, 22)  | 4x12x4   | both legs share it, left mirrored            |
+
+Two consequences worth knowing before painting. The arms share one rectangle, so whatever
+goes on the right sleeve appears mirrored on the left - a badge on one cuff cannot be done
+here. And the jacket is a second, larger box around the body: paint the robe on the jacket
+and the shirt on the body, or the robe will clip through.
+
+## The .mcmeta beside each texture
+
+    { "villager": { "hat": "partial" } }
+
+It answers one question: should the biome's own hat still be drawn under yours. From
+`VillagerProfessionLayer.render`, the biome hat is drawn when
+
+    profession hat == NONE  ||  (profession hat == PARTIAL && biome hat != FULL)
+
+so `none` means "I have no hat, keep theirs", `full` means "mine covers it, drop theirs", and
+`partial` means "mine is a band, keep theirs unless theirs is a full one too" - which is what
+the desert and snowy villagers have. Ours is `partial`, following vanilla's butcher, who
+wears a headband over the same 50-odd pixels of the hat box. If the band ever grows into a
+real hat, change both files to `full`.
+
+Missing metadata is not an error; the layer falls back to `NONE`.
+
+## Seeing it on the model in Blockbench
+
+Blockbench does not read the model out of the game - it has to be built from the table above,
+in a **Modded Entity** project (File > New > Modded Entity), which is the format that uses
+Minecraft's own `texOffs` box UVs rather than per-face UVs. Newer Blockbench versions ship
+entity templates; if a villager is in the list, take it and skip the typing.
+
+Building it by hand is nine cubes. For each row of the table: add a cube, set its UV offset to
+the `texOffs` column and its size to the `size` column. Then load the texture and it will land
+where the guide says it lands.
+
+The vanilla villager textures are the best reference for what a profession overlay is supposed
+to look like - they are inside the client jar under
+`assets/minecraft/textures/entity/villager/`, in the version folder of any normal installation.
+They are Mojang's, so they stay out of this repository.
+
+## Checking it
+
+`tools/shots.sh` stands one of each on a lit floor and photographs them:
+
+    neoforge/run/screenshots/90-the-shopkeeper-and-what-becomes-of-him.png
+    neoforge/run/screenshots/91-the-shopkeeper.png
+    neoforge/run/screenshots/92-the-zombie-shopkeeper.png

@@ -174,7 +174,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 275;
+    private static final int LAST_STEP = 279;
 
     /**
      * The gallery, if it was asked for: three pictures of every look installed.
@@ -2874,6 +2874,28 @@ public final class DevScene {
                 client.setScreen(null);
                 advance(SETTLE / 2);
             }
+            // The shopkeeper, who is the one thing in the mod with a face. Everything above
+            // this is a screen; a villager is a texture on a model in a world, and the only
+            // way to know whether it reads as a card-shop keeper rather than a smudge is to
+            // stand in front of one.
+            case 276 -> {
+                theShopkeepers(client);
+                advance(SETTLE * 3);
+            }
+            case 277 -> {
+                shoot(client, "90-the-shopkeeper-and-what-becomes-of-him");
+                closerToTheShopkeeper(client, -1.0);
+                advance(SETTLE * 2);
+            }
+            case 278 -> {
+                shoot(client, "91-the-shopkeeper");
+                closerToTheShopkeeper(client, 1.0);
+                advance(SETTLE * 2);
+            }
+            case 279 -> {
+                shoot(client, "92-the-zombie-shopkeeper");
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -5379,6 +5401,130 @@ public final class DevScene {
             System.out.println("[devscene] a cobblestone, a blackstone and a crying obsidian table");
         });
     }
+
+    /**
+     * Stands a shopkeeper and a zombie shopkeeper on the flat, in the light.
+     *
+     * <p>Both, because they are two different textures for one profession and the zombie one
+     * is the easier of the two to get wrong: it lives in a folder of its own that vanilla
+     * looks in with the same profession key, so a file in the right place under the wrong
+     * folder renders a plain zombie villager and says nothing about why.
+     *
+     * <p>Held still and facing the camera. A villager left to itself wanders, turns its back
+     * and goes to sleep, and a photograph of the back of a villager's head says nothing about
+     * a texture drawn on its front.
+     */
+    private static void theShopkeepers(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            return;
+        }
+        client.setScreen(null);
+        BlockPos where = client.player.blockPosition().offset(0, 0, 24);
+        shopkeepers = where;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            // The scene's world is peaceful, and peaceful does not merely stop zombies
+            // spawning - it deletes the ones that exist, on the tick they arrive. So the
+            // zombie shopkeeper was spawned, removed, and photographed as an empty patch of
+            // floor. These are the last three steps of the run, so nothing already
+            // photographed can be affected by changing it here.
+            server.setDifficulty(net.minecraft.world.Difficulty.EASY, true);
+            // A floor to stand on and a lit roof over it. The roof is not decoration: a zombie
+            // under an open sky catches fire within a second or two of arriving, and a
+            // photograph of a burning villager says nothing about the cloth it is wearing.
+            // Glowstone because blocking the sky also takes the light away, and a texture
+            // photographed in the dark is a texture nobody can judge.
+            for (int x = -3; x <= 3; x++) {
+                for (int z = -4; z <= 4; z++) {
+                    level.setBlock(where.offset(x, -1, z),
+                            net.minecraft.world.level.block.Blocks.SMOOTH_STONE.defaultBlockState(), 3);
+                    level.setBlock(where.offset(x, 6, z),
+                            net.minecraft.world.level.block.Blocks.GLOWSTONE.defaultBlockState(), 3);
+                }
+            }
+            stand(level, new net.minecraft.world.entity.npc.Villager(
+                    net.minecraft.world.entity.EntityType.VILLAGER, level), where, -1.0);
+            stand(level, new net.minecraft.world.entity.monster.ZombieVillager(
+                    net.minecraft.world.entity.EntityType.ZOMBIE_VILLAGER, level), where, 1.0);
+
+            // And the camera in front of both of them, far enough back to hold the pair.
+            ServerPlayer player = server.getPlayerList().getPlayers().stream()
+                    .findFirst().orElse(null);
+            if (player != null) {
+                double atX = where.getX() + 0.5;
+                double atY = where.getY() + 1.1;
+                double atZ = where.getZ() + 5.0;
+                player.teleportTo(atX, atY, atZ);
+                player.setYRot(180f);
+                player.setXRot(6f);
+                player.connection.teleport(atX, atY, atZ, 180f, 6f);
+            }
+            System.out.println("[devscene] a shopkeeper and a zombie shopkeeper at " + where);
+        });
+    }
+
+    /**
+     * Puts one on the floor, in the trade, facing the camera and staying there.
+     *
+     * <p>The profession has to be set through {@code setVillagerData} on both, because the
+     * two classes do not share a supertype that carries it - and the level matters as well as
+     * the profession: the badge on the belt is drawn from it, and a level of zero draws
+     * nothing at all, which reads as a texture that failed rather than a villager who has not
+     * traded yet.
+     */
+    private static void stand(ServerLevel level, net.minecraft.world.entity.Mob who,
+            BlockPos where, double across) {
+        double x = where.getX() + 0.5 + across;
+        double z = where.getZ() + 0.5;
+        who.moveTo(x, where.getY(), z, 180f, 0f);
+        who.setNoAi(true);
+        who.setPersistenceRequired();
+        net.minecraft.world.entity.npc.VillagerData data =
+                new net.minecraft.world.entity.npc.VillagerData(
+                        net.minecraft.world.entity.npc.VillagerType.PLAINS,
+                        dev.gathering.village.GatheringVillagers.SHOPKEEPER.get(), 2);
+        if (who instanceof net.minecraft.world.entity.npc.Villager villager) {
+            villager.setVillagerData(data);
+        } else if (who instanceof net.minecraft.world.entity.monster.ZombieVillager zombie) {
+            zombie.setVillagerData(data);
+            // Otherwise it burns down in the daylight halfway through the photograph.
+            zombie.setPersistenceRequired();
+        }
+        level.addFreshEntity(who);
+    }
+
+    /**
+     * Steps in close enough to read the cloth, in front of one of them.
+     *
+     * <p>One each rather than one of the pair, because they are two textures and the whole
+     * question is whether each of them is the right one in the right place. A photograph with
+     * both in it answers that only for whichever is nearer the middle.
+     */
+    private static void closerToTheShopkeeper(Minecraft client, double across) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || shopkeepers == null) {
+            return;
+        }
+        BlockPos where = shopkeepers;
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream()
+                    .findFirst().orElse(null);
+            if (player == null) {
+                return;
+            }
+            double atX = where.getX() + 0.5 + across;
+            double atY = where.getY() + 1.0;
+            double atZ = where.getZ() + 2.2;
+            player.teleportTo(atX, atY, atZ);
+            player.setYRot(180f);
+            player.setXRot(3f);
+            player.connection.teleport(atX, atY, atZ, 180f, 3f);
+        });
+    }
+
+    /** Where the two of them are standing, so the second shot can walk up to them. */
+    private static BlockPos shopkeepers;
 
     /** Stands the camera back from the row and looks at it. */
     private static void lookAtTheOtherTables(Minecraft client) {
