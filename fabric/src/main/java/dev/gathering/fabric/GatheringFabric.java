@@ -37,15 +37,14 @@ public final class GatheringFabric implements ModInitializer {
                 (dispatcher, registry, environment) -> dispatcher.register(GatheringCommands.root()));
 
         // A block cannot decline to be broken in vanilla - by the time the block hears about
-        // it the decision is made - so a table in use is protected at the break event, which
-        // is the one place the answer can still be no.
+        // it the decision is made - so what the mod protects is protected at the break event,
+        // which is the one place the answer can still be no. Which breaks are refused is
+        // decided in BreakRules, shared with the NeoForge hook.
         PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, entity) -> {
-            if (dev.gathering.block.TableSeats.mayBreak(level, pos)) {
-                return true;
-            }
-            player.sendSystemMessage(
-                    net.minecraft.network.chat.Component.translatable("message.gathering.table_in_use"));
-            return false;
+            java.util.Optional<net.minecraft.network.chat.Component> why =
+                    dev.gathering.block.BreakRules.refuse(level, pos, player);
+            why.ifPresent(player::sendSystemMessage);
+            return why.isEmpty();
         });
 
         // Fabric hands a mod the table as a builder, so a pack goes in as a pool of its

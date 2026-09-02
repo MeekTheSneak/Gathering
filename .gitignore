@@ -46,3 +46,4 @@ __pycache__/
 # The layout preview writes here.
 build/preview/
 neoforge/run/screenshots/
+.qa/

@@ -675,6 +675,11 @@ public class TableBlock extends BaseEntityBlock {
             } else {
                 holding.stake(seat, stake.staked());
                 library = stake.library();
+                // And out of the deck the table is about to hold, not only out of the library
+                // the game is dealt. The table hands that deck back when the match ends, so a
+                // staked card left in it comes home to the loser while the winner is holding
+                // the same card - which is the one arithmetic mistake ante must not make.
+                deck = dev.gathering.server.Staking.heldAfter(deck, stake.staked());
                 dev.gathering.server.TableBroadcast.tell(forKeeps, tableOrigin,
                         Component.translatable("message.gathering.ante_staked",
                                 dev.gathering.SeatNames.of(
@@ -690,9 +695,10 @@ public class TableBlock extends BaseEntityBlock {
         // into the session and never could - it is not in play - so without somewhere to keep
         // it, committing a deck destroyed a quarter of it and ending the game destroyed the
         // rest. The table hands the whole thing back when the match is over.
+        DeckComponent held = deck;
         TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
-                .ifPresent(table -> table.holdDeck(seat, deck,
+                .ifPresent(table -> table.holdDeck(seat, held,
                         stack.get(dev.gathering.registry.GatheringComponents.POOL.get()),
                         player.getUUID()));
 

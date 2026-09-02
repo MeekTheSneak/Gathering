@@ -3,6 +3,8 @@ package dev.gathering.server;
 import dev.gathering.core.ante.AnteDraw;
 import dev.gathering.core.ante.AnteExclusions;
 import dev.gathering.core.card.CardIdentity;
+import dev.gathering.item.CardComponent;
+import dev.gathering.item.DeckComponent;
 import dev.gathering.service.CardDataService;
 import dev.gathering.service.ServerSettings;
 import java.util.ArrayList;
@@ -50,6 +52,34 @@ public final class Staking {
     /** Nothing staked, and the deck exactly as it arrived. */
     public static Stake nothing(List<CardIdentity> deck) {
         return new Stake(List.of(), deck);
+    }
+
+    /**
+     * The deck the table should hold: the one that was put down, less what the pot now has.
+     *
+     * <p>The stake is taken out of the <em>library</em> the game is dealt, and that is only
+     * half the job. The table also keeps the {@link DeckComponent} itself, so it can hand the
+     * whole deck back when the match is over - and a deck handed back with the staked card
+     * still in it is a card that exists twice: once in the winner's hands, once back in the
+     * loser's deck. Ante is the one feature in this mod whose entire point is that a card
+     * really changes owner, so that is the one arithmetic mistake it must not make.
+     *
+     * <p>Only the mainboard, because only the mainboard was ever staked from - commanders are
+     * not in the library to be drawn from, and the sideboard is not in play at all.
+     *
+     * <p>One copy per staked card, by {@code withoutOne}: a deck holding four of something
+     * that staked one must come back holding three, not none.
+     */
+    public static DeckComponent heldAfter(DeckComponent deck, List<CardIdentity> staked) {
+        if (deck == null || staked == null || staked.isEmpty()) {
+            return deck;
+        }
+        DeckComponent left = deck;
+        for (CardIdentity card : staked) {
+            left = left.withoutOne(DeckComponent.Section.MAINBOARD, CardComponent.of(card))
+                    .orElse(left);
+        }
+        return left;
     }
 
     /**

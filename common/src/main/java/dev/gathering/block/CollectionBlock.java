@@ -157,27 +157,6 @@ public class CollectionBlock extends BaseEntityBlock {
     }
 
     /**
-     * Breaking it needs the right to take, and it leaves with everything in it.
-     *
-     * <p>An item holding the cards rather than ten thousand card entities, which is the
-     * difference between moving a collection and destroying a server.
-     */
-    @Override
-    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state,
-            Player player) {
-        if (!level.isClientSide()
-                && level.getBlockEntity(pos) instanceof CollectionBlockEntity collection
-                && !collection.rights().mayTake(player.getUUID())) {
-            // Vanilla has already decided the block is coming out by the time anything here
-            // runs, so the block is put straight back rather than the break being refused.
-            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                    "message.gathering.collection_may_not_take"));
-            return state;
-        }
-        return super.playerWillDestroy(level, pos, state, player);
-    }
-
-    /**
      * What one drops: itself, holding its contents.
      *
      * <p>Every card inside travels in the item's own data, so a collection moved across a

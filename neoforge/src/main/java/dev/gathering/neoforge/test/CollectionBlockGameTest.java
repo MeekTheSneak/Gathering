@@ -483,6 +483,69 @@ public final class CollectionBlockGameTest {
         helper.succeed();
     }
 
+    /**
+     * Somebody else's collection cannot be picked up by breaking it.
+     *
+     * <p>Every other way in asks first, so a break that did not would be the way round all
+     * of them: swing once and the block is in your inventory with ten thousand cards of
+     * somebody else's in it. The block itself cannot say no - vanilla has decided by the
+     * time {@code playerWillDestroy} runs, and removes the block whatever that returns - so
+     * the answer comes from the loader's break event, and this is the test that the wiring
+     * is actually there rather than a guard in a method that cannot refuse.
+     */
+    @GameTest(template = "tables")
+    public static void aStrangerMayNotBreakACollectionOpen(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        collection.setRights(CollectionRights.ownedBy(STRANGER));
+        collection.put(CardIdentity.ofPrinting(BOLT, false), 4);
+
+        var thief = helper.makeMockServerPlayerInLevel();
+        thief.setPos(net.minecraft.world.phys.Vec3.atCenterOf(helper.absolutePos(at)));
+        thief.gameMode.destroyBlock(helper.absolutePos(at));
+
+        if (!helper.getLevel().getBlockState(helper.absolutePos(at))
+                .is(GatheringContent.COLLECTION.get())) {
+            helper.fail("A stranger broke somebody else's collection out of the ground");
+            return;
+        }
+        if (!(helper.getLevel().getBlockEntity(helper.absolutePos(at))
+                instanceof CollectionBlockEntity still)
+                || still.cards().of(CardIdentity.ofPrinting(BOLT, false)) != 4) {
+            helper.fail("A refused break emptied the collection anyway");
+            return;
+        }
+        for (var dropped : helper.getLevel().getEntitiesOfClass(
+                net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(helper.absolutePos(at)).inflate(2.0))) {
+            if (dropped.getItem().is(GatheringContent.COLLECTION_ITEM.get())) {
+                helper.fail("A refused break dropped the collection to be picked up anyway");
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    /** The owner's own collection still comes up when they break it, cards and all. */
+    @GameTest(template = "tables")
+    public static void theOwnerBreaksTheirOwnCollectionUpNormally(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        var owner = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(owner.getUUID()));
+        collection.put(CardIdentity.ofPrinting(BOLT, false), 4);
+
+        owner.setPos(net.minecraft.world.phys.Vec3.atCenterOf(helper.absolutePos(at)));
+        owner.gameMode.destroyBlock(helper.absolutePos(at));
+
+        if (helper.getLevel().getBlockState(helper.absolutePos(at))
+                .is(GatheringContent.COLLECTION.get())) {
+            helper.fail("An owner could not break their own collection");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static CollectionBlockEntity place(GameTestHelper helper, BlockPos at) {
         helper.setBlock(at, GatheringContent.COLLECTION.get().defaultBlockState());
         if (helper.getLevel().getBlockEntity(helper.absolutePos(at))

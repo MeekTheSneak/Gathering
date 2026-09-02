@@ -24,6 +24,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
@@ -47,6 +48,113 @@ public final class AntePotGameTest {
 
     private static final UUID BOLT = UUID.fromString("11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     private static final UUID RING = UUID.fromString("22222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+
+    /**
+     * A staked card leaves the deck the table is holding, not only the library.
+     *
+     * <p>The whole way through, because the two halves are what went wrong: the stake is
+     * taken out of the <em>library</em> the game is dealt, and for a long time the table
+     * separately kept the deck exactly as it went down, staked card and all. The winner was
+     * handed the card out of the pot and the loser got the same card home in their deck.
+     * Ante is the one feature whose entire point is that a card really changes owner, so a
+     * card that exists twice afterwards is the failure it must not have.
+     *
+     * <p>Driven through the real commit, not through the helper it calls, because the helper
+     * being right and never being called is exactly the shape this bug had.
+     */
+    @GameTest(template = "tables")
+    public static void aStakedCardLeavesTheDeckTheTableHolds(GameTestHelper helper) {
+        CardDataService cards = CardDataService.active().orElse(null);
+        if (cards == null) {
+            helper.fail("no card service, so staking cannot be exercised");
+            return;
+        }
+        CardMetadata bolt = cache(cards, "Held Bolt", "Instant");
+        CardMetadata ring = cache(cards, "Held Ring", "Artifact");
+
+        BlockPos origin = helper.absolutePos(new BlockPos(1, 1, 1));
+        ServerLevel level = helper.getLevel();
+        level.setBlock(origin, GatheringContent.TABLE.get().defaultBlockState(), 3);
+        for (TablePart part : TablePart.values()) {
+            level.setBlock(part.offsetFrom(origin),
+                    GatheringContent.TABLE.get().defaultBlockState()
+                            .setValue(TableBlock.PART, part), 3);
+        }
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setPos(origin.getCenter());
+        SeatAnchor anchor = TableClusters.at(level, origin).seats().get(0);
+        TableSeats.take(level, origin, anchor.cell(), anchor.side(), player.getUUID());
+
+        if (dev.gathering.block.TableSessions.start(level, origin,
+                dev.gathering.core.match.MatchRules.single(
+                        dev.gathering.core.format.FormatPresets.COMMANDER))
+                != dev.gathering.block.TableSessions.Outcome.STARTED) {
+            helper.fail("a game would not start at the table");
+            return;
+        }
+        TableBlockEntity table = TableBlock.entityAt(level, origin).orElseThrow();
+        table.playForKeeps(true);
+
+        List<dev.gathering.item.CardComponent> mainboard = new java.util.ArrayList<>();
+        for (int copy = 0; copy < 3; copy++) {
+            mainboard.add(dev.gathering.item.CardComponent.of(
+                    CardIdentity.ofPrinting(bolt.scryfallId(), false)));
+        }
+        mainboard.add(dev.gathering.item.CardComponent.of(
+                CardIdentity.ofPrinting(ring.scryfallId(), false)));
+        dev.gathering.item.DeckComponent went = new dev.gathering.item.DeckComponent(
+                "For keeps", "", java.util.Optional.of(player.getUUID()),
+                List.copyOf(mainboard), List.of(), List.of());
+
+        TableBlock.putDown(level, origin, player, dev.gathering.item.DeckItem.of(went));
+
+        List<CardIdentity> staked = table.pot().everything();
+        if (staked.isEmpty()) {
+            helper.fail("a for-keeps deck of four known cards staked nothing, so this"
+                    + " checks nothing");
+            return;
+        }
+        dev.gathering.item.DeckComponent held =
+                table.heldDecks().values().stream().findFirst().orElse(null);
+        if (held == null) {
+            helper.fail("the table took a deck and is not holding one");
+            return;
+        }
+        if (held.totalCards() + staked.size() != went.totalCards()) {
+            helper.fail("a deck of " + went.totalCards() + " that staked " + staked.size()
+                    + " left the table holding " + held.totalCards()
+                    + "; the staked cards exist in two places");
+            return;
+        }
+        // One copy each, not every copy: a deck running three Bolts that staked one comes
+        // back running two.
+        for (CardIdentity one : staked) {
+            long before = went.entries().stream()
+                    .filter(entry -> entry.toIdentity().equals(one)).count();
+            long after = held.entries().stream()
+                    .filter(entry -> entry.toIdentity().equals(one)).count();
+            if (after != before - 1) {
+                helper.fail("staking one of " + before + " copies left " + after
+                        + " in the deck the table holds");
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    /** Staking nothing leaves the deck exactly as it was. */
+    @GameTest(template = "empty")
+    public static void stakingNothingChangesNothing(GameTestHelper helper) {
+        dev.gathering.item.DeckComponent went = new dev.gathering.item.DeckComponent(
+                "Friendly", "", java.util.Optional.empty(),
+                List.of(dev.gathering.item.CardComponent.of(card(BOLT))), List.of(), List.of());
+
+        if (dev.gathering.server.Staking.heldAfter(went, List.of()) != went) {
+            helper.fail("a deck that staked nothing was rebuilt anyway");
+            return;
+        }
+        helper.succeed();
+    }
 
     /**
      * A pot survives being written down and read back.
