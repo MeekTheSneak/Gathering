@@ -60,10 +60,18 @@ always in this arrangement:
 | arm bar | (40, 38) | 8x4x4    | the crossed-forearms piece                   |
 | leg     | (0, 22)  | 4x12x4   | both legs share it, left mirrored            |
 
-Two consequences worth knowing before painting. The arms share one rectangle, so whatever
-goes on the right sleeve appears mirrored on the left - a badge on one cuff cannot be done
-here. And the jacket is a second, larger box around the body: paint the robe on the jacket
-and the shirt on the body, or the robe will clip through.
+Two consequences worth knowing before painting.
+
+**Paint the torso on the jacket, never on the body.** The jacket is a second box around the
+body, inflated half a pixel, so its surface is in front of the body's - and the biome type
+texture underneath already paints an opaque robe across the whole of it (392 pixels, on
+plains). Anything drawn on the body region is therefore behind an opaque brown robe and is
+never seen at all. This is not a matter of taste: all fourteen vanilla professions paint zero
+pixels on the body and everything on the jacket, and the .mcmeta cannot change it - that file
+holds one field, `hat`, and nothing else. To cover the vanilla robe you have to paint over it.
+
+**The arms share one rectangle**, so whatever goes on the right sleeve appears mirrored on the
+left. A badge on one cuff cannot be done here.
 
 ## The .mcmeta beside each texture
 
