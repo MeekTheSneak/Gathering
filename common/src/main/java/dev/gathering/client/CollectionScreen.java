@@ -52,16 +52,7 @@ public final class CollectionScreen extends Screen {
      */
     private static final int WALL = 8;
 
-    /** What the build button needs, and what the narrowest window has room for beside the pips. */
-    private static final int BUILD_WIDTH = 86;
 
-    /**
-     * How wide the rarity button would like to be, and the least it will take.
-     * <p>It gives way rather than the button beside it, because its label shrinks to fit and
-     * that one's would have to leave the screen.
-     */
-    private static final int RARITY_WIDTH = 92;
-    private static final int RARITY_MIN = 62;
     /**
      * Where the card box starts, worked out from the row of buttons above it.
      * <p>Eighty was a number, and the number was wrong: the pips end at seventy-four and the
@@ -221,37 +212,28 @@ public final class CollectionScreen extends Screen {
         // Color and rarity are buttons rather than something to type, because a search box
         // that understands "c:wu" is a query language, and a query language is a thing to
         // learn. Six pips and a cycle say the same and can be found by looking.
-        int pipsX = MARGIN;
-        int pipsY = MARGIN + 42;
-        for (String color : COLORS) {
+        dev.gathering.core.ui.FilterRowLayout row =
+                dev.gathering.core.ui.FilterRowLayout.of(this.width, MARGIN + 42, COLORS.length);
+        for (int index = 0; index < COLORS.length; index++) {
+            String color = COLORS[index];
             // The orb is the face and the color's name is the message. A button whose whole
             // label is a symbol says nothing to a tooltip or a narrator, which is the rule
             // the page arrows and the help mark already follow.
             //
             // And a color that is on is a button that is down, which is what that face
             // already means everywhere else in the mod.
-            addRenderableWidget(GatheringButtons.latch(pipsX, pipsY, 18, 16,
-                    pip(color), nameOf(color),
+            addRenderableWidget(GatheringButtons.latch(row.pip(index), pip(color), nameOf(color),
                     () -> query.colors().contains(color), () -> toggleColor(color)));
-            pipsX += 20;
         }
         // The other way to take cards out, and the one worth finding. Sleeving a hundred-card
         // list a card at a time is a hundred clicks; this is one, and it is here rather than
         // on the import screen because the cards are here.
         //
-        // Anchored to the right edge, and the rarity button beside it gets whatever is left.
-        // It was the other way round - rarity at a fixed width and this pushed off the end of
-        // it - which put this button four pixels off the right of the screen the moment a
-        // sixth pip was added to the row, on the narrowest window the game draws.
-        int buildLeft = this.width - MARGIN - BUILD_WIDTH;
-        int rarityLeft = pipsX + 6;
-        int rarityWidth = Math.clamp(buildLeft - 4 - rarityLeft, RARITY_MIN, RARITY_WIDTH);
-        rarityButton = GatheringButtons.of(
-                rarityLeft, pipsY, rarityWidth, 16, rarityLabel(), this::nextRarity);
+        // Placed by FilterRowLayout, which anchors it to the right edge and gives the rarity
+        // button whatever is left - checked there against every window and every pip count.
+        rarityButton = GatheringButtons.of(row.rarity(), rarityLabel(), this::nextRarity);
         addRenderableWidget(rarityButton);
-        addRenderableWidget(GatheringButtons.of(
-                Math.max(rarityButton.getX() + rarityWidth + 4, buildLeft), pipsY,
-                BUILD_WIDTH, 16,
+        addRenderableWidget(GatheringButtons.of(row.build(),
                 Component.translatable("screen.gathering.collection.build_deck"),
                 () -> this.minecraft.setScreen(new DeckBuilderScreen(where, label))));
 

@@ -2,6 +2,7 @@ package dev.gathering.client;
 
 import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.collection.SetCompletion;
+import dev.gathering.core.ui.ListScreenLayout;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.network.SetProgressPayload;
 import java.util.ArrayList;
@@ -26,13 +27,9 @@ import net.minecraft.network.chat.Component;
  */
 public final class SetProgressScreen extends ChildScreen {
 
-    private static final int MARGIN = 16;
-    private static final int TOP_BAR = 34;
-    private static final int BOTTOM_BAR = 30;
+    /** Taken from the shared layout, so the heading lines up with the rows under it. */
+    private static final int MARGIN = ListScreenLayout.margin();
 
-    /** The way out, and the space kept clear around everything on the bottom row. */
-    private static final int DONE_WIDTH = 56;
-    private static final int GAP = 8;
     /**
      * How tall a row is, and the bar that sits under its words.
      * <p>Twenty-six rather than twenty-two: the words take ten and the bar is eleven, which
@@ -117,14 +114,24 @@ public final class SetProgressScreen extends ChildScreen {
 
     @Override
     protected void init() {
-        addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - DONE_WIDTH, this.height - BOTTOM_BAR + 6, DONE_WIDTH, 18,
+        addRenderableWidget(GatheringButtons.of(layout(0).done(),
                 Component.translatable("gui.done"), this::onClose));
+    }
+
+    /**
+     * Where everything on this screen goes.
+     * <p>Worked out in the pure module, so the footer's three pieces are checked against every
+     * window size rather than against the one this was written at.
+     *
+     * @param moreWidth how wide the "N more" line is, or 0 when nothing is out of sight
+     */
+    private ListScreenLayout layout(int moreWidth) {
+        return ListScreenLayout.of(this.width, this.height, ROW_HEIGHT, moreWidth);
     }
 
     /** How many rows the window has room for. */
     private int rowsThatFit() {
-        return Math.max(1, (this.height - TOP_BAR - BOTTOM_BAR) / ROW_HEIGHT);
+        return layout(0).rowsThatFit();
     }
 
     /** How far the list can be scrolled, in rows. */
@@ -133,8 +140,8 @@ public final class SetProgressScreen extends ChildScreen {
     }
 
     private Rect rowAt(int index) {
-        return new Rect(MARGIN, TOP_BAR + index * ROW_HEIGHT,
-                this.width - MARGIN * 2, ROW_HEIGHT - 2);
+        Rect row = layout(0).rowAt(index);
+        return row.isEmpty() ? row : new Rect(row.x(), row.y(), row.width(), row.height() - 2);
     }
 
     /**
@@ -190,23 +197,23 @@ public final class SetProgressScreen extends ChildScreen {
             }
             drawRow(graphics, set, row);
         }
-        // Three things share the foot: the hint on the left, the Done button on the right,
-        // and this between them. Laid out from halves of the screen the first two ran into
-        // each other on any window narrow enough - which is every window at GUI scale 4.
-        int footY = this.height - BOTTOM_BAR + 10;
-        int rightEdge = this.width - MARGIN - DONE_WIDTH - GAP;
-        int hintRoom = rightEdge - MARGIN;
-        if (hiddenBelow() > 0) {
-            Component more = Component.translatable("screen.gathering.sets.more", hiddenBelow());
-            int wide = this.font.width(more);
-            GuiText.drawFlushRight(graphics, this.font, more, rightEdge, footY, 1f, DIM);
-            hintRoom -= wide + GAP;
+        // Three things share the foot: the hint, the count of what is out of sight, and the
+        // way out. Laid out right to left in ListScreenLayout, so the hint is what gives way.
+        Component more = hiddenBelow() > 0
+                ? Component.translatable("screen.gathering.sets.more", hiddenBelow())
+                : null;
+        ListScreenLayout foot = layout(more == null ? 0 : this.font.width(more));
+        if (more != null) {
+            GuiText.drawFlushRight(graphics, this.font, more,
+                    foot.more().right(), foot.more().y(), 1f, DIM);
         }
         // Said, because the two buttons now do two different things and a row that answers
         // one question on the left and another on the right is a row nobody would guess at.
-        GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.sets.hint"),
-                MARGIN, footY, Math.max(1, hintRoom), DIM);
+        if (foot.hint().width() > 0) {
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("screen.gathering.sets.hint"),
+                    foot.hint().x(), foot.hint().y(), foot.hint().width(), DIM);
+        }
     }
 
     /**

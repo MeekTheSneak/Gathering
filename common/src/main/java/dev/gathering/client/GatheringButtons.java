@@ -217,6 +217,12 @@ public final class GatheringButtons {
         return button;
     }
 
+    /** The same, at a rectangle worked out in the pure layout module. */
+    public static Button latch(dev.gathering.core.ui.Rect at, Component mark, Component says,
+            BooleanSupplier on, Runnable action) {
+        return latch(at.x(), at.y(), at.width(), at.height(), mark, says, on, action);
+    }
+
     private static final class Latched extends Marked {
 
         private final BooleanSupplier on;

@@ -4,6 +4,7 @@ import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.Rarity;
 import dev.gathering.core.collection.MissingCards;
+import dev.gathering.core.ui.ListScreenLayout;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
@@ -27,13 +28,9 @@ import net.minecraft.network.chat.Component;
  */
 public final class MissingCardsScreen extends ChildScreen {
 
-    private static final int MARGIN = 16;
-    private static final int TOP_BAR = 34;
-    private static final int BOTTOM_BAR = 30;
+    /** Taken from the shared layout, so the heading lines up with the rows under it. */
+    private static final int MARGIN = ListScreenLayout.margin();
 
-    /** The way out, and the space kept clear around everything on the bottom row. */
-    private static final int DONE_WIDTH = 56;
-    private static final int GAP = 8;
     private static final int ROW_HEIGHT = 12;
 
     private static final int TEXT = 0xFFE8E4DC;
@@ -83,13 +80,22 @@ public final class MissingCardsScreen extends ChildScreen {
 
     @Override
     protected void init() {
-        addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - DONE_WIDTH, this.height - BOTTOM_BAR + 6, DONE_WIDTH, 18,
+        addRenderableWidget(GatheringButtons.of(layout(0).done(),
                 Component.translatable("gui.done"), this::onClose));
     }
 
+    /**
+     * Where everything on this screen goes - the same shape the set progress list has, and
+     * the same arithmetic, checked in the pure module against every window size.
+     *
+     * @param moreWidth how wide the "N more" line is, or 0 when nothing is out of sight
+     */
+    private ListScreenLayout layout(int moreWidth) {
+        return ListScreenLayout.of(this.width, this.height, ROW_HEIGHT, moreWidth);
+    }
+
     private int rowsThatFit() {
-        return Math.max(1, (this.height - TOP_BAR - BOTTOM_BAR) / ROW_HEIGHT);
+        return layout(0).rowsThatFit();
     }
 
     private int hiddenBelow() {
@@ -97,8 +103,7 @@ public final class MissingCardsScreen extends ChildScreen {
     }
 
     private Rect rowAt(int index) {
-        return new Rect(MARGIN, TOP_BAR + index * ROW_HEIGHT,
-                this.width - MARGIN * 2, ROW_HEIGHT);
+        return layout(0).rowAt(index);
     }
 
     @Override
@@ -144,21 +149,21 @@ public final class MissingCardsScreen extends ChildScreen {
         // is the same gesture as reading a card anywhere else in the mod.
         offerToInspector();
 
-        // Three things share the foot: the hint on the left, the Done button on the right,
-        // and this between them. Laid out from halves of the screen the first two ran into
-        // each other on any window narrow enough - which is every window at GUI scale 4.
-        int footY = this.height - BOTTOM_BAR + 10;
-        int rightEdge = this.width - MARGIN - DONE_WIDTH - GAP;
-        int hintRoom = rightEdge - MARGIN;
-        if (hiddenBelow() > 0) {
-            Component more =
-                    Component.translatable("screen.gathering.missing.more", hiddenBelow());
-            GuiText.drawFlushRight(graphics, this.font, more, rightEdge, footY, 1f, DIM);
-            hintRoom -= this.font.width(more) + GAP;
+        // Three things share the foot: the hint, the count of what is out of sight, and the
+        // way out. Laid out right to left in ListScreenLayout, so the hint is what gives way.
+        Component more = hiddenBelow() > 0
+                ? Component.translatable("screen.gathering.missing.more", hiddenBelow())
+                : null;
+        ListScreenLayout foot = layout(more == null ? 0 : this.font.width(more));
+        if (more != null) {
+            GuiText.drawFlushRight(graphics, this.font, more,
+                    foot.more().right(), foot.more().y(), 1f, DIM);
         }
-        GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.missing.hint"),
-                MARGIN, footY, Math.max(1, hintRoom), DIM);
+        if (foot.hint().width() > 0) {
+            GuiText.draw(graphics, this.font,
+                    Component.translatable("screen.gathering.missing.hint"),
+                    foot.hint().x(), foot.hint().y(), foot.hint().width(), DIM);
+        }
     }
 
     /**
