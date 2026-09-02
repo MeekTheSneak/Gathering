@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * A draft pod, entire, as a value.
@@ -137,35 +138,57 @@ public record DraftState(
      *                                  declared, or the positions are the wrong number,
      *                                  repeated, or not in the pack
      */
-    public DraftState declare(DrafterId drafter, List<Integer> positions) {
+    /**
+     * Why this pick cannot be made, or empty when it can.
+     *
+     * <p>Every reason, including the ones about the positions themselves. It used to be only
+     * some of them: the pod asked whether the <em>number</em> of picks was right and let the
+     * numbers through, and {@link #declare} threw on a position that was out of range or
+     * repeated. That throw came out of a network payload handler - so a client naming card
+     * 999 of a fifteen-card pack, or the same card twice, threw on the server thread. On one
+     * loader that disconnects the client; on the other it reaches the server's task queue and
+     * takes the server down. Neither is an answer to a stale pick, which is what this mostly
+     * is: a drafter whose screen is a moment behind the pod.
+     *
+     * <p>So the whole rule lives here and is asked before anything is done, and {@code
+     * declare} throws only for a caller that did not ask - which no longer includes the wire.
+     */
+    public Optional<String> denialFor(DrafterId drafter, List<Integer> positions) {
         require(drafter);
         if (isFinished()) {
-            throw new IllegalArgumentException("The pod has finished drafting");
+            return Optional.of("The pod has finished drafting");
         }
         if (declared.containsKey(drafter)) {
-            throw new IllegalArgumentException(drafter + " has already picked this turn");
+            return Optional.of(drafter + " has already picked this turn");
         }
         int due = picksDueFrom(drafter);
         if (due == 0) {
-            throw new IllegalArgumentException(drafter + " has no pack to pick from");
+            return Optional.of(drafter + " has no pack to pick from");
         }
         List<Integer> chosen = positions == null ? List.of() : List.copyOf(positions);
         if (chosen.size() != due) {
-            throw new IllegalArgumentException(
-                    drafter + " picks " + due + " this turn, not " + chosen.size());
+            return Optional.of(drafter + " picks " + due + " this turn, not " + chosen.size());
         }
         DraftPack pack = packHeldBy(drafter);
         for (int index = 0; index < chosen.size(); index++) {
             Integer position = chosen.get(index);
             if (position == null || position < 0 || position >= pack.size()) {
-                throw new IllegalArgumentException(
+                return Optional.of(
                         "There is no card at " + position + " in a pack of " + pack.size());
             }
             if (chosen.indexOf(position) != index) {
-                throw new IllegalArgumentException(
-                        "The same card cannot be picked twice: " + position);
+                return Optional.of("The same card cannot be picked twice: " + position);
             }
         }
+        return Optional.empty();
+    }
+
+    public DraftState declare(DrafterId drafter, List<Integer> positions) {
+        String denial = denialFor(drafter, positions).orElse(null);
+        if (denial != null) {
+            throw new IllegalArgumentException(denial);
+        }
+        List<Integer> chosen = positions == null ? List.of() : List.copyOf(positions);
 
         Map<DrafterId, List<Integer>> now = new LinkedHashMap<>(declared);
         now.put(drafter, chosen);

@@ -305,6 +305,49 @@ class VisibilityInvariantTest {
             }
         }
 
+        /**
+         * The order the two events go out in, checked between them and not only after.
+         *
+         * <p>One payload carries one event, and the server sends the whole table a fresh
+         * board after each one. So playing a card face down is two boards, and the order
+         * decides what is on the first of them: moving first puts the card face up on the
+         * battlefield for one broadcast, and a face-up card on the battlefield is entitled
+         * to everybody. Every opponent and every spectator is handed its name and its
+         * picture before the second event turns it down. On screen it is one frame; in the
+         * packet log it is forever, which is the whole difference between this mod's hidden
+         * information and a table that only looks like it has some.
+         *
+         * <p>The test below this one asserts the same play and passes either way, because it
+         * only ever looks at the end. This one folds the events one at a time and asks the
+         * question after each, which is the shape the wire actually has.
+         */
+        @Test
+        @DisplayName("playing a card face down never shows it to anybody, at any step")
+        void playingFaceDownLeaksNothingBetweenTheEvents() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 1));
+            CardInstanceId card = GameFixtures.firstInHand(session, GameFixtures.ALICE);
+
+            for (GameEvent step : dev.gathering.core.game.event.PlayingFaceDown.onto(
+                    GameFixtures.ALICE, card,
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.BOTTOM)) {
+                session.submit(step);
+                VisibilityRules.allViews(session.state()).forEach((viewer, view) -> {
+                    if (viewer.isSeatedAt(GameFixtures.ALICE)) {
+                        return;
+                    }
+                    for (Zone zone : Zone.values()) {
+                        assertThat(view.seat(GameFixtures.ALICE).zone(zone).cards())
+                                .describedAs("%s was sent the identity of a card being played"
+                                        + " face down, after %s", viewer,
+                                        step.getClass().getSimpleName())
+                                .noneMatch(seen -> seen instanceof CardView.Visible visible
+                                        && visible.id().equals(card));
+                    }
+                });
+            }
+        }
+
         @Test
         @DisplayName("a face-down card is its owner's card and everyone else's marker")
         void faceDownCardsAreAnonymousToEveryoneElse() {

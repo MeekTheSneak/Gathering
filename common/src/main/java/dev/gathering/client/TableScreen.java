@@ -3587,10 +3587,14 @@ public final class TableScreen extends Screen {
         if (fromHand) {
             entries.add(entry("play", () -> send(new GameEvent.CardMoved(
                     me, id, ZoneRef.of(me, Zone.BATTLEFIELD), Placement.BOTTOM))));
-            entries.add(entry("play_face_down", () -> {
-                send(new GameEvent.CardMoved(me, id, ZoneRef.of(me, Zone.BATTLEFIELD), Placement.BOTTOM));
-                send(new GameEvent.CardFacingSet(me, id, Facing.FACE_DOWN));
-            }));
+            // Turned down first, then put down. One payload carries one event and the table
+            // is sent a fresh board after each, so moving first would show every opponent the
+            // card before turning it over. PlayingFaceDown owns that order, and the core
+            // suite checks the board between the two.
+            entries.add(entry("play_face_down", () ->
+                    dev.gathering.core.game.event.PlayingFaceDown.onto(
+                            me, id, ZoneRef.of(me, Zone.BATTLEFIELD), Placement.BOTTOM)
+                            .forEach(this::send)));
         } else {
             // Tapping is E and untapping is Q; this row exists to say so. A menu entry that
             // names its key teaches the key, where a second gesture would only compete with

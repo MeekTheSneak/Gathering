@@ -142,6 +142,90 @@ public final class AntePotGameTest {
         helper.succeed();
     }
 
+    /**
+     * Breaking the table does not take the pot out of the world with it.
+     *
+     * <p>The pot lives on the block entity and nowhere else. The break path hands back every
+     * deck the table was holding - and for a long time handed back nothing else, so a table
+     * broken with a stake in it deleted every staked card. A staked card is one somebody
+     * agreed to risk against another player; losing it to a pickaxe is the one way ante must
+     * not be able to lose it.
+     *
+     * <p>Nobody won, so every card goes back to whoever put it in - onto the ground here,
+     * because the seats have been vacated by then and there is nobody to hand it to.
+     */
+    @GameTest(template = "tables")
+    public static void breakingTheTableGivesTheStakeBackRatherThanEatingIt(
+            GameTestHelper helper) {
+        BlockPos origin = seatedTable(helper, 0);
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        table.stake(new SeatId(0), List.of(card(BOLT), card(RING)));
+
+        ServerPlayer breaker = helper.makeMockServerPlayerInLevel();
+        breaker.setPos(origin.getCenter());
+        breaker.gameMode.destroyBlock(origin);
+
+        int found = cardsAround(helper, origin);
+        if (found != 2) {
+            helper.fail("a table broken with two cards staked left " + found
+                    + " of them in the world");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * And a machine breaking it does not eat the pot either.
+     *
+     * <p>The by-hand break and the machine break reach the block through different vanilla
+     * methods, and only one of them is what a player does. A modded breaker or a piston-fed
+     * quarry pointed at a table is the case nobody is watching, which is exactly the case
+     * where cards quietly stop existing.
+     */
+    @GameTest(template = "tables")
+    public static void aMachineBreakingTheTableDoesNotEatThePotEither(GameTestHelper helper) {
+        BlockPos origin = seatedTable(helper, 0);
+        TableBlock.entityAt(helper.getLevel(), origin).orElseThrow()
+                .stake(new SeatId(0), List.of(card(BOLT), card(RING)));
+
+        // No entity, which is what a machine breaking a block looks like from here.
+        helper.getLevel().destroyBlock(origin, false, null);
+
+        int found = cardsAround(helper, origin);
+        if (found != 2) {
+            helper.fail("a table a machine broke with two cards staked left " + found
+                    + " of them in the world");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** And the same table's held deck, which goes the same way for the same reason. */
+    @GameTest(template = "tables")
+    public static void aMachineBreakingTheTableDoesNotEatAHeldDeckEither(
+            GameTestHelper helper) {
+        BlockPos origin = seatedTable(helper, 0);
+        TableBlock.entityAt(helper.getLevel(), origin).orElseThrow().holdDeck(
+                new SeatId(0),
+                new dev.gathering.item.DeckComponent("Left behind", "",
+                        java.util.Optional.empty(),
+                        List.of(dev.gathering.item.CardComponent.of(card(BOLT))),
+                        List.of(), List.of()),
+                null, null);
+
+        helper.getLevel().destroyBlock(origin, false, null);
+
+        boolean back = !helper.getLevel().getEntitiesOfClass(ItemEntity.class,
+                new AABB(origin).inflate(8.0)).stream()
+                .filter(item -> dev.gathering.item.DeckItem.deckOf(item.getItem()).isPresent())
+                .toList().isEmpty();
+        if (!back) {
+            helper.fail("a table a machine broke ate the deck it was holding");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** Staking nothing leaves the deck exactly as it was. */
     @GameTest(template = "empty")
     public static void stakingNothingChangesNothing(GameTestHelper helper) {

@@ -214,18 +214,54 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
-     * Gives back any decks the table was holding before it stops existing.
+     * Gives back everything the table was holding before it stops existing.
      *
      * <p>A table cannot be broken while anybody is sitting at it, so this is the case where
      * everyone has walked away from an unfinished match. The decks are still theirs, and a
      * table that ate four of them because the last player left is not a table anybody should
      * put a deck on twice.
+     *
+     * <p>And the pot with them. The pot lives on the block entity and nowhere else, so a
+     * table broken with a stake in it took every staked card out of the world - the one loss
+     * ante cannot survive, because a staked card is a card somebody agreed to risk against
+     * another player and not against a pickaxe. Back to whoever put each one in, which is
+     * what {@code null} for the winner means: a match nobody finished is a match nobody won.
      */
     private static void spillDecks(Level level, BlockPos pos, BlockState state) {
         BlockPos origin = originOf(state, pos);
-        TableSessions.anchorOf(level, origin)
+        tearingDown(level, pos, state).ifPresent(table -> {
+            TableSessions.returnDecks(level, origin, table);
+            TableSessions.settlePot(level, origin, table, null);
+        });
+    }
+
+    /**
+     * The block entity holding this table's things, while the table is being taken apart.
+     *
+     * <p>Not {@link TableSessions#anchorOf}, or not only. That walks the cluster out of the
+     * world, and half of teardown happens once the world no longer has the block in it:
+     * {@code playerWillDestroy} runs before the block goes, but {@code onRemove} runs after,
+     * and a cluster whose first cell is already air is a cluster that reads as empty. So the
+     * machine path - a modded breaker, a quarry, anything that is not a player swinging -
+     * found no table, gave nothing back, and took every held deck and the whole ante pot out
+     * of the world with it. Silently, which is the part that matters: nobody watching a
+     * quarry sees the four decks that did not drop.
+     *
+     * <p>So the world is asked first, because a live cluster is the right answer when there
+     * is one, and the state in hand is the fallback: it still says which part this is, which
+     * is enough to name the origin whose block entity is still there to be read.
+     */
+    private static java.util.Optional<TableBlockEntity> tearingDown(
+            Level level, BlockPos pos, BlockState state) {
+        BlockPos origin = originOf(state, pos);
+        return TableSessions.anchorOf(level, origin)
                 .flatMap(anchor -> entityAt(level, anchor))
-                .ifPresent(table -> TableSessions.returnDecks(level, origin, table));
+                // Read straight, not through entityAt: that asks the world what block is at a
+                // position first, and by onRemove the answer is already air. The origin comes
+                // from the state in hand, which still knows which part this was.
+                .or(() -> level.getBlockEntity(origin) instanceof TableBlockEntity left
+                        ? java.util.Optional.of(left)
+                        : java.util.Optional.empty());
     }
 
     private static void removeRestOfTable(LevelAccessor level, BlockPos pos, BlockState state) {

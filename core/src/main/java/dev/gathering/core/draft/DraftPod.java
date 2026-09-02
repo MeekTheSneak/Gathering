@@ -116,7 +116,10 @@ public record DraftPod(List<PlayerRef> drafters, DraftState state, boolean pools
         if (asked != due) {
             return Optional.of("Pick " + due + " from this pack.");
         }
-        return Optional.empty();
+        // And whatever the state itself refuses - the positions being real cards in this
+        // pack, and each of them named once. Asked rather than repeated, because declare
+        // throws on exactly these and a rule written out twice is a rule that drifts.
+        return state.denialFor(mine, positions);
     }
 
     /**

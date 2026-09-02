@@ -48,6 +48,36 @@ class DraftPodTest {
                 .contains("Only drafters in this pod can pick.");
     }
 
+    /**
+     * A pick naming a card that is not in the pack is refused, not thrown.
+     *
+     * <p>{@code denialFor} is what the network handler asks before it does anything, and for
+     * a long time it counted the picks without looking at them. So a client naming card 999
+     * of an eight-card pack, or the same card twice, was told it could go ahead and then
+     * {@code declare} threw - out of a payload handler, on the server thread. On one loader
+     * that disconnects the client and on the other it reaches the server's task queue. The
+     * ordinary way to send one of these is not even malice: it is a drafter whose screen is a
+     * moment behind the pod, which the refusal path was written for.
+     */
+    @Test
+    void aPickAtACardThatIsNotThereIsRefusedRatherThanThrown() {
+        DraftPod pod = pod();
+
+        assertThat(pod.denialFor(ALICE.id(), DrafterId.of(0), List.of(0, 999)))
+                .describedAs("a position past the end of the pack")
+                .isPresent();
+        assertThat(pod.denialFor(ALICE.id(), DrafterId.of(0), List.of(0, -1)))
+                .describedAs("a negative position")
+                .isPresent();
+        assertThat(pod.denialFor(ALICE.id(), DrafterId.of(0), List.of(3, 3)))
+                .describedAs("the same card picked twice")
+                .isPresent();
+
+        // And the refusal is the whole gate: anything denialFor lets past must not throw.
+        assertThat(pod.denialFor(ALICE.id(), DrafterId.of(0), List.of(0, 1))).isEmpty();
+        pod.declare(ALICE.id(), DrafterId.of(0), List.of(0, 1));
+    }
+
     /** Signing with your own place, or not naming one at all, both work. */
     @Test
     void aDrafterPickingAsThemselvesIsAllowed() {
