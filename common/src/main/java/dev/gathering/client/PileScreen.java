@@ -26,15 +26,13 @@ import net.minecraft.network.chat.Component;
 
 /**
  * A pile, spread out so you can read it and take things out of it.
- * <p>A graveyard is not a number. Half of what makes a game of Magic legible is being able to
- * point at somebody's yard and count the creatures in it, and the other half is being able to
- * reach into your own and get one back. This is both: every card face up in a grid, click one
- * to pick it, right-click for everywhere it can go.
- * <p>Also how a library is read, on the rare occasions anybody is entitled to. It shows what
- * the server sent and nothing more - a library it was not told is simply an empty grid with a
- * count, which is the honest picture of a deck you may not look at. Closing the screen tells
- * the server to shut the library again, because whether it is open is the server's business
- * and a client that merely stopped drawing one would still be being sent it.
+ * <p>A graveyard is not a number: half of what makes Magic legible is pointing at somebody's
+ * yard and counting the creatures in it, and the other half is reaching into your own to get
+ * one back. Every card face up in a grid, click to pick, right-click for everywhere it can go.
+ * <p>Also how a library is read on the rare occasions anybody is entitled to. It shows what
+ * the server sent and nothing more, so a library it was not told is an empty grid with a
+ * count. Closing tells the server to shut the library again: whether it is open is the
+ * server's business, and a client that merely stopped drawing one would still be sent it.
  * <p>Client-only.
  */
 public final class PileScreen extends ChildScreen implements CardPreviewHost {
@@ -722,13 +720,11 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Where the card being dragged would land, drawn while it is still being dragged.
-     * <p>Without it the player is aiming at something they cannot see: the row does not move
-     * under the cursor, so a drag looks like nothing at all until it is let go and the
-     * numbers jump. A bar in the gap the card would drop into answers the question while it
-     * is still being asked, which is the only time the answer is any use.
-     * <p>Drawn in the gap rather than over a card on purpose. This reorders - the card goes
-     * <em>between</em> two others - and a highlight on a card would read as "swap with this
-     * one", which is a different move and not the one that happens.
+     * <p>Without it the player aims at something they cannot see: the row does not move under
+     * the cursor, so a drag looks like nothing until it is let go and the numbers jump.
+     * <p>In the gap rather than over a card on purpose. This reorders - the card goes
+     * <em>between</em> two others - and a highlight on a card reads as "swap with this one",
+     * which is a different move.
      */
     private void drawWhereItWouldLand(GuiGraphics graphics, int howMany) {
         if (!dragged || howMany == 0) {

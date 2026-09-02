@@ -32,16 +32,13 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * What a table remembers.
- * <p>One per table, on the corner that owns it. It holds who has taken which of its edges,
- * which is a table's share of a cluster's seating: a seat is identified by the table it is at
- * and the edge it is on, so storing the claim on that table means it is saved with that table
- * and comes back with it.
- * <p>Seats are registrations rather than chairs. Nobody is sitting anywhere - the design has
- * seated players walking around, tending a furnace and heckling over a shoulder - so a claim
- * is a name against an edge and nothing more. It survives logging out, because the design
- * says leaving does not drop your seat.
- * <p>The session itself will live here too, for the same reason: a block entity is the one
- * thing in Minecraft saved with the world at the position it belongs to.
+ * <p>One per table, on the corner that owns it, holding who has taken which edge. A seat is
+ * the table plus the edge, so the claim is saved with that table and comes back with it.
+ * <p>Seats are registrations rather than chairs: the design has seated players walking around
+ * and heckling over a shoulder, so a claim is a name against an edge and nothing more. It
+ * survives logging out, because leaving does not drop your seat.
+ * <p>The session lives here too, for the reason a block entity exists: it is the one thing
+ * Minecraft saves with the world at the position it belongs to.
  */
 public class TableBlockEntity extends BlockEntity {
 
@@ -114,14 +111,10 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * The decks that were put down on this table, held until the match is over.
-     * <p>A deck committed to a game used to be a deck destroyed: the item was consumed, the
-     * library and commanders went into the session, and the sideboard went nowhere at all.
-     * Ending the game then left its owner with nothing, which is not something a table may do
-     * to somebody's deck.
-     * <p>So the table is a deckbox for the duration. It holds each seat's whole deck -
-     * sideboard included, which is the only reason sideboarding between games is possible at
-     * all - hands it back when the match ends, and is saved with the world, because a server
-     * restart mid-match must not eat four decks.
+     * <p>The table is a deckbox for the duration. It holds each seat's whole deck, sideboard
+     * included - which is the only reason sideboarding between games is possible - hands it
+     * back when the match ends, and is saved with the world, because a restart mid-match must
+     * not eat four decks.
      */
     private final Map<SeatId, DeckComponent> decks = new LinkedHashMap<>();
 
@@ -234,12 +227,10 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Whether somebody actually asked for the format this table is playing.
-     * <p>The deck check is a tournament deck check, and a tournament deck check happens
-     * because somebody entered a tournament. Walking up to a bare table holding a deck and
-     * right-clicking it says "let me play", not "hold me to Commander" - the table has to
-     * pick some rules to start with and it picks Commander, but the player never named it. So
-     * a deck that fails there is told what is wrong and dealt out anyway, and only a table
-     * somebody chose a format for turns that into a refusal.
+     * <p>A tournament deck check happens because somebody entered a tournament. Right-clicking
+     * a bare table holding a deck says "let me play", not "hold me to Commander" - the table
+     * picks rules to start with, but the player never named them. So a deck that fails is told
+     * what is wrong and dealt out anyway, and only a chosen format turns that into a refusal.
      * <p>Server-side only: no client draws anything from it, so it is not in the update tag.
      */
     public boolean formatWasChosen() {
@@ -296,12 +287,10 @@ public class TableBlockEntity extends BlockEntity {
      * Takes a seat's deck into the table's keeping for the rest of the match, and the pool it
      * was drafted from - null for a deck nobody drafted, which is every imported one.
      * <p>The pool is held with the deck rather than left on the item, because the item is
-     * gone: the table takes the whole deck for the length of a match and hands back a new
-     * stack afterwards. Without this a drafted deck came back from its first game with no
-     * pool on it, and the limited check it had been playing under quietly stopped applying.
-     * <p>There is deliberately no two-argument version. One that defaulted the pool to null
-     * would drop a pool every time somebody called the short form out of habit - which is a
-     * deck quietly stopping being a drafted deck, and nothing to see when it happens.
+     * gone - the table takes the whole deck for a match and hands back a new stack. Without it
+     * a drafted deck comes back with no pool and the limited check stops applying.
+     * <p>Deliberately no two-argument version: one defaulting the pool to null drops it every
+     * time somebody calls the short form out of habit, and nothing shows when it happens.
      */
     public void holdDeck(SeatId seat, DeckComponent deck, DraftedPool pool, UUID owner) {
         decks.put(seat, deck);
@@ -336,13 +325,12 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Puts a seat's stake into the pot, and remembers the person who put it there.
-     * <p>The person, not only the chair. A pot that is handed back - a game voided, a table
-     * broken, a match nobody finished - is handed back by seat, and a seat is not a player: a
-     * staker who stood up and was replaced had their card given to whoever sat down after
-     * them. That is cards changing hands because of where somebody happened to be standing,
-     * in the one feature whose whole point is that a card really changes owner.
-     * <p>Beside the pot rather than inside it, which is where the held decks keep the same
-     * fact for the same reason. The pot itself stays a pure record of seats and cards.
+     * <p>The person, not only the chair. A pot handed back - a game voided, a table broken -
+     * goes back by seat, and a staker who stood up and was replaced would have their card
+     * given to whoever sat down after them. That is a card changing owner by where somebody
+     * was standing, in the one feature whose point is that it really changes owner.
+     * <p>Beside the pot rather than in it, where the held decks keep the same fact for the
+     * same reason. The pot stays a pure record of seats and cards.
      */
     public void stake(SeatId seat, java.util.List<dev.gathering.core.card.CardIdentity> cards,
             UUID who) {
@@ -548,18 +536,15 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Asks the client to draw this table again, because its color has changed.
-     * <p>The felt is a tint on a texture rather than sixteen textures, and a tint is baked
-     * into the chunk's mesh when it is built. Telling the client the block entity's data has
-     * changed does not rebuild that mesh - so a table dyed while somebody was looking at it
-     * stayed the old color until something else happened nearby that rebuilt the chunk,
-     * which is a fix nobody can find and looks exactly like the dye not working.
-     * <p>All four quarters, not just this one. One block entity owns a two-by-two table and
-     * every quarter's tint asks it for the color, so all four meshes are out of date.
-     * <p>Done here rather than in a packet handler because {@code onDataPacket} is a NeoForge
-     * extension and this class is loader-free. Both loaders arrive at {@code loadAdditional}
-     * for a block entity update, so this catches the update either way - and catches a
-     * chunk-load with a color on it, where the mesh is being built anyway and marking it
-     * dirty costs nothing.
+     * <p>The felt is a tint baked into the chunk mesh when it is built, and a block entity
+     * data change does not rebuild that mesh - so a table dyed while somebody watched stayed
+     * the old color until something unrelated rebuilt the chunk, which looks exactly like the
+     * dye not working.
+     * <p>All four quarters: one block entity owns a two-by-two table and every quarter's tint
+     * asks it for the color.
+     * <p>Here rather than in a packet handler, because {@code onDataPacket} is a NeoForge
+     * extension and this class is loader-free. Both loaders reach {@code loadAdditional} for a
+     * block entity update, so it catches the update either way.
      */
     private void redrawTheFelt() {
         if (level == null || !level.isClientSide) {

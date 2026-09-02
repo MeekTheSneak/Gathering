@@ -23,26 +23,17 @@ import net.minecraft.network.chat.Component;
 
 /**
  * A collection, as the cards themselves.
- * <p>This was a list of names, on the argument that ten thousand cards is a thing you scan
- * and a grid of art shows nine of them. Playtesters put it plainly: "you can see the card
- * names, but no card art... it would be better to only show the actual cards and you can see
- * them in stacks based on how many of each card you have." They are right, and the old
- * argument was answering the wrong question - a collection is a box you look through, and a
- * box of cards you cannot see is a spreadsheet. Scanning is what the search box is for, and
- * it was already there.
- * <p>So: a grid of card faces, each drawn as a stack as deep as the number of copies, with
- * the count on it. Resting on one puts it in {@link ClientHoverState}, so the read key opens
- * the same panel it opens everywhere else in the mod - a collection is one of the places
- * somebody most wants to read a card, and it should not be the one place that cannot.
- * <p>Searching happens on the server, so nothing here filters anything: the box and the
- * buttons ask, and a page comes back. Which means the screen behaves the same on a collection
- * of ten cards and one of ten thousand - and the page is sized from how many cards this
- * window has room for, so the server never sends a card nobody can see.
- * <p>Deliberately <b>not</b> a {@link CardPreviewHost}. It used to say it was, which is the
- * marker telling the read overlay to stay out of a screen that draws a preview of its own -
- * and this one never drew one. So the read key did nothing at all in the collection, which is
- * one of the two places in the mod somebody most wants to read a card. Reported as part of
- * "holding alt should still open the card info screen".
+ * <p>A grid of card faces, each drawn as a stack as deep as the number of copies with the
+ * count on it. A collection is a box you look through, and a box of cards you cannot see is a
+ * spreadsheet; scanning is what the search box is for. Resting on one puts it in
+ * {@link ClientHoverState}, so the read key opens the panel it opens everywhere else.
+ * <p>Searching happens on the server, so nothing here filters: the box and the buttons ask
+ * and a page comes back, which makes the screen behave the same on ten cards and ten
+ * thousand. The page is sized from what this window has room for, so the server never sends a
+ * card nobody can see.
+ * <p>Deliberately <b>not</b> a {@link CardPreviewHost}: that marker tells the read overlay to
+ * stay out of a screen drawing its own preview, and this one draws none. Claiming it stopped
+ * the read key working in one of the two places somebody most wants to read a card.
  * <p>Client-only.
  */
 public final class CollectionScreen extends Screen {
@@ -717,14 +708,11 @@ public final class CollectionScreen extends Screen {
 
     /**
      * The line about the gesture that happens on the block rather than in here, or none.
-     * <p>One at a time and the deck first. Two lines drawn at the same height would be one
-     * line on top of another, and the deck is the right one to keep: crouching with anything
-     * in hand is a click a collection never sees, so somebody holding a deck cannot sweep
-     * even if they are carrying loose cards too. The line offers the gesture they can
-     * actually do right now.
-     * <p>Its own method so the scene can ask what the screen would say rather than reading
-     * it back off a photograph, which is the only way a line that stopped appearing would
-     * ever be noticed.
+     * <p>One at a time and the deck first: two lines at the same height are one line on top of
+     * another, and crouching with anything in hand is a click a collection never sees, so
+     * somebody holding a deck cannot sweep anyway. The line offers the gesture they can do.
+     * <p>Its own method so the scene can ask what the screen would say rather than reading it
+     * off a photograph, which is the only way a line that stopped appearing gets noticed.
      */
     Component blockGestureHint() {
         return switch (dev.gathering.core.collection.CollectionGesture.offered(

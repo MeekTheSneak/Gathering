@@ -21,12 +21,11 @@ import net.minecraft.util.Mth;
 
 /**
  * One card, drawn: its printed face and its oracle text.
- * <p>This is the only place a card is drawn for reading, in three sizes for three places -
- * beside the cursor, into a box a screen set aside, and filling the screen. They share every
- * pixel of the drawing so the card looks like itself wherever you meet it; only the geometry
- * differs. The table's inspect panel will be the cursor variant, unchanged.
- * <p>Oracle text rather than printed text throughout, because errata accuracy is the reason
- * to show text at all rather than just the image.
+ * <p>The only place a card is drawn for reading, in three sizes for three places - beside the
+ * cursor, into a box a screen set aside, and filling the screen. They share every pixel of the
+ * drawing and differ only in geometry, so a card looks like itself wherever you meet it.
+ * <p>Oracle text rather than printed text throughout: errata accuracy is the reason to show
+ * text at all rather than just the image.
  * <p>Everything here draws from what this client already has. It never blocks and never asks
  * the server for anything, so it can run every frame.
  * <p>Client-only.
@@ -71,17 +70,12 @@ public final class CardInspectPanel {
      * tall depending on the player's GUI scale, and a fixed size that reads as a small
      * preview on one is most of the screen on another.
      */
-    // Big enough to actually read. This was cut to 0.28 of the window with a 120 ceiling to
-    // stop the panel covering the zone column during a match - but a table screen shows its
-    // own preview in a place chosen to keep itself legible, and {@code renderAtCursor} bows
-    // out on any screen that does. So the only screens left here are inventories and chests,
-    // where there is nothing behind worth protecting and a card too small to read is a
-    // reading tool that does not work.
+    // Big enough to actually read. A table screen shows its own preview in a place chosen to
+    // stay legible and renderAtCursor bows out on any screen that does, so what is left here
+    // is inventories and chests, where there is nothing behind worth protecting.
     //
-    // Raised again after the four-player session: "cards when holding ALT at a table need to
-    // render larger so you can see what the card says". The table screen is the one place the
-    // panel is read against a busy background, and 0.55 of a GUI-scale-3 window is under two
-    // hundred pixels of card. The text column is sized from the art, so this is the one knob.
+    // 0.55 of a GUI-scale-3 window is under two hundred pixels of card. The text column is
+    // sized from the art, so this is the one knob.
     private static final float CURSOR_ART_FRACTION = 0.66f;
     private static final int CURSOR_ART_MAX = 400;
     private static final int CURSOR_ART_MIN = 96;
@@ -307,14 +301,12 @@ public final class CardInspectPanel {
 
     /**
      * The whole window: the card down the left, everything it says beside it.
-     * <p>For picking a card up and looking at it. Two columns rather than a card with a
-     * caption, because that is the shape somebody already has in their hands, and the card is
-     * drawn as large as a card can be drawn - the picture is the card, and one shrunk to make
-     * room for its own text is a reading tool with the priority backwards.
-     * <p>The card turns with the mouse. Out here the mouse is the player's head, so reading a
-     * card and turning slightly tips it, which is what a hand does without being asked - and
-     * it is the only way a foil can exist at all, because a sheen that never moves is a
-     * sticker. See {@link CardTilt} and {@link FoilSheen}.
+     * <p>Two columns rather than a card with a caption, and the card drawn as large as it
+     * can be: the picture is the card, and one shrunk to make room for its own text is a
+     * reading tool with the priority backwards.
+     * <p>The card turns with the mouse, which out here is the player's head - what a hand does
+     * without being asked, and the only way a foil can exist at all, because a sheen that
+     * never moves is a sticker. See {@link CardTilt} and {@link FoilSheen}.
      *
      * @param foil whether this particular copy is a foil, which is a fact about the card in
      *     somebody's hand rather than about the printing - so it comes from the caller and
@@ -524,14 +516,10 @@ public final class CardInspectPanel {
 
     /**
      * The power and toughness, under the rules text, where a card prints it.
-     * <p>Reported as missing: "need to have cards power toughness default in the alt menu".
-     * It was not being left out of the panel - it was never reaching the client at all, since
-     * the wire summary carried a name, a cost, a type line and the rules text and stopped
-     * there. So a player reading a creature could see everything about it except the one
-     * number the combat they were in the middle of turns on.
-     * <p>What somebody has written over the top wins, and says so, because that is the
-     * number the table is playing with. Nothing is drawn for a card that has neither, which
-     * is most of them.
+     * <p>Carried on the wire summary beside the name, cost, type line and rules text, without
+     * which a player reading a creature sees everything except the number the combat turns on.
+     * <p>What somebody wrote over the top wins and says so, because that is the number the
+     * table is playing with. Nothing is drawn for a card with neither, which is most of them.
      */
     private static void strengthLine(List<Line> lines, Font font, CardFaceSummary face, int width) {
         String written = overwritten;
@@ -712,11 +700,10 @@ public final class CardInspectPanel {
 
     /**
      * The power and toughness somebody wrote on it, in the corner where the printed ones are.
-     * <p>Where the card already puts them, so a board reads the same whether the numbers are
-     * printed or written - and here rather than in either screen, so a card in a graveyard
-     * and the same card on the felt can never come to look like different features.
-     * <p>Nothing is worked out. What is drawn is exactly what somebody typed - see
-     * {@link dev.gathering.core.game.CardStrength}, and section 16 of the brief.
+     * <p>Where the card already puts them, so a board reads the same printed or written - and
+     * here rather than in either screen, so the same card in a graveyard and on the felt cannot
+     * come to look like different features. Nothing is worked out: what is drawn is exactly
+     * what somebody typed. See {@link dev.gathering.core.game.CardStrength}, and section 16.
      *
      * @return the line anything stacking up the card may start from, which is above this
      *     when there is something written and the card's own bottom edge when there is not

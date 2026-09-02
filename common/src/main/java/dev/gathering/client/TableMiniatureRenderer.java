@@ -38,18 +38,14 @@ import org.joml.Matrix4f;
 
 /**
  * The game, laid out small on the table it is being played on.
- * <p>This is what makes a table in a world worth more than a menu: you can see from across
- * the room that a game is happening and roughly how it is going, and you can walk over and
- * watch. It draws the <b>public</b> board and nothing else - the spectator view, the same one
- * anybody standing at the table would get - so a face-down card is a card back here for the
- * same reason it is one on the table it is modeled on.
- * <p><b>The same board the screen draws, through the same arithmetic.</b> This used to squash
- * each seat's region into a band of its own, which was a second layout: a card sat in one
- * place on your screen and somewhere else on the block, and the two drifted every time either
- * changed. Both now go through {@link TableSurface} - the same mats, in the same places, with
- * cards the same size relative to them - so the block is a small copy of the screen rather
- * than an impression of it. That is worth having on its own, and it is what makes moving the
- * board onto the block itself a change of camera rather than a third layout.
+ * <p>What makes a table in a world worth more than a menu: you can see from across the room
+ * that a game is happening and roughly how it is going, and walk over and watch. It draws the
+ * <b>public</b> board and nothing else - the spectator view - so a face-down card is a card
+ * back here for the reason it is one on the table it is modeled on.
+ * <p><b>The same board the screen draws, through the same arithmetic.</b> Both go through
+ * {@link TableSurface}: the same mats in the same places, cards the same size relative to
+ * them. A second layout drifts every time either side changes, and it is this that makes
+ * playing on the block a change of camera rather than a third layout.
  * <p>Client-only.
  */
 public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEntity> {
@@ -177,17 +173,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * How far from its own block this renderer draws, so the board is not culled away.
-     * <p>The default is the block's own cube, and the board is not: it is drawn across the
-     * whole cluster from the corner block that holds the session, which is up to four tables
-     * of two blocks each. Zoom the in-world view right in and the corner block leaves the
-     * frustum while the middle of the board fills the window - and the whole board vanishes,
-     * felt and cards and all, because the one block its renderer was measured against is off
-     * screen. Photographed at four heights: at the closest one there was nothing on the table
-     * at all.
-     * <p>Sized to the largest cluster rather than to this one, both ways from the corner. A
-     * cluster is at most four tables in a line and this is asked while the world is being
-     * culled, so a box that is a little generous costs nothing and a box worked out from the
-     * live board would be asking the session a question during culling.
+     * <p>The default is the block's own cube; the board is drawn across the whole cluster
+     * from the corner block that holds the session. Zoomed right in, the corner block leaves
+     * the frustum while the middle of the board fills the window, and the whole board vanishes
+     * with it.
+     * <p>Sized to the largest cluster rather than this one, both ways from the corner. It is
+     * asked during culling, so a generous box costs nothing and a box from the live board
+     * would be a question put to the session mid-cull.
      * <p>Not an {@code @Override}: this is NeoForge's own extension to the renderer interface
      * and the same class is loaded on Fabric, where nothing calls it and vanilla culls by
      * chunk section instead. The signature is what matters - NeoForge finds it by name.
@@ -403,10 +395,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * A seat's zones, in a column down the outer edge of its own mat.
-     * <p>The same ones in the same places as the seated screen puts them, because they are the
-     * same zones: a player who learns where their graveyard is in one view has learned where
-     * it is in the other. A pile shows its top card if the whole table is entitled to see it,
-     * and a sleeve if not - which for a library is always.
+     * <p>The same ones in the same places as the seated screen, so learning where a graveyard
+     * is in one view learns it in the other. A pile shows its top card where the whole table
+     * is entitled to see it and a sleeve if not - which for a library is always.
      * <p>Two boxes: the three a hand is in and out of all game, and the command zone past a
      * gap. A format with no commanders draws three and no second box.
      */
@@ -643,15 +634,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 Component.literal(Integer.toString(seat.life())),
                 onSurface(middle.centerX(), span), (top + bottom) / 2f, lineHeight,
                 onSurface(middle.width(), span), angle, 0);
-        // The same minus and plus the seated board prints on the ends, because the ends are
-        // buttons here too - the screen casts its ray at this board and presses them. A pair
-        // of buttons marked in one view and bare in the other is a pair nobody finds twice.
+        // The same minus and plus the seated board prints, because the ends are buttons here
+        // too - the screen casts its ray at this board and presses them.
         //
-        // Which end is which comes from the same function the press does, asked with this
-        // board's own answer to whether the seat is turned - it turns each seat's writing
-        // rather than the felt, so it says so. Worked out here instead, it disagreed with
-        // the press for every seat facing the other way: the sign was turned round with the
-        // mat and the press was not, so the end marked plus took a life off.
+        // Which end is which comes from the same function the press uses, asked with this
+        // board's own answer to whether the seat is turned. Worked out here instead it
+        // disagreed with the press for every seat facing the other way, and the end marked
+        // plus took a life off.
         boolean turned = surface.lifeIsTurned(seatIndex, false);
         drawLifeEnd(poseStack, buffers, packedLight, box, turned, -1, lineHeight, angle, span);
         drawLifeEnd(poseStack, buffers, packedLight, box, turned, 1, lineHeight, angle, span);
@@ -821,13 +810,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * The cards sitting on this one, fanned down its side the way the seated board fans them.
-     * <p>Through {@link dev.gathering.core.ui.TableAttachments}, which is where the fan lives
-     * so that both views place an aura in the same spot. Fanned to the right instead when the
-     * host is near the left edge of the surface, for the same reason the screen does it: half
-     * of somebody's equipment drawn off the table is half of it invisible.
-     * <p>Each one is lifted a little above its host so the two are not coplanar - two quads on
-     * the same plane z-fight, and an aura flickering on and off its creature reads as a fault
-     * rather than as an aura.
+     * <p>Through {@link dev.gathering.core.ui.TableAttachments}, so both views put an aura in
+     * the same spot. Fanned right instead when the host is near the left edge: half of
+     * somebody's equipment drawn off the table is half of it invisible.
+     * <p>Each is lifted a little above its host. Two quads on one plane z-fight, and an aura
+     * flickering on and off its creature reads as a fault rather than as an aura.
      */
     private int drawAttached(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight,
@@ -864,14 +851,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * What somebody has written on this card, lying across it.
-     * <p>Reported twice - "text rendered on cards" not working here, and "write on cards do
-     * not render correctly on the actual table view". They were not being drawn at all: this
-     * view drew the picture and nothing else, so a face-down card somebody had labeled
-     * "morph - Brine Elemental" was a blank card back to everybody standing at the table,
-     * which is the one case the label exists for.
-     * <p>Not on blank stock, for the same reason the seated board leaves it alone: there the
-     * writing <em>is</em> the card, drawn across the whole of it, and a second copy over the
-     * top would be the same sentence twice.
+     * <p>Drawn here as well as on the screen: a face-down card labeled "morph - Brine
+     * Elemental" is a blank card back to everybody standing at the table otherwise, which is
+     * the one case the label exists for.
+     * <p>Not on blank stock, for the reason the seated board leaves it alone: there the
+     * writing <em>is</em> the card, and a second copy is the same sentence twice.
      */
     private void writeOn(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, CardView card,
@@ -917,12 +901,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * One card, lying on the surface at whatever angle it was left at.
-     * <p>A tapped card gets its quarter turn on top of that angle, which is the whole reason
-     * tapping is legible across a table in paper - and why it has to be a turn here too rather
-     * than a tint nobody can see from six blocks away.
-     * <p>The turn is negated because a card turned clockwise on the seated screen has to look
-     * turned clockwise from above, and looking down at the surface flips the sense of a
-     * rotation about the vertical.
+     * <p>A tapped card gets its quarter turn on top of that angle: that is why tapping is
+     * legible across a paper table, and why it is a turn here rather than a tint nobody can
+     * see from six blocks away.
+     * <p>The turn is negated because looking down at the surface flips the sense of a rotation
+     * about the vertical, and a card turned clockwise on the screen must look it from above.
      */
     private void drawSleeved(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, CardView card,

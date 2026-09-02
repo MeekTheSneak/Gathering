@@ -29,15 +29,12 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Counters, on a card or beside a seat.
- * <p>One screen for both because they are the same task with a different subject: a named
- * number that goes up and down. The verbs differ underneath - a card counter and a player
- * counter are different events, and the log has to say which - but a player putting a third
- * loyalty on a planeswalker and a player taking their fourth poison are doing the same thing
- * with their hands.
- * <p>Named counters, not a fixed set of three. Magic has added two new ones in the last three
- * years and will add more; a screen that only knows about poison and energy is a screen that
- * needs editing every time a set comes out. The common ones get a button because typing
- * "loyalty" forty times a game is not a feature, and everything else gets the text field.
+ * <p>One screen for both, because they are the same task with a different subject: a named
+ * number that goes up and down. The verbs differ underneath - a card counter and a seat
+ * counter are different events and the log has to say which.
+ * <p>Named counters rather than a fixed set: a screen that only knows poison and energy needs
+ * editing every time a set comes out. The common ones get a button, because typing "loyalty"
+ * forty times a game is not a feature, and everything else gets the text field.
  * <p>Every change goes out as it is made. There is no confirm step, because a counter that
  * only exists once you press OK is a counter you can lose by closing a window.
  * <p>Client-only.
@@ -97,12 +94,10 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * What the panel was last laid out for, so the screen knows when it needs rebuilding.
-     * <p>Set where the layout is built and nowhere else. These used to be set while drawing,
-     * which meant they recorded what the last frame happened to draw rather than what the
-     * widgets were placed against - and a frame always runs before the tick that compares
-     * them. So a counter arriving after the panel opened was drawn immediately, recorded as
-     * "already known", and never triggered the rebuild that would have made room for it: the
-     * panel stayed sized for the counters it opened with and drew the new rows straight
+     * <p>Set where the layout is built and nowhere else. Set while drawing they record what
+     * the last frame drew rather than what the widgets were placed against, and a frame always
+     * runs before the tick that compares them - so a counter arriving after the panel opened
+     * is recorded as already known, never triggers a rebuild, and draws its row straight
      * through the button grid underneath.
      */
     private List<String> builtRows = List.of();
@@ -156,15 +151,13 @@ public final class CountersScreen extends ChildScreen {
     /**
      * The counters worth a button of their own: the usual suspects, plus whatever this table
      * has already named.
-     * <p>Reported as "adding custom counters to cards doesn't have an easy way to continue to
-     * add them without typing the whole counter name every time". A counter already on
-     * <em>this</em> card has always had its own row; the slow case is the second card. Once
-     * anybody at the table has put a "flying" counter on anything, "flying" is a button here
-     * for everybody, which also means the whole table spells it the same way - two players
-     * tracking "shield" and "shields" is a bug nobody can see.
+     * <p>A counter already on <em>this</em> card has its own row; the slow case is the second
+     * card. Once anybody has put a "flying" counter on anything it is a button for everybody,
+     * which also makes the table spell it one way - two players tracking "shield" and
+     * "shields" is a bug nobody can see.
      * <p>Read off the board rather than remembered on this client, so it survives a relog and
-     * arrives for the player who did not do the typing. Capped, because the list is buttons
-     * and a table that has named thirty things has stopped being helped by all of them.
+     * arrives for the player who did not type it. Capped, because a table that has named
+     * thirty things is no longer helped by all of them.
      */
     private List<String> common() {
         GameView board = ClientTableState.viewOf(table).orElse(null);

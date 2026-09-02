@@ -208,15 +208,13 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Gives back everything the table was holding before it stops existing.
-     * <p>A table cannot be broken while anybody is sitting at it, so this is the case where
-     * everyone has walked away from an unfinished match. The decks are still theirs, and a
-     * table that ate four of them because the last player left is not a table anybody should
-     * put a deck on twice.
-     * <p>And the pot with them. The pot lives on the block entity and nowhere else, so a
-     * table broken with a stake in it took every staked card out of the world - the one loss
-     * ante cannot survive, because a staked card is a card somebody agreed to risk against
-     * another player and not against a pickaxe. Back to whoever put each one in, which is
-     * what {@code null} for the winner means: a match nobody finished is a match nobody won.
+     * <p>A table cannot be broken while anybody is sitting at it, so this is everyone having
+     * walked away from an unfinished match. The decks are still theirs.
+     * <p>And the pot with them: it lives on the block entity and nowhere else, so a table
+     * broken with a stake in it takes every staked card out of the world - the one loss ante
+     * cannot survive, because a staked card was risked against another player and not against
+     * a pickaxe. Back to whoever put each one in, which is what {@code null} for the winner
+     * means: a match nobody finished is a match nobody won.
      */
     private static void spillDecks(Level level, BlockPos pos, BlockState state) {
         BlockPos origin = originOf(state, pos);
@@ -228,17 +226,14 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * The block entity holding this table's things, while the table is being taken apart.
-     * <p>Not {@link TableSessions#anchorOf}, or not only. That walks the cluster out of the
-     * world, and half of teardown happens once the world no longer has the block in it:
-     * {@code playerWillDestroy} runs before the block goes, but {@code onRemove} runs after,
-     * and a cluster whose first cell is already air is a cluster that reads as empty. So the
-     * machine path - a modded breaker, a quarry, anything that is not a player swinging -
-     * found no table, gave nothing back, and took every held deck and the whole ante pot out
-     * of the world with it. Silently, which is the part that matters: nobody watching a
-     * quarry sees the four decks that did not drop.
-     * <p>So the world is asked first, because a live cluster is the right answer when there
-     * is one, and the state in hand is the fallback: it still says which part this is, which
-     * is enough to name the origin whose block entity is still there to be read.
+     * <p>Not {@link TableSessions#anchorOf} alone. That walks the cluster out of the world,
+     * and half of teardown happens after the block has gone: {@code onRemove} runs once the
+     * cell is already air, and a cluster whose first cell is air reads as empty. So the
+     * machine path - a quarry, anything that is not a player swinging - found no table and
+     * took every held deck and the whole pot out of the world, silently.
+     * <p>The world is asked first, because a live cluster is the right answer when there is
+     * one; the state in hand is the fallback, and still says which part this is, which names
+     * the origin whose block entity is there to be read.
      */
     private static java.util.Optional<TableBlockEntity> tearingDown(
             Level level, BlockPos pos, BlockState state) {
@@ -508,14 +503,11 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Everything between holding a deck and playing with it, in one gesture.
-     * <p>It used to be four: sit at an edge, crouch to ask for a game, pick a format from a
-     * screen, then click again with the deck. Every one of them is a thing to get wrong in
-     * order, and getting them wrong in order is most of what "it doesn't work" means to
-     * somebody trying a mod for the first time. Walking up to a table holding a deck says what
-     * you want as clearly as anybody ever says anything.
-     * <p>The format prompt has not gone anywhere - crouching still asks, which is the
-     * deliberate gesture for a table that wants to be something other than the usual. It is
-     * just no longer in the way of the usual.
+     * <p>Four steps in order - sit, crouch, pick a format, click again - is four things to get
+     * wrong in order, which is most of what "it doesn't work" means to somebody trying a mod
+     * alone. Walking up holding a deck says what you want clearly enough.
+     * <p>The format prompt is still there: crouching asks, which is the deliberate gesture for
+     * a table that wants to be something other than the usual. It is no longer in the way.
      */
     private static void sitDownAndPlay(
             Level level, BlockPos tableOrigin, Player player, ItemStack stack, Side side) {
@@ -578,10 +570,9 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Puts the player in a seat if they are not already in one.
-     * <p>Somebody crouching on a table to start a game has said what they want clearly enough.
-     * Refusing because they had not performed the separate ceremony of clicking an edge first
-     * is the kind of thing that makes a mod look broken to the person trying it alone - which
-     * is everybody, the first time.
+     * <p>Somebody crouching on a table to start a game has said what they want. Refusing
+     * because they had not clicked an edge first is what makes a mod look broken to the person
+     * trying it alone, which is everybody the first time.
      * <p>Only ever takes a free seat, and never moves somebody who already has one.
      *
      * @return whether they now have a seat
@@ -739,17 +730,15 @@ public class TableBlock extends BaseEntityBlock {
      * <p>Before anything happens to the deck: it stays in their hand, the seat stays theirs,
      * and the table stays where it was. A refusal that also ate the deck would be a refusal
      * nobody could act on.
-     * <p>Only errors stop a game, and only on a table somebody chose a format for. A deck
-     * check is a tournament deck check, and a tournament deck check happens because somebody
-     * entered a tournament: walking up to a bare table holding a deck says "let me play", not
-     * "hold me to Commander". The table has to start with some rules and it starts with
-     * Commander, so a deck that fails there is told what is wrong and dealt out anyway. Pick
-     * a format off the setup screen and the same failure is a refusal.
-     * <p>A warning is never either of those - it is the check noticing something odd, like
-     * commanders listed for a format with no command zone - and nothing stops for odd.
-     * <p>Named and public so a test can ask the question a right-click asks, rather than
-     * reaching past it to the validator and leaving the two lines that actually consult it
-     * untested - which is how the validator came to be wired to nothing in the first place.
+     * <p>Only errors stop a game, and only on a table somebody chose a format for: a deck
+     * check is a tournament deck check. Walking up to a bare table holding a deck says "let me
+     * play", not "hold me to Commander", so a deck that fails there is told what is wrong and
+     * dealt out anyway. Pick a format off the setup screen and the same failure is a refusal.
+     * <p>A warning is neither - the check noticing something odd, like commanders listed for a
+     * format with no command zone - and nothing stops for odd.
+     * <p>Named and public so a test can ask the question a right-click asks rather than
+     * reaching past it to the validator, which is how the validator came to be wired to
+     * nothing in the first place.
      *
      * @return whether the deck may go down
      */
