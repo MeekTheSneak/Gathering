@@ -9,16 +9,13 @@ import net.minecraft.network.chat.Component;
 
 /**
  * What has just been said at a table, held long enough to be read.
- *
  * <p>The board covers the window, and the window is where Minecraft draws its chat - so a
  * player reading their hand cannot see the person across the table talking to them. This is
  * the same lines, kept here so the board can draw them over the felt.
- *
  * <p>Held rather than logged. Chat is not a move: it is not in the session's event log, it is
  * not folded into any board, and undo cannot reach it. A rewind that struck out what somebody
  * said would be a mod editing a conversation. So it lives on the client that heard it, for as
  * long as it is worth reading, and then it is gone.
- *
  * <p>Client-only, and touched from the network thread as well as the render thread.
  */
 public final class ClientTableChat {
@@ -29,7 +26,6 @@ public final class ClientTableChat {
 
     /**
      * How long a line stays on the felt.
-     *
      * <p>Long enough to catch up after looking down at your hand, short enough that the board
      * is not permanently wearing a conversation. Whatever has scrolled off is still in the
      * chat window, where it always was.
@@ -49,12 +45,10 @@ public final class ClientTableChat {
 
     /**
      * Heard something: keeps it for the board and puts it in the chat window.
-     *
      * <p>Both, because there are two places a player might be. Somebody walking round the
      * world reads the chat window like any other message; somebody sitting at the board has
      * that window covered by the board and reads it off the felt. One line, two places, and
      * neither of them showing it twice - a screen is drawn over the chat window, not beside it.
-     *
      * <p>Main thread, so it may touch the client's own chat.
      */
     public static void accept(TableSaidPayload said) {

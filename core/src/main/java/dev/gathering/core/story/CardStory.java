@@ -5,23 +5,19 @@ import java.util.List;
 
 /**
  * Where a card has been.
- *
  * <p>Most cards in this mod are copies of a printing and nothing else - that is what makes a
  * collection of ten thousand fit in a few hundred entries, and it is the right answer for the
  * fortieth Forest. But some cards are not copies. A card won off somebody in an ante game is
  * not the same object as one fished out of the sea, and until something writes that down the
  * mod knows the difference and never says it.
- *
  * <p>So a card gains a story only when something worth remembering happens to it - see
  * {@link HowItCame}, which is four things and will stay four. A card with no story is a card
  * with nothing to say, costs nothing, and stacks with its fellows as it always did.
- *
  * <p><b>Bounded, and it loses the middle rather than the ends.</b> A card that changed hands a
  * hundred times would otherwise be a hundred lines nobody reads and a hundred entries nobody
  * can store. What matters about a well-traveled card is where it started and how it got to
  * you; the twelve owners in between are a number. So an overlong story keeps its first chapter
  * and its most recent ones and says how many it dropped.
- *
  * <p>Pure, and immutable: adding a chapter hands back a new story, which is what lets one be
  * held on an item without anything being able to edit it in place.
  */
@@ -29,7 +25,6 @@ public record CardStory(List<Chapter> chapters, int forgotten) {
 
     /**
      * How many chapters a card keeps.
-     *
      * <p>Enough for a card with a real history - opened, won, traded on, won again - and few
      * enough that the longest possible story is still a paragraph and still a few dozen bytes
      * on an item that a hundred of might be in one deck.
@@ -107,7 +102,6 @@ public record CardStory(List<Chapter> chapters, int forgotten) {
 
     /**
      * The same card, with one more thing having happened to it.
-     *
      * <p>Over the limit it drops the second chapter rather than the first, so where a card
      * came from survives however far it travels afterwards - that is the half nothing else
      * records, and the half somebody is actually curious about.

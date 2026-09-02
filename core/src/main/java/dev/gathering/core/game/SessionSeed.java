@@ -6,11 +6,9 @@ import java.util.List;
 
 /**
  * The session's root secret.
- *
  * <p>Every shuffle and every face-down marker in a session derives from this. Seed plus
  * decklist equals every future draw, which makes it the single most sensitive value in the
  * mod - more than any individual hidden card, because it predicts all of them.
- *
  * <p>Accordingly: it is never logged, never included in a crash report, never sent to any
  * client, and at rest it lives only in the encrypted stream alongside the hidden-information
  * events, sealed until the session ends. {@link #toString()} is overridden so that an
@@ -53,7 +51,6 @@ public final class SessionSeed {
 
     /**
      * The opaque handle a card wears while face down.
-     *
      * <p>Derived from the seed and a counter, never from the card's identity or instance id,
      * so there is no function from a marker back to a card. That is the point of it.
      */

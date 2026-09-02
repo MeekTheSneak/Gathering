@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A set of games, and when it is over.
- *
  * <p>The failures worth guarding against here are the ones that waste an evening: a match
  * that asks for a fourth game of a best-of-three, or one that stops at 1-1 and declares
  * somebody the winner.

@@ -16,11 +16,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Everything this mod adds can be got hold of without creative mode.
- *
  * <p>Asked of the recipe manager rather than of the files, because a recipe that is present
  * and does not resolve - a tag that is empty, an item id that moved - is a recipe nobody can
  * craft, and the file looks perfectly correct either way.
- *
  * <p>The collection block is the one this was written for. It had no recipe at all: it is
  * where every card a player owns lives, and the only way to a first one was the creative
  * menu.

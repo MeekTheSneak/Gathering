@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Where cards sit once they are on the table, and which way round they are.
- *
  * <p>There is no grid. A card goes exactly where it was put down, at exactly the angle it was
  * left at, and stays there. The board a player arranges is the board everyone else sees,
  * which is the whole reason position is state rather than a per-client layout guess.

@@ -6,7 +6,6 @@ import java.util.Map;
 
 /**
  * A pod as one drafter sees it.
- *
  * <p>The same discipline the table uses for hands, for the same reason: a pick is hidden
  * information, and hidden information a client was never sent is hidden information a
  * modified client cannot read. So this carries the pack in front of this drafter and the

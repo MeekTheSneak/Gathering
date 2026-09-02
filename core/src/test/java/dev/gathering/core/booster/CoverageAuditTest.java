@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Completeness as a computation rather than a promise.
- *
  * <p>The failure that matters is asymmetric, and the tests are weighted accordingly. A card
  * wrongly called uncovered turns up in the Archive Pack, which is a slightly larger archive;
  * a card wrongly called covered is a card nobody can ever get, and nothing will say so.
@@ -58,7 +57,6 @@ class CoverageAuditTest {
 
     /**
      * A sheet no arrangement draws from covers nothing.
-     *
      * <p>The check the auditor exists for. A config can carry a sheet that no variant names -
      * a feed that half-loaded, a product whose variant was dropped - and counting it would be
      * the auditor reporting coverage that does not exist, which is the one failure nothing
@@ -123,7 +121,6 @@ class CoverageAuditTest {
 
     /**
      * A path producing cards the server excluded is not thereby covering them.
-     *
      * <p>Excluding a card from the catalog is a deliberate, visible choice - a server that
      * wants hard scarcity. An auditor that quietly counted it as satisfied because some pack
      * could produce it would be arguing with the admin about their own config.

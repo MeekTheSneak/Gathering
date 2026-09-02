@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The index every store needs, kept separately from any question of where bytes live.
- *
  * <p>Three lookups, matching the three query shapes: by canonical id, by set and collector
  * number, and by name. The name index keeps the cheapest known printing, which is the
  * default an import picks when a line names a card and not a printing.
@@ -25,12 +24,10 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
 
     /**
      * What is already in memory for this printing, and never anything else.
-     *
      * <p>Deliberately not {@link #find}: the disk-backed subclass overrides that and will read
      * a file, which is why this class says nothing here may be called from a game thread.
      * This one touches a map and returns, so it is the one lookup a game thread may make - a
      * "do you happen to know" rather than a "go and find out".
-     *
      * <p>Never final in the sense that matters: an empty answer means not looked up yet, not
      * no such card. A caller on a game thread has to be able to live with that.
      */

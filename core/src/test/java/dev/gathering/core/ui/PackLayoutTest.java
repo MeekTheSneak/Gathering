@@ -58,7 +58,6 @@ class PackLayoutTest {
 
     /**
      * A fifteen-card pack in a shallow box shrinks rather than losing its last row.
-     *
      * <p>The case this exists for. At two rows of five in the room a small window leaves, the
      * third row was drawn under the edge of the panel - which is not a cramped pack, it is
      * five cards nobody can click.

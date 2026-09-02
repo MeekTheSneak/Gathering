@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Pointing at a table that is in the world rather than on the screen.
- *
  * <p>Playing on the block means the cursor is a ray and the table is a plane, and everything
  * a player does - picking a card up, seeing which one is under the pointer, letting one go -
  * rests on where those two meet. The failure to be afraid of is not a wrong answer but a

@@ -29,21 +29,17 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Counters, on a card or beside a seat.
- *
  * <p>One screen for both because they are the same task with a different subject: a named
  * number that goes up and down. The verbs differ underneath - a card counter and a player
  * counter are different events, and the log has to say which - but a player putting a third
  * loyalty on a planeswalker and a player taking their fourth poison are doing the same thing
  * with their hands.
- *
  * <p>Named counters, not a fixed set of three. Magic has added two new ones in the last three
  * years and will add more; a screen that only knows about poison and energy is a screen that
  * needs editing every time a set comes out. The common ones get a button because typing
  * "loyalty" forty times a game is not a feature, and everything else gets the text field.
- *
  * <p>Every change goes out as it is made. There is no confirm step, because a counter that
  * only exists once you press OK is a counter you can lose by closing a window.
- *
  * <p>Client-only.
  */
 public final class CountersScreen extends ChildScreen {
@@ -62,7 +58,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * How many counter rows this window shows.
-     *
      * <p>Usually {@link CountersLayout#MAX_ROWS}. Less on a short window or a crowded table,
      * because the rest of the panel - the commander damage grid, the tax grid, the way to add
      * one, the way out - is not optional and a panel that did not shrink for them drew its own
@@ -74,7 +69,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * Where everything on this panel goes, worked out once per rebuild.
-     *
      * <p>Held rather than recomputed while drawing, because the buttons are built from it and
      * a panel whose drawing and buttons disagreed put one row's minus beside another row's
      * name. Every input it reads - the counters, the named buttons, the opponents, the taxed
@@ -87,7 +81,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * The number at which one commander's damage has killed somebody.
-     *
      * <p>Shown, never enforced. The mod does not end games and does not intend to; what it
      * does is what a life pad does, which is stop you counting to twenty-one in your head
      * three times a turn.
@@ -104,7 +97,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * What the panel was last laid out for, so the screen knows when it needs rebuilding.
-     *
      * <p>Set where the layout is built and nowhere else. These used to be set while drawing,
      * which meant they recorded what the last frame happened to draw rather than what the
      * widgets were placed against - and a frame always runs before the tick that compares
@@ -117,7 +109,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * The counters as of the last board this screen saw, and which board that was.
-     *
      * <p>Worked out per board rather than per frame. {@link #current()} walks every card in
      * the subject, and for each one {@link #cardIn} streamed the whole board looking for it -
      * so a screen open over three selected cards on a Commander table streamed a few hundred
@@ -136,7 +127,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * What the counters are on.
-     *
      * <p>A sealed pair rather than a nullable card and a nullable seat, so a screen with
      * neither - or somehow both - cannot be built.
      */
@@ -166,14 +156,12 @@ public final class CountersScreen extends ChildScreen {
     /**
      * The counters worth a button of their own: the usual suspects, plus whatever this table
      * has already named.
-     *
      * <p>Reported as "adding custom counters to cards doesn't have an easy way to continue to
      * add them without typing the whole counter name every time". A counter already on
      * <em>this</em> card has always had its own row; the slow case is the second card. Once
      * anybody at the table has put a "flying" counter on anything, "flying" is a button here
      * for everybody, which also means the whole table spells it the same way - two players
      * tracking "shield" and "shields" is a bug nobody can see.
-     *
      * <p>Read off the board rather than remembered on this client, so it survives a relog and
      * arrives for the player who did not do the typing. Capped, because the list is buttons
      * and a table that has named thirty things has stopped being helped by all of them.
@@ -218,7 +206,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * Every counter name anywhere at this table, cards and seats alike, in a settled order.
-     *
      * <p>Sorted rather than left in board order: these are buttons, and buttons that reorder
      * themselves as the game goes on are buttons nobody can learn the position of.
      */
@@ -339,7 +326,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * Records commander damage this seat has taken from one opponent.
-     *
      * <p>Signed by whoever is pressing it, like every other move: the table lets anybody
      * adjust anybody's numbers, because on a real table the person who notices says so and
      * whoever is nearest the pad writes it down.
@@ -364,7 +350,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * Sends the change, then rebuilds so a counter that has just appeared gets its own row.
-     *
      * <p>Rebuilding on the next frame rather than now: the board it reads has to come back
      * from the server first, and reading it immediately would draw the screen as it was.
      */
@@ -388,7 +373,6 @@ public final class CountersScreen extends ChildScreen {
     /**
      * Every other seat's commanders, in seat order, when this screen is about a seat at a
      * table with a command zone - and nothing otherwise.
-     *
      * <p>One row per commander and not per opponent, because the rule is twenty-one from the
      * <em>same</em> commander and a partner deck fields two: a single number per enemy seat
      * could not tell one partner's damage from the other's, which is the pair the rule
@@ -431,7 +415,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * How many commander taxes this screen drew last frame. For the scripted harness.
-     *
      * <p>Counted while drawing rather than worked out again. Asked of the same list the
      * drawing walks it would answer for a panel that had decided not to draw at all - which
      * is the shape of check that stays green over a live fault, and this run has had three.
@@ -445,7 +428,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * The cards here that a commander tax applies to.
-     *
      * <p>A card counts as a commander while it is in somebody's command zone, and goes on
      * counting once it has a tax recorded - because a commander that has been cast is on the
      * battlefield, which is exactly when its owner wants to see what the next one costs.
@@ -504,7 +486,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * Records another cast of a commander, or takes one back.
-     *
      * <p>Counted in casts rather than in mana, because that is what the rule is about and the
      * mana falls out of it: two more for each cast that came before. Undoing a miscount has to
      * work as well as recording one, so the same row does both.
@@ -527,7 +508,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * The counters currently on the subject.
-     *
      * <p>For a selection of cards, the union of what they all have - so a row exists for every
      * counter anybody in the selection carries, and pressing minus on it takes one off each of
      * them that has one.
@@ -590,7 +570,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * The counters on screen right now, in order, at most as many as {@link #showing()}.
-     *
      * <p>One place, because the rows are drawn here and their plus and minus are built in
      * {@code init} - and a window those two disagreed about is a minus that takes a counter
      * off a different card than the one whose name is beside it.
@@ -620,7 +599,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * How many counter rows the panel made room for. For the scripted run.
-     *
      * <p>Worth checking against {@link #rowsOnScreen()}: everything below the counter list is
      * positioned from this number, so a panel drawing more rows than it was built for is a
      * panel drawing them straight through its own button grid.
@@ -641,7 +619,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * The wheel moves the counter list, when there is more of it than fits.
-     *
      * <p>Anywhere on the panel rather than only over the six rows: this screen scrolls one
      * thing, and a wheel that only works inside a strip forty pixels tall is a wheel most
      * people conclude does nothing.
@@ -726,7 +703,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * Commander tax, one row per commander in front of the player.
-     *
      * <p>Counted in casts and shown in mana, because casts are what the rule counts and mana
      * is what the player is about to pay. Two more for every cast that came before.
      */
@@ -755,7 +731,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * A grid's heading, which says so when the grid could not show every row.
-     *
      * <p>The commander grids have no wheel of their own and nowhere to put a line under them,
      * so what is missing is said in the heading rather than not said. It takes a window at the
      * smallest size Minecraft allows and a table fielding five or more enemy commanders before
@@ -770,7 +745,6 @@ public final class CountersScreen extends ChildScreen {
 
     /**
      * What to call a card on a row, which is its name once this client knows it.
-     *
      * <p>Which card an id belongs to is asked once and remembered. It used to be asked every
      * frame by walking every card in every zone of every seat - libraries included, so four
      * hundred cards on a Commander table - to answer a question whose answer cannot change:

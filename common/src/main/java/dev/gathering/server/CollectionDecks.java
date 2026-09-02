@@ -30,17 +30,14 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Building a deck out of a collection, from a list.
- *
  * <p>Sleeving one card at a time is how a collection works and it is not how a deck gets
  * built: a hundred-card Commander list is a hundred separate clicks, which is long enough
  * that nobody does it twice. So the list goes in whole and the deck comes out whole, with
  * the cards taken out of the box exactly the way taking them one at a time would.
- *
  * <p>What to take is {@link DeckFromCollection}'s and is decided there, where it is checked:
  * whichever printing is in the box rather than the one the list named, the plain copy before
  * the foil, and nothing free taken at all. What happens here is going and getting the names
  * that rule needs, doing what it says, and saying honestly what the box was short of.
- *
  * <p><strong>Short is not a refusal.</strong> A list the collection cannot fill builds the
  * part it can and names what is missing, because that is what somebody sitting in front of
  * their binder actually wants - the ninety cards they have, and a list of the ten to go and
@@ -50,7 +47,6 @@ public final class CollectionDecks {
 
     /**
      * How many unnamed printings are worth going and asking about before building.
-     *
      * <p>A collection's cards nearly always went through this server on their way in, so the
      * cache already knows them. This is for the collection that arrived in a block somebody
      * carried from another world: worth one round of asking, not worth a hundred and forty
@@ -63,7 +59,6 @@ public final class CollectionDecks {
 
     /**
      * Builds what this collection can of this list, and hands it over.
-     *
      * <p>Called once the list has been resolved, on the server thread. The names of anything
      * in the box the cache has never heard of are fetched first, off the game thread, because
      * a card nobody can name is a card no line can ask for - and coming up short on a card
@@ -164,7 +159,6 @@ public final class CollectionDecks {
 
     /**
      * The lines, turned into the three sections a deck item has, taking as it goes.
-     *
      * <p>Card by card, and a card only goes into the deck once it has actually come out of
      * the box. Allocating first and taking afterwards would be two answers to the same
      * question, and the moment they disagreed - a collection that changed under the fetch,
@@ -238,7 +232,6 @@ public final class CollectionDecks {
 
     /**
      * The names the list itself already knows.
-     *
      * <p>A deck that was imported and later poured back into the box is the ordinary way cards
      * get into one, so the printing a line names is very often the exact one sitting in the
      * collection. Asking a cache about a card whose metadata is already in hand would be a

@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Blank stock, as a rule.
- *
  * <p>A blank card is the mod's answer to every table state it has no feature for, so what
  * matters about it is that it behaves like the token it is - it lands on the battlefield, it
  * can be thrown away, it can be rewritten with the ordinary pen - and that the words on it

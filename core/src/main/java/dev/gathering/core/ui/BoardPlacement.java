@@ -5,17 +5,14 @@ import dev.gathering.core.game.TablePosition;
 
 /**
  * Where everything on the table is, in whatever space the answer is wanted in.
- *
  * <p>There are two ways to look at this board and they differ in exactly one thing: what a
  * point means. On the seated screen a point is a pixel, and a camera decides which part of the
  * felt is under it. Playing on the block, a point is a place on the shared surface, and the
  * game's own camera has already put it under the cursor by the time anything here is asked.
- *
  * <p>Everything else - which mat a drop lands on, which card is in front, where a pile sits,
  * how big a card is - is the same question in both, so it is asked through one interface and
  * answered twice. That is what stops the two views disagreeing about the board they are both
  * showing, and it is why the whole of the screen's hit-testing works unchanged in either.
- *
  * <p>Rectangles are integers in both spaces. Pixels obviously are; surface units are tenths of
  * a millimeter on a two-block table, so rounding to one costs nothing and buys the same
  * rotation-aware hit test both views need.
@@ -24,7 +21,6 @@ public interface BoardPlacement {
 
     /**
      * Where a card sitting at this position on this seat's mat is drawn.
-     *
      * <p>A position is the card's <b>middle</b>, not its corner. Corners look simpler and are
      * worse at the one place it matters: a card dropped near an edge could only ever hang off
      * two of the four sides, so half the border of every mat quietly shoved cards inwards
@@ -39,7 +35,6 @@ public interface BoardPlacement {
 
     /**
      * How far round a card lying on this seat's mat is drawn, from the viewer's own chair.
-     *
      * <p>A card faces its owner, so from the chair opposite it is upside down - which is what
      * a card on a table between two people does. The two views arrive at that differently: the
      * board in the world is looked at by a camera that faces the other way for half the
@@ -61,7 +56,6 @@ public interface BoardPlacement {
 
     /**
      * The box drawn round a run of the column, from one zone to another inclusive.
-     *
      * <p>Two of them on every mat: one round the zones a hand lives in and one round the
      * command zone, standing on its own.
      */
@@ -78,7 +72,6 @@ public interface BoardPlacement {
 
     /**
      * Where this seat's life total is written, on the table past the far edge of its mat.
-     *
      * <p>Empty when the table has no room for it. Both views ask: both draw the number and
      * both let a player press its halves.
      */
@@ -90,7 +83,6 @@ public interface BoardPlacement {
 
     /**
      * Where a card going into or out of this seat's hand crosses the mat's near edge.
-     *
      * <p>A hand has no slot on the table, so a card on its way to one needs somewhere to be
      * going. See {@link TableSurface#handEdge(int)}.
      */
@@ -104,7 +96,6 @@ public interface BoardPlacement {
 
     /**
      * A rectangle in the table's own coordinates, as one on the screen.
-     *
      * <p>The two boards differ in exactly this: one draws the surface at its own size and the
      * other looks at it through a camera. Anything laid out on the surface - the pot, and
      * whatever comes after it - goes through here rather than each board growing its own

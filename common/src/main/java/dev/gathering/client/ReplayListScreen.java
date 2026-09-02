@@ -12,11 +12,9 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The games this server still has, newest first.
- *
  * <p>A row is who played and when, because that is how anybody looks for a game they were in:
  * nobody remembers a game by its length. Clicking one starts watching it - there is no second
  * confirming step, since the way out of a replay is the same Escape as everywhere else.
- *
  * <p>Client-only.
  */
 public final class ReplayListScreen extends Screen {

@@ -8,7 +8,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: show me this page of this collection.
- *
  * <p>The search crosses rather than the collection, and how much of it will fit crosses with
  * it. Answered only for a collection block the
  * player is standing next to, because a payload naming a position is a payload naming any

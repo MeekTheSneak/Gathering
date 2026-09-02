@@ -11,12 +11,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The numbers a player accumulates that are not life.
- *
  * <p>Poison, energy, experience, and whatever a group has decided to track this week. Kept as
  * an open bag of named numbers rather than three fields, because the set of things a player
  * can accumulate is not one anybody can finish listing - the last three sets added two of
  * them.
- *
  * <p>Deliberately separate from the counters on a card. A counter on a player and a counter on
  * a permanent are different things that share a word, and "three poison" and "three +1/+1
  * counters on the bear" are not the same sentence.

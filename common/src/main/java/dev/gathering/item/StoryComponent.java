@@ -11,18 +11,15 @@ import net.minecraft.network.codec.StreamCodec;
 
 /**
  * Where a card has been, carried on the card.
- *
  * <p>A second component beside {@link CardComponent} rather than a field in it, on purpose.
  * What a card <em>is</em> is a printing and a finish, and that has to stay the cheapest thing
  * in the mod - it is on every card of every deck of every table. What a card has <em>done</em>
  * is a different question, most cards have no answer to it, and a card with no answer carries
  * nothing at all.
- *
  * <p>It does mean a card with a story does not stack with one without, which is correct: they
  * are not the same object. Identity is untouched either way - {@link CardComponent#toIdentity}
  * knows nothing about this - so a collection still counts two copies of one printing as two
  * copies of one printing however different their histories.
- *
  * <p>See {@link CardStory} for why it is bounded and which end it drops.
  */
 public record StoryComponent(CardStory story) {
@@ -86,7 +83,6 @@ public record StoryComponent(CardStory story) {
 
     /**
      * What this card remembers, which for almost every card is nothing.
-     *
      * <p>Here rather than beside each reader so the server writing one and the client drawing
      * one are asking the same question of the same component.
      */

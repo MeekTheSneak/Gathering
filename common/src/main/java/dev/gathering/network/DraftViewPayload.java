@@ -8,12 +8,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: the pod, as this drafter is entitled to know it.
- *
  * <p>The bytes are a {@code DraftView} and never a {@code DraftPod}. The view has already
  * been through the pod's visibility rules, so somebody else's pack is a thickness and their
  * pool is a count - there is nothing here for a modified client to extract, which is what
  * makes a draft a draft.
- *
  * <p>One of these is addressed to each drafter separately, for the same reason the board is:
  * each of them is entitled to something different, and a single broadcast pod would hand
  * every client every pack in the ring.

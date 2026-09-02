@@ -25,7 +25,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Getting out of a chair.
- *
  * <p>Standing up lives on the board's own menu, because clicking the seat you are in used to
  * give it up and that swallowed the one click a seated player most wants to make during a
  * game. But the board only exists while a game does - so before a game, and after one, a
@@ -61,7 +60,6 @@ public final class SeatGameTest {
 
     /**
      * A game ended leaves nobody stuck in their chair.
-     *
      * <p>The reported deadlock: leave your seat mid-game and the game cannot be ended without
      * sitting back down, and ending it from the seat leaves you in the seat. Ending is a
      * command that only needs you to be looking at the table, and standing up now works
@@ -107,7 +105,6 @@ public final class SeatGameTest {
 
     /**
      * Somebody who sits down after the game has started is in the game, not beside it.
-     *
      * <p>The reported bug, and the shape of it: a seat is claimed on the table block and a
      * seat is taken in the session, and only the first used to happen once a game was under
      * way. Everybody present at the start was seated into the session; anybody who walked up

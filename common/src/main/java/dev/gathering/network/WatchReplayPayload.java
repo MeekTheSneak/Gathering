@@ -7,7 +7,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: show me a replay, or show me the list of them.
- *
  * <p>An empty id asks for the list. Anything else asks for one frame of one game, and the
  * server matches the id against the names of the files it actually has rather than resolving
  * it as a path - a client cannot name a file the server did not offer it, whatever it sends.

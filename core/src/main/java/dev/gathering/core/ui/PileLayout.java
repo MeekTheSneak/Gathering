@@ -2,7 +2,6 @@ package dev.gathering.core.ui;
 
 /**
  * Where the cards sit in a box that shows a pile, and which one a click landed on.
- *
  * <p>The second question is the reason this is a class rather than two lines in a screen. A
  * pile holding more cards than fit keeps laying the rest out below the fold - the slots are
  * still computed, they are simply scrolled past the bottom of the grid - and a screen that
@@ -10,7 +9,6 @@ package dev.gathering.core.ui;
  * the fold are eighty-four pixels tall and the box's Done button is forty pixels under the
  * grid, so one of them was always lying across it: the click was answered by an invisible
  * card, the button never heard it, and the only way out of the box was Escape.
- *
  * <p>So the grid comes first here and the slots second. A point outside the grid is not on a
  * card, whatever the arithmetic says about where the card would have been.
  */
@@ -36,7 +34,6 @@ public record PileLayout(
 
     /**
      * The card under this point, or -1 for none.
-     *
      * <p>The grid is asked before any slot is. A card scrolled out of the box is out of the
      * box: it is not drawn, so it cannot be clicked, and everything laid out beneath the grid
      * - the hint line, the Done button - belongs to whatever is drawn there.

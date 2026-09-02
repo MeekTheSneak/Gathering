@@ -12,21 +12,17 @@ import java.util.Set;
 
 /**
  * Finding one card in a collection of ten thousand.
- *
  * <p>A binder you cannot search is a box. The buttons answer the questions somebody asks
  * without thinking - what red cards have I got, what is in this set - and the box answers the
  * rest through {@link CardSearch}, which is Scryfall's syntax because everybody who plays this
  * game has already typed it somewhere else. Bare words still just look for a name, so nothing
  * has to be learned before the box is useful.
- *
  * <p>Every filter is "and". Typing a word and picking a color means both, which is what
  * anybody would expect and the only rule that does not need explaining.
- *
  * <p>A card whose details have not been fetched yet is still in the collection and still
  * counted. It matches a search with nothing in it and no other, because nothing true can be
  * said about it - and it sorts to the end, so a collection that is still loading reads as
  * itself with a tail rather than as a jumble.
- *
  * <p>Pure. Nothing here fetches anything.
  */
 public final class CollectionSearch {
@@ -158,7 +154,6 @@ public final class CollectionSearch {
 
     /**
      * Whether a card is at least these colors.
-     *
      * <p>"C" on its own means colorless, which is not a color a card has but the absence of
      * every one - so it is asked as its own question rather than looked for in the list.
      */
@@ -186,7 +181,6 @@ public final class CollectionSearch {
 
     /**
      * The order to put them in.
-     *
      * <p>Every order ends with the same two tie-breaks - name, then the card's own key - so a
      * collection sorted by rarity does not shuffle its commons about between two openings of
      * the same screen.
@@ -230,7 +224,6 @@ public final class CollectionSearch {
 
     /**
      * A card's colors as one sortable string, in Magic's own order.
-     *
      * <p>WUBRG rather than alphabetical, because that is the order every player already reads
      * colors in and a list that puts blue after black looks broken to them.
      */

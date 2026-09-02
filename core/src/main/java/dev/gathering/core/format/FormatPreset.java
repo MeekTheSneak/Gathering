@@ -2,11 +2,9 @@ package dev.gathering.core.format;
 
 /**
  * A format, as data.
- *
  * <p>Nine fields and no code. Adding a format later is a table entry in
  * {@link FormatPresets}, not a new branch anywhere, which is the whole reason this is a
  * record and the validator is one method.
- *
  * <p>None of this is ever consulted during play. Deck validation is the sole permitted
  * referee in the entire mod, it runs before a formatted game begins, and it stops the moment
  * the session starts. That fence is permanent.
@@ -55,7 +53,6 @@ public record FormatPreset(
 
     /**
      * Whether a board in this format has a command zone on it.
-     *
      * <p>The same question as the one above and a different reason for asking: that one is
      * about what a decklist is allowed to contain and this one is about whether a box gets
      * drawn on the mat. Named separately so the drawing does not read as a rules check, which

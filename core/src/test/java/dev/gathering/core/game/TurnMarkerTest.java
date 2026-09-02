@@ -10,11 +10,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The shared turn marker, which enforces nothing.
- *
  * <p>It exists so four people can agree whose turn it is without saying it out loud every
  * thirty seconds. The mod never hands it on by itself and never stops anybody doing anything
  * on anybody's turn - so most of what is worth testing here is what it refuses to do.
- *
  * <p>There was a phase beside it once, advanced by hand, and these tests were mostly about
  * that. It is gone: nothing ever read it and no action was ever checked against it, so it was
  * a label the table maintained for the mod's benefit rather than its own.

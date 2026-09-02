@@ -29,18 +29,15 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Reading and taking from a collection, on the server.
- *
  * <p>The searching happens here rather than on the client, because here is where the card
  * details are. A client that had to search a collection itself would need every name in it,
  * and a collection is meant to run to ten thousand cards; what crosses the wire instead is a
  * question and one page of answer.
- *
  * <p>Every one of these is a discrete thing somebody did - opened a block, pressed a sort
  * button, took a card - so the work happens on the server thread where the collection lives.
  * Searching one is a pass over what is in it and a sort, off a cache that is already in
  * memory; it is not per-tick and it is not per-keystroke, because the screen asks when a
  * search is finished rather than while it is being typed.
- *
  * <p>Every payload names a position, and a position is any position. So each of these starts
  * by finding out whether there is a collection there and whether this player is standing at
  * it: reading a collection is public, but being in front of it is not, and without that check
@@ -53,12 +50,10 @@ public final class CollectionView {
 
     /**
      * At most one search per player per tick.
-     *
      * <p>A search is a pass over everything in the collection and a sort of what matched, on
      * the server thread, asked for by a packet a client sends whenever it likes. Ten thousand
      * cards is a few milliseconds; ten thousand cards a thousand times a second is a server
      * nobody can play on.
-     *
      * <p>One tick rather than a comfortable-looking number on purpose. Anything slower would
      * drop the refresh after a card is taken when somebody is clicking quickly, which is a
      * screen going stale to defend against something nobody doing that is doing. Two searches
@@ -68,7 +63,6 @@ public final class CollectionView {
 
     /**
      * When each player last searched. Server thread only.
-     *
      * <p>Emptied rather than pruned when it grows past a server's worth of players: the
      * entries are a UUID and an int, and forgetting them all costs one player one extra
      * search.
@@ -81,7 +75,6 @@ public final class CollectionView {
 
     /**
      * Opens a collection for somebody.
-     *
      * <p>No cards with it. The screen asks for its first page itself, once it knows how tall
      * it is - a page sent before then would be sized for a window nobody has measured, and
      * would be thrown away by the one the screen asks for a moment later.
@@ -99,7 +92,6 @@ public final class CollectionView {
 
     /**
      * Answers one search with one page.
-     *
      * <p>Over the box, and over the cards in the player's own pockets too when the thing
      * asking is a builder. A deck is built out of everything somebody owns, and before this
      * the only way to get a card from a pack you had just opened into a deck was to put it in
@@ -155,17 +147,14 @@ public final class CollectionView {
 
     /**
      * Sweeps every loose card the player is carrying into a collection.
-     *
      * <p>Shift and an empty hand, which is the gesture for "all of it" everywhere else in
      * this game. A booster box is thirty-six stacks and putting them away one right-click at
      * a time is the same evening the deck builder just got back.
-     *
      * <p><b>Only loose cards.</b> A deck is an object somebody assembled and it stays one -
      * dissolving one is the deck screen's verb, and a shift-click that quietly took a
      * hundred-card Commander deck apart would be a misclick nobody could undo. A sealed pack
      * is not a card either, and neither is anything else in the inventory: this walks the
      * slots and takes the ones holding a card item, and nothing else can match.
-     *
      * <p>A card with a history keeps it, one entry per copy, exactly as putting one in by
      * hand does. Two cards with different histories never stacked in the first place, so a
      * stack is only ever more than one card when none of them has a story.
@@ -213,7 +202,6 @@ public final class CollectionView {
 
     /**
      * Takes one slot's cards, if that slot holds cards at all, and empties it.
-     *
      * <p>Matched on the item rather than on whether a component happens to parse: a deck and
      * a pack are not card items and cannot become ones, so nothing but a card can be picked
      * up by this however it is written.
@@ -246,12 +234,10 @@ public final class CollectionView {
 
     /**
      * Takes cards out.
-     *
      * <p>Into the deck in hand where there is one, and into the inventory otherwise. That is
      * what sleeving is: you do not carry forty loose cards from the binder to the table, you
      * put them in the deck as you pick them. Holding a deck is the whole of the gesture -
      * there is no mode to switch into and nothing to press first.
-     *
      * <p>Takes and says nothing back. The screen asks for a fresh page itself, because the
      * screen is where the search somebody is looking at actually lives: a page pushed from
      * here would have to guess at it, and guessing wrong means every card taken throws the
@@ -308,17 +294,14 @@ public final class CollectionView {
 
     /**
      * Takes a whole built deck out of the box at once, and hands it over as a deck.
-     *
      * <p>The commit end of the deck builder. Every card the client named is checked against
      * what the collection actually holds and taken out one at a time by the same call a single
      * click uses, so a client asking for cards that are not there gets a deck without them
      * rather than a deck the box never had - and the arithmetic that decides which physical
      * copy leaves, plain before storied, is the one that was already there.
-     *
      * <p>Basics are conjured rather than taken, exactly as building from a list does: they are
      * given away everywhere else in this mod and charging for them here would be a charge for
      * something that is not for sale.
-     *
      * <p>Told what it could not find, by name and count. A deck that quietly came out four
      * cards short is a deck somebody takes to a table and discovers is illegal.
      */
@@ -378,11 +361,9 @@ public final class CollectionView {
 
     /**
      * Takes one copy out for a deck being built, or says nobody had it.
-     *
      * <p>A basic land is never taken and always granted, which is what building from a list
      * already does. Everything else has to actually be somewhere: this is the check that
      * makes the payload's card list a request rather than an instruction.
-     *
      * <p>The box first and the pockets after. Both are the same player's cards and either
      * would do, but taking from the box first leaves the copy in their hand - which is the
      * one they can see, and the one they would be surprised to find gone if the deck was
@@ -407,7 +388,6 @@ public final class CollectionView {
 
     /**
      * Whether this printing is a basic land, and so free.
-     *
      * <p>Asked of the card cache rather than believed from the client, because "this one is
      * free" is exactly the claim a client should not be allowed to make about a card it wants
      * out of somebody's box. A printing the server has never looked up is not free: the
@@ -429,7 +409,6 @@ public final class CollectionView {
 
     /**
      * Puts cards into a held deck, and says how many fitted.
-     *
      * <p>Into the mainboard. Which section a card belongs in is the deck screen's question
      * and it is a better place to ask it: sleeving is gathering the cards, and sorting them
      * is what you do once they are all in front of you.
@@ -454,7 +433,6 @@ public final class CollectionView {
 
     /**
      * Pours a deck back into a collection.
-     *
      * <p>Every card of it, from every section, and the deck item goes with them. Paper-true,
      * and the reason a shared collection cannot quietly back two decks at once: the cards are
      * in one place or the other, never counted in both.
@@ -499,7 +477,6 @@ public final class CollectionView {
 
     /**
      * Whether this player has searched too recently to search again.
-     *
      * <p>Silently, because the only thing that can hit it is a client asking faster than a
      * person can press a button, and a screen that said "slow down" to somebody who did
      * nothing would be answering a question they never asked. A dropped search is followed
@@ -520,12 +497,10 @@ public final class CollectionView {
 
     /**
      * The collection this player is actually standing at, or null.
-     *
      * <p>Three halves, and all of them matter. A block that is not a collection is somebody
      * pointing a payload at a wall; a position in an unloaded chunk is somebody making the
      * server go and fetch one; and a collection across the world is somebody reading a
      * stranger's binder from their own base.
-     *
      * <p>Package-visible so {@link CollectionDecks} asks the same question rather than a
      * second one that looks like it. Reading a collection is public; being in front of one is
      * not, and a payload naming a position is a payload naming <em>any</em> position - so
@@ -557,11 +532,9 @@ public final class CollectionView {
 
     /**
      * What is already known about a card, without going anywhere for it.
-     *
      * <p>The cache only. A search that fetched what it did not know would be one search
      * making ten thousand requests, and the honest answer for a card nobody has looked up is
      * that nobody has looked it up.
-     *
      * <p>Package-visible for the same reason {@link #at} is: one answer, asked from two
      * places.
      */

@@ -18,23 +18,19 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Sends a viewer the pictures for the cards they have just been shown.
- *
  * <p>Used by the table and by a draft pod, which is why it is not called after either: both
  * have the same problem - a client can only ask about cards in its own inventory - and both
  * solve it the same way, by sending what the rules have just decided this viewer may see.
- *
  * <p>A client only ever asked what a card looks like on behalf of cards in its own inventory,
  * which is the right scope for a request - it grants no access the player did not have. But it
  * means a card belonging to somebody else has no picture on this client at all: the rules say
  * a graveyard is public and send its cards, the screen opens, and every one of them is an
  * empty recess under a count that says there is something there.
- *
  * <p>So this pushes rather than widening what a client may ask for. The printings sent are
  * read out of the view that was just sent to that same player, so a viewer is told about
  * exactly the cards the visibility rules decided they could see and never about one more.
  * Making the request channel general enough to cover a table would have been the other way
  * round: a client asking about any card it liked, aimed at somebody else's Scryfall quota.
- *
  * <p>Looked up through the card pipeline rather than on the server thread, because this runs
  * every time anybody moves a card and a printing missing from the index is a file read - a
  * board update that reads a hundred files is a board update that stutters. The lookup is
@@ -46,7 +42,6 @@ public final class CardArtPush {
 
     /**
      * What each player has already been sent, so a board update sends only what is new.
-     *
      * <p>Every action at a table redraws every board, and a Commander game has a few dozen
      * cards in view - sending all of their pictures on every tap would be most of the traffic
      * at the table for no gain, since a printing's picture never changes.
@@ -55,7 +50,6 @@ public final class CardArtPush {
 
     /**
      * When a player's list is thrown away and started again.
-     *
      * <p>Bounded by the distinct printings at one table, so in practice it never gets here.
      * The cap is for the session that goes on for a week: forgetting costs one repeat send.
      */
@@ -66,7 +60,6 @@ public final class CardArtPush {
 
     /**
      * What this player has been told about, forgetting anybody who has gone.
-     *
      * <p>A client that reconnects with an empty cache is told about the table again. A
      * disconnect has no hook here and adding one per loader would be a new seam for a sweep
      * this cheap: it is one lookup per player on the server, on an update that has just

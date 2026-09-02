@@ -10,7 +10,6 @@ import java.util.Optional;
 /**
  * The server's card metadata cache, expressed as the two questions the pipeline asks it:
  * "do you already have this?" and "here, keep this".
- *
  * <p>Raw Scryfall JSON goes in rather than parsed metadata, so a field the mod starts using
  * later is already on disk and no server has to refetch a hundred thousand cards to get it.
  */

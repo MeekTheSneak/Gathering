@@ -9,13 +9,11 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: a pack has been opened, and this is what was in it.
- *
  * <p>Sent after the cards are already in the inventory, not before. The ceremony is theater
  * over a transaction that has already happened: nothing about tearing the wrapper decides
  * anything, so a player who closes the screen, disconnects, or never finishes the tear still
  * has every card. A ceremony that had to complete for the cards to arrive would be a way to
  * lose a booster to a dropped connection.
- *
  * <p>Which means there is nothing here a modified client could gain by reading early. It
  * already holds these cards; this says which of them to make a fuss about.
  *

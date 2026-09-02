@@ -16,12 +16,10 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Changing your deck between games of a match.
- *
  * <p>Edits the deck the table is holding for the asking player's own seat. Which deck that is
  * comes from the table's record of who is sitting where, never from the payload - so there is
  * no way to phrase a request to reach into somebody else's sideboard, which is stronger than
  * checking that nobody did.
- *
  * <p>Only between games, and only in a format that has a sideboard. Neither is a rules
  * judgment the mod is making up: a deck arrives at the table as its owner built it, and a
  * singleton format has no fifteen cards to swap.
@@ -33,7 +31,6 @@ public final class Sideboarding {
 
     /**
      * Sends a player their deck to change, if this is a moment when they may.
-     *
      * <p>Silent when it is not. Being told "you cannot sideboard right now" every time you
      * right-click a table mid-game is worse than nothing happening.
      */

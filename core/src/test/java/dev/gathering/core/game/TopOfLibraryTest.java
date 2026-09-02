@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Moving the top few cards of a library somewhere, without anybody naming them.
- *
  * <p>Mill and exile are the same shape and share a fold, so they are checked together: the
  * thing worth guarding is that they stay two verbs going to two piles rather than one verb
  * that drifted into deciding where it lands.

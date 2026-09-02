@@ -9,7 +9,6 @@ import net.minecraft.world.InteractionHand;
 
 /**
  * Client to server: put this many of a basic land into the deck I am holding.
- *
  * <p>A land type and a number, never a printing. Every other card that reaches a deck came
  * from somewhere - imported, drafted, taken out of a pack - and this is the one that is
  * conjured, so it is the one place a client could name any card in Magic and be handed it.
@@ -36,7 +35,6 @@ public record AddBasicsPayload(boolean offHand, BasicLand land, int howMany)
 
     /**
      * The most that may be asked for at once.
-     *
      * <p>A limited deck runs seventeen or so and a Commander deck maybe forty, so this is
      * well clear of anybody's mana base. It exists because the number crosses the wire: a
      * request for two billion Forests must be refused rather than allocated.

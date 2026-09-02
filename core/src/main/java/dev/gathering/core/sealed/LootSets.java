@@ -7,16 +7,13 @@ import java.util.Optional;
 
 /**
  * Which sets a server's packs are found from.
- *
  * <p>Four things can go in the config and they combine rather than compete: the sets named
  * outright, every set there is, whatever is current, and the last few releases. A seasonal
  * server names one set; an era server names a block; a server that says nothing gets all of
  * them; and a server that wants its own set plus whatever is new says both.
- *
  * <p>Named sets come first and nothing appears twice. Order matters because a set is chosen
  * by walking this list, and a list that reshuffled between restarts would be a server whose
  * loot changed for no reason anybody could see.
- *
  * <p>Pure. Working out what "current" and "recent" actually are is somebody else's job; this
  * is what to do with the answers.
  */

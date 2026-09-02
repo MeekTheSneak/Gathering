@@ -12,32 +12,27 @@ import org.joml.Matrix4f;
 
 /**
  * A booster wrapper, drawn as a thing in space rather than a rectangle on the glass.
- *
  * <p>The same trick the inspect panel plays on a card, for the same reason: the interface
  * draws in an orthographic projection, where turning a flat picture is only ever a squash -
  * both edges keep their length and nothing comes toward you. So the pack is a rectangle in
  * space, turned about its own middle and projected through a pinhole a fixed distance in
  * front, drawn as a grid of quads so the picture does not warp across it. See {@link CardLens},
  * which is the pinhole, and {@link TiltedFace}, which does this for a card.
- *
  * <p>Where this differs from a card is the top edge. A card is a rectangle with its corners
  * cut; a pack being opened is a rectangle whose top edge is wherever the tear has got to, and
  * that edge is different in every column. So the mesh is built column by column from a line
  * handed in, which is the same line the light along the tear is drawn from - one line, read
  * twice, rather than two shapes that have to be kept in step.
- *
  * <p>It is also why this replaced a scissor per column: a scissor is a screen-space rectangle,
  * and once the pack is turned there are no screen-space rectangles left to clip to. Building
  * the tear into the mesh costs one draw call for the whole pack instead of one per column, so
  * the turned pack is cheaper than the flat one was.
- *
  * <p>Client thread only.
  */
 public final class TiltedPack {
 
     /**
      * How many rows each piece of the wrapper is cut into, down the pack.
-     *
      * <p>Enough that the perspective is a curve rather than a fold. The columns come from the
      * tear, which has plenty of them, so only the down direction needs saying here.
      */
@@ -49,7 +44,6 @@ public final class TiltedPack {
 
     /**
      * Where a piece of the wrapper's picture is, in the texture.
-     *
      * <p>The wrapper is one small picture of a whole pack and this screen draws two pieces of
      * one, each stretched differently: the crimped strip is squashed into the top sixth while
      * the body fills the rest. So a piece carries the rows it is cut from and the run of the
@@ -138,7 +132,6 @@ public final class TiltedPack {
 
     /**
      * The light coming out along the torn edge.
-     *
      * <p>Bands stacked upward from the paper, each fainter than the one below, so the pack
      * reads as lit from inside rather than outlined. Through the same lens the paper went
      * through, from the same line, so there is no angle at which the light and the tear come
@@ -193,7 +186,6 @@ public final class TiltedPack {
 
     /**
      * A flat quad laid on the turned pack, for anything printed on the wrapper.
-     *
      * <p>The set symbol, which is a picture in its own right rather than part of the wrapper,
      * so it takes its whole texture and only borrows the pack's shape. Subdivided too: a
      * symbol drawn as one quad on a turned pack is a symbol that slides off the paper it is

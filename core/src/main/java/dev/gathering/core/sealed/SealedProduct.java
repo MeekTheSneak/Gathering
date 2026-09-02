@@ -6,13 +6,11 @@ import java.util.Locale;
 
 /**
  * One thing that was really sold in a shop.
- *
  * <p>Not a thing this mod invented. Every product here is a product that existed on a shelf,
  * read from the sealed-product data published for its set, and that is the whole point: what
  * a player can find in the world or buy from a shop must be something somebody could have
  * bought in paper. A set that came only as precons has no booster, and a booster nobody
  * printed is not a product however convenient it would be to have one.
- *
  * <p>The three shapes the design calls for all fall out of the contents rather than being
  * separate kinds. A pack is a product holding one booster arrangement. A box is a product
  * holding twelve of another product. A bundle is a product holding some of each, an exact
@@ -57,7 +55,6 @@ public record SealedProduct(
 
     /**
      * A deck that comes in the box, named rather than listed.
-     *
      * <p>The published data puts a precon's hundred cards elsewhere in the same file and names
      * them here, so a product on its own says a deck is in the box and not what is in the
      * deck. By name and set, because that is the whole of what the product says and because
@@ -82,7 +79,6 @@ public record SealedProduct(
 
     /**
      * So many of another product.
-     *
      * <p>By its published id rather than by its contents, because a box of twelve boosters is
      * twelve of the same product a player could buy singly - and a box that copied their
      * contents would be a second place for a booster's odds to live.
@@ -110,7 +106,6 @@ public record SealedProduct(
 
     /**
      * Whether this is a single booster, and therefore something the opener can already open.
-     *
      * <p>One arrangement and nothing else in the wrapper. A bundle holds boosters too, and is
      * not one.
      */

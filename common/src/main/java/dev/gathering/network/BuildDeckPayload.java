@@ -12,11 +12,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * A deck somebody has finished building at a collection block, on its way to the server.
- *
  * <p>The whole deck at once rather than a card at a time, because that is what the gesture is:
  * a builder is a list somebody assembles and then commits, and committing it one packet per
  * card would be a hundred round trips in which the deck exists in neither place.
- *
  * <p><b>Nothing here is believed.</b> The client says which printings it wants; the server
  * checks every one of them against what the collection actually holds and takes them out
  * itself. A client that asks for a card the box does not have gets a deck without it and a

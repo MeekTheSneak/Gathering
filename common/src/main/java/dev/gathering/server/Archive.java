@@ -24,22 +24,18 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The Archive Pack: everything this server's own faucets cannot reach.
- *
  * <p>The closing move on completeness, and the last piece of the brief's acquisition story. A
  * booster is cut from a print sheet and a shop sells what was really sold, which between them
  * leave a remainder - the buy-a-box card, the promo, the long tail of a set whose product is
  * out of print. Those cards are in the catalog and no path reaches them, and a collection
  * that can never be finished is a collection nobody finishes.
- *
  * <p>So the remainder is computed rather than listed. {@link CoverageAudit} already answers
  * "which of this set's cards does nothing reach", which is what the coverage command reports;
  * the same answer, for every set the server has in play, is this pack's sheet. <b>It shrinks
  * as a server adds products</b>, and a server whose faucets cover everything drops no archive
  * packs at all, which is the goal rather than a fault.
- *
  * <p><b>Never sold.</b> Something you can buy is not a long tail, it is a shelf - so this
  * comes out of the three places worth going to and nowhere else. See {@link ArchiveDrops}.
- *
  * <p>Worked out once when the server starts, like everything else loot has to read: loot is
  * rolled deep inside the game with no time to reach a network.
  */
@@ -68,13 +64,11 @@ public final class Archive {
 
     /**
      * Works out the remainder, one set at a time.
-     *
      * <p>Two reads per set - what it was sold as, and everything printed in it - which is
      * exactly what the coverage command does for one set, run over the sets the server has in
      * play. One after another rather than at once, because every set is a file and a search
      * and a server asking for a dozen of each at the same moment is a server being rude to
      * somebody else's host.
-     *
      * <p>Does nothing at all unless collecting is on and something can actually be found: an
      * archive pack on a server where no pack is ever found would be the only card faucet in
      * the world, which is not what this is.
@@ -118,7 +112,6 @@ public final class Archive {
 
     /**
      * An archive pack for this loot table, if one comes up.
-     *
      * <p>Called while loot is being rolled, so it does nothing that can block and nothing
      * that can throw. Asked before the ordinary pack, and answering means the ordinary one is
      * not asked at all: two packs out of one chest reads as a fault rather than as luck.
@@ -137,7 +130,6 @@ public final class Archive {
 
     /**
      * What is inside one.
-     *
      * <p>Drawn with replacement, like every other pack in this mod: a sheet is a sheet, and a
      * remainder of two cards should still give three of them rather than refusing.
      */

@@ -10,13 +10,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Puts the camera over the table while somebody is playing at one.
- *
  * <p>The only thing in this mod that reaches into the game's own code, and it is here because
  * there is no other door. NeoForge's {@code ViewportEvent.ComputeCameraAngles} hands over the
  * yaw, pitch and roll and nothing else, and it fires <em>before</em> {@code Camera.setup}
  * moves the camera onto the player - so an event handler can turn the camera to face the table
  * and cannot move it there.
- *
  * <p>Deliberately the smallest thing that could work: it runs at the very end of setup, after
  * everything vanilla and every other listener has had its say, asks one question, and does
  * nothing at all if the answer is no. What it should do lives in {@link TableCameraView}, so

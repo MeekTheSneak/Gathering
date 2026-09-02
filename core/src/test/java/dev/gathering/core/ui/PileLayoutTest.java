@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A pile that scrolls must not answer for the space under it.
- *
  * <p>The box lays every card out, including the ones below the fold, and the slots below the
  * fold are taller than the gap between the grid and the Done button. A screen that asked
  * whether the pointer was inside any slot therefore got yes for an invisible card sitting

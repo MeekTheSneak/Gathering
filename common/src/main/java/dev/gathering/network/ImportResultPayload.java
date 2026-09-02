@@ -8,7 +8,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: what happened to an import.
- *
  * <p>Carries the problems verbatim rather than a yes or no, because the useful thing to do
  * with a decklist that half worked is to show the player which lines to fix, at their line
  * numbers, in their own words. An import with problems still produces a deck.

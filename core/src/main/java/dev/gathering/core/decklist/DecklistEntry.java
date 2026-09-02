@@ -4,11 +4,9 @@ import java.util.Optional;
 
 /**
  * One line of a decklist, parsed but not yet resolved to a printing.
- *
  * <p>The set code and collector number are hints, not identity. Resolution happens later
  * against the Scryfall cache, where a missing or wrong hint falls back to the cheapest
  * matching printing and an ambiguity is offered to the importer rather than guessed at.
- *
  * <p>{@code scryfallId} is the exception: when a source knows the exact printing - a deck
  * site's API hands them over, where a text export never can - resolution is by id and there
  * is nothing left to guess. Empty for anything that came from pasted text.

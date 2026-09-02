@@ -17,12 +17,10 @@ import java.util.Optional;
 
 /**
  * Pasted text in, a real deck out.
- *
  * <p>Two passes, both batched. The first asks for exactly what each line said - a printing
  * where the line named one, a card where it did not. The second retries the lines whose
  * printing hint matched nothing, this time by name alone, because a stale set code from a
  * three-year-old export should cost the player a different printing and not a missing card.
- *
  * <p>A hundred-card Commander decklist costs two requests on a cold cache and none on a warm
  * one.
  */
@@ -46,7 +44,6 @@ public final class DeckImporter {
 
     /**
      * Parse and resolve in one step, which is what the import screen actually calls.
-     *
      * <p>Accepts either a decklist or a single link to one. A link is the thing people
      * actually have in their clipboard, and a full text export does not fit in a chat
      * command, so pasting the link has to work.

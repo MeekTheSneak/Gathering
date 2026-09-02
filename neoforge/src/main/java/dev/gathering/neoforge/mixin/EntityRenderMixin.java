@@ -12,12 +12,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Leaves the players out while the camera is over a table.
- *
  * <p>The second and last thing in this mod that reaches into the game's own code, and here
  * for the same reason the camera hook is: the eye sits a couple of blocks above the felt
  * looking straight down, so everybody standing around the table is between it and the board -
  * and neither loader offers a way to say "not this entity, this frame" without one of these.
- *
  * <p>Deliberately the smallest thing that could work: it asks one question at the top of one
  * method and does nothing at all if the answer is no. What it should do lives in
  * {@link TableCameraView#hides}, so this and the other loader's copy cannot disagree.

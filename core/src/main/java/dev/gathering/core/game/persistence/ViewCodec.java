@@ -34,13 +34,11 @@ import java.util.UUID;
 
 /**
  * A player's view of the board, to bytes and back.
- *
  * <p>This is what crosses the network to a client, and it matters that it is exactly a
  * {@link GameView} and never a {@code GameState}. The view has already been through the
  * visibility rules: an opponent's hand is a number, a face-down card is a marker with no path
  * back to a card. Writing the state instead - or "the state, minus the bits they should not
  * see" - is how a client ends up holding a secret it was trusted not to look at.
- *
  * <p>Bytes rather than a network codec so the shape lives in the pure module with the rules
  * it mirrors, and so a round trip can be checked against arbitrary views rather than the ones
  * somebody thought to write down.
@@ -102,7 +100,6 @@ public final class ViewCodec {
 
     /**
      * One log line.
-     *
      * <p>Arguments are tagged by name rather than by ordinal, like every other tagged thing
      * written here: an ordinal means something different the moment the sealed set gains a
      * member, and this crosses versions.

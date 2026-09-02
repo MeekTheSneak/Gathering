@@ -21,20 +21,16 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Sealed product turning up in the world.
- *
  * <p>The first of the two ways into a collection, and the one that decides how a server's
  * early game feels. A pack in a dungeon chest is a small event you tell somebody about; a
  * pack you can buy whenever you like is inventory.
- *
  * <p>Which sets are on offer is the server's to say: whatever is out now, the last few
  * releases, or exactly the sets a seasonal or era server is about. Which kind of pack comes
  * out is not - a collector booster is rare everywhere and much likelier out of the chests
  * people build expeditions around, which is what makes where you looked worth caring about.
- *
  * <p>Only boosters. A display box or a Commander deck is a thing you buy, and a chest that
  * can hold thirty packs makes the shop pointless; {@link SealedProduct#isOneBooster()} is
  * what draws that line and it is drawn once, here.
- *
  * <p>What can drop is worked out once, when the server starts, and read from memory
  * afterwards. Loot is rolled deep inside the game with no time to reach a network, so this
  * never asks: a server that has only just come up drops nothing for the moment it takes to
@@ -47,7 +43,6 @@ public final class SealedLoot {
     /**
      * What can drop: every set on offer, in the order they are offered in, and what each one
      * sells.
-     *
      * <p>One object rather than a list and a map beside it. They are two halves of one answer
      * and they were two fields: a roll that read the new list and the old map picked a set
      * that was not in it and quietly dropped nothing, which is the kind of window that turns
@@ -71,7 +66,6 @@ public final class SealedLoot {
 
     /**
      * Which source and how good a chest one loot table is, worked out once each.
-     *
      * <p>A global loot modifier is handed every table the game rolls - every mob, every
      * block, every chest - so this is on the hot path of anything that drops anything. The
      * answer for a given table never changes, and there are a few hundred tables, so it is
@@ -88,7 +82,6 @@ public final class SealedLoot {
 
     /**
      * Works out what this server can drop.
-     *
      * <p>Called once at start. Does nothing at all unless collecting is on, so a play-only
      * server never fetches anything for a feature it has switched off.
      */
@@ -124,7 +117,6 @@ public final class SealedLoot {
 
     /**
      * A pack for this loot table, if one comes up.
-     *
      * <p>Called while loot is being rolled, so it does nothing that can block and nothing
      * that can throw. Every reason to say no is checked here rather than by whoever calls it:
      * collecting switched off, a table this mod has nothing to do with, a source the server
@@ -154,7 +146,6 @@ public final class SealedLoot {
 
     /**
      * A pack from one source, out of a chest this good.
-     *
      * <p>Three rolls, in this order: whether a pack comes out at all, which set it is from,
      * and which of that set's products it is. The last one is where the chest matters.
      */
@@ -171,11 +162,9 @@ public final class SealedLoot {
 
     /**
      * A pack, with no odds and no source.
-     *
      * <p>For a chest that is meant to hold packs rather than one that might: the stock chest
      * behind a card shop's counter is part of the shop, not a lucky find, and rolling it
      * against one-in-eight would leave most of them empty. How many is the pool's to say.
-     *
      * <p>Two rolls rather than three: which set it is from, and which of that set's products.
      */
     public static Optional<ItemStack> packFrom(LootRichness richness, RandomSource random) {
@@ -201,7 +190,6 @@ public final class SealedLoot {
 
     /**
      * What each set really sold, read one set at a time.
-     *
      * <p>On the collation worker, one after another, because every set is a file to fetch and
      * a server asking for a dozen of them at once is a server asking somebody else's host for
      * forty megabytes at once.

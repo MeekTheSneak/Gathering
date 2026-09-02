@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Emptying a whole zone somewhere else, which is the long hold on a pile.
- *
  * <p>Its own verb because a client may not name the cards in a hidden zone, so the only way
  * to ask for a library to go anywhere is to ask for the library rather than for its contents.
  */

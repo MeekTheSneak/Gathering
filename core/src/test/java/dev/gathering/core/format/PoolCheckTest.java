@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * You play what you opened.
- *
  * <p>The one check in the mod that asks whether a card is yours rather than whether it is
  * legal, which is the whole of limited: four copies of the best card in the set is a fine
  * limited deck, and impossible because nobody opens four.
@@ -56,7 +55,6 @@ class PoolCheckTest {
 
     /**
      * Basic lands are free, and unlimited.
-     *
      * <p>The exception paper limited has always had, and the reason a forty-card deck out of
      * a forty-five-card pool is possible at all.
      */
@@ -69,7 +67,6 @@ class PoolCheckTest {
 
     /**
      * The sideboard counts too.
-     *
      * <p>Boarding a card in between games puts it in the deck, so a card that is in neither
      * the pool nor a pack has appeared from somewhere either way - and checking only the
      * mainboard would leave the obvious way round the rule wide open.

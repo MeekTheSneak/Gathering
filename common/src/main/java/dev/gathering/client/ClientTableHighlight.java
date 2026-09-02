@@ -6,15 +6,12 @@ import java.util.List;
 
 /**
  * What the cursor is on, for the table in the world to draw a ring around.
- *
  * <p>Hovering and selecting are the screen's business: they come out of a mouse position and a
  * click, and neither of those things exists as far as a block entity renderer is concerned. So
  * the screen works them out, as it always has, and leaves the answer here for the renderer to
  * pick up on its next frame.
- *
  * <p>One player's own idea about their own screen, never sent anywhere - the same as the
  * selection it carries. Nothing here can be true of anybody else's client.
- *
  * <p>Client-only.
  */
 public final class ClientTableHighlight {
@@ -25,7 +22,6 @@ public final class ClientTableHighlight {
     /**
      * The card currently following the cursor, which is drawn on the screen and not on the
      * table.
-     *
      * <p>A card being dragged has not moved yet - the server has not been told, and will not
      * be until it lands - so the board still lists it wherever it came from. Drawing it there
      * as well leaves a copy lying on the felt while its twin follows the cursor, which reads
@@ -66,7 +62,6 @@ public final class ClientTableHighlight {
 
     /**
      * Whose mat a dragged card would land on, zone or no zone.
-     *
      * <p>Separate from the zone it is aimed at, because most of a mat is not a zone and a card
      * let go over bare felt still lands on somebody's side of the table. Without it the board
      * drawn on the block said nothing at all about where a card was going unless the cursor
@@ -78,7 +73,6 @@ public final class ClientTableHighlight {
 
     /**
      * Which mat button the cursor is on, so the board on the block can light it.
-     *
      * <p>The seated board works this out again while it draws, from the same cursor - it has
      * the cursor to hand and the world renderer does not, which is the only reason this is
      * kept rather than asked for.

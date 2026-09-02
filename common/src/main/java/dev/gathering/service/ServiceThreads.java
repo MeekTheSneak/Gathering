@@ -5,7 +5,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Named daemon threads for the background services.
- *
  * <p>Daemon so a server shutdown is never held open by an in-flight fetch; named so a thread
  * dump says which service is doing what. One copy, because the card and collation services
  * each carried their own and a third service would have made a third.

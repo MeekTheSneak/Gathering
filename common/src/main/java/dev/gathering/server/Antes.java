@@ -25,16 +25,13 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Asking a table whether it is playing for keeps.
- *
  * <p>Ante is the only thing in this mod that takes a card off somebody for good, so it is the
  * only thing that asks first - everybody at the table, every game, by name. Not a setting an
  * admin turned on months ago and a player who has never seen it.
- *
  * <p>The rule about who has agreed is {@link AnteConsent}'s, and it is the part with the
  * failure in it: silence is not agreement, one refusal is enough, and an answer left behind
  * by somebody who has stood up is not a vote. This is the part that knows which table, which
  * player is in which seat, and when the game may actually begin.
- *
  * <p>Nothing here stakes a card. A question that has been answered yes starts an ordinary
  * game; what a table that agreed does differently arrives with the pot, and until then a
  * server with ante on is a server that asks and then plays for nothing. That order is
@@ -44,7 +41,6 @@ public final class Antes {
 
     /**
      * Tables with a question open, and what the table has said so far.
-     *
      * <p>Keyed by the world as well as the block. A position on its own is not a table: the
      * overworld and the nether both have a block at every coordinate, and two tables at the
      * same numbers in different worlds would have shared one question - with either one able
@@ -63,7 +59,6 @@ public final class Antes {
 
     /**
      * A question in flight, and everything the game it starts will need.
-     *
      * <p>{@code formatChosen} travels with it because the game starts later, out of the last
      * answer, and by then whoever picked the format is long gone from the call stack. Without
      * it the table came up never having been told a format was named - so the deck check,
@@ -78,7 +73,6 @@ public final class Antes {
 
     /**
      * Whether this server plays for keeps at all.
-     *
      * <p>Config's answer, and the config has already refused to turn ante on without
      * collection mode - a card is only property where a collection makes it one.
      */
@@ -99,7 +93,6 @@ public final class Antes {
 
     /**
      * Puts the question to every seat, if this table needs asking.
-     *
      * <p>Returns false when there is nothing to ask - ante is off, or the table has already
      * agreed - and the caller starts the game as it always did. Returns true when the
      * question has gone out, and the caller does nothing: the game starts when the last seat
@@ -185,13 +178,11 @@ public final class Antes {
 
     /**
      * Somebody sat down or stood up while the question was open.
-     *
      * <p>Both directions, and the first is the one that matters. The seats were fixed when
      * the question was asked, so a player who sat down afterwards was never in the set being
      * waited on - and the game could reach unanimity and start with somebody at the table who
      * had never been asked. That is a card taken off a person who did not agree, which is the
      * single failure this whole feature exists to prevent.
-     *
      * <p>The other direction is the ordinary one: a seat given up takes its answer with it,
      * and if it was the last seat anybody was waiting on, the game the rest agreed to starts
      * rather than hanging on a chair nobody is in.
@@ -229,12 +220,10 @@ public final class Antes {
 
     /**
      * Starts the game the table settled on, for keeps or not.
-     *
      * <p>Marked on the table rather than remembered here, because the decks arrive after the
      * game starts and a stake is drawn as each one goes down. It also has to survive a
      * restart: a deck put down tomorrow morning is staked from on the terms everybody agreed
      * to last night, or on none at all.
-     *
      * <p>Both answers come through here. A table that declined is still a table that asked
      * for a game, and every step after the question - the format it was told, the board its
      * seats are sent - is the same whichever way the vote went.

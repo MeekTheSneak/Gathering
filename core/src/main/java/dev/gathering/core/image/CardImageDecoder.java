@@ -7,17 +7,14 @@ import javax.imageio.ImageIO;
 
 /**
  * Turns downloaded card art into raw pixels.
- *
  * <p>This exists because of a specific incompatibility that is invisible until you try it.
  * Minecraft decodes images with stb_image, which handles <b>baseline</b> JPEG and not
  * <b>progressive</b> JPEG - and Scryfall serves progressive JPEG for every image tier except
  * {@code png}. So {@code NativeImage.read} fails on essentially every card in the game, and
  * the only symptom is art that never appears.
- *
  * <p>Java's own ImageIO reads progressive JPEG perfectly well, so the decode happens here,
  * in the pure core, where it can be tested against a real Scryfall image instead of hoped
  * about. The client's only job is to copy the result into a texture.
- *
  * <p>Output is <b>ABGR</b>, packed as {@code 0xAABBGGRR}, which is the order Minecraft's
  * {@code NativeImage.setPixelRGBA} expects despite its name. Java hands out ARGB, so red and
  * blue are swapped on the way through - getting that backwards produces art that looks

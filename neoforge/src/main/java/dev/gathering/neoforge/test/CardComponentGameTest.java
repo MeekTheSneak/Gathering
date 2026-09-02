@@ -22,7 +22,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * In-world checks for the card pipeline's one piece of game state.
- *
  * <p>A card item is a pointer to a printing, and the entire mod is built on that pointer
  * surviving everything the game does to an item stack. These tests run against a real
  * registry in a real server, which is the only place a codec registered wrongly actually

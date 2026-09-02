@@ -8,24 +8,20 @@ import net.minecraft.core.BlockPos;
 
 /**
  * The boards this client has been told about, by table.
- *
  * <p>More than one, because a player sits at one table and can see several: the table you are
  * playing at sends you your own view, and every table in sight sends you the public one for
  * the miniature on its surface. Keyed by table so those cannot be confused for each other -
  * the seated view and the spectator view of the same game are different objects and only one
  * of them has your hand in it.
- *
  * <p>Each is replaced wholesale rather than patched. The server decides what this client may
  * know; a client that merged updates into a board it was keeping would eventually hold
  * something it was told once and is no longer entitled to.
- *
  * <p>Client-only.
  */
 public final class ClientTableState {
 
     /**
      * How many tables a client remembers at once.
-     *
      * <p>A shop full of tables is the case this is for, and forgetting the oldest is the right
      * failure: a miniature that stops updating is a table you walked away from.
      */
@@ -35,7 +31,6 @@ public final class ClientTableState {
 
     /**
      * What is in each table's pot.
-     *
      * <p>Beside the board rather than inside it, exactly as it is on the server: the board is
      * a view built for one pair of eyes and the pot is face up to the room, so it is not
      * something the visibility rules have an opinion about.
@@ -51,7 +46,6 @@ public final class ClientTableState {
 
     /**
      * Takes a board off the wire and, if asked, sits the player down at it.
-     *
      * <p>Here rather than in each loader's network glue, where it lived twice: eighteen
      * identical lines, comments included, that would have drifted the first time only one
      * copy learned something.
@@ -119,7 +113,6 @@ public final class ClientTableState {
 
     /**
      * The seat this client holds at a table, if any.
-     *
      * <p>Comes from the view the server sent, not from anything the client decided: the
      * viewer stamped on a {@code GameView} is the only account of who this client is that
      * the server would agree with.

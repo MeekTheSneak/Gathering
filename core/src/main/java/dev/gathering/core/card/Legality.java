@@ -4,7 +4,6 @@ import java.util.Locale;
 
 /**
  * A card's status in one format, as Scryfall reports it.
- *
  * <p>This feeds the pre-game deck check and nothing else. Once a session starts the mod
  * never consults it again - there is no in-game legality enforcement, ever.
  */

@@ -19,13 +19,11 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * How much of each set is in a collection.
- *
  * <p>The question a binder cannot answer by being looked at, and the one that makes the next
  * pack worth opening. Worked out here rather than on the client for the reason every other
  * collection answer is: the cards are here, the card details are here, and what a set is comes
  * from Scryfall's own list of them - none of which is worth sending ten thousand rows to a
  * screen showing forty.
- *
  * <p><b>What it does about cards it cannot name.</b> A collection stores printings, not card
  * details, so working out which set a card belongs to means looking it up. Almost always it is
  * already known - a card got into a collection by being opened, bought or granted, and every
@@ -34,14 +32,12 @@ import net.minecraft.server.level.ServerPlayer;
  * number somebody opened it for. So the count of what could not be named is sent with the
  * answer and said out loud, and those cards are looked up in the background - so the same
  * screen opened again is right.
- *
  * <p>Server thread only, except the lookups it starts.
  */
 public final class CollectionSets {
 
     /**
      * At most one of these per player per second.
-     *
      * <p>Heavier than a search: a pass over every card in the collection, a cache read each,
      * and a sort. It is a button somebody presses, not something a screen polls, so a second
      * is generous - and the guard is here because a payload arrives whenever a client likes.
@@ -124,17 +120,14 @@ public final class CollectionSets {
 
     /**
      * Which cards of one set this collection has not got.
-     *
      * <p>The click behind the number. Everything about it is the same shape as the count
      * above: the collection is here, the card details are here, and what a set contains is a
      * fetch from Scryfall - so the subtraction happens here and a list goes back.
-     *
      * <p><b>The set code came off a socket.</b> It is the one string in this file that sends
      * the server looking something up, so it is checked against the sets the server already
      * knows before anything is fetched. A code nothing recognizes is answered with silence
      * rather than with a request to Scryfall: otherwise a client could walk an alphabet
      * through somebody else's bandwidth.
-     *
      * <p>Server thread only, except the lookup it starts.
      */
     public static void missing(ServerPlayer player, BlockPos where, String setCode) {
@@ -179,7 +172,6 @@ public final class CollectionSets {
 
     /**
      * The cards this collection holds that carry one set's code.
-     *
      * <p>Only the ones the server can name: a card it has never looked up has no set code to
      * match on. That is the same softness the count above has, and it is said out loud there
      * - which is the screen this one is opened from, so somebody who sees a list that looks
@@ -200,7 +192,6 @@ public final class CollectionSets {
 
     /**
      * How many unknown cards one press will go and look up.
-     *
      * <p>Scryfall takes seventy-five to a request and asks for ten a second, so this is about
      * four requests: enough that a collection with a handful of strangers in it is right the
      * second time it is asked, and few enough that one press cannot become a minute of

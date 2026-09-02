@@ -12,11 +12,9 @@ import org.joml.Vector3f;
 
 /**
  * What the mouse is pointing at, once the table is a thing in the world.
- *
  * <p>On the seated screen the cursor was already in the same space as the felt. Playing on the
  * block means it is not: the pointer is a position on a window and the table is a plane in a
  * world, and getting from one to the other means running the game's own camera backwards.
- *
  * <p><b>The matrices are the ones the game actually drew with, captured while it drew.</b>
  * Rebuilding them from the field of view instead is the obvious approach and it is wrong in a
  * way that would be very hard to find: the effective field of view is not the setting, it is
@@ -24,7 +22,6 @@ import org.joml.Vector3f;
  * player under Speed would find every card sitting a little to one side of where they were
  * pointing, and only that player, and only sometimes. Reading the real projection costs a
  * field and cannot drift.
- *
  * <p>Client-only.
  */
 public final class TablePointer {
@@ -41,7 +38,6 @@ public final class TablePointer {
 
     /**
      * Remembers how this frame was drawn.
-     *
      * <p>Called from the thing that draws the board, because that runs inside the world render
      * with the projection still set - which is the only moment any of this is true.
      */
@@ -58,7 +54,6 @@ public final class TablePointer {
 
     /**
      * How many blocks of table one block of eye height shows, top to bottom of the window.
-     *
      * <p>Read off the projection the game actually drew with, for the same reason the picker
      * is: the effective field of view is the setting through a private method, a sprint
      * modifier, a potion and a loader hook, and a camera that framed the table from the
@@ -75,7 +70,6 @@ public final class TablePointer {
 
     /**
      * How much wider than tall the drawn frame is, by the same reading.
-     *
      * <p>The window's own ratio in every ordinary case, and read from the projection anyway
      * so that the two halves of a framing decision come from one place.
      */
@@ -87,12 +81,10 @@ public final class TablePointer {
 
     /**
      * Where a place on the felt lands on the window, which is the picker run forwards.
-     *
      * <p>The one way to ask how big the in-world board is actually drawn. Everything else
      * about it is measured in surface units, which say where a mat is on the felt and nothing
      * at all about whether a player can read it - and "the board on the block is smaller than
      * the same board on the screen" is a complaint about pixels.
-     *
      * <p>In GUI coordinates, the same ones a mouse arrives in, so a caller can compare what
      * it gets back against a rectangle on the seated board without converting anything.
      * Empty when the point is behind the eye or no frame has been drawn yet.
@@ -132,7 +124,6 @@ public final class TablePointer {
 
     /**
      * Where a point on the screen meets a table's surface, if it meets it.
-     *
      * <p>Mouse coordinates are the GUI's, which are the window's divided by the GUI scale, so
      * they are turned into a fraction of the screen first and the framebuffer's own size used
      * from there. Mixing the two is how a picker ends up right at one GUI scale and off at

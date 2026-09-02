@@ -7,11 +7,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: flip a coin where everyone can see it.
- *
  * <p>Its own verb rather than a two-sided die, because Magic's own words are heads and tails.
  * A card says "flip a coin" and Krark's Thumb cares which one you did, so a log line reading
  * "rolled a 1" would be true and useless.
- *
  * <p>The side is the server's to decide, for the same reason a die's number is.
  */
 public record FlipCoinPayload(BlockPos table) implements CustomPacketPayload {

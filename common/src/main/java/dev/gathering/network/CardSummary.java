@@ -15,11 +15,9 @@ import net.minecraft.network.codec.StreamCodec;
 
 /**
  * The display metadata for one printing, as it travels to a client entitled to see it.
- *
  * <p>Card identity crosses the network as a UUID and this. A client is sent one of these
  * only for cards the visibility rules entitle it to; the payload set a client receives is
  * exactly the set it is allowed to know, which is why a modified client learns nothing.
- *
  * <p>Rarity travels with it because rarity is printed on the card. It is not hidden
  * information about a card a client already holds - a client that can read the name and the
  * type line can read the little symbol too - and two things need it: a collection sorted by
@@ -31,7 +29,6 @@ public record CardSummary(
 
     /**
      * The same card with nothing listed under it.
-     *
      * <p>Most printings make no token, and every test that builds a summary by hand predates
      * the field, so the shorter form stays the one most callers write.
      */
@@ -43,7 +40,6 @@ public record CardSummary(
 
     /**
      * How a rarity crosses the wire, written once.
-     *
      * <p>An ordinal, because {@link Rarity} is in the pure core and the pure core has no
      * Minecraft on its classpath to carry a codec of its own. A number out of range reads as
      * {@link Rarity#UNKNOWN} rather than throwing: this comes off a socket, and a card whose
@@ -65,7 +61,6 @@ public record CardSummary(
 
     /**
      * How many tokens one card is allowed to say it makes.
-     *
      * <p>The real maximum on a printed card is small; this is the wire's limit, not Magic's,
      * and it exists because the count is read off a socket before anything is allocated.
      */
@@ -76,7 +71,6 @@ public record CardSummary(
 
     /**
      * Written out by hand rather than composed, for the reason {@link CardFaceSummary}'s is.
-     *
      * <p>Eight components and {@link StreamCodec#composite} stops at six. The order below is
      * the record's own, top to bottom, which is the only thing to keep right.
      */
@@ -186,7 +180,6 @@ public record CardSummary(
 
     /**
      * The one side to draw, given which way up the card is sitting.
-     *
      * <p>A card lies on a table with one side up. A transform card has two printed sides and
      * shows whichever is up; a split or flip card has two faces of rules text on one piece of
      * card and shows that one piece whichever way it is read. Drawing every printed side at
@@ -211,7 +204,6 @@ public record CardSummary(
 
     /**
      * The sides that are actually printed, which is what gets drawn.
-     *
      * <p>Not the same as {@link #faces()}. A split or flip card has two faces of rules text
      * on one piece of card, and drawing one image per face shows the same picture twice; a
      * transform card has two of everything. The difference is whether the faces carry their

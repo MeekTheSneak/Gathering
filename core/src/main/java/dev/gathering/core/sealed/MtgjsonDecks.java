@@ -13,15 +13,12 @@ import java.util.UUID;
 
 /**
  * The decks a set publishes, read out of its own file.
- *
  * <p>Every product that comes with a deck names it, and the deck itself is listed further
  * down the same file - which is what makes it possible to sell somebody a Commander precon
  * and hand them the hundred cards rather than the box it came in.
- *
  * <p>A card the bridge cannot turn into a Scryfall printing is left out and counted, the same
  * way collation does it: a deck ninety-nine cards long is a deck, and a deck nobody can build
  * because one card of it has no id is not.
- *
  * <p>Pure.
  */
 public final class MtgjsonDecks {

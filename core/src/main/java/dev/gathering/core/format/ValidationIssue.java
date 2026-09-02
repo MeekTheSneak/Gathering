@@ -2,7 +2,6 @@ package dev.gathering.core.format;
 
 /**
  * Something the deck check found.
- *
  * <p>Severity matters because the server config decides what to do about a failure: block
  * the game, or warn and let the table owner override. A validator that only said yes or no
  * would make that config impossible.

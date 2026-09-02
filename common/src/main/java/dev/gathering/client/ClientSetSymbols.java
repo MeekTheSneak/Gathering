@@ -30,20 +30,16 @@ import org.slf4j.LoggerFactory;
 /**
  * Set symbols, fetched by this client from Scryfall and drawn at whatever size and color a
  * pack needs.
- *
  * <p>The same architecture as card art next door and for the same reason: the mod ships no
  * pictures of any set, never relays them over its own network, and never asks a server for
  * one. Every client goes and gets the symbol itself.
- *
  * <p>Two things are different from card art, and both make this simpler. A symbol is shapes
  * rather than pixels, so one download serves every size: what is kept is the outline, and a
  * texture is drawn from it whenever a size or a color is first wanted. And there are a
  * handful of sets in play at once rather than hundreds of cards, so nothing here needs an
  * eviction policy that card art cannot do without.
- *
  * <p>Never fetches, reads or rasterizes on the render thread. Only the upload comes back to
  * the client thread, because that is where a texture may be registered.
- *
  * <p>Client-only. Nothing on a server may reference this class.
  */
 public final class ClientSetSymbols {
@@ -72,7 +68,6 @@ public final class ClientSetSymbols {
 
     /**
      * Textures already drawn, by set, color and size. Client thread only.
-     *
      * <p>Bounded, and thrown away whole rather than one at a time when it fills. A symbol is
      * a few kilobytes and there are a handful in play, so this is a backstop against a
      * session that wanders through hundreds of sets rather than a working eviction policy -
@@ -106,7 +101,6 @@ public final class ClientSetSymbols {
 
     /**
      * The symbol for a set, in this color and this many pixels across, if it is ready.
-     *
      * <p>Returns empty and starts fetching otherwise, so a caller draws a plain wrapper this
      * frame and a wrapper with a symbol on it a moment later. Never blocks.
      *

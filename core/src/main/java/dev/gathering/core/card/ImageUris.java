@@ -4,11 +4,9 @@ import java.util.Optional;
 
 /**
  * The image tiers Scryfall publishes for one card face.
- *
  * <p>The mod ships zero card images and never relays image bytes over its own network.
  * Each client fetches from these URIs itself and keeps its own disk cache; card identity
  * travels as a UUID and these strings travel as display metadata.
- *
  * <p>Two tiers are actually used: {@code small} for the in-world table miniatures and
  * {@code normal} for the zoom overlay and the seated GUI.
  */

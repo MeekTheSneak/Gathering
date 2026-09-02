@@ -8,32 +8,26 @@ import java.util.UUID;
 
 /**
  * The cards somebody is chasing.
- *
  * <p>A collection screen says what is in a box and {@link SetCompletion} says how much of a set
  * is, but neither answers the question a collector actually carries around: which of the
  * thousands of cards that exist do <em>I</em> want. Without somewhere to write that down, a
  * list of three hundred and seventy-two missing cards is something to read once and forget,
  * and a pack opened a week later is a pile of names nobody recognizes.
- *
  * <p><b>Printings, not names.</b> This grew out of set completion, where the thing being chased
  * is a particular printing - the Duskmourn one, not any Lightning Bolt. Finish is deliberately
  * not part of it: a foil and a plain copy of one printing fill the same slot in a set, so
  * wanting one is wanting either, which is the rule {@link SetCompletion} already counts by.
- *
  * <p>Ordered by when each was added, because it is a list somebody works down and a set that
  * reshuffled itself every restart would be a different list every time it was opened.
- *
  * <p>Immutable, and bounded: this comes off a socket one entry at a time and is written to
  * disk, so there is a number past which it stops being a list of cards to find and starts
  * being a way to fill somebody's disk.
- *
  * <p>Pure.
  */
 public record WantsList(List<UUID> printings) {
 
     /**
      * How many cards one player may be chasing.
-     *
      * <p>Comfortably more than the largest set ever printed, so somebody can want a whole set
      * and then some, and far short of a number that costs anything to hold or to send.
      */
@@ -73,7 +67,6 @@ public record WantsList(List<UUID> printings) {
 
     /**
      * The same list with this card on it, or the same list.
-     *
      * <p>Adding one already on it changes nothing rather than moving it to the end: the order
      * is when somebody first wanted a card, and a second press should not reorder the list
      * under them.

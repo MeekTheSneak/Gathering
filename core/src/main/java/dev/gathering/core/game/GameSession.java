@@ -11,7 +11,6 @@ import java.util.Set;
 
 /**
  * One game at one table: the authoritative state object.
- *
  * <p>Event-sourced. Every verb is an event, the board is the fold of the standing events,
  * and the log is append-only. Three things the design brief asks for therefore did not have
  * to be built at all - they are consequences of that one decision:
@@ -23,10 +22,8 @@ import java.util.Set;
  *   <li><b>Persistence</b> is the same two things, which is why a session survives a chunk
  *       unload and a server restart without a bespoke save format.</li>
  * </ul>
- *
  * <p>Mutable at the edges, immutable at the center: this object holds a growing log and a
  * cached {@link GameState}, and the state itself is a value that is never modified.
- *
  * <p>Not thread-safe, and not meant to be. A session belongs to the server thread; the card
  * pipeline's I/O happens elsewhere and arrives as events.
  */
@@ -38,7 +35,6 @@ public final class GameSession {
 
     /**
      * The public log, built as events arrive.
-     *
      * <p>Built here rather than derived on demand because each line has to be described
      * against the board <em>as it was before its own event</em> - "Chris moved Sol Ring to the
      * graveyard" needs the Sol Ring to still be on the battlefield to be nameable - and that
@@ -72,11 +68,9 @@ public final class GameSession {
 
     /**
      * A session put back together from a stored log.
-     *
      * <p>Nothing is re-run and nothing is re-authorized: the log is what happened, and the
      * board is folded from it exactly as it was. Re-authorizing would be worse than
      * pointless, because the state each decision was made against is gone.
-     *
      * <p>The next sequence number continues past the highest one restored rather than from
      * the count, so a log that has had entries undone does not hand out a number twice.
      */
@@ -105,17 +99,14 @@ public final class GameSession {
 
     /**
      * Applies more of a stored log to a session already folded from the front of it.
-     *
      * <p>For watching a game back. A replay's frame is the board at step N, and the board at
      * step N is the board at step N-1 with one more record on it - so stepping forward costs
      * one event rather than a fold of the whole game, which at four frames a second is the
      * difference between a watcher costing a server nothing and costing it a third of a tick.
-     *
      * <p>Exact rather than approximate, because a stored record already carries whether it is
      * still standing: an undo was resolved when the game was played, and nothing here has to
      * decide it again. Folding forward past these is the same walk {@link #restore} makes,
      * stopped earlier and continued.
-     *
      * <p>Only ever the records that follow the ones already applied, in order. Nothing checks
      * that, because the only caller is a replay reading its own file front to back.
      */
@@ -145,7 +136,6 @@ public final class GameSession {
 
     /**
      * Runs a verb.
-     *
      * <p>Rejection means the action was not permitted - which, per {@link Authorization},
      * means it would have revealed hidden information to the actor - or that it named a card
      * or seat this session no longer has, which is what a lagged click on a just-removed
@@ -179,7 +169,6 @@ public final class GameSession {
 
     /**
      * What the rules make of rewinding the last {@code actionCount} standing events.
-     *
      * <p>Asked separately from performing it so a table can be shown "this needs everyone to
      * agree" before anybody commits to anything.
      */
@@ -280,7 +269,6 @@ public final class GameSession {
 
     /**
      * The public log, oldest first, rewound entries included and marked as such.
-     *
      * <p>Rewound lines stay. A log that quietly loses entries when somebody undoes something
      * is not a record of what happened, and "what happened" is the entire job.
      */
@@ -296,11 +284,9 @@ public final class GameSession {
 
     /**
      * Writes the log again and hands back the board it walked past on the way.
-     *
      * <p>The log is rewritten only after a rewind, and only because a line describes the board
      * before its own event: undoing something in the middle changes what every later line was
      * describing.
-     *
      * <p>One walk rather than two. Describing a line needs the board as it was before its own
      * event, so this fold has to happen anyway - and every caller that rebuilds the log also
      * wants the state, which used to mean folding the whole game twice. A restored session of
@@ -334,7 +320,6 @@ public final class GameSession {
 
     /**
      * Recomputes the board from the log.
-     *
      * <p>Called after every undo, and cheap enough to call whenever a doubt arises: a few
      * hundred cards folded over a few thousand events is milliseconds. If this ever disagrees
      * with the incremental state, the incremental state is the one that is wrong.
@@ -358,7 +343,6 @@ public final class GameSession {
 
     /**
      * Where those records are, oldest first.
-     *
      * <p>Positions rather than the records themselves, for the one caller that has to write
      * them back: it looked each one up again with {@code indexOf}, which walks the whole
      * record from the front - so undoing ten actions of a four-thousand-event game was ten

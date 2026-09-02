@@ -14,7 +14,6 @@ import java.util.Map;
 
 /**
  * Turns the authoritative board into what one viewer is entitled to see.
- *
  * <p>This class is the mod's single security property, and everything about it is arranged
  * so that the property is structural rather than remembered:
  *
@@ -30,14 +29,12 @@ import java.util.Map;
  *   <tr><td>Exile, face down</td><td>full</td><td>marker</td><td>marker</td></tr>
  *   <tr><td>Command zone</td><td>full</td><td>full</td><td>full</td></tr>
  * </table>
- *
  * <p>Note that a library is count-only <em>even for its owner</em>. Knowing the order of
  * your own library is not a thing you are entitled to; looking at it is a scry or a search,
  * which are events, which the log announces, and which open that library to exactly one seat
  * until something closes it again. So the one exception to the row above is stated by the
  * board itself - {@link GameState#openCardsOf} - rather than by whichever screen happens to
  * be showing a library at the time.
- *
  * <p>A face-down card is read by its <b>owner</b>, not by whoever currently controls it. That
  * is the conservative reading of the table above, and it is conservative on purpose: if a
  * group decides the controller ought to be able to read a stolen face-down permanent, they
@@ -55,7 +52,6 @@ public final class VisibilityRules {
 
     /**
      * A view with the public log attached.
-     *
      * <p>The same log for every viewer, which is the point of it: the log is what everybody
      * agrees happened. It is safe to send unfiltered because {@link CardRef} has already
      * decided how strongly each line may name a card, against the board at the time - a line
@@ -72,7 +68,6 @@ public final class VisibilityRules {
 
     /**
      * Every seated view plus the spectator view, for tests and for broadcast.
-     *
      * <p><b>Never a historian.</b> This is what the invariant suites walk, and what a live
      * table hands out; a viewer entitled to hidden information has no business in either. The
      * omission is the enforcement - see {@link Viewer.Historian}.

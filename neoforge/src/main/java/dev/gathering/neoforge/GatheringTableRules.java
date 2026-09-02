@@ -9,7 +9,6 @@ import net.neoforged.neoforge.event.level.BlockEvent;
 /**
  * Refuses breaks the mod does not allow: a table with somebody sitting at it, a collection
  * belonging to somebody who has not shared it.
- *
  * <p>A block cannot decline to be broken in vanilla - by the time the block itself hears
  * about it the decision has been made - so this is the loader's break event, which is the
  * one place the answer can still be no. What is refused is decided in {@link BreakRules},

@@ -6,7 +6,6 @@ import java.util.Optional;
 /**
  * Answers "what is this card called?" from whatever metadata the current side happens to
  * hold.
- *
  * <p>A card item is a pointer, so its display name is not stored on it. The server resolves
  * names from its own cache; a client resolves them from the metadata it has been sent and
  * the art it has fetched. Neither side is authoritative for the other, and a client that has

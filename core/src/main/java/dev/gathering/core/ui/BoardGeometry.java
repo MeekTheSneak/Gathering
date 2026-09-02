@@ -7,17 +7,14 @@ import java.util.List;
 
 /**
  * Everything the seated view needs to turn a card's position into a rectangle, and back.
- *
  * <p>Two steps, and both of them already exist: {@link TableSurface} says where a seat's mat is
  * on the shared table and where a position on that mat lands, and {@link TableCamera} says
  * which part of the table is on screen. This is the pair of them held together, so that
  * drawing a card and working out what the cursor is over cannot go through different
  * arithmetic.
- *
  * <p>Mutable, unlike everything under it. The camera changes several times a second while
  * somebody pans, and threading a new one back through the screen on every scroll wheel tick
  * would be ceremony around a field.
- *
  * <p>Pure: no Minecraft in here, which is what lets the round trip between a card's position
  * and its rectangle be tested directly rather than looked at.
  */
@@ -30,7 +27,6 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * Whether the viewer is one of the players sitting at the far side of the surface.
-     *
      * <p>Held here so that every camera this class builds carries it: a view that forgot which
      * chair it was for would be right until the first pan and wrong afterwards.
      */
@@ -38,7 +34,6 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * How much of the screen something else is sitting on, top and bottom.
-     *
      * <p>The hand along the bottom and the life totals along the top. The felt runs under both
      * - a table that stopped where your cards begin would have a strip you could see across
      * and never put anything on - but framing the board has to leave them out, or the first
@@ -51,7 +46,6 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * How far the opening view leans off your own board toward the middle of the table.
-     *
      * <p>Enough to keep the near edge of the board opposite in view, not enough to push your
      * own zones off the bottom. A quarter of the way is the most that holds both.
      */
@@ -78,7 +72,6 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * Takes a new table shape without moving the view.
-     *
      * <p>Somebody sitting down adds a mat and rearranges the rest. Resetting the camera then
      * would yank the table out from under whoever was mid-turn, so the view stays where it is.
      */
@@ -121,12 +114,10 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * The view a player starts at: their own board, as large as the window allows.
-     *
      * <p>Not the whole table. Fitting everything in sounds like the friendly default and plays
      * terribly - a two-seat table squeezed into a short window draws a card twenty-seven pixels
      * wide, which is a colored smudge, while the same card in the player's hand is ninety. You
      * cannot play on a board you cannot read, and the board you need to read is your own.
-     *
      * <p>So: fitted across the width, which is the dimension a widescreen window has to spare,
      * and centered on this seat's own mat. The opponent's board is still there, just above or
      * below - and Home still steps back to show all of it.
@@ -174,7 +165,6 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * Which chair this view belongs to.
-     *
      * <p>Called before anything is framed, because turning the surface around changes what
      * "up" means and every rectangle after it. A spectator is not sitting anywhere, so they
      * get the table the way it is laid out, which is also what an empty seat gets.
@@ -194,7 +184,6 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * What this geometry is currently doing, for the scripted run to write down.
-     *
      * <p>Diagnostic. The two views are supposed to frame the same table the same size, and
      * the only way to tell whether they do is to read the numbers off both at once.
      */
@@ -213,13 +202,11 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * The viewport the camera is told about vertically, which is not the window.
-     *
      * <p>A camera puts what it is centered on in the middle of the viewport it is handed. The
      * middle of the <em>window</em> is the wrong place: there is a status row across the top
      * and a hand across the bottom, and the middle of what is left is lower than the middle of
      * the window by half the difference. Handing over a viewport whose midpoint is the strip's
      * midpoint puts it in the right place with no arithmetic anywhere else.
-     *
      * <p>Done here rather than baked into the camera as a pan, which is what it used to be.
      * A pan is a number of pixels at a scale, so a window that changed size afterwards kept
      * the old offset and the board drifted off the middle of the new strip - which is exactly
@@ -261,11 +248,9 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * How big a card is drawn, which depends on whose mat it is on.
-     *
      * <p>A mat is a fraction of the table and a card is a fraction of a mat, so a table with
      * eight seats draws smaller cards than one with two - exactly as a real one would, and for
      * the same reason.
-     *
      * <p>The rule itself lives on {@link TableSurface}, because the table in the world draws
      * this same board and two answers to how big a card is would be two different boards.
      */
@@ -281,7 +266,6 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * Turning the coordinates turns where things are, not which way up they are drawn.
-     *
      * <p>So the viewer's own half turn goes on top of the seat's: a card on your own mat is
      * laid out facing you and then drawn from your chair, which is two half turns and no turn
      * at all, and one on the mat opposite is laid out facing away and comes out upside down.
@@ -365,7 +349,6 @@ public final class BoardGeometry implements BoardPlacement {
 
     /**
      * A rectangle on the surface, as a rectangle on the screen.
-     *
      * <p>Both corners are mapped and then sorted, because a view seen from the far side of the
      * table maps the low corner to the high one: taking the first as the origin and
      * subtracting gave a rectangle with negative width, which draws as nothing and contains no

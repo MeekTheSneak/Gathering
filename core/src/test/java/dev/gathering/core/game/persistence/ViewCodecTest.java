@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The board as it crosses the wire.
- *
  * <p>Two things have to hold, and the second is the one that matters. A view has to survive
  * the round trip unchanged, or clients draw a board nobody is playing on. And it has to
  * survive it <em>without gaining anything</em>: a codec that turned a count-only zone into a

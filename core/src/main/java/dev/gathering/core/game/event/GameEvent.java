@@ -16,25 +16,14 @@ import java.util.Optional;
 
 /**
  * Every verb in the game, as data.
- *
  * <p>The session is event-sourced: each of these is appended to the log and the board is the
  * fold of that log. Undo is a re-fold, replay is a re-fold, and persistence is the log plus
- * the seed. None of those three needed to be designed - they fall out of this being the only
- * way state ever changes.
- *
- * <p>The set is section 7's deliberately trimmed v1 list, plus what has since earned its
- * way in. Dice and coin flips were on the deferred list and came off it: Magic asks for a
- * d20 across half of Adventures in the Forgotten Realms and for a coin as far back as
- * Krark's Thumb, so a table without them sends players to a physical die and loses the one
- * thing this mod is for, which is everybody watching the same thing happen.
- *
- * <p>The monarch and the initiative came off it too, and not as themselves. Both are table
- * states tracked at a real table by putting something down and writing on it, and so is the
- * ring tempting you, and so will be whatever the set after this one invents - so what came
- * off the list is {@link PaperCardCreated}, blank stock and a pen, which is never one set
- * behind. A shared reveal area and clone markers distinct from copy-tokens are still waiting
- * for the same kind of evidence.
- *
+ * the seed - none of the three had to be designed.
+ * <p>Section 7's trimmed v1 list, plus what has earned its way in since. Dice and coins came
+ * off the deferred list because a table without them sends players to a physical die, which
+ * loses the one thing the mod is for: everybody watching the same thing happen. The monarch
+ * and the initiative came off it as {@link PaperCardCreated} rather than as themselves -
+ * blank stock and a pen tracks every table state a set invents and is never one behind.
  * <p>Nothing here enforces a rule. There is no event for "this is illegal" because there is
  * no such concept: the mod moves cards, tracks numbers and shows things, and the group
  * decides what any of it means.
@@ -46,7 +35,6 @@ public sealed interface GameEvent {
 
     /**
      * The public log entry, built against the board as it was before this event.
-     *
      * <p>Takes the state because whether a card may be named at all depends on where it is -
      * see {@link CardRef}. Never contains hidden card identity, and never a raw instance id
      * for a card somebody cannot already see.
@@ -60,12 +48,9 @@ public sealed interface GameEvent {
 
     /**
      * Whether this event let somebody see something they had not seen.
-     *
-     * <p>Undo can never cross one of these freely, in any undo mode, because a seen card
-     * cannot be un-seen. Rewinding past an information boundary always escalates to
-     * unanimous consent.
-     *
-     * <p>Takes the state before the event because some events only reveal depending on the
+     * <p>Undo can never cross one freely, in any mode: a seen card cannot be un-seen, so
+     * rewinding past an information boundary always escalates to unanimous consent.
+     * <p>Takes the state before the event, because whether one reveals can depend on the
      * board - moving a card out of a hand reveals it, moving it within the battlefield does
      * not.
      */
@@ -93,7 +78,6 @@ public sealed interface GameEvent {
 
     /**
      * A deck arriving at the table: the library in decklist order and any commanders.
-     *
      * <p>Secret, and the most secret thing in the log after the seed itself. The library's
      * order at this moment plus the seed determines every draw in the game.
      */
@@ -138,7 +122,6 @@ public sealed interface GameEvent {
 
     /**
      * Moving a card anywhere.
-     *
      * <p>One event covers play-to-battlefield, send-to-graveyard, exile, bounce to hand, put
      * on top or bottom of library, and dragging a stolen creature to your own side of the
      * table. They are all the same act and modeling them separately would only invite them
@@ -177,16 +160,11 @@ public sealed interface GameEvent {
 
     /**
      * Moving every card in one zone somewhere else, in the order they were in.
-     *
-     * <p>The whole graveyard back into the library, a hand discarded, a library dumped. Its
-     * own verb rather than a run of {@link CardMoved} for the same reason milling is: nobody
-     * may name the cards in a hidden zone, so a client that had to list them could not ask
-     * for this at all - and a run of moves would also fill the log with forty lines and give
-     * undo forty steps to walk back through what was one decision.
-     *
-     * <p>Order is kept. The cards arrive in the destination in the order they left, so a
-     * graveyard put back on top of a library is the graveyard, not a shuffle of it - the
-     * shuffle is a separate thing somebody asks for separately.
+     * <p>Its own verb rather than a run of {@link CardMoved}, for the reason milling is:
+     * nobody may name the cards in a hidden zone, so a client that had to list them could not
+     * ask at all - and forty moves is forty log lines and forty undo steps for one decision.
+     * <p>Order is kept, so a graveyard put back on a library is the graveyard rather than a
+     * shuffle of it. The shuffle is asked for separately.
      */
     record ZoneMoved(SeatId actor, SeatId seat, Zone from, ZoneRef to, Placement placement)
             implements GameEvent {
@@ -230,14 +208,10 @@ public sealed interface GameEvent {
 
     /**
      * Writing on a card, or rubbing out what was written.
-     *
-     * <p>The pen at a real table. A mod with no rules engine remembers "flying until end of
-     * turn" by somebody writing it on the card, and the whole table reading it is the point -
-     * so this is a public event like every other, attributed by name in the log and taken
-     * back by undo like anything else.
-     *
-     * <p>The text is a player's, so it is nobody's secret and reveals nothing the table did
-     * not already have: what it says is whatever the person holding the pen decided to say.
+     * <p>The pen at a real table: a mod with no rules engine remembers "flying until end of
+     * turn" by somebody writing it on the card, and the whole table reading it is the point.
+     * Public like every other event, attributed in the log and taken back by undo.
+     * <p>The text is a player's, so it reveals nothing the table did not already have.
      */
     record CardNoted(SeatId actor, CardInstanceId card, String note) implements GameEvent {
 
@@ -261,13 +235,10 @@ public sealed interface GameEvent {
 
     /**
      * Writing a power and toughness over the printed ones, or taking the writing off.
-     *
-     * <p>The same pen as {@link CardNoted}, in the corner of the card where the numbers are.
-     * A separate event rather than a note that happens to look like numbers, because the two
-     * are drawn in different places and a reminder that reads "4/5" is a reminder, not a
-     * creature that is a 4/5.
-     *
-     * <p>Typed, never worked out. Nothing in the mod adds counters to printed numbers - see
+     * <p>The same pen as {@link CardNoted}, in the corner where the numbers are. Its own event
+     * rather than a note that looks like numbers: the two are drawn in different places, and a
+     * reminder reading "4/5" is a reminder, not a creature that is a 4/5.
+     * <p>Typed, never worked out. Nothing adds counters to printed numbers - see
      * {@link dev.gathering.core.game.CardStrength} for why that is deliberate.
      */
     record CardStrengthSet(SeatId actor, CardInstanceId card, String strength) implements GameEvent {
@@ -293,17 +264,12 @@ public sealed interface GameEvent {
 
     /**
      * Putting a hand in a different order.
-     *
-     * <p>Cosmetic and private, and it is still an event. A hand's order is what the fan on
-     * screen is drawn from, so a client that reordered its own display would be a second
-     * answer to where a card is - and the first time somebody drew a card, or rejoined, the
-     * two answers would differ.
-     *
-     * <p>The order arrives from the client because sorting by mana value needs the card data,
-     * and the client is what has it. Nothing is given away: it is your own hand, nobody else
-     * can see into it, and the server keeps only the cards that are really in it - see the
-     * fold, which drops anything named that is not there and keeps anything there that was
-     * not named.
+     * <p>Cosmetic and private, and still an event: the fan on screen is drawn from the hand's
+     * order, so a client reordering its own display is a second answer to where a card is, and
+     * the two diverge the first time somebody draws or rejoins.
+     * <p>The order arrives from the client because sorting by mana value needs card data.
+     * Nothing is given away - it is your own hand, and the fold keeps only the cards really in
+     * it, dropping anything named that is not there and keeping anything there that was not.
      */
     record HandSorted(SeatId actor, SeatId seat, List<CardInstanceId> order) implements GameEvent {
 
@@ -319,15 +285,9 @@ public sealed interface GameEvent {
 
     /**
      * Freezing a card, or thawing it.
-     *
-     * <p>A frozen card does not untap when its controller untaps everything. Nothing else
-     * about it changes: it taps, takes counters, gets written on and goes to a graveyard like
-     * any other card.
-     *
-     * <p>It is on the card rather than in somebody's head because untapping is one press,
-     * made every turn without looking, and that is the press that forgets. An effect that
-     * costs a card to play should not be undone by a habit.
-     *
+     * <p>A frozen card does not untap when its controller untaps everything; nothing else
+     * about it changes. On the card rather than in somebody's head because untapping is one
+     * press made every turn without looking, and that is the press that forgets.
      * <p>Nothing decides when it ends. A player takes it off with the same menu they put it
      * on with - no rules engine, section 16.
      */
@@ -342,16 +302,12 @@ public sealed interface GameEvent {
 
     /**
      * Turning a card to its other printed face, or back.
-     *
-     * <p>Not the same as turning it face down. A transformed permanent is public on both
-     * sides - everybody at the table can read the werewolf and the wolf - and a face-down one
-     * is a sleeve nobody may name. Keeping them apart is what lets a card be both: turn a
-     * transformed creature face down for a trick and it comes back up transformed, the way it
-     * would on a real table.
-     *
-     * <p>Whether the card has a second face at all is not asked here. That is a fact about a
-     * printing and lives in the card data a client holds, not in the game - so the game
-     * records which side is being shown and the drawing decides what that means.
+     * <p>Not the same as turning it face down: a transformed permanent is public on both
+     * sides, a face-down one is a sleeve nobody may name. Keeping them apart lets a card be
+     * both - turn a transformed creature face down for a trick and it comes back transformed.
+     * <p>Whether the card has a second face is not asked here. That is a fact about a printing
+     * and lives in the client's card data, so the game records which side is shown and the
+     * drawing decides what that means.
      */
     record CardTurnedOver(SeatId actor, CardInstanceId card, boolean showingTheOtherSide)
             implements GameEvent {
@@ -374,15 +330,11 @@ public sealed interface GameEvent {
 
     /**
      * Turning a card on the table to any angle.
-     *
-     * <p>Distinct from {@link CardTapSet} even though both end up as an angle on screen.
-     * Tapping is a game state with a meaning everyone at the table agrees on; turning a card
-     * sideways to show it is attacking, or upside down to show you have read it, means
-     * whatever the group says it means. Keeping them apart is what lets the log say "turned"
-     * rather than "moved", and lets untap-all leave a deliberately angled card alone.
-     *
-     * <p>The angle is absolute rather than a delta, because two clicks racing each other
-     * should land on one angle rather than compounding.
+     * <p>Distinct from {@link CardTapSet} though both end as an angle. Tapping is a state the
+     * table agrees on; turning a card to show it is attacking means whatever the group says.
+     * Apart, the log can say "turned" and untap-all leaves a deliberately angled card alone.
+     * <p>Absolute rather than a delta, so two clicks racing each other land on one angle
+     * rather than compounding.
      */
     record CardRotated(SeatId actor, CardInstanceId card, int rotation) implements GameEvent {
         @Override
@@ -393,13 +345,9 @@ public sealed interface GameEvent {
 
     /**
      * Putting a card onto another one, or taking it off again with a null host.
-     *
-     * <p>An aura on a creature, a piece of equipment on the thing it is equipping, a card
-     * somebody is using to mean "this one is blocking that one". The mod knows none of those
-     * words: attaching is a drawing relationship, and what it means is the group's business.
-     *
-     * <p>One verb for on and off, because they are one decision - "this card is on that card,
-     * or on nothing" - and two verbs could get out of step with each other.
+     * <p>An aura, an equipment, a card meaning "this one is blocking that one". The mod knows
+     * none of those words: attaching is a drawing relationship and its meaning is the group's.
+     * One verb for on and off, because it is one decision and two could get out of step.
      */
     record CardAttached(SeatId actor, CardInstanceId card, CardInstanceId host) implements GameEvent {
         @Override
@@ -464,7 +412,6 @@ public sealed interface GameEvent {
 
     /**
      * A shuffle, announced in the log and derived from the session seed.
-     *
      * <p>The resulting order is never stored - it is recomputed from the seed and the
      * session's shuffle count, which is what keeps the log free of the one thing that would
      * spoil a game if it leaked.
@@ -478,7 +425,6 @@ public sealed interface GameEvent {
 
     /**
      * Opening a library to look through it.
-     *
      * <p>Moves no cards - taking one is a separate {@link CardMoved} - but it opens the
      * library to the searcher until {@link LibraryClosed}, and it is very much an information
      * boundary. Everyone at the table is told it happened, which is exactly what they would
@@ -498,7 +444,6 @@ public sealed interface GameEvent {
 
     /**
      * Shutting a library again.
-     *
      * <p>Its own event rather than something a screen closing implies, because whether a
      * library is open is server state and a client that simply stopped drawing one would
      * still be being sent it.
@@ -512,14 +457,11 @@ public sealed interface GameEvent {
 
     /**
      * Cards off the top of a library into the graveyard.
-     *
-     * <p>Its own verb rather than a run of {@link CardMoved}, because nobody may name a card
-     * in a library - the whole point of milling is that you find out what it was by it
-     * arriving in the graveyard, and a client that could name the cards it wanted milled would
-     * already have had to see them.
-     *
-     * <p>Public. The cards land face up in a graveyard anybody may read, so nothing here is a
-     * secret a moment later, and the log saying "milled four" is what a table would see.
+     * <p>Its own verb rather than a run of {@link CardMoved}: nobody may name a card in a
+     * library, and the point of milling is finding out what it was by its arriving in the
+     * graveyard. A client that could name what it wanted milled would have had to see it.
+     * <p>Public - the cards land face up where anybody may read them, and "milled four" is
+     * what a table would see.
      */
     record LibraryMilled(SeatId actor, SeatId seat, int count) implements GameEvent {
         @Override
@@ -536,15 +478,10 @@ public sealed interface GameEvent {
 
     /**
      * Cards off the top of a library into exile.
-     *
-     * <p>The same shape as {@link LibraryMilled} and for the same reason: nobody may name a
-     * card in a library, so the only honest way to move the top few is to say how many. Exile
-     * rather than the graveyard because a great many effects put the top of a library there
-     * instead, and doing it as a mill followed by dragging every card across is both slower
-     * and a lie in the log.
-     *
-     * <p>Public. Exile is a pile anybody may read, so what landed there is common knowledge
-     * the moment it arrives.
+     * <p>The shape of {@link LibraryMilled} and for the same reason: nobody may name a card in
+     * a library, so the only honest way to move the top few is to say how many. Its own verb
+     * rather than a mill and a drag, which is slower and a lie in the log.
+     * <p>Public: exile is a pile anybody may read.
      */
     record LibraryExiled(SeatId actor, SeatId seat, int count) implements GameEvent {
         @Override
@@ -561,14 +498,11 @@ public sealed interface GameEvent {
 
     /**
      * Turning the top of a library face up for the whole table.
-     *
      * <p>Distinct from {@link LibraryLooked}, which opens a library to one seat. This opens it
-     * to everybody, spectators included, which is what "reveal" means - and it stays revealed
-     * until somebody says otherwise, because that is how a revealed card behaves while people
-     * read it and argue about it.
-     *
+     * to everybody, spectators included, and it stays open until somebody says otherwise -
+     * which is how a revealed card behaves while people read it and argue about it.
      * <p>A count of zero puts it back face down, so stopping is the same verb rather than a
-     * second one that could get out of step with the first.
+     * second one to get out of step with the first.
      */
     record LibraryRevealed(SeatId actor, SeatId seat, int count) implements GameEvent {
         @Override
@@ -602,7 +536,6 @@ public sealed interface GameEvent {
     /**
      * The deciding half of a scry: some cards stay on top in a chosen order, the rest go to
      * the bottom.
-     *
      * <p>Secret, because it names cards. The public log gets "scried 2, kept 1 on top",
      * which is exactly what an opponent watching across a table would know.
      */
@@ -708,23 +641,16 @@ public sealed interface GameEvent {
 
     /**
      * Blank stock, put on the table with something written on it.
-     *
      * <p>Magic keeps printing table states that are not cards - the monarch, the initiative,
-     * the ring tempting you, whatever the set after this one calls its version - and a table
-     * tracks every one of them by putting an object down and writing on it. Guessing at each
-     * mechanic in turn would be a feature that is always one set behind; blank stock and a
-     * pen is never behind at all. See {@link PaperStock}.
-     *
-     * <p>It arrives as a token, which is exactly what it is: a thing that exists for this
-     * game and is thrown away afterwards. So it is removed with the same verb, it goes in the
-     * bin at session end with the other tokens, and nobody has to have written code deciding
-     * what happens to the monarch when everybody stands up.
-     *
-     * <p>What is written on it is a note, cleaned by the same rule every other note is - it
-     * is drawn across a card and read by everybody, so it is one line of ordinary letters.
-     * Rewriting it later is the pen, not this: a card already on the table is written on with
-     * {@link CardNoted}, which is why "I have the monarch" can become "Chris has the monarch"
-     * without anybody making a second emblem.
+     * the ring - and a real table tracks each by putting an object down and writing on it.
+     * Guessing at each mechanic in turn is a feature always one set behind. See
+     * {@link PaperStock}.
+     * <p>A token, which is what it is: it exists for this game, is removed with the same verb
+     * and goes in the bin at session end, so nothing has to decide what happens to the monarch
+     * when everybody stands up.
+     * <p>What is written on it is a note, cleaned by the rule every note is - one line of
+     * ordinary letters. Rewriting it later is {@link CardNoted}, so "I have the monarch" can
+     * become "Chris has the monarch" without a second emblem.
      */
     record PaperCardCreated(SeatId actor, SeatId seat, PaperStock stock, String text) implements GameEvent {
 
@@ -749,19 +675,14 @@ public sealed interface GameEvent {
 
     /**
      * Turning your hand round so somebody can read it.
-     *
-     * <p>Always your own hand. Magic is full of cards that make an opponent reveal their hand
-     * - Duress, Thoughtseize, Peek - and at a real table every one of them is resolved by the
-     * person being Duressed picking their hand up and turning it toward you. That is exactly
-     * what this is, and it is why nothing anybody else submits can open somebody's hand: the
-     * one thing the mod ever says no to is an action that would show the actor a card they are
-     * not entitled to, and "make that player reveal their hand" is that action written out in
-     * full. See {@link dev.gathering.core.game.Authorization}.
-     *
-     * <p>A state rather than a moment. A hand shown is a hand that stays shown until it is
-     * taken back, because that is how it works when you put it face up on the table - and
-     * because a one-off reveal would be a screenful of somebody else's cards that vanished
-     * before they had read them.
+     * <p>Always your own hand. Duress and Thoughtseize are resolved at a real table by the
+     * person being Duressed turning their hand toward you, which is what this is - and why
+     * nothing anybody else submits can open somebody's hand. The one thing the mod says no to
+     * is an action showing the actor a card they are not entitled to, and "that player reveals
+     * their hand" is that written out. See {@link dev.gathering.core.game.Authorization}.
+     * <p>A state, not a moment: a hand shown stays shown until it is taken back, the way it
+     * does face up on a table. A one-off reveal is a screenful of cards that vanishes before
+     * anybody has read them.
      *
      * @param to the seat being shown, or null for the whole table at once
      * @param showing whether it is being turned toward them or away again
@@ -796,7 +717,6 @@ public sealed interface GameEvent {
 
     /**
      * Poison, energy, experience, or anything else somebody is keeping count of beside a seat.
-     *
      * <p>Distinct from {@link CounterChanged}, which is about a card. A counter on a player and
      * a counter on a permanent are different things that happen to share a word, and the log
      * has to be able to say which - "three poison" and "three +1/+1 counters on the bear" are
@@ -823,7 +743,6 @@ public sealed interface GameEvent {
 
     /**
      * Commander damage, recorded against the commander that dealt it.
-     *
      * <p>The card and not the seat, because the rule is twenty-one from the <em>same</em>
      * commander and a partner deck fields two. One number per enemy seat could not tell
      * Halana's damage from Tevesh's - which is the pair the rule exists to separate, and the
@@ -848,11 +767,9 @@ public sealed interface GameEvent {
 
     /**
      * Which of two keys to write a line under, by how many of a thing it is about.
-     *
-     * <p>"Drew 1 cards" is the most common line a game of this produces, because drawing one
-     * card is the most common thing anybody does, and it is wrong every time. Minecraft's
-     * translations have no plural rule, so the line picks its own key and each language writes
-     * both - which is also the only way this works for languages whose plural is not English's.
+     * <p>"Drew 1 cards" is the most common line this produces and is wrong every time.
+     * Minecraft's translations have no plural rule, so the line picks its own key and each
+     * language writes both - which is also the only way languages unlike English work.
      */
     static String oneOrMany(String one, String many, int count) {
         return count == 1 ? one : many;
@@ -890,15 +807,10 @@ public sealed interface GameEvent {
 
     /**
      * A die rolled where the whole table can see it.
-     *
-     * <p>Magic asks for one often enough to deserve a verb - a d20 on half of Adventures in
-     * the Forgotten Realms, a d6 on a Sarkhan, a d4 somewhere in between - and a die nobody
-     * else watched is not a die, it is a claim. So the server rolls it, everyone is told the
-     * number, and the log keeps it under the name of whoever asked.
-     *
+     * <p>A die nobody else watched is not a die, it is a claim. The server rolls it, everyone
+     * is told the number, and the log keeps it under the name of whoever asked.
      * <p>The result is carried rather than the seed: a roll is one number that happened once,
-     * and re-deriving it on each client would be a second implementation of chance that could
-     * disagree with the first.
+     * and re-deriving it per client is a second implementation of chance to disagree with.
      */
     record DiceRolled(SeatId actor, int sides, int result) implements GameEvent {
 
@@ -921,7 +833,6 @@ public sealed interface GameEvent {
 
     /**
      * A coin flipped where the whole table can see it.
-     *
      * <p>Its own verb rather than a two-sided die, because Magic's own words are heads and
      * tails - a card says "flip a coin", never "roll a d2", and Krark's Thumb cares which one
      * you did. A log line that said "rolled a 1" would be true and useless.
@@ -936,15 +847,12 @@ public sealed interface GameEvent {
 
     /**
      * A planar die rolled where the whole table can see it.
-     *
-     * <p>Its own verb rather than a d6, because its faces are symbols: four blanks, a chaos and
-     * a planeswalk, and "rolled a 3" would be a true sentence about the wrong thing. The same
-     * reason a coin is heads and tails here.
-     *
-     * <p>The rest of Planechase is not here and is not planned - a planar deck is owned by the
-     * table and every zone in this game is owned by a seat - but a group can play it by hand,
-     * and this is the part of it that cannot honestly be played by hand: a player rolling their
-     * own planar die is a player claiming a chaos symbol.
+     * <p>Its own verb rather than a d6 because its faces are symbols - four blanks, a chaos
+     * and a planeswalk - and "rolled a 3" is a true sentence about the wrong thing.
+     * <p>The rest of Planechase is not here and is not planned: a planar deck belongs to the
+     * table and every zone here belongs to a seat. A group can play it by hand, and this is
+     * the part that cannot be - a player rolling their own planar die is a player claiming a
+     * chaos symbol.
      */
     record PlanarRolled(SeatId actor, PlanarFace face) implements GameEvent {
 

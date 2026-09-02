@@ -10,7 +10,6 @@ import net.minecraft.network.chat.Component;
 
 /**
  * What to call a seat in a sentence.
- *
  * <p>One rule, in one place, because there are five sentences that need it - the game log,
  * the tooltip on a life total, the title over a pile of somebody's cards, the status a table
  * block reports, and the messages a match sends - and each of them used to work it out for
@@ -19,7 +18,6 @@ import net.minecraft.network.chat.Component;
  * up, their life total, their graveyard and every line they had already put in the log turned
  * into "(empty)". A game log that rewrites its own history the instant somebody leaves is
  * worse than no log, because the whole reason it exists is to answer "who did that".
- *
  * <p>So the question is whose board it is, not who holds the chair. "(empty)" is kept for
  * what it is actually true of: a chair nobody has ever sat in.
  */

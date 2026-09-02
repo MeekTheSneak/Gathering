@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Packs for a set nobody published the collation of.
- *
  * <p>Built as sheets and arrangements for the one interpreter, so what is really being
  * checked here is that the fallback is expressible that way at all - a second opener is the
  * thing this design exists to avoid.
@@ -54,7 +53,6 @@ class BoosterFallbackTest {
 
     /**
      * The rare is sometimes a mythic, about as often as configured.
-     *
      * <p>An arrangement rather than a special case in the opener, which is the point: one
      * pack in eight comes out with a different set of slots, and that is exactly what an
      * arrangement is.

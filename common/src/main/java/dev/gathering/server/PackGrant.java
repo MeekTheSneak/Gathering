@@ -16,13 +16,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Puts a sealed pack in somebody's hands, and says what a set really sold.
- *
  * <p>Only products that existed. A set is asked what it was sold as, and a pack is granted
  * for one of the boosters on that list - so there is no way to be handed a Bloomburrow
  * Commander booster, because there is no such thing. That check is the whole point of reading
  * the product list at all, and doing it here means the loot and the shop inherit it rather
  * than each remembering to do it.
- *
  * <p>The pack is a promise, so this hands over a wrapper and nothing else. What is inside is
  * decided when it is torn open.
  */
@@ -127,7 +125,6 @@ public final class PackGrant {
 
     /**
      * The booster product of a set matching this kind, or null.
-     *
      * <p>Blank takes the first the set publishes, which is what a player means by "a pack of
      * this set" for the many sets that only ever sold one.
      */

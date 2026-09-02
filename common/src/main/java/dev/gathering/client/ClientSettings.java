@@ -12,19 +12,15 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The things one player decided about how the mod looks, kept on their own machine.
- *
  * <p>Separate from {@link dev.gathering.service.ServerSettings} on purpose and not by
  * accident of layering. A server decides what a game is; a player decides what it looks like.
  * Putting the theme in the server's file would mean a player could not pick their own, and
  * putting it in the game's state would mean it traveled over the network - a preference
  * about PNGs has no business in either.
- *
  * <p>Read once, lazily, on the first screen that draws. Written whenever something changes,
  * because a theme picked in game and forgotten on restart is worse than no button at all.
- *
  * <p>A file that cannot be read is a line in the log and the defaults in memory. Nobody's
  * game fails to start over a stray bracket in a file about colors.
- *
  * <p>Client thread only, which is where every screen runs.
  */
 public final class ClientSettings {
@@ -64,7 +60,6 @@ public final class ClientSettings {
 
     /**
      * Which art the screens are drawing with, as an id.
-     *
      * <p>An id rather than a theme, because which themes exist is a question about the
      * resource packs and this is a question about one line of one file. {@link GuiThemes}
      * puts the two together; a name nothing recognizes draws the default rather than failing.
@@ -126,7 +121,6 @@ public final class ClientSettings {
 
     /**
      * Puts the chosen theme back in the file, keeping everything a player wrote around it.
-     *
      * <p>The one line is replaced rather than the file rewritten, so the comments explaining
      * what the setting is survive a button press. A file with no line to replace gets a fresh
      * one - which is the case where there is nothing of the player's to lose.

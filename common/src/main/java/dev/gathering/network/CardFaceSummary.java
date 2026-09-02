@@ -9,7 +9,6 @@ import net.minecraft.network.codec.StreamCodec;
 
 /**
  * One readable face of a card, as it travels to an entitled client.
- *
  * <p>Two image URLs, not image bytes: {@code small} for the table miniatures and
  * {@code normal} for the zoom overlay. Every client fetches from those itself and caches on
  * its own disk, so no card art ever crosses this mod's network or ships in its jar.
@@ -26,7 +25,6 @@ public record CardFaceSummary(
 
     /**
      * Written out by hand rather than composed.
-     *
      * <p>{@link StreamCodec#composite} stops at six components in this version and this record
      * has seven, so the choice was a nested sub-record purely to satisfy an arity limit, or
      * this. Seven strings in a fixed order is not the kind of code that hides a bug, and the
@@ -87,14 +85,12 @@ public record CardFaceSummary(
 
     /**
      * The best picture there is, for a card being drawn large.
-     *
      * <p>Scryfall's png tier, 745x1040 and lossless. Reported as "the mod pretty much
      * exclusively uses the low quality scryfall image pull" - which was half right: the board
      * and every list read the normal tier at 488x680, and that is the right size for a card
      * an inch tall. It is the wrong size for one filling the window, where it is being
      * upscaled past its own resolution and the rules text goes soft exactly when somebody is
      * trying to read it.
-     *
      * <p>A separate tier rather than raising the one everybody uses, because a board of sixty
      * permanents at this size is sixty textures four times the area for no gain at all - the
      * texture budget is the reason the tiers exist. Which one a card gets is decided by how
@@ -106,7 +102,6 @@ public record CardFaceSummary(
 
     /**
      * The printed power and toughness as one string, or empty for a card that has neither.
-     *
      * <p>Both or neither: a face with a power and no toughness is not something Scryfall
      * publishes, and "3/" on a card would be worse than nothing at all. One field rather than
      * two because every reader wants the pair - it is drawn in the corner of a card the way it

@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The pen, as a rule.
- *
  * <p>A note is player-written text on a card that the whole table reads, which makes it the
  * one thing on a card that is not the mod's own information - so the tests here are as much
  * about what it must not become as about what it does.

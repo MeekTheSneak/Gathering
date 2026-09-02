@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Handing the turn on lands on a player.
- *
  * <p>A cluster makes a seat for every place at it whether or not anybody is in one, so four
  * people at an eight-seat table were handing the turn to four empty chairs between every real
  * turn. Reported from the first four-player session, where the marker over the board spent the

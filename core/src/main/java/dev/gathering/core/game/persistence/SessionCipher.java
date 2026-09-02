@@ -11,16 +11,13 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Seals the part of a session that nobody is entitled to read.
- *
  * <p>A library's order and the shuffle seed are, together, every card anybody will draw for
  * the rest of the game. They are written to disk because a session has to survive a restart,
  * and they are written sealed because a save file is a file: it can be copied, opened with an
  * NBT editor, and read by somebody who was never sitting at the table.
- *
  * <p>AES-GCM rather than plain AES, because this needs to detect tampering as much as it
  * needs to prevent reading. An edited library that still decrypts is a stacked deck, and it
  * would look exactly like a legitimate one. GCM makes an altered stream fail to open.
- *
  * <p>What this does not defend against, stated plainly: the server host runs the process and
  * holds the key, and could read the state out of memory with effort. That is true of every
  * online card game. What this removes is the entire attack surface below that bar.
@@ -64,7 +61,6 @@ public final class SessionCipher {
 
     /**
      * Seals a stream. The nonce goes in front of the ciphertext.
-     *
      * <p>A fresh random nonce every time, which is the one thing GCM cannot forgive being
      * wrong: reusing a nonce under the same key does not weaken the encryption, it breaks it.
      */

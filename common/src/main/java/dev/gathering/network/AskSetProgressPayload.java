@@ -7,7 +7,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: how much of each set is in that collection?
- *
  * <p>Nothing to carry but the block. Which cards are in it, what set each of them belongs to
  * and how big that set is are all the server's - a client that worked this out itself would
  * need every card in the collection sent to it, which is the megabyte the whole collection

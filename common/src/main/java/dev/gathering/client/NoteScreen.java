@@ -11,15 +11,12 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The pen.
- *
  * <p>What a real table does with a scrap of paper and a biro: "flying until end of turn",
  * "this is the morph", "goes back to their side at upkeep". The mod has no rules engine and
  * never will, so the way a group remembers a rule is by writing it on the card - and until
  * this existed the only way to do that was to say it out loud and hope.
- *
  * <p>One line, typed and confirmed with a key, because writing a note is a thing done in the
  * middle of somebody else's turn and it should take about as long as saying it would.
- *
  * <p>Client-only.
  */
 public final class NoteScreen extends ChildScreen {
@@ -35,7 +32,6 @@ public final class NoteScreen extends ChildScreen {
     /**
      * Which pen this is: how much fits, what the strings are called, and what counts as
      * unchanged.
-     *
      * <p>Two things are written on a card - a reminder across it, and a power and toughness
      * in the corner - and they are the same screen because they are the same act. What
      * differs between them is only the length and the words, so that is all this carries.
@@ -116,7 +112,6 @@ public final class NoteScreen extends ChildScreen {
 
     /**
      * Sends it and gets out of the way.
-     *
      * <p>Nothing is sent when the note has not changed. A note rewritten as itself would put
      * a line in the log saying somebody wrote on a card and leave undo a step to walk back
      * through, for a card that looks exactly as it did.

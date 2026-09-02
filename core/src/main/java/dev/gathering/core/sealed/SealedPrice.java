@@ -4,29 +4,24 @@ import java.util.Locale;
 
 /**
  * What one sealed product is worth, in boosters.
- *
  * <p>Worked out from what is inside rather than typed in per product. A server owner sets one
  * number - what a booster costs - and everything else follows: a box of thirty costs thirty,
  * a bundle costs its packs plus what else is in it, a Commander deck costs what a hundred
  * cards would cost to open. A catalog with a price per product would be a thousand numbers
  * nobody will ever finish filling in, and a thousand places for one of them to be wrong.
- *
  * <p><strong>No real-world price is used anywhere.</strong> Not to set this, not to weight it,
  * not to show beside it. What a card is worth on a server is discovered at its tables; a shop
  * that priced a Secret Lair off a website would be importing the supply history of a different
  * universe into somebody's Minecraft world.
- *
  * <p>Nor is there a discount for buying big. A box is one click instead of thirty and a promo
  * that comes with it; it is not a saving, because a shop that is cheaper per pack the more you
  * buy is a shop that rewards having diamonds rather than playing.
- *
  * <p>Pure.
  */
 public final class SealedPrice {
 
     /**
      * How many cards a booster is taken to hold, for pricing something that has no packs in it.
-     *
      * <p>A modern booster is fourteen or fifteen; this is what a Commander deck or a Secret
      * Lair is measured against, so it is one number rather than a lookup per product.
      */
@@ -34,7 +29,6 @@ public final class SealedPrice {
 
     /**
      * How deep a product may hold other products before this stops counting.
-     *
      * <p>A case holds boxes holds packs, which is three. Four is room to spare, and it exists
      * because the data is somebody else's: a product that holds itself would otherwise be a
      * server that never finishes starting.
@@ -58,7 +52,6 @@ public final class SealedPrice {
 
     /**
      * What a product is worth, in boosters.
-     *
      * <p>The unit, kept apart from the money so it can be argued about without anybody having
      * to agree on what a diamond is worth.
      */
@@ -136,11 +129,9 @@ public final class SealedPrice {
 
     /**
      * Whether a product is one this shop will ever sell.
-     *
      * <p>Two questions, and neither of them is what the data calls it. Is there anything
      * inside it at all - an art series and a subset are catalog entries rather than boxes -
      * and does it exist on paper.
-     *
      * <p>Not a list of categories. There was one, and it sold a case of fifteen prerelease
      * packs while refusing a single prerelease pack, because MTGJSON calls one
      * {@code limited_aid_case} and the other {@code limited_aid_tool} and only the first

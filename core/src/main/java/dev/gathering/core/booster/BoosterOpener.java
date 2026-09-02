@@ -9,17 +9,14 @@ import java.util.UUID;
 
 /**
  * Opens a pack: one interpreter, every set, no code that knows which set it is.
- *
  * <p>Two rolls and no cleverness. Pick the arrangement the pack came out as, weighted against
  * the set's other arrangements; then fill each of its slots off the named sheet, weighted by
  * how often each card appears on it. Everything real collation does - wildcard slots, sheets
  * that mix rarities, list slots, foil sheets, variants that only turn up one pack in eight -
  * is one of those two weights, which is why none of it needs a line of code.
- *
  * <p>Seeded from the same deterministic stream the table shuffles libraries with, so a pack
  * is reproducible from what opened it. That matters for more than tests: an economy where
  * nobody can check what a pack should have contained is an economy nobody can audit.
- *
  * <p>Pure. Nothing here reaches a network, a file or a registry.
  */
 public final class BoosterOpener {
@@ -56,9 +53,7 @@ public final class BoosterOpener {
 
     /**
      * Takes this many cards off one sheet.
-     *
      * <p>A fixed sheet is not taken from, it is copied out whole; see {@link BoosterSheet#fixed}.
-     *
      * <p>Otherwise: a sheet that refuses duplicates has each card removed as it is taken, which is what
      * cutting a real sheet does: the same card cannot be in one pack twice because there is
      * only one of it in that column. Taking from a copy rather than from the sheet itself,
@@ -97,14 +92,12 @@ public final class BoosterOpener {
 
     /**
      * A number in {@code [0, total)}.
-     *
      * <p>Taken from the stream's own wide draw rather than assembled here. This once held a
      * hand-rolled high-and-low pair for totals past what an int holds, and it was quietly
      * biased: for a total just over the limit the high draw was always nought, so the upper
      * half of the sheet could never come up. It was then deleted on the reasoning that no
      * real sheet is that heavy - which real collation promptly disproved, since a foil sheet
      * states its odds as exact ratios running to hundreds of billions.
-     *
      * <p>So the wide case is real, and it belongs where every other unbiased draw in the mod
      * is made: in the stream, rejection-sampled, checked once.
      */

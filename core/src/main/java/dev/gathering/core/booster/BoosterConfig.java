@@ -7,11 +7,9 @@ import java.util.Map;
 
 /**
  * Everything needed to open one kind of pack, as data.
- *
  * <p>The whole of what makes collation work with no code per set: the sheets a set prints on
  * and the arrangements its packs come out in. A set published today and a set published in
  * ten years are the same shape here, and neither needs a line written for it.
- *
  * <p>Nothing about any real set is written down in this module. What lives here is the shape;
  * what fills it comes from published collation data, and a set with none falls back to
  * whatever rarity odds the server configured. The rule is not a preference: booster structure
@@ -60,7 +58,6 @@ public record BoosterConfig(
 
     /**
      * The sheets the variants ask for and this config does not have.
-     *
      * <p>Reported rather than thrown, because collation data arriving with a sheet missing is
      * a thing that happens to real data feeds - and the right answer is to fall back to the
      * configured odds for that set, which the caller can only decide if it is told.

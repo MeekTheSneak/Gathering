@@ -15,13 +15,11 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Reading real collation out of the shape MTGJSON publishes it in.
- *
  * <p>The files here are small and made up, but their shape is not: it was read off MTGJSON's
  * published data model and off real set files, and the field names, the nesting and the two
  * weight totals are theirs exactly. Made up rather than real because the mod redistributes
  * nobody's card data, and because a set file is four megabytes of which three lines matter to
  * this.
- *
  * <p>The card ids are readable words rather than uuids on purpose: what MTGJSON keys a card by
  * is opaque to this code, which only ever looks it up in the bridge.
  */

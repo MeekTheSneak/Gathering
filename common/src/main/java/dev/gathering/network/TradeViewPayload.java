@@ -9,13 +9,11 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: the trade table as this person sees it.
- *
  * <p>Sent whole rather than as changes, and sent to both people every time either of them
  * touches anything. A trade is two people looking at the same thing and agreeing to it, so
  * "the same thing" has to be a fact the server states rather than something two clients each
  * work out - a screen that had assembled its own view from a stream of edits would be a
  * screen that could disagree with the other one about what was being agreed to.
- *
  * <p>Named from the reader's side. What is mine and what is theirs, rather than left and
  * right, because the two people are looking at the same table from opposite sides of it.
  *

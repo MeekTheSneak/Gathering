@@ -9,14 +9,11 @@ import net.minecraft.network.chat.Component;
 
 /**
  * "What is it called?"
- *
  * <p>One field and a button. The same shape as {@link AmountScreen} and for the same reason:
  * the alternative to asking is a menu of the five answers somebody thought of, and the sixth
  * thing anybody tries is not on it.
- *
  * <p>Answers nothing when the field is empty, so a stray press does not send a lookup for the
  * empty string.
- *
  * <p>Client-only.
  */
 public final class TextPromptScreen extends ChildScreen {

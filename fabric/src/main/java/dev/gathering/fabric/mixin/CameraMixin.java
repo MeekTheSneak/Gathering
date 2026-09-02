@@ -10,15 +10,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Puts the camera over the table while somebody is playing at one.
- *
  * <p>The only thing in this mod that reaches into the game's own code, and it is here because
  * there is no other door: {@code Camera.setup} moves the camera onto the player through a
  * protected method, and Fabric offers no callback that runs after it with the camera in hand.
- *
  * <p>Deliberately the smallest thing that could work: it runs at the very end of setup, after
  * everything vanilla has had its say, asks one question, and does nothing at all if the answer
  * is no.
- *
  * <p>The twin of the NeoForge one, and identical on purpose. Two loaders needing the same
  * reach is not a reason for two behaviors, so both defer to {@link TableCameraView} and
  * neither decides anything itself.

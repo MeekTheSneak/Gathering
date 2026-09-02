@@ -7,18 +7,15 @@ import java.util.List;
 
 /**
  * Deals a pod's packs out of a cube.
- *
  * <p>The draft path that needs nothing else in the mod. A cube is a decklist somebody
  * imported, so this works on a server with no collection, no economy and no booster data at
  * all - which is why the design brief puts it first: a group can have a draft night before
  * any of the rest of phase three exists.
- *
  * <p>Dealt from a shuffle of the whole cube rather than pack by pack, because a cube is one
  * pile of cards being cut into packs, and cutting it any other way would let the same
  * printing land in two packs of the same round. The shuffle is the same seeded stream the
  * table shuffles libraries with, so the same cube and the same seed always cut the same
  * packs - which is what makes the dealing checkable rather than something to be believed.
- *
  * <p>A pod running at a table is kept whole rather than replayed from its seed. Replaying
  * would need a second implementation of the passing rules, and a bug in that second
  * implementation would hand somebody else's cards back after a restart.
@@ -36,7 +33,6 @@ public final class CubePacks {
 
     /**
      * The largest pack this cube can fill for this pod, up to the usual fifteen.
-     *
      * <p>A cube that cannot fill fifteen-card packs is far more common than one that can -
      * eight drafters want three hundred and sixty cards - and refusing those outright would
      * turn "draft the group's cube" into "go and build a bigger cube first". So the packs

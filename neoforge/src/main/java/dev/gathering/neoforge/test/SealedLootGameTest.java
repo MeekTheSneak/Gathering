@@ -31,7 +31,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Sealed product turning up in the world.
- *
  * <p>Two things are worth checking in a running server rather than on paper. The first is
  * that rolling one of Minecraft's own chests still works with the mod installed: a loot
  * modifier runs inside loot generation, and one that throws takes every chest in the world
@@ -48,7 +47,6 @@ public final class SealedLootGameTest {
 
     /**
      * A vanilla chest still rolls, and does not quietly gain a pack.
-     *
      * <p>Collecting is off in a test server, and off means off however the loot tables are
      * written - a pack here would mean the switch in the config file is not the switch.
      */
@@ -98,7 +96,6 @@ public final class SealedLootGameTest {
 
     /**
      * The entry type a data pack would write, both registered and fussy about its source.
-     *
      * <p>Fabric puts packs in chests with this entry rather than with a modifier, so a
      * codec that does not round trip is that whole loader's loot silently not loading.
      */
@@ -143,7 +140,6 @@ public final class SealedLootGameTest {
 
     /**
      * A server that is not collecting does not go and ask which set is current.
-     *
      * <p>The answer is already there before anything asks for it, which is what "did not
      * make a request" looks like from here. Worth pinning: every play-only server in the
      * world would otherwise fetch a megabyte at every start for a number nobody reads.
@@ -183,7 +179,6 @@ public final class SealedLootGameTest {
 
     /**
      * The entry inside a real table, rolled by the real loot machinery.
-     *
      * <p>This is the whole of Fabric's mechanism bar the one line that registers the hook,
      * so it is worth rolling here where there is a server to roll it on: an entry that
      * throws, or one the pool refuses to build, is that loader's chests broken.

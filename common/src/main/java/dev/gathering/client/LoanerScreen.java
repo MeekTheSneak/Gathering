@@ -12,16 +12,13 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Pick a deck the server will lend you.
- *
  * <p>The first screen a lot of players will ever see in this mod, and very likely the first
  * thing they do on the server: sit down at a table with nothing, and be asked which deck they
  * would like. So it is a list of names and nothing else - no card counts, no colors, no
  * preview - because somebody who has been here ninety seconds cannot use any of that, and a
  * screen that asked them to weigh it up would be a screen they close.
- *
  * <p>Closing it is a real answer. Somebody who came to the table with their own plan should
  * not have to take a deck to get out of the way, so Escape leaves and nothing happens.
- *
  * <p>Client-only.
  */
 public final class LoanerScreen extends Screen {
@@ -71,7 +68,6 @@ public final class LoanerScreen extends Screen {
 
     /**
      * The space between the last deck and the way out.
-     *
      * <p>Not decoration. Drawn flush against the list, "No thanks" is a sixth button the same
      * size and color as the five above it, which makes it read as a deck with an odd name.
      */

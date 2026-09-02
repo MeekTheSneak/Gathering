@@ -2,7 +2,6 @@ package dev.gathering.core.net;
 
 /**
  * A minimum delay between outbound requests, per Scryfall's request guidelines.
- *
  * <p>Time and sleeping are injected rather than taken from the platform, so the rate
  * limiter's behavior is a unit test rather than a stopwatch. Nothing here ever runs on a
  * game thread; see the executors the adapter layer hands to the client.

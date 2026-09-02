@@ -29,22 +29,18 @@ import net.minecraft.world.InteractionHand;
 
 /**
  * Building a deck out of a collection, a card at a time.
- *
  * <p>The box down one side and the deck down the other, which is the shape every deck site
  * settled on because it is the shape of the job: you are looking at what you have and
  * deciding what goes in. Click a card to put it in, click a row of the list to take it back
  * out. Nothing is committed until Finish, so the whole session is a thing somebody can back
  * out of - the collection is not touched until the deck is made.
- *
  * <p><b>All the arithmetic is somewhere else.</b> The piles, the counts, the curve and the
  * color-identity check are {@link DeckBuild}'s, which is pure and checked in milliseconds;
  * this class positions rectangles and sends two payloads. That split is the reason a screen
  * this size is worth having at all.
- *
  * <p><b>It refuses nothing.</b> Not a fifth copy, not an off-color card, not a hundred and
  * one cards. Those are reported, which is what a builder is for, and the deck check at the
  * door is this mod's one referee.
- *
  * <p>Client-only.
  */
 public final class DeckBuilderScreen extends Screen {
@@ -55,7 +51,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * How much room the head of the screen wants.
-     *
      * <p>The name box and the search box, or neither. Adding cards to a deck you are already
      * holding has nothing to type, and a head kept at its full height for two boxes that are
      * not there is fifty pixels of nothing above the cards.
@@ -65,7 +60,6 @@ public final class DeckBuilderScreen extends Screen {
     }
     /**
      * The foot is as tall as what has to go in it.
-     *
      * <p>The hint used to be squeezed into the gap between the buttons at either end, which
      * is not a width anybody chose - it is whatever those buttons left - and on an ordinary
      * window it was not enough, so the line was cut off mid-word. A line that cannot be read
@@ -101,7 +95,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * How far a panel's own frame reaches in: its nine-slice border, which is eight.
-     *
      * <p>Not four. Four is what the neutral theme's wall happens to measure; Future Sight's
      * chrome band is the full eight and Retro's pressed border reads wider, so a box drawn
      * only four pixels outside its cards put the top row of them on the frame.
@@ -146,12 +139,10 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * The same screen, over the cards in your pockets instead of a box.
-     *
      * <p>Adding rather than building: the deck already exists and is in your hand, so there
      * is no name to type, no commander to name and no sleeve to pick - only which of the
      * cards you are carrying go in. Which is the whole of what took so long before, when the
      * only way to do it was to carry the deck and right-click each stack in turn.
-     *
      * <p>No search box and no paging beyond what the grid needs. A collection is thousands of
      * cards and has to be searched; an inventory is thirty-six slots and can simply be shown.
      */
@@ -169,7 +160,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * How many more cards the deck in hand has room for, less what is already picked.
-     *
      * <p>Only asked in pockets mode, where the deck already exists and is already part full.
      * Without it the screen would happily take a hundred picks against a deck with sixty
      * cards in it and let the server refuse forty of them afterwards, which is a screen that
@@ -253,7 +243,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * The part of the deck pane the list itself occupies.
-     *
      * <p>The pane less the mana curve along its foot, which is what the drawing already uses
      * to decide whether a row is on the screen. Clicks ask the same question, because a row
      * that is not drawn is not there to be clicked.
@@ -275,7 +264,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * The card grid in the box pane, fitted to it.
-     *
      * <p>The same rule the collection's own grid uses, for the same reason - the two are the
      * same thing in a narrower column, and a builder whose cards were a different size from
      * the collection's would look like a different feature.
@@ -350,11 +338,9 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * The loose cards this player is carrying, as rows for the grid.
-     *
      * <p>Read straight off the client's own inventory rather than asked for: it is already
      * here, it is at most thirty-six slots, and a round trip to be told what is in your own
      * pockets is a round trip that can be wrong.
-     *
      * <p>What is picked is still only a request. The server checks every card against that
      * player's real inventory before it moves anything - see PocketCards.
      */
@@ -414,7 +400,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * Every copy of this card that is still to be had, in one press.
-     *
      * <p>Shift-click, the same modifier the basic-land buttons use for the same reason: a
      * pool from a booster box has four of things in it, and four presses per card is what
      * made putting a deck together take all evening. It stops where the deck stops, so a
@@ -454,7 +439,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * What the pure layer needs, out of what the server sent.
-     *
      * <p>Empty for a card this client has never been told about, which is a card it also
      * cannot draw - so it is never one somebody has clicked on.
      */
@@ -477,7 +461,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * How many of this printing are still to be had, given what the deck has already taken.
-     *
      * <p>The box and the player's own pockets together, because that is the pool the server
      * built this page out of - see CollectionView.search. A count that only spoke for the box
      * would dim a card somebody is holding four of.
@@ -605,7 +588,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * The deck, in the piles it is read in, with the curve under it.
-     *
      * <p>Scrolled rather than paged: a decklist is one thing somebody reads top to bottom, and
      * a hundred-card deck in pages of twenty is four page turns to answer "how many lands".
      */
@@ -664,7 +646,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * The mana curve, as eight columns.
-     *
      * <p>Small and unlabeled past the numbers along the bottom: it is read as a shape rather
      * than as data, and a chart with axes on it in the corner of a deck builder is a chart
      * nobody looks at twice.
@@ -718,7 +699,6 @@ public final class DeckBuilderScreen extends Screen {
 
     /**
      * A click on the box or the deck list, with the modifier said out loud.
-     *
      * <p>Split out from {@link #mouseClicked} so the harness can press shift as well as the
      * mouse: {@code hasShiftDown()} reads the window's real keyboard, which a scene driving
      * the client cannot set - and a shortcut nothing can press is a shortcut nothing checks.

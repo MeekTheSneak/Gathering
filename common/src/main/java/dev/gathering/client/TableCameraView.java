@@ -10,18 +10,15 @@ import net.minecraft.core.BlockPos;
 
 /**
  * Where the camera goes while somebody is playing at a table.
- *
  * <p>A card game wants to be looked at from above. Standing at the edge in first person shows
  * you a board at a raking angle with the far half foreshortened into a line, which is why
  * nobody plays cards standing up at the end of a table - and why the seated view is worth
  * having at all.
- *
  * <p>Minecraft will not simply be told where to put its camera. {@code ViewportEvent} on
  * NeoForge offers the angles and not the position, and the position is set inside
  * {@code Camera.setup} through a protected method after that event has already fired. So each
  * loader carries a small mixin that reaches into the camera at the end of setup, and the
  * decision about <em>what</em> to reach in with lives here, once, where both can ask it.
- *
  * <p>Client-only.
  */
 public final class TableCameraView {
@@ -31,7 +28,6 @@ public final class TableCameraView {
 
     /**
      * Which way up the table is drawn, for a player whose own mat is on the north half.
-     *
      * <p>Looking straight down, the camera's up vector is whichever way it was facing: at yaw
      * zero {@code Camera.setRotation} leaves it pointing south, so a larger world z is drawn
      * higher up the screen and the north half of the table is at the bottom. Which is right
@@ -48,7 +44,6 @@ public final class TableCameraView {
 
     /**
      * Where the eye starts, before anything has been framed.
-     *
      * <p>How far up it may go and how far down are not constants here: they are the seated
      * board's own zoom limits, which are stated as how big a card comes out rather than as a
      * distance - see {@link #heightBounded}.
@@ -57,7 +52,6 @@ public final class TableCameraView {
 
     /**
      * A little air around whatever is being framed, so nothing sits against the edge.
-     *
      * <p>Nearly none. The seated view frames the same rectangle with none at all - it already
      * knows the status row and the hand are not table - and the two views are supposed to
      * differ only in whether a point is a pixel or a place on the felt. A tenth of air here
@@ -68,7 +62,6 @@ public final class TableCameraView {
 
     /**
      * How much of the window the screen's own furniture covers, top and bottom.
-     *
      * <p>The camera centers what it is looking at in the <em>window</em>, and the window has a
      * status strip across the top of it and the player's hand across the bottom. Left alone,
      * that puts the near edge of the table - the player's own zones and their own mat -
@@ -113,7 +106,6 @@ public final class TableCameraView {
 
     /**
      * Opens on the player's own mat rather than on the whole table.
-     *
      * <p>The same choice the seated screen makes, for the same reason: a table framed whole is
      * a table whose cards are too small to read, and the half of it that matters on the turn
      * you are taking is your own. The whole table is one key away.
@@ -142,7 +134,6 @@ public final class TableCameraView {
     /**
      * How high the eye has to be for something that size to fit in the strip of window that
      * is neither the status row nor the hand.
-     *
      * <p>Both ways round: a mat is wider than it is deep and a narrow window runs out of width
      * long before it runs out of depth, so whichever side needs more air decides.
      */
@@ -162,13 +153,11 @@ public final class TableCameraView {
 
     /**
      * How high the eye may go, said in the only units that mean anything: card pixels.
-     *
      * <p>This view used to bound itself with a pair of distances of its own, and the seated
      * board bounds itself by how tall a reference card comes out. Two rules for one decision,
      * so the same key gave two different boards: "show me everything" on the screen stopped
      * at a card twenty-four pixels tall, and on the block carried on going, framing the same
      * table a fifth smaller. A player reads that as the real table being the worse one.
-     *
      * <p>So the limits are the seated board's, converted. A reference card is a fixed share
      * of one table, a table is a known number of blocks, and at eye height {@code h} the
      * window shows {@code h * spread} blocks over its own height in pixels - which turns "a
@@ -186,7 +175,6 @@ public final class TableCameraView {
 
     /**
      * How many blocks of table one block of eye height shows, top to bottom of the window.
-     *
      * <p>Read off the frame the game actually drew wherever there is one, and only worked
      * out from the field-of-view setting before the first frame. The setting is not the
      * effective angle: it goes through a private method, a sprint modifier, a potion and a
@@ -194,7 +182,6 @@ public final class TableCameraView {
      * wrongly for exactly the players whose view is not the default one - and only while the
      * modifier lasted. That is the same mistake the picker exists not to make, and there is
      * no reason for the framing to make it when the answer is already captured.
-     *
      * <p>Package-private rather than private because the scripted run builds a camera ray by
      * hand to check the board's picker against, and the half-angle is the one thing such a
      * ray cannot work out for itself. Reading it here rather than writing the formula out
@@ -212,7 +199,6 @@ public final class TableCameraView {
 
     /**
      * What the camera is doing, for the scripted run to write down.
-     *
      * <p>Both spreads, because the whole point is whether the one the framing is built on
      * matches the one the frame was drawn with.
      */
@@ -239,7 +225,6 @@ public final class TableCameraView {
 
     /**
      * Points the camera back at a table it was already looking at, without re-framing it.
-     *
      * <p>Opening a graveyard takes the table screen away, and the camera goes back to the
      * player with it. Coming back is not arriving: the player had zoomed in on a corner and
      * expects to find that corner, not the whole table from the starting height again.
@@ -260,7 +245,6 @@ public final class TableCameraView {
 
     /**
      * What the HUD was before the table took it over, or null while the player has it back.
-     *
      * <p>Minecraft draws the crosshair and the held item whatever screen is open, which for
      * every other screen is invisible behind it. This one has the world showing through, so
      * the player got a crosshair in the middle of the board and their own arm holding a deck
@@ -289,7 +273,6 @@ public final class TableCameraView {
 
     /**
      * Moves the eye up or down, which is what zoom is when you are looking straight down.
-     *
      * <p>Bounded at both ends for the same reasons the seated view bounds its own: too close
      * and the table is a card and a half, too far and it is a mosaic. A factor above one
      * leans in, matching the wheel on the seated screen.
@@ -302,7 +285,6 @@ public final class TableCameraView {
 
     /**
      * The same, keeping whatever is under the cursor under the cursor.
-     *
      * <p>This used to just lower the eye toward the middle of the view, on the reasoning
      * that leaning toward a table is what moving your head does. Looking at the pictures
      * said otherwise: six notches in from the opening framing gave a screen of bare felt,
@@ -310,7 +292,6 @@ public final class TableCameraView {
      * toward a spot that happened to be empty. Leaning toward a table is leaning toward
      * the thing you are looking at, and the seated board has anchored its wheel to the
      * cursor since it had one.
-     *
      * <p>Straight down at a plane, a ground point's distance from the middle of the screen is
      * its distance from the eye's ground point divided by the height - so holding it still
      * means moving the eye's ground point in by the same ratio the height changed.
@@ -339,7 +320,6 @@ public final class TableCameraView {
 
     /**
      * How far the picture is slid along the table to clear the hand and the status strip.
-     *
      * <p>Screen-up is north for one player and south for the other, so lifting the picture
      * clear of the hand is a step in opposite world directions for the two of them.
      */
@@ -350,7 +330,6 @@ public final class TableCameraView {
 
     /**
      * Slides the view across the table, in blocks.
-     *
      * <p>Clamped to the table itself rather than to nothing: panning until the board is off
      * screen is a way to lose the game you are playing.
      */
@@ -365,7 +344,6 @@ public final class TableCameraView {
 
     /**
      * Slides the view by a drag on the window, in pixels.
-     *
      * <p>How many blocks a pixel is worth depends entirely on how high the eye is, and this
      * view's zoom now spans an eleven-fold range - a card is twenty-four pixels at one end
      * and two hundred and sixty at the other. It used to convert with a fixed two hundred and
@@ -373,7 +351,6 @@ public final class TableCameraView {
      * fast. Nobody does; what they notice is a drag that runs four times too slow zoomed in
      * and two and a half times too fast zoomed out, which is what that constant came to once
      * the zoom limits stopped being a pair of fixed heights.
-     *
      * <p>So it is worked out rather than assumed, from the same height and the same drawn
      * spread the framing uses. One number for both axes: pixels are square, and the window is
      * exactly as many blocks wider than it is tall as it is pixels wider than it is tall.
@@ -385,7 +362,6 @@ public final class TableCameraView {
 
     /**
      * How much window one block of table covers, top to bottom, at this height.
-     *
      * <p>Package-private because the screen sizes the card in the player's hand against it
      * too. A card lifted off the block is drawn at the size a card is <em>on</em> the block,
      * and that is this number times how much of a block a card is - so if the two ever came
@@ -405,18 +381,15 @@ public final class TableCameraView {
 
     /**
      * Whether this entity should be left out while the camera is over a table.
-     *
      * <p>Reported as "do not render other players when in real table view". The eye sits a
      * couple of blocks above the felt looking straight down, so everybody standing around the
      * table is between it and the board - four players at a four-table cluster can cover most
      * of what they are all trying to read, and the person it hides most reliably is the one
      * whose own head is directly under the camera.
-     *
      * <p>Players only. The board itself is drawn by the table's block entity rather than as an
      * entity, and item frames, armor stands and everything else somebody has arranged around
      * their table are part of the room they built - hiding those would be tidying up after
      * them. A player is the only thing here that is in the way rather than in the scene.
-     *
      * <p>The decision lives here rather than in either loader's mixin so the two cannot come
      * to different conclusions, which is the same reason {@link #wanted} does.
      */
@@ -426,7 +399,6 @@ public final class TableCameraView {
 
     /**
      * Where the camera should be this frame, or empty to leave it alone.
-     *
      * <p>Empty is the answer almost every frame of almost every session, and it has to be
      * cheap and unconditional: this is called from inside the camera's own setup, for every
      * frame, for every player who has never seen a table.

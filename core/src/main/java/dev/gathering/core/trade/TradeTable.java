@@ -8,21 +8,17 @@ import java.util.UUID;
 
 /**
  * Two people and what they are putting up.
- *
  * <p>Every trading system that ever shipped without this has the same scam in it: agree a
  * trade, wait for the other side to accept, swap the good card for a worse one, and take
  * theirs. So the rule that matters is not "both sides must agree" - it is <strong>both sides
  * must agree to the same thing at the same time</strong>. Any change to either offer clears
  * both agreements, and the swap only happens from a state where nothing has moved since both
  * were given.
- *
  * <p>Which is why this is a value rather than a mutable table: every change makes a new one,
  * so "the offers when they agreed" and "the offers now" cannot quietly be the same object.
- *
  * <p>Nothing here knows whether either side actually owns what they are offering. That is the
  * server's to check, and it has to check it again at the moment of the swap however carefully
  * this was filled in - a card can leave an inventory between offering it and agreeing.
- *
  * <p>Pure.
  */
 public record TradeTable(
@@ -84,7 +80,6 @@ public record TradeTable(
 
     /**
      * Puts a card up, or takes one back down.
-     *
      * <p>Both agreements go with it, always, even when the change is somebody adding to their
      * own side. It does not matter whether a change is generous: what the other person agreed
      * to was a table, and this is a different table.
@@ -118,7 +113,6 @@ public record TradeTable(
 
     /**
      * Says this side is happy with the table as it stands.
-     *
      * <p>Once both are, the trade is struck and nothing can change - which is the whole point:
      * there is no window between the second agreement and the swap for anybody to reach into.
      */

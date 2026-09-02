@@ -25,18 +25,15 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Games that are over, kept so they can be watched back.
- *
  * <p>This is the moment the mod's architecture was built for and had never claimed. A session
  * is an event log and a seed, so a finished game reproduces exactly - and until now every one
  * of them was thrown away the instant it ended. The argument about what was on top of the
  * library when somebody scried is settleable, and nothing was settling it.
- *
  * <p><b>Only a finished game.</b> A replay reveals hands, libraries and face-down cards -
  * everything the visibility rules spend the whole game hiding - and the only reason that is
  * safe is that there is nothing left to exploit. {@link #keep} refuses to write a session that
  * has not ended, so no file here is of a game still being played, and {@link #frameOf} is the
  * one place in the mod a {@link Viewer.Historian} is constructed.
- *
  * <p>Kept as files under the server's own data directory rather than on the table: a table
  * gets broken, and the game played on it is worth more than the block was. The newest
  * {@link #KEPT} are held and the rest are dropped, because a server that never forgets a game
@@ -93,7 +90,6 @@ public final class Replays {
 
     /**
      * Writes a finished game down.
-     *
      * <p>Called as the session ends and before it is forgotten. The records are written in
      * their plain form rather than the sealed one: the sealed stream exists to keep hidden
      * events from a live table, and this file is only ever read to show somebody a game that
@@ -163,7 +159,6 @@ public final class Replays {
 
     /**
      * The board at one step of a replay, as somebody entitled to all of it would have seen it.
-     *
      * <p>Folded here rather than on the client, and this is the whole security argument: the
      * seed and the sealed events never leave the server, so what crosses the wire is a board
      * and not the means to reconstruct one. A client that asked for step forty gets step forty
@@ -177,14 +172,12 @@ public final class Replays {
 
     /**
      * A replay held open, so watching one costs a fold of the whole game once.
-     *
      * <p>Playback asks for step N, then N+1, then N+2, several times a second, and the board
      * at each of those is the board at the one before it with a single record applied. Folding
      * from the start each time measured at thirty-three milliseconds on a four-thousand-event
      * game - two thirds of a tick, per frame, per watcher - and this is what makes it one
      * event instead. Scrubbing backwards folds again from the front, which is rare and is
      * what somebody dragging a bar has already accepted the cost of.
-     *
      * <p>Server thread only, like everything that touches a session.
      */
     public static final class Watching {
@@ -237,7 +230,6 @@ public final class Replays {
 
     /**
      * Opens a replay and holds it, ready to be scrubbed.
-     *
      * <p>The id is matched against the names of the files that are really there rather than
      * resolved as a path, so a client cannot name a file the server never offered it.
      */
@@ -258,7 +250,6 @@ public final class Replays {
 
     /**
      * One kept game by its id, without reading the rest of the shelf.
-     *
      * <p>Its own method because scrubbing asks for a frame four times a second and the
      * obvious way to answer - list everything and find the one - reads and parses every
      * header on the server for each of those. The id is matched against the file names that
@@ -282,7 +273,6 @@ public final class Replays {
 
     /**
      * Reads a replay file whole.
-     *
      * <p>The records are handed back rather than folded, because what wants folding depends
      * on which step somebody is looking at - see {@link Watching}.
      */

@@ -2,7 +2,6 @@ package dev.gathering.core.config;
 
 /**
  * What is wrong with a config file, and which line it is on.
- *
  * <p>Checked, because a server owner editing a config file is the person this message is for
  * and the caller has a real decision to make: say so in the log and start with defaults, or
  * refuse to start. Never a silent shrug - a setting that was quietly ignored is a server

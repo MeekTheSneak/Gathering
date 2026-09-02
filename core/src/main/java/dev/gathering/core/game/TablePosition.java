@@ -2,23 +2,19 @@ package dev.gathering.core.game;
 
 /**
  * Where a card sits on the table, and which way round it is.
- *
  * <p>Anywhere. Cards are objects you pick up and put down, not entries in a grid: you drop
  * one half-overlapping another to show it is attached, angle it because you feel like it,
  * fan a pile out. That is what playing with cards on a table is, and a grid is a spreadsheet
  * with card art in it.
- *
  * <p>Fixed point rather than floating point, in {@link #SPAN} units across the table. A
  * position is written to the event log, sent over the network and folded through undo, and
  * two clients that disagree in the last bit of a float would drift apart over a long game.
  * At this resolution a unit is far below a pixel on any screen, so it is continuous as far
  * as anybody using it is concerned and exact as far as everything storing it is concerned.
- *
  * <p>Coordinates are <em>relative to a seat's region</em>, not absolute on the table. Which
  * region a card is in lives in its {@link ZoneRef}, so moving a stolen creature to your own
  * side is a move to your battlefield with a new position - one act, one event, and control
  * falls out of it.
- *
  * <p>Rotation is separate from tapping. Tapping is a game state a card is in and a verb with
  * a name; turning a card because you like it that way is neither, and a table where the only
  * angle available is ninety degrees is not a table.
@@ -44,7 +40,6 @@ public record TablePosition(int x, int y, int rotation) {
 
     /**
      * A position, with anything off the table pulled back onto it.
-     *
      * <p>For the places where a coordinate is being read off a screen rather than chosen: a
      * drag that ends past the edge, a cursor over the felt's surround. Those are all "as far
      * as it goes" rather than errors, and {@link #of} throwing at them means a client crashes
@@ -101,11 +96,9 @@ public record TablePosition(int x, int y, int rotation) {
 
     /**
      * Somewhere sensible for a card that arrived without being aimed.
-     *
      * <p>A token appearing, a card put down by a verb rather than by a hand. They fan out
      * across the surface rather than stacking exactly, so five tokens are visibly five - and
      * a player then moves them wherever they actually want them.
-     *
      * <p>Past the first hundred the fan starts again slightly offset rather than wrapping onto
      * itself, because a board with more permanents than there are fan spots should still show
      * every one of them. Past {@link #FAN_SPOTS} it does repeat, which is a board nobody has

@@ -7,12 +7,10 @@ import java.util.UUID;
 /**
  * The whole of what a card item carries: which printing it is, whether it is foil,
  * and - for server-hosted custom cards - which custom card it is instead.
- *
  * <p>Canonical identity is the Scryfall ID, the UUID of one specific printing. Name,
  * oracle text, mana cost and image URIs are all derived data, fetched and cached from
  * Scryfall rather than stored here. A card in a deck box and the same card on a
  * battlefield are the same three fields.
- *
  * <p>Exactly one of {@code scryfallId} and {@code customId} is present. Custom cards
  * live in their own namespace precisely so they can never collide with a Scryfall ID.
  */

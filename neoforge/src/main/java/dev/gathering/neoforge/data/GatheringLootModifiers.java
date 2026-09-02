@@ -11,7 +11,6 @@ import net.neoforged.neoforge.common.data.GlobalLootModifierProvider;
 
 /**
  * The one global loot modifier, generated rather than hand-written.
- *
  * <p>Both files this writes name the modifier by id, and an id typed by hand into the wrong
  * one of them fails silently: the modifier is simply never loaded and packs never drop, with
  * nothing in the log to say why. Generating them from the registered codec removes that

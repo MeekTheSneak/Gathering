@@ -32,13 +32,11 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * What happens to a deck once it has been put down on a table.
- *
  * <p>The table is a deckbox for the length of a match: the library and the commanders go into
  * the game, the sideboard cannot (it is not in play), and the item itself is consumed. Without
  * somewhere to keep the whole thing, committing a deck destroyed a quarter of it and ending
  * the game destroyed the rest - so these check the deck comes back, comes back whole, and
  * comes back even when nobody is there to hand it to.
- *
  * <p>This is the kind of loss that is invisible until it has already happened to somebody's
  * hundred-card deck, which is why it is tested in a world rather than reasoned about.
  */
@@ -146,7 +144,6 @@ public final class DeckCustodyGameTest {
 
     /**
      * A drafted deck comes back from a match still knowing what it was drafted from.
-     *
      * <p>The table takes the whole deck for the length of a match and hands back a new stack
      * afterwards, so anything living on the old stack is gone unless the table kept it. Which
      * means a drafted deck used to come back from its first game with no pool on it, and the
@@ -274,7 +271,6 @@ public final class DeckCustodyGameTest {
 
     /**
      * Any deck lying near the table.
-     *
      * <p>Wide net on purpose: where exactly a dropped item lands is not the thing under test,
      * and pinning it to a block would fail on a physics change rather than on a bug.
      */
@@ -290,7 +286,6 @@ public final class DeckCustodyGameTest {
 
     /**
      * Clears anything already lying about.
-     *
      * <p>The world these run in is on disk and survives between runs, so a previous run's
      * dropped deck would let a broken one of these pass. Learned the hard way.
      */
@@ -302,7 +297,6 @@ public final class DeckCustodyGameTest {
 
     /**
      * A deck goes back to whoever put it down, not to whoever is in the chair.
-     *
      * <p>It used to be handed to the seat's current occupant. A player who stood up mid-match
      * had their deck dropped on the floor, and whoever took the vacated chair had somebody
      * else's collection put into their inventory - cards changing hands because of where a
@@ -335,7 +329,6 @@ public final class DeckCustodyGameTest {
 
     /**
      * Leaving the table hands your deck back without ending anybody's match.
-     *
      * <p>Reported: "cant get deck back from table". A deck came back only when the whole match
      * ended, and ending a match is a thing the rest of the table is in the middle of.
      */
@@ -378,7 +371,6 @@ public final class DeckCustodyGameTest {
 
     /**
      * A table holds and hands back its decks in seat order.
-     *
      * <p>Not tidiness. Putting held decks back down between games of a set writes a line in
      * the session log for each, so this decides the log's own order - and the log is the
      * record everybody is supposed to be able to check afterwards. Held in a map ordered by a

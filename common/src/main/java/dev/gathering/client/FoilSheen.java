@@ -14,14 +14,12 @@ import org.joml.Matrix4f;
 
 /**
  * The shine on a foil.
- *
  * <p>A foil is the one thing about a card that a picture of it cannot show. Scryfall's scan is
  * the non-foil one and always will be, because a foil is not a different picture but the same
  * picture doing something as it moves. So it is drawn rather than fetched - and that is also
  * why the card turns with the mouse. A holographic sheen that never moves is a sticker; the
  * movement is the whole effect, and a still picture of this is meant to look like not very
  * much.
- *
  * <p><b>What it is made of.</b> Three things:
  *
  * <ul>
@@ -36,23 +34,19 @@ import org.joml.Matrix4f;
  *       seeded from the printing, so two foils sparkle differently and each one sparkles the
  *       same way every time it is picked up.</li>
  * </ul>
- *
  * <p><b>It cannot leave the card, and it never lands on a sleeve.</b> Two separate guarantees,
  * and neither of them is a clip.
- *
  * <p>The first is that the shine is painted onto the card's own mesh - the same grid of points
  * {@link TiltedFace} draws the picture from, projected through the same {@link CardLens}. Every
  * vertex of it is a point on the card, so there is no angle, no turn and no lens at which any
  * of it can be anywhere else. Nothing is drawn off the card and then trimmed back; nothing is
  * drawn off the card at all.
- *
  * <p>The second is structural: the only caller is {@code CardInspectPanel.drawFace}, on the one
  * branch that has just been handed a printed face's texture. A sleeve is a different texture
  * drawn by different code with no path here, and a card whose art has not arrived gets a
  * placeholder and no shine, because a sheen over a "fetching" box is a shine on a box. Both
  * printed sides of a double-faced card come through that branch, so turning one over shows a
  * foil on its back too - a face rather than a sleeve, and it was foil when it was printed.
- *
  * <p>Client-only.
  */
 public final class FoilSheen {
@@ -74,7 +68,6 @@ public final class FoilSheen {
 
     /**
      * How strongly a spectrum shows away from the catch.
-     *
      * <p>This is drawn over somebody's card art, which is the thing they are trying to look
      * at. An early version fogged the picture badly enough that it stopped reading, which is
      * the whole failure mode of an effect like this: it is meant to catch the eye, not hold it.
@@ -87,7 +80,6 @@ public final class FoilSheen {
 
     /**
      * How far the catch travels, and how far the colors under it do.
-     *
      * <p>The catch further, so it overtakes them - and not so far that a full turn puts it off
      * the card altogether. At an earlier number it did exactly that, and a card turned all the
      * way looked like an ordinary card: a foil you can tip until it stops being a foil is
@@ -114,7 +106,6 @@ public final class FoilSheen {
 
     /**
      * Paints the shine onto a card's mesh.
-     *
      * <p>{@code shineX} and {@code shineY} are where the light is, each from minus one to one,
      * and both of them matter. An earlier version took only the sideways turn, so a card
      * tipped up and down was a card whose foil did nothing - which is the one thing a person
@@ -174,7 +165,6 @@ public final class FoilSheen {
 
     /**
      * The color the sheen shows at one point, given how far along each rake that point is.
-     *
      * <p>The whole rule of what a foil looks like, in one place. Two things draw one now - a
      * card being read on a screen, through a lens, and a card held in the hand, as flat
      * geometry - and they agree because this is the only thing that decides.
@@ -199,7 +189,6 @@ public final class FoilSheen {
 
     /**
      * Where the light is, worked out once for a card.
-     *
      * <p>The two rakes and how far the shine has slid along each of them. Its own type
      * because both painters need all eight numbers and computing them twice from the same
      * two inputs is how the screen's foil and the hand's foil would drift apart.
@@ -239,7 +228,6 @@ public final class FoilSheen {
 
     /**
      * The color one spectrum shows at a point: an iridescence under a soft rise in brightness.
-     *
      * <p>Three offset sine waves rather than a trip round the color wheel, because a hue that
      * wraps has a seam in it - and a seam between two points of a mesh is a cell drawn with
      * the whole spectrum running backwards through it. This has no seam anywhere.
@@ -264,7 +252,6 @@ public final class FoilSheen {
 
     /**
      * The points of grain, lit by how near the catch is to each of them.
-     *
      * <p>Placed in the card's own space, so they sit still on the picture while the light moves
      * over them - which is what they are for - and projected through the same lens as
      * everything else, so they travel with the card and cannot land off it.
@@ -317,13 +304,11 @@ public final class FoilSheen {
 
     /**
      * The same sheen on a card that is real geometry rather than a picture on a screen.
-     *
      * <p>For the card item: in a hand, in a slot, on the ground, in an item frame. It is the
      * same rule as the screen's - see {@link #colorAt} - and differs only in where the points
      * are and how they are drawn: flat in the card's own space, into the batched buffer every
      * other part of the item goes through, rather than projected through a lens and uploaded
      * on its own.
-     *
      * <p>Coarser than the screen's mesh on purpose. A card being read fills a window; a card
      * in a slot is sixteen pixels across, and a full inventory of foils drawn at the reading
      * mesh would be a hundred thousand quads for a shimmer nobody can resolve.

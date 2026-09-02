@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Working out that a game is over, without a rules engine to tell us.
- *
  * <p>The only result the mod recognizes is conceding. That is a deliberate limit and the tests
  * below are mostly about what it refuses to conclude: a player on zero life has not lost, a
  * player on minus four about to gain twelve has certainly not lost, and an empty chair is not

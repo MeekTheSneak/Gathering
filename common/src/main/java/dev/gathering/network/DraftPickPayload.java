@@ -9,13 +9,11 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: which cards this drafter is taking out of the pack in front of them.
- *
  * <p>Places in the pack rather than card identities, and deliberately. A client naming the
  * cards it wants would be a client asserting what is in a pack, which is a client the server
  * would have to check against the pack anyway - so it says where instead, and the server
  * reads the cards off its own copy. It also means the packet carries no card identity at
  * all, so there is nothing in it worth intercepting.
- *
  * <p>The pod is not asked who is picking: that comes from the connection. A client that
  * could name a drafter could empty a pack it may not read and learn what was in it from what
  * came back.

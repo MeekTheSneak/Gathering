@@ -8,7 +8,6 @@ import net.neoforged.neoforge.data.event.GatherDataEvent;
 
 /**
  * Data generation entry point.
- *
  * <p>{@code @EventBusSubscriber} routes the event to the correct bus on its own, which
  * removes the wrong-bus failure mode entirely. The class is only ever loaded when
  * {@code GatherDataEvent} fires, which is why it can name client-side provider classes

@@ -2,11 +2,9 @@ package dev.gathering.core.game;
 
 /**
  * Whose turn it is, and which turn of the game this is.
- *
  * <p>Handed on manually by whoever is playing. A group that forgets to pass it has a slightly
  * stale marker, which is exactly what happens with a paper turn marker, and is a far better
  * failure than a mod that decides the turn has ended.
- *
  * <p>There was a phase here too - untap, upkeep, draw, and the nine after them - as a shared
  * marker the active player advanced by hand. It is gone. Nothing ever read it: no action was
  * checked against it and nothing was ever stopped, so it was a label the table maintained for

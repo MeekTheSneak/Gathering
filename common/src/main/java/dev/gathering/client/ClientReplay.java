@@ -7,19 +7,16 @@ import java.util.Optional;
 
 /**
  * The finished game this client is currently watching, if any.
- *
  * <p>One at a time, because there is one screen. What is held is a single frame - the board at
  * one step - and nothing else: scrubbing does not fold anything here, it asks the server for a
  * different picture. That is the whole reason a replay can show hands and libraries without
  * handing a modified client the means to do the same to a live game.
- *
  * <p>Client-only.
  */
 public final class ClientReplay {
 
     /**
      * How many client ticks one step takes while playing.
-     *
      * <p>Four a second. A game's log is mostly small moves, so anything slower is a scrubber
      * somebody drags instead of watching, and anything faster is a blur.
      */
@@ -36,7 +33,6 @@ public final class ClientReplay {
 
     /**
      * The step this client has asked for and not yet been sent.
-     *
      * <p>So a dragged scrubber sends one request per position rather than one per frame, and
      * so an answer that arrives out of order does not drag the scrubber backwards.
      */
@@ -44,7 +40,6 @@ public final class ClientReplay {
 
     /**
      * How long a frame that was asked for has to arrive before the scrubber gives up on it.
-     *
      * <p>Five seconds. The server refuses a frame with a chat line rather than a packet - a
      * replay that has been deleted, a server that switched replays off mid-session - and
      * without this the scrubber sat there having asked for a step that was never coming,

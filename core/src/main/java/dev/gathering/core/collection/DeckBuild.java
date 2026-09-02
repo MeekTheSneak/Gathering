@@ -12,23 +12,19 @@ import java.util.UUID;
 
 /**
  * The deck somebody is building, as a value.
- *
  * <p>Everything a deck builder screen shows is worked out here: what is in the deck, grouped
  * into the piles a person reads it in, how many of each card, the mana curve, and whether the
  * commander's color identity has anything to say about it. The screen adds and removes cards
  * and draws what comes back, which keeps the part that can be checked in milliseconds as large
  * as it can be - the screen has no arithmetic of its own to get wrong.
- *
  * <p><strong>It refuses nothing.</strong> Not the fifth copy of a card, not a card outside the
  * commander's colors, not a hundred and one cards in a hundred-card format. Those are all
  * reported and none of them are prevented, which is the same rule the rest of the mod plays
  * by: the deck check at the door is the one referee, and a builder that argues with somebody
  * about their own deck while they are still building it is a worse tool than one that tells
  * them what it noticed.
- *
  * <p>Immutable, and every change returns a new one. A builder screen that can be undone is a
  * list of these, and that is worth more than saving an allocation per click.
- *
  * <p>Pure.
  */
 public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
@@ -48,7 +44,6 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
 
     /**
      * Adds one copy, at the end.
-     *
      * <p>At the end rather than sorted in, because the groups are worked out when they are
      * asked for and the order within a group is the order cards arrived. A list that
      * re-sorted itself on every click would move the card somebody was about to click again.
@@ -64,7 +59,6 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
 
     /**
      * Takes one copy back out - the last one that went in, of that printing.
-     *
      * <p>The last rather than the first, so adding four and removing one leaves the three that
      * were already sitting in the list where they were.
      */
@@ -81,7 +75,6 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
 
     /**
      * Names the commander, and takes it out of the deck proper if it was in it.
-     *
      * <p>Out, because it is in the command zone now and a card cannot be in two places. This
      * is the one place the builder moves a card the player did not ask it to move, and it is
      * the move they meant.
@@ -132,12 +125,10 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
 
     /**
      * The deck laid out in the piles it is read in, each pile's cards collapsed into rows.
-     *
      * <p>One row per card rather than per copy, with the count on it, because a decklist that
      * printed "Lightning Bolt" four times is a decklist nobody can scan. Rows are sorted by
      * mana value and then by name, which is the order every deck site lays a pile out in and
      * the order that makes a curve legible without drawing one.
-     *
      * <p>Empty piles are left out entirely: a heading with nothing under it is a heading that
      * makes the list longer and says nothing.
      */
@@ -174,7 +165,6 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
 
     /**
      * The mana curve, as a count per mana value with everything from seven up in the last.
-     *
      * <p>Lands are left out, which is the convention and is also the only reading that means
      * anything: a curve is a picture of what the deck spends mana on, and lands are what it
      * spends. Including them puts a spike at zero that is the same height in every deck and
@@ -194,7 +184,6 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
 
     /**
      * The color identity the commander gives this deck, or empty when there is no commander.
-     *
      * <p>Straight off the commander. A deck with no commander has no identity to be inside or
      * outside of, which is different from having a colorless one - hence the empty optional
      * rather than an empty set.
@@ -205,7 +194,6 @@ public record DeckBuild(List<BuildCard> cards, Optional<BuildCard> commander) {
 
     /**
      * The cards that fall outside the commander's color identity.
-     *
      * <p>Reported, never prevented. This is the deck builder noticing something, which is what
      * a deck builder is for; refusing the card would be it deciding it knows the format better
      * than the person building the deck, and the check at the door already exists for the one

@@ -16,7 +16,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Basic lands going into a deck.
- *
  * <p>A drafted pool is forty-five spells, so without these there is no forty-card deck to
  * build from one at all - the draft ends in a deck nobody can put down. What is checked here
  * is the arithmetic, which is the only part with any in it: the looking-up is the card
@@ -59,7 +58,6 @@ public final class BasicLandsGameTest {
 
     /**
      * A deck with room for two takes two of a request for five.
-     *
      * <p>Whatever fitted is kept. Refusing the whole request because the last copy did not
      * fit would throw away the ones that did, and somebody who asked for five into a deck
      * with room for two wants the two.

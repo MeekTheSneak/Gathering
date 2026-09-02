@@ -20,7 +20,6 @@ import net.minecraft.world.level.Level;
 
 /**
  * Starting, finding and ending the draft on a cluster of tables.
- *
  * <p>The pod lives where the game would, on the cluster's anchor table, for the same reason:
  * one cluster runs one thing at a time, and every table in it agrees on where that is without
  * anything having to be written down. Drafting itself has no table geometry - the ring is the
@@ -63,7 +62,6 @@ public final class DraftPods {
 
     /**
      * Opens a draft of this cube for everybody registered at this cluster.
-     *
      * <p>Everybody who is here, rather than a list somebody assembles: a pod is the people at
      * the tables, and asking them to sign up twice - once by sitting down and once by being
      * added - is a step that only exists to be got wrong.

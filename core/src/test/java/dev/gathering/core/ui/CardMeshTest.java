@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The shape of a card, as arithmetic.
- *
  * <p>Everything drawn on a card - the printed face, and the shine on a foil - is drawn from
  * the points this emits and no others. So "can the shine leave the card" is not a question
  * about clipping, angles or scissors. It is the question of whether any point here is outside

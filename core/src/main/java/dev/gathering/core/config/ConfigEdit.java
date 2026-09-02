@@ -7,13 +7,11 @@ import java.util.Optional;
 
 /**
  * Changing one setting in a config file, without losing the rest of it.
- *
  * <p>The file is the source of truth and stays that way: a setting changed in game is a
  * setting changed in the file, so a server that comes back up runs on what its owner last
  * said rather than on what the file still says. That means editing text rather than writing
  * a fresh file from a parsed model, because the file has a server owner's comments in it and
  * regenerating it would throw them away.
- *
  * <p>Only ever one line. Everything else in the file - comments, spacing, key order, sections
  * this version has never heard of - comes out exactly as it went in.
  */
@@ -36,7 +34,6 @@ public final class ConfigEdit {
 
     /**
      * Sets {@code section.key} to this value.
-     *
      * <p>The key is written where it already is, or added at the end of its section, or the
      * section is added at the end of the file - in that order, so a file somebody has
      * rearranged keeps its arrangement.
@@ -116,7 +113,6 @@ public final class ConfigEdit {
 
     /**
      * What to write into the file for a value somebody typed at a command line.
-     *
      * <p>A number stays a number, true and false stay flags, a comma-separated run becomes a
      * list, and anything else is quoted. A setting's own reader decides whether the result
      * means anything; this only decides what shape it is.

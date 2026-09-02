@@ -2,13 +2,11 @@ package dev.gathering.core.ui;
 
 /**
  * The cards in your hand, fanned along the bottom of the screen.
- *
  * <p>Modeled on what every digital card game has settled on, because it settles two problems
  * at once. A hand has no fixed size - it is three cards on turn ten and fifteen after a
  * Windfall - so the cards overlap rather than shrink, which keeps a card the size of a card.
  * And overlapping hides most of each one, so the card under the cursor rises out of the fan at
  * full size, which is how you read it without opening anything.
- *
  * <p>The arc is slight. A real hand splays because it is held in a fist; a drawn one only has
  * to look held, and past a few degrees the cards at the ends start lying down.
  */
@@ -31,7 +29,6 @@ public final class HandFan {
 
     /**
      * How much of the strip's width the fan is allowed to take.
-     *
      * <p>A hand sits in the middle of the screen and stays there. Letting it spread to the
      * full width - which is what happens if the cards are simply shared out evenly across the
      * space - draws fifteen cards as a wall from edge to edge, which looks like a card
@@ -90,11 +87,9 @@ public final class HandFan {
 
     /**
      * Which card the cursor is on, front-most first, or -1.
-     *
      * <p>Tested against the fan as it sits <em>unlifted</em>. Testing against the drawn shapes
      * instead is the obvious thing and it flickers: the card grows the moment it is picked,
      * which changes what the cursor is over, which un-picks it.
-     *
      * <p>Front to back, because later cards are drawn over earlier ones and the card you can
      * see is the one you meant.
      */
@@ -111,7 +106,6 @@ public final class HandFan {
     /**
      * Which card's <em>risen</em> shape the cursor is on, or -1. For points the strip test
      * has already said no to.
-     *
      * <p>The hovered card grows above the strip, over the table - and the top of it was a
      * card the player was looking straight at that could not be clicked: the strip test said
      * "not the hand", and the click fell through to whatever the felt had behind it. Asked
@@ -131,7 +125,6 @@ public final class HandFan {
 
     /**
      * How big a card is drawn.
-     *
      * <p>As tall as the strip allows, until there are so many that even at the tightest
      * overlap they would not fit across it - at which point the cards themselves give way.
      * Something has to: a floor on the overlap and a fixed card size cannot both hold, and a
@@ -157,7 +150,6 @@ public final class HandFan {
 
     /**
      * How far apart two cards sit: side by side while they fit, overlapping once they do not.
-     *
      * <p>No floor here, deliberately. The obvious way to keep a card from becoming a sliver is
      * to clamp this, and it is dead code: {@link #widthFor} has already shrunk the card far
      * enough that spreading the hand evenly leaves at least {@link #TIGHTEST_STEP} of each one

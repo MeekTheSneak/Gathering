@@ -27,11 +27,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * A game in progress survives the server going away and coming back.
- *
  * <p>The deliverable this is for is stated plainly in the brief: persistence across restart.
  * Everything else can be retried; a Commander game an hour in cannot, and a table that comes
  * back empty is the single worst thing this mod could do to a group of friends.
- *
  * <p>Tested through the block entity's own save and load rather than through the codec alone,
  * because the codec is only the middle of it: the hidden half of the log is sealed on the way
  * out and has to be opened again on the way back, and a session that writes but does not open

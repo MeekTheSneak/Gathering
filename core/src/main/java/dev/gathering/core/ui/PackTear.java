@@ -2,23 +2,18 @@ package dev.gathering.core.ui;
 
 /**
  * How far a pack has been torn open, and what the torn edge looks like.
- *
  * <p>A booster is opened by hand, across the top, from one corner to the other - so that is
  * the gesture: take hold of a corner and drag, and the tear goes where the cursor goes. Not a
  * button and not a progress bar. The point of the ceremony is that opening the pack is
  * something you do rather than something you ask for, and a tear that follows your hand is
  * the smallest honest version of that.
- *
  * <p>Two rules make it feel like paper rather than like a slider.
- *
  * <p><b>It starts at a corner.</b> Until the cursor has been over the grip at the near end,
  * nothing tears - so clicking in the middle of the wrapper does not open half the pack at
  * once, any more than poking the middle of a real one would.
- *
  * <p><b>It never goes back.</b> Dragging left does not un-tear what is torn. A wrapper is
  * paper, and a tear that healed when your hand wandered would be the one thing about this
  * that could not happen.
- *
  * <p>Pure, and a value rather than a thing that mutates: each drag hands back the tear as it
  * now stands, which is what makes it checkable without a screen.
  *
@@ -32,7 +27,6 @@ public record PackTear(int width, long seed, boolean gripped, float torn) {
 
     /**
      * How much of the near end counts as the corner you can take hold of.
-     *
      * <p>A sixth. Generous, because a player who cannot find where to start is a player who
      * decides the ceremony is broken, and small enough that the middle of the pack is plainly
      * not it.
@@ -47,7 +41,6 @@ public record PackTear(int width, long seed, boolean gripped, float torn) {
 
     /**
      * How many times the edge wanders off and back across the whole tear.
-     *
      * <p>Twenty rather than the nine this started as. Nine excursions across a pack put each
      * one over a tenth of the width, which reads as a wave rather than as a tear: paper does
      * not undulate, it goes a short way, catches, and turns. The number that matters is how
@@ -109,11 +102,9 @@ public record PackTear(int width, long seed, boolean gripped, float torn) {
 
     /**
      * The torn edge, as a height above the tear line at each step across.
-     *
      * <p>Given as offsets rather than as points so a caller can lay them along whatever line
      * it is drawing and in whatever direction, and so this owes nothing to a coordinate space
      * it cannot see.
-     *
      * <p>Ragged the same way every frame. The wander comes from the pack's own seed and the
      * step's number, not from a random draw taken while drawing - an edge that reshuffled
      * every frame would be a wrapper boiling rather than a wrapper torn.
@@ -140,7 +131,6 @@ public record PackTear(int width, long seed, boolean gripped, float torn) {
 
     /**
      * How much of its wander the edge has at this point along it.
-     *
      * <p>Nought at each corner and full everywhere else, over a short run in from the ends
      * rather than a curve across the whole width. A sine envelope was the obvious thing and
      * was wrong to look at: it put the tear's whole first quarter inside the ramp, so a pack
@@ -156,20 +146,16 @@ public record PackTear(int width, long seed, boolean gripped, float torn) {
 
     /**
      * How far the edge has wandered off the line at this point along it.
-     *
      * <p>Three waves rather than a fresh number per point. A number per point is noise, and
      * noise drawn as a line is a saw blade - which is what this was until somebody looked at
      * a picture of it. Paper tears in long excursions with smaller ones riding on them, and
      * then in small sharp teeth riding on those.
-     *
      * <p>The first two are smoothed, because a long excursion in paper is a curve. The third
      * is not: it turns a corner at every point, which is what a tooth is. Smoothing all three
      * was what made this read as a gentle wave instead of a tear - a torn edge is mostly
      * corners, and a curve has none.
-     *
      * <p>Measured along the tear rather than by step number, so the same pack tears the same
      * shape whether it is drawn at twenty points or two hundred.
-     *
      * <p>Deliberately not the deterministic stream the tables shuffle with. Nothing here
      * decides anything - it is the shape of a torn edge - and a draw that matters is a draw
      * that has to be reproducible from a session seed, which this must never be confused for.

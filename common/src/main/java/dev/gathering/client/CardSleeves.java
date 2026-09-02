@@ -9,17 +9,14 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * Drawing the back of a card, in whatever the deck it came from is sleeved in.
- *
  * <p>One place, because a face-down card is drawn in nine or ten of them - a pile's top, a
  * hand seen from across the table, a stack being carried, a permanent turned over - and a
  * sleeve that only some of those knew about would be a table where a player's cards changed
  * appearance depending on where they were sitting.
- *
  * <p>How a sleeve is built: one gray texture, multiplied by the sleeve's color, with the
  * game's own item or block art printed on it for the ones that carry a picture. That is why
  * there are two files rather than twenty-five - and why the pictures are Minecraft's rather
  * than ours, which is the only art in the mod that is not.
- *
  * <p>Client-only.
  */
 public final class CardSleeves {
@@ -30,7 +27,6 @@ public final class CardSleeves {
 
     /**
      * How much of the card's width the printed picture takes.
-     *
      * <p>Under half. A sleeve is read across a table at the size of a thumbnail, and a picture
      * filling the card would be a card whose picture is the only thing on it - the color, which
      * is what actually tells one player's cards from another's, would be a border.

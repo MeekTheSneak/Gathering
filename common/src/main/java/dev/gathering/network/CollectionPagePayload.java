@@ -10,7 +10,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: one page of a collection, and what is on it.
- *
  * <p>Each row carries its own card details, so the screen can draw the page the moment it
  * lands rather than asking again for forty names. A row whose details the server has not got
  * yet still comes - the card is owned and the count is true - and the screen draws what it
@@ -26,7 +25,6 @@ public record CollectionPagePayload(
 
     /**
      * How big the collection is and how much of it this search found.
-     *
      * <p>Sent with every page rather than once when the screen opens, because taking a card
      * out changes it: a header still saying forty-four cards after four have left is a screen
      * lying about the thing it is showing.

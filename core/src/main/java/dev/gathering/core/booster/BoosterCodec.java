@@ -11,13 +11,11 @@ import java.util.UUID;
 
 /**
  * Reads and writes booster collation as JSON a server can author by hand.
- *
  * <p>The interpreter consumes data and nothing else, which is what makes it work for every
  * set past and future - but data has to arrive from somewhere, and this is the plainest
  * somewhere there is: a file. It is the fallback when no published collation exists for a
  * set, and it is a feature on its own, because a server that wants to curate its own product
  * out of real printings can write one down.
- *
  * <p>The shape is the interpreter's own concepts and nothing else - sheets of weighted
  * printings, arrangements of weighted slots. It is deliberately not a claim to match any
  * particular published schema: an adapter that maps one onto this belongs with that feed,
@@ -38,12 +36,10 @@ import java.util.UUID;
  *   ]
  * }
  * </pre>
- *
  * <p>Strict and loud. A file with a typo in a sheet name, a weight that is not a number, or a
  * card id that is not a UUID says so and says where, because the alternative - quietly
  * dropping what it could not read - is a server whose packs are subtly wrong and whose admin
  * has no way to find out.
- *
  * <p>Pure.
  */
 public final class BoosterCodec {
@@ -231,7 +227,6 @@ public final class BoosterCodec {
 
     /**
      * One card's or one slot's weight.
-     *
      * <p>Read as a long and then checked to fit, rather than read straight as an int: Gson
      * would quietly truncate a number too big for one, and a weight that came out a different
      * number than the file said is exactly the sort of wrong nobody could ever see in a pack.

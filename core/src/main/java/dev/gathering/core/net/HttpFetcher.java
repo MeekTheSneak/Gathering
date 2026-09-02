@@ -6,17 +6,14 @@ import java.util.Objects;
 
 /**
  * The manners every outbound request in this mod is made with.
- *
  * <p>One request at a time behind a {@link RateLimiter}, a bounded number of attempts, a
  * backoff that grows between them, and one rule about which failures are worth trying again:
  * a 429 or a 5xx is the far end having a moment, while a 404 is an answer and a 400 is this
  * mod's mistake. Interruption is honored rather than swallowed, because these calls sit on a
  * pool that gets shut down when a world closes.
- *
  * <p>Here rather than inside one API's client because the mod talks to three different places
  * - card data, deck sites, collation - and being a good citizen at all of them should not be
  * three copies of the same loop drifting apart.
- *
  * <p>This blocks. It is pure core with an injected transport, so it knows nothing about
  * threads; keeping it off every game thread is the adapter layer's job.
  */

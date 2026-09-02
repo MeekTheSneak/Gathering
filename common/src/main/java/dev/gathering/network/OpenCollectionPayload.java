@@ -8,12 +8,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: open this collection.
- *
  * <p>Carries what the screen needs before it has asked for anything - whose it is, how big it
  * is, and what this player is allowed to do with it - and no cards at all. The cards arrive a
  * page at a time in answer to a search, because a collection is meant to run to ten thousand
  * of them and a screen shows forty.
- *
  * <p>What a player may do is decided on the server and sent rather than worked out here: a
  * client that decided for itself would be a client that could decide differently.
  */

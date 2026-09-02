@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Where a card has been.
- *
  * <p>Most of this is about the bound, because the bound is where a design decision lives: a
  * card that changed hands a hundred times has to lose ninety-something of them, and which
  * ones it loses is the whole question.

@@ -9,12 +9,10 @@ import java.util.Set;
 
 /**
  * Applies one event to the board.
- *
  * <p>The whole of the game's mechanics, in one exhaustive switch. Adding an event to
  * {@link GameEvent} and forgetting to fold it is a compile error rather than a silent
  * no-op, which is the reason this is a switch over a sealed hierarchy and not a method on
  * each event.
- *
  * <p><b>Nothing here enforces a rule.</b> Drawing from an empty library draws nothing rather
  * than failing; tapping a tapped card leaves it tapped; life goes negative; counters go
  * negative. The only things this refuses are structurally impossible - naming a card that is
@@ -194,7 +192,6 @@ public final class GameFold {
 
     /**
      * Turns a card where it stands.
-     *
      * <p>A card in a pile has no angle to turn, and silently staying put is the right answer:
      * the alternative is a client that clicked a beat after somebody scooped the card losing
      * the whole session to an exception.
@@ -208,12 +205,10 @@ public final class GameFold {
 
     /**
      * Puts a card onto another one, or takes it off.
-     *
      * <p>Three arrangements are refused rather than drawn: a card on itself, a card on
      * something in a pile, and a card on something that is itself on a third card. The first
      * two cannot be drawn at all; the third is a chain nobody plays and the only remaining way
      * to make a loop out of this.
-     *
      * <p>Refusing here means leaving the board alone, not throwing. A stale click - the host
      * went to the graveyard a moment ago - should do nothing rather than end the session.
      */
@@ -231,7 +226,6 @@ public final class GameFold {
 
     /**
      * Untap everything, except what somebody has said does not untap.
-     *
      * <p>The one place frozen means anything. A card is frozen because an effect said it does
      * not untap during its controller's untap step, and the whole reason to record that on the
      * card is this moment - untapping everything is one press, done every turn without
@@ -264,7 +258,6 @@ public final class GameFold {
     /**
      * A single card moved by hand, with one consequence the move drags behind it: a card
      * leaving a library takes the revealed-top window with it.
-     *
      * <p>The revealed count is positional - "the first N of this library are face up" - and
      * the visibility rules hand exactly that many identities to everybody. Moving a revealed
      * card out (a cascade taking its hit, a reveal-until fetch) slid the window down onto a
@@ -302,7 +295,6 @@ public final class GameFold {
 
     /**
      * Cards off the top of a library into the graveyard.
-     *
      * <p>Milling an empty library mills nothing. Whether that means the player has lost is a
      * rules question, and there is no rules engine here to answer it - the same answer drawing
      * from an empty library gets.
@@ -324,7 +316,6 @@ public final class GameFold {
 
     /**
      * Empties one zone into another, keeping the order the cards were in.
-     *
      * <p>Read once, up front, rather than re-read each time round: the list being walked is
      * the list being emptied, and a zone moving onto itself - which a misaimed drag can ask
      * for - would otherwise never run out of cards to move.
@@ -363,7 +354,6 @@ public final class GameFold {
 
     /**
      * A shuffle, and the end of anybody's look at that library.
-     *
      * <p>Closing the look is not tidiness. Whatever somebody had open is no longer in front of
      * them once the order has changed, and leaving it open would keep sending them a library
      * they are not looking at any more - which is the same leak as never having closed it.
@@ -402,7 +392,6 @@ public final class GameFold {
 
     /**
      * Puts a hand in the order the client asked for.
-     *
      * <p>Asked for, not obeyed. The order arrives from a client that worked it out a moment
      * ago, and a card can have been drawn or played since - so what is named and really there
      * goes first, in the order named, and whatever is there but was not named keeps its place
@@ -487,7 +476,6 @@ public final class GameFold {
 
     /**
      * Turns a hand toward one seat, or toward the whole table, or away again.
-     *
      * <p>The table means every other seat as it stands now, written out one by one rather than
      * kept as a flag. A player who shows the table and then shows one more person has done two
      * things that mean the same thing, and a board that recorded them as two different kinds
@@ -508,7 +496,6 @@ public final class GameFold {
 
     /**
      * Blank stock on the table, with whatever was written on it already written.
-     *
      * <p>Built before it is put down rather than added and then written on, so a card never
      * exists in a board anybody could see without the words that are the entire reason it is
      * there. A token, because that is what it is - see {@link GameEvent.PaperCardCreated}.

@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Reads whatever real MTGJSON set files are sitting in a directory, if any are.
- *
  * <p>Off by default and skipped when the directory is not there, because the mod
  * redistributes nobody's card data and four megabytes of somebody else's file has no business
  * in this repository. It exists because the adapter next door is a claim about a schema
@@ -32,10 +31,8 @@ import org.junit.jupiter.api.Test;
  * curl -O https://mtgjson.com/api/v5/DMU.json
  * GATHERING_MTGJSON_DIR=$PWD ./gradlew :core:test --tests '*MtgjsonRealSetTest'
  * </pre>
- *
  * <p>An environment variable rather than a system property because Gradle hands those to the
  * test JVM without the build having to be told to forward them.
- *
  * <p>What it asserts is what a wrong reading would break: every file reads without throwing,
  * every kind of pack that survives can be opened, and a pack comes out the size its own
  * arrangement says it should. The weight totals inside the files check themselves, loudly,

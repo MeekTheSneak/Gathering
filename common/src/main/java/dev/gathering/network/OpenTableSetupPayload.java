@@ -7,7 +7,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: you asked to start a game, so pick what kind.
- *
  * <p>Carries no format list. Both sides ship the same presets, and sending them would make the
  * server's copy authoritative over a client that already has it - the client asks for a format
  * by id and the server is the one that looks it up, which is the check that matters.

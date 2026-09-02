@@ -8,15 +8,12 @@ import net.minecraft.sounds.SoundSource;
 
 /**
  * Makes a table's noises, at the table.
- *
  * <p>At the table and not in the listener's ear, so a game across the room is quiet and the
  * one you are sitting at is not - which is the whole point of having them: in a game of four,
  * three of the boards are always somewhere other than where you are looking, and a shuffle you
  * can hear is a shuffle you do not have to read about.
- *
  * <p>Under the players' own volume slider, because that is what these are: the noise of people
  * handling cards. Anybody who does not want it has the slider.
- *
  * <p>Client-only. Asked for from the network thread, made on the client thread.
  */
 final class TableSounds {

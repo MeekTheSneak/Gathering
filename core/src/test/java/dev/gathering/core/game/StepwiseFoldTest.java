@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Stepping a replay forward gives the same board as folding it from the start.
- *
  * <p>The whole reason {@code extendWith} exists is that it is cheaper, and the whole risk of
  * it is that cheaper and different are hard to tell apart by looking: a board a step at a
  * time and a board in one go would have to be compared to notice, and nothing on screen would

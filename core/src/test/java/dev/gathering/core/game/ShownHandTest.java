@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Turning your hand round, as a rule.
- *
  * <p>The one feature in the mod that deliberately opens a hidden zone, so it is the one that
  * has to be provably narrow: your own hand, to seats you named, until you take it back. Every
  * test here is really the same question asked from a different chair - can anybody see a hand

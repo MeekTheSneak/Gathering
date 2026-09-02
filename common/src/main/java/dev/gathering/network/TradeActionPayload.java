@@ -8,10 +8,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: one thing somebody did at a trade table.
- *
  * <p>Every verb the table has, in one payload, because they are one conversation and the
  * server answers all of them the same way - by sending both people the whole table back.
- *
  * <p>Nothing here says which trade. A player is in at most one at a time and the server knows
  * which, so a payload that named a trade would be a payload that could name somebody else's.
  */

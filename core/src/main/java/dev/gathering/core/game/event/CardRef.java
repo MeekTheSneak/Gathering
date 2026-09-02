@@ -9,13 +9,11 @@ import java.util.Optional;
 
 /**
  * How the public event log is allowed to point at a card.
- *
  * <p>This type exists because of a leak that is easy to miss. Card instance ids are handed
  * out in order as decks load, so instance #37 is the thirty-seventh card of somebody's
  * decklist - and Commander decklists are routinely public. A log line reading "Chris moved
  * card #37 from their hand to their library" therefore tells every opponent exactly which
  * card that was, without any hidden payload ever being sent.
- *
  * <p>So the log never names a card by id unless everyone can already see it. Three forms,
  * and the choice between them is made against the board rather than left to each call site:
  *
@@ -44,7 +42,6 @@ public sealed interface CardRef {
 
     /**
      * The strongest reference the whole table is entitled to for this card.
-     *
      * <p>Deliberately state-derived. A call site that had to decide this for itself would
      * eventually get it wrong, and getting it wrong is silent.
      */

@@ -16,12 +16,10 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Puts a single named card in a player's hand.
- *
  * <p>Small but load-bearing: until a card can be held, none of the card-reading half of the
  * mod is reachable. Import produces a deck, a deck is not a card, and a creative-mode card
  * item with no data on it is a blank. This is how a card becomes a thing you can look at,
  * and later it is how an admin grants a card and how a collection hands one over.
- *
  * <p>The metadata summary goes out with the item, because a client that holds a card it has
  * never been told about knows nothing about it - correctly, and unhelpfully.
  */
@@ -32,7 +30,6 @@ public final class CardGrant {
 
     /**
      * Resolves a card by name and gives it to the player.
-     *
      * <p>Runs entirely on the card pipeline's executor and returns to the server thread to
      * touch the inventory, like every other path that talks to Scryfall.
      */

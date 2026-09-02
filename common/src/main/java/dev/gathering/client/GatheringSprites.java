@@ -9,30 +9,25 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * Every rectangle the mod draws, as art rather than as arithmetic.
- *
  * <p>Nothing in this mod paints a colored box. A panel, a scrim, a tint over a tapped card, a
  * progress bar, the ring round the card under the cursor - each one is a PNG under
  * {@code assets/gathering/textures/gui/sprites/<theme>/}, with a {@code .mcmeta} beside it
  * saying how it stretches. That is the difference between a look somebody can change and a
  * look somebody would have to recompile: repaint the file and the screens change.
- *
  * <p>A {@linkplain GuiTheme theme} is one folder of those files. Screens name an
  * {@link Element}; this decides which folder it comes out of. A theme that has not drawn an
  * element inherits it from {@link GuiTheme#DEFAULT}, so a resource pack can repaint six things
  * and leave the other forty-nine alone - and so a theme can never be half-drawn on screen.
- *
  * <p>Colors live in the PNGs, not here. The one exception is where a color is genuinely data
  * rather than decoration - the light a booster's rarity glows, the ring the pack's own color
  * draws - and those go through {@link #draw(GuiGraphics, Element, int, int, int, int, int)},
  * which tints a neutral sprite. A theme still owns that element's shape and weight.
- *
  * <p>Client thread only.
  */
 public final class GatheringSprites {
 
     /**
      * Every drawn element there is.
-     *
      * <p>Kept in step with {@code tools/gui_art.py}, which paints them, by
      * {@code tools/spritecheck.py}, which fails the build if either grows an element the
      * other does not have.
@@ -61,7 +56,6 @@ public final class GatheringSprites {
 
         /**
          * The four directions, as shapes.
-         *
          * <p>Blitted at {@link #ARROW} pixels square in the middle of a button rather than
          * stretched to fit it: an arrow is what is written on the button, and a triangle
          * scaled to a twenty-four by eighteen box is a triangle nobody drew.
@@ -73,7 +67,6 @@ public final class GatheringSprites {
 
         /**
          * Over the board, when a sub-screen is open on top of it.
-         *
          * <p>Enough to push the board back behind the screen in front of it, not enough to
          * hide it: a graveyard read mid-turn should be a box with the game behind it rather
          * than a room somebody has walked into.
@@ -87,7 +80,6 @@ public final class GatheringSprites {
         SETS_BACKDROP("sets_backdrop"),
         /**
          * Behind a card held up full screen.
-         *
          * <p>Darker than the one a small panel sits on. Nothing behind it is being read -
          * that is the whole reason that form exists - and a card is a picture, which needs
          * the room around it to be quiet before it looks like anything.
@@ -106,7 +98,6 @@ public final class GatheringSprites {
         ZONE_BORDER("zone_border"),
         /**
          * Round somebody's half of the table, and round the controls that belong to it.
-         *
          * <p>Drawn in the seat's own color, which is what makes four identical rectangles
          * four boards - so this one is painted neutral and tinted, unlike everything else
          * here, whose color is the artist's.
@@ -122,7 +113,6 @@ public final class GatheringSprites {
         SELECT_BOX("select_box"),
         /**
          * The pile a card is being dragged at.
-         *
          * <p>Drawn behind the slot rather than over it, so whatever is already sitting there
          * stays readable: the question being answered is "which box", and the box is the
          * thing that has to change. Two rings and a wash rather than one thin line, because
@@ -139,7 +129,6 @@ public final class GatheringSprites {
         PILE_BADGE("pile_badge"),
         /**
          * Across a hand that is open to somebody.
-         *
          * <p>Warm against the board's greens and cools, because it is the same kind of fact
          * as a power and toughness somebody typed: a thing a person did on purpose. It has to
          * be the one warm thing at the bottom of the window or it is not a warning.
@@ -147,7 +136,6 @@ public final class GatheringSprites {
         EXPOSED_BAND("exposed_band"),
         /**
          * Under one line of a card's counters.
-         *
          * <p>Darker than the tints used elsewhere, because this one lands wherever a card's
          * rules box happens to be light, and pale text on pale card stock is text nobody
          * reads at a glance - which for the number saying how big a creature is now is the
@@ -163,7 +151,6 @@ public final class GatheringSprites {
 
         /**
          * The two edges a card lying on the felt casts.
-         *
          * <p>Nothing here has thickness, so without it a card lying across another one is two
          * flat pictures sharing an edge and you cannot tell which is on top. A contact shadow
          * rather than a drop shadow, which is the difference between a card lying on the felt
@@ -174,7 +161,6 @@ public final class GatheringSprites {
         CARD_SHADOW("card_shadow"),
         /**
          * The shadow a card held over the table casts on it.
-         *
          * <p>Softer and wider than the line a resting card casts, because it is further away,
          * and the whole footprint rather than an edge, because it is doing a second job: it
          * is where the card will come down. A drag that shows nothing until it is let go asks
@@ -183,7 +169,6 @@ public final class GatheringSprites {
         CARD_CAST("card_cast"),
         /**
          * The outline of where a held card would land.
-         *
          * <p>The same amber {@link #DRAG_LANDING} uses in the scry box, because it is the
          * same sentence: this is where the thing in your hand goes if you let go now.
          */
@@ -192,7 +177,6 @@ public final class GatheringSprites {
         TAPPED_TINT("tapped_tint"),
         /**
          * Over a card that will not untap.
-         *
          * <p>A pale blue wash, with the rime of {@link #FROZEN_EDGE} caked along the top and
          * bottom rather than a ring round the whole card - because a ring is what the cursor
          * draws. Nearly white, so it separates from the cursor's accent as well as from the
@@ -208,7 +192,6 @@ public final class GatheringSprites {
         CARD_PLACEHOLDER("card_placeholder"),
         /**
          * Under a written power and toughness.
-         *
          * <p>Warm rather than the cool gray the rest of the board uses, because it is the one
          * number on a card somebody put there by hand, and the difference between "printed"
          * and "we agreed this" should be visible from across the table.
@@ -231,7 +214,6 @@ public final class GatheringSprites {
         DRAG_LANDING("drag_landing"),
         /**
          * Over a card the player has said they do not want on top.
-         *
          * <p>Grayed rather than moved: a card that jumped to another row every time somebody
          * changed their mind would make a scry of three a puzzle about where things went.
          */
@@ -247,7 +229,6 @@ public final class GatheringSprites {
         PACK_SPARK("pack_spark"),
         /**
          * Round the card a pack was opened for.
-         *
          * <p>Yellow for a rare, orange for a mythic, which is the whole point of it - so this
          * is the second of the two neutral sprites, painted white and tinted like
          * {@link #SEAT_RING}.
@@ -257,7 +238,6 @@ public final class GatheringSprites {
         /**
          * Five frames of a dashed ring with the lit dash travelling round it, cut off
          * BDragon1727's sheet, for a card whose art has not arrived.
-         *
          * <p>Frames rather than one sprite turned by the renderer: rotating pixel art by
          * anything but a right angle resamples it. Pick one with {@link #spinner}.
          */
@@ -269,7 +249,6 @@ public final class GatheringSprites {
 
         /**
          * How far there is to go, and how far it has got.
-         *
          * <p>A hollow box with its ends cut on the diagonal, and a solid bar that runs
          * inside it - cut off BDragon1727's sheet, so the fill is drawn inside the track's
          * wall rather than over the top of it.
@@ -282,7 +261,6 @@ public final class GatheringSprites {
 
         /**
          * A box of pips that fill one at a time: two caps, a lit cell and a dim one.
-         *
          * <p>In pieces rather than whole, because a match is best of one, three or five and
          * a nine-slice cannot repeat a cell - its middle stretches, and five pips stretched
          * would be one long smudge. Drawn with {@link #pips}.
@@ -294,7 +272,6 @@ public final class GatheringSprites {
 
         /**
          * A mana curve's columns, which are the same idea standing up.
-         *
          * <p>Their own elements rather than the bar's, because his bar only reads one way
          * round: the shear leans and the light runs along the top. These are the mod's own,
          * built to be drawn either way.
@@ -327,7 +304,6 @@ public final class GatheringSprites {
 
     /**
      * Which file an element is coming out of right now.
-     *
      * <p>The theme in force, unless it has not drawn this one, in which case the default
      * theme's. Resolved on every call rather than remembered: the answer changes when a
      * resource pack is added or removed, and both the lookup and the comparison are cheaper
@@ -367,7 +343,6 @@ public final class GatheringSprites {
 
     /**
      * Draws one element into a box, in a color the game worked out rather than the artist.
-     *
      * <p>For the few things whose color is information - the light a booster's rarity gives
      * off, the ring in a product's own color. Everything else takes its color from its PNG,
      * which is the point of this class.
@@ -392,7 +367,6 @@ public final class GatheringSprites {
 
     /**
      * How big a spinner is drawn, and how long one turn takes.
-     *
      * <p>Forty-four is the size the ring was drawn at. Halving a ring of dashes turns every
      * dash into a smudge, so it is blitted whole and simply left off a card with no room for
      * it - which the caller already checks, because the words underneath need room too.
@@ -402,7 +376,6 @@ public final class GatheringSprites {
 
     /**
      * The frames in order, held once.
-     *
      * <p>Rather than {@code Element.values()[...]} at the draw: an enum's {@code values()}
      * clones its array every call, and this one is called on every frame of a screen that may
      * have twenty cards on it still fetching.
@@ -414,7 +387,6 @@ public final class GatheringSprites {
 
     /**
      * The frame of the spinner that belongs to right now, in the middle of the given box.
-     *
      * <p>Off the wall clock rather than off a tick count, because this is drawn on screens
      * that are open while the game is paused - and a spinner that stops whenever the world
      * does says the fetch has stopped too.
@@ -428,7 +400,6 @@ public final class GatheringSprites {
 
     /**
      * How big an arrow is drawn: nine across the point, twelve along the base.
-     *
      * <p>Not square, because the sprite is not. It is cut off BDragon1727's sheet at nine by
      * twelve, and up and down are that turned a quarter - so which way round these two go
      * depends on which arrow it is. Drawing every one of them nine by nine squashed the two
@@ -450,7 +421,6 @@ public final class GatheringSprites {
 
     /**
      * A row of pips, the first {@code filled} of them lit.
-     *
      * <p>Built out of four sprites rather than drawn from one, so a match of any length gets
      * a box that really is that many cells wide.
      */

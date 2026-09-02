@@ -10,13 +10,11 @@ import java.util.UUID;
 /**
  * A pod with people in it: who is drafting, where they sit in the ring, and what happens to
  * the pools when it ends.
- *
  * <p>{@link DraftState} is the cards and the rules; this is the part that knows a pick came
  * from somebody, and it holds the one thing the pod says no to. As at the table, the mod
  * enforces nothing about play - but a client may only ever act as itself, because a client
  * that could declare somebody else's pick could empty a pack it was never allowed to read
  * and learn what was in it from what came back.
- *
  * <p>Pure, so the whole of that argument is checkable in milliseconds and none of it depends
  * on a world, a block or a connection.
  *
@@ -138,7 +136,6 @@ public record DraftPod(List<PlayerRef> drafters, DraftState state, boolean pools
 
     /**
      * What each drafter walks away with, by place in the ring.
-     *
      * <p>Empty for every place in a sponsored pod whose cards go back: the pools still exist
      * in the state, because the draft happened and its record is the record, but nobody takes
      * anything home and the screen that hands cards out must not read the state directly.

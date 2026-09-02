@@ -8,12 +8,10 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * What color a table's felt is drawn.
- *
  * <p>The felt is one texture tinted per table rather than sixteen textures or sixteen
  * blockstates: color is a thing that is only ever asked about while drawing, and putting it
  * in the blockstate would multiply every table's state count by sixteen to answer a question
  * nothing else asks.
- *
  * <p>Client-only, and shared by both loaders - only the way a color handler is registered
  * differs between them.
  */

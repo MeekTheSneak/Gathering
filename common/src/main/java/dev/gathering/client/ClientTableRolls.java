@@ -7,18 +7,15 @@ import net.minecraft.core.BlockPos;
 
 /**
  * The last die or coin this table saw, held long enough to be looked at.
- *
  * <p>Reported as "need visuals for rolling dice and flipping coins as well as a visual
  * announcement outside of the log". A roll was a line of text in a panel players keep closed,
  * which is the one place a result must not be: the whole reason the server rolls is that a
  * player rolling their own die is a player making a claim, and a result nobody at the table
  * actually saw is exactly as good as a claim.
- *
  * <p>Read off the board's own log rather than sent as anything new. The log already arrives
  * with every board and is already the public record of what happened, so a roll is announced
  * from the same fact the log is written from - there is no second channel to disagree with it,
  * and a player who joins mid-roll simply misses the flourish rather than seeing a stale one.
- *
  * <p>Client-only. Touched from the render thread alone: {@link #seen} is called while drawing
  * the board that carried the entry.
  */
@@ -47,11 +44,9 @@ public final class ClientTableRolls {
 
     /**
      * Takes the newest roll off this board's log, if it is one this client has not shown yet.
-     *
      * <p>The newest and only the newest: a board that arrives after a burst of rolls announces
      * the last of them rather than replaying the burst, which is what somebody watching the
      * table would have caught up on anyway.
-     *
      * <p>Sequence numbers rather than positions, because the log is a tail and a rewind can
      * make it shorter - an index would announce an old line every time somebody pressed undo.
      */

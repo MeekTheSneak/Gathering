@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Reading a set symbol and drawing it as a silhouette.
- *
  * <p>The symbols here are made up. Their shapes are not: every construction below appears in
  * the real ones - a hole that needs a winding rule, a path a group has switched off, a
  * viewBox three times wider than it is tall - and the mod redistributes nobody's artwork.

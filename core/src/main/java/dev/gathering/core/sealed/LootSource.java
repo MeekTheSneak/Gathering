@@ -5,21 +5,17 @@ import java.util.Optional;
 
 /**
  * Where in the world a sealed pack can turn up, and how often.
- *
  * <p>One of the two ways into a collection - the other is buying it - and the one that makes
  * a server's early game feel like a card game rather than a shop. A pack in a dungeon chest
  * is a small event; a pack you can buy whenever you like is inventory.
- *
  * <p>Which of these a server uses is its own choice, made in the config file it already has.
  * What is here is the mapping from a loot table to a source and the odds each source runs at,
  * because both of those are rules rather than settings: a server owner picks whether their
  * players fish packs out of the sea, not which of Minecraft's tables counts as fishing.
- *
  * <p>The odds are a starting point rather than a balance pass. They are written down here in
  * one place so they can be argued about, and they are deliberately long: a pack that turns up
  * in one chest in eight is a thing you remember, and one that turns up in every chest is a
  * currency.
- *
  * <p>Pure.
  */
 public enum LootSource {
@@ -53,7 +49,6 @@ public enum LootSource {
 
     /**
      * Which source a loot table belongs to, if any.
-     *
      * <p>Matched on Minecraft's own table names rather than on a list of every chest in the
      * game, so a table added by a later version is covered without anybody noticing it was
      * not. Deliberately not matched on other mods' tables: a pack falling out of somebody

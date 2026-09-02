@@ -10,7 +10,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: how much of each set is in this collection.
- *
  * <p>One row per set, already worked out. A few dozen numbers rather than the ten thousand
  * cards they were worked out from, which is the shape every other collection payload has for
  * the same reason.
@@ -25,7 +24,6 @@ public record SetProgressPayload(BlockPos collection, List<Row> sets, int stillL
 
     /**
      * How many sets are worth sending.
-     *
      * <p>A collection can touch every set there has ever been, and a list of nine hundred
      * rows is not a thing anybody reads. The ones nearest finishing come first, so what is
      * cut is the tail nobody scrolls to.

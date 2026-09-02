@@ -2,7 +2,6 @@ package dev.gathering.server;
 
 /**
  * What to tell a player about an exception.
- *
  * <p>The root cause's message, because the wrapping layers name executors and futures and the
  * root names the thing that went wrong. One copy: three pack handlers each carried their own,
  * and an error message players actually read is a rule that must not drift.

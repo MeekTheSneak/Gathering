@@ -19,23 +19,19 @@ import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
 
 /**
  * A loot entry that sometimes produces a sealed pack, and otherwise nothing at all.
- *
  * <p>An entry rather than an item with odds attached, because what drops is not decided by
  * this file: it is decided by the server's config and by what the current set was really
  * sold as, neither of which is known when a loot table is read. Vanilla lets an entry
  * produce zero stacks, which is exactly the shape this needs - a pack that does not come up
  * leaves no gap in the chest.
- *
  * <p>The source and how good the chest is are both baked in when the entry is made, because
  * the loot table's name is known then and asking again on every roll would be a lookup per
  * chest for an answer that cannot change.
- *
  * <p>The source is optional, and leaving it out means something different rather than nothing:
  * a chest whose whole purpose is to hold packs. A card shop's stock chest is not a lucky find
  * and should not be rolled against one-in-eight odds, and it is not one of the world's sources
  * a server owner switches on and off - it is part of the shop. So an entry with no source
  * always produces a pack, and the pool's own roll count decides how many.
- *
  * <p>Registered on both loaders, so a data pack can put a pack in a chest of its own by
  * writing {@code {"type": "gathering:sealed_product", "source": "structures"}}, and say it is
  * a find worth making with {@code "richness": "rich"}.
@@ -51,7 +47,6 @@ public final class PackLootEntry extends LootPoolSingletonContainer {
 
     /**
      * How good the chest is, if a data pack wants to say.
-     *
      * <p>Optional and plain by default: a data pack putting packs in a chest of its own is
      * describing an ordinary find unless it says otherwise, which is the safe direction.
      */
@@ -74,7 +69,6 @@ public final class PackLootEntry extends LootPoolSingletonContainer {
 
     /**
      * Which loot table this entry was built for, when the mod built it.
-     *
      * <p>Not in the codec, and deliberately absent from a data pack's entry: the archive is
      * about the mod's own reading of the vanilla tables, not something a pack declares. It is
      * here because the archive roll needs the table's name and only one loader hands it over
@@ -106,7 +100,6 @@ public final class PackLootEntry extends LootPoolSingletonContainer {
 
     /**
      * The same, naming the table so the archive can be rolled for it too.
-     *
      * <p>NeoForge reaches the archive through {@code SealedLoot.rollFor}, which asks it first
      * and skips the ordinary pack when it answers. Fabric adds this entry to the table
      * instead, and this entry went straight to {@code rollFrom} - which never asks. So the

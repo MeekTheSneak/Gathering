@@ -23,7 +23,6 @@ import net.minecraft.network.chat.Component;
 
 /**
  * A collection, as the cards themselves.
- *
  * <p>This was a list of names, on the argument that ten thousand cards is a thing you scan
  * and a grid of art shows nine of them. Playtesters put it plainly: "you can see the card
  * names, but no card art... it would be better to only show the actual cards and you can see
@@ -31,23 +30,19 @@ import net.minecraft.network.chat.Component;
  * argument was answering the wrong question - a collection is a box you look through, and a
  * box of cards you cannot see is a spreadsheet. Scanning is what the search box is for, and
  * it was already there.
- *
  * <p>So: a grid of card faces, each drawn as a stack as deep as the number of copies, with
  * the count on it. Resting on one puts it in {@link ClientHoverState}, so the read key opens
  * the same panel it opens everywhere else in the mod - a collection is one of the places
  * somebody most wants to read a card, and it should not be the one place that cannot.
- *
  * <p>Searching happens on the server, so nothing here filters anything: the box and the
  * buttons ask, and a page comes back. Which means the screen behaves the same on a collection
  * of ten cards and one of ten thousand - and the page is sized from how many cards this
  * window has room for, so the server never sends a card nobody can see.
- *
  * <p>Deliberately <b>not</b> a {@link CardPreviewHost}. It used to say it was, which is the
  * marker telling the read overlay to stay out of a screen that draws a preview of its own -
  * and this one never drew one. So the read key did nothing at all in the collection, which is
  * one of the two places in the mod somebody most wants to read a card. Reported as part of
  * "holding alt should still open the card info screen".
- *
  * <p>Client-only.
  */
 public final class CollectionScreen extends Screen {
@@ -56,11 +51,9 @@ public final class CollectionScreen extends Screen {
 
     /**
      * How thick a recessed box's frame is: its nine-slice border, which is eight.
-     *
      * <p>The sprite is thirty-two with a border of eight, so everything at that depth or
      * deeper is the stretched field and everything shallower is frame - true of every look
      * there is or ever will be, rather than measured off one of them.
-     *
      * <p>Not four. Four was the neutral theme's wall rather than its frame: Future Sight's
      * chrome band is the full eight and Retro's pressed border reads wider, so on those two
      * the top row of stacks sat on the frame, which looks exactly like a card coming out of
@@ -73,7 +66,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * How wide the rarity button would like to be, and the least it will take.
-     *
      * <p>It gives way rather than the button beside it, because its label shrinks to fit and
      * that one's would have to leave the screen.
      */
@@ -81,7 +73,6 @@ public final class CollectionScreen extends Screen {
     private static final int RARITY_MIN = 62;
     /**
      * Where the card box starts, worked out from the row of buttons above it.
-     *
      * <p>Eighty was a number, and the number was wrong: the pips end at seventy-four and the
      * box's own frame began at seventy-two, so every one of those buttons was drawn two
      * pixels over it. Said as arithmetic instead - the last row of buttons, a gap, and the
@@ -108,7 +99,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * How far past its own cell a card is actually drawn, on each side.
-     *
      * <p>A cell is not the card: the stack of copies leans up and to the right of it by three
      * pixels a card, and the ring round a hovered one sits two pixels outside it all round.
      * The grid used to be laid out against the cell alone and started four pixels inside the
@@ -168,7 +158,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * A page arriving for whichever screen asked for it.
-     *
      * <p>Two screens read a collection - this one and the deck builder - and both ask through
      * the same payload, so the answer goes to whichever is open. Routed here rather than each
      * screen registering itself, because a page is answered by exactly one screen at a time
@@ -310,7 +299,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * One color's button face: the orb, not the letter.
-     *
      * <p>The same symbol font every piece of card text in this mod is drawn with, so the pip
      * on the filter and the pip in a card's cost are one picture rather than two things that
      * mean the same. A letter had to be read and translated; the orb is the thing itself, and
@@ -337,7 +325,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * Turns one color on or off.
-     *
      * <p>Several on means at least all of them, which is how anybody already reads a color
      * filter: white and blue finds the Azorius card, not the mono-white ones.
      */
@@ -394,7 +381,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * Which way the list runs, said rather than drawn.
-     *
      * <p>This used to be the character for a triangle, which is a control labelled with a
      * symbol the font may or may not have and which a screen reader can make nothing of. The
      * triangle is the mod's own arrow now, and this is the sentence behind it - the tooltip
@@ -408,7 +394,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * Cycles what the list is ordered by.
-     *
      * <p>One button rather than five, because a collection has one order at a time and five
      * buttons of which four are off is four buttons doing nothing.
      */
@@ -436,11 +421,9 @@ public final class CollectionScreen extends Screen {
 
     /**
      * The grid this window has room for: how wide a card is, and how many fit across and down.
-     *
      * <p>Worked out once and asked for by everything, because the click test and the drawing
      * have to agree exactly - a grid drawn to one rule and hit-tested against another is a
      * screen that takes the card next to the one you pointed at.
-     *
      * <p>Cards are fitted to a wanted width rather than a fixed column count, so a wide window
      * shows more of the collection rather than the same nine cards blown up, and a narrow one
      * falls to a single column rather than to slivers.
@@ -470,7 +453,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * Everything one cell's card really covers: the stack leaning off it and the hover ring.
-     *
      * <p>Package-private, for the scripted run. A cell's own rectangle says nothing about
      * this, and the one thing worth checking is that the two agree about staying inside the
      * box.
@@ -521,7 +503,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * How many cards this window has room for.
-     *
      * <p>Sent with every search, because a page bigger than the grid is cards nobody can see -
      * and, worse, cards somebody can click on without seeing, since a click is a position and
      * anything below the fold is still under the cursor.
@@ -542,7 +523,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * The felt and the panel, under the widgets.
-     *
      * <p>Drawn here rather than in {@code render} because {@code super.render} paints the
      * menu background and then the widgets: anything drawn before it is blurred over, and
      * anything drawn after it sits on top of the buttons.
@@ -609,7 +589,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * One card, drawn as a stack as deep as the number of copies.
-     *
      * <p>The depth is the count, which is the thing the old list said as "4x" and the thing a
      * person actually reading a binder gets from the thickness of the pile. It stops at three
      * behind the front card because four copies and forty look the same in a stack anyway -
@@ -662,7 +641,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * What the search box understands, over the grid.
-     *
      * <p>Every line is an example rather than a rule, because a search language is learned by
      * copying a line that looks like the question being asked and changing a word. The list is
      * short on purpose: these are the ones worth knowing, and the box takes more.
@@ -726,7 +704,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * What clicking a row will do, said in the words of what is in hand.
-     *
      * <p>Read off this client's own hand rather than sent: it is holding the deck, and the
      * server checks the same thing before it moves a card. Which means the line changes the
      * moment somebody swaps hands, with no round trip and nothing to keep in step.
@@ -740,13 +717,11 @@ public final class CollectionScreen extends Screen {
 
     /**
      * The line about the gesture that happens on the block rather than in here, or none.
-     *
      * <p>One at a time and the deck first. Two lines drawn at the same height would be one
      * line on top of another, and the deck is the right one to keep: crouching with anything
      * in hand is a click a collection never sees, so somebody holding a deck cannot sweep
      * even if they are carrying loose cards too. The line offers the gesture they can
      * actually do right now.
-     *
      * <p>Its own method so the scene can ask what the screen would say rather than reading
      * it back off a photograph, which is the only way a line that stopped appearing would
      * ever be noticed.
@@ -762,7 +737,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * Whether a crouching right-click would reach the block at all.
-     *
      * <p>Vanilla skips block interaction entirely when somebody crouches holding anything in
      * either hand, so the sweep is an empty-handed gesture whether or not it is called one -
      * see {@code CollectionBlock#useWithoutItem}. The line used to be offered to anybody
@@ -778,7 +752,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * Whether this player has any loose cards on them at all.
-     *
      * <p>Read off this client's own inventory, like the held deck beside it: the line is
      * about what they are carrying, so it changes the moment they pick a card up and there
      * is nothing to keep in step with the server. The server checks the same thing before it
@@ -871,7 +844,6 @@ public final class CollectionScreen extends Screen {
 
     /**
      * Shows only one set, from the top.
-     *
      * <p>What pressing a row of the set-progress screen does. Straight to the first page
      * rather than wherever the last search was: the set being asked for is a different list,
      * and page nine of it is not where anybody wants to arrive.

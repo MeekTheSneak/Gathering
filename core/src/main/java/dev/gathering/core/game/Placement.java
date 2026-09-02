@@ -2,12 +2,10 @@ package dev.gathering.core.game;
 
 /**
  * Where in a zone a card lands.
- *
  * <p>Two kinds of zone want two different answers, so this is a sealed type rather than a
  * pair of booleans. Piles - libraries, graveyards - care about order and not about geometry:
  * top or bottom is the whole vocabulary. The battlefield is the reverse: it is a surface, and
  * what matters is the spot a card was dropped on.
- *
  * <p>Sealed so that adding a third kind later is a compile error everywhere it needs to be
  * thought about, rather than a silent default.
  */
@@ -58,7 +56,6 @@ public sealed interface Placement {
 
     /**
      * Which wording the log uses for a card moved this way.
-     *
      * <p>The end of a pile goes in the verb: "put X on top of their library" is a sentence,
      * and "moved X to their library (top)" is a note somebody left in a sentence. A spot on a
      * battlefield gets no wording at all - it is a pair of coordinates that meant nothing to

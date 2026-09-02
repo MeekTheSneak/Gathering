@@ -19,7 +19,6 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
  * All NeoForge registration, in one class.
- *
  * <p>Concentrated deliberately: registration order across classes is classloading-dependent
  * and effectively invisible, so keeping it in one place makes the order explicit.
  */

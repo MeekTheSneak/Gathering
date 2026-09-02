@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
  *
  * <blockquote>No payload containing hidden card identity is ever addressed to a client that
  * the visibility table does not entitle.</blockquote>
- *
  * <p>This is the test suite that must never regress. It asserts on the actual view objects
  * that go on the wire, not on the rules that build them, because a client's entitlement is a
  * property of what it receives.
@@ -34,7 +33,6 @@ class VisibilityInvariantTest {
 
     /**
      * Every zone reaches every viewer, even the ones they may only count.
-     *
      * <p>Three screens ask a seat view for a zone by name and take the game down if it is not
      * there - which is fine while every zone is always built, and is the assumption this
      * checks. It is also what makes adding a zone additive: the fold lays out one of each per
@@ -59,7 +57,6 @@ class VisibilityInvariantTest {
 
     /**
      * A board outlasts its player, and says so.
-     *
      * <p>Leaving a seat releases the chair and leaves the cards where they were. Everything
      * that draws a mat asked whether somebody was sitting at it, so a board somebody walked
      * away from became a battlefield with no zones behind it: the graveyard and the exile
@@ -90,7 +87,6 @@ class VisibilityInvariantTest {
 
     /**
      * The board somebody walked away from still has their name on it.
-     *
      * <p>Every sentence about a seat asked who was sitting in it, so standing up rewrote the
      * game's whole history: the log lines they had already earned, the title over their
      * graveyard and the number beside their board all turned into "(empty)". A log that
@@ -117,12 +113,10 @@ class VisibilityInvariantTest {
 
     /**
      * Counters keep the order they were put on, on a card and beside a seat alike.
-     *
      * <p>They are drawn as a stack of labels, so the order is something a player reads - and
      * a map ordered by a hash salted once per launch would shuffle that stack every time the
      * game started. Not a failure anybody would report either: it looks stable all session,
      * and only somebody who noticed their poison counter had moved would ever say so.
-     *
      * <p>Checked with enough counters that a hash order is near certain to differ, and on
      * both kinds, because the seat's were kept in order from the day they were added and the
      * card's were not - which made one rule mean two things depending on where the counter
@@ -179,7 +173,6 @@ class VisibilityInvariantTest {
 
     /**
      * The pictures a viewer is sent name only cards that viewer was already shown.
-     *
      * <p>A client asked what a card looked like only for cards in its own inventory, so
      * somebody else's cards had no picture and a public graveyard opened onto empty recesses.
      * The server pushes them instead, which is safe for exactly one reason: what it sends is
@@ -209,7 +202,6 @@ class VisibilityInvariantTest {
 
     /**
      * A hand nobody may look at contributes no printings to anybody else's pictures.
-     *
      * <p>The case worth stating on its own: a hand is the one zone whose cards are real, and
      * present in the owner's own view, and must never appear in anybody else's.
      */
@@ -307,7 +299,6 @@ class VisibilityInvariantTest {
 
         /**
          * Nobody but the owner turns a face-down card face up.
-         *
          * <p>The other half of the same hole. A face-down permanent is the one thing on an
          * open board nobody else can read, and turning it over publishes it to the table -
          * so an event that anybody could send is that card's secrecy handed to whoever asks
@@ -341,13 +332,11 @@ class VisibilityInvariantTest {
 
         /**
          * A token copy cannot be used to read a card the copier may not see.
-         *
          * <p>A copy carries the original's identity, and it lands face up on the copier's own
          * battlefield where they can simply look at it. Card instance ids are consecutive
          * integers, so a client that could copy anything by id would only have to count: an
          * opponent's whole hand and library printed onto its own side of the table, one token
          * at a time, with the board never showing anything unusual to anybody else.
-         *
          * <p>Authorization allows anything it does not name, which is the right default for a
          * mod with no rules enforcement and the wrong one for the three events that are about
          * reading rather than doing. This is the third.
@@ -390,7 +379,6 @@ class VisibilityInvariantTest {
 
         /**
          * The order the two events go out in, checked between them and not only after.
-         *
          * <p>One payload carries one event, and the server sends the whole table a fresh
          * board after each one. So playing a card face down is two boards, and the order
          * decides what is on the first of them: moving first puts the card face up on the
@@ -399,7 +387,6 @@ class VisibilityInvariantTest {
          * picture before the second event turns it down. On screen it is one frame; in the
          * packet log it is forever, which is the whole difference between this mod's hidden
          * information and a table that only looks like it has some.
-         *
          * <p>The test below this one asserts the same play and passes either way, because it
          * only ever looks at the end. This one folds the events one at a time and asks the
          * question after each, which is the shape the wire actually has.

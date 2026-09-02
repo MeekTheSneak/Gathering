@@ -8,11 +8,9 @@ import net.minecraft.world.InteractionHand;
 
 /**
  * Client to server: "call this deck something else".
- *
  * <p>Its own payload rather than another action on {@link DeckEditPayload}, because that one
  * is about cards crossing between piles and this one is not - and because a rename is a
  * string, which is the one thing a card edit never carries.
- *
  * <p>Which deck is the one in the hand, named the way every other deck edit names it. Nothing
  * else would do: a deck in a chest across the world is a deck this player is not holding, and
  * a payload that could name one would be a payload that could rename anybody's.

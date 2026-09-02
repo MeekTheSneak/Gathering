@@ -13,18 +13,15 @@ import net.minecraft.network.chat.Component;
 
 /**
  * How much of each set is in this collection.
- *
  * <p>The one question a binder cannot answer by being looked at. A collection screen already
  * says what is in it; this says what is missing from it, which is the thing that makes the
  * next pack worth opening.
- *
  * <p>Sorted by what you are nearest to finishing rather than alphabetically or by date,
  * because "what am I close to?" is the question somebody opens it to ask - see
  * {@link SetCompletion}. A row is a set, a bar and two numbers, and pressing one takes the
  * collection behind it down to that set: seeing that you are at a hundred and forty of two
  * hundred and eighty-one and then having to type the set code would be the screen showing you
  * something and then making you find it again.
- *
  * <p>Client-only.
  */
 public final class SetProgressScreen extends ChildScreen {
@@ -38,7 +35,6 @@ public final class SetProgressScreen extends ChildScreen {
     private static final int GAP = 8;
     /**
      * How tall a row is, and the bar that sits under its words.
-     *
      * <p>Twenty-six rather than twenty-two: the words take ten and the bar is eleven, which
      * is the height its art was drawn at. The wall is how thick the track's box is, and is
      * what the fill is inset by so it runs inside the box rather than over it.
@@ -74,7 +70,6 @@ public final class SetProgressScreen extends ChildScreen {
 
     /**
      * Which collection somebody has asked about and not yet been shown, if any.
-     *
      * <p>The answer to the first ask opens this screen; every answer after it only refreshes
      * one that is already open. Without that distinction the second answer - and the server
      * sends one every second while it is still naming cards - reopened the list in front of
@@ -91,7 +86,6 @@ public final class SetProgressScreen extends ChildScreen {
     /**
      * Opens it if it was asked for, refreshes it if it is already up, and otherwise leaves
      * the screen alone.
-     *
      * <p>Refreshing matters because the server looks up whatever it could not name and the
      * count settles a moment later: a screen that could only be opened once would show the
      * unsettled number for as long as somebody left it open.
@@ -145,12 +139,10 @@ public final class SetProgressScreen extends ChildScreen {
 
     /**
      * The collection behind, then a panel of this screen's own over the top of it.
-     *
      * <p>Its own panel rather than the scrim a small child screen sits on, because this one
      * is a full window of rows: on a scrim, the list underneath showed straight through it
      * and neither list could be read. A detour is allowed to cover what it was opened from
      * when the detour is the size of the thing behind it.
-     *
      * <p>Here rather than in {@link #render}, which is where the first attempt put it - and
      * a panel drawn after the screen renders is a panel drawn over this screen's own buttons.
      * The way out was underneath it, which is the one control that must never be.
@@ -219,7 +211,6 @@ public final class SetProgressScreen extends ChildScreen {
 
     /**
      * One set: its name, how far along it is, and the bar.
-     *
      * <p>The numbers on the right where a column of them lines up, the name on the left where
      * a column of those does. A bar under both rather than beside them, so the shape of the
      * whole list reads at a glance and the eye can skip the numbers entirely.
@@ -259,7 +250,6 @@ public final class SetProgressScreen extends ChildScreen {
 
     /**
      * The set the cursor is on, for the scripted run.
-     *
      * <p>Which row that is depends on what the server answered, and the scripted run cannot
      * know that - a machine with a network gets real sets and one without gets whatever the
      * run fed it. So the check is that pressing a row narrows the collection to <em>that</em>
@@ -271,7 +261,6 @@ public final class SetProgressScreen extends ChildScreen {
 
     /**
      * Pressing a set.
-     *
      * <p>Left for the list of what is missing, because that is the question the row raises:
      * a number saying one of three hundred and seventy-three is not an answer to anything on
      * its own. Right for the other half of it - back to the collection showing only this set,

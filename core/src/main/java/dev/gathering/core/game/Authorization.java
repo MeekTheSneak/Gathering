@@ -5,13 +5,11 @@ import java.util.Optional;
 
 /**
  * The only thing the mod ever says no to.
- *
  * <p>There is no rules enforcement here and there never will be. If the group misplays, the
  * group misplays: a player may tap an already-tapped creature, set their life to minus
  * eleven, move an opponent's commander to their own side of the table, or draw six cards on
  * turn one. Every one of those is attributed by name in the event log, and that attribution
  * is the mechanism - not a permission check.
- *
  * <p>What is checked is information. The single security property of the mod is that no
  * hidden card identity ever reaches a client the visibility rules do not entitle, and an
  * action that would <em>let the actor see</em> a card they are not entitled to is the one
@@ -19,7 +17,6 @@ import java.util.Optional;
  *
  * <blockquote>An action is owner-locked if performing it would reveal hidden information to
  * the actor.</blockquote>
- *
  * <p>That is a smaller set than "anything touching a hidden zone", and deliberately so.
  * Making an opponent draw is legal Magic and reveals nothing to the person doing it - the
  * card lands in a hand only its owner can read. Shuffling an opponent's library is legal
@@ -99,13 +96,11 @@ public final class Authorization {
 
     /**
      * Only a card's owner turns it face up.
-     *
      * <p>A face-down permanent is the one thing on an open board that nobody else can read,
      * and turning it over publishes it to everybody at the table. An honest client cannot
      * even ask - a face-down card arrives at it with no instance id to name - but instance
      * ids are consecutive integers, so a modified one only has to count. On a real table you
      * do not turn over somebody else's morph, and this is that.
-     *
      * <p>Face down is left alone. It reveals nothing, and refusing it would referee
      * behaviour rather than protect information, which is not this mod's job.
      */
@@ -125,7 +120,6 @@ public final class Authorization {
 
     /**
      * Whether the actor may copy this card, which is whether they may read it.
-     *
      * <p>The same two questions the visibility rules ask, in the same order: a card in
      * somebody else's hand or library is theirs to see, and a face-down card is its owner's
      * whatever zone it is in. Everything else on the table is public and copying it is an

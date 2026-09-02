@@ -25,13 +25,11 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The card shop, in a running server.
- *
  * <p>What is worth checking here rather than on paper is the wiring. The rules about what is
  * on a shelf and what it costs are pure and are checked in {@code :core}; what cannot be
  * checked there is whether the counter is really somewhere a villager can work, whether the
  * profession registered at all, and whether a box somebody bought on another server does
  * anything worse than nothing.
- *
  * <p>Nothing here trades. A shelf needs the published data for a set, which needs a network,
  * and a game test that reached one would be a game test that fails when somebody else's host
  * is down.
@@ -42,7 +40,6 @@ public final class CardShopGameTest {
 
     /**
      * A counter a villager cannot see is a shop that never opens.
-     *
      * <p>Registering the point of interest is not enough on its own: every one of the block's
      * states has to be in the map villagers search, and the two loaders do that in different
      * ways. A rotation nobody registered would be a counter that works three ways out of four.
@@ -70,12 +67,10 @@ public final class CardShopGameTest {
 
     /**
      * Walking up to a shopkeeper twice changes nothing.
-     *
      * <p>Their counter is brought back in step every time somebody looks at it, which is what
      * keeps every card shop the same shop. The thing that must never follow is a restock: if
      * looking again reset what had been sold, standing in front of one and closing the screen
      * over and over would be an infinite supply of boosters.
-     *
      * <p>True whether or not this server has anything to stock, which is why it is the thing
      * checked rather than a count.
      */
@@ -132,7 +127,6 @@ public final class CardShopGameTest {
 
     /**
      * A box this server has never heard of does nothing, and is not eaten.
-     *
      * <p>Bought on a server pointed at one set and brought to a server pointed at another,
      * or written by hand by an operator. Neither is the player's fault and neither should
      * cost them the box.

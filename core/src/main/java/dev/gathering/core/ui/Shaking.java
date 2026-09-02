@@ -2,13 +2,11 @@ package dev.gathering.core.ui;
 
 /**
  * How hard something is shaking, and which way, at a moment.
- *
  * <p>A shuffle is the one thing a player does that changes nothing anybody can see. No card
  * changes zones, no count moves, and the order it changes is the order nobody is allowed to
  * know - so a library that has just been shuffled looks exactly like one that has not, and the
  * only account of it is a line in the log. A stack of cards briefly rattling is what a shuffle
  * looks like at a real table, and it is enough.
- *
  * <p>Pure, and a function of the time since it started rather than of a counter somebody has
  * to remember to advance: two clients shake the same pile for the same length, and a frame
  * dropped in the middle is a frame missed rather than a shake that runs long.
@@ -17,7 +15,6 @@ public final class Shaking {
 
     /**
      * How long a shake lasts, in milliseconds.
-     *
      * <p>About as long as a hand takes to riffle a deck once. Long enough to catch out of the
      * corner of an eye across the table, short enough that four people shuffling at the start
      * of a game is not a board that vibrates.
@@ -32,7 +29,6 @@ public final class Shaking {
 
     /**
      * How much of the shake is left: one as it starts, nought when it is over.
-     *
      * <p>Squared, so it dies away rather than stopping. A shake that ends at full strength
      * looks like the card was dropped.
      */
@@ -49,7 +45,6 @@ public final class Shaking {
 
     /**
      * The slot, rattled - or itself once the shaking is over.
-     *
      * <p>The one rule for both boards. The seated screen and the miniature on the block each
      * carried their own copy of the seed and reach arithmetic, and the miniature's javadoc
      * promised "the same shake the seated board draws" - a promise only kept by hand. Seeded
@@ -72,7 +67,6 @@ public final class Shaking {
 
     /**
      * How far to move something along one axis, in whatever units the caller measures in.
-     *
      * <p>The seed is what stops two piles shaken at once from moving as one object: they are
      * separate stacks in separate hands. It is the caller's to choose and only has to differ.
      */

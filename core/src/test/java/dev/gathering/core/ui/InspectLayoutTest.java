@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The full-window read, as arithmetic.
- *
  * <p>Drawn over a running game at whatever size the player's window happens to be, which is
  * the case a screenshot never covers: everything looks right at the one size somebody
  * photographed it at, and the text column is off the edge at 4:3.

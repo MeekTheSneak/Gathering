@@ -6,16 +6,13 @@ import java.util.Locale;
 
 /**
  * Turns {@code {T}: Add {C}{C}} into something that can be drawn as symbols.
- *
  * <p>Oracle text writes mana and tap symbols as braced codes, and read as literal text they
  * are noise in the middle of every sentence a card says. Each recognized code maps to a
  * private-use character in the mod's own symbol font, so the text can be handed to the game's
  * ordinary text layout - which then does wrapping, width and styling for symbols exactly as
  * it does for letters, instead of this having to reimplement all three.
- *
  * <p>Anything unrecognized is left exactly as written, braces and all. A symbol nobody has
  * drawn yet should read as {@code {W/P}} rather than disappear or become a blank box.
- *
  * <p>The symbols are the mod's own art - lettered discs, not Wizards' pictographs - for the
  * same reason the card back is.
  */
@@ -26,7 +23,6 @@ public final class ManaSymbols {
 
     /**
      * Every symbol, in the order their codepoints are assigned.
-     *
      * <p>The name is also the texture name, so this list is the one place the font, the
      * generator and the parser have to agree. Adding one means appending here - never
      * inserting, which would renumber every glyph after it.
@@ -49,7 +45,6 @@ public final class ManaSymbols {
 
     /**
      * Codes whose letter is not their texture name.
-     *
      * <p>Oracle text writes the tap symbol as {@code {T}}, and a texture called {@code t}
      * next to {@code w} and {@code u} would read as a color. The alias keeps the file names
      * saying what they are.
@@ -68,7 +63,6 @@ public final class ManaSymbols {
 
     /**
      * Splits text into runs of letters and runs of symbol glyphs.
-     *
      * <p>Adjacent symbols end up in one run - {@code {C}{C}} is one segment of two glyphs -
      * because that is one styled component instead of two.
      */
@@ -137,7 +131,6 @@ public final class ManaSymbols {
 
     /**
      * The texture name for a braced code, or null.
-     *
      * <p>Hybrid codes are normalized to the conventional order, so {@code {U/W}} and
      * {@code {W/U}} are the same symbol rather than one symbol and one gap.
      */

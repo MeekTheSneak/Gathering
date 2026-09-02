@@ -9,11 +9,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: move this card between my deck and my sideboard.
- *
  * <p>One card at a time, named by what it is rather than by an index, for the same reason
  * every other deck edit works that way: an index is a promise about a list the server may have
  * changed since, and a card is a card.
- *
  * <p>The server edits the deck it is holding for this player's seat, and no other. Nothing in
  * this payload names a seat, which is the point - a client cannot ask to shuffle somebody
  * else's sideboard because there is nowhere to say whose.

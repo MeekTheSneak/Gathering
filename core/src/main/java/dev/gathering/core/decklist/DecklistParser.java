@@ -9,12 +9,10 @@ import java.util.regex.Pattern;
 
 /**
  * Turns pasted decklist text into structured entries.
- *
  * <p>This is the front door of the whole mod, so it is deliberately permissive about input
  * and strict about output: it accepts the shapes the common exporters actually emit, it
  * never throws, and every line it cannot understand comes back as a {@link ParseProblem}
  * carrying its line number and original text rather than silently vanishing.
- *
  * <p>Formats handled:
  * <ul>
  *   <li>Moxfield / Archidekt exports - {@code 1 Sol Ring (C21) 263 *F* [Artifact] ^Have^}</li>
@@ -23,7 +21,6 @@ import java.util.regex.Pattern;
  *   <li>Deckstats style - {@code 1 [C21#263] Sol Ring}</li>
  *   <li>Plain lists - {@code 1x Sol Ring}, {@code 1 Sol Ring}, or bare {@code Sol Ring}</li>
  * </ul>
- *
  * <p>Set codes and collector numbers are recorded as hints only. Choosing an actual
  * printing is resolution's job, not parsing's.
  */
@@ -54,13 +51,11 @@ public final class DecklistParser {
 
     /**
      * A bare web address on its own line.
-     *
      * <p>Pasting the link to a deck instead of the deck is the single most natural mistake to
      * make here - it is what you have in your clipboard after looking at your list, and every
      * deck site's share button hands you one. Without this it parses as a card named
      * "https://archidekt.com/decks/1234567", resolves to nothing, and the player is told no
      * such card exists, which is true and no help at all.
-     *
      * <p>Requires a dotted domain followed by a slash and no spaces, so it cannot swallow a
      * real card name: "Fire // Ice" has no dotted domain before its slashes.
      */

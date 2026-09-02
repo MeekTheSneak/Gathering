@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The furniture that cannot live on the felt.
- *
  * <p>Almost nothing, now that the table is the screen: a hand along the bottom and a thin
  * strip of names along the top. What is left to get wrong is where those meet the table, and
  * it is worth getting right - a click that counts as both your hand and the felt underneath it

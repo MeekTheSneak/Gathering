@@ -7,14 +7,11 @@ import net.minecraft.network.chat.Component;
 
 /**
  * A question with two answers, one of which cannot be taken back.
- *
  * <p>For the handful of things at a table that end something: conceding a game, ending a set.
  * Every other verb here is a move somebody can undo or simply do again, and putting those
  * behind a question would be asking players to confirm shuffling. These are not those.
- *
  * <p>The safe answer is on the left and is what closing the panel does, so a player who
  * arrived here by accident gets out by any of the three ways out.
- *
  * <p>Client-only.
  */
 public final class ConfirmScreen extends ChildScreen {
@@ -67,7 +64,6 @@ public final class ConfirmScreen extends ChildScreen {
 
     /**
      * Behind the widgets, not over them.
-     *
      * <p>Drawn in {@code render} - which runs after {@code super.render} has already drawn
      * every button - the panel painted over its own buttons, so what was left was the label
      * with no frame under it and no sign it could be pressed. {@code CountersScreen} hit this

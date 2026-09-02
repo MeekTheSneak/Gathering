@@ -15,12 +15,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The tests, checked for the ways a test can pass by not running.
- *
  * <p>A suite that grows for months is a suite nobody re-reads, and the worst thing in one is a
  * test that reports success because it never executed. Three property suites in this repo had
  * been silently skipped for weeks - long enough that one of them no longer compiled against
  * the generator it names, and nothing said so.
- *
  * <p>Reads the sources off disk, which is unusual for a unit test and is the point: what is
  * being checked is a property of the source text, and there is nothing in the compiled classes
  * that would show it.
@@ -81,7 +79,6 @@ class TestHygieneTest {
 
     /**
      * Every test source in this module.
-     *
      * <p>Found relative to the working directory, which Gradle sets to the module's own
      * directory. A run that cannot find them fails rather than passing on an empty list -
      * a hygiene check that quietly checks nothing is the thing it exists to catch.

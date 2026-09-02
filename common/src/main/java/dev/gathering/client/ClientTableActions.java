@@ -10,12 +10,10 @@ import net.minecraft.core.BlockPos;
 
 /**
  * Sends a move to the server.
- *
  * <p>The client describes what it did and the server decides whether it happened. Nothing is
  * applied here first: a board that showed a move before the server agreed to it would be a
  * board that sometimes has to take one back, and in a game with hidden information "take that
  * back" is a sentence with information in it.
- *
  * <p>Client-only.
  */
 public final class ClientTableActions {

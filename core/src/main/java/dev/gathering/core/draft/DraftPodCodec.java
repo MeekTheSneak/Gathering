@@ -14,13 +14,11 @@ import java.util.Map;
 
 /**
  * A whole pod, as bytes, so a draft survives a restart.
- *
  * <p>Everything, not a view: this is what the server keeps for itself, and it holds every
  * pack in the ring. It must never be sent to a client, which is why it is a different class
  * from {@link DraftViewCodec} rather than a flag on it - the two are told apart by their
  * names at every call site, and there is no argument anybody can pass that turns one into
  * the other.
- *
  * <p>The whole state rather than the opening packs and a list of picks. A pod is a few
  * hundred identities at its largest, so the saving is not worth the second implementation of
  * the passing rules that replaying would need, and a bug in that second implementation would

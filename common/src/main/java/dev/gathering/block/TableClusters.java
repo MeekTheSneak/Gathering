@@ -12,7 +12,6 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * The bridge between tables in a world and the cluster arithmetic in the pure core.
- *
  * <p>Everything about which tables join up, how many seats that makes and where they go is
  * decided in {@code :core}, where it is checked against every shape a player can build. This
  * translates block positions into that vocabulary and back, and does nothing else - so a
@@ -31,7 +30,6 @@ public final class TableClusters {
     /**
      * Whether a table placed with its corner here would be able to join what is already
      * there.
-     *
      * <p>Asked before the table exists, so it counts the neighboring clusters rather than
      * its own. Two separate clusters either side of the gap merge into one when it is filled,
      * which is why this cannot just look at the biggest of them.
@@ -47,7 +45,6 @@ public final class TableClusters {
 
     /**
      * The shape this placement would leave behind: the new table and everything it touches.
-     *
      * <p>Two separate clusters either side of the gap merge into one when it is filled, which
      * is why this cannot just look at the biggest of them.
      */
@@ -67,7 +64,6 @@ public final class TableClusters {
 
     /**
      * Why a table would not go here, for the message a player gets when it does not.
-     *
      * <p>Two reasons and they are not the same: one is a cap somebody can work round by
      * building elsewhere, the other is a shape. A refusal that does not say which is a table
      * that just will not place.
@@ -108,7 +104,6 @@ public final class TableClusters {
     /**
      * Which edge of a table somebody is at, from the face they clicked or else from where they
      * are standing.
-     *
      * <p>The face alone is not enough, and the case it misses is the ordinary one: a table is
      * waist height, so the thing in front of you when you walk up to one and right-click is
      * its top. That gave no side at all, and sitting down meant crouching to find a vertical

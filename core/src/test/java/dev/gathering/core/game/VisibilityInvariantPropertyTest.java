@@ -18,12 +18,10 @@ import net.jqwik.api.Provide;
 
 /**
  * The invariant, asserted over games nobody wrote down.
- *
  * <p>The example tests cover the situations somebody thought of. This one plays thousands of
  * arbitrary games - drawing, playing, flipping, stealing, exiling, shuffling, conceding in
  * whatever order the generator picks - and after every single action checks that no viewer
  * holds identity they are not entitled to.
- *
  * <p>This is the suite the design brief says must never regress, and it is the one most
  * likely to catch a regression, because the interesting sequences are the ones nobody would
  * write by hand.
@@ -96,7 +94,6 @@ class VisibilityInvariantPropertyTest {
 
     /**
      * Nothing a spectator gets from a library was not revealed to the whole table.
-     *
      * <p>A spectator is the least entitled viewer there is, and revealing is the only thing
      * that gives one a library card at all. If a scry or a search ever leaked into the
      * spectator view, this is where it would show up.
@@ -120,7 +117,6 @@ class VisibilityInvariantPropertyTest {
 
     /**
      * A shuffle ends every look at that library.
-     *
      * <p>The leak this guards is quiet: a search left open across a shuffle keeps sending the
      * searcher a library whose order has changed underneath them, which is the top of somebody
      * else's freshly shuffled deck arriving on a client with no reason to have it.
@@ -171,7 +167,6 @@ class VisibilityInvariantPropertyTest {
 
     /**
      * Auto-placement must never put two cards on one spot.
-     *
      * <p>A player may deliberately stack cards - the mod never says no - but a card the game
      * placed on a player's behalf landing under an existing one would look like a bug and
      * hide a permanent. Nothing in these scripts ever aims a card, so every position here was
@@ -227,13 +222,11 @@ class VisibilityInvariantPropertyTest {
 
     /**
      * Interprets one number as a verb and a seat against the current board.
-     *
      * <p>The seat is a separate factor rather than the verb modulo the seat count. Deriving
      * one from the other looks like it saves a dimension and instead makes whole regions of
      * the state space unreachable: with two seats it meant only ever one player putting cards
      * on the table and only ever the other one having cards taken off it, which is exactly the
      * shape of board a placement bug hides in.
-     *
      * <p>Actions that do not apply right now are skipped rather than forced, so a script is
      * always a plausible game rather than a pile of rejections.
      */

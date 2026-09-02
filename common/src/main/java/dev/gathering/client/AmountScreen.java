@@ -9,15 +9,12 @@ import net.minecraft.network.chat.Component;
 
 /**
  * "How many?"
- *
  * <p>Draw four, mill six, scry two, reveal three. Every one of those is the same question, and
  * a table that answers it with a menu of fixed amounts is a table that cannot do the fifth
  * thing anybody tries. So this asks once, properly, and hands the number back.
- *
  * <p>The common answers get a button, because the overwhelming majority of the time the number
  * is one or two and typing it is worse than pressing it. Anything else gets typed. Enter
  * confirms, so the whole thing is a number and a key.
- *
  * <p>Client-only.
  */
 public final class AmountScreen extends ChildScreen {
@@ -93,7 +90,6 @@ public final class AmountScreen extends ChildScreen {
 
     /**
      * Whether a part-typed value is still on its way to being a number.
-     *
      * <p>Empty counts, because a field you cannot clear is a field you cannot correct.
      */
     private static boolean looksLikeANumber(String typed) {
@@ -114,7 +110,6 @@ public final class AmountScreen extends ChildScreen {
 
     /**
      * Answers and gets out of the way.
-     *
      * <p>Closes to nothing rather than back to whatever opened it: this was opened from a menu
      * that has already gone, and reinstating the table screen is the caller's business if it
      * wants one.
@@ -137,7 +132,6 @@ public final class AmountScreen extends ChildScreen {
 
     /**
      * The panel goes behind the widgets, not over them.
-     *
      * <p>Drawing it in {@code render} after {@code super.render} paints it straight over every
      * button on the screen - which looks like the buttons have vanished, and is exactly the
      * bug it caused.

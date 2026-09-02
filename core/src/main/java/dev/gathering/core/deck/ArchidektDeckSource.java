@@ -20,11 +20,9 @@ import java.util.UUID;
 
 /**
  * Reads a deck from Archidekt's public API.
- *
  * <p>Better than a text export in one way that matters: every card entry carries the
  * printing's Scryfall id, so the import resolves by exact identity. A text export can only
  * name a card, which leaves the mod guessing at printings and tripping over split cards.
- *
  * <p>Sections come from Archidekt's own categories rather than from a name convention. The
  * deck declares its categories with two flags - {@code isPremier} marks the command zone,
  * {@code includedInDeck} marks whether a category counts at all - and a card lists which
@@ -120,7 +118,6 @@ public final class ArchidektDeckSource {
 
     /**
      * Which pile a card belongs to.
-     *
      * <p>Checked in order: an explicitly excluded category wins over everything, because a
      * maybeboard card is not in the deck whatever else it is tagged with.
      */

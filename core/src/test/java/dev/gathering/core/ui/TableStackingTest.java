@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Telling a pile of cards apart from one card.
- *
  * <p>Nothing here has thickness, so two cards on the same spot draw in the same place and the
  * lower one stops existing as far as anybody looking can tell. That is the failure this is
  * about: not a cosmetic one, because a permanent nobody can see is a permanent that is not in
@@ -178,7 +177,6 @@ class TableStackingTest {
 
     /**
      * How deep a card is drawn and how far it is offset are one answer, not two.
-     *
      * <p>They were two: the offset ran out at MAX_DEPTH and the height did not, so the board
      * drawn on the block lifted a card of depth nine nine steps while staggering it five -
      * and anything positioned to clear the deepest stack, like a card flying over one, went

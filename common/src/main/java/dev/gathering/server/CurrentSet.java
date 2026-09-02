@@ -15,17 +15,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Which set this server is selling and dropping.
- *
  * <p>The config names a set code, or says {@code "auto"} and means the one on the shelves.
  * That second answer is the default, and it is the one worth getting right: a server
  * installed two years from now should be current on the day it starts, with nobody editing
  * anything. Scryfall publishes the list of every set, so this asks it.
- *
  * <p>Asked once, when the server starts, off every game thread. Sets come out every few
  * months and a restart is a much shorter interval than that, so nothing here re-checks;
  * what it costs is one request per server start, and what it buys is that the setting
  * nobody touched is the setting that works.
- *
  * <p>A server that named its own set never asks at all, which is also how an era server -
  * one deliberately living in a chosen block of Magic history - stays where it was put.
  */
@@ -38,10 +35,8 @@ public final class CurrentSet {
 
     /**
      * How many releases back {@code "recent"} could ever reach.
-     *
      * <p>What the one fetch asks for. The config clamps its own number to this, so raising
      * the setting never means asking Scryfall again.
-     *
      * <p>{@code loot_sets = ["all"]} is not clamped by it - see {@link #howManyReleases} -
      * because a server that asked for every set and quietly got the newest sixty-four is a
      * server whose config said one thing and did another.
@@ -50,7 +45,6 @@ public final class CurrentSet {
 
     /**
      * The whole answer: what the config pinned, and what Scryfall said is out.
-     *
      * <p>One object rather than two fields. They are two halves of "which set is current" and
      * a reader that caught the new list beside the old pin would get an answer neither of
      * them gave.
@@ -72,7 +66,6 @@ public final class CurrentSet {
 
     /**
      * Works out which set this server means, once.
-     *
      * <p>Every later caller waits on the same answer rather than asking again.
      */
     public static void resolve() {
@@ -132,7 +125,6 @@ public final class CurrentSet {
 
     /**
      * The current set, once it is known.
-     *
      * <p>Empty where a server has no current set at all - it named something that is not a
      * set code, or the list could not be fetched. Everything downstream treats that the same
      * way it treats a set with no products: nothing to sell and nothing to drop.
@@ -146,7 +138,6 @@ public final class CurrentSet {
 
     /**
      * The last few releases, newest first, once they are known.
-     *
      * <p>What a server drawing its packs from more than one set draws from. Out of the same
      * list the current set came from, so it costs nothing beyond the one request.
      */
@@ -160,7 +151,6 @@ public final class CurrentSet {
 
     /**
      * How far back the one fetch reaches, which is as far as the config could ever ask.
-     *
      * <p>A window for {@code "recent"} and no window at all for {@code "all"}. Every premier
      * set there has ever been is a few hundred entries out of a list already in hand, so the
      * difference costs nothing but says the truth.
@@ -178,7 +168,6 @@ public final class CurrentSet {
 
     /**
      * Today, as Scryfall writes a release date.
-     *
      * <p>UTC rather than the machine's zone: a release date is a date Wizards published, not
      * a moment, and a server in Auckland and one in Los Angeles should agree about which set
      * is current rather than disagreeing for most of a day around every release.

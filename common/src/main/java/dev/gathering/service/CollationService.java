@@ -26,15 +26,12 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Booster collation, wired up and kept off every game thread.
- *
  * <p>The same shape as the card pipeline next door and for the same reason: the feed blocks
  * on a network and on a disk by design, this is the only thing that calls it, and every
  * method here hands back a {@link CompletableFuture}. There is no blocking method to misuse.
- *
  * <p>Its own single thread rather than the card pipeline's, because these are two different
  * hosts with two different sets of manners, and a set file being fetched should not hold up
  * somebody importing a decklist.
- *
  * <p>A set read once is kept for the life of the server. Collation for a released set does
  * not change, the file behind it is megabytes, and the alternative is re-reading it every
  * time somebody opens a booster.
@@ -56,7 +53,6 @@ public final class CollationService implements AutoCloseable {
 
     /**
      * One set's file, read for everything a shop needs out of it.
-     *
      * <p>Products and decks together because they are two halves of one answer and one file:
      * a precon is published in {@code sealedProduct} and the hundred cards it names are
      * published in {@code decks}, and reading the file twice to get them would be a second
@@ -92,7 +88,6 @@ public final class CollationService implements AutoCloseable {
 
     /**
      * Everything openable for one set, fetching it and whatever its packs reach into.
-     *
      * <p>Never fails the future for a set that simply has no collation: that comes back as a
      * reading with nothing in it and a note saying why, which is an answer the caller can put
      * in front of somebody.
@@ -123,7 +118,6 @@ public final class CollationService implements AutoCloseable {
 
     /**
      * What one set really sold, as products.
-     *
      * <p>Out of the same file the collation comes from, so a set already read costs nothing.
      * Never fails the future for a set that simply sold nothing sealed: that comes back as a
      * reading with nothing in it and a note saying why.
@@ -134,7 +128,6 @@ public final class CollationService implements AutoCloseable {
 
     /**
      * What one set really sold, and the decks those products name.
-     *
      * <p>Out of the same file the collation comes from, read once. Never fails the future for
      * a set that simply sold nothing sealed: that comes back as a reading with nothing in it
      * and a note saying why.
@@ -180,7 +173,6 @@ public final class CollationService implements AutoCloseable {
 
     /**
      * The thread this service's blocking work happens on.
-     *
      * <p>Exposed so a caller composing more work onto a collation future can say where it
      * runs. Without that, a future this service has already completed - which is every set
      * read once - runs whatever is chained onto it on the thread that asked, and the thread

@@ -7,7 +7,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: take back what I just did.
- *
  * <p>Carries how many actions to rewind and nothing else. Not who is asking - that is the
  * player the packet arrived from, looked up at the table - and not whether it is allowed,
  * which is the session's decision and is made again on arrival whatever a client believes.

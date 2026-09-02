@@ -37,7 +37,6 @@ class CardTravelTest {
 
     /**
      * The case the whole thing exists for.
-     *
      * <p>Nobody is sent a library's cards, and only its owner is sent their hand - so to
      * everybody else at the table a draw is two numbers changing and nothing else. That is
      * still a card going from there to here, and the table should see it go.
@@ -122,7 +121,6 @@ class CardTravelTest {
 
     /**
      * A token appearing on the battlefield came from nowhere, and should fly from nowhere.
-     *
      * <p>There is no zone that lost a card, so there is nothing to pair the gain with. A
      * guess here would be a card flying out of a library that never held it.
      */
@@ -165,7 +163,6 @@ class CardTravelTest {
 
     /**
      * Several cards moving at once are matched one for one, not merged into a crowd.
-     *
      * <p>Six cards discarded and six milled in the same update is two players tidying up,
      * and the pairing has to keep them apart - a leftover paired across the table would draw
      * somebody's discard flying into somebody else's graveyard.
@@ -221,7 +218,6 @@ class CardTravelTest {
 
     /**
      * A board nobody has looked at for a while is a first sighting, not a difference.
-     *
      * <p>A table stops sending boards when it goes out of range, and the last one it sent
      * stays in memory. Walking back to a game half an hour later and comparing against that
      * would set off every card that moved in the meantime at once - the exact flock of cards
@@ -244,7 +240,6 @@ class CardTravelTest {
 
     /**
      * A creature pushed forward to attack has not changed zones and has certainly moved.
-     *
      * <p>The most common movement in the game, and the one that stayed a teleport longest:
      * for everybody except the player whose hand did it, the card was here and then it was
      * there with nothing in between.
@@ -269,7 +264,6 @@ class CardTravelTest {
 
     /**
      * Turning a card is not moving it.
-     *
      * <p>A position carries an angle as well as a place, so comparing whole positions would
      * make untapping a board a board's worth of cards flying from where they are to where
      * they already are.

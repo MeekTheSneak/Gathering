@@ -8,16 +8,13 @@ import net.minecraft.network.chat.Component;
 
 /**
  * "Which one?"
- *
  * <p>A handful of named answers, each a button. For the questions where the answers are known
  * and few - which basic land, and whatever else turns out to be shaped like that - because
  * typing "Plains" into a box is three seconds and a spelling mistake where pressing Plains is
  * neither.
- *
  * <p>Deliberately not a text field with suggestions. The whole value of a question with six
  * answers is that it cannot be answered wrongly, and a box you can type anything into throws
  * that away to save a screen.
- *
  * <p>Client-only.
  */
 public final class ChoiceScreen extends ChildScreen {

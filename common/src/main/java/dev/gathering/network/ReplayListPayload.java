@@ -8,7 +8,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: the finished games this server still has, newest first.
- *
  * <p>Headers only. Nothing in here is a board - the players' names, when it was, and how long
  * it ran - so the list costs one small packet however many games are on the shelf. A frame
  * arrives only when somebody actually asks to watch one.

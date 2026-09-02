@@ -13,7 +13,6 @@ import java.util.List;
 
 /**
  * All Fabric registration, in one class, mirroring the NeoForge bootstrap.
- *
  * <p>The registered objects come from the same factories in {@code common}; only the
  * mechanism differs, which is exactly how large the platform-specific surface is meant to
  * be.

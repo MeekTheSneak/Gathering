@@ -14,22 +14,18 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Drawing a card with nothing printed on it.
- *
  * <p>Blank stock is the one card in the mod whose face is not a picture somebody fetched: it
  * is what a player wrote on it, and the writing is the entire card. So it is drawn here
  * rather than by the art path - there is no art to draw - and the words fill the card instead
  * of sitting in the band across the top that an ordinary card's note uses.
- *
  * <p>Two stocks that read as two objects at a glance, which is the point of having two. Blank
  * is paper: warm, pale, ordinary, the scrap somebody tore off to remember who has the
  * monarch. An emblem is black with a gold rule and says so, because an emblem is a thing that
  * cannot be removed and a table needs to be able to tell it apart from the note somebody will
  * rub out next turn.
- *
  * <p>The writing shrinks to fit and then loses its tail, the same rule the rest of the mod's
  * text follows - see {@link GuiText}. A card on a four-player board is small, and a card
  * whose whole content is a sentence has to say as much of that sentence as it honestly can.
- *
  * <p>Client-only.
  */
 public final class PaperFace {
@@ -63,7 +59,6 @@ public final class PaperFace {
 
     /**
      * The face of a card that has no art: its blank stock, or the empty frame.
-     *
      * <p>One call rather than a check at each drawing site. Every place that draws a card
      * falls back to an empty frame when it has no picture yet, and a blank card has no
      * picture and never will - so the fallback is where the two meet, and putting the choice
@@ -126,7 +121,6 @@ public final class PaperFace {
 
     /**
      * The writing, as large as the card can hold it and centered in what is left.
-     *
      * <p>Shrunk before it is trimmed, because every word of a note is there on purpose: it is
      * a sentence somebody typed to tell the table something, and half of it is worse than all
      * of it small. Only when the smallest readable size still will not hold a line does that
@@ -174,7 +168,6 @@ public final class PaperFace {
 
     /**
      * Greedy word wrap at this scale.
-     *
      * <p>Its own rather than the font's splitter because what is being wrapped is one line of
      * plain letters - a note is cleaned to exactly that - and the font wraps at a width in
      * font units, which is the wrong question once the text is being drawn at four fifths of

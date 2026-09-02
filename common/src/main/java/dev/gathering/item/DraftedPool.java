@@ -9,12 +9,10 @@ import net.minecraft.network.codec.StreamCodec;
 
 /**
  * What a drafted deck may be built from.
- *
  * <p>A deck handed out by a draft is a pile of picks, and the whole of limited is that you
  * play what you opened. So the pool travels with the deck: what is in it was settled when the
  * last pack emptied, and what the deck is built from is checked against it rather than
  * against a list of legal cards.
- *
  * <p>Its own component rather than a seventh field on {@link DeckComponent}, for two reasons.
  * A deck's contents change constantly as somebody builds and a pool never changes at all, so
  * they have different lifetimes; and an ordinary imported deck has no pool, which as a field

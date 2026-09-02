@@ -4,13 +4,11 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Which item stack the cursor is currently over.
- *
  * <p>Vanilla keeps the hovered slot as a protected field on the container screen, and
  * {@code :common} compiles against vanilla only - no loader access transformers - so the
  * answer has to come from the loader, which has an event that already knows it. Each
  * loader's client init feeds this from its own tooltip hook; everything above this line
  * stays loader-agnostic.
- *
  * <p>Client-only.
  */
 public final class ClientHoverState {
@@ -19,7 +17,6 @@ public final class ClientHoverState {
 
     /**
      * A power and toughness written over this card's printed one, or empty.
-     *
      * <p>Beside the stack rather than on it: it is a fact about one card in play, and the
      * stack is built from the printing so two copies of the same card would share it. Only
      * the table ever sets it; an inventory slot leaves it empty, which is what a card sitting

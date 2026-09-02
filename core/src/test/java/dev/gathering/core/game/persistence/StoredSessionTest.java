@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A game, saved and reopened.
- *
  * <p>The thing that has to hold is that the board comes back identical - not similar. State
  * is the fold of the log, so an event lost or reordered in storage is a board that never
  * existed, and nothing about it looks wrong.

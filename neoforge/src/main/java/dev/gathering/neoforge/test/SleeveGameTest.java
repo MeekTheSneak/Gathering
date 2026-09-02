@@ -14,7 +14,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * A deck's sleeves, from the button that picks them to the deck that carries them.
- *
  * <p>The sleeve travels three ways - on the deck item, on the wire when somebody picks one,
  * and in the board view every viewer is sent - and the deck item's codec is written by hand
  * past the point {@code composite} reaches, so the round trip is checked byte for byte.

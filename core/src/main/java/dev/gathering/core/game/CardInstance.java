@@ -8,25 +8,20 @@ import java.util.Optional;
 
 /**
  * One card in one session: what it is, whose it is, and what has been done to it.
- *
  * <p>Two fields deserve their own sentence.
- *
  * <p><b>Owner is immutable.</b> A card belongs to the deck or collection it entered from,
  * for the whole session, whatever happens to it. Control is not stored here at all - it is
  * just which seat's side of the table the card is currently sitting on, which lives in the
  * zone map. Tevesh Szat's ultimate steals every commander at the table and none of them
  * change owner, which is why at session end every card goes home without any bookkeeping.
- *
  * <p><b>The marker is present exactly when the card is face down.</b> It is what opponents
  * see instead of identity, and it is regenerated on every flip down so two separate
  * face-down periods cannot be correlated.
- *
  * <p><b>Position is where it was dropped.</b> Cards on a surface - the battlefield, and
  * exile when a group spreads it out - carry the exact spot and angle they were put down at,
  * so every client draws the same board and a player's arrangement of their lands survives
  * being looked at from the other side of the table. Cards in a pile carry no position,
  * because a pile is an order rather than a place.
- *
  * <p><b>Attachment is a drawing relationship, not a rule.</b> A card attached to another
  * follows it around the table and draws small beside it, which is what an aura or a piece of
  * equipment looks like. Nothing here knows what an aura is or checks that one may legally be
@@ -132,7 +127,6 @@ public record CardInstance(
 
     /**
      * Adds to a named counter, removing the entry when it reaches zero.
-     *
      * <p>Counters go negative freely. Nothing here decides whether minus three loyalty is
      * legal; a player who wants a negative counter has a reason, and the mod does not argue.
      */
@@ -175,7 +169,6 @@ public record CardInstance(
 
     /**
      * Puts this card on another one, or takes it off with null.
-     *
      * <p>Refuses to attach a card to itself, which is the one arrangement that cannot be
      * drawn and the only way to make a cycle out of a relationship this shallow.
      */
@@ -194,7 +187,6 @@ public record CardInstance(
 
     /**
      * Writes on it, or rubs it out with nothing.
-     *
      * <p>One note to a card rather than a list of them. A card with four remarks stacked up
      * its face is a card nobody can see, and a player who wants to say two things has room
      * to say them in one line.
@@ -215,7 +207,6 @@ public record CardInstance(
 
     /**
      * Writes a power and toughness over the printed ones, or takes the writing off.
-     *
      * <p>What is typed is what is shown. Nothing here adds counters up or looks at what the
      * card was printed as - see {@link CardStrength}.
      */
@@ -235,11 +226,9 @@ public record CardInstance(
 
     /**
      * Freezes it, or thaws it.
-     *
      * <p>A frozen card does not untap when its controller untaps everything. That is the only
      * thing frozen does, and it is enough: untapping is one press made every turn without
      * looking, so it is the press that quietly undoes what an opponent spent a card on.
-     *
      * <p>Nothing here knows when a freeze ends. A player takes it off with the same menu they
      * put it on with - no rules engine, section 16 - and a frozen card is otherwise an
      * ordinary card that can be tapped, moved, written on and binned like any other.
@@ -254,7 +243,6 @@ public record CardInstance(
 
     /**
      * Turns it to its other printed face, or back.
-     *
      * <p>Nothing here knows whether the card has a second face. Whether a transform exists is
      * a fact about a printing, which lives in the card data the client holds and not in the
      * game - so the game records which side is being shown and the drawing decides what that
@@ -281,13 +269,11 @@ public record CardInstance(
 
         /**
          * A counter whose name is a power and toughness, so that several of them add up.
-         *
          * <p>Two +1/+1 counters are +2/+2. That is not a way of writing it, it is what the
          * creature is - it is the number a player reads off the board and adds to the
          * printed one, and nobody at a table says "plus one plus one, times two". Written
          * out as a count beside a name, the way charge and stun and loyalty counters are,
          * it makes the reader do the multiplication every time they look at the board.
-         *
          * <p>Matched rather than listed, so a card that arrives with +2/+2 counters on it -
          * they exist - adds up the same way without anybody adding a constant for it.
          */
@@ -304,7 +290,6 @@ public record CardInstance(
 
         /**
          * What a pile of this many of this counter says on the card.
-         *
          * <p>{@code "+2/+2"} for two +1/+1 counters, and {@code null} for everything else -
          * a charge counter has no arithmetic to do, and the caller writes its name with the
          * count beside it instead. Null rather than the name itself so a caller cannot
@@ -324,7 +309,6 @@ public record CardInstance(
 
         /**
          * One half of it, multiplied out.
-         *
          * <p>{@code long} on the way through because a player who has been pressing the plus
          * button all game can get a counter into the millions, and a card reading a negative
          * power because the arithmetic wrapped would be worse than one reading a silly

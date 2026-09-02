@@ -6,18 +6,15 @@ import java.util.List;
 
 /**
  * Working out which cards are piled on which, so a pile looks like a pile.
- *
  * <p>There is no physics here and cards have no thickness, which means two cards dropped on
  * the same spot would draw in exactly the same place and the one underneath would simply stop
  * existing as far as anybody can see. On a real table you can always tell: the edges show, the
  * stack sits a little proud of the felt, and a pile of four is visibly taller than a pile of
  * two. None of that is physics - it is just what a stack looks like - so it can be drawn.
- *
  * <p>Two cards count as stacked when they are on nearly the same spot, not merely touching.
  * A card half-covering another one is beside it, and reads correctly already; a card dead on
  * top of another one is the case that needs help. {@link #TIGHT} is where the line goes, and
  * it is in table units so it means the same thing at every window size.
- *
  * <p>The offsets this hands out are drawing offsets and nothing else. The card's real position
  * does not move - that is state, and shifting it would mean a card creeping across the table
  * every time somebody dropped another one near it. What matters is that whatever draws a card
@@ -27,7 +24,6 @@ public final class TableStacking {
 
     /**
      * How close two cards have to be to count as stacked, in table units.
-     *
      * <p>About a fiftieth of the table, which at any real window size is a few pixels: close
      * enough that the lower card would be almost entirely hidden.
      */
@@ -36,7 +32,6 @@ public final class TableStacking {
     /**
      * How far up and left each card of a stack is drawn from the one below it, as a fraction
      * of the card itself.
-     *
      * <p>A fraction rather than a number of pixels, because there are now two spaces a card
      * can be measured in and they differ by a factor of ten thousand: two pixels is a visible
      * lean on a screen and two units on the table is nothing at all, so a fixed step would
@@ -52,11 +47,9 @@ public final class TableStacking {
 
     /**
      * How many cards each one in this list is sitting on top of.
-     *
      * <p>The list is in stacking order, back to front, which is the order a zone keeps its
      * contents in. Only cards earlier in the list count: a card cannot be sitting on one that
      * is on top of it.
-     *
      * <p>A null position - a card the game has not put down - counts as nothing and is on
      * nothing, because it is not on the table to be under anything.
      */
@@ -90,10 +83,8 @@ public final class TableStacking {
 
     /**
      * How far to draw a card from where it actually is, given what is under it.
-     *
      * <p>Up and left, because that is the direction a stack leans when it is lit from the top
      * left - the same direction the shadows fall.
-     *
      * <p>Measured against the card, so the same call answers for a board drawn on a window and
      * one drawn on a table two blocks across.
      */
@@ -103,7 +94,6 @@ public final class TableStacking {
 
     /**
      * How deep a card of this depth is actually drawn, which is not how deep it is.
-     *
      * <p>The stagger runs out at {@link #MAX_DEPTH} and a pile does not, so a stack of nine
      * is drawn as a stack of five with a badge saying nine. Anything that has to sit above
      * such a pile has to be told the same number, or it works out its height from a depth the
@@ -117,7 +107,6 @@ public final class TableStacking {
 
     /**
      * How many cards are in the pile this one is the top of, or zero if it is not on a pile.
-     *
      * <p>A count rather than a depth, because a badge saying "4" on a stack of four is what
      * somebody wants to read, and the stagger runs out at {@link #MAX_DEPTH} while the pile
      * does not.

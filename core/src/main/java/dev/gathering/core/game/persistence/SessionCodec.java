@@ -15,7 +15,6 @@ import java.util.Map;
 
 /**
  * A session's log, written for storage in two streams.
- *
  * <p>State is the fold of the log, so persisting a session is persisting this. It goes out in
  * two pieces on purpose:
  *
@@ -27,7 +26,6 @@ import java.util.Map;
  *       scry saw - and is what gets encrypted. A save file opened with external tools
  *       mid-session yields the shape of the game and none of its secrets.</li>
  * </ul>
- *
  * <p>The two are joined by sequence number. A secret stream that will not open is a session
  * that cannot be restored, and {@link #read} says so rather than returning a log with holes
  * in it: a hole folds to a board that never existed, which is worse than a clean failure.
@@ -39,7 +37,6 @@ public final class SessionCodec {
 
     /**
      * A ceiling on any length read from a stream, checked before it sizes anything.
-     *
      * <p>Well past a real game - a hundred-card library, a long match - and small enough that
      * a corrupt or hostile file cannot ask for an arbitrary allocation.
      */
@@ -56,7 +53,6 @@ public final class SessionCodec {
 
     /**
      * The format before a deck could be sleeved: DeckLoaded ended after its commanders.
-     *
      * <p>Kept readable for the same reason {@link #BEFORE_REWINDS} is - somebody's
      * half-finished game and the replays of every game they have already played are on disk
      * in it, and a version bump that puts those out of reach costs more than the branch does.

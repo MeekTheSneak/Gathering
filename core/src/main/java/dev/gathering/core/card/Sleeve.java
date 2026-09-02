@@ -2,21 +2,17 @@ package dev.gathering.core.card;
 
 /**
  * What a deck's cards look like from behind.
- *
  * <p>A real player sleeves their deck, and the sleeves are how everybody at the table tells
  * one player's cards from another's at a glance - across the table, upside down, in a stack.
  * That is the whole job here: a face-down card gives away nothing about what it is, and the
  * sleeve is the one thing about it anybody is allowed to read.
- *
  * <p>Public information, always. Sleeves are chosen before a game and seen by the whole table,
  * so this travels in the seat's view beside its life total rather than anywhere near the
  * hidden half of a board.
- *
  * <p>Two kinds. The plain ones are the sixteen dyes, tinted onto one texture - which is how
  * everything else in Minecraft comes in sixteen colors, and it means one file rather than
  * sixteen. The rest carry something printed on them, drawn from the game's own item and block
  * art rather than from anything shipped here.
- *
  * <p>The emblem's texture path is a Minecraft resource, which is an odd thing to find in the
  * pure layer. It is here because the alternative is two lists - the sleeves, and a mapping
  * from sleeve to picture - and the second one drifts from the first the first time somebody
@@ -70,7 +66,6 @@ public enum Sleeve {
 
     /**
      * The color the sleeve's own texture is multiplied by, as 0xRRGGBB.
-     *
      * <p>{@link #CLASSIC} answers white, which is the same as not tinting it - so one drawing
      * path covers every sleeve rather than one path plus a special case.
      */
@@ -89,7 +84,6 @@ public enum Sleeve {
 
     /**
      * Whether this one is drawn on the printed back rather than on the plain sleeve.
-     *
      * <p>Only {@link #CLASSIC} is, and it is asked as a question about the sleeve rather than
      * answered by comparing against CLASSIC at each of the places that draw one.
      */
@@ -99,7 +93,6 @@ public enum Sleeve {
 
     /**
      * The sleeve with this name, or the default.
-     *
      * <p>Never throws: this reads names off a socket and out of saved decks, and a sleeve that
      * did not survive the trip is a card drawn in the ordinary back, not a disconnect.
      */

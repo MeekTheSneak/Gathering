@@ -13,7 +13,6 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Answers a client asking what the cards it is holding are called.
- *
  * <p>Runs on the card pipeline's executor and answers from the cache, so a player opening a
  * deck they imported last week costs no Scryfall requests at all.
  */

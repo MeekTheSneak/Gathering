@@ -9,15 +9,12 @@ import java.util.UUID;
 
 /**
  * Whether a struck trade can actually be honored, and what moves if it can.
- *
  * <p>Asked at the moment of the swap and not before, however carefully the table was filled
  * in. A card can be put up and then dropped, spent, or lost in lava while the other side is
  * still reading; agreeing to a trade is not a promise the cards will still be there.
- *
  * <p>All of it or none of it. A trade that handed over the half somebody could still cover
  * would be a trade where losing a card mid-deal is a way to take one - and the person on the
  * other side agreed to a whole table, not to whatever was left of it.
- *
  * <p>Pure.
  */
 public final class TradeSettlement {
@@ -55,7 +52,6 @@ public final class TradeSettlement {
 
     /**
      * Everything either side put up and can no longer produce.
-     *
      * <p>Reported rather than merely counted, because "this trade cannot go through" is a
      * message somebody has to act on and the card that went missing is the whole of it.
      */

@@ -5,10 +5,8 @@ import java.util.function.Supplier;
 
 /**
  * A registry entry the platform bootstrap binds exactly once.
- *
  * <p>Registration lives in the loader modules, but the rest of the mod needs to name the
  * things that get registered. This holder is the seam.
- *
  * <p>It binds a {@link Supplier} rather than a value so the bootstrap can hand over
  * NeoForge's {@code DeferredHolder} in the mod constructor, before the entry actually
  * exists. That sidesteps the lifecycle question entirely: nothing has to be re-bound after

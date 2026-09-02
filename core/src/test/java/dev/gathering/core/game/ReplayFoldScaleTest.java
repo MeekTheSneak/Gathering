@@ -9,14 +9,12 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What a replay's frame costs, which is the number the whole replay design rests on.
- *
  * <p>A frame is built on the server, because the client is never sent the log. Folding the
  * whole game for each one measured at seventy-one milliseconds on a four-thousand-event game
  * - and at four frames a second that is a watcher costing a server most of its time. Half of
  * it was the log and the board being folded separately over the same events, which is now one
  * walk; the rest is why {@link GameSession#extendWith} exists, and why playback steps a frame
  * forward rather than rebuilding it.
- *
  * <p>So there are two numbers here and they are not the same budget. Opening a replay folds
  * it once and can afford to; every frame after that is one event and must be nothing.
  */
@@ -30,7 +28,6 @@ class ReplayFoldScaleTest {
 
     /**
      * And what one step of playback may cost.
-     *
      * <p>Two milliseconds for one event, which is a hundred times the room it needs. What
      * this is guarding is the shape rather than the number: a change that made a frame cost a
      * fold again would land here rather than in a bug report about a server stuttering

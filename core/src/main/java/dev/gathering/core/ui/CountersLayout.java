@@ -2,23 +2,19 @@ package dev.gathering.core.ui;
 
 /**
  * Where every part of the counters panel goes, at whatever size the window happens to be.
- *
  * <p>The panel stacks four things that all vary: the counters already on the subject, a grid
  * of buttons for the ones this table has named, a grid of commander damage or commander tax,
  * and a footer - a field to name a new counter, and the way out. Laid out top down from the
  * counts, a crowded Commander table on a small window pushed the footer off the bottom of the
  * screen, which is a panel with no way to add a counter and no way to close.
- *
  * <p>So the footer is placed first, from the panel's bottom edge upward, and everything else
  * shares what is left. When that is not enough, sections give way in a fixed order - the
  * button grid first, because every one of its buttons is a shortcut for something the text
  * field can still do; then the lists, which window and say how many are out of sight.
- *
  * <p>Both the widget building and the drawing read this, rather than each deriving the same
  * offsets from the same counts. They did, and they disagreed: the drawing asked how many rows
  * fit at the moment it drew, the buttons were built from how many fit when the panel was
  * built, and a counter arriving between the two put a row's minus button on its neighbour.
- *
  * <p>Coordinates are GUI-scaled screen units, origin top left.
  */
 public record CountersLayout(
@@ -44,7 +40,6 @@ public record CountersLayout(
 
     /**
      * How few counter rows the panel will go down to before it starts dropping other things.
-     *
      * <p>Three, because the list is what the panel is for and one row of it is not a list -
      * but the buttons under it are worth more than the fourth row, and a window that had to
      * choose used to keep all six rows and no buttons at all.

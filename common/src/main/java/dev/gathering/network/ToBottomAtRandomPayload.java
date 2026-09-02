@@ -10,12 +10,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: put these under the library, and do not let me choose the order.
- *
  * <p>The cards are named here, unlike a random discard - they are the ones the player is
  * pointing at, and everybody can see which. What the client must not decide is the order they
  * go back in, because that order is a fact about the bottom of a library and nobody is
  * entitled to know it, least of all the person who just put them there.
- *
  * <p>A client that shuffled them itself would look exactly like one that did not, and the
  * player would have a library whose last four cards they could name. So the shuffling is the
  * server's, from the level's own randomness and never from the session's shuffle seed.
@@ -25,7 +23,6 @@ public record ToBottomAtRandomPayload(BlockPos table, List<CardInstanceId> cards
 
     /**
      * The most cards one press may put back.
-     *
      * <p>A selection is however many somebody dragged a box round, so this is what stops a
      * misdrag turning into every permanent on the table going under the library.
      */

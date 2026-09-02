@@ -26,7 +26,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * What a client is allowed to say happened.
- *
  * <p>A client sends a move it says it made. The server's job is to refuse the ones it did not
  * - and the check that matters is not "was that legal", because the mod has no opinion about
  * legality, but "is that your name on it". Attribution is what makes the permissiveness safe:

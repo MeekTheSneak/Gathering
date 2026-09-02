@@ -2,12 +2,10 @@ package dev.gathering.core.game;
 
 /**
  * A seat currently looking through somebody's library.
- *
  * <p>A library is a count to everybody, its owner included - that is section 6's table and it
  * is not negotiable. Looking at one is a <em>thing you do</em>: a search, a scry, a surveil.
  * Each is an event, each announces itself in the log, and each opens the library to exactly
  * one seat until something closes it again.
- *
  * <p>Modeling it this way rather than as a client-side "search screen" is the whole point. If
  * the looking were the client's business, the server would have to send the library to a
  * client that might be lying about looking at it, and the answer to "who can see this

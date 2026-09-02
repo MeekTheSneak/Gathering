@@ -10,13 +10,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What a very large collection costs the card cache.
- *
  * <p>A collection block asks the cache about every card in it, every time somebody searches -
  * that is how a row gets a name to sort by. At a few dozen cards nobody could tell. At the size
  * of somebody's real collection it is thousands of lookups on the server thread, and the ones
  * that matter are the misses: a card nobody has ever looked up has no file, so the answer is
  * "not here" and the question gets asked again on the very next search, forever.
- *
  * <p><b>Measured before it was assumed.</b> This was written expecting to find a stall and did
  * not: ten thousand misses cost about twenty milliseconds, because a miss is one
  * {@code isRegularFile} and the filesystem is very good at those. The suspicion was reasonable
@@ -32,7 +30,6 @@ class DiskStoreScaleTest {
 
     /**
      * How long ten thousand misses may take.
-     *
      * <p>Measured at about twenty milliseconds; the budget is ten times that, so a slow disk
      * and a busy CI box do not make it flake. It is a tripwire rather than a benchmark - what
      * it catches is a miss that started doing real work, not a few milliseconds either way.

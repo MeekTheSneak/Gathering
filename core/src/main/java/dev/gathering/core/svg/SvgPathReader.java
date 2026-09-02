@@ -5,21 +5,17 @@ import java.util.List;
 
 /**
  * An SVG path, read into plain closed rings of points.
- *
  * <p>Written rather than taken from a library on purpose. The mod ships no card art and no
  * pack art; a set's symbol is fetched from Scryfall like everything else, and Scryfall
  * publishes symbols as SVG. The alternative was a general-purpose SVG toolkit, which is
  * several megabytes of somebody else's code, most of it about text layout, gradients, filters
  * and scripting that a one-color silhouette will never touch.
- *
  * <p>So this reads the part that is actually used: the path commands, flattened to lines.
  * Curves become chords at a tolerance the caller sets from the size it is about to draw at,
  * so a symbol drawn small is flattened cheaply and one drawn large is still smooth.
- *
  * <p><b>Loud about what it does not understand.</b> A command letter this has never heard of
  * is an error naming the letter and where it was, not a silently missing piece of a symbol.
  * A symbol drawn wrong is worse than one that fails to draw, because nobody will ever know.
- *
  * <p>Pure.
  */
 public final class SvgPathReader {
@@ -209,7 +205,6 @@ public final class SvgPathReader {
 
     /**
      * An elliptical arc, as cubics.
-     *
      * <p>Converted rather than drawn directly, so everything downstream sees curves of one
      * kind. The center and the sweep come from the endpoint form SVG writes arcs in, which is
      * a different parameterization from the one the math wants.

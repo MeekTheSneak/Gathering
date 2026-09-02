@@ -33,7 +33,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * A set of games, not just one.
- *
  * <p>Best-of-three is how the sixty-card formats are actually played, and the arithmetic of it
  * is the kind that looks obviously right and stops at 1-1: a match at one game each is on game
  * three, which has not been played. So these run whole sets to their end and check the table
@@ -178,7 +177,6 @@ public final class MatchGameTest {
 
     /**
      * Winning a game of a set names whoever won it.
-     *
      * <p>The sentence is the only visible result of a game ending, and it was wrong for
      * months with nothing to notice: the line was written after the board was put away, and a
      * seat's name lives in the session, so every game of a set except the last credited an
@@ -289,7 +287,6 @@ public final class MatchGameTest {
 
     /**
      * Plays a game out to a result the only way the mod recognizes one: everybody else scoops.
-     *
      * <p>Goes through the same settle step the network handler uses, so what is being tested
      * is the path a real concession takes rather than a shortcut around it.
      */
@@ -310,7 +307,6 @@ public final class MatchGameTest {
 
     /**
      * A table with two seats claimed.
-     *
      * <p>Claimed by bare UUIDs rather than by real players: the seats have to be occupied for
      * a game to start and for a concession to mean anything, and nothing here needs anybody to
      * actually be online.

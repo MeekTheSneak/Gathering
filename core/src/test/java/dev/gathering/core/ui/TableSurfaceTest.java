@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Playmats: where everybody's board goes on one shared surface.
- *
  * <p>A card keeps saying where it is on its own mat - that is state, it is in the log and in
  * undo, and a position whose meaning depended on how many tables were currently pushed
  * together would move when somebody built a table two blocks away. So the thing under test is
@@ -551,7 +550,6 @@ class TableSurfaceTest {
 
     /**
      * Clusters somebody could actually build: up to four connected cells.
-     *
      * <p>Grown by stepping rather than by picking coordinates, because a random set of cells
      * is usually not connected and the cluster arithmetic would discard most of it.
      */
@@ -581,7 +579,6 @@ class TableSurfaceTest {
     }
     /**
      * A pile's count and a pile's name are one label, so they are one size.
-     *
      * <p>They were two sizes for as long as the board on the block existed, because the count
      * took its height from a constant in the renderer and the name took its from the slot.
      * The count came out about half the size, which is the wrong way round: the name is a
@@ -609,7 +606,6 @@ class TableSurfaceTest {
 
     /**
      * The two command slots sit together, and the gap is in front of both of them.
-     *
      * <p>A deck with partners has a commander in each and casts each on its own tax, so they
      * are two slots rather than one pile of two - and two slots that read as one group are
      * two slots somebody understands without being told. The gap that sets them apart from
@@ -641,7 +637,6 @@ class TableSurfaceTest {
 
     /**
      * One name for the command zone, however many slots it is drawn as.
-     *
      * <p>Naming each slot wrote "Command" twice down the same column, which reads as two
      * zones somebody forgot to tell apart rather than as one zone with room for a partner.
      * The one name is centered against the pair, so it points at both.
@@ -677,10 +672,8 @@ class TableSurfaceTest {
 
     /**
      * The number a command slot shows is a button, so it has a box of its own.
-     *
      * <p>Across the foot of whatever rectangle the slot is being drawn in, and never outside
      * it - a band that reached past its slot would be a press that lands on the zone above.
-     *
      * <p>Measured off the rectangle rather than off the seat, because the two views measure a
      * slot in different spaces and the seated camera turns the felt round on its way to the
      * screen. Read out of absolute surface units the band came out at the top of the slot on
@@ -706,7 +699,6 @@ class TableSurfaceTest {
 
     /**
      * The verb buttons are a strip down the edge, not a column of card-sized boxes.
-     *
      * <p>Square, they were a card wide and a card wide tall, so four of them came to about
      * three and a half card heights - most of the depth of a mat, given over to four words on
      * a table whose whole point is the space in the middle. The width is what the writing
@@ -743,7 +735,6 @@ class TableSurfaceTest {
 
     /**
      * Nothing printed down the side of a mat touches the mat's own border.
-     *
      * <p>The zone column was fitted into the whole depth of the mat, so on a board whose
      * zones had to shrink to fit it filled the mat top to bottom and the graveyard sat on the
      * border. A margin down the sides and none at the ends reads as a printing mistake.
@@ -781,7 +772,6 @@ class TableSurfaceTest {
 
     /**
      * Both sides of a mat are printed the same distance in from its edge.
-     *
      * <p>The inset used to come off the gap between buttons, which shrank with them - so
      * flattening the buttons pulled the whole run toward the edge of the mat and left the
      * two sides visibly mismatched.
@@ -807,7 +797,6 @@ class TableSurfaceTest {
 
     /**
      * A seat's life total sits off its own board, on the far side from its player.
-     *
      * <p>Off the mat because the mat is where cards go, and a number printed in the play area
      * is a number somebody puts a land on top of. On the far side because that is the strip
      * of table between the boards - where the counters go on a real table, and where a player
@@ -854,7 +843,6 @@ class TableSurfaceTest {
 
     /**
      * The two halves of a life counter, which are a button each.
-     *
      * <p>Left takes one off and right puts one on, and the halves are asked for here so that
      * the board drawing a minus over one end and the click deciding which way to go cannot
      * end up disagreeing - a plus on the side that takes a life off is worse than no button.
@@ -881,7 +869,6 @@ class TableSurfaceTest {
 
     /**
      * The end a sign is written on is the end a press on it acts as.
-     *
      * <p>Stated for both frames, because that is where the two came apart: the board drawn in
      * the world turns each seat's writing round to face them and the press was worked out
      * from the surface, so on every seat facing the other way the end marked plus took a life
@@ -917,7 +904,6 @@ class TableSurfaceTest {
 
     /**
      * A counter's three pieces fit inside it, side by side and without overlapping.
-     *
      * <p>They were worked out separately - the number given half the box and each end better
      * than a quarter - which comes to more than there is. On a board drawn small enough for
      * two figures to fill their allowance the minus ran into the four and the plus into the

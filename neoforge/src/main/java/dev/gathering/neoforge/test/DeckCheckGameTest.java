@@ -26,12 +26,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The one referee this mod permits, checked where it is actually called from.
- *
  * <p>Whether a thirty-two card deck is legal for Modern is settled in the pure module, over
  * every rule the format has. What these check is the thing that was wrong for months: the
  * validator was written, tested, and wired to nothing, so a deck that broke every rule in the
  * format started a game without a word.
- *
  * <p>And the other half, which matters more: a check that cannot be made must not refuse.
  * Turning "I do not know what this card is" into "your deck is illegal" would be the mod
  * inventing a rules violation, which is the one thing it promises never to do.

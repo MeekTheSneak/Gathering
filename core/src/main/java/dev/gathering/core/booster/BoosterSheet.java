@@ -9,12 +9,10 @@ import java.util.UUID;
 
 /**
  * One sheet a pack draws from: printings, each with the weight it appears at.
- *
  * <p>The unit real collation is expressed in. A print sheet is a physical thing - a large
  * sheet of card that gets cut up - and how often a card turns up in packs is how many times
  * it appears on the sheet. Weights are those counts, so a card printed twice on a sheet is
  * twice as likely as one printed once, and nothing here has to know what a rarity is.
- *
  * <p>That is the whole reason this exists rather than a rarity table. Sets have not been
  * "eleven commons, three uncommons, one rare" for years: they have wildcard slots, list
  * slots, sheets that mix rarities, sheets that only appear in some booster variants. All of
@@ -67,7 +65,6 @@ public record BoosterSheet(
 
     /**
      * The sum of every weight, which is what a draw is taken out of.
-     *
      * <p>A long, and not out of caution: published collation writes a foil sheet's odds as
      * exact integer ratios, and a real one of those comes to two hundred billion. An int
      * total would be wrong for the sheets that need the precision most.
@@ -82,7 +79,6 @@ public record BoosterSheet(
 
     /**
      * The printing at this point in the sheet's weight.
-     *
      * <p>Walked in the map's own order, which is the order the data was written in, so the
      * same roll against the same sheet always lands on the same card.
      *

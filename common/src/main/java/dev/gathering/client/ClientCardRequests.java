@@ -16,20 +16,16 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Asks the server what the cards in this player's inventory are.
- *
  * <p>Card metadata is thrown away on disconnect, so after a restart - or a crash, or a server
  * hop - a card in an inventory is a UUID and nothing else: no name, no art, nothing to look
  * at when the read key is held. Opening a deck asked about that deck's cards, and nothing
  * asked about anything else, so a loose card stayed blank until it happened to be in a deck
  * somebody opened.
- *
  * <p>Which printings are worth asking about is decided by {@link MetadataRequests}, which is
  * pure and tested, because this runs every tick and the failure mode of getting it wrong is
  * a request storm aimed at somebody else's server.
- *
  * <p>Only ever asks about cards the player can see themselves holding, so it grants no
  * access they did not have.
- *
  * <p>Client-only.
  */
 public final class ClientCardRequests {
@@ -79,19 +75,16 @@ public final class ClientCardRequests {
 
     /**
      * Every printing this client can see.
-     *
      * <p>Loose cards, plus each deck's commanders - a deck shows its commander's name on the
      * item itself, so that much is needed without opening it. The rest of a deck is asked for
      * when the deck is opened, because a shelf of deckboxes should not be a thousand-card
      * request.
-     *
      * <p>And cards nobody is holding: framed on a wall, or lying on the floor where somebody
      * dropped them. Those used to be asked about by nothing at all, so a card in an item frame
      * drew as its own back - correct-looking to whoever framed it, because they had held it a
      * moment earlier and their cache still knew it, and a blank sleeve to everybody else and
      * to them after a rejoin. Framing a good pull is the first thing anybody does with a
      * collection, so it has to survive somebody else walking past it.
-     *
      * <p>No access comes with this: an item frame's contents and a dropped stack are already
      * on this client - the entity was synced to it - so this asks about cards it can see and
      * nothing more, which is the same rule the inventory sweep follows.

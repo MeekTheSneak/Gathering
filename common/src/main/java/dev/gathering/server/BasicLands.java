@@ -16,16 +16,13 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Basic lands, given away.
- *
  * <p>A draft pool is forty-five spells. Without lands there is no forty-card deck to build
  * from it at all, so a draft that ended in a pool ended in a deck nobody could put down -
  * which is the whole point of the format not working. Basics are free everywhere in Magic
  * for exactly this reason, and they are free here.
- *
  * <p>Not only for drafted decks. A deck is a deck: somebody building a Commander list from
  * imported cards wants lands in it too, and a rule that only applied to pools would be a
  * rule nobody could guess at.
- *
  * <p>The printing is resolved here rather than named by the client. Every other card that
  * reaches a deck came from somewhere - imported, drafted, opened - and this is the one that
  * is conjured out of nothing, so a client naming a printing would be a client asking to be
@@ -102,15 +99,12 @@ public final class BasicLands {
 
     /**
      * The deck with as many of this card added to the mainboard as will fit.
-     *
      * <p>Separated from the looking-up so it can be checked without a card service standing
      * behind it. It is the only part of this with any arithmetic in it, and the only part
      * where "as many as will fit" could quietly become "none of them".
-     *
      * <p>Whatever fitted is kept. Refusing the whole request because the last copy did not
      * fit would throw away the ones that did, and somebody who asked for five into a deck
      * with room for two wants the two.
-     *
      * <p>Public so the game tests can reach it, which is the point of separating it.
      */
     public static DeckComponent grow(DeckComponent deck, CardComponent card, int howMany) {

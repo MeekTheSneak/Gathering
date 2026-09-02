@@ -17,7 +17,6 @@ import net.minecraft.world.level.material.PushReaction;
 /**
  * Everything the mod registers into vanilla registries, named once and bound by whichever
  * loader is running.
- *
  * <p>The factories live here rather than in the loader modules so both loaders register
  * identical objects; only the registration mechanism differs between them, which is exactly
  * the size the platform-specific surface is supposed to be.
@@ -31,7 +30,6 @@ public final class GatheringContent {
 
     /**
      * The tables that are not wooden.
-     *
      * <p>A cosmetic family with identical function, which the brief has always asked for: a
      * table is a table whatever it is made of, they cluster into one another regardless of
      * skin, and nothing in the game asks which one it is sitting at. Only the look changes -
@@ -100,7 +98,6 @@ public final class GatheringContent {
 
     /**
      * Packs stack, unlike cards and decks.
-     *
      * <p>Two sealed boosters of the same product are interchangeable in a way two cards never
      * are - nobody has looked inside either - so a box of thirty is one slot rather than
      * thirty, which is the difference between a display box being a thing you can carry and a
@@ -112,7 +109,6 @@ public final class GatheringContent {
 
     /**
      * Boxes stack the way packs do, and for the same reason.
-     *
      * <p>Not as far, though. A box is a thing you buy one or two of and open; a chest with
      * sixteen cases in it is not a collection, it is a warehouse.
      */
@@ -122,7 +118,6 @@ public final class GatheringContent {
 
     /**
      * The counter a shopkeeper works behind.
-     *
      * <p>An ordinary workstation: put one down in a village and an unemployed villager takes
      * the job, exactly the way a lectern or a grindstone works. Nothing about it needs
      * explaining to somebody who has played Minecraft.
@@ -158,7 +153,6 @@ public final class GatheringContent {
 
     /**
      * A table cut from stone rather than built from planks.
-     *
      * <p>Everything that makes a table a table is in {@link TableBlock} and none of it is
      * here: this only says how heavy it is, what it sounds like, and what color it is on a
      * map. The rest - clustering, seats, the session, the dyeable felt - a stone table gets
@@ -186,7 +180,6 @@ public final class GatheringContent {
 
     /**
      * One block of stone on a single plinth, and it glows.
-     *
      * <p>Dimmer than the vanilla block it is cut from: crying obsidian lights a room at ten,
      * and four quarters of a table doing that would be a lamp somebody plays cards on. Seven
      * reads as a glow at the table without lighting the building it is in.
@@ -209,7 +202,6 @@ public final class GatheringContent {
 
     /**
      * The block entity itself. Building its {@code BlockEntityType} is each loader's job.
-     *
      * <p>{@code BlockEntityType.BlockEntitySupplier} is package-private in vanilla and only
      * public where a loader has access-transformed it, so the builder cannot be named here -
      * :common compiles against vanilla and nothing else. Both loaders have their own way to
@@ -222,7 +214,6 @@ public final class GatheringContent {
 
     /**
      * Where a collection lives.
-     *
      * <p>Stone rather than wood, and harder than a table: this is the one block in the mod
      * with somebody's whole collection inside it, and a block that takes a moment to break is
      * a block nobody breaks by accident while clearing a wall.

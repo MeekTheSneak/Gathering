@@ -9,12 +9,10 @@ import java.util.Optional;
 
 /**
  * A draft pod, entire, as a value.
- *
  * <p>Everything the pod is: which round it is on, what each drafter is holding, what each
  * has picked, and what has been declared this turn but not yet resolved. Every transition
  * returns a new one, so a pod can be logged, replayed and reasoned about the same way a game
  * session can, and nothing about it depends on a table, a world or a player.
- *
  * <p>A turn resolves all at once. Real drafting is simultaneous - everybody looks at their
  * pack, everybody picks, then the packs move together - and modeling it as a queue of
  * individual picks would have let one fast drafter see a pack twice while a slow one had not
@@ -132,7 +130,6 @@ public record DraftState(
 
     /**
      * Why this pick cannot be made, or empty when it can.
-     *
      * <p>Every reason, including the ones about the positions themselves. It used to be only
      * some of them: the pod asked whether the <em>number</em> of picks was right and let the
      * numbers through, and {@link #declare} threw on a position that was out of range or
@@ -141,7 +138,6 @@ public record DraftState(
      * loader that disconnects the client; on the other it reaches the server's task queue and
      * takes the server down. Neither is an answer to a stale pick, which is what this mostly
      * is: a drafter whose screen is a moment behind the pod.
-     *
      * <p>So the whole rule lives here and is asked before anything is done, and {@code
      * declare} throws only for a caller that did not ask - which no longer includes the wire.
      */
@@ -198,7 +194,6 @@ public record DraftState(
 
     /**
      * Everybody takes what they said, and the packs move on.
-     *
      * <p>Private, because a turn resolving is not something anybody does - it is what has
      * happened once the last drafter has decided. Exposing it would be exposing a way to
      * make the packs move while somebody was still looking at one.

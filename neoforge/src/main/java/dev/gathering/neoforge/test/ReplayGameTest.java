@@ -26,12 +26,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Watching a finished game back.
- *
  * <p>These run against the real disk, because that is where the risk is: a replay is a file
  * written by one process and read by another, and every fault worth catching - a header that
  * does not read back, a step that folds to the wrong board, a client naming a file it was
  * never offered - lives in that gap rather than in the pure core.
- *
  * <p>The one that matters most is {@link #aHistorianSeesWhatThePlayersHid}. The whole reason
  * a replay is allowed to exist is that a game which is over has nothing left to protect; if
  * that stopped being true the mod would be handing out hidden information, so it is asserted
@@ -87,7 +85,6 @@ public final class ReplayGameTest {
 
     /**
      * The disclosure the whole feature turns on: a replay shows the hands.
-     *
      * <p>And shows them <em>only</em> here. The same board asked for during play sends a count
      * and no cards, which is what {@code HistorianTest} pins in the core; what this adds is
      * that the file, the fold and the wire in between do not quietly lose it.
@@ -151,7 +148,6 @@ public final class ReplayGameTest {
 
     /**
      * A client cannot name a file the server never offered it.
-     *
      * <p>The id on the wire is a file name, and the guard is that it is matched against the
      * names of the files that are actually there rather than resolved as a path. Without that
      * a replay id would be a way to ask the server to read anything it can reach.
@@ -195,7 +191,6 @@ public final class ReplayGameTest {
 
     /**
      * With replays kept for the people who played them, nobody else may open one.
-     *
      * <p>The setting the brief asked for and the one most groups actually want. What it is
      * protecting is small and real: a deck list, read off a replay, before the rematch.
      */
@@ -235,7 +230,6 @@ public final class ReplayGameTest {
 
     /**
      * Two seats, two decks, three cards drawn, and a game that is over.
-     *
      * <p>Deliberately a game with something hidden in it. A replay of a board where every card
      * was already face up would pass every check here while proving nothing.
      */
@@ -253,7 +247,6 @@ public final class ReplayGameTest {
 
     /**
      * The two who played, account and all.
-     *
      * <p>Fixed accounts rather than random ones, because half of what the header is for is
      * answering "was this your game" on a server that keeps replays for the people who played
      * them - and a random id cannot be asked that question afterwards.

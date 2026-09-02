@@ -9,7 +9,6 @@ import java.util.Set;
 /**
  * The numbers beside a seat: life, commander damage taken, commander tax, and whether the
  * player has conceded.
- *
  * <p>Every one of these is a displayed number that players change by hand. Nothing here
  * triggers anything. A player on zero life is a player on zero life; the mod does not
  * declare them out, because deciding a game has ended is a rules judgment and there is no
@@ -91,7 +90,6 @@ public record SeatState(
 
     /**
      * Lets the chair go, and remembers who was in it.
-     *
      * <p>The cards stay where they are, so the board outlasts the player - and a board with
      * nobody's name on it is a board nobody can talk about. Everything the log has already
      * recorded them doing is written against this seat, so forgetting the name here rewrites
@@ -113,7 +111,6 @@ public record SeatState(
 
     /**
      * Whose board this is: whoever is sitting here, or failing that whoever last was.
-     *
      * <p>Not the same question as who holds the chair. A seat somebody walked away from is
      * free for the next player and still covered in the last one's cards, and every sentence
      * anybody writes about it - the log, a life total, the title over a pile - wants the name
@@ -179,7 +176,6 @@ public record SeatState(
 
     /**
      * Adds to a named counter beside this seat, dropping the entry when it reaches zero.
-     *
      * <p>Poison, energy, experience, the day/night marker somebody is tracking by hand. Goes
      * negative as freely as everything else here, because a player who wants minus two energy
      * has a reason and the mod does not argue.
@@ -211,7 +207,6 @@ public record SeatState(
 
     /**
      * Turns this hand face up to another seat, or face down again.
-     *
      * <p>Adding rather than replacing, so showing Bob and then showing Chris shows both -
      * which is what happens at a table, where turning your hand toward one more person does
      * not turn it away from the last one.

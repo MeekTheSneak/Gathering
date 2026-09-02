@@ -22,13 +22,11 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Making tokens at a table.
- *
  * <p>Tokens are real printings from Scryfall, not invented cards. That is the whole reason
  * this goes through the card pipeline rather than making something up locally: a Thrull token
  * has art, a type line and a power and toughness that somebody printed, and a table that drew
  * a gray rectangle saying "1/1 Thrull" would be the one place in the mod that lies about what
  * a card is.
- *
  * <p>The client sends a name. The server does the lookup and builds the identity, so nothing
  * a player types decides what a token actually is - the same rule every other name crossing
  * this boundary follows.
@@ -66,17 +64,14 @@ public final class TokenCreation {
 
     /**
      * Puts whatever was found on the table, that many times.
-     *
      * <p>Shared by everything that brings a card in from outside the game - the token search,
      * the basic-land button, the dungeons - so that none of them can drift from the others.
      * Every one of them has to tell the client what the card is before the board arrives
      * naming it, has to re-check the seat after the lookup came back, has to mark the table
      * changed, and has to say something when nothing was found. Four rules, written once.
-     *
      * <p>What it says afterwards is the caller's, because a dungeon is not a token and a
      * message calling it one would be the mod being wrong about Magic in the one sentence a
      * player reads.
-     *
      * <p>Server thread only.
      */
     public static void put(

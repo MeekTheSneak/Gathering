@@ -4,33 +4,27 @@ import dev.gathering.core.ui.Rect;
 
 /**
  * A card held at an angle, seen through a lens.
- *
  * <p>The interface draws in a flat projection, where turning a card is only ever a squash:
  * both edges keep their length, nothing comes toward you, and the eye reads it as a picture
  * being compressed rather than as a card being tipped. That is what the first attempt at this
  * did, and it is why it looked wrong without being easy to say why.
- *
  * <p>So the corners are worked out here instead. The card is a real rectangle in space, turned
  * about its own middle, and each point on it is projected through a pinhole a fixed distance in
  * front: the near edge grows, the far edge shrinks, and the two vertical edges stop being
  * parallel. That is the whole of what makes it read as an object rather than an image.
- *
  * <p>Done in this class rather than by swapping the game's projection matrix, which is the
  * other way to get a perspective in an interface. Swapping it means restoring it, and the
  * interface's own model-view carries a large translation that would have to be undone and put
  * back around every draw - a lot of global state to get right for one card. Ten lines of
  * arithmetic and every draw goes through the ordinary pipeline.
- *
  * <p>Pure enough to reason about and cheap enough to call per vertex; a card is drawn as a
  * grid of a few hundred points, and the grid is why the picture does not warp across it.
- *
  * <p>Client-only.
  */
 public final class CardLens {
 
     /**
      * How far in front of the card the eye is, as a multiple of the card's height.
-     *
      * <p>A long lens rather than a short one. Short is a fish-eye: the near edge balloons and
      * the card reads as being shoved at you. What is wanted is the amount of perspective a
      * card gets when somebody a comfortable distance away tips it a few degrees, which is
@@ -75,7 +69,6 @@ public final class CardLens {
 
     /**
      * Where a point on the card lands on the screen.
-     *
      * <p>{@code u} and {@code v} run zero to one across the card and down it, the same way a
      * texture does, so a caller walking a grid of them is walking the card.
      *
@@ -106,7 +99,6 @@ public final class CardLens {
 
     /**
      * How far along the shine's rake a point on the card sits, from zero to one.
-     *
      * <p>In the card's own space rather than on the screen, because the shine belongs to the
      * card: it must sit still on the picture while the card turns under it, and only move
      * because the light moved.

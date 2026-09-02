@@ -28,7 +28,6 @@ import dev.gathering.block.TablePart;
 
 /**
  * A draft on real tables in a real world.
- *
  * <p>The pod itself is checked to death in the pure module. What only exists here is the part
  * with blocks in it: that a pod forms from the people actually sitting at a cluster, that it
  * refuses the cases it should, and above all that it survives a save and load - a draft is
@@ -123,7 +122,6 @@ public final class DraftPodGameTest {
 
     /**
      * A draft survives a save and load, mid-turn, with every pack where it was.
-     *
      * <p>The one thing this test is really for. Everything else here would be noticed in the
      * first minute of a draft; a pod that comes back subtly wrong after a restart would be
      * noticed as somebody holding cards that are not theirs, an hour later, with no way to
@@ -167,7 +165,6 @@ public final class DraftPodGameTest {
 
     /**
      * No two drafters open the same card, on real tables with a real cube.
-     *
      * <p>The pure module checks the dealing; this checks that what actually reaches a cluster
      * went through it, rather than something along the way handing the same list out four
      * times.
@@ -202,7 +199,6 @@ public final class DraftPodGameTest {
 
     /**
      * Two tables side by side, which is four seats: the smallest pod there is.
-     *
      * <p>Side by side along x, deliberately. Seats are only ever on the north and south edges,
      * so two tables stacked north to south would bury the two edges that seat anybody and
      * come out as a cluster nobody can sit at.

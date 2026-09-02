@@ -9,21 +9,17 @@ import java.util.UUID;
 
 /**
  * Whether a limited deck is built out of the pool it was drafted from.
- *
  * <p>The question every other check here does not ask. A format asks whether a card is legal;
  * this asks whether it is <em>yours</em> - and in limited that is the whole format. Playing
  * four copies of the best card in the set is legal in limited; it is only impossible because
  * you opened one.
- *
  * <p>Basic lands are free and unlimited, which is the one exception paper limited has always
  * had. Everything else is counted: the deck may hold as many of a card as the pool holds, and
  * not one more.
- *
  * <p>Counted by printing rather than by name, because the pool is a pile of physical cards.
  * Two printings of the same card are two different pieces of cardboard, and a check that
  * treated them as interchangeable would let somebody swap a drafted common for the foil
  * showcase version they already owned.
- *
  * <p>Pure, and separate from {@link DeckValidator} because it needs something a format does
  * not have: what this particular player opened.
  */
@@ -94,7 +90,6 @@ public final class PoolCheck {
 
     /**
      * One physical card, as far as a pool is concerned.
-     *
      * <p>Foil and non-foil are the same printing here. They are different pieces of cardboard
      * in a collection and worth different money, but a draft pool is about which cards you
      * opened - and refusing a deck because somebody sleeved the foil they drafted would be a

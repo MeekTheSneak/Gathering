@@ -10,13 +10,11 @@ import net.minecraft.world.InteractionHand;
 
 /**
  * Client to server: "do this to the deck I am holding".
- *
  * <p>The deck screen is opened from the stack's own data and never has a container of its
  * own, so there is no menu to route clicks through. This is the substitute, and it is
  * deliberately narrow: it names the hand, not a slot or an item, so the only deck a player
  * can ever edit through it is the one they are holding. The server re-reads that stack and
  * ignores anything that is not a deck.
- *
  * <p>The card is sent by value rather than by row index. Indices are a decklist-order
  * position and would let a stale click land on whichever card happened to move into that
  * row; sending the card means a stale click either removes the card the player saw or does
@@ -39,7 +37,6 @@ public record DeckEditPayload(
         TAKE,
         /**
          * Move one copy from one pile to another.
-         *
          * <p>One operation for every direction rather than a verb per destination. The
          * command zone is a pile like the sideboard is a pile; making "make this a commander"
          * its own action is how a deck editor quietly becomes a Commander deck editor, and

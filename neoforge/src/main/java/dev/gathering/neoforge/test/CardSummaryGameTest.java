@@ -17,12 +17,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * How many pictures a card is.
- *
  * <p>"Two faces" and "two sides" are not the same thing, and treating them as the same draws
  * a split card as two copies of one picture side by side. A split, flip, adventure or
  * aftermath card is two lots of rules text printed on one piece of card; a transform card is
  * two of everything.
- *
  * <p>Scryfall says which is which by where it puts the art - on the card for the first kind,
  * on each face for the second - so that is what this checks, rather than a layout string
  * that would need a new case for every set.

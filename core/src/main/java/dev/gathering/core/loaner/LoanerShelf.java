@@ -8,12 +8,10 @@ import java.util.Optional;
 
 /**
  * The loaner decks a server is lending out.
- *
  * <p>An admin drops decklists in a directory and every table on the server can lend them.
  * The point is the first minute: somebody who has just joined, owns nothing and may not be
  * allowed to import anything can still sit down and play a real deck, which is the whole
  * starter-deck moment the brief asks for.
- *
  * <p>What is here is the rule about the shelf and nothing about files: which of them are
  * worth offering, what each is called, and what happens when two of them want the same name.
  * Reading a directory is the server's job; deciding what a directory means is this one's, and
@@ -23,7 +21,6 @@ public record LoanerShelf(List<Loaner> decks) {
 
     /**
      * How many decks a shelf may hold.
-     *
      * <p>The list crosses the wire and goes on a screen somebody has to read. A server with
      * two hundred loaners has a menu nobody can choose from, which is not lending.
      */
@@ -74,12 +71,10 @@ public record LoanerShelf(List<Loaner> decks) {
 
     /**
      * A shelf out of what a directory held: file name to contents.
-     *
      * <p>Blank lists are dropped rather than offered, because a loaner that turns out to be
      * nothing is a player sitting down to an empty table with no idea why. Names are taken
      * from the file, tidied, and made unique, so two files that tidy to the same name are two
      * decks somebody can still tell apart rather than one deck that shadowed the other.
-     *
      * <p>Ordered by name so the menu is the same on every client and after every restart: a
      * list whose order came from a directory listing is a list where the deck you picked last
      * time has moved.
@@ -119,7 +114,6 @@ public record LoanerShelf(List<Loaner> decks) {
 
     /**
      * What a file is called, as something to put on a button.
-     *
      * <p>{@code mono-red_burn.txt} is "Mono Red Burn". A name is what an admin typed when
      * they saved the file, so this only does what a file name cannot carry: drops the
      * extension, turns the separators back into spaces, and capitalizes.

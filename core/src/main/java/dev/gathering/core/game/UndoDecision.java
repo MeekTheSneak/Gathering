@@ -2,7 +2,6 @@ package dev.gathering.core.game;
 
 /**
  * What the undo rules make of a rewind request.
- *
  * <p>Three outcomes rather than a boolean, because "everyone has to agree" is a genuinely
  * different answer from "no" and the table needs to be able to ask.
  */

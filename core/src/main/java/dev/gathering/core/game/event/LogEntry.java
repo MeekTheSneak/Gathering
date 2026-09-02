@@ -5,7 +5,6 @@ import java.util.List;
 
 /**
  * One line of the log as it goes out to a table.
- *
  * <p>A {@link LogLine} with its arguments sorted into {@link LogArg}s and stamped with the
  * sequence number of the event that produced it. The sequence is what lets a client tell a
  * line it has already drawn from a new one, and what lets a rewind be shown as a rewind rather

@@ -15,13 +15,11 @@ import java.util.Map;
 
 /**
  * One drafter's view of a pod, as bytes.
- *
  * <p>Deliberately writes a {@link DraftView} and never a {@link DraftState}, the same way
  * the table's codec writes a view and never the game state. The view has already been
  * through {@link DraftVisibility}: everybody else's pack is a number by the time it gets
  * here. Writing the pod instead - or "the pod, minus the bits they should not see" - is how
  * a client ends up holding the packs it is about to be passed.
- *
  * <p>Bytes rather than a network codec so the shape lives in the pure module beside the
  * rules it mirrors, and so a round trip can be checked against arbitrary views rather than
  * the ones somebody thought to write down.

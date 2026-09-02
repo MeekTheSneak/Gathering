@@ -5,13 +5,11 @@ import net.minecraft.world.InteractionHand;
 
 /**
  * The seam between "the player right-clicked a deck" and the screen that shows its contents.
- *
  * <p>The item lives in common and the screen is client-only, and a common class that named
  * the screen directly would throw {@code NoClassDefFoundError} on a dedicated server - a
  * failure single-player testing never reveals, because single-player runs an integrated
  * server inside the client. So the item calls through here and the client bootstrap binds
  * the real thing.
- *
  * <p>What crosses the seam is the hand, not the deck. The screen can edit the deck, so it
  * needs the one the player is holding right now rather than a copy taken when it opened -
  * otherwise every edit would leave the list showing the deck as it used to be.

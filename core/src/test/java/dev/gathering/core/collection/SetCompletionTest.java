@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * How much of a set somebody has.
- *
  * <p>Almost all of this is about the difference between the cards a set was printed as and
  * the cards that merely carry its code, because that difference is the whole of what a
  * complete set means and getting it wrong tells a player who owns everything that they are

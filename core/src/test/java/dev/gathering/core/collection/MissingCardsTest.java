@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Which cards of a set are still to find.
- *
  * <p>The thing this has to get right is agreeing with {@link SetCompletion}, because a player
  * can now see both at once: a number saying three hundred and seventy-two over a list of
  * three hundred and eighty rows is worse than no list at all. So most of what is checked here

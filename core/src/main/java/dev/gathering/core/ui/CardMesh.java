@@ -2,34 +2,28 @@ package dev.gathering.core.ui;
 
 /**
  * The surface of a card, as quads, with its corners rounded off.
- *
  * <p>A card is not a rectangle. It is a rectangle with its corners cut, and until this existed
  * the mod drew it as one - which reads as a picture of a card rather than a card, and reads
  * that way most strongly at exactly the moment somebody is holding one up to look at it.
- *
  * <p>The picture the mod fetches is a rectangle: the scan's corners are the black border,
  * squared off, because a photograph of a card has to be. So the rounding is the mod's to do,
  * and it is done by covering the card with quads that stop where the card stops rather than by
  * drawing the whole rectangle and painting the corners out. Painting them out would need to
  * know what is behind the card, which changes from screen to screen.
- *
  * <p>Walked as three grids and four fans: a tall panel down the middle, a strip either side
  * between the corners, and an arc at each corner. Every one of them is emitted in the same
  * winding, so a caller can hand the lot to one buffer.
- *
  * <p><b>Why this is the containment guarantee.</b> Everything drawn on a card in this mod -
  * the printed face, and the shine on a foil - is drawn from these points and no others. So the
  * question "can the shine leave the card" is not a question about clipping or angles or
  * scissors; it is the question of whether any point this emits is outside the card's outline,
  * which is a fact about arithmetic and is checked as one.
- *
  * <p>Pure: no Minecraft, so the shape is tested rather than looked at.
  */
 public final class CardMesh {
 
     /**
      * How big the corner cut is, as a share of the card's width.
-     *
      * <p>A Magic card is 63 by 88 millimeters with a corner radius of about three, which is
      * this. Taken off the width and converted for the height by the caller's aspect, so the
      * cut is a circle rather than an ellipse - a rounded corner that is wider than it is tall
@@ -109,7 +103,6 @@ public final class CardMesh {
 
     /**
      * One rounded corner, as a fan of slivers from the middle of its curve.
-     *
      * <p>Emitted as quads with the last point repeated, because a repeated point is a triangle
      * with a zero-area triangle behind it and the buffer this goes into takes quads. Wound the
      * same way round as the grids above - checked rather than assumed, because a corner wound
@@ -137,7 +130,6 @@ public final class CardMesh {
 
     /**
      * Whether this sliver would be wound the opposite way from the grids.
-     *
      * <p>A grid quad runs top left, bottom left, bottom right, which in card coordinates has a
      * negative cross product. A sliver has to match, or it faces away and is not drawn.
      */
@@ -149,7 +141,6 @@ public final class CardMesh {
 
     /**
      * Whether a point is on the card at all, corners included.
-     *
      * <p>What "inside the card" means, written once, so the drawing and the check that the
      * drawing stays inside cannot be measuring two different shapes.
      */

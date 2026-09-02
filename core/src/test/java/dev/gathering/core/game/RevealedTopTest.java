@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The revealed top of a library, and the moves that must take it back down.
- *
  * <p>The count is positional - "the first N of this library are face up to the room" - and
  * the visibility rules hand exactly that many identities to everybody. Any move that changes
  * what those first N are has to clear the count, or the window slides down onto a card

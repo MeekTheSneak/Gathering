@@ -5,17 +5,14 @@ import java.util.Optional;
 
 /**
  * What counts as a set code, decided once.
- *
  * <p>Four things now put a set code somewhere it matters - the collation feed's URL and its
  * cache file name, a card search, a symbol's URL and its cache file name - and every one of
  * them takes the code from a server config, a command argument or an item's data component.
  * All three of those are places somebody types.
- *
  * <p>So the rule lives here rather than in each of them. It had already been written three
  * times and the three had already drifted: two threw and one returned nothing, two lowered
  * the case and one raised it. A rule about what may go in a URL is exactly the wrong rule to
  * have three of.
- *
  * <p>Letters and digits only, and short. That leaves no way to walk out of a cache directory
  * and no way to bend a URL, and it is what a set code has always looked like.
  */

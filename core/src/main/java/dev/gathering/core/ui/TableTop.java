@@ -5,14 +5,12 @@ import java.util.Optional;
 
 /**
  * The table's playing surface as a plane in the world, and how to hit it.
- *
  * <p>The seated screen turns a card's position into a rectangle because the felt is the
  * screen. Playing on the block itself needs the other conversion: the player is looking at a
  * flat surface somewhere in the world through a cursor, and something has to say which point
  * of the shared surface that cursor is over. That is a ray against a horizontal plane, and it
  * is the whole of the arithmetic - which is why it lives here, in plain doubles, rather than
  * inside a renderer where it could only be checked by looking at it.
- *
  * <p>Surface coordinates are the same ones {@link TableSurface} works in, so a hit comes back
  * ready to hand to {@code seatAt} or {@code positionOn} with nothing in between.
  *
@@ -25,7 +23,6 @@ public record TableTop(double westX, double topY, double northZ, double span) {
 
     /**
      * How far in from the block's edge the playing surface starts.
-     *
      * <p>None: the surface is the table's whole top. The inset that keeps a playmat off the
      * lip belongs to the mat, where it is measured in pixels and comes out the same on every
      * table - see {@code TableSurface}. Taking a slice off here as well made the playing area
@@ -41,7 +38,6 @@ public record TableTop(double westX, double topY, double northZ, double span) {
 
     /**
      * The surface of the table whose owning corner is this block.
-     *
      * <p>Everything that draws on the table and everything that works out what a player is
      * pointing at builds one of these, so the picture and the pointing cannot end up measured
      * from different corners.
@@ -63,7 +59,6 @@ public record TableTop(double westX, double topY, double northZ, double span) {
 
     /**
      * Where a ray meets the surface, if it meets it at all.
-     *
      * <p>Empty for the three ways a ray can fail to land on a table: parallel to it, aimed
      * away from it, and hitting the plane somewhere off the edge of the table. All three have
      * to be told apart from a hit at the very corner, because "the cursor is not over the
@@ -85,7 +80,6 @@ public record TableTop(double westX, double topY, double northZ, double span) {
 
     /**
      * The surface point under a world position, if that position is over the table.
-     *
      * <p>Whether the point is on the table is decided in world coordinates and the answer is
      * clamped after converting, rather than the other way round. Converting first and then
      * checking looks equivalent and is not: the far corner converts to a hair over the span -

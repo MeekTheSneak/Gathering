@@ -7,12 +7,10 @@ import java.util.List;
 
 /**
  * Moving several cards at once without losing the shape they were in.
- *
  * <p>Dragging one card is arithmetic too plain to need a home. Dragging six is not, because of
  * the edge: if each card clamps to the table on its own, a group shoved into a corner arrives
  * as a single pile, and the arrangement somebody spent the game building is gone. There is no
  * undo for "my board collapsed", because nothing illegal happened.
- *
  * <p>So the group moves by one delta or it does not move that far. The delta is trimmed until
  * every card in it fits, which means a group pushed against an edge slides along that edge
  * instead of crumpling - the same thing that happens when you push a handful of real cards
@@ -25,7 +23,6 @@ public final class TableDrag {
 
     /**
      * The most of a wanted move that the whole group can make together.
-     *
      * <p>Each axis is trimmed on its own, so a group that cannot go further right can still go
      * down. Returns {@code {dx, dy}}.
      */
@@ -53,7 +50,6 @@ public final class TableDrag {
 
     /**
      * How far a delta can go before the leading edge of the group leaves the table.
-     *
      * <p>An empty group can move as far as it likes, which is vacuously true and saves every
      * caller a check.
      */

@@ -9,7 +9,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: take this many of this card out.
- *
  * <p>Asks; it does not tell. What actually comes out is decided on the server, against what
  * is really in the collection and whether this player may take from it - a client naming a
  * card the collection does not hold gets nothing, and one naming a collection it is not

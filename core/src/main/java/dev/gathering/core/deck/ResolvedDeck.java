@@ -8,7 +8,6 @@ import java.util.Optional;
 /**
  * An imported decklist, resolved against Scryfall: real printings, plus an honest account
  * of everything that did not work.
- *
  * <p>A deck with unresolved lines is still a deck. Import shows what failed and lets the
  * player fix it; it does not throw the other ninety-nine cards away.
  */

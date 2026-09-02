@@ -7,21 +7,17 @@ import java.util.Set;
 
 /**
  * How many of each card a collection holds.
- *
  * <p>Counts rather than stacks. A real collection runs to tens of thousands of cards and no
  * slot-based container survives that: forty Forests is one entry with a forty on it, not forty
  * of anything. It keeps the thing compact, it makes searching it instant, and it is what a
  * binder is actually like.
- *
  * <p>Keyed by identity, which already means printing and finish together - so a foil Lightning
  * Bolt and an ordinary one are two entries, as they are two cards. Nothing here knows a card's
  * name, color or rarity; those are looked up, and looking them up is the job of whatever is
  * showing the collection.
- *
  * <p>Immutable, and its order is the order things were first put in. That matters more than it
  * sounds: this is written to disk and drawn on a screen, and a per-launch hash order would
  * reshuffle somebody's binder every time the server restarted.
- *
  * <p>Pure.
  */
 public record CardTally(Map<CardIdentity, Integer> counts) {
@@ -103,7 +99,6 @@ public record CardTally(Map<CardIdentity, Integer> counts) {
 
     /**
      * What came out and what is left.
-     *
      * <p>Both, because "you asked for four and there were three" is the answer a caller needs
      * and a caller that gets only the remainder has to work it out again. Taking more than is
      * there takes what is there rather than failing: a collection is not a transaction log,

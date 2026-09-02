@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Booster collation a server wrote down by hand.
- *
  * <p>Half of these are about what happens when the file is wrong, which is the half that
  * matters: a typo in a hand-edited file is ordinary, and the failure to avoid is not a crash
  * but a config that quietly loaded as something else and made packs nobody can tell are
@@ -72,7 +71,6 @@ class BoosterCodecTest {
 
     /**
      * The order the file was written in is the order it is walked in.
-     *
      * <p>The opener draws by walking weights until it passes the roll, so a reader that
      * handed back its sheets or its cards in some other order would open different packs
      * from the same file - and a file is exactly the thing somebody expects to be able to
@@ -100,7 +98,6 @@ class BoosterCodecTest {
 
     /**
      * A slot naming a sheet that is not there is refused when the file is read.
-     *
      * <p>The mistake somebody actually makes, and the one that must not pass: a mistyped
      * sheet name loads as a pack quietly missing a card, which nobody can see. Found at load
      * rather than at opening, so the admin who typed it is the one who hears about it.

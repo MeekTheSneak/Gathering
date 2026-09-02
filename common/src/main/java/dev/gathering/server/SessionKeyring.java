@@ -10,10 +10,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This server's session key, loaded once.
- *
  * <p>Every table needs it to save or reopen a game, and a table asks at world-load time, so
  * it is read from disk once and held rather than reread per block entity.
- *
  * <p>A key that cannot be loaded is reported as absent rather than thrown, because the
  * consequence has to be "these sessions will not open" and never "this world will not load".
  * Losing a game is bad; losing a world because a game could not be read is worse.

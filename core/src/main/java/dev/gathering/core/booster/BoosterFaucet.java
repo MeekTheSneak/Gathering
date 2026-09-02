@@ -6,7 +6,6 @@ import java.util.UUID;
 
 /**
  * A kind of pack, as an acquisition path.
- *
  * <p>What it reaches is not every printing on every sheet it carries. It is every printing on
  * the sheets some arrangement actually draws from - a sheet a config holds and no variant
  * names is a sheet no pack was ever cut from, and counting it would be the auditor reporting

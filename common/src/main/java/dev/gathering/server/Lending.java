@@ -17,10 +17,8 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Lending a deck to somebody who has nothing to play.
- *
  * <p>Where {@link LoanerDecks} is the shelf, this is the counter: who may borrow, when they
  * are asked, and what happens to the deck once they have it.
- *
  * <p>The whole feature is one moment - a player sits down at a table with nothing in their
  * hands and is asked which deck they would like. Everything here exists to make that moment
  * arrive on its own, because a new player does not know to go looking for it, and to make it
@@ -33,7 +31,6 @@ public final class Lending {
 
     /**
      * Offers the shelf to somebody who has just sat down with nothing to play.
-     *
      * <p>Silent when they already have a deck: an offer of a loaner to a player holding their
      * own deck is a screen in the way of the game they came to play.
      */
@@ -56,7 +53,6 @@ public final class Lending {
 
     /**
      * Hands over a deck.
-     *
      * <p>The name is looked up on the server's own shelf, so what a client sent is a key and
      * never a decklist - there is no way through here to conjure a card, which is what makes
      * lending safe on a server with importing switched off.

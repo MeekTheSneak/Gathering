@@ -14,10 +14,8 @@ import net.minecraft.util.FormattedCharSequence;
 
 /**
  * Paste a decklist or a link to one, name it, and get a deck.
- *
  * <p>The front door of the mod. Deliberately dull, and deliberately honest: a list that half
  * worked shows which lines to fix at their line numbers and still hands over the deck.
- *
  * <p>Client-only.
  */
 public final class DecklistImportScreen extends Screen {
@@ -56,7 +54,6 @@ public final class DecklistImportScreen extends Screen {
 
     /**
      * The same screen, building out of a collection.
-     *
      * <p>A different title and the same everything else, because it is the same thing: a list
      * goes in and a deck comes out. What differs is where the cards were, and that is worth
      * one line at the top rather than a second screen to learn.
@@ -200,7 +197,6 @@ public final class DecklistImportScreen extends Screen {
 
     /**
      * The panel goes here, not in {@link #render}.
-     *
      * <p>{@code Screen#render} calls this itself and it applies a full-screen blur, so
      * anything drawn before {@code super.render} gets blurred along with the world behind it.
      */
@@ -259,7 +255,6 @@ public final class DecklistImportScreen extends Screen {
 
     /**
      * The largest whole number of lines that fits in this much room.
-     *
      * <p>Vanilla's multi-line box has a two-pixel inset at each end, which is where the odd
      * few pixels go; anything left over after that is what shows of a line nobody can read.
      */
@@ -272,7 +267,6 @@ public final class DecklistImportScreen extends Screen {
 
     /**
      * How much room the status and problem list need, which is none until there is one.
-     *
      * <p>Reserving the full eight lines unconditionally is what pushed the decklist box down
      * into the buttons on a short window - the paste area, which is the reason the screen
      * exists, was giving most of its height to a list that was usually empty.

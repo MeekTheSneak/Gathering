@@ -29,16 +29,13 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Opening a booster: collation in, cards out, nothing about any set written down.
- *
  * <p>Three things happen off the server thread and one on it. The set's collation is fetched
  * and read, the pack is drawn from it, and the printings it named are resolved to card data -
  * all on the two pipelines that own those blocking calls. Only handing the cards over touches
  * a player, and that happens back on the server thread like every other inventory in the mod.
- *
  * <p>Every pack gets a fresh seed. A seed that came from anything a player could see or
  * influence - a position, a tick, a name - is a seed somebody works out, and a booster whose
  * contents can be predicted before it is opened is not a booster.
- *
  * <p>Behind {@code collection_enabled}, because a pack is cards being property and on a
  * server where cards are not property there is nothing to open.
  */
@@ -50,7 +47,6 @@ public final class PackOpening {
 
     /**
      * Which pack to open when nobody said, after whatever the server configured.
-     *
      * <p>In the order a person means "a booster of this set": the modern retail pack, then
      * the draft pack sets used to have, then the set pack that replaced it for a while. Not a
      * rule about any set - every one of these is a name in somebody else's data, and a set
@@ -159,13 +155,11 @@ public final class PackOpening {
 
     /**
      * A pack for a set nobody has published the collation of.
-     *
      * <p>One sheet per rarity, every card on it once, which is what "we do not know how this
      * was printed" honestly comes to - see {@link BoosterFallback}, which has always been
      * written and tested and was never reached. A set MTGJSON has no booster for is a set
      * that exists, that the shop will sell packs of, and that used to hand every one of them
      * straight back.
-     *
      * <p>Said out loud when it happens, because a pack cut this way is a different object
      * from a real one: every common in it is exactly as likely as every other, which no real
      * pack has ever been.
@@ -188,7 +182,6 @@ public final class PackOpening {
 
     /**
      * What a pack of this set could be cut from, by rarity.
-     *
      * <p>The same rule {@link PackCoverage#catalogOf} audits against, sorted into sheets.
      * Public so a test can check it without a card pipeline behind it: everything downstream
      * of this is {@link BoosterFallback}'s and is checked in the pure module, and what is
@@ -211,10 +204,8 @@ public final class PackOpening {
 
     /**
      * Whether a printing is one a pack could ever have contained.
-     *
      * <p>A set's oversized cards and its digital-only printings are in the set and were never
      * on a print sheet, so neither a fallback pack nor an audit of one should count them.
-     *
      * <p>Nor are basic lands, which the rest of the mod already treats as free: a deck may
      * take as many as it likes without owning any. Counting them would put a basic in every
      * fallback pack, and would report a set as incomplete over five cards nobody has ever
@@ -227,7 +218,6 @@ public final class PackOpening {
 
     /**
      * Why no pack can be opened on this server, as a translation key, or null if one can.
-     *
      * <p>Its own method so the thing that will ask before showing somebody a pack - an item's
      * tooltip, a shop's shelf - asks the same question the opening does, rather than a second
      * copy of it that drifts.
@@ -249,7 +239,6 @@ public final class PackOpening {
 
     /**
      * Why nothing came out, in a sentence that says which of the two things went wrong.
-     *
      * <p>"That set publishes no booster" and "that set publishes no booster of that name" are
      * not the same problem, and telling somebody the first when they typed the second sends
      * them off to check the set code that was right all along. The second lists what the set
@@ -275,7 +264,6 @@ public final class PackOpening {
 
     /**
      * The kind of pack to open.
-     *
      * <p>What was asked for, then what the server calls a booster, then the usual retail
      * names, then whatever this set does publish - so a set that only ever had one kind of
      * pack opens rather than reporting that it has no "play" booster.
@@ -310,11 +298,9 @@ public final class PackOpening {
 
     /**
      * Pairs what the pack drew with what the card pipeline could name.
-     *
      * <p>A printing the pipeline could not name is left out rather than handed over: the card
      * is real and the pack is right about it, but an item nothing can draw is worse on screen
      * than a pack one card short, and the count says so out loud.
-     *
      * <p>Separate from the giving because this is the part with a decision in it. Putting a
      * stack in an inventory is vanilla's job and needs no test of ours.
      */
@@ -342,7 +328,6 @@ public final class PackOpening {
 
     /**
      * The best card in what is being handed over, which is the one the pack was opened for.
-     *
      * <p>The same rule the ceremony's own glow and reveal order use - see
      * {@link dev.gathering.core.ui.PackGlow} - so the card that came out last, ringed in its
      * rarity's color, is the card that remembers coming out.
@@ -368,7 +353,6 @@ public final class PackOpening {
 
     /**
      * Whether any card actually handed over is a mythic.
-     *
      * <p>What was given rather than what the pack held: a booster whose mythic slot rolled a
      * card the collection already had still opened one, but the moment worth remembering is
      * holding it. Only cards this mod could name are considered - an unknown printing is not
@@ -416,7 +400,6 @@ public final class PackOpening {
 
     /**
      * Hands over what came out of a pack, whatever kind of pack it was.
-     *
      * <p>Everything after the cards have been chosen: the details go down the wire first so
      * no client ever renders a blank, the cards go into the inventory, the best of them
      * remembers being pulled, and there is a wrapper to tear unless the player sneaked. The
@@ -478,13 +461,11 @@ public final class PackOpening {
 
     /**
      * Opens an Archive Pack, which has no set and no print sheet behind it.
-     *
      * <p>Its own path because it is its own thing: the cards were chosen when the server
      * worked out what its faucets miss, not by a collation, so there is nothing to fetch and
      * nothing to pick a booster variant out of. What it shares with every other pack is
      * everything after that - the cards are given, the best one remembers where it came from,
      * and there is a wrapper to tear if the player did not sneak.
-     *
      * <p>Server thread only, past the lookup it starts.
      */
     private static void openTheArchive(ServerPlayer player, Runnable giveBack, boolean ceremony) {
@@ -527,7 +508,6 @@ public final class PackOpening {
 
     /**
      * A seed nobody can see coming.
-     *
      * <p>Fresh per pack out of {@link SecureRandom}. The opener is deterministic on purpose -
      * an economy nobody can check what a pack should have held is an economy nobody can audit
      * - and that determinism is only safe as long as what goes into it is not guessable.

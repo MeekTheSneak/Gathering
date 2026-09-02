@@ -21,7 +21,6 @@ import net.minecraft.world.level.Level;
 
 /**
  * One card, as an item.
- *
  * <p>Carries exactly one data component - {@link CardComponent} - and derives everything
  * else. A stack of these is a pile of cards; a card with no component is a blank, which is
  * what a creative-mode card looks like before anything is written on it.
@@ -44,7 +43,6 @@ public class CardItem extends Item {
 
     /**
      * Right-click to turn the card over.
-     *
      * <p>Server-authoritative, like every other change to a card: the component is written on
      * the server and syncs back, so two players looking at the same card never disagree about
      * which way up it is.
@@ -61,13 +59,11 @@ public class CardItem extends Item {
 
     /**
      * Right-clicking one card onto another makes a deck of the two.
-     *
      * <p>Every deck otherwise has to start at the import screen, which is the wrong shape for
      * the way a deck actually comes together: you pick cards up, and at some point two of
      * them are the start of something. This is that moment, and it uses the gesture already
      * in the player's hands - the same right-click that adds a third card to the deck it just
      * made.
-     *
      * <p>The deck has no name. Naming a pile of two cards is a decision to make later, and
      * an unnamed deck reads as "Deck" on the item rather than as a blank.
      */
@@ -122,11 +118,9 @@ public class CardItem extends Item {
 
     /**
      * Right-click somebody while holding a card, and you are offering to trade.
-     *
      * <p>The gesture is the sentence: holding a card out to a person is what asking to trade
      * looks like at a table, and right-clicking a player does nothing else in this game. No
      * command to remember and nothing to find in a menu.
-     *
      * <p>Which card is in the hand does not matter and nothing is put up by it - the table
      * opens empty. Holding one is the way of saying you mean it, not the offer.
      */

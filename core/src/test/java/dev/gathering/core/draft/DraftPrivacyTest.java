@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A drafter learns nothing about anybody else's cards.
- *
  * <p>The same property the table holds for hands, and it matters here for the same reason:
  * a draft where you can see what the pack is about to hand you is not a draft. The check is
  * blunt on purpose - take everything a view carries, gather every card identity in it, and
@@ -83,7 +82,6 @@ class DraftPrivacyTest {
 
     /**
      * A declared pick does not leak either, before the packs move.
-     *
      * <p>The window that would be easiest to get wrong: between one drafter saying what they
      * are taking and the last one saying it, the pod knows something nobody else may know.
      */
@@ -106,7 +104,6 @@ class DraftPrivacyTest {
 
     /**
      * And over thousands of pods nobody wrote down.
-     *
      * <p>The examples above cover the moments somebody thought of. This plays arbitrary pods
      * of arbitrary sizes with arbitrary picks and checks the property after every single
      * declaration, which is where an interesting sequence would hide.

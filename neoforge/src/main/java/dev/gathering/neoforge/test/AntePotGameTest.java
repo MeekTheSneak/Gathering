@@ -33,12 +33,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The pot, in a running world.
- *
  * <p>Where the arithmetic lives is {@link AntePot} and it has its own tests. What cannot be
  * checked there is the part that costs somebody a card: whether the pot survives being
  * written to disk, whether a settled pot can be settled twice, and whether the cards actually
  * arrive anywhere when a game ends.
- *
  * <p>Every test here counts the cards afterwards. A pot that paid out and a pot that was
  * handed back should both leave exactly what went in.
  */
@@ -51,14 +49,12 @@ public final class AntePotGameTest {
 
     /**
      * A staked card leaves the deck the table is holding, not only the library.
-     *
      * <p>The whole way through, because the two halves are what went wrong: the stake is
      * taken out of the <em>library</em> the game is dealt, and for a long time the table
      * separately kept the deck exactly as it went down, staked card and all. The winner was
      * handed the card out of the pot and the loser got the same card home in their deck.
      * Ante is the one feature whose entire point is that a card really changes owner, so a
      * card that exists twice afterwards is the failure it must not have.
-     *
      * <p>Driven through the real commit, not through the helper it calls, because the helper
      * being right and never being called is exactly the shape this bug had.
      */
@@ -144,13 +140,11 @@ public final class AntePotGameTest {
 
     /**
      * Breaking the table does not take the pot out of the world with it.
-     *
      * <p>The pot lives on the block entity and nowhere else. The break path hands back every
      * deck the table was holding - and for a long time handed back nothing else, so a table
      * broken with a stake in it deleted every staked card. A staked card is one somebody
      * agreed to risk against another player; losing it to a pickaxe is the one way ante must
      * not be able to lose it.
-     *
      * <p>Nobody won, so every card goes back to whoever put it in - onto the ground here,
      * because the seats have been vacated by then and there is nobody to hand it to.
      */
@@ -176,7 +170,6 @@ public final class AntePotGameTest {
 
     /**
      * And a machine breaking it does not eat the pot either.
-     *
      * <p>The by-hand break and the machine break reach the block through different vanilla
      * methods, and only one of them is what a player does. A modded breaker or a piston-fed
      * quarry pointed at a table is the case nobody is watching, which is exactly the case
@@ -228,7 +221,6 @@ public final class AntePotGameTest {
 
     /**
      * A pot handed back goes to the people who filled it, not to the chairs.
-     *
      * <p>A seat says where a card was staked from; it does not say whose it was. Somebody who
      * stakes, stands up, and is replaced before the game is voided had their card handed to
      * whoever sat down after them - a card changing owner because of where a person happened
@@ -297,7 +289,6 @@ public final class AntePotGameTest {
 
     /**
      * A pot survives being written down and read back.
-     *
      * <p>The whole reason escrow is on the block rather than inside the game. Losing this to a
      * restart is losing cards people agreed to play for and never got a chance to win back.
      */
@@ -332,7 +323,6 @@ public final class AntePotGameTest {
 
     /**
      * Settling twice pays out once.
-     *
      * <p>The pot is emptied by the release, before a card is handed anywhere, precisely so
      * that a second call finds nothing. A card existing in two places is the one arithmetic
      * mistake this feature must not make.
@@ -378,13 +368,11 @@ public final class AntePotGameTest {
 
     /**
      * A pot with a winner is the same cards, all going one way - to the winner.
-     *
      * <p>Checked by looking in the two players' hands, which is the whole point and is what
      * this used to leave out. It counted the cards lying on the floor and found three, and
      * three is what falls on the floor whichever way the pot goes: a payout to the wrong seat
      * drops three, a payout split back to both owners drops three, and a table with nobody
      * sitting at it drops three no matter what. The test passed on all of them.
-     *
      * <p>So the seats hold real players now. The winner should be holding all three and the
      * loser none, and nothing should be on the floor at all.
      */
@@ -439,7 +427,6 @@ public final class AntePotGameTest {
 
     /**
      * The exclusion list decides which card leaves, and nothing is created or lost.
-     *
      * <p>Stocked into the cache first, because the rule protects any card it cannot check -
      * which is right, and which makes a test against a cold cache prove nothing at all. With
      * both cards known, a deck of basics and spells under the shipped "basic lands" exclusion
@@ -501,7 +488,6 @@ public final class AntePotGameTest {
 
     /**
      * A card the cache cannot answer for never goes in the pot.
-     *
      * <p>The safe default, and the one that matters after a restart: a server that cannot
      * check what it is about to take stakes nothing rather than taking something it promised
      * to protect.
@@ -524,7 +510,6 @@ public final class AntePotGameTest {
 
     /**
      * Staking one copy of a card takes one copy, not all of them.
-     *
      * <p>Removing by value takes every match, which for a one-card ante out of a deck with
      * four copies is a player losing four cards. Checked by hand rather than trusted, because
      * the list method that does it wrong reads exactly like the one that does it right.

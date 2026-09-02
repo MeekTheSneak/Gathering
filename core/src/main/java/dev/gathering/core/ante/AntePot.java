@@ -9,11 +9,9 @@ import java.util.Map;
 
 /**
  * The cards on the table, and whose they were.
- *
  * <p>Face up in the middle for the whole game, which is the entire feature: a pot with a real
  * rare in it is what makes a server's ante night a thing people talk about. So the pot is
  * state rather than a note - it is drawn, it is logged, and it survives a restart.
- *
  * <p>Who staked what is kept, not just what is in there. Two resolutions need it: a session
  * that ends properly hands the lot to one seat, and a session that is voided - by vote, or by
  * a crash - hands every card back to the person it came from. The second is why a pot cannot
@@ -101,7 +99,6 @@ public record AntePot(Map<SeatId, List<CardIdentity>> stakes) {
 
     /**
      * The whole pot to one seat.
-     *
      * <p>A winner who is not at this table gets nothing rather than an empty payout that
      * quietly loses the cards: a pot paid to nobody has to be a pot that stays put, because
      * the alternative is cards leaving the game with no owner.
@@ -115,7 +112,6 @@ public record AntePot(Map<SeatId, List<CardIdentity>> stakes) {
 
     /**
      * Every card back where it came from.
-     *
      * <p>A voided session, a table taken apart, a server that came down mid-game. The escrow
      * is the point: a pot that could be eaten by a crash is a pot nobody sensible would put a
      * card into, and then the feature does not exist.

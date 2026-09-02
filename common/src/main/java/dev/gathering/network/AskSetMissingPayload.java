@@ -8,11 +8,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: which cards of this set is this collection missing?
- *
  * <p>Asked rather than worked out on the client, for the reason every other collection
  * question is: what a set contains is a fetch from Scryfall, and the cards to subtract are on
  * the server.
- *
  * <p>The set code is a string, which is the one thing on this payload worth being careful
  * about - it names something the server will go and look up. It is bounded here to the length
  * a set code can be, and checked on arrival against the list of sets the server already

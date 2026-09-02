@@ -14,22 +14,18 @@ import java.util.UUID;
 
 /**
  * Which cards of a set a collection has not got.
- *
  * <p>{@link SetCompletion} says a collection is one card into a set of three hundred and
  * seventy-three. This says which three hundred and seventy-two. That is the click nobody could
  * make: a number with nothing behind it is a scoreboard, and what somebody sitting at their
  * binder wants is a list to go and find.
- *
  * <p>Counted by exactly the rules the number was counted by, or the two would disagree in
  * front of somebody who can now see both at once. So: only the numbered cards, only up to the
  * set's printed size, one slot per {@linkplain SetRelease#leadingNumber leading number}, and
  * either finish fills a slot. A screen saying "372 missing" over a list of 380 rows would be
  * worse than no list.
- *
  * <p><b>One row per slot, not per printing.</b> A slot that several printings could fill is
  * one thing to go and find, so it is one row - shown as the lowest-numbered printing of it,
  * which is the ordinary one rather than a showcase.
- *
  * <p>Pure: arithmetic over what a set is and what somebody owns.
  */
 public record MissingCards(String code, String name, List<Card> cards) {
@@ -59,7 +55,6 @@ public record MissingCards(String code, String name, List<Card> cards) {
 
     /**
      * Works out what is missing.
-     *
      * <p>Both halves come from outside: every printing the set has, and every printing the
      * collection holds. What this does is decide which of the first the second fills.
      *

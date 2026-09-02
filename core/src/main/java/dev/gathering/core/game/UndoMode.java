@@ -2,7 +2,6 @@ package dev.gathering.core.game;
 
 /**
  * How much rewinding a table allows. Configurable per table with a server default.
- *
  * <p>In every mode the information boundary is hard. The log marks the events that let
  * somebody see something, and no rewind crosses one without everybody agreeing, because a
  * seen card cannot be un-seen. That is not a setting.

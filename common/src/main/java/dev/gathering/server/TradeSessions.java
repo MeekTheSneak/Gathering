@@ -22,17 +22,14 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * The trades happening on this server.
- *
  * <p>What the rules are is {@link TradeTable}'s and what a swap costs is
  * {@link TradeSettlement}'s. This is the part that knows who is online, who is standing where,
  * and whose inventory a card is actually in - none of which the pure layer can be told without
  * becoming the server.
- *
  * <p>One trade per person. Not a limitation to work around: two open tables is how somebody
  * puts the same card up twice and takes two things for it, and a rule that allowed it would
  * need the cards held in escrow to be safe. One at a time is the cheaper answer and the
  * clearer one.
- *
  * <p>Everything is checked again on the way out. Standing next to each other, still online,
  * still holding what was put up: all of it re-asked at the moment of the swap, because a
  * trade table is a conversation and none of those stay true just because they were.
@@ -50,7 +47,6 @@ public final class TradeSessions {
 
     /**
      * Whether this server trades at all.
-     *
      * <p>Collection mode's, and only there. With cards conjured out of a decklist, trading one
      * is two people agreeing to swap things they could each have typed - the gesture would
      * work and mean nothing.
@@ -71,7 +67,6 @@ public final class TradeSessions {
 
     /**
      * Opens a trade between two people, if neither is already in one.
-     *
      * <p>Refused rather than queued when somebody is busy: being pulled into a second trade
      * while reading the first is how a mis-click becomes a mistake.
      */
@@ -158,7 +153,6 @@ public final class TradeSessions {
 
     /**
      * Puts cards up, never more than the person actually has.
-     *
      * <p>Clamped here as well as checked at the swap. An offer of four cards somebody owns one
      * of would sit on the other person's screen looking like four cards, and fail at the last
      * moment for a reason neither of them could see.
@@ -176,7 +170,6 @@ public final class TradeSessions {
 
     /**
      * The swap.
-     *
      * <p>Both inventories are counted again here rather than trusted from when the cards were
      * put up, because a card can be put up and then dropped, spent or lost in lava while the
      * other side is still reading.
@@ -246,7 +239,6 @@ public final class TradeSessions {
 
     /**
      * Every stack this person is carrying that a card could be in.
-     *
      * <p>The main inventory and the off hand. A card held in the off hand is a card, and a
      * trade that could not see it would be one where the card you are holding out to somebody
      * is the one card you cannot put up.
@@ -259,7 +251,6 @@ public final class TradeSessions {
 
     /**
      * Hands cards over, and writes on each of them whose they were.
-     *
      * <p>Every card in a trade, unlike a pack where only the rare remembers. A trade is two
      * people agreeing about particular cards, which makes each of them a thing that changed
      * hands rather than one of a handful that fell out of a wrapper - and the person it came

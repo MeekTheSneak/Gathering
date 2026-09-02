@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The deck check, against real printings.
- *
  * <p>Everything here runs before a game starts and never again. There is no test in this
  * class for anything happening during play, because nothing in the mod checks anything
  * during play.

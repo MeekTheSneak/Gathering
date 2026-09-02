@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The collection's search box.
- *
  * <p>Scryfall's syntax, so these are mostly checks that the queries a Magic player already has
  * in their fingers do what that player expects - and that the ones this cannot answer fail
  * softly, as a word to look for, rather than as an error over a typo.

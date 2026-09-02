@@ -5,7 +5,6 @@ import java.util.List;
 
 /**
  * What kind of game this is: which format, and how many of them.
- *
  * <p>Best-of-three is not a nicety for the sixty-card formats, it is how they are played -
  * a deck with fifteen cards it never gets to use is a deck missing a quarter of itself.
  * Commander is the format that does not want this, so one is a supported answer rather than

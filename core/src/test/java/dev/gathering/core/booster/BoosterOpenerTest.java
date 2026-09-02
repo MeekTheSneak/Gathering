@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * One interpreter, every set, no code that knows which set it is.
- *
  * <p>Checked against made-up sheets rather than real ones on purpose. Nothing about any real
  * set is written down in this module - the point of the design is that a set published in ten
  * years works with no new code - so a test that named a real set would be testing the thing
@@ -43,7 +42,6 @@ class BoosterOpenerTest {
 
     /**
      * A sheet that refuses duplicates never gives the same card twice in one pack.
-     *
      * <p>Which is what cutting a real sheet does: the same card cannot be in one pack twice
      * because there is only one of it in that column. Run over many packs, because a
      * duplicate is a thing that happens sometimes rather than always.
@@ -109,7 +107,6 @@ class BoosterOpenerTest {
 
     /**
      * A card that appears more often on a sheet turns up more often in packs.
-     *
      * <p>The whole of what "weighted" has to mean. A weight that was read and then ignored
      * would pass every other test here: the packs would be the right size, off the right
      * sheets, with no duplicates - and the rare slot would be uniform, which is an economy
@@ -144,7 +141,6 @@ class BoosterOpenerTest {
 
     /**
      * And a heavier arrangement turns up more often than a lighter one.
-     *
      * <p>The same property one level up, and the one that makes an upgraded rare slot mean
      * anything: a variant weight that was read and ignored would make every arrangement
      * equally likely, so the one-in-eight pack would be one in two.
@@ -197,7 +193,6 @@ class BoosterOpenerTest {
 
     /**
      * A config asking for a sheet it does not have says so rather than opening badly.
-     *
      * <p>Collation data arriving incomplete is a thing that happens to real feeds, and the
      * right answer is for the server to fall back to its configured odds for that set - which
      * it can only decide to do if it is told which sheet is missing.
@@ -252,13 +247,11 @@ class BoosterOpenerTest {
 
     /**
      * A sheet is walked in the order its data was written.
-     *
      * <p>Not fussiness about maps. The opener draws by walking weights until it passes the
      * roll, so the order decides which card a given roll lands on - and an order that is a
      * per-launch hash order means the same seed opens a different pack every time the game
      * starts. Which is not a test failure anybody would ever see: it passes all day inside
      * one run, and only a player asking why their pack was different yesterday would notice.
-     *
      * <p>Checked here rather than trusted, because the collection this is built from decides
      * it silently and the wrong one compiles perfectly.
      */
@@ -303,14 +296,12 @@ class BoosterOpenerTest {
 
     /**
      * A sheet heavier than an int can count is drawn from across its whole length.
-     *
      * <p>This is the case the opener has been wrong about twice. First there was a
      * hand-rolled high-and-low draw whose high half was always nought, so the back of such a
      * sheet could never come up. Then that was deleted and the case refused outright, on the
      * reasoning that no real print sheet is that heavy - and real published collation
      * promptly produced one at 210,395,225,040, because foil sheets state their odds as exact
      * integer ratios.
-     *
      * <p>So it is neither an impossible case nor one to improvise arithmetic for. What this
      * asserts is the thing both wrong versions got wrong: that a card sitting past the int
      * mark on the sheet can actually be opened.

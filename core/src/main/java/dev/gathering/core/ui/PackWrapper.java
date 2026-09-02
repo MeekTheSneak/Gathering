@@ -4,16 +4,13 @@ import java.util.Locale;
 
 /**
  * What color a pack's set symbol is printed in.
- *
  * <p>Which product a pack is has to be readable at a glance in an inventory full of them, and
  * paper solves this the same way: the wrapper of a collector booster does not look like the
  * wrapper of a draft booster. The mod ships no wrapper photographs and may not take one from
  * anywhere, so the symbol carries it - one shape, printed in the color of the product.
- *
  * <p>Black for a draft booster, gold for a set or play booster, and the mythic's own orange
  * for a collector booster. Anything else is black, which is the plainest thing a pack can be
  * and never claims to be a product it is not.
- *
  * <p>Pure.
  */
 public final class PackWrapper {
@@ -32,7 +29,6 @@ public final class PackWrapper {
 
     /**
      * The color for a kind of pack, as the published data names it.
-     *
      * <p>Play boosters take the set booster's gold: they replaced both it and the draft
      * booster in 2024, no set publishes both, and gold is the one that means "opened rather
      * than drafted".

@@ -12,7 +12,6 @@ import java.util.UUID;
 /**
  * What a batch resolution came back with: the cards that matched, keyed by the query that
  * asked for them, and the queries nothing matched.
- *
  * <p>The unmatched list is not an error. It is exactly the list the import screen shows the
  * player, line by line, so a typo is a fixable thing rather than a failed import.
  *

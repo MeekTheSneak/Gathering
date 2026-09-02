@@ -6,7 +6,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: the game you were watching is over, so stop watching it.
- *
  * <p>Without this a player whose table's session ended sits looking at the last board it
  * ever sent, which is worse than an empty screen because it looks live.
  */

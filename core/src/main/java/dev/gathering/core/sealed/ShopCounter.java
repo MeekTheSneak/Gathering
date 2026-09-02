@@ -8,23 +8,19 @@ import java.util.Set;
 
 /**
  * What is actually on the counter, at one level.
- *
  * <p>The same everywhere. Every card shop in the world stocks one shelf: a shopkeeper in one
  * village and a shopkeeper in the next offer the same two things at the same level, for the
  * same price. Two reasons, and the second is the important one.
- *
  * <p>The first is that a chain of shops that all stock the same thing is what a chain of shops
  * is. The second is that anything else is a reroll. A villager's trades are decided once, when
  * they take the job, so a shelf that varied per shopkeeper would be a shelf you could break the
  * counter and re-place until it offered what you wanted - which is the librarian trick, aimed
  * at boosters, and it would make every price in the mod meaningless.
- *
  * <p>A villager can only ever be given two trades per level, which is vanilla's number and not
  * this mod's to change. So the two are chosen for variety rather than taken off the top: two
  * collector boosters of the same set on the same counter would waste half of it - and the shelf
  * turns over, so the rest of what a set sold comes round in its own time. Every shop turns over
  * together, on the same clock, which is what keeps them all the same shop.
- *
  * <p>Pure.
  */
 public final class ShopCounter {
@@ -34,7 +30,6 @@ public final class ShopCounter {
 
     /**
      * Which boosters a counter leads with, when it has to choose.
-     *
      * <p>The ordinary pack first. Somebody walking into a card shop for the first time is
      * there for the booster everybody means by "a booster", and the collector pack is the one
      * you go back for.
@@ -46,7 +41,6 @@ public final class ShopCounter {
 
     /**
      * The two things a shopkeeper of this level has.
-     *
      * <p>Deterministic: the same shelf gives the same answer every time, on every counter, on
      * every server that read the same sets.
      */
@@ -57,7 +51,6 @@ public final class ShopCounter {
 
     /**
      * The two things a shopkeeper of this level has, this many turnovers in.
-     *
      * <p>Each turnover moves along by what a counter holds, so a level with six things at it
      * shows all six over three of them and then comes round again. The whole of a set is
      * buyable eventually without any single visit offering the whole of it.
@@ -71,7 +64,6 @@ public final class ShopCounter {
 
     /**
      * As many of these as will fit, preferring variety.
-     *
      * <p>One of each kind of thing first - a play booster and a collector booster rather than
      * two collector boosters, a display box and a bundle rather than two bundles - and then
      * whatever is left in shelf order, so a level with only one kind of thing at it still
@@ -112,7 +104,6 @@ public final class ShopCounter {
 
     /**
      * The same shelf, started from wherever this turnover starts.
-     *
      * <p>Rotated rather than reshuffled: a shelf that shuffled would show the same thing twice
      * running as often as not, and would have no order for somebody to learn.
      */
@@ -135,7 +126,6 @@ public final class ShopCounter {
 
     /**
      * What makes two things the same sort of thing.
-     *
      * <p>For a booster it is which booster - a play pack and a collector pack are two things
      * worth having both of, and the same pack out of two sets is one thing twice. For anything
      * else it is what shape the box is.

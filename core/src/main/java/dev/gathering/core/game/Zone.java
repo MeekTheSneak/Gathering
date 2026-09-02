@@ -2,7 +2,6 @@ package dev.gathering.core.game;
 
 /**
  * The Commander-first zone set, one of each per seat.
- *
  * <p>Two properties drive everything else in the mod:
  *
  * <ul>
@@ -14,7 +13,6 @@ package dev.gathering.core.game;
  *       log - which attributes every action by name - is the honesty mechanism rather than a
  *       permission check.</li>
  * </ul>
- *
  * <p>There is no stack. The mod tracks no stack, enforces no priority, and has no opinion
  * about what is currently resolving; that lives in the players' heads exactly as it does in
  * paper.
@@ -41,12 +39,10 @@ public enum Zone {
 
     /**
      * The second command slot, for the deck that has two commanders.
-     *
      * <p>Partners, backgrounds and a Doctor's companion are all one deck with two cards that
      * start in the command zone, and each of them is cast and re-cast on its own tax. One
      * pile holding both made those two cards a stack of two with a single number under it,
      * which is the one thing about a command zone a player actually has to read.
-     *
      * <p>Drawn whether or not it is used, like every other zone: a slot that only appears
      * once something is in it is a slot nobody can drop a card on.
      */
@@ -67,7 +63,6 @@ public enum Zone {
 
     /**
      * Whether card identity in this zone is hidden from players other than the owner.
-     *
      * <p>Note that a public zone can still hold face-down cards; facing is per card, this is
      * per zone. A card is visible only if both agree.
      */
@@ -81,7 +76,6 @@ public enum Zone {
 
     /**
      * Whether cards here sit on a surface rather than in a pile.
-     *
      * <p>Only the battlefield. Everything else renders as a thin stack with a count, and a
      * stack has an order rather than a geometry - so only the battlefield gives its cards a
      * place and an angle, and only the battlefield accepts a drop at a chosen one.
@@ -92,13 +86,11 @@ public enum Zone {
 
     /**
      * The zones that sit on the table as a stack of cards, nearest their own player first.
-     *
      * <p>One list, because two things draw this column and a third decides what a card dropped
      * on it lands in. When they were written out separately, the one that drew the zones and
      * the one that worked out which zone a point was over could in principle disagree - and a
      * drop that puts a card in the wrong zone is the kind of thing nobody reports, they just
      * stop dropping cards there.
-     *
      * <p>Graveyard nearest, then library, then exile, then the two command slots furthest
      * away and set apart from the other three. That is the order the tables people already
      * play on use, and it is the right order for the reason it is theirs: the graveyard is
@@ -118,7 +110,6 @@ public enum Zone {
 
     /**
      * How many of those a table without a command zone lays out.
-     *
      * <p>The command slots are last precisely so that a format with no commanders can leave
      * them off by drawing fewer. An empty box labeled with a zone the format does not have
      * is a question every player asks once and nobody asks twice.

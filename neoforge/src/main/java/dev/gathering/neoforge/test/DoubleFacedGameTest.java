@@ -13,11 +13,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Which side of a card is showing.
- *
  * <p>A card lies on a table one way up. Asking a summary for every printed side and laying
  * them out in a row - which is what every screen in the mod did - turns a transform card into
  * two half-size cards side by side, which is not a thing that exists.
- *
  * <p>The distinction that has to survive: a transform card has two of everything and shows
  * one at a time; a split card has two lots of rules on one piece of card and shows that one
  * piece whichever way it is read. What tells them apart is whether the second face carries

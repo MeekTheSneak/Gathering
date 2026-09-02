@@ -12,14 +12,11 @@ import net.minecraft.network.codec.StreamCodec;
 
 /**
  * The single data component a card item carries: {@code {scryfall_id, foil, custom_id?}}.
- *
  * <p>Nothing else. Name, oracle text, mana cost and art are derived data, fetched and cached
  * from Scryfall by whoever needs them. A card item is a pointer, which is what keeps a
  * hundred-card deck cheap to store, cheap to sync, and impossible to desync.
- *
  * <p>On 1.21.1 this is a registered {@code DataComponentType} with a codec, not raw NBT -
  * {@code getOrCreateTag()} has not existed since 1.20.5.
- *
  * <p>{@code flipped} is the one piece of per-card state that is not identity: which way up it
  * is sitting. A flipped double-faced card shows its other side; a flipped ordinary card shows
  * its back, which is your sleeve.
@@ -59,7 +56,6 @@ public record CardComponent(
 
     /**
      * The same card, the right way up.
-     *
      * <p>Which way a card is sitting is a property of the table, not of the card, so cards
      * are stored face up wherever they are put away. Without this a face-down copy and a
      * face-up copy of one card are two different components, and the deck list would show

@@ -8,21 +8,17 @@ import java.util.List;
 
 /**
  * A deterministic, high-quality random stream derived from a session seed and a label.
- *
  * <p>Two requirements pull in opposite directions and both are non-negotiable.
- *
  * <p><b>It must be deterministic</b>, because replay is guaranteed by architecture here: the
  * sealed event stream plus the session seed has to reproduce a finished game exactly. That
  * is only possible if a shuffle is derived from the seed rather than stored as an order, and
  * it is what keeps the log small and the secret in one place.
- *
  * <p><b>It must be a good shuffle</b>, because this is a card game. {@link java.util.Random}
  * is not usable here: it carries 48 bits of state, so it can reach at most 2^48 distinct
  * permutations. A 100-card Commander library has 100! of them - a number with 158 digits.
  * Seeding {@code java.util.Random} would silently confine every game in the mod to a
  * vanishing sliver of the possible shuffles. So this runs SHA-256 in counter mode instead,
  * which has no such ceiling and costs microseconds at the once-per-shuffle rate we use it.
- *
  * <p>The seed is the most sensitive value in the system - seed plus decklist is every future
  * draw - and no code path here or anywhere else puts it in a log, a debug message, or a
  * crash report.
@@ -58,7 +54,6 @@ public final class DeterministicRandom {
 
     /**
      * A uniformly distributed value in {@code [0, bound)}.
-     *
      * <p>Rejection-sampled rather than taken modulo, because modulo skews toward low values
      * whenever the bound does not divide the range - a bias that in a shuffle would quietly
      * favor certain positions.
@@ -81,15 +76,12 @@ public final class DeterministicRandom {
 
     /**
      * A uniformly distributed value in {@code [0, bound)}, for bounds an int cannot hold.
-     *
      * <p>Real print sheets need this. Published collation expresses a foil sheet's odds as
      * exact integer ratios, and those run to hundreds of billions - one real set's foil sheet
      * comes to 210,395,225,040 - so a draw against a sheet total is not an int draw.
-     *
      * <p>A bound that does fit in an int is drawn as one, deliberately: every stream that
      * never needed the wider draw stays byte for byte what it was, so old seeds still
      * reproduce old shuffles and old packs.
-     *
      * <p>Rejection-sampled for the same reason {@link #nextInt} is: modulo alone would skew
      * toward the cards at the front of the sheet.
      */

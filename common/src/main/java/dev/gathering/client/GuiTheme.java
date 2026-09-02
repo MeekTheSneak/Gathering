@@ -6,18 +6,15 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * One set of GUI art the mod can draw itself with.
- *
  * <p>A theme is a folder of PNGs and a small file naming it. That is the whole of it: no
  * colors, no sizes and no rules live here, because a theme that could change anything but a
  * picture would mean repainting the pictures was not enough. Adding one is a folder and a
  * file in a resource pack - see {@link GuiThemes} for where they are read from and
  * {@code docs/themes.md} for how to write one.
- *
  * <p>Every element's file name is worked out once, here, rather than on each draw. Screens ask
  * for elements while drawing, tens of times a frame, and building a {@link ResourceLocation}
  * per rectangle would be a string concatenation and an allocation for something that never
  * changes.
- *
  * <p>Client-only.
  */
 public final class GuiTheme {

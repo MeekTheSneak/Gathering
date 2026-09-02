@@ -5,7 +5,6 @@ import java.util.UUID;
 
 /**
  * Who is sitting in a seat, as much as the pure core needs to know.
- *
  * <p>The name is carried alongside the id because the event log attributes every action by
  * name and a replay watched a month later should still read "Chris drew a card" rather than
  * a UUID. It is a snapshot at the moment of sitting down, not a live lookup.

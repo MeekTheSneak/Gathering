@@ -35,7 +35,6 @@ import org.lwjgl.glfw.GLFW;
 
 /**
  * Client setup for Fabric, mirroring the NeoForge one.
- *
  * <p>Entry point is declared as {@code client} in fabric.mod.json, so a dedicated server
  * never loads this class or anything it names.
  */

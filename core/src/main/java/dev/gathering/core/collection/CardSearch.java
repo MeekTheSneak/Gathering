@@ -13,12 +13,10 @@ import java.util.Set;
 
 /**
  * What somebody typed into a collection's search box, as something that can be asked of a card.
- *
  * <p>The box used to match a few words against the name, the type line and the set, which
  * answers "where is that thing called something-Bolt" and nothing else. It could not answer
  * "which of my green creatures cost three or less", which is the question somebody building a
  * deck actually has, so the box takes a query language now.
- *
  * <p><b>It is Scryfall's syntax, on purpose.</b> Everybody who plays this game has typed
  * {@code t:creature c:rg mv<=3} into a search box before, and inventing a second dialect for
  * the same job would mean every player of the mod learning something they already know in a
@@ -26,10 +24,8 @@ import java.util.Set;
  * price data here and no format legality in the box - and a term this does not recognize is
  * matched against the name rather than thrown away, so a query typed hopefully still finds
  * something rather than nothing.
- *
  * <p>Every term is "and", and a term may be negated with a leading minus. Quotes hold a phrase
  * together. Bare words go to the name, the type line and the set, exactly as they always did.
- *
  * <p>Pure. Nothing here fetches anything.
  */
 public final class CardSearch {
@@ -72,7 +68,6 @@ public final class CardSearch {
 
     /**
      * The words a field can be called, so a player can type what comes to mind.
-     *
      * <p>Scryfall's own abbreviations plus the whole word, because somebody who half-remembers
      * the syntax types "type:" and somebody who uses it daily types "t:", and both of them are
      * asking the same question.
@@ -98,7 +93,6 @@ public final class CardSearch {
 
     /**
      * Colors by every name somebody might reach for.
-     *
      * <p>The letters, the words, and the two- and three-color guild and shard names, because
      * "id:gruul" is how people actually talk about a color pair and spelling it "id:rg" is a
      * translation they should not have to do.
@@ -119,7 +113,6 @@ public final class CardSearch {
 
     /**
      * Splits what somebody typed into terms.
-     *
      * <p>Never throws and never refuses. A search box that answers a typo with an error has
      * turned a question into a form to fill in correctly; anything this cannot make sense of
      * becomes a plain word to look for, which is what the box did before there was a syntax at
@@ -268,7 +261,6 @@ public final class CardSearch {
 
     /**
      * Color terms, which are the only ones where the operator changes the question.
-     *
      * <p>The three readings people actually want: <em>at least</em> these colors (the plain
      * colon, and how somebody asks for "my Gruul cards"), <em>exactly</em> these, and
      * <em>within</em> these, which is the one a commander deck is built on - every card whose
@@ -308,7 +300,6 @@ public final class CardSearch {
 
     /**
      * Rarity, which is ordered as well as named.
-     *
      * <p>So {@code r>=rare} means rare and mythic, which is how anybody thinks about it, and
      * {@code r:rare} means that one. Unknown sorts below common: a card whose rarity did not
      * survive the trip is not a mythic.
@@ -380,7 +371,6 @@ public final class CardSearch {
 
     /**
      * A number, or empty for the things printed where a number goes.
-     *
      * <p>A power of "*" or "1+*" is not a number and no comparison against it is true, which
      * is the honest answer: the card's power depends on the board, and a search cannot know
      * the board.
@@ -402,7 +392,6 @@ public final class CardSearch {
 
     /**
      * Every face's rules text, run together.
-     *
      * <p>Both halves, because a search for a word on the back of a transform card is a search
      * that should find it - the card in the box is the whole card.
      */

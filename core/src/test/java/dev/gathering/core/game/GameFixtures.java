@@ -46,7 +46,6 @@ public final class GameFixtures {
 
     /**
      * A table of this many seats, all sat in and all with a deck down.
-     *
      * <p>For the rules that only have a third case once there is a third player - showing one
      * opponent something and not the other, which is two seats' worth of nothing to check.
      */

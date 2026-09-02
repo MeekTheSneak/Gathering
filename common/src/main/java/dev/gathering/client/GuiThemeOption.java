@@ -11,20 +11,16 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The look, as a row of the game's own video settings.
- *
  * <p>Where a setting about how the game looks goes. The table's menu can change it too, and
  * that is the discoverable place while playing - but somebody who has just installed the mod
  * and wants to look at what it offers goes to Options, and a mod whose only setting lives
  * three clicks inside a table nobody has built yet is a mod whose setting nobody finds.
- *
  * <p>Added to the list vanilla already built rather than replacing the screen, so it looks and
  * behaves like every other row: same button, same cycling, same click sound. The change lands
  * the instant it is pressed, which is why it is worth being here at all - the screen behind
  * the options screen repaints while you are still on the button.
- *
  * <p>Both loaders call this from their own screen-opened hook, which is the only part of it
  * that differs between them.
- *
  * <p>Client-only.
  */
 public final class GuiThemeOption {
@@ -39,7 +35,6 @@ public final class GuiThemeOption {
 
     /**
      * Puts the picker on this screen, if this screen is the video settings.
-     *
      * <p>Asked about every screen that opens, so the check is here rather than in each
      * loader: two copies of one condition are two chances for the loaders to disagree about
      * where a setting lives.

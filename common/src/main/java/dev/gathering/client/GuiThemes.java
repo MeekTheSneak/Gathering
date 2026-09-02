@@ -19,7 +19,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Which looks are installed, read from the resource packs rather than written in Java.
- *
  * <p>A theme is a file at {@code assets/<namespace>/gui_themes/<name>.json} saying what it is
  * called and which folder of {@code textures/gui/sprites} its art is in. Nothing else. That is
  * the whole reason this is data: a Future Sight look, a retro look, a soft round one - none of
@@ -33,17 +32,14 @@ import org.slf4j.LoggerFactory;
  *   "order": 20
  * }
  * }</pre>
- *
  * <p>The art itself goes in {@code assets/mypack/textures/gui/sprites/retro/}, with a
  * {@code .mcmeta} beside each PNG. Anything a theme leaves out falls back to the default one,
  * so a pack may repaint six elements and inherit the rest - and so a half-painted theme cannot
  * reach the screen looking broken.
- *
  * <p>Re-read when the resource packs are, which is noticed rather than subscribed to: the
  * sprite for the default panel is a different object after every reload, so holding on to it
  * and comparing is a reload listener that needs no loader to register it. That matters because
  * registering one differs between NeoForge and Fabric and this has no other reason to.
- *
  * <p>Client thread only.
  */
 public final class GuiThemes {
@@ -56,7 +52,6 @@ public final class GuiThemes {
 
     /**
      * One sprite of the default theme, watched to notice a resource reload.
-     *
      * <p>Built once. This is asked for on the way to every sprite the mod draws, and it used
      * to build the path and the location again each time - a string and an object per sprite
      * per frame, for a value that cannot change.
@@ -135,7 +130,6 @@ public final class GuiThemes {
 
     /**
      * Reads the theme files again if the resource packs have been reloaded since the last time.
-     *
      * <p>Cheap enough to ask on every call: one hash lookup and a reference comparison, against
      * a list that only changes when somebody adds a pack.
      */
@@ -175,7 +169,6 @@ public final class GuiThemes {
 
     /**
      * One theme file, or null if it cannot be read.
-     *
      * <p>A theme that will not parse is a line in the log and a theme that is not offered.
      * Never an exception: this is somebody else's file, and a resource pack with a typo in it
      * must not be a client that will not draw.

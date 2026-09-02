@@ -24,7 +24,6 @@ import net.minecraft.world.level.Level;
 
 /**
  * A sleeved deck, produced by decklist import and bound to the player who imported it.
- *
  * <p>The deck is the thing you carry to a table. Cards inside it never become inventory
  * items during a session; hands are GUI-only, always.
  */
@@ -46,14 +45,11 @@ public class DeckItem extends Item {
 
     /**
      * What color to draw the box.
-     *
      * <p>A shelf of decks is a row of identical objects and the name is a hover away, so the
      * box carries its own color and you find your deck by looking rather than by picking
      * things up. See {@code DeckColors} for where the color comes from.
-     *
      * <p>White is "leave it alone", which is what the texture already is - so a deck built
      * before boxes had a color, or one a test made without one, draws exactly as it did.
-     *
      * <p>Read by both loaders' item color handlers. No client class is named here, so this
      * stays a plain question about a stack.
      */
@@ -66,7 +62,6 @@ public class DeckItem extends Item {
 
     /**
      * Right-click to look inside.
-     *
      * <p>Opens on the client from the stack's own data, so there is no round trip just to see
      * what a deck holds. The screen asks the server for card metadata separately, because the
      * stack knows which printings it contains but not what they are called.
@@ -84,7 +79,6 @@ public class DeckItem extends Item {
 
     /**
      * Sneak and right-click a collection to pour the deck back into it.
-     *
      * <p>On the item rather than on the block, because that is where sneaking sends a
      * right-click: vanilla skips block interaction entirely when somebody is crouching with
      * something in hand. Which makes the two gestures fall out of the game's own rules -
@@ -112,7 +106,6 @@ public class DeckItem extends Item {
 
     /**
      * Carrying a deck and right-clicking a stack of cards puts them into the deck.
-     *
      * <p>This is the bundle gesture, and only half of it. A bundle right-clicked on an empty
      * slot hands one item back; a deck never does. Taking a card out is done from the deck
      * list, where you can see the card's name before you decide - pulling an unseen card off
@@ -154,7 +147,6 @@ public class DeckItem extends Item {
 
     /**
      * The click of a card going into a deck, or of two cards becoming one.
-     *
      * <p>The vanilla bundle sound, because this is the vanilla bundle gesture and a silent
      * one reads as a click that did not register. {@code Player#playSound} excludes the
      * player it is given, so running this on both sides plays it exactly once.
@@ -202,12 +194,10 @@ public class DeckItem extends Item {
 
     /**
      * An empty deck is not a thing you own.
-     *
      * <p>The edit that empties one already removes it, so this is the backstop for every
      * other way a deck can end up with nothing in it - a command, a creative click, an older
      * save. Checked on the server only, because the client would just have it reappear on
      * the next sync.
-     *
      * <p>A deck item with no component at all is left alone: that is the creative-menu deck,
      * which has never held anything and is not empty so much as blank.
      */

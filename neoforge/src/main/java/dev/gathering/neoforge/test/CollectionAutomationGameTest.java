@@ -26,18 +26,15 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * What a hopper, a pipe or a comparator makes of a collection block.
- *
  * <p>Nothing, and that is the answer these pin down. A collection is not a container of item
  * stacks - it is a tally of counts with a permission list attached, and the permission list
  * is the reason automation stays out: {@code mayAdd} and {@code mayTake} name players, and a
  * hopper is not a player. A pipe feeding a shared collection would be every one of those
  * rights bypassed by a block somebody placed next to it.
- *
  * <p>So the block exposes no {@link Container}, registers no item-handler capability, and
  * answers no comparator. That is easy to say and easy to lose - a later change adding a
  * capability for some other reason would open all of it silently, with nothing failing - so
  * it is checked here rather than remembered.
- *
  * <p>The other half is that none of it may <em>crash</em>. A hopper pointed at a block that
  * is not a container, and a pipe asking a block for a capability it does not have, are things
  * every player will do by accident; both have to be a quiet no rather than a stack trace, and
@@ -54,7 +51,6 @@ public final class CollectionAutomationGameTest {
 
     /**
      * A hopper pointed into a collection cannot push cards into it.
-     *
      * <p>And keeps its own cards rather than losing them: a container that swallows what it
      * will not accept is worse than one that refuses.
      */
@@ -129,7 +125,6 @@ public final class CollectionAutomationGameTest {
 
     /**
      * A modded pipe gets nothing back, from any side, and does not throw asking.
-     *
      * <p>This is the exact call every NeoForge item pipe makes. It is asked from all six
      * sides and with no side at all, because a pipe that asked from below and got an
      * inventory would be reading a stranger's binder through the floor.
@@ -156,7 +151,6 @@ public final class CollectionAutomationGameTest {
 
     /**
      * Nothing the mod places is a container, so nothing can be piped into or out of any of it.
-     *
      * <p>The blanket version of the checks above, so a block added later is covered by this
      * without anybody remembering to come back. A {@link Container} is what vanilla's hopper
      * looks for and it is the one interface that would open all of this at once.
@@ -187,7 +181,6 @@ public final class CollectionAutomationGameTest {
 
     /**
      * A deck item sitting in a hopper over a collection stays a deck.
-     *
      * <p>The case the sweep gesture and the dissolve gesture are both careful about, arrived
      * at the other way: a deck near a collection must never be quietly taken apart, and a
      * hopper is the one thing that could do it without anybody pressing anything.
@@ -224,13 +217,11 @@ public final class CollectionAutomationGameTest {
 
     /**
      * A collection broken by something that is not a player keeps its cards.
-     *
      * <p>Every block-breaker any other mod ships ends up in {@code Level#destroyBlock}, which
      * reads the block entity and hands it to the loot context - so the drop is built by this
      * block's own {@code getDrops} and the item carries the collection with it. The path a
      * player takes has an owner check in front of it and this one has nobody to check, which
      * is the same answer a chest gives: what breaks it decides, and the contents survive.
-     *
      * <p>Worth pinning because the failure is silent and total. A {@code getDrops} that
      * missed the block entity would drop an empty collection block and ten thousand cards
      * would be gone with no error anywhere.
@@ -288,7 +279,6 @@ public final class CollectionAutomationGameTest {
 
     /**
      * A collection with a block of room above and below it, inside the plot.
-     *
      * <p>Off the floor on purpose: these tests put a hopper on each side of it, and a
      * template's own height is a wall like its width - a hopper written above the top of the
      * plot is a block in nobody's structure that no run cleans up after.

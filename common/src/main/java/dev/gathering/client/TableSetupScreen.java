@@ -13,19 +13,15 @@ import net.minecraft.network.chat.Component;
 
 /**
  * What kind of game this is going to be.
- *
  * <p>Two questions and a button. Which format, because a table that only knows how to run
  * Commander is a Commander mod with a table in it - and best of how many, because
  * best-of-three is not a nicety for the sixty-card formats, it is how they are played. A deck
  * with fifteen cards it never gets to use is a deck missing a quarter of itself.
- *
  * <p>Commander answers "one" and answers it first, which is the only concession this screen
  * makes to it being the format most people are here for. Every other format defaults to three
  * because that is what a match of it is.
- *
  * <p>The screen sends a format <em>id</em> and a length. The server looks both up against its
  * own copy of the presets, so nothing here can invent a format with a two-card minimum.
- *
  * <p>Client-only.
  */
 public final class TableSetupScreen extends Screen {
@@ -125,7 +121,6 @@ public final class TableSetupScreen extends Screen {
 
     /**
      * Picking a format also picks the length it is usually played at.
-     *
      * <p>Overwriting a choice the player has already made would be rude; this is not that.
      * Commander is a single game and everything else is a match, and a player who wants
      * something else says so afterwards. The alternative - defaulting everything to one -
@@ -138,7 +133,6 @@ public final class TableSetupScreen extends Screen {
 
     /**
      * No format: one game, nobody's deck refused.
-     *
      * <p>A single game rather than a match, because a best-of-three with no format to
      * sideboard against is three games with a screen between them.
      */
@@ -185,7 +179,6 @@ public final class TableSetupScreen extends Screen {
 
     /**
      * What the line spelling out the chosen game said last frame. For the scripted harness.
-     *
      * <p>Recorded while drawing rather than worked out from the fields, because the fields
      * are what the buttons set and a check that reads them back is a check that the button
      * assigned a variable - which it plainly did. What is worth knowing is that the screen

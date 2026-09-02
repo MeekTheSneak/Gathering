@@ -15,19 +15,16 @@ import java.util.Optional;
 
 /**
  * What moved between one look at a board and the next.
- *
  * <p>Cards were teleporting: a drawn card was in a library and then it was in a hand, with
  * nothing in between, and the only account anybody got of it was a line of text. A table where
  * things move is a table you can follow without reading, which is most of what watching a game
  * of Magic is.
- *
  * <p>Worked out by comparing two boards rather than by being told, and that is the whole
  * trick. A client is only ever sent what it may know: the owner of a library sees its cards
  * and nobody else does, so a draw looks like a card changing zones to one player and like two
  * numbers changing to everybody else. Both are enough to say a card went from there to here,
  * which is all a moving picture needs - so the movement is visible to the whole table without
  * one card's identity crossing to anybody the visibility rules did not already send it to.
- *
  * <p>Pure, and deliberately so: this is arithmetic on two snapshots, and the interesting cases
  * - a card nobody can see, several moves at once, a shuffle that changes no counts at all -
  * are all reachable from a test rather than from a game.
@@ -39,7 +36,6 @@ public final class CardTravel {
 
     /**
      * How long two sightings of a board can be apart and still be a difference.
-     *
      * <p>A table stops sending boards the moment it is out of range or its chunk unloads, and
      * whatever it last sent stays in memory. Comparing against that when it comes back would
      * take every card that moved in the meantime and set them all off at once - and the
@@ -50,7 +46,6 @@ public final class CardTravel {
 
     /**
      * Whether two sightings this far apart are a difference or a first sighting.
-     *
      * <p>Here rather than beside the map that holds the sightings, because it is arithmetic
      * about what a difference means - which is this class's whole subject - and because a
      * rule kept next to a client-side cache is a rule nothing can test.
@@ -86,7 +81,6 @@ public final class CardTravel {
 
     /**
      * One card going from one place to another.
-     *
      * <p>The card is named only when the viewer could already name it in one of the two
      * places. A move nobody may see the identity of is still a move, and is still worth
      * drawing - as a sleeve.
@@ -111,7 +105,6 @@ public final class CardTravel {
 
     /**
      * The moves that turn one board into the other.
-     *
      * <p>Named cards first, because a card the viewer can follow by name is followed exactly.
      * What is left over is matched by counts: a zone that lost two and a zone that gained two
      * is two cards going from the first to the second, and preferring a move within one seat
@@ -177,7 +170,6 @@ public final class CardTravel {
 
     /**
      * Whether these two spots are far enough apart to be a card being moved.
-     *
      * <p>Coordinates only. A {@link TablePosition} carries an angle as well, and turning a
      * card is not moving it: tapping every permanent you have would otherwise be a board's
      * worth of cards flying from where they are to where they already are.

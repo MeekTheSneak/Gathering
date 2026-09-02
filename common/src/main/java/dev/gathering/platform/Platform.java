@@ -7,11 +7,9 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * The whole of what the mod needs to ask the loader.
- *
  * <p>Deliberately tiny. If this interface grows, loader-specific behavior is leaking into
  * common code and the answer is almost always to move the logic down into the pure core
  * rather than to add a method here.
- *
  * <p>Loaded through {@link ServiceLoader}, so {@code common} names it without importing
  * either loader.
  */
@@ -29,7 +27,6 @@ public interface Platform {
 
     /**
      * Whether one of this mod's payloads may be sent to this player at all.
-     *
      * <p>Here rather than in common code because only the loader knows: each one negotiates
      * its own channels when a connection opens, and each one throws rather than dropping a
      * packet sent down a channel that was never agreed. Asked through

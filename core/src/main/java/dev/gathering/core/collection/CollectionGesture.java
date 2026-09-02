@@ -2,18 +2,15 @@ package dev.gathering.core.collection;
 
 /**
  * Which gesture on the collection block is worth telling somebody about right now.
- *
  * <p>Two of them, and which one is offered depends on what the player is holding rather than
  * on what they can do in principle. One line at a time: two drawn at the same height would be
  * one line on top of another.
- *
  * <p>Here rather than in the screen because the rule is about Minecraft's own interaction
  * order and is easy to get subtly wrong. Crouching with anything in either hand skips block
  * interaction entirely - {@code ServerPlayerGameMode#useItemOn} decides that before the block
  * is ever asked - so the sweep is an empty-handed gesture whether or not anybody calls it one.
  * The screen offered it to anybody carrying loose cards, which is exactly the player most
  * likely to be holding one: they crouched, nothing happened, and the screen had said it would.
- *
  * <p>Dissolving is the other way round and works while crouching, because it is on the deck
  * item rather than on the block.
  */

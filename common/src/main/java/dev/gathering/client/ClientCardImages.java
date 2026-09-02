@@ -32,11 +32,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Card art, fetched by this client from Scryfall and cached on this client's disk.
- *
  * <p>This is the architecture that removes the image-sync problem class entirely: the mod
  * ships no card images, never relays image bytes over its own network, and never asks a
  * server for art. A card summary carries a URL; every client goes and gets it.
- *
  * <p>Two rules, both load-bearing:
  * <ul>
  *   <li><b>Never fetch or register a texture on the render thread.</b> HTTP and disk reads
@@ -45,7 +43,6 @@ import org.slf4j.LoggerFactory;
  *       450 distinct cards, so an unbounded cache is a VRAM leak with extra steps. The disk
  *       cache keeps everything; VRAM keeps the last {@value #MAX_RESIDENT_TEXTURES}.</li>
  * </ul>
- *
  * <p>Client-only. Nothing on a server may reference this class.
  */
 public final class ClientCardImages {
@@ -75,14 +72,12 @@ public final class ClientCardImages {
 
     /**
      * Urls this session has given up on, oldest forgotten first.
-     *
      * <p>Bounded, so a session spent looking at cards nobody has art for cannot grow forever.
      * It used to be a plain set that stopped accepting anything once it was full, which meant
      * the five-hundred-and-thirteenth dead link was neither remembered as failed nor put on a
      * retry wait - so every frame that asked for it started another fetch, and a client left
      * open on a set with no art fetched the same missing picture as fast as two threads could
      * ask for it.
-     *
      * <p>Forgetting the oldest is the right way round: the url that has not come up for
      * longest is the one a later retry costs least, and something genuinely gone will simply
      * fail again once and go back in.
@@ -126,7 +121,6 @@ public final class ClientCardImages {
 
     /**
      * The texture for a card image URL, if it is ready.
-     *
      * <p>Returns empty and starts fetching otherwise, so callers render a placeholder this
      * frame and the real art a few frames later. Never blocks.
      */
@@ -150,7 +144,6 @@ public final class ClientCardImages {
 
     /**
      * Whether this URL has been tried and will not be tried again this session.
-     *
      * <p>Only for the failures that are really final - the picture is not there, or what came
      * back is not an image. A fetch that timed out or came back 429 is waiting rather than
      * failed, and the screen goes on saying it is still trying, because it is.
@@ -245,7 +238,6 @@ public final class ClientCardImages {
 
     /**
      * Copies decoded pixels into a texture.
-     *
      * <p>Decoding happens in the pure core with ImageIO, because Minecraft's own
      * {@code NativeImage.read} is stb_image and stb cannot read progressive JPEG - which is
      * what Scryfall serves for every tier but png. All that is left here is the copy.
@@ -284,7 +276,6 @@ public final class ClientCardImages {
 
     /**
      * What came back, and whether asking again could ever give a different answer.
-     *
      * <p>The difference is the whole point. A 404 means the picture is not there and never
      * will be; a timeout, a 429 or a 503 mean the network was busy, which is a thing that
      * stops being true.
@@ -359,7 +350,6 @@ public final class ClientCardImages {
 
     /**
      * Puts a url aside for a while rather than giving up on it.
-     *
      * <p>Backing off each time so a host that is genuinely down is not hammered, and giving
      * up for real after a few goes so a dead link cannot be retried forever.
      */

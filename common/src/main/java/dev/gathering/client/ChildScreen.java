@@ -7,17 +7,14 @@ import net.minecraft.network.chat.Component;
 
 /**
  * A screen that was opened from another one, and goes back to it when it closes.
- *
  * <p>Minecraft's default is to close to nothing, which for a screen you reached from an
  * inventory is right - there was a world behind it and you wanted the world. For a screen you
  * reached from the table it is a dead end: you open your graveyard, press escape, and find
  * yourself standing next to a block with your game somewhere behind it. Everything the table
  * opens is a detour and every detour comes back.
- *
  * <p>Going back to the <em>instance</em> rather than to a fresh one is deliberate. The table
  * screen holds where the view is pointing, how far it is zoomed and whether the log is up, and
  * a player who looks something up should find the table exactly as they left it.
- *
  * <p>Client-only.
  */
 public abstract class ChildScreen extends Screen {
@@ -27,7 +24,6 @@ public abstract class ChildScreen extends Screen {
 
     /**
      * Whether the screen behind is drawn, as distinct from returned to.
-     *
      * <p>Two questions that were one field. Almost every detour wants the board behind it -
      * that is what {@link #renderBackground} is for - but a screen whose whole content is a
      * grid of pictures gains nothing from it and loses something to it: the mod's mana
@@ -66,14 +62,12 @@ public abstract class ChildScreen extends Screen {
 
     /**
      * The screen this was opened from, drawn underneath, behind a light scrim.
-     *
      * <p>Every one of these is a detour taken to decide something about the board, and the
      * board was not on screen while it was being decided: what is behind a child screen is
      * whatever the game happens to be drawing, which for a table played on the window is
      * grass and sky. So the parent is drawn first. It costs one more pass over a screen that
      * is already cheap, and it means a graveyard read mid-turn is a box with the game behind
      * it rather than a room somebody has walked into.
-     *
      * <p>With the cursor put where nothing is, because the parent is a picture here: a card
      * lighting up under a pointer that is really over this screen's own buttons would be the
      * board answering something nobody asked it.

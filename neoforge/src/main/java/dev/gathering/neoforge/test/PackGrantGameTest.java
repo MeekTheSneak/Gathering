@@ -12,7 +12,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Which packs a set can actually be asked for.
- *
  * <p>The rule this exists to hold: a pack can only be granted for a booster the set really
  * sold. Bloomburrow Commander came as precons and its cards turn up in Bloomburrow collector
  * boosters, and there has never been a booster of it - so asking for one has to come back

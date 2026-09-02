@@ -9,7 +9,6 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
 /**
  * Item models, generated rather than hand-written so {@code runData} catches a missing
  * texture at build time instead of as a purple cube in game.
- *
  * <p>The mod's own UI art is all that ships in the jar. Card faces are never textures here;
  * they are fetched by each client from Scryfall at runtime.
  */

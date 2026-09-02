@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Events naming cards that are not where the event claims, which is what lag and what a
  * hostile client both look like by the time the fold sees them.
- *
  * <p>Each one used to corrupt the board a different way: a phantom id in a public zone broke
  * every broadcast at the table for good, a crafted surveil walked another player's card off
  * their battlefield with a log line naming no card, and a reorder racing a draw put one card

@@ -7,13 +7,11 @@ import java.util.List;
 
 /**
  * The board measured on the table itself, for the view that plays on the block.
- *
  * <p>The whole of this is {@link TableSurface} wearing the shape the screen expects. There is
  * no camera in it and there is not meant to be: the game's own camera is already over the
  * table, so by the time a cursor has been turned into a point on the surface the looking has
  * been done and what is left is the same arithmetic the seated view does after its own camera
  * has had its turn.
- *
  * <p>Which is the point. Two views, one set of answers about where things are.
  */
 public final class SurfaceBoard implements BoardPlacement {

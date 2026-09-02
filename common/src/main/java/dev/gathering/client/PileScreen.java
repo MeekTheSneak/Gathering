@@ -26,18 +26,15 @@ import net.minecraft.network.chat.Component;
 
 /**
  * A pile, spread out so you can read it and take things out of it.
- *
  * <p>A graveyard is not a number. Half of what makes a game of Magic legible is being able to
  * point at somebody's yard and count the creatures in it, and the other half is being able to
  * reach into your own and get one back. This is both: every card face up in a grid, click one
  * to pick it, right-click for everywhere it can go.
- *
  * <p>Also how a library is read, on the rare occasions anybody is entitled to. It shows what
  * the server sent and nothing more - a library it was not told is simply an empty grid with a
  * count, which is the honest picture of a deck you may not look at. Closing the screen tells
  * the server to shut the library again, because whether it is open is the server's business
  * and a client that merely stopped drawing one would still be being sent it.
- *
  * <p>Client-only.
  */
 public final class PileScreen extends ChildScreen implements CardPreviewHost {
@@ -51,7 +48,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * The room above the cards on this screen, which is the title and sometimes a line more.
-     *
      * <p>A scry writes a number on every card and the numbers are an order with no stated
      * direction, so it also writes what the order means - and that line needs room reserved
      * for it or it lands on the title. Every other pile has nothing to say there and gets the
@@ -74,7 +70,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * What this screen is a decision about, or nothing when it is only a pile being read.
-     *
      * <p>Looking at the top of your library is half of a scry. The other half is saying what
      * happens to each card, and until that is said the cards are still sitting where they
      * were - which is what a scry that only ever revealed them amounted to.
@@ -103,7 +98,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * The revealed cards in the order the player has put them.
-     *
      * <p>Only a decision screen has one. Reordering the cards you keep is half of what a
      * scry is - the whole point of looking at three is deciding which of them you draw
      * first - and until this existed they went back in the order they came off, which is a
@@ -118,7 +112,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * How much of the window a pile may take at its very largest.
-     *
      * <p>It is a box holding cards, so it is the size of the cards it holds - a graveyard
      * with one card in it is a small box - and it stops growing here. Past that it scrolls,
      * because a hundred-card library drawn whole would be the whole window again.
@@ -204,7 +197,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * The widest thing this box has to fit, which is what sets how wide it is.
-     *
      * <p>Worth knowing that this is usually the sentence under the cards rather than the
      * cards: a graveyard holding one card was given a box four cards wide because every hint
      * used to end by saying Escape closes the box. There is a Done button an inch above it
@@ -260,7 +252,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Brings the player's order in line with what is actually revealed.
-     *
      * <p>Cards already in it keep where the player put them; anything new goes on the end in
      * the order the library gave it. A scry's cards arrive after the screen opens, so this is
      * how they get here at all.
@@ -324,7 +315,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * What this box is called.
-     *
      * <p>While a decision is being made only the revealed cards are on screen, so naming the
      * whole pile and its size would claim to be showing more than is actually there.
      */
@@ -336,7 +326,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * The line under the cards, or nothing when there is nothing true to say.
-     *
      * <p>Nothing to click and nothing to scroll, so the footer says neither. A pile with no
      * cards in it that still reads "click a card to move it" is an instruction for something
      * that cannot be done here, which is how a screen teaches somebody that its own writing
@@ -451,11 +440,9 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Sends the decision and closes.
-     *
      * <p>The cards staying on top go back in the order the player put them in - dragged into
      * place on this screen, numbered as they will be drawn - and the rest go where this kind
      * of decision sends them.
-     *
      * <p>Deciding is also the end of looking, which the fold takes care of: the peek is
      * dropped by the same event, so this screen must not also close the library behind it.
      */
@@ -538,7 +525,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * The box's grid, as the shared layout sees it.
-     *
      * <p>Shared because the question "which card is under the pointer" has an answer that a
      * screen cannot be trusted to remember: a pile holding more than fits keeps laying the
      * rest out below the fold, and those slots are taller than the gap between the grid and
@@ -563,7 +549,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * The cards going back on top, in the order they will go, by id. For the harness.
-     *
      * <p>Ids rather than names, because a name is looked up and a run without a network has
      * none - and what is being checked is an ordering, which ids carry perfectly well.
      */
@@ -585,7 +570,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * How wide this box came out. For the harness.
-     *
      * <p>The one number that says whether it is behaving: the box is meant to be the size of
      * what it holds, and what it holds is usually one or two cards. It is the writing that
      * runs away with it - every hint used to end by saying Escape closes the box, and those
@@ -659,7 +643,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * A press that has moved far enough sideways is a drag, and drags reorder.
-     *
      * <p>Far enough, rather than at all, because a click made with a mouse in somebody's hand
      * moves a pixel or two - and a scry where every click also shuffled the row would be
      * unusable.
@@ -713,7 +696,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * The gap a drag at this point is aimed at.
-     *
      * <p>Gap {@code g} is the space before slot {@code g}; {@code howMany} means past the
      * end of the row. One rule, asked by the landing bar and the release alike, because the
      * bar is a promise about the release and two copies of a promise drift.
@@ -740,12 +722,10 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Where the card being dragged would land, drawn while it is still being dragged.
-     *
      * <p>Without it the player is aiming at something they cannot see: the row does not move
      * under the cursor, so a drag looks like nothing at all until it is let go and the
      * numbers jump. A bar in the gap the card would drop into answers the question while it
      * is still being asked, which is the only time the answer is any use.
-     *
      * <p>Drawn in the gap rather than over a card on purpose. This reorders - the card goes
      * <em>between</em> two others - and a highlight on a card would read as "swap with this
      * one", which is a different move and not the one that happens.
@@ -775,7 +755,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Whether a card read here is one this viewer could actually pick up.
-     *
      * <p>A hand somebody has turned toward you is a hand you may read and not one you may
      * reach into - {@link dev.gathering.core.game.Authorization} refuses a move out of
      * somebody else's hidden zone, because naming a card inside one means having seen it. So
@@ -788,7 +767,6 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Everywhere one card in a pile can go.
-     *
      * <p>The same list on a left-click as on a right-click, because there is no obvious
      * default: taking a card out of your graveyard means the battlefield about as often as it
      * means your hand, and guessing wrong puts a card somewhere everybody watched it go.

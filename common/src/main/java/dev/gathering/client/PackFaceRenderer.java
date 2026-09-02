@@ -16,16 +16,13 @@ import org.joml.Matrix4f;
 
 /**
  * Draws a sealed pack as its own set's pack.
- *
  * <p>A wrapper and a symbol printed on it. The wrapper is the mod's own artwork - the one
  * thing in this picture that ships in the jar - and the symbol is fetched by this client from
  * Scryfall like card art is, then printed in the color of the product: black for a draft
  * booster, gold for a set or play booster, the mythic's orange for a collector.
- *
  * <p>A symbol that has not arrived yet is simply not drawn, so a pack looks like a plain
  * wrapper for a moment and like its own set's wrapper after that. Nothing waits, nothing
  * flickers, and a set whose symbol will never come is a plain pack rather than a hole.
- *
  * <p>Client-only.
  */
 public final class PackFaceRenderer {
@@ -76,7 +73,6 @@ public final class PackFaceRenderer {
 
     /**
      * The symbol texture for this pack, if this client has it yet.
-     *
      * <p>Asked for every frame on purpose: the answer is a map lookup once it is ready, and
      * asking is what starts the fetch the first time. Nothing here blocks.
      */
@@ -92,7 +88,6 @@ public final class PackFaceRenderer {
 
     /**
      * One textured quad, tinted.
-     *
      * <p>Two of them back to back with a hair of separation rather than one double-sided
      * quad, so the pack has two sides and neither z-fights with the other.
      */

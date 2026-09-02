@@ -20,7 +20,6 @@ import java.util.UUID;
 
 /**
  * Reads Scryfall's card JSON into {@link CardMetadata}.
- *
  * <p>Deliberately hand-written rather than reflective: Scryfall's schema is somebody
  * else's and it grows, so every field the mod depends on is named here explicitly and a
  * field that disappears fails one card rather than the import. Unknown fields are ignored,
@@ -83,7 +82,6 @@ public final class ScryfallCardCodec {
 
     /**
      * The same parse, keeping each card's original JSON beside it.
-     *
      * <p>The disk cache stores the raw body rather than a re-serialized model, so this pair
      * is what the caching layer actually needs.
      */
@@ -111,7 +109,6 @@ public final class ScryfallCardCodec {
 
     /**
      * Scryfall's {@code all_parts}, which most cards do not have at all.
-     *
      * <p>Entries with no id are dropped rather than defaulted: the id is what makes an entry a
      * card, and a nameless relationship to nothing is not worth a row in a menu.
      */

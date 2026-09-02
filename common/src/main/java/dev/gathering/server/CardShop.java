@@ -29,19 +29,15 @@ import org.slf4j.LoggerFactory;
 
 /**
  * What the shopkeeper has, and what comes out of it.
- *
  * <p>The second of the two ways into a collection. Sealed only, ever: the manufacturer sells
  * sealed and singles come from people, which is the line paper Magic proved and the one thing
  * an infinite-stock shop must not cross.
- *
  * <p>Everything above a booster lives here rather than in the world. A chest that could hold a
  * display box would make the shop pointless, and a shop that could not sell one would make the
  * whole profession a vending machine; so a pack is something you find and a box is something
  * you buy, and the shopkeeper's level says how big a box.
- *
  * <p>What each thing costs is {@link dev.gathering.core.sealed.SealedPrice}'s and what each
  * thing turns into is {@link SealedContents}'s. Nothing here decides either.
- *
  * <p>Worked out once, when the server starts, and read from memory afterwards - a trade is
  * offered deep inside a villager's brain with no time to reach a network.
  */
@@ -51,7 +47,6 @@ public final class CardShop {
 
     /**
      * The shelf and the catalog it was built from, in one object.
-     *
      * <p>Two fields would be two halves of one answer: a sale that read the new shelf and the
      * old catalog would find a product it could not look up and hand over nothing.
      */
@@ -71,7 +66,6 @@ public final class CardShop {
 
     /**
      * Whether this server's shop is open at all.
-     *
      * <p>Worth asking on its own, because a shopkeeper with nothing to sell shakes their head
      * at everybody and looks like a broken villager rather than a shut shop - so anything
      * that hires one, or explains one, needs to be able to tell those apart.
@@ -83,7 +77,6 @@ public final class CardShop {
 
     /**
      * Works out what this server sells.
-     *
      * <p>Once at start, off every game thread, and not at all unless collecting is on and the
      * shop is switched on with it.
      */
@@ -122,12 +115,10 @@ public final class CardShop {
 
     /**
      * What every shopkeeper of this level has on the counter.
-     *
      * <p>Every one of them, the same. Which is what {@link ShopCounter} is for and why it is
      * not decided per villager: trades are fixed when somebody takes the job, so a shelf that
      * varied by shopkeeper would be a shelf you could break the counter and re-place until it
      * offered what you wanted.
-     *
      * <p>Empty until the sets have been read, which is the honest answer: a villager who takes
      * the job in the first few seconds of a server offers nothing rather than offering
      * something wrong, and offers properly at their next level.
@@ -152,11 +143,9 @@ public final class CardShop {
 
     /**
      * What is in a box, one level down.
-     *
      * <p>A case opens into six boxes and a box into thirty-six packs, rather than a case
      * opening into two hundred and sixteen loose packs. Opening the box is the good part and
      * doing it three times is three good parts.
-     *
      * <p>Empty where the product is not one this server can look up - a box bought on a server
      * that has since been pointed at other sets, or an item an operator wrote by hand. Nothing
      * is destroyed on that path; whoever calls this hands the box back.
@@ -196,11 +185,9 @@ public final class CardShop {
 
     /**
      * A precon, sleeved and ready to sit down with.
-     *
      * <p>Its commander is in the command zone already, because that is where it was on the box
      * and because a hundred-card deck whose commander is the ninety-first card in the list is
      * a deck somebody has to fix before they can play it.
-     *
      * <p>Nobody's deck in particular: it has just been bought, so it belongs to whoever is
      * holding it, the same way it would if they had walked out of a shop with the box.
      */
@@ -227,7 +214,6 @@ public final class CardShop {
 
     /**
      * Every set's catalog, read one set at a time.
-     *
      * <p>On the collation worker, one after another, because every set is a file to fetch and
      * a server asking for a dozen of them at once is a server asking somebody else's host for
      * forty megabytes at once.
@@ -253,7 +239,6 @@ public final class CardShop {
 
     /**
      * One shelf out of every set that was read.
-     *
      * <p>The catalog spans all of them before any shelf is built, because a product can name
      * something published beside it: a Commander box holds a booster from the set it came out
      * with, and a starter kit names decks from another file entirely. Building each set's

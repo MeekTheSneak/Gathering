@@ -13,13 +13,11 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Who is close enough to a table to be playing at it.
- *
  * <p>Every payload the table accepts names a position, and a position is any position - a
  * client puts whatever coordinates it likes in one. The check that the player is really there
  * is therefore the only thing between a table and somebody reaching it from across the world,
  * and until this existed it was written out eight times, in two different ways, and tested
  * nowhere at all.
- *
  * <p>What is checked here is the boundary and the two answers either side of it, because a
  * reach rule that is off by a block is a rule nobody notices is wrong.
  */
@@ -74,7 +72,6 @@ public final class TableReachGameTest {
 
     /**
      * Standing up between asking and being answered.
-     *
      * <p>Anything that looks a card up waits on somebody else's host, and a player can leave
      * their chair while it does. Whatever comes back has to land on the table as it is now:
      * a seat nobody holds is not a seat to put cards on, and a seat somebody else has taken

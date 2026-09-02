@@ -2,19 +2,16 @@ package dev.gathering.core.ui;
 
 /**
  * Where everything goes on the deck screen, at whatever size the window happens to be.
- *
  * <p>A GUI laid out from constants looks right at the size it was written at and wrong
  * everywhere else, and "everywhere else" includes the smallest window Minecraft allows
  * (320x240 in GUI-scaled units) and every GUI scale between 1 and 4. So the arithmetic lives
  * here, in the pure module, where it can be checked against every size rather than against
  * the one the author happened to be running.
- *
  * <p>The shape, from the design: the decklist is a panel flush against the left edge, its
  * right side tapering inward, with a scrollbar running down that tapered edge. To the right
  * of it sit two framed boxes, the hovered card and its text. As the window narrows the text
  * box goes first, then the card, then the screen is a decklist and nothing else - which is
  * still the thing the screen is for.
- *
  * <p>Coordinates are GUI-scaled screen units, origin top left.
  */
 public record DeckScreenLayout(
@@ -33,11 +30,9 @@ public record DeckScreenLayout(
     /**
      * Where the panel's right edge sits at the top and at the bottom, as fractions of the
      * rectangle it is drawn into.
-     *
      * <p>Shared with {@code tools/gui_art.py}, which draws the taper into
      * {@code deck_panel.png}. A theme that replaces that texture keeps these, or the
      * scrollbar stops sitting on the edge it is drawn along.
-     *
      * <p>The top is deliberately short of the full width. The edge line and the shadow
      * outside it need somewhere to go, and at 1.0 they fall off the right of the texture -
      * which is not a subtle artifact, it is the top corner of the panel arriving unfinished.
@@ -159,7 +154,6 @@ public record DeckScreenLayout(
 
     /**
      * Where the nth basic-land button goes, so the screen and anything checking it agree.
-     *
      * <p>Evenly across the strip rather than at a fixed width: the panel is a fraction of
      * the window, so on a small one the five buttons have to share whatever there is.
      */
@@ -211,7 +205,6 @@ public record DeckScreenLayout(
 
     /**
      * How far in the panel's right edge has come at this height, in screen coordinates.
-     *
      * <p>What the scrollbar is drawn along, so it sits on the edge rather than beside it.
      */
     public int edgeAt(int y) {
@@ -220,7 +213,6 @@ public record DeckScreenLayout(
 
     /**
      * How far left a point slides for every unit it goes down the panel.
-     *
      * <p>The scrollbar is drawn and hit-tested as an upright bar under a shear by exactly
      * this much, which is how it and the texture's edge stay on the same line without two
      * separate pieces of arithmetic having to agree.

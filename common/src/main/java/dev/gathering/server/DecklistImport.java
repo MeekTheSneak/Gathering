@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Turns a pasted decklist into a deck item in a player's hands.
- *
  * <p>All of the interesting work is in the pure core; this is the part that knows about
  * players, threads, and packets. Two rules shape it:
  *
@@ -43,7 +42,6 @@ public final class DecklistImport {
 
     /**
      * One import at a time per player, and a short breath between them.
-     *
      * <p>Every import is potentially two Scryfall requests. The rate limiter keeps the
      * server polite whatever happens, but without this a client could queue unbounded work
      * behind it and starve everyone else's imports. A player who has to wait a couple of
@@ -62,7 +60,6 @@ public final class DecklistImport {
 
     /**
      * Why this player may not import, or null if they may.
-     *
      * <p>Public so the command that opens the import screen can ask before opening it: being
      * told no after typing a decklist out is a worse answer than being told no instead of
      * being handed the box to type it into.
@@ -73,13 +70,11 @@ public final class DecklistImport {
 
     /**
      * Whether this player is the person whose server it is.
-     *
      * <p>Operator, or the owner of a single-player world - which is the same person and is not
      * the same permission. A player in their own world has permission level zero until they
      * turn cheats on, so on the shipped defaults, where importing is the operator's tool,
      * somebody who installed the mod to play on their own was told they were not allowed to
      * use it. Nobody was going to report that as a bug; they were going to uninstall it.
-     *
      * <p>Not merely "single player", because a world opened to the LAN is still a single-player
      * server and its guests are guests. The one this asks about is the host.
      */
@@ -90,7 +85,6 @@ public final class DecklistImport {
 
     /**
      * Why this player may not build a deck out of a collection, or null.
-     *
      * <p>Not the import rule. Sleeving a deck out of cards you already own is what collection
      * mode is for, and a server running collection without import - which the brief calls a
      * collecting game that still uses the table - would otherwise be a server where the whole

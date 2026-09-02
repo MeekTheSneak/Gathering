@@ -19,22 +19,18 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Two people and what they are putting up.
- *
  * <p>Your side is what you are carrying, with how much of each is on the table beside it -
  * one list rather than two, because "what I have" and "what I have offered" are the same
  * cards and a screen with both would make you read the same names twice. Left-click puts one
  * up, right-click takes one back down.
- *
  * <p>Their side is what they have put up, and it is read-only in the way that matters: this
  * screen never decides anything. Every click is a question to the server, and what is drawn
  * is the answer it sent back - so the two people are looking at one table rather than at two
  * screens that agree most of the time.
- *
  * <p>The agreement lights are the whole point of the screen. Changing anything clears both,
  * which is the server's rule and shows up here as both lights going out at once - so the
  * thing you cannot do, agreeing to something that then changed, is also the thing you can
  * see not happening.
- *
  * <p>Client-only.
  */
 public final class TradeScreen extends Screen implements CardPreviewHost {
@@ -43,7 +39,6 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
 
     /**
      * How far the count on the right of a row is held off the pane's own edge.
-     *
      * <p>Without it the number sits against the frame with nothing between them, and beside
      * the second pane - whose names start a few pixels in - it reads as one run of characters
      * rather than as two columns.
@@ -99,7 +94,6 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
 
     /**
      * Twenty times a second, not once a frame.
-     *
      * <p>The row list is read out of the inventory, and the inventory changes when the server
      * says so - which is a tick at best. Rebuilding it in {@link #render} walked thirty-seven
      * stacks and built two maps on every frame drawn, which on a screen that is mostly sitting
@@ -213,7 +207,6 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
 
     /**
      * The panel goes here, not in {@link #render}.
-     *
      * <p>{@code Screen#render} calls this itself and applies a full-screen blur, so anything
      * drawn before {@code super.render} is blurred with the world behind it. Without a panel
      * at all - which is how this screen shipped - the two columns were white text over a
@@ -344,7 +337,6 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
 
     /**
      * What I am carrying, with how much of each is already up.
-     *
      * <p>Read off the client's own inventory rather than sent: it is already here, it is
      * already correct, and a copy on the wire would be a second answer to drift from it.
      */

@@ -28,26 +28,21 @@ import org.joml.Matrix4f;
 
 /**
  * What is actually in a deck, and the place you change it.
- *
  * <p>Without this a deck is an opaque item that claims a number, which is a strange thing to
  * hand somebody after they pasted a hundred cards. The list groups by zone, collapses copies
  * into counts the way a decklist does, and shows whatever row is under the cursor as a full
  * card beside it - so the deck is browsable and editable before there is a table to play it
  * at.
- *
  * <p>The shape is a decklist panel flush against the left edge with the card and its text to
  * the right of it. Where everything actually goes is {@link DeckScreenLayout}, in the pure
  * module, so it can be checked at every window size rather than at the one it was written
  * at. This class draws what that says.
- *
  * <p>The screen owns no copy of the deck. It reads the stack in the player's hand every
  * frame, so an edit the server applies appears here as soon as the held item syncs, and a
  * deck that stops being in that hand closes the screen instead of showing a ghost.
- *
  * <p>Card names come from the client's metadata cache, which is emptied on disconnect, so
  * the screen asks the server about its printings when it opens. Until the answer arrives
  * rows show as loading rather than as blanks.
- *
  * <p>Client-only.
  */
 public final class DeckContentsScreen extends Screen implements CardPreviewHost {
@@ -161,7 +156,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * Opens the sleeve picker, and sends whatever comes back.
-     *
      * <p>Sent on the choice rather than on the way out, unlike the name: a name is typed a
      * letter at a time and a sleeve is picked once, so there is nothing to batch and waiting
      * would only mean the deck in your hand did not change when you said so.
@@ -180,7 +174,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * Sends the name whenever this screen goes away, and only if it changed.
-     *
      * <p>Rather than on every keystroke, which would be a packet per letter. On {@code
      * removed} rather than on {@code onClose}, which is the whole of a bug this had: closing
      * covers the Done button, Escape and walking away, but it does not cover leaving through
@@ -206,7 +199,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * One basic land, added on a click.
-     *
      * <p>Its own widget rather than a plain button so it can tell a shift-click from an
      * ordinary one. Vanilla's button hands its callback nothing at all about the click, and
      * the alternative - reading the keyboard from inside the callback - is the sort of thing
@@ -291,7 +283,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * The deck left the player's hand - dropped, swapped, taken by a hopper, or emptied.
-     *
      * <p>There is then nothing here to show and nothing an edit could safely land on, so the
      * screen goes away rather than showing a deck that is no longer there.
      */
@@ -305,7 +296,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * The item's own name, read live, because the player may rename the deck elsewhere.
-     *
      * <p>Through the stack rather than through {@code DeckComponent#name}, so a deck with no
      * name - one started by putting two cards together - is headed "Deck" rather than by an
      * empty line.
@@ -320,7 +310,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * The panel goes here, not in {@link #render}.
-     *
      * <p>{@code Screen#render} calls this itself, and this applies a full-screen blur to
      * everything already drawn. Drawing the panel in {@code render} before calling
      * {@code super.render} therefore blurs the panel and every hand-drawn label on it -
@@ -420,7 +409,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * The scrollbar, running down the panel's tapered edge rather than beside it.
-     *
      * <p>Drawn as an ordinary vertical bar under a shear, which is the same straight line the
      * texture's edge was drawn along - so the two agree by construction instead of by two
      * pieces of arithmetic that have to be kept in step. The bar comes out a parallelogram,
@@ -446,7 +434,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * The shear that lays a vertical bar along the panel's tapered edge.
-     *
      * <p>{@code m10} multiplies y into x, so a point slides left as it goes down by exactly
      * the amount the edge does.
      */
@@ -468,7 +455,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * The hovered card and what it says, in the two frames beside the list.
-     *
      * <p>No key to hold. Reading down a decklist is the whole purpose of this screen, and a
      * modifier you have to keep pressed for a hundred rows is a toll on the one thing the
      * screen exists to do. The space is reserved either way, so the frames stay put and only
@@ -508,14 +494,12 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     /**
      * Left-click moves a card between the deck and the sideboard; right-click is everything
      * else, taking a copy out included.
-     *
      * <p>The other way round until a draft made the cost of it obvious. Building forty cards
      * out of a forty-five card pool is twenty-odd cards crossing between the two piles, and
      * with the crossing on a menu that is three interactions each - seventy clicks to build
      * one deck, on the screen whose entire job is building decks. Left-click is the one a
      * player makes over and over, so it is the one the common act belongs on; taking a card
      * physically out of a deckbox is rare and keeps its place on the menu.
-     *
      * <p>Both are requests, not edits: the server owns the deck and this screen only shows
      * what it is told. The card is named rather than the row, so a click that arrives after
      * the list has shifted still means the card the player was pointing at.
@@ -565,11 +549,9 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * Where else this card could go: every pile it is not already in.
-     *
      * <p>Sideboard, command zone, back to the deck - whichever of those it is not currently
      * in. No "take a copy" any more, because left-click is that now and one action reachable
      * two ways one above the other is a menu asking a question it has already answered.
-     *
      * <p>Moving to the command zone is one entry among them rather than what right-click does
      * on its own, because a deck editor whose right-click means "make commander" is a
      * Commander deck editor - and the formats that live and die on their sideboard are
@@ -607,7 +589,6 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /**
      * Whether this click landed on the scrollbar.
-     *
      * <p>The bar is drawn sheared, so the hit test undoes the shear rather than testing the
      * upright rectangle - otherwise the bar you can see and the bar you can grab drift
      * further apart the further down the screen you go.

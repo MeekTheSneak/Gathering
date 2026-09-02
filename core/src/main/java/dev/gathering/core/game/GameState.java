@@ -12,12 +12,10 @@ import java.util.Set;
 
 /**
  * The whole board, as an immutable value.
- *
  * <p>State is the fold of the event log and nothing else. Nothing mutates a {@code GameState};
  * every change produces a new one. That is what makes undo a re-fold rather than a parallel
  * bookkeeping system, and what makes replay fall out of the architecture instead of needing
  * to be built.
- *
  * <p>Copying the whole board on every event sounds expensive and is not: a four-player
  * Commander game is a few hundred cards and events arrive at human speed. A full re-fold of
  * a long game costs milliseconds, which is the price of never having an undo bug.
@@ -109,7 +107,6 @@ public record GameState(
 
     /**
      * Whether {@code viewer} is currently entitled to see the top of {@code library}.
-     *
      * <p>The single question the visibility rules ask about looking, phrased once here so
      * that adding a fourth way to look at a library cannot accidentally add a fourth answer.
      */
@@ -124,7 +121,6 @@ public record GameState(
 
     /**
      * How many cards off the top of a library are face up to the whole table.
-     *
      * <p>The one thing about a library that reaches a spectator, because a revealed card is
      * revealed to the room and not to a list of people.
      */
@@ -176,13 +172,11 @@ public record GameState(
 
     /**
      * Moves a card to a zone, taking it out of wherever it was.
-     *
      * <p>Also settles where the card now sits. A card arriving on a surface gets the spot
      * it was dropped on, or one fanned out beside what is already down when a verb rather
      * than a hand put it there - so a card always has a definite place and every client draws
      * the same board instead of each inventing a layout. A card going back into a pile
      * forgets where it sat, because a pile is an order rather than a place.
-     *
      * <p>Silently a no-op-with-a-move if the card was nowhere: adding a token straight to the
      * battlefield goes through the same path as moving one, and both should work.
      */
@@ -213,7 +207,6 @@ public record GameState(
 
     /**
      * Gives an arriving card its spot, or takes one away from a card joining a pile.
-     *
      * <p>A card that has left the table also stops being on anything and stops having anything
      * on it. An aura attached to a creature that has gone to the graveyard is an aura attached
      * to a card that is not there, which would draw beside nothing - and in paper it would
@@ -256,14 +249,12 @@ public record GameState(
 
     /**
      * Somewhere to put a card that arrived without being aimed.
-     *
      * <p>A token appearing, a card put down by a verb rather than by a hand. Two cards may
      * sit on top of each other - a player stacking them means something by it and the mod
      * never says no - but the game must never do the stacking itself, because a permanent
      * hidden under another one reads as a card that failed to arrive. So this walks the fan
      * and takes the first spot nothing is already on, which also means a board that has had
      * things die does not drift across the table.
-     *
      * <p>Only where the card sits counts, not the angle it is at: a spot occupied by a
      * sideways card is occupied.
      */
@@ -303,7 +294,6 @@ public record GameState(
 
     /**
      * Takes a card out of the session entirely. Only tokens and copies ever leave this way.
-     *
      * <p>Anything sitting on it comes off first, or it would be attached to a card that no
      * longer exists.
      */
@@ -353,7 +343,6 @@ public record GameState(
 
     /**
      * Closes every look at one library.
-     *
      * <p>What a shuffle does. Whatever anybody had open is no longer what is in front of
      * them, and leaving it open would show them a library they are no longer looking at.
      */

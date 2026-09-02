@@ -22,12 +22,10 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * A move a player made at a table.
- *
  * <p>Three gates, in order, and the order matters. Is there a table and a game there; is this
  * player in a seat at it; and does the move carry that player's own seat as its actor. Only
  * then does it reach {@code Authorization}, which is the same gate a move made server-side
  * goes through.
- *
  * <p>The actor check is the one that is easy to leave out and expensive to leave out.
  * Attribution is what makes "any seated player may move any public card" safe: the log says
  * who did it. A client that could sign a move with somebody else's name would take that away
@@ -85,10 +83,8 @@ public final class TableActions {
 
     /**
      * The move, if this player is allowed to have made it.
-     *
      * <p>Separate from the plumbing so the decision can be checked directly, because the
      * decision is the part with a security property in it and the plumbing is not.
-     *
      * <p>Refusals say nothing back. A client sending moves it cannot make is either broken or
      * probing, and an error message that distinguishes "no such table" from "not your seat"
      * answers a question that was not asked in good faith.
@@ -119,7 +115,6 @@ public final class TableActions {
 
     /**
      * Takes back a player's own most recent actions, if this table lets them.
-     *
      * <p>Every judgment is the session's and is made here rather than trusted from the
      * packet: who is asking comes from the player it arrived from, and whether the rewind is
      * allowed - their own actions, this table's undo mode, and the hard rule that a rewind

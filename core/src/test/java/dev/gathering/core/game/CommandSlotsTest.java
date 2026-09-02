@@ -15,7 +15,6 @@ class CommandSlotsTest {
 
     /**
      * A commander goes home to the slot it left, without anybody being asked.
-     *
      * <p>A partner pair means one is usually out while the other is at home, so the empty
      * slot is the one the card came from. Sending it to the first slot regardless would put
      * two cards in one box and leave the other empty - which is the stack of two under a
@@ -38,7 +37,6 @@ class CommandSlotsTest {
 
     /**
      * A card has to land somewhere.
-     *
      * <p>Both slots full is a third card being sent to the command zone, which is not a thing
      * the rules produce - and refusing to move it would be the mod inventing a rule, which it
      * does not do.

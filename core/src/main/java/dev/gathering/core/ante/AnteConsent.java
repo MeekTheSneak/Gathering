@@ -8,16 +8,13 @@ import java.util.Set;
 
 /**
  * Who has agreed to play for keeps, and who has not been asked yet.
- *
  * <p>Ante is the one thing in this mod that takes a card off somebody permanently, so it is
  * the one thing that asks first. Everybody at the table, every game, by name - not a server
  * setting somebody turned on months ago and a player who never saw it.
- *
  * <p>Three answers rather than two. Waiting is not the same as no: a table where one seat has
  * not looked at the question yet is a table still deciding, and a table where somebody has
  * said no is a table that is not playing for keeps tonight. Collapsing them would make a slow
  * reader into a refusal.
- *
  * <p>Silence is never agreement. A seat that has not answered blocks the game, which is the
  * whole point: the failure this prevents is somebody's card going into a pot because they
  * were making tea.
@@ -91,7 +88,6 @@ public record AnteConsent(Set<SeatId> seats, Map<SeatId, Answer> answers) {
 
     /**
      * Whether the game may start for keeps.
-     *
      * <p>Every seat in, and at least one seat at the table. An empty table agreeing to
      * anything unanimously is how a rule like this gets accidentally satisfied.
      */

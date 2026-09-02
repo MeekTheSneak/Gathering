@@ -7,19 +7,15 @@ import java.util.UUID;
 
 /**
  * Who may do what with one collection.
- *
  * <p>Looking is public and touching is permissioned. A collection is a thing you show off, and
  * being able to browse the playgroup's pool without asking anybody is most of what it is for -
  * so reading is not a right at all, it is just what a collection is. Taking and adding are.
- *
  * <p>Two rights rather than one, because separating them is what buys the shapes people
  * actually build: a donation box is anyone-adds and owner-takes, a lending library is
  * trusted-take and owner-stocks, a display case is neither. One "trusted" flag would collapse
  * all three into the same thing.
- *
  * <p>Owner-only to begin with, so sharing a collection is something somebody did on purpose
  * rather than the default a griefer finds first.
- *
  * <p>Pure.
  */
 public record CollectionRights(UUID owner, Set<UUID> mayTake, Set<UUID> mayAdd) {
@@ -52,7 +48,6 @@ public record CollectionRights(UUID owner, Set<UUID> mayTake, Set<UUID> mayAdd) 
 
     /**
      * Whether this player may take cards out.
-     *
      * <p>Breaking the block needs this too: a collection you cannot take from is a collection
      * you cannot walk off with either.
      */
@@ -67,7 +62,6 @@ public record CollectionRights(UUID owner, Set<UUID> mayTake, Set<UUID> mayAdd) 
 
     /**
      * Whether this player may read it, which is everybody.
-     *
      * <p>Written out rather than left implicit, because every caller asking "may they?" should
      * be asking this object, and one that has to know reading is free is a caller that will
      * one day guess wrong about it.
@@ -99,7 +93,6 @@ public record CollectionRights(UUID owner, Set<UUID> mayTake, Set<UUID> mayAdd) 
 
     /**
      * The same rights, transferred.
-     *
      * <p>The new owner comes off both lists: an owner who is also listed would keep the right
      * after being taken off it, which is the kind of thing nobody notices until it matters.
      */

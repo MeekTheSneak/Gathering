@@ -7,28 +7,23 @@ import java.util.Optional;
 
 /**
  * What a shop can actually hand somebody when they buy a product.
- *
  * <p>Boosters and exact cards, all the way down. A display box is thirty of the pack it names;
  * a bundle is nine packs and a foil promo; a case is six of the box. Every one of those is
  * something the mod can put in a hand.
- *
  * <p>And decks. A Commander precon names its hundred cards rather than listing them, so what
  * comes out depends on the catalog having read the list: where it has, the buyer gets the
  * deck sleeved up with its commander already in the command zone, which is the whole of what
  * was in that box. Where it has not, the product is not something this can hand over and it
  * comes back empty - taking somebody's diamonds and giving them the sample pack that came in
  * the box would be worse than not stocking it.
- *
  * <p>The dice, the deck boxes and the life counters are simply not given. They are not cards
  * and there is nothing to make of them.
- *
  * <p>Pure.
  */
 public final class SealedContents {
 
     /**
      * How deep a product may hold other products before this gives up.
-     *
      * <p>A case holds boxes holds packs. Four is room to spare and it exists because the data
      * is somebody else's: a product that holds itself would otherwise never finish.
      */
@@ -36,7 +31,6 @@ public final class SealedContents {
 
     /**
      * As many pieces as one purchase may come to. A case of six boxes is 216.
-     *
      * <p>Counted in cards where a deck is involved, so a case of precons is measured by what
      * would actually have to be built rather than by how few boxes it looks like.
      */
@@ -61,7 +55,6 @@ public final class SealedContents {
 
         /**
          * How many things this comes to.
-         *
          * <p>A deck counts as its cards, because that is what has to be built and put in a
          * box; a hundred-card precon is not one piece however few slots it takes up.
          */
@@ -76,7 +69,6 @@ public final class SealedContents {
 
     /**
      * One product's contents, one level down.
-     *
      * <p>What tearing the shrink wrap off actually gives you: a case opens into six boxes, a
      * box into thirty-six packs, a pack into cards. Not the same thing as {@link Bag}, which
      * goes all the way to the bottom and exists to answer whether a shop could sell the thing
@@ -106,7 +98,6 @@ public final class SealedContents {
 
     /**
      * What comes out of one product when it is opened.
-     *
      * <p>Empty where anything in it could not be resolved, which is the same answer
      * {@link #of} gives and for the same reason: a box that opens into eleven packs and a
      * hole is worse than a box that will not open.

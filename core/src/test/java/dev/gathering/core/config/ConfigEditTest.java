@@ -108,7 +108,6 @@ class ConfigEditTest {
 
     /**
      * A file that spells its settings out in full, which TOML allows and the reader accepts.
-     *
      * <p>The edit used to look for the key only under a matching heading, so a file written
      * this way got a second copy of the setting appended under a heading of its own - two
      * definitions of one setting, with the one the owner could see doing nothing.

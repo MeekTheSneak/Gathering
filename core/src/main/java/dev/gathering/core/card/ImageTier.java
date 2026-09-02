@@ -2,7 +2,6 @@ package dev.gathering.core.card;
 
 /**
  * Image sizes, with the two the texture budget is built around called out.
- *
  * <p>{@link #SMALL} (146x204) is the table miniature tier; {@link #NORMAL} (488x680) is
  * the overlay and GUI tier. A four-player Commander game touches roughly 450 distinct
  * cards, which at these sizes stays well inside the LRU cap.

@@ -9,20 +9,16 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Bringing a dungeon in from outside the game.
- *
  * <p>A dungeon is a real printed card that never goes in a deck. It starts outside the game
  * and arrives when something ventures, which means there is no way to draw one, buy one or
  * open one - so without a door for it, half of Adventures in the Forgotten Realms did nothing
  * at this table. This is the door.
- *
  * <p>It arrives as a token for the same reason every other card from outside the game does:
  * it is not anybody's card, it goes back nowhere, and it ceases to exist when the game does.
  * Which room you are in is written on it with the ordinary pen - the mod has no rules engine
  * and a dungeon is a rules engine's worth of rooms, so the table tracks it the way a table
  * does, by writing it down where everybody can see.
- *
  * <p>The client sends which of the four, never a name. See {@link Dungeon}.
- *
  * <p>Server thread only.
  */
 public final class Dungeons {

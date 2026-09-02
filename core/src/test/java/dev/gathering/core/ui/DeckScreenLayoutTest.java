@@ -10,13 +10,11 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The deck screen, laid out at every window size anybody could have.
- *
  * <p>A GUI is normally only ever checked at the size its author was running, and everything
  * that goes wrong at other sizes - a panel wider than the screen, a button under another
  * button, a card box overlapping the list it is meant to sit beside - goes wrong silently
  * and is found by a player. Doing the arithmetic in the pure module means it can be checked
  * across the whole range instead.
- *
  * <p>The range: 320x240 is the smallest GUI-scaled screen Minecraft produces, and a 4K
  * screen at GUI scale 1 is a little under 3840x2160.
  */
@@ -173,7 +171,6 @@ class DeckScreenLayoutTest {
 
     /**
      * All five basic lands have a button, inside the panel, at every window size.
-     *
      * <p>A drafted pool is forty-five spells, so without these there is no legal deck to
      * build from one at all - and a button drawn off the taper is a land nobody can add.
      */
@@ -222,7 +219,6 @@ class DeckScreenLayoutTest {
     /**
      * The row that opens the pockets builder sits between the hint and the buttons, or is
      * given up altogether.
-     *
      * <p>It is the one row on this panel that may go: everything above it is the deck, and a
      * short window that kept this and squeezed the cards would be trading the screen for a
      * button that has another way in.

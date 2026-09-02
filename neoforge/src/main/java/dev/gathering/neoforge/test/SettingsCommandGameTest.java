@@ -14,7 +14,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Changing a setting without stopping the server.
- *
  * <p>The reason this exists: collection mode could only be turned on by editing a file and
  * restarting, which meant limited play could not be tried at all without a shutdown - and a
  * card shop villager on a server without it has nothing to sell and shakes its head at
@@ -80,7 +79,6 @@ public final class SettingsCommandGameTest {
 
     /**
      * A value of the wrong shape is refused, not written.
-     *
      * <p>The setting command checked that the path had a dot in it and that the value was not
      * blank, and nothing else - it has no idea what any key is meant to hold. The written file
      * is always valid TOML, because ConfigEdit quotes anything it does not recognise; the
@@ -90,7 +88,6 @@ public final class SettingsCommandGameTest {
      * ante, loot, all of it, from one mistyped word on an unrelated key. It stays that way at
      * the next restart too, because the file is still on disk. And the command reported
      * success, because writing the file had worked.
-     *
      * <p>Checked through a setting deliberately left at a non-default value: a revert to the
      * defaults is only visible on a setting whose default is not what it already says.
      */
@@ -153,7 +150,6 @@ public final class SettingsCommandGameTest {
 
     /**
      * Turning collecting on is what makes a shopkeeper have anything to sell.
-     *
      * <p>The reported bug was that card shop villagers shake their heads at everybody. They
      * do: a shopkeeper's offers are read off a shelf that is only stocked when collecting is
      * on, so on a default server every one of them has zero trades, which is exactly what

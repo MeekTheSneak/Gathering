@@ -19,19 +19,16 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * A collection the size of somebody's actual collection.
- *
  * <p>Every other test in this repository, every screenshot and every scripted run works
  * against a box holding a few dozen cards. A player who has been opening packs for a month has
  * thousands, and the difference is the kind that is invisible until it is not: a search that
  * walks every row, a page that carries a hundred and sixty summaries, a card cache that holds
  * two hundred and fifty-six textures. None of that is obviously wrong at seven cards and none
  * of it had ever been run at ten thousand.
- *
  * <p><b>Nothing here was broken.</b> These were written expecting to find something and did
  * not: a ten-thousand-card box searches, saves and gives cards up without trouble. They are
  * kept because that is worth holding - every other test in this repository uses a box of seven
  * cards, so a change that makes any of this quadratic would pass all of them.
- *
  * <p>These are the shape of the check rather than a benchmark. The timings are deliberately
  * loose - a game test runs on whatever machine CI gave it, under software rendering, next to
  * two hundred other tests - so they are set where they catch an algorithm that got quadratic
@@ -50,7 +47,6 @@ public final class CollectionScaleGameTest {
 
     /**
      * How long one search may take over the whole box.
-     *
      * <p>Generous on purpose. What this catches is a pass that became a pass per row, which at
      * ten thousand rows is not slower by a factor - it is a screen that never opens.
      */
@@ -95,7 +91,6 @@ public final class CollectionScaleGameTest {
 
     /**
      * The same box, saved and loaded.
-     *
      * <p>A collection lives on a block entity and every block entity is written into the chunk
      * it sits in. Ten thousand distinct cards is a tag with ten thousand entries in it, written
      * whenever the chunk saves - so what this is really asking is whether somebody's collection
@@ -134,7 +129,6 @@ public final class CollectionScaleGameTest {
 
     /**
      * Taking one card out of a very large box.
-     *
      * <p>The gesture a player makes most, and the one that would hurt most if it walked the
      * collection: a click that is instant at fifty cards and takes a second at ten thousand is
      * a screen that feels broken exactly when somebody has enough cards to care.

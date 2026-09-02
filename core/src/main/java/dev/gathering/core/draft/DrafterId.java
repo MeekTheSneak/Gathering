@@ -2,11 +2,9 @@ package dev.gathering.core.draft;
 
 /**
  * One drafter's place in a pod.
- *
  * <p>A place at the table rather than a person, for the same reason a seat is: the pod is a
  * ring, and everything the engine does - who passes to whom, which way the packs go this
  * round - is arithmetic on positions. Who is sitting in each is the caller's business.
- *
  * <p>Not a {@code SeatId}. A pod is not a table: it forms at a block, it can be larger than
  * any table seats, and when it ends the drafters scatter to whatever tables they like. Using
  * the table's seat type would have tied the two together for no reason beyond both being

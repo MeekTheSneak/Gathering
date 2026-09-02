@@ -7,7 +7,6 @@ import java.util.regex.Pattern;
 
 /**
  * A link to a deck on a site we know how to read.
- *
  * <p><b>The host list is an allowlist, and that is a security decision rather than tidiness.</b>
  * This is user input that makes the <em>server</em> issue an HTTP request. Fetching whatever
  * URL a player pastes would let any player point the server at anything it can reach - a
@@ -23,7 +22,6 @@ public record DeckLink(DeckLink.Provider provider, String deckId) {
 
         /**
          * Recognized so the player gets told what to do, never fetched.
-         *
          * <p>Moxfield's API answers third-party requests with 403. Working around an access
          * control somebody deliberately put up is not something this mod is going to do, so
          * a Moxfield link asks the player for the text export instead.

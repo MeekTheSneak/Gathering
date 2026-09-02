@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Dragging a handful of cards without wrecking the formation.
- *
  * <p>The failure worth guarding is at the edge of the table. If each card clamps on its own, a
  * group shoved into a corner arrives as a single pile - the board somebody spent the game
  * arranging, gone, with no undo because nothing illegal happened.

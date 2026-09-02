@@ -9,16 +9,13 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The little menu that opens where you right-clicked.
- *
  * <p>Right-click doing one fixed thing is fine until there are two things it could sensibly
  * do, and then it is a guess about which one you meant. A menu says what the options are,
  * which matters most where the options differ by format: "make this a commander" and "move
  * this to the sideboard" are the same gesture for two different kinds of deck, and picking
  * one to be the default picks a format to be the real one.
- *
  * <p>Draws itself and answers clicks; it holds no state beyond what is on it, so a screen
  * opens one, forwards clicks to it, and drops it.
- *
  * <p>Client-only.
  */
 public final class ContextMenu {
@@ -63,7 +60,6 @@ public final class ContextMenu {
 
     /**
      * Opens a menu at a point, nudged so it stays on screen.
-     *
      * <p>Flipped rather than clamped when it would run off, the way every menu does: a menu
      * that slides sideways to fit ends up under the cursor that opened it.
      */
@@ -74,7 +70,6 @@ public final class ContextMenu {
 
     /**
      * The same, on a screen with something across the top of it that must stay readable.
-     *
      * <p>The board has a strip along its top carrying every seat's life and whose turn it is,
      * and a menu opened near the top of the window was clamped to the window rather than to
      * the strip - so the first entry of a long menu sat over the life totals. Given the strip's
@@ -159,7 +154,6 @@ public final class ContextMenu {
 
     /**
      * Which entry a point is on, or -1.
-     *
      * <p>One answer shared by the drawing and the clicking, so a row cannot light up under the
      * cursor and then run a different entry when it is clicked.
      */
@@ -212,7 +206,6 @@ public final class ContextMenu {
 
     /**
      * Runs the entry with this label, or says there was none.
-     *
      * <p>For the scripted run, so it can take a menu entry the way a player takes it rather
      * than calling what the entry would have called - which would pass just as happily with
      * the entry missing from the menu.
@@ -230,7 +223,6 @@ public final class ContextMenu {
 
     /**
      * One line of the menu, and the key that does the same thing without opening it.
-     *
      * <p>The shortcut is written on the row rather than left in a list somewhere, because a
      * menu is where a player finds out what a verb is called and it is the only moment they
      * are looking straight at it. A key nobody is shown is a key nobody presses.
@@ -253,12 +245,10 @@ public final class ContextMenu {
 
         /**
          * A rule between two groups of entries.
-         *
          * <p>A menu of fourteen verbs in one column is fourteen things to read before finding
          * the one you meant. The verbs fall into groups on their own - things you do to a card
          * where it lies, and places you send it - and a line between them is the whole of what
          * it takes to see that without reading.
-         *
          * <p>An entry rather than a separate list, so it takes part in the column wrapping and
          * the row arithmetic like everything else. It is never selectable and a click on it is
          * still a click on the menu, which is what stops a rule from being a hole.

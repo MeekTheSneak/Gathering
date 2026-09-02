@@ -23,7 +23,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * A card's history surviving the places a card goes.
- *
  * <p>The story itself is pure and checked next door in milliseconds. What only exists in a
  * world is whether it survives being put away - a collection stores counts, and a count cannot
  * hold a story, so the one thing that could quietly destroy a card's history is the ordinary
@@ -126,7 +125,6 @@ public final class CardStoryGameTest {
 
     /**
      * And when the trophy is the copy coming out, it comes out carrying its history.
-     *
      * <p>The other half of the rule above. Ordinary copies leave first and the trophy stays
      * at the bottom of the box - but eventually it is the only one left, and that is the take
      * this got wrong. The number of storied copies was counted <em>after</em> the take, and

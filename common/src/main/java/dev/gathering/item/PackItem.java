@@ -15,7 +15,6 @@ import net.minecraft.world.level.Level;
 
 /**
  * A sealed booster, and the two ways of opening one.
- *
  * <p>Right-click opens it. Everything about what comes out is the server's: the collation, the
  * seed, and the cards. A pack is a promise rather than a container, so there is nothing on the
  * stack for a client to read early and nothing for one to lie about.
@@ -60,7 +59,6 @@ public class PackItem extends Item {
 
     /**
      * Puts an unopened pack back where it came from. Server thread only.
-     *
      * <p>Every way an opening can fail ends here: collecting switched off, the card pipeline
      * not running, a set with no packs, a set file that would not come. None of those are the
      * player's doing and none of them should cost them a booster.

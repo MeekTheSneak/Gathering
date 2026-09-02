@@ -38,13 +38,11 @@ import org.joml.Matrix4f;
 
 /**
  * The game, laid out small on the table it is being played on.
- *
  * <p>This is what makes a table in a world worth more than a menu: you can see from across
  * the room that a game is happening and roughly how it is going, and you can walk over and
  * watch. It draws the <b>public</b> board and nothing else - the spectator view, the same one
  * anybody standing at the table would get - so a face-down card is a card back here for the
  * same reason it is one on the table it is modeled on.
- *
  * <p><b>The same board the screen draws, through the same arithmetic.</b> This used to squash
  * each seat's region into a band of its own, which was a second layout: a card sat in one
  * place on your screen and somewhere else on the block, and the two drifted every time either
@@ -52,7 +50,6 @@ import org.joml.Matrix4f;
  * cards the same size relative to them - so the block is a small copy of the screen rather
  * than an impression of it. That is worth having on its own, and it is what makes moving the
  * board onto the block itself a change of camera rather than a third layout.
- *
  * <p>Client-only.
  */
 public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEntity> {
@@ -60,7 +57,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /**
      * Where a card sits on a mat, in surface units, asked of the same rule the seated board
      * asks - so the two views cannot come to different answers about the same card.
-     *
      * <p>Kept rather than built per frame, and rebuilt only when the table changes shape.
      */
     private SurfaceBoard onBlock;
@@ -76,7 +72,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * Where the surface is, taken from {@link TableTop} rather than restated here.
-     *
      * <p>The same numbers decide what a player is pointing at when they reach onto the table,
      * and a picture measured from one corner while the pointing is measured from another is
      * a table where cards are not where they look.
@@ -93,7 +88,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * How far above the one below each card of a pile sits, in blocks.
-     *
      * <p>Two jobs. It makes a pile look like a pile from across the room, and it keeps two
      * cards on the same spot off exactly the same plane - coplanar quads z-fight, and a pile
      * of four flickering in the middle of somebody's board is worse than not drawing it.
@@ -105,7 +99,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private static final int GROUP_EDGE_COLOR = 0x66FFFFFF;
     /**
      * As a share of the box's narrow side, which is a zone's width and not its height.
-     *
      * <p>Taken from the wrong side first: two per cent of a box half a block deep is a line
      * three pixels wide, and two per cent of one an eighth of a block across is a line most
      * of a pixel wide, which rounds to nothing on most rows and to one on the rest.
@@ -139,7 +132,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * How tall a line of writing is, in surface units, so it scales with the mat.
-     *
      * <p>Surface units run to {@link TableSurface#SPAN} across the whole table and a card is
      * a tenth of that, so this is about an eighth of a card's width - the same relation a
      * zone name has to a card on a printed playmat.
@@ -169,7 +161,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * How solid a mat's border is drawn.
-     *
      * <p>The border carries the seat's own color, which is the whole of how four boards laid
      * out on one surface are told apart. Everything else about them is identical.
      */
@@ -186,7 +177,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * How far from its own block this renderer draws, so the board is not culled away.
-     *
      * <p>The default is the block's own cube, and the board is not: it is drawn across the
      * whole cluster from the corner block that holds the session, which is up to four tables
      * of two blocks each. Zoom the in-world view right in and the corner block leaves the
@@ -194,12 +184,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * felt and cards and all, because the one block its renderer was measured against is off
      * screen. Photographed at four heights: at the closest one there was nothing on the table
      * at all.
-     *
      * <p>Sized to the largest cluster rather than to this one, both ways from the corner. A
      * cluster is at most four tables in a line and this is asked while the world is being
      * culled, so a box that is a little generous costs nothing and a box worked out from the
      * live board would be asking the session a question during culling.
-     *
      * <p>Not an {@code @Override}: this is NeoForge's own extension to the renderer interface
      * and the same class is loaded on Fabric, where nothing calls it and vanilla culls by
      * chunk section instead. The signature is what matters - NeoForge finds it by name.
@@ -288,12 +276,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * The cards crossing this table on their way somewhere.
-     *
      * <p>The same flights the seated board draws, from the same two places - a flight is kept
      * as where it is going from and to rather than as a pair of rectangles, so the one that is
      * pixels on a window is a place on the felt here without either view knowing about the
      * other.
-     *
      * <p>Above the cards lying on the table rather than among them, because a card in the air
      * is in the air. Everyone watching sees it, seated or not: that is the point.
      */
@@ -320,7 +306,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * A card in the air sits above everything lying on the table, including a stack.
-     *
      * <p>One step above the deepest a stack is ever drawn, which is what
      * {@link TableStacking#shownDepth(int)} answers - not the deepest a stack can be, which
      * has no limit.
@@ -352,7 +337,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * One seat's playmat: a tinted rectangle with a darker line around it.
-     *
      * <p>Four quads for the line rather than an outline draw, because a line width in world
      * space is a pixel width on screen and a mat you can only see the edge of from two blocks
      * away is not an edge.
@@ -389,7 +373,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * The run of verb buttons printed down a seat's own mat.
-     *
      * <p>Drawn, not clickable here: the board on the block is pointed at with a ray and the
      * screen that owns that ray is the one that listens. What this has to do is make sure the
      * player can see there is something to point at.
@@ -420,12 +403,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * A seat's zones, in a column down the outer edge of its own mat.
-     *
      * <p>The same ones in the same places as the seated screen puts them, because they are the
      * same zones: a player who learns where their graveyard is in one view has learned where
      * it is in the other. A pile shows its top card if the whole table is entitled to see it,
      * and a sleeve if not - which for a library is always.
-     *
      * <p>Two boxes: the three a hand is in and out of all game, and the command zone past a
      * gap. A format with no commanders draws three and no second box.
      */
@@ -533,7 +514,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * A pile rattling because it has just been shuffled, in surface units.
-     *
      * <p>The same shake the seated board draws, from the same clock, so the two views agree
      * about which library is being shuffled and for how long.
      */
@@ -544,7 +524,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * How far a line of writing shrinks to fit the room it has.
-     *
      * <p>A zone name is longer than a zone is wide, so the line shrinks rather than running
      * out over the felt and off the edge of the mat. It shrinks as far as it has to, unlike
      * the seated board, which drops a name it cannot write whole: this writing is in the
@@ -565,7 +544,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /**
      * A line of writing lying flat on the surface, centered on a point and turned to face the
      * seat it belongs to.
-     *
      * <p>The font draws into the XY plane facing the camera, so it is tipped a quarter turn
      * about X to lie down with its face to the sky, and scaled from font pixels into surface
      * units so a label keeps its size against the mat rather than against the screen.
@@ -599,7 +577,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /**
      * The card showing on top of a pile: the first one not currently following somebody's
      * cursor, or nothing when the client was sent no cards for this pile at all.
-     *
      * <p>Nothing is not the same as empty. A library's cards are sent to nobody, so an empty
      * list there means a face-down stack - which is why the caller counts separately.
      */
@@ -615,7 +592,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * How many cards a pile has that are not in the air, which is what a viewer counts.
-     *
      * <p>Stops at the first card anybody could have picked up. Only the top card of a pile can
      * be lifted off it, so once the first one this client was sent has been looked at there is
      * nothing further down that could be following a cursor - and scanning a fifty-card
@@ -634,7 +610,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * A seat's life total, on the table past the far edge of its own board.
-     *
      * <p>The same box the seated screen draws, in the same place, because it is the same
      * table - and pressed through the same screen, which casts its ray at this board and
      * finds the box by the arithmetic that put it here.
@@ -705,7 +680,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * The line round a group of zones: a marking on the mat, drawn as four thin quads.
-     *
      * <p>Empty in the middle. The slots inside it draw their own recesses, and a filled box
      * behind them would put a second shade of dark under every zone.
      */
@@ -735,7 +709,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * An empty zone: a recess in the mat with a border, the shape of the card that goes in it.
-     *
      * <p>Four quads for the border rather than an outline draw, for the same reason the mats
      * use them - a line width in world space is a pixel width on screen, and a zone you can
      * only make out with your face against the table is not marked.
@@ -757,7 +730,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * One seat's permanents, on its own mat.
-     *
      * <p>Laid out where their owner actually put them, at the size the screen draws them
      * relative to the mat. A board somebody has arranged into lands at the back and creatures
      * at the front reads as that from across the room, which is the entire point of the block
@@ -849,12 +821,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * The cards sitting on this one, fanned down its side the way the seated board fans them.
-     *
      * <p>Through {@link dev.gathering.core.ui.TableAttachments}, which is where the fan lives
      * so that both views place an aura in the same spot. Fanned to the right instead when the
      * host is near the left edge of the surface, for the same reason the screen does it: half
      * of somebody's equipment drawn off the table is half of it invisible.
-     *
      * <p>Each one is lifted a little above its host so the two are not coplanar - two quads on
      * the same plane z-fight, and an aura flickering on and off its creature reads as a fault
      * rather than as an aura.
@@ -894,13 +864,11 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * What somebody has written on this card, lying across it.
-     *
      * <p>Reported twice - "text rendered on cards" not working here, and "write on cards do
      * not render correctly on the actual table view". They were not being drawn at all: this
      * view drew the picture and nothing else, so a face-down card somebody had labeled
      * "morph - Brine Elemental" was a blank card back to everybody standing at the table,
      * which is the one case the label exists for.
-     *
      * <p>Not on blank stock, for the same reason the seated board leaves it alone: there the
      * writing <em>is</em> the card, drawn across the whole of it, and a second copy over the
      * top would be the same sentence twice.
@@ -922,7 +890,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * A halo just larger than a card, marking the one the cursor is on.
-     *
      * <p>Turned with the card, so an angled card gets an angled ring rather than a square one
      * that gives away that the two are drawn by different code.
      */
@@ -950,11 +917,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * One card, lying on the surface at whatever angle it was left at.
-     *
      * <p>A tapped card gets its quarter turn on top of that angle, which is the whole reason
      * tapping is legible across a table in paper - and why it has to be a turn here too rather
      * than a tint nobody can see from six blocks away.
-     *
      * <p>The turn is negated because a card turned clockwise on the seated screen has to look
      * turned clockwise from above, and looking down at the surface flips the sense of a
      * rotation about the vertical.
@@ -1021,7 +986,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * A card as it sits on the block: its own face, or the sleeves its owner brought.
-     *
      * <p>Two quads for a sleeve with something printed on it, because the picture is
      * Minecraft's own item art and it is drawn in its own colors on top of a tinted sleeve -
      * one texture cannot be both.
@@ -1049,7 +1013,6 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /**
      * What a card looks like from here.
-     *
      * <p>The small tier, because this is a miniature and the overlay is where a card is read.
      * A card whose art has not arrived, and every anonymous one, is a card back - which for
      * the anonymous ones is not a fallback but the correct picture.

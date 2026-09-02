@@ -8,7 +8,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: make me some tokens called this.
- *
  * <p>A name and a number, never a card id. The server looks the name up against Scryfall's
  * token layout and builds the identity itself, so nothing a client types decides what a token
  * <em>is</em> - the same rule every other name that crosses this boundary follows.

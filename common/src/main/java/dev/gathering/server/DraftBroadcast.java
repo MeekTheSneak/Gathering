@@ -19,11 +19,9 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Tells everyone in a pod what is in front of them - each of them something different.
- *
  * <p>Built per recipient and sent to that recipient alone, the same shape the board uses and
  * for the same reason: a shared pod packet would have to contain every pack in the ring, and
  * every client would hold the one it is about to be passed.
- *
  * <p>Nobody outside the pod is sent anything at all. A draft has no spectators - there is no
  * public part of it to watch - so somebody standing at the tables gets no packet rather than
  * an empty one.

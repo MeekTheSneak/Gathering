@@ -8,11 +8,9 @@ import java.util.Optional;
 
 /**
  * Which cards a library gives up to the pot.
- *
  * <p>Taken off the top of a library that has just been shuffled, which is what makes an ante
  * card random without anything here having to be: the shuffle already happened, with the
  * session's own seed, and a second source of randomness would be a second thing to get wrong.
- *
  * <p>The exclusion list is applied by passing cards over rather than by re-rolling. Those are
  * the same thing on a shuffled deck and only one of them is checkable: "keep drawing until
  * you get one you are allowed to stake" is a loop that can run forever on a deck of nothing

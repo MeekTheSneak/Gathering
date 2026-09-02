@@ -18,17 +18,14 @@ import net.minecraft.network.chat.MutableComponent;
 
 /**
  * Turning a log line into a sentence.
- *
  * <p>The log arrives as a key and a list of typed arguments precisely so that this is the only
  * place that decides what language anybody reads, what a seat is called, and what a card is
  * named. Everything above this has stayed language-free.
- *
  * <p><b>Card names are resolved through the reader's own view.</b> That is the whole security
  * design of the log made concrete: the server already decided how strongly each line may point
  * at a card, and this can only turn that pointer into a name using cards this client was
  * actually sent. A line about a card in somebody's hand has nothing to resolve and says "a
  * card" - to its author as much as to anybody else.
- *
  * <p>Client-only.
  */
 public final class GameLogText {
@@ -38,7 +35,6 @@ public final class GameLogText {
 
     /**
      * One line, ready to draw.
-     *
      * <p>A rewound line is struck through rather than dropped. A log that quietly loses
      * entries when somebody undoes something is not a record of what happened.
      */
@@ -55,12 +51,10 @@ public final class GameLogText {
 
     /**
      * The line to read, which is a different sentence when it is about the player's own board.
-     *
      * <p>Almost everything anybody does in a two-player game is done to their own side of the
      * table, and every line is written with an actor and a subject - so the log read "Dev drew
      * 7 cards for Dev", "Dev shuffled Dev's library", over and over. A line that names the
      * same player twice is a line nobody wrote by hand.
-     *
      * <p>So a key whose actor and subject are the same seat looks for a second wording under
      * the same key with {@code .own} on the end, and uses it if the language file has one.
      * Opting a line in is adding a string; nothing here has to know which lines have one.
@@ -112,7 +106,6 @@ public final class GameLogText {
 
     /**
      * What to call a card the log has pointed at.
-     *
      * <p>Three answers, and which one is available was decided by the server against the board
      * at the time. A named card is one this client was sent and can therefore already read; a
      * marker is the same opaque token opponents see on a face-down permanent; and anonymous is
@@ -141,12 +134,10 @@ public final class GameLogText {
     /**
      * The board's visible cards by id, walked once per board rather than once per line per
      * frame.
-     *
      * <p>An open log resolves a card name for every visible line every frame, and each
      * resolution walked every card view of every zone of every seat - a few hundred thousand
      * visits a second on a Commander table, to answer a question whose answer only changes
      * when the view object does. The view is immutable, so one index per view is exact.
-     *
      * <p>Client thread only, like everything else in this class.
      */
     private static GameView indexedFor;

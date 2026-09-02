@@ -20,18 +20,14 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Putting cards back under a library in an order nobody chose.
- *
  * <p>Which cards is the client's to say - they are the ones the player is pointing at and
  * everybody can see them. The <em>order</em> is not, and that is the whole reason this is
  * here: the bottom of a library is hidden from everyone, so a player who arranged their own
  * four cards on the way down would be the only person at the table who knew what was there.
- *
  * <p>From the level's randomness, never the session's shuffle seed - the same rule ante
  * staking and the random discard follow, and for the same reason.
- *
  * <p>Each card goes under <em>its owner's</em> library, which is the rule the card menu
  * already uses for the same move. Nothing here can put somebody else's card into your deck.
- *
  * <p>Server thread only.
  */
 public final class RandomReturns {

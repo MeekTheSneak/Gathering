@@ -20,13 +20,11 @@ import java.util.UUID;
 
 /**
  * One game event, to bytes and back.
- *
  * <p>A session is its event log - state is the fold of it - so this is what makes a game
  * survive a restart. Bytes rather than any of Minecraft's own serialization because it lives
  * in the pure module, which is what lets a round trip be checked against arbitrary logs
  * instead of against the handful somebody thought to write down. It is also what the sealed
  * stream needs: encryption takes bytes.
- *
  * <p>Events are tagged by <b>name</b>, never by ordinal or declaration order. An ordinal
  * means something different the moment the list gains an entry, and this is a save file. An
  * unknown name is a hard failure rather than a skipped event: a log with a hole in it folds
@@ -269,7 +267,6 @@ public final class EventCodec {
 
     /**
      * Reads an event written by the current build.
-     *
      * <p>What comes off a socket is always current, because both ends are this build. Only a
      * log read back off disk can be older, and that one says how old it is.
      */
@@ -476,7 +473,6 @@ public final class EventCodec {
 
     /**
      * A length from the stream, sanity-checked before it is used to size anything.
-     *
      * <p>A corrupt or hostile length would otherwise be an allocation of whatever it says.
      */
     private static int readSize(DataInput in) throws IOException {

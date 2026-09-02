@@ -15,7 +15,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The server config file, from the disk it lives on to the answer a player gets.
- *
  * <p>Through the real file rather than by handing the settings object a value: the thing that
  * would actually break is the path between somebody editing a file and the server behaving
  * differently, and half of that path is the file.
@@ -101,7 +100,6 @@ public final class ServerSettingsGameTest {
 
     /**
      * Runs a check with this text in the config file, and puts the file back afterwards.
-     *
      * <p>A null text means no file at all, which is what a server's first start looks like.
      */
     private static void withConfig(GameTestHelper helper, String text, Check check) {

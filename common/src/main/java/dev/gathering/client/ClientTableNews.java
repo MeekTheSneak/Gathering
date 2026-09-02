@@ -15,20 +15,16 @@ import net.minecraft.core.BlockPos;
 
 /**
  * What a table's log says has just happened, turned into something to see and hear.
- *
  * <p>Two things come out of it. A pile somebody shuffled shakes where it stands, and the
  * table makes the noise the thing that happened makes.
- *
  * <p>A shuffle is the one thing a player does that changes nothing anybody can see. No card
  * changes zones, no count moves, and the order it changes is the order nobody is entitled to
  * know - so it is the one move {@link dev.gathering.core.ui.CardTravel} correctly refuses to
  * draw, and until now the only account of it was a line in the log.
- *
  * <p>Taken from the log rather than from the board, because the log is the only place a
  * shuffle appears at all. That is also why it is safe: a log line is the sanitized, public
  * account of an event, already built for everyone at the table to read, and what is taken from
  * it here is a seat and nothing else.
- *
  * <p>Client-only, and touched from the network thread as well as the render thread.
  */
 public final class ClientTableNews {
@@ -52,7 +48,6 @@ public final class ClientTableNews {
 
     /**
      * A card coming off the top of a library to be looked at, binned, or shown.
-     *
      * <p>One sound for all of them because they are one gesture: a hand lifting the top card
      * of a deck. What happens to it afterwards is what the log line is for.
      */
@@ -67,7 +62,6 @@ public final class ClientTableNews {
 
     /**
      * Reads whatever is new in this board's log and starts a shake for each shuffle in it.
-     *
      * <p>The first board a table sends starts nothing. A game rejoined mid-way arrives with
      * its whole history, and a player walking up to a table should not be met by every
      * shuffle of the last hour happening at once.
@@ -140,7 +134,6 @@ public final class ClientTableNews {
 
     /**
      * Whose library was shuffled.
-     *
      * <p>The second seat in the line, not the first: the line is "%1$s shuffled %2$s's
      * library", and somebody searching another player's library with permission shuffles a
      * library that is not theirs. The pile that shakes is the one that was shuffled.

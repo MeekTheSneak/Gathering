@@ -8,10 +8,8 @@ import net.minecraft.world.InteractionHand;
 
 /**
  * Client to server: "sleeve this deck in that".
- *
  * <p>Its own payload rather than a deck edit, for the reason a rename is: a deck edit is
  * cards crossing between piles, and this is neither a card nor a pile.
- *
  * <p>A place in the list rather than a name, and read back through {@link
  * dev.gathering.core.card.Sleeve#byOrdinal}, so a number off a socket picks a sleeve that
  * exists or picks the ordinary one. Nothing a client sends decides anything but what its own

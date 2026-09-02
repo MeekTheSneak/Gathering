@@ -16,11 +16,9 @@ import net.minecraft.network.codec.StreamCodec;
 
 /**
  * A sleeved deck: its name, who imported it, and its cards in order.
- *
  * <p>Import produces one of these bound to the importing player. Sections are kept as
  * separate lists rather than flags on each entry because the pre-game validator asks about
  * them by section and never about individual cards.
- *
  * <p>Name and description are the player's, not the importer's: a deck is a thing you title
  * and annotate, and both show on the item so a row of deckboxes on a shelf reads as a
  * collection rather than as five identical objects.
@@ -55,7 +53,6 @@ public record DeckComponent(
 
     /**
      * A deck with no color yet, which is every deck the moment before it is handed over.
-     *
      * <p>Here so that the twenty-odd places that build a deck did not all have to learn about
      * boxes at once. Whoever hands the deck to a player paints it; everything that only
      * rearranges one carries the color it already had.
@@ -69,7 +66,6 @@ public record DeckComponent(
 
     /**
      * How many cards one deck may hold, across every section.
-     *
      * <p>A cube is the largest real thing anyone builds and sits near 540, so this is well
      * clear of legitimate use. It exists because a deck component travels over the wire on
      * every held-item sync: without a bound, a hostile or merely broken client could hand a
@@ -102,7 +98,6 @@ public record DeckComponent(
 
     /**
      * The sleeve, as a place in the list.
-     *
      * <p>Out of range reads as the ordinary back rather than throwing: a deck component
      * crosses the wire on every held-item sync, and a sleeve that did not survive the trip is
      * a deck drawn plain, not a disconnect.
@@ -114,7 +109,6 @@ public record DeckComponent(
 
     /**
      * Written out by hand rather than composed.
-     *
      * <p>{@code StreamCodec.composite} stops at six parts in this version and a deck has eight.
      * There is nothing clever here - it is the same fields in the same order, and the only
      * thing to keep right is that the two halves stay in step.
@@ -155,7 +149,6 @@ public record DeckComponent(
 
     /**
      * The same deck, called something else.
-     *
      * <p>A blank name means the deck has none, which is what a deck started by putting two
      * cards together has: the item falls back to "Deck" and the screen invites a name.
      */
@@ -167,7 +160,6 @@ public record DeckComponent(
 
     /**
      * The same deck in a box of this color.
-     *
      * <p>Set once, where a deck is handed to somebody, and carried by everything after: a
      * deck that changed color when a card came out of it would be a different deck on the
      * shelf every time it was edited.
@@ -180,7 +172,6 @@ public record DeckComponent(
 
     /**
      * The same deck in different sleeves.
-     *
      * <p>Changed as freely as the name is, and by the same person: sleeves are something a
      * player swaps between games, so nothing here treats the first choice as final.
      */
@@ -205,14 +196,12 @@ public record DeckComponent(
 
     /**
      * Whether this deck can be carried as an item at all.
-     *
      * <p>Each section crosses the wire as a list bounded at {@link #MAX_CARDS}, and a bounded
      * list throws when it is <em>written</em> past its bound, not only when it is read. So a
      * deck bigger than this is not a deck that arrives truncated - it is a deck that cannot be
      * encoded, in an item stack that is nonetheless in somebody's inventory and saved with
      * their player data. Every inventory sync after that throws, which is a player who cannot
      * log in until an administrator edits their file by hand.
-     *
      * <p>{@code withAdded} has always refused past this bound, so nothing built a card at a
      * time could get here. An import builds the whole list at once and skipped straight past
      * it, which is the one way in.
@@ -247,11 +236,9 @@ public record DeckComponent(
 
         /**
          * Where a card goes when somebody moves it without saying where to.
-         *
          * <p>The deck and the sideboard swap, which is what building a deck is. A commander
          * goes to the deck: a card in the command zone that is not wanted there is wanted in
          * the ninety-nine far more often than it is wanted out of the box altogether.
-         *
          * <p>Never itself, or the gesture that means "move this" would sometimes mean
          * nothing at all - and a click that silently does nothing is the worst kind.
          */
@@ -295,7 +282,6 @@ public record DeckComponent(
 
     /**
      * The deck with one copy of {@code card} taken out of {@code section}.
-     *
      * <p>Empty when that section holds no such card. That is not an error worth shouting
      * about: it is what a stale click looks like when the client asks to remove a card the
      * server has already removed, and the right answer is to do nothing.
@@ -315,7 +301,6 @@ public record DeckComponent(
 
     /**
      * The deck with one copy of {@code card} moved between sections.
-     *
      * <p>The size limit does not apply: a move cannot make a deck larger.
      */
     public Optional<DeckComponent> moved(Section from, Section to, CardComponent card) {

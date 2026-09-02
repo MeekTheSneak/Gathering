@@ -5,16 +5,13 @@ import java.util.List;
 
 /**
  * How far into a shopkeeper's stock a thing sits.
- *
  * <p>A villager gets better the more you trade with them, and what that should buy you here is
  * the bigger boxes. Packs from the first day; a display box once you are a regular; a case from
  * somebody who knows you. It gives the profession the same shape every other villager has, and
  * it means a new world does not open with a two-hundred-booster case on the counter.
- *
  * <p>By what a thing is worth in boosters rather than by what it costs, because what it costs
  * is a server setting and the shelf would otherwise reshuffle itself every time somebody edited
  * one number. A booster is a booster on every server.
- *
  * <p>Pure.
  */
 public final class ShopTier {
@@ -24,7 +21,6 @@ public final class ShopTier {
 
     /**
      * The most a thing at each level can be worth, in boosters.
-     *
      * <p>Chosen against what sets are really sold as: a pack is one, a prerelease kit or a
      * precon is around eight, a bundle or a collector box is a dozen, a display box is
      * thirty-six, and everything past that is a case.
@@ -51,7 +47,6 @@ public final class ShopTier {
 
     /**
      * What one level of shopkeeper has, in shelf order.
-     *
      * <p>Everything at that level exactly - not everything up to it. A master's counter is the
      * cases, and a player who wants a single booster buys it from any of the other four.
      */

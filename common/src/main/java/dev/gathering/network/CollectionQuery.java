@@ -11,12 +11,10 @@ import net.minecraft.network.codec.StreamCodec;
 
 /**
  * What a player is looking for in a collection, on the wire.
- *
  * <p>Searching happens on the server. The client has no card details for a collection it does
  * not own - and sending it ten thousand card names so it could search them itself would be a
  * megabyte for a screen showing forty rows. So the question crosses instead of the answer,
  * and what comes back is one page.
- *
  * <p>Every field is checked here rather than trusted. It is typed by a player, and the length
  * caps exist so a client cannot make the server search a megabyte-long word.
  */

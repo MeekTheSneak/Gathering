@@ -17,13 +17,11 @@ import net.minecraft.world.level.Level;
 
 /**
  * A sealed box, and what happens when you cut the tape.
- *
  * <p>Everything bigger than a booster: a display box, a bundle, a Commander precon, a case of
  * six boxes. Right-click opens it, and it opens one level down - a case gives six boxes, a box
  * gives thirty-six packs, a precon gives the deck and the sample pack that came in with it.
  * All the way down in one click would turn the best part of the whole feature into a shower of
  * two hundred and sixteen items.
- *
  * <p>Like a pack, this is a pointer rather than a container: what is inside is looked up in the
  * server's catalog when it is opened, so there is nothing on the stack to read early and
  * nothing for a client to lie about.

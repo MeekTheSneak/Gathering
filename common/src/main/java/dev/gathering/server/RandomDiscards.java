@@ -20,17 +20,14 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Discarding at random, decided here because it cannot honestly be decided anywhere else.
- *
  * <p>The mod trusts clients with almost everything: no rules enforcement, section 16, and a
  * player who wants to draw eight cards can, exactly as they could across a real table where
  * everyone would see them do it. This is the exception, and the reason is not security in the
  * usual sense - it is that the outcome has no meaning unless somebody other than the player
  * chose it. A random discard the discarder picked is not a random discard.
- *
  * <p>Not from the session's shuffle seed. The seed is the most sensitive value the server
  * holds and never leaves the session that owns it; this uses the level's own randomness, the
  * same as ante staking does and for the same reason.
- *
  * <p>Server thread only.
  */
 public final class RandomDiscards {

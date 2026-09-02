@@ -19,7 +19,6 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * What a drafter does: take cards out of the pack in front of them.
- *
  * <p>One verb, and the whole of the checking is that the pick is theirs. Everything else a
  * pod could refuse - the wrong number of cards, a place that is not in the pack, picking
  * twice - is refused by the pure pod, so this is the part with a connection in it and
@@ -32,7 +31,6 @@ public final class DraftActions {
 
     /**
      * Shows this player the pack in front of them, or says why there is none.
-     *
      * <p>Also the second chance at handing the pools out. A pod can only finish when every
      * drafter has declared, so everybody was online moments before - but somebody who logs
      * out in the gap between their own last pick and the last one in the pod would otherwise
@@ -92,12 +90,10 @@ public final class DraftActions {
 
     /**
      * The end of a draft: everybody gets what they drafted, as a deck to build from.
-     *
      * <p>In the sideboard rather than the deck, because a drafted pool is not a deck yet -
      * it is forty-five cards you choose forty from, and the deck screen already knows how to
      * move cards between the two. Handing it over as a finished deck would mean pretending
      * a pile of picks was a decklist.
-     *
      * <p>A sponsored pod whose cards go back to the sponsor hands out nothing, which the pod
      * itself decides: the question of who keeps what was settled before anybody picked.
      */

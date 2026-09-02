@@ -11,7 +11,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: everything this player is chasing.
- *
  * <p>The whole list every time rather than what changed. It is a few thousand ids at the very
  * most and it changes when somebody presses a button, so the saving is nothing and the cost of
  * getting it wrong - a client and a server disagreeing about what somebody wants - is a

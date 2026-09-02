@@ -16,22 +16,18 @@ import net.minecraft.util.Mth;
 
 /**
  * Buttons that behave like buttons.
- *
  * <p>Everything clickable in this mod used to be a rectangle that happened to react to a
  * click. That is not the same thing: a real button lights up when the cursor is over it, dips
  * when you press it, clicks when it takes, grays out when it will not, and can be reached with
  * the keyboard. Losing any of those makes a screen feel broken even when it works, because you
  * cannot tell whether anything happened.
- *
  * <p>So these are vanilla {@link Button}s: vanilla's states, vanilla's focus, vanilla's click.
  * Only the face is the mod's own, and only because the mod now has looks - a grey vanilla
  * button sitting inside a brown Retro panel is exactly the "nearly like the others" problem
  * this used to avoid by not skinning them at all. Everything a player already knows about
  * these still holds; they are only painted in the look they are sitting in.
- *
  * <p>The one thing vanilla has no notion of is a button that is <em>currently chosen</em>,
  * which a format picker needs, so {@link #toggle} adds that on top and nothing else.
- *
  * <p>Client-only.
  */
 public final class GatheringButtons {
@@ -54,12 +50,10 @@ public final class GatheringButtons {
 
     /**
      * A button whose label fits inside it.
-     *
      * <p>Vanilla scrolls a label too wide for its button, back and forth, forever. On a button
      * you press once that is not reading - it is a word arriving in installments, and the
      * moment you look at it you are as likely to see "ack to printe" as anything. A screenshot
      * of this mod's own pen showed exactly that.
-     *
      * <p>So it shrinks to fit and then trims, which is what every other piece of text here
      * does. The one thing it must never do is show a fragment that reads as a different word.
      */
@@ -70,7 +64,6 @@ public final class GatheringButtons {
 
         /**
          * Whether this button stays pressed in of its own accord.
-         *
          * <p>An option that is currently on is a button that is currently down - which is
          * what a pressed face already means, and what every physical control with two states
          * has always looked like. Asked here rather than drawn on top, so a latched button
@@ -86,7 +79,6 @@ public final class GatheringButtons {
 
         /**
          * Remembers that the button is being held, so the face can dip.
-         *
          * <p>Through {@code mouseClicked} and {@code mouseReleased} rather than through
          * {@code onClick}, which NeoForge has deprecated in favour of a three-argument form
          * it patched in. These two are vanilla, are not deprecated, and are the same on both
@@ -106,7 +98,6 @@ public final class GatheringButtons {
 
         /**
          * The face, in whatever look is on, and then the label.
-         *
          * <p>The same three states vanilla draws and in the same order, so that a button
          * behaves identically and only looks different. The alpha is honored because screens
          * fade widgets in and out and a face that ignored it would pop.
@@ -145,7 +136,6 @@ public final class GatheringButtons {
 
     /**
      * A button whose label is a direction rather than a word.
-     *
      * <p>Page turns were the characters "&lt;" and "&gt;" set in the game's font. That is a
      * button labelled with punctuation: at a glance it reads as text somebody forgot to
      * finish rather than as a control, and it says nothing to a screen reader either. This
@@ -161,7 +151,6 @@ public final class GatheringButtons {
 
     /**
      * The same, for a button whose arrow turns round - a sort order, say.
-     *
      * <p>Asks a supplier rather than holding the direction, for the reason {@link #toggle}
      * does: a button that remembers its own answer is a button that can disagree with the
      * screen about which way the list is currently sorted.
@@ -175,7 +164,6 @@ public final class GatheringButtons {
 
     /**
      * A button whose face is one character but whose message is a sentence.
-     *
      * <p>The same problem the arrows solve, for the one control where the mark really is the
      * label: a help button is a question mark everywhere, and drawing an arrow on it would be
      * worse. What it must not do is <em>be</em> a question mark to everything that reads the
@@ -191,7 +179,6 @@ public final class GatheringButtons {
 
     /**
      * The same, for a face that is a symbol rather than a character of ordinary text.
-     *
      * <p>A mana pip is a glyph in the mod's own font, and a font is carried on the component
      * rather than on the string - so a face taken as text would arrive here as the private-use
      * codepoint set in the game's font, which is a blank box. This is the whole reason the
@@ -210,13 +197,11 @@ public final class GatheringButtons {
 
     /**
      * A symbol-faced button that stays pressed in while its option is on.
-     *
      * <p>For a filter: the mana orbs on a collection are six controls that are each either
      * doing something or not, and the way to say that is the way every button says it, by
      * being down. What was there before was a gold line drawn under the button - a second
      * vocabulary invented for one row, which had to be learned and which nothing else in the
      * mod used.
-     *
      * <p>Asks a supplier rather than holding a flag, for the reason {@link #toggle} does: a
      * button that remembers its own answer is a button that can disagree with the screen
      * about what is currently filtered.
@@ -279,7 +264,6 @@ public final class GatheringButtons {
 
         /**
          * Keeps the tooltip saying whatever the message says.
-         *
          * <p>A sort order's arrow turns round and its sentence turns with it; a tooltip set
          * once when the button was made would go on describing the other direction forever.
          */
@@ -291,7 +275,6 @@ public final class GatheringButtons {
 
         /**
          * The arrow instead of the words, dimmed when the button will not do anything.
-         *
          * <p>Dimming matters more here than on a worded button: a label greys out on its own
          * because the text is drawn in a second colour, and an arrow blitted at full strength
          * onto a dead button is the one part of it still claiming to work.
@@ -307,7 +290,6 @@ public final class GatheringButtons {
 
     /**
      * A button that shows whether its option is the one currently picked.
-     *
      * <p>Asks a supplier rather than holding a flag, so one button cannot disagree with the
      * screen about what is selected - which is exactly what happens when eight buttons each
      * remember their own answer.
@@ -342,7 +324,6 @@ public final class GatheringButtons {
 
     /**
      * The click a button makes, for the things that cannot be buttons.
-     *
      * <p>A card on the table and a row in a list are not widgets and should not become them -
      * a hundred-row deck list made of a hundred focusable buttons is a screen you cannot tab
      * through. They still have to sound like they were pressed, because that noise is how a

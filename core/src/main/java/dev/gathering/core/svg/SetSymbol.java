@@ -13,20 +13,16 @@ import org.w3c.dom.NodeList;
 
 /**
  * A set's symbol, as a shape that can be drawn at any size in any color.
- *
  * <p>Scryfall publishes one of these per set and it is the only picture of a set that exists
  * anywhere the mod is allowed to take one from. There is no booster wrapper photograph in any
  * API this mod may use, and a shop's product shot is a shop's product shot - so the symbol on
  * a plain wrapper is what a pack looks like, which is also what a pack looks like in a
  * catalog and on the back of a box.
- *
  * <p>Kept as shapes rather than as a picture, so one download serves every size a screen ever
  * wants and every color a product comes in. What comes out is coverage - how much of each
  * pixel the symbol fills - and the color is the caller's business.
- *
  * <p>Everything about the shapes that is not filled area is deliberately ignored: stroke,
  * gradients, opacity. A set symbol is a silhouette and this reads it as one.
- *
  * <p>Pure, and reads its XML with everything external switched off. This document came off
  * the network.
  */
@@ -90,7 +86,6 @@ public record SetSymbol(double width, double height, List<Outline> outlines) {
 
     /**
      * Walks the document for paths, carrying down what a group says about its children.
-     *
      * <p>Groups are used for nothing but shared attributes in the symbols Scryfall publishes -
      * no transforms - so this inherits the two attributes that matter and would rather be
      * loud than quietly wrong about anything else.
@@ -164,7 +159,6 @@ public record SetSymbol(double width, double height, List<Outline> outlines) {
 
     /**
      * How much of each pixel the symbol covers, in a square of this many pixels a side.
-     *
      * <p>Fitted to the square with its shape kept and centered in whichever direction it does
      * not fill, because set symbols are every proportion from nearly square to three times as
      * wide as they are tall, and one stretched to fit is a symbol nobody recognizes.
@@ -196,7 +190,6 @@ public record SetSymbol(double width, double height, List<Outline> outlines) {
 
     /**
      * Scanline fill, sampling each pixel row several times.
-     *
      * <p>Coverage from several outlines adds up, and is capped at solid. Taking the most any
      * one of them gave was the first instinct and is wrong where two shapes meet: a pixel the
      * boundary runs through is half covered by each, so the greater of the two is half - a

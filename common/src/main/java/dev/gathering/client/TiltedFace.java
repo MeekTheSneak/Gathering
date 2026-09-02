@@ -15,18 +15,15 @@ import org.joml.Matrix4f;
 
 /**
  * A printed face, drawn as a card somebody is holding.
- *
  * <p>Not a picture with a transform on it. The card is a real shape in space turned about its
  * own middle and projected through {@link CardLens}, drawn as many quads rather than one: a
  * single quad under a perspective has its texture stretched wrong across the diagonal, which
  * is the warp old console games are remembered for, and subdividing it is the whole fix.
- *
  * <p>The shape is {@link CardMesh}, which is a rectangle with its corners cut, because that is
  * what a card is. The picture the mod fetches is a rectangle - a scan has to be - so the
  * rounding is the mod's to do, and it is done by covering the card in quads that stop where the
  * card stops rather than by painting the corners out afterwards, which would need to know what
  * is behind the card and that changes from screen to screen.
- *
  * <p><b>The shine is painted onto that same grid.</b> That is the important part of the design
  * and not an implementation detail. It means the foil is made of the card's own points, so it
  * turns with the card exactly, it cannot drift a pixel out of register with the art, and there
@@ -34,18 +31,15 @@ import org.joml.Matrix4f;
  * because nothing is ever drawn off the card in the first place. The earlier version raked
  * bands across a bigger area and trimmed them with a scissor, which worked only for as long as
  * nobody asked it a question the scissor could not answer.
- *
  * <p>Drawn through the ordinary interface pipeline, the same immediate-mode call vanilla's own
  * {@code blit} uses, in the vertex order it uses - so the winding matches and nothing about
  * culling, blending or the projection has to be touched or put back.
- *
  * <p>Client-only.
  */
 public final class TiltedFace {
 
     /**
      * How finely the picture is divided.
-     *
      * <p>Enough that the texture cannot visibly warp across a cell at the small angles this
      * ever uses. It does not need to be finer: the warp is a second-order effect and a card
      * turned nine degrees has almost none of it.
@@ -62,7 +56,6 @@ public final class TiltedFace {
 
     /**
      * And how finely the shine is.
-     *
      * <p>Much finer, because this grid is carrying color rather than a picture: the color is
      * interpolated across each cell, so the mesh is the resolution of the gradient. Coarse
      * enough to see the cells is coarse enough to see bands, and bands are the thing that
@@ -82,7 +75,6 @@ public final class TiltedFace {
 
     /**
      * Draws the face, its shine if it is a foil, and the shadow it casts.
-     *
      * <p>A card lying flat with no foil on it is drawn by the plain path instead, so every
      * screen that shows a card in a list is untouched by any of this and costs exactly what it
      * did before.
@@ -115,7 +107,6 @@ public final class TiltedFace {
 
     /**
      * The picture itself, as a grid of textured quads.
-     *
      * <p>Vertices in the order vanilla's own blit uses - top left, bottom left, bottom right,
      * top right - so the winding is the winding the interface already culls by, and this needs
      * no state of its own.
@@ -144,7 +135,6 @@ public final class TiltedFace {
 
     /**
      * The shadow, as one quad the shape of the turned card, slid the way the light is not.
-     *
      * <p>The card's own outline rather than its upright rectangle, so it narrows as the card
      * narrows. A shadow that kept the flat shape read as a gray slab lying beside the card,
      * which is worse than no shadow at all.

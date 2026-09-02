@@ -28,12 +28,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The log, as sentences.
- *
  * <p>Runs in a world because it needs the real language file: the failure this catches is a
  * log line whose translation key nobody added, or one whose arguments are read in a different
  * order than the event supplies them. Both are invisible in a unit test - the key is a string
  * either way - and both look like the log is broken to the person reading it.
- *
  * <p>The second one is the reason every log string uses indexed placeholders. "Chris drew
  * Chris cards for 3" is what an unindexed string produces the moment an event's argument order
  * is not the sentence's word order, which for English is most of them.

@@ -8,12 +8,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: "I did this at that table."
- *
  * <p>Carries an encoded game event. The server decodes it and then refuses it unless the
  * event's actor is the sender's own seat - a client can describe any move it likes, and the
  * only one it may sign is its own. Everything after that is {@code Authorization}, which is
  * the same gate a server-side action goes through.
- *
  * <p>Attribution is the honesty mechanism the whole design rests on: the log says who did
  * what, so "any seated player may move any public card" is safe. A client that could put
  * somebody else's name on a move would take that away.

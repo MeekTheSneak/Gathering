@@ -64,20 +64,16 @@ import net.minecraft.world.level.levelgen.presets.WorldPresets;
 
 /**
  * Drives the client through a scripted session and takes pictures of it.
- *
  * <p>The reason this exists: everything about how the table <em>looks and feels</em> was being
  * checked by somebody opening the game and describing what was wrong. That works, and it is a
  * slow, lossy channel for the kind of problem where a zone is the wrong shape or a board is
  * upside down - the sort of thing that takes one glance and a paragraph to explain.
- *
  * <p>So: boot the client with {@code -Dgathering.devscene=1}, and it makes a flat world, sets a
  * table up, starts a game, opens the board, photographs it in both views, and quits. The
  * pictures land in {@code run/screenshots} and can be looked at by anybody - or anything -
  * that can open a PNG.
- *
  * <p>Off unless the property is set, and never referenced by anything that ships. It is a
  * workbench, not a feature.
- *
  * <p>Client-only.
  */
 public final class DevScene {
@@ -87,7 +83,6 @@ public final class DevScene {
 
     /**
      * Set {@code -Dgathering.gallery=1} as well to photograph every look after the tour.
-     *
      * <p>Its own switch because it is a different job. The tour is a check - it presses every
      * gesture and fails when one is a dead end - and it has to stay quick enough to run on
      * every change. The gallery presses nothing: it wears each look in turn and takes the
@@ -100,7 +95,6 @@ public final class DevScene {
 
     /**
      * A card whose printing names a token, and the token it names.
-     *
      * <p>Both sides of the pair are here rather than only the card, because the row under
      * test is labeled with the token's name: reading it back off the card's metadata would
      * check the menu against itself.
@@ -112,7 +106,6 @@ public final class DevScene {
 
     /**
      * A deck small enough to import quickly and varied enough to look at.
-     *
      * <p>Real cards, fetched from Scryfall like any other deck, because the whole point of
      * photographing the client is to see what a player sees - and a board of gray rectangles
      * would prove only that gray rectangles are laid out correctly.
@@ -143,21 +136,18 @@ public final class DevScene {
 
     /**
      * Long enough for a board to arrive and not long enough for a card to finish crossing.
-     *
      * <p>The only way to photograph a card in the air is to look while it is in the air.
      */
     private static final int A_MOMENT = 3;
 
     /**
      * How long one step may sit there before the run is declared stuck.
-     *
      * <p>Per step rather than for the whole run. A budget for the whole run is a number that
      * has to be raised every time the scene grows a step, and the run that finally exceeds it
      * fails with "gave up waiting" rather than with whatever was actually wrong - which is
      * exactly what happened the first time this scene passed sixty steps. What is being
      * watched for is a scene that has stopped moving, and that is a step that has not
      * changed, however long the run before it took.
-     *
      * <p>Forty seconds, against a longest legitimate wait of two.
      */
     private static final int STUCK_TICKS = 20 * 40;
@@ -168,7 +158,6 @@ public final class DevScene {
     private static int ticks;
     /**
      * The last step the scene has a case for.
-     *
      * <p>Kept next to the dispatcher so a skipped case number fails loudly. Java reads a hole
      * in a switch as the default branch, and the default branch here is "the scene finished" -
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
@@ -178,7 +167,6 @@ public final class DevScene {
 
     /**
      * The gallery, if it was asked for: three pictures of every look installed.
-     *
      * <p>Six steps a look, because a screen has to be opened in one step and photographed in
      * the next - a shot asked for in the same breath catches the frame that was already
      * drawn, which is the convention the whole scene follows.
@@ -239,7 +227,6 @@ public final class DevScene {
 
     /**
      * One tick of the script.
-     *
      * <p>A state machine rather than a sequence of sleeps, because everything here is waiting
      * for the game to reach a state - the title screen to appear, a world to finish loading -
      * and a fixed delay for that is a test that passes on a fast machine and hangs on a slow
@@ -2916,7 +2903,6 @@ public final class DevScene {
 
     /**
      * Presses the mod's row in the game's own video settings.
-     *
      * <p>Not through {@link #press}, which looks at a screen's own children: this row lives
      * inside the scrolling list of options, which is one child holding all of them. Walking
      * into it is the point - the row is only useful if it is really in that list, where a
@@ -2959,7 +2945,6 @@ public final class DevScene {
 
     /**
      * The first widget under here whose label starts with this, however deeply it is nested.
-     *
      * <p>Searched rather than reached for, because the row is put inside the scrolling list
      * vanilla built and that list is one child of the screen holding all of the options. What
      * is being checked is that a player scrolling through video settings comes across it,
@@ -2985,7 +2970,6 @@ public final class DevScene {
 
     /**
      * Puts one of the mod's looks on, and checks the art really came from it.
-     *
      * <p>Photographed on the collection screen, which is a panel, a backdrop, striped rows
      * and a scrollbar - five of the elements a theme owns, in one picture. The check is that
      * {@link GatheringSprites#of} resolves into that theme's folder: a theme that was chosen
@@ -3008,7 +2992,6 @@ public final class DevScene {
 
     /**
      * Presses a scried card and drags it, without letting go.
-     *
      * <p>Left held down on purpose: the next step photographs the screen mid-drag, and what
      * is being checked is whether the player can see where the card would land while they
      * are still deciding. Let go first and the picture is of the result, which was never the
@@ -3068,7 +3051,6 @@ public final class DevScene {
 
     /**
      * Points the wheel at one of this seat's zones and remembers what is under it.
-     *
      * <p>Off the middle of the window on purpose - see the caller.
      */
     private static void aimTheWheelAtAZone(Minecraft client, int index) {
@@ -3093,7 +3075,6 @@ public final class DevScene {
 
     /**
      * Checks the felt did not run out from under the cursor while the wheel turned.
-     *
      * <p>A card is a thousand surface units wide. Holding the anchor to a third of that
      * across a whole sweep is a board that stays where the player put it; the same sweep
      * before the wheel was anchored walked the graveyard clean off the window.
@@ -3212,7 +3193,6 @@ public final class DevScene {
 
     /**
      * Writes a power and toughness on the same card the pen wrote on.
-     *
      * <p>The same card on purpose. A note across the top and numbers in the corner are the
      * two things a player writes, and the one arrangement worth photographing is both at
      * once - which is also the one where they could be drawn over each other.
@@ -3244,7 +3224,6 @@ public final class DevScene {
 
     /**
      * Asks the table to throw away a card, without saying which.
-     *
      * <p>Off the player's own menu, the way a player reaches it - not by sending the payload
      * straight, which would prove the handler works and leave an entry nobody can find still
      * unreachable.
@@ -3278,7 +3257,6 @@ public final class DevScene {
 
     /**
      * Whether the hand really is cheapest first, or what is wrong with it.
-     *
      * <p>Read off the board the way a player reads it, and priced the same way the sort
      * priced it - so this fails if the order never arrived, not if the two disagree about
      * what a hybrid symbol costs. That question is answered by ManaValueTest.
@@ -3312,7 +3290,6 @@ public final class DevScene {
 
     /**
      * Puts a Forest from the hand back on top of the deck, so there is one to fetch.
-     *
      * <p>The run has spent most of the library by this point. A fetch that found nothing
      * would pass a test about an empty deck rather than the one worth having, which is that
      * the card comes out of the library at all.
@@ -3418,7 +3395,6 @@ public final class DevScene {
 
     /**
      * Every menu row that names a number key names the one that really does it.
-     *
      * <p>Read out of the same table the menu prints from, and checked against what the run
      * has just watched those keys do - so a row whose label drifts from its key fails here
      * rather than teaching somebody the wrong key for a release.
@@ -3473,7 +3449,6 @@ public final class DevScene {
 
     /**
      * Freezes a card on the battlefield, off its own menu.
-     *
      * <p>Through the menu rather than by sending the event, because the entry is half the
      * feature: a freeze nobody can find is a freeze that does not exist.
      */
@@ -3531,7 +3506,6 @@ public final class DevScene {
 
     /**
      * A card picked up and put straight back down is not a card that was turned sideways.
-     *
      * <p>The plainest gesture on the table used to mean two things: every mis-click tapped
      * something, and a card could not be picked up and reconsidered without turning it. It was
      * fixed, and nothing was holding it fixed - which is the state a behavior is in right
@@ -3584,7 +3558,6 @@ public final class DevScene {
 
     /**
      * Moves the cursor onto bare felt.
-     *
      * <p>So a picture shows what a card looks like rather than what a card under the cursor
      * looks like. The two differ by a ring, and a mark that only reads next to that ring is a
      * mark that is not doing its job.
@@ -3623,7 +3596,6 @@ public final class DevScene {
 
     /**
      * Puts two cards on one spot on the felt, which is what a stack is.
-     *
      * <p>There is no stack type in the game model - cards on a table are a stack when they
      * are lying on top of each other - so this is two moves to the same position, and the
      * gesture that picks the stack up has to work that out from where things are.
@@ -3686,7 +3658,6 @@ public final class DevScene {
 
     /**
      * Takes the seat back, so the steps after this one are a player rather than a watcher.
-     *
      * <p>Through the session, the way {@link #seatARival} does: what is wanted is an occupied
      * seat, and walking a scripted client back to a block to right-click it would be testing
      * the world interaction all over again rather than the thing after this.
@@ -3763,7 +3734,6 @@ public final class DevScene {
 
     /**
      * A card carrying more differently named counters than the panel has room for.
-     *
      * <p>Eight, because the panel shows six. Named after things that really go on a card, so
      * the picture reads as a game rather than as a test.
      */
@@ -3801,7 +3771,6 @@ public final class DevScene {
 
     /**
      * The panel shows a window of the counters, says how many are below it, and scrolls.
-     *
      * <p>What this is really checking is that the last one can be reached at all. A list that
      * stopped at six and gave no sign of it left every counter past the sixth invisible and
      * unchangeable - which is not a small bug on a card somebody has been stacking counters
@@ -3891,7 +3860,6 @@ public final class DevScene {
 
     /**
      * A best-of-three with game one over, so the sideboard screen has a reason to be open.
-     *
      * <p>Played rather than faked: a table goes down, a deck goes on it, the other seat scoops
      * and the server offers the screen the way it does for anybody. What is being photographed
      * is the one screen in the mod nothing had ever opened, and half of what could be wrong
@@ -3964,7 +3932,6 @@ public final class DevScene {
 
     /**
      * Plays a short game out on a real table and ends it, then asks for the shelf.
-     *
      * <p>Two seats, a deck down, a hand drawn, and the session ended the way the command ends
      * one - so what lands on the shelf came through the same code a real game does. The hand
      * matters: a replay of a board with nothing hidden on it would photograph nothing worth
@@ -4036,7 +4003,6 @@ public final class DevScene {
 
     /**
      * Clicks the top row of the list, which is the game that just finished.
-     *
      * <p>By position rather than by label, unlike everything else here: a row's label is the
      * names of whoever played and the minute they played at, so there is nothing stable to
      * name it by. The first widget of the panel is the newest game, which is the ordering the
@@ -4080,7 +4046,6 @@ public final class DevScene {
 
     /**
      * The disclosure, checked on screen rather than only in a test.
-     *
      * <p>A hand is a count and nothing else to everybody at a live table, including the
      * spectator this scene has been watching as. If a replay of a finished game showed it the
      * same way, the whole feature would be a slideshow of empty boards.
@@ -4100,7 +4065,6 @@ public final class DevScene {
 
     /**
      * Every gesture a player would use on a live board, on a replay.
-     *
      * <p>None of them may do anything. The guards live in four separate handlers, so this
      * presses through all four: a click on the felt, a drag, the tap key, and the key that
      * passes the turn.
@@ -4138,7 +4102,6 @@ public final class DevScene {
 
     /**
      * Cards in the pot at the table this run has been playing on.
-     *
      * <p>Put there on the server and sent out the way a real stake would be, so what is being
      * looked at is the drawing: whether a row of cards in the middle of a table reads as a
      * pot rather than as somebody having dropped their hand.
@@ -4203,7 +4166,6 @@ public final class DevScene {
 
     /**
      * The question a table playing for keeps is asked.
-     *
      * <p>Delivered the way the server delivers it. The scene's server has ante off - it has
      * collection off, and ante needs collection - so the path that puts this on screen cannot
      * run here. What is being looked at is the screen: the one place in the mod that stands
@@ -4241,7 +4203,6 @@ public final class DevScene {
 
     /**
      * Decks on the loaner shelf, put there rather than read out of a folder.
-     *
      * <p>What the folder becomes is a pure rule with its own tests. What is being looked at
      * here is the screen a new player is shown, which wants a shelf with enough on it to say
      * whether a list of names reads as a list of names.
@@ -4315,7 +4276,6 @@ public final class DevScene {
 
     /**
      * Cards in the inventory, so the trade screen has something of mine to list.
-     *
      * <p>Given on the server, which is where an inventory lives: the client copy arrives on
      * its own, and a card put straight into the client's inventory would be one the server
      * would take back on the next sync.
@@ -4357,7 +4317,6 @@ public final class DevScene {
 
     /**
      * A trade, delivered the way the server delivers one.
-     *
      * <p>Not opened by walking up to a second player, because there is only one here. What is
      * being looked at is the screen: the two columns, the counts, and the agreement lights -
      * all of which are drawn from the payload and from this client's own inventory, which are
@@ -4417,7 +4376,6 @@ public final class DevScene {
 
     /**
      * A sealed pack on the screen, with something worth finding in it.
-     *
      * <p>The cards are made up and told to this client the way the server would tell it, so
      * the light coming out of the tear is decided by the same rule a real pack's would be.
      * What is being looked at is the drawing.
@@ -4485,7 +4443,6 @@ public final class DevScene {
 
     /**
      * A torn pack shows what was in it rather than an empty wrapper.
-     *
      * <p>The dead end this exists to catch: a pack that tears open beautifully and then sits
      * there is worse than one that never opened, because the player has been made to work for
      * nothing.
@@ -4518,7 +4475,6 @@ public final class DevScene {
 
     /**
      * A collection with a few real cards in it.
-     *
      * <p>Stocked on the server, which is where a collection lives - the client is told what
      * is in one only when somebody opens it, which is the thing being checked.
      */
@@ -4586,7 +4542,6 @@ public final class DevScene {
 
     /**
      * A collection that has cards in it shows them.
-     *
      * <p>The dead end this exists to catch: a block you can put a collection into and then
      * open onto an empty list, because the page never arrived or never asked.
      */
@@ -4667,7 +4622,6 @@ public final class DevScene {
 
     /**
      * The card being looked at leans toward the cursor, and the ones away from it do not.
-     *
      * <p>A grid where every card leaned the same way was the first thing this did: a card
      * three widths to the left of the cursor is still to its left, so without a falloff the
      * whole handful tipped one way like a stack about to go over. So both halves are checked
@@ -4697,7 +4651,6 @@ public final class DevScene {
 
     /**
      * A card you have just been given can be read where it is shown.
-     *
      * <p>The dead end this exists to catch: a reveal that hands over fourteen cards drawn at
      * thumbnail size and answers nothing when you try to look at one. Every other place the
      * mod draws a card answers the read-a-card key, and this was the one that did not.
@@ -4726,7 +4679,6 @@ public final class DevScene {
 
     /**
      * Drags a cursor across the wrapper, corner first.
-     *
      * <p>Through the screen's own mouse handlers rather than past them: a tear that works and
      * a tear nothing can reach look identical from the inside.
      */
@@ -4747,7 +4699,6 @@ public final class DevScene {
 
     /**
      * Three packs in the hotbar, one of each product a wrapper has a color for.
-     *
      * <p>Set client-side, which is all a picture of an item needs: what is drawn is what this
      * client's own inventory holds. The symbol on each is fetched by this client from
      * Scryfall exactly as it would be in a real game.
@@ -4768,7 +4719,6 @@ public final class DevScene {
 
     /**
      * Every pack in the hotbar has its set's symbol by now, or says which has not.
-     *
      * <p>Not fatal on its own: this fetches from somebody else's server, and a run with no
      * network is a run that cannot check this rather than a broken mod. What it must never do
      * is pass quietly while drawing nothing.
@@ -4801,7 +4751,6 @@ public final class DevScene {
 
     /**
      * Changes the interface size, and says so only if it actually changed.
-     *
      * <p>Minecraft clamps the scale to what the window can show - at the size this runs at,
      * anything above two is two - so asking for three did nothing at all, and the run went on
      * to photograph the same frame under the name "a bigger interface" and to check the board
@@ -4859,7 +4808,6 @@ public final class DevScene {
 
     /**
      * Puts a table down in front of the player and starts a game on it.
-     *
      * <p>On the server's own thread. The client and the integrated server share a process and
      * not a thread, and blocks placed from the wrong one are a race that shows up as a table
      * with a corner missing about one run in five.
@@ -4885,7 +4833,6 @@ public final class DevScene {
 
     /**
      * Walks back to the table and opens the board.
-     *
      * <p>The walking matters. The camera has just been eleven blocks away photographing
      * furniture, and every verb the server decides is checked against TableReach first - so
      * opening the screen alone would put a board in front of a player standing too far from
@@ -4961,7 +4908,6 @@ public final class DevScene {
 
     /**
      * Opens the one question a blank card asks: what should it say.
-     *
      * <p>Both stocks go through here because they are the same act with a different word on
      * the menu, and a scene that drove them separately would be two copies of one path - the
      * thing the mod itself refuses to have.
@@ -5003,7 +4949,6 @@ public final class DevScene {
 
     /**
      * Says something to the table, typed the way a player types it.
-     *
      * <p>Through the board's own key handling rather than by sending the payload, because the
      * thing most likely to break is the handling: a board where the chat key played a card,
      * or where the letters of the sentence did, is a board nobody can talk at.
@@ -5054,7 +4999,6 @@ public final class DevScene {
 
     /**
      * Answers the set-completion question the way a server with a network would.
-     *
      * <p>Four sets covering what the screen has to draw differently: one finished, one most of
      * the way, one barely started, and one whose extras outnumber what it has of the set
      * itself. Sent as the payload rather than poked into the screen, so what is checked is the
@@ -5080,7 +5024,6 @@ public final class DevScene {
 
     /**
      * Puts the card under the cursor on the wants list.
-     *
      * <p>Through the screen's own click rather than by calling the network directly, because
      * what is being checked is that pressing a row of this list is what does it.
      */
@@ -5109,7 +5052,6 @@ public final class DevScene {
 
     /**
      * The server put it on the list and said so.
-     *
      * <p>Checked rather than assumed, because the client deliberately does not mark its own
      * card: a full list is refused, and a screen that marked what it hoped for would show a
      * card nobody is chasing with nothing to ever correct it.
@@ -5129,7 +5071,6 @@ public final class DevScene {
 
     /**
      * Answers the question a pressed set asks, the way a server with a network would.
-     *
      * <p>A short set rather than a real one: what is being checked is that the list draws,
      * scrolls and reads a card into the inspect panel, none of which needs three hundred
      * rows. Sent as the payload rather than poked into the screen, so the whole path from the
@@ -5155,7 +5096,6 @@ public final class DevScene {
 
     /**
      * A card with a history, held up and read.
-     *
      * <p>Put into the hand here rather than won in an ante game two hundred steps back,
      * because what is being looked at is the reading of it: the four things that write a
      * story are checked in world by CardStoryGameTest, where they belong, and the picture
@@ -5212,7 +5152,6 @@ public final class DevScene {
 
     /**
      * Fills the hotbar with decks, each painted the way a newly built one is.
-     *
      * <p>Rolled rather than handed fixed colors, because what is being photographed is the
      * thing a player actually gets: eight decks made one after another, and whether they come
      * out telling apart.
@@ -5244,7 +5183,6 @@ public final class DevScene {
 
     /**
      * Every deck on the shelf came out in a color, and they are not all the same one.
-     *
      * <p>Two failures this catches, both of which look fine in a screenshot taken from the
      * wrong angle: a box drawn white because the color never reached the item, and a wheel
      * that has collapsed so eight decks are three colors.
@@ -5286,7 +5224,6 @@ public final class DevScene {
 
     /**
      * Puts a foil copy of a card this client can already draw into the player's hand.
-     *
      * <p>A foil rather than any card, because the shine is what is being looked at - and a
      * card the client has already been told about, because the read draws from what has
      * arrived rather than asking for anything. Set on the server player so it comes back down
@@ -5367,7 +5304,6 @@ public final class DevScene {
 
     /**
      * One of each other material, in a row.
-     *
      * <p>Placed rather than crafted: what is being checked is how they look, and the recipe
      * is checked by the recipe file existing. Three tables two apart, so each is whole and
      * none of them merge into a cluster - a row of separate tables reads as a catalog,
@@ -5404,12 +5340,10 @@ public final class DevScene {
 
     /**
      * Stands a shopkeeper and a zombie shopkeeper on the flat, in the light.
-     *
      * <p>Both, because they are two different textures for one profession and the zombie one
      * is the easier of the two to get wrong: it lives in a folder of its own that vanilla
      * looks in with the same profession key, so a file in the right place under the wrong
      * folder renders a plain zombie villager and says nothing about why.
-     *
      * <p>Held still and facing the camera. A villager left to itself wanders, turns its back
      * and goes to sleep, and a photograph of the back of a villager's head says nothing about
      * a texture drawn on its front.
@@ -5466,7 +5400,6 @@ public final class DevScene {
 
     /**
      * Puts one on the floor, in the trade, facing the camera and staying there.
-     *
      * <p>The profession has to be set through {@code setVillagerData} on both, because the
      * two classes do not share a supertype that carries it - and the level matters as well as
      * the profession: the badge on the belt is drawn from it, and a level of zero draws
@@ -5496,7 +5429,6 @@ public final class DevScene {
 
     /**
      * Steps in close enough to read the cloth, in front of one of them.
-     *
      * <p>One each rather than one of the pair, because they are two textures and the whole
      * question is whether each of them is the right one in the right place. A photograph with
      * both in it answers that only for whichever is nearer the middle.
@@ -5556,7 +5488,6 @@ public final class DevScene {
 
     /**
      * Throws a card on the floor in front of the player.
-     *
      * <p>A real dropped item rather than an item rendered by hand: what is being looked at is
      * the model's ground transform, which is the one thing no screen in this run exercises.
      * Spawned by the server, like everything else here, so what lands on the floor is what a
@@ -5614,7 +5545,6 @@ public final class DevScene {
 
     /**
      * There really is a card on the floor to be looking at.
-     *
      * <p>Which way up it is landing cannot be read from here - it is a model transform, and
      * the only honest check of that is the picture. What this can say is that the picture has
      * something in it, so a run where the drop silently did nothing does not quietly publish
@@ -5657,12 +5587,10 @@ public final class DevScene {
 
     /**
      * Builds a second cluster away from the game, seats four, and deals a cube round it.
-     *
      * <p>A real pod on real blocks rather than a view assembled on the client: the whole
      * point of the harness is that a packet somebody breaks stops the run, and a screen fed
      * by hand would go on passing after the day the payload stopped arriving. This client is
      * one of the four, so what it is looking at is a pack the server decided it may see.
-     *
      * <p>Two tables side by side along x, because seats are only ever on the north and south
      * edges - stacked the other way, the cluster buries the two edges that seat anybody.
      */
@@ -5761,7 +5689,6 @@ public final class DevScene {
 
     /**
      * The two cards clicked are marked as taken, and the screen says so.
-     *
      * <p>Read off what the footer wrote rather than off the selection again: a check that
      * asks the screen what it has selected passes even when the screen draws no sign of it,
      * and a pick of two with nothing marked is a pick nobody can tell they have made.
@@ -5794,7 +5721,6 @@ public final class DevScene {
 
     /**
      * Having picked, this drafter is waiting on the other three.
-     *
      * <p>Which is the state a draft spends most of its time in, and the one place a pod can
      * silently stall: if the server never answered, the screen would still be offering a
      * take button over a pack the pod has moved on from.
@@ -5822,10 +5748,8 @@ public final class DevScene {
 
     /**
      * Opens the deck screen on a deck in this client's hand.
-     *
      * <p>Through the hook the keybind uses rather than by constructing the screen, so this
      * goes on passing only while the way a player actually reaches it still works.
-     *
      * <p>The deck is put in the client's own hand, which is all this step needs: what is
      * checked here is what the screen draws, and the screen reads the client's copy. What
      * the server does when a land button is pressed is checked where it can be checked
@@ -5860,7 +5784,6 @@ public final class DevScene {
 
     /**
      * Every sleeve that carries a picture has one the game can actually load.
-     *
      * <p>The pictures are Minecraft's own item and block art, named by the sleeve itself, and
      * a path that is wrong by one letter draws the purple checkerboard and says nothing. This
      * is the only place in the run with a resource manager to ask, which is why it is asked
@@ -5911,7 +5834,6 @@ public final class DevScene {
 
     /**
      * A few loose cards in the inventory, so the pockets builder has something to show.
-     *
      * <p>Handed out on the server, like every other thing this scene gives the player: the
      * client's copy of the inventory is a copy, and a builder that read cards the server has
      * never heard of would pick cards that cannot be sleeved.
@@ -5946,12 +5868,10 @@ public final class DevScene {
 
     /**
      * The gallery: every look wearing the same three screens.
-     *
      * <p>Three because they are the three that show most of what a look is - a grid of cards
      * in a recessed box, a panel with a list down it, and the full-screen read, which is the
      * one thing drawn over the world rather than over a backdrop. A five-colour card for the
      * read, so every mana orb is on screen at once.
-     *
      * <p>Driven by arithmetic rather than by a case each: there are as many looks as the
      * resource packs installed happen to declare, which is not a number this file can know.
      */
@@ -6000,11 +5920,9 @@ public final class DevScene {
 
     /**
      * Holds the read key down, or lets it go.
-     *
      * <p>The overlay asks a supplier whether the key is held, so this answers that question
      * rather than pretending to press anything: there is no way to hold a real key across a
      * scripted frame, and a screenshot of a keyboard event is not what is wanted anyway.
-     *
      * <p>The loader's own binding is replaced for the rest of the run. That is fine and only
      * fine here: the gallery is the last thing this scene does before it quits.
      */
@@ -6014,7 +5932,6 @@ public final class DevScene {
 
     /**
      * A card of all five colors in the player's hand, for the read.
-     *
      * <p>Five colors so the whole palette of orbs is on one screen, which is the thing worth
      * comparing between looks. Set client-side, because what the read draws is what this
      * client believes it is holding.
@@ -6091,7 +6008,6 @@ public final class DevScene {
 
     /**
      * Pressing a color's orb actually turns that color on.
-     *
      * <p>The orb is a picture and the state is a line under it, so neither is something a
      * photograph can be trusted to settle. Asked of the query the screen is really holding.
      */
@@ -6108,7 +6024,6 @@ public final class DevScene {
 
     /**
      * A collection opened by somebody carrying loose cards offers to take all of them.
-     *
      * <p>The gesture happens on the block, before this screen is open, so this line is the
      * only place it can be found - which makes a line that stopped appearing a feature that
      * silently stopped existing. Asked of the screen rather than read off the picture.
@@ -6146,7 +6061,6 @@ public final class DevScene {
 
     /**
      * Shift-click puts every copy in at once.
-     *
      * <p>The whole point of the row: one press per printing rather than one per card. A
      * shortcut that quietly added one would look identical in a photograph.
      */
@@ -6182,7 +6096,6 @@ public final class DevScene {
 
     /**
      * A few cards this client already knows the names of.
-     *
      * <p>Out of the cache the collection was stocked from, so the deck screen photographs as
      * a list of card names rather than a list of "not looked up yet".
      */
@@ -6206,7 +6119,6 @@ public final class DevScene {
 
     /**
      * All five basics are on the deck screen, each with somewhere to be clicked.
-     *
      * <p>A drafted pool is forty-five spells: without these there is no legal deck to build
      * from one at all, so a button missing or drawn off the panel is a draft that ends in a
      * deck nobody can put down.
@@ -6269,7 +6181,6 @@ public final class DevScene {
 
     /**
      * Crouches at the table, which is the gesture that asks what kind of game this is.
-     *
      * <p>Through the block rather than by opening the screen directly: the screen arrives as a
      * packet, and a harness that skipped the packet would go on passing after the day somebody
      * broke the way it is asked for.
@@ -6312,7 +6223,6 @@ public final class DevScene {
 
     /**
      * Where on the screen the played card should have landed.
-     *
      * <p>The near mat's middle. Aimed at the layout rather than at a remembered pixel, so it
      * keeps pointing at the card when the layout changes - which it has, twice.
      */
@@ -6345,7 +6255,6 @@ public final class DevScene {
 
     /**
      * The pixel that points at a given spot on the felt, found by sweeping the window.
-     *
      * <p>There is no screen rectangle to aim at once the board is the real table: the only
      * way back from a place on the felt to a pixel is the way the pointer goes forwards. So
      * every fourth pixel is asked what it is over and the nearest answer wins - two thousand
@@ -6434,7 +6343,6 @@ public final class DevScene {
 
     /**
      * Presses a card in hand and drags it over a zone, without letting go.
-     *
      * <p>Split from {@link #dropWhereItIsAimed} so there is a frame to photograph while the
      * card is still in the air. What lands where is already checked; what was never looked at is
      * whether the player can tell, before they commit, which of four slots a card an inch
@@ -6480,13 +6388,11 @@ public final class DevScene {
 
     /**
      * Checks the board worked out which slot the card in the air is over, and says which.
-     *
      * <p>Two halves, tested apart, because the cursor cannot be moved mid-drag from here:
      * {@code glfwSetCursorPos} does not reach a frame that already has a button held, so a
      * scripted drag reports one position and the board draws from another. That is the
      * harness's problem and not the mod's - the first time this was asked it read "slot -1",
      * which was the honest answer for the spot the card had been picked up from.
-     *
      * <p>So this checks the half that is reachable: that the board computes an answer at all
      * and names the slot it arrived at. Whether a lit slot is drawn lit cannot be scripted
      * from here - the aim is recomputed from the cursor on every frame, so a value set by
@@ -6525,13 +6431,11 @@ public final class DevScene {
 
     /**
      * Every zone slot the board draws names itself when asked what is at its middle.
-     *
      * <p>This is the half of the aim that decides everything, and the half that can drift.
      * Two pieces of arithmetic have to agree - the one that lays a slot out and the one that
      * says which slot a point is on - and they are told the count separately. Give one of
      * them four while the other draws five and a card lands in a zone that never lit up,
      * which reads as a broken highlight rather than as two numbers disagreeing.
-     *
      * <p>Asked of the middle of each slot's own drawn rectangle, so it is the board checking
      * itself rather than the run checking a layout it worked out separately.
      */
@@ -6562,7 +6466,6 @@ public final class DevScene {
 
     /**
      * Checks the library's menu offers each of these by name.
-     *
      * <p>By the words on the row rather than by how many rows there are, because a count
      * passes while an entry is being renamed out from under it - and these are the rows a
      * player goes looking for when they want to do the thing.
@@ -6612,7 +6515,6 @@ public final class DevScene {
 
     /**
      * Drags the top card off a zone and onto the middle of the mat.
-     *
      * <p>The other half of the gesture: a zone that only ever swallowed cards was half a
      * zone, and a scripted run that only ever put cards in never noticed.
      */
@@ -6664,7 +6566,6 @@ public final class DevScene {
 
     /**
      * A watcher's board runs to the bottom of the window, because they have no hand.
-     *
      * <p>The strip along the bottom belongs to a hand, and reserving it for somebody who has
      * none costs them twice: the board is fitted into a shorter window and pushed up under
      * the status row, and the fifth of the felt beneath the strip stops answering the mouse -
@@ -6691,7 +6592,6 @@ public final class DevScene {
 
     /**
      * Opens the table menu and asks it for a token, which is the first of two questions.
-     *
      * <p>Worth walking because it is the only place in the mod that takes a line of typing
      * from a player, and because two child screens in a row is the shape most likely to
      * strand somebody: the second one's way back has to be the board and not the first.
@@ -6714,7 +6614,6 @@ public final class DevScene {
 
     /**
      * Types a name into the deck screen's title.
-     *
      * <p>The only box on that screen, and the point of it: a deck started by putting two
      * cards together has no name, and this is where it gets one.
      */
@@ -6756,7 +6655,6 @@ public final class DevScene {
 
     /**
      * Drags the last card of a scry to the front and checks the order followed it.
-     *
      * <p>A press that has not moved is a click and toggles the card instead, so the drag is
      * made the way a hand makes one: press, move, release somewhere else. Checking the order
      * rather than the picture, because a row that looks rearranged and sends the old order to
@@ -6793,7 +6691,6 @@ public final class DevScene {
 
     /**
      * Checks something is actually crossing the felt, rather than having teleported.
-     *
      * <p>Cards used to change zones with nothing in between: in a library one frame and in a
      * hand the next, with a line of text as the only account of it. This is the check that
      * the journey happens at all - and it has to be made while the journey is going on, which
@@ -6817,7 +6714,6 @@ public final class DevScene {
 
     /**
      * Checks a shuffled library is visibly being shuffled.
-     *
      * <p>A shuffle moves no card between zones and changes no count, and the order it changes
      * is the order nobody is entitled to know - so it is the one move that leaves the board
      * looking exactly as it did. Without this it is a line in the log and nothing else.
@@ -6844,7 +6740,6 @@ public final class DevScene {
 
     /**
      * Checks that framing the whole table shows the whole table.
-     *
      * <p>Every mat, whole, with its borders inside the view - which is the claim the framing
      * makes and the one thing that makes it worth having a key for. A mat fitted flush
      * against the edge of the view has a border drawn on the same row of pixels as whatever
@@ -6880,7 +6775,6 @@ public final class DevScene {
 
     /**
      * Dyes the felt on the server, with nothing else touching the world.
-     *
      * <p>Through the block entity rather than by putting dye in a hand and clicking, because
      * what is being photographed is whether the client redraws - and a right-click on a table
      * is a block update in its own right, which would rebuild the chunk anyway and hide the
@@ -6906,7 +6800,6 @@ public final class DevScene {
 
     /**
      * Drags the board with the middle button, the way a player slides a table about.
-     *
      * <p>Through the screen's own mouse handlers rather than by calling the camera, because
      * what is being checked is the whole path from a drag to a picture - and the step in the
      * middle, turning pixels into blocks, is exactly the one that was wrong.
@@ -6930,7 +6823,6 @@ public final class DevScene {
 
     /**
      * Checks the board moved as far as the hand did, and the same way.
-     *
      * <p>The felt under a known pixel is watched across the drag: slide the window forty
      * units and the place that was under that pixel has to end up forty units away, in the
      * direction the hand went. Both halves have failed. The board used to convert a drag with
@@ -6976,13 +6868,11 @@ public final class DevScene {
 
     /**
      * Checks that "show me everything" shows the same amount of table in both views.
-     *
      * <p>The claim the whole two-view design rests on is that they differ only in whether a
      * point is a pixel or a place on the felt. A player who presses the same key in both and
      * gets a board a fifth smaller on the real table has been told, without anybody saying
      * it, that the real table is the worse one - and that is exactly what "the card images
      * render so tiny" is a report of.
-     *
      * <p>Measured through the projection the game drew with, because the board on the block
      * has no screen rectangle of its own: everything it knows about itself is in surface
      * units, which say where a mat is and nothing about how big it comes out.
@@ -7043,7 +6933,6 @@ public final class DevScene {
 
     /**
      * Checks that resting on a pile names it and says what a press would do.
-     *
      * <p>A pile is a black box with a number on it. The word beside it goes when the board is
      * drawn small, and even when it is there it does not say that the box can be opened - so
      * without this a player's only route to a graveyard is trying things.
@@ -7070,7 +6959,6 @@ public final class DevScene {
 
     /**
      * What screen the last gesture left us on, and whether that is where it should have gone.
-     *
      * <p>A scripted run that only narrates is a run somebody has to read. Saying what was
      * expected turns each step into something that can fail on its own, so a flow that stops
      * working stops the build rather than quietly producing one duller picture.
@@ -7098,12 +6986,10 @@ public final class DevScene {
 
     /**
      * Puts the cursor somewhere without clicking, so a frame is drawn with it hovered.
-     *
      * <p>The real cursor, not just a call to {@code mouseMoved}. Every frame a screen draws is
      * handed the pointer's actual position, and the board on the block works out what is
      * under it from that, so a harness that only tells the screen it moved photographs a
      * board with the cursor still parked in the middle of the window.
-     *
      * <p>Moving it takes two goes. {@code glfwSetCursorPos} is documented to do nothing for a
      * window without input focus, and a window under a headless X server never has any - so
      * the ask goes in first, for the case where this is being watched on a real desktop, and
@@ -7138,7 +7024,6 @@ public final class DevScene {
 
     /**
      * Looks at the top of this player's own library and opens the screen that decides.
-     *
      * <p>Straight to the screen rather than through the library menu: a context menu row has
      * no widget to press, and what is worth checking is that a decision reaches the game - the
      * menu entry that opens this is one line.
@@ -7157,7 +7042,6 @@ public final class DevScene {
 
     /**
      * Checks a surveil says where the cards it bins are going, and says the graveyard.
-     *
      * <p>The two decisions this screen makes differ in exactly one word, and that word is the
      * whole difference between the two verbs. Read off the screen rather than off the enum,
      * because a screen that carries the right decision and writes the other one's wording is
@@ -7176,7 +7060,6 @@ public final class DevScene {
 
     /**
      * Sits somebody down opposite, with a deck, so the table is a game rather than a solo.
-     *
      * <p>Through the session rather than through the world, because what is wanted is a second
      * occupied seat and not a second Minecraft client - and every board rule worth checking
      * here is about what the seats say, not about who is holding the mouse.
@@ -7244,7 +7127,6 @@ public final class DevScene {
 
     /**
      * The rival plays a card and then slides it across their own mat.
-     *
      * <p>Through the session rather than through this client, which is the point: a card
      * somebody else moves is the case the traveling had to cover, and the only case where
      * this client is a spectator of the movement rather than the cause of it. It is also the
@@ -7318,7 +7200,6 @@ public final class DevScene {
 
     /**
      * Plays a commander out, so the next step can send it home again.
-     *
      * <p>The single most common thing anybody does with a commander, and the one the second
      * slot most easily gets wrong: with a partner still at home, "the command zone" as a
      * destination has two answers and only one of them is right.
@@ -7352,7 +7233,6 @@ public final class DevScene {
 
     /**
      * Sends it back the way the menu would, and checks the menu's answer was its own slot.
-     *
      * <p>Asking the same thing the menu entry asks, so what is checked is the rule the player
      * would actually get rather than a second copy of it written for the test.
      */
@@ -7427,7 +7307,6 @@ public final class DevScene {
 
     /**
      * Whether every enemy commander's name has arrived, so a damage row can say who it is.
-     *
      * <p>Known through the same two hops the counters screen uses: the commander's id to its
      * visible view for the printing, the printing to the client cache for the name. The
      * server pushes both with the view that showed the card, so by the time the screen is
@@ -7478,7 +7357,6 @@ public final class DevScene {
 
     /**
      * Checks a player can reach the end of a game, and then does not end it.
-     *
      * <p>Conceding is the only verb at this table that finishes a game. The machinery behind
      * it was complete and tested on the server and reachable from nothing at all, so a game
      * could be started and never finished.
@@ -7544,7 +7422,6 @@ public final class DevScene {
 
     /**
      * Right-clicks bare felt until the table's own menu is up.
-     *
      * <p>Not the middle of the board: by this point there are cards there, and a right-click
      * on a card opens that card's menu instead.
      */
@@ -7583,7 +7460,6 @@ public final class DevScene {
 
     /**
      * Leaves the table the way a player leaves it: off the board's own menu.
-     *
      * <p>It used to click the edge the player was sitting at, because that gave up the chair.
      * That click opens the board now - it is the one click a seated player standing at their
      * own side of the table most wants to make - so standing up moved to the table menu, and
@@ -7609,7 +7485,6 @@ public final class DevScene {
 
     /**
      * A graveyard is public, so somebody who is only watching the game may read one.
-     *
      * <p>Guards a click that used to be swallowed: the board asked for the viewer's own seat
      * before it would open anybody's pile, so a spectator clicking a graveyard got nothing at
      * all - no screen, no message, and a click sound saying it had worked.
@@ -7681,7 +7556,6 @@ public final class DevScene {
 
     /**
      * Picks a card up on the board drawn on the block and leaves it in the air.
-     *
      * <p>Nothing about a card mid-drag can be photographed once it has been let go, and the
      * two things worth looking at there - how big it is, and whether the table says where it
      * would land - only exist while it is up.
@@ -7699,7 +7573,6 @@ public final class DevScene {
 
     /**
      * The life total is inside the window at the framing a player spends the game in.
-     *
      * <p>It sits off the far edge of the mat rather than on it, and the opening view was
      * fitted to the mat alone - so the one number the game is played to was just past the top
      * of the window, on a board framed the way it is framed for the whole game.
@@ -7749,11 +7622,9 @@ public final class DevScene {
 
     /**
      * Every seat at the table has a counter with both ends placed on it.
-     *
      * <p>Pressing only ever reaches the chair this run sits in, and only the near one: the
      * far seat's counter is drawn turned round to face its own player, and a table where that
      * one had no ends at all would look perfectly right from here.
-     *
      * <p>What it does not check is that the sign on an end and the direction a press on it
      * goes are the same. They cannot differ: both come off one method on the surface, and a
      * core test states the arithmetic for a counter drawn either way round. Asked of the
@@ -7796,7 +7667,6 @@ public final class DevScene {
 
     /**
      * Resting on a life counter names whose it is, says what it is, and says it is a button.
-     *
      * <p>A number floating on the table between two boards belongs to one of them, and which
      * one is the whole question a four-seat table asks. The two hints matter as much: the
      * ends are buttons and nothing on the felt says so, so a counter that named itself and
@@ -7834,7 +7704,6 @@ public final class DevScene {
 
     /**
      * Empties this player's hand onto the battlefield, a card at a time.
-     *
      * <p>An empty hand is a real state, and not a rare one: it is the last turn of every
      * aggressive game and the first turn of a mulligan to nothing. The board still has to lay
      * out a fan of no cards, decide that no card is under the cursor, and leave the strip
@@ -7859,7 +7728,6 @@ public final class DevScene {
 
     /**
      * Puts back exactly the cards the hand was emptied of.
-     *
      * <p>Not a fresh draw. Drawing spends library, and by this point in the run the deck is
      * down to single figures - so refilling by drawing left the scry with nothing to order
      * and the draw button on the block with nothing to draw, three steps later and with no
@@ -7879,7 +7747,6 @@ public final class DevScene {
 
     /**
      * A board with nothing in hand still draws, still answers the mouse, and still says so.
-     *
      * <p>The fan is laid out from the number of cards in it, and a run that never emptied a
      * hand would never have divided by that number.
      */
@@ -7915,7 +7782,6 @@ public final class DevScene {
 
     /**
      * The setup screen spells out the game it is about to start, and says this.
-     *
      * <p>Three buttons were pressed here and nothing was ever asked about the result, so a
      * button that quietly stopped choosing anything would have gone on passing. What the
      * screen writes at the foot of itself is the thing a player reads before committing, so
@@ -7940,7 +7806,6 @@ public final class DevScene {
 
     /**
      * The board this client just stood up from is still on the table.
-     *
      * <p>Standing up releases the chair and leaves the cards exactly where they were, and
      * everything that drew a mat asked whether somebody was sitting at it - so the board this
      * run had spent eighty steps building became a battlefield with no zones behind it the
@@ -7986,7 +7851,6 @@ public final class DevScene {
 
     /**
      * A box holding one card does not cover half the table.
-     *
      * <p>The point of shrinking these screens: what is behind them is the board, and the
      * board is what most of the decisions taken on them are about. The cards were never what
      * made this one wide - the sentence under them was, because every hint used to end by
@@ -8016,7 +7880,6 @@ public final class DevScene {
 
     /**
      * Rests on somebody else's life counter while holding no seat at all.
-     *
      * <p>The watcher's case, which is the one the naming is really for. Sitting down puts
      * your own board under your own number and the rest can be worked out from where they
      * are; standing behind the table gives you four numbers on bare felt and nothing saying
@@ -8072,7 +7935,6 @@ public final class DevScene {
 
     /**
      * And it shows what has been taken, which at this moment is nothing.
-     *
      * <p>Two things at once. The screen can show a pool at all, which is the half of drafting
      * it was missing - the question a pack asks is "what am I building" and a number cannot
      * answer it. And a pick that has been declared but not resolved is <em>not</em> in the
@@ -8117,7 +7979,6 @@ public final class DevScene {
 
     /**
      * A watcher presses the key that opens the game log.
-     *
      * <p>Which they could not do at all: the key gave up at the seat check and the table
      * menu refused to open without one, while the layout carried on reserving room for a
      * panel nobody without a chair could reach. The log is the public record of a public
@@ -8142,7 +8003,6 @@ public final class DevScene {
 
     /**
      * And what it says still names the player who stood up.
-     *
      * <p>Read off what the panel actually drew, not off the log again: a check that renders
      * the log a second time to see what the log says passes even when the panel draws
      * nothing. Every line in there was earned by this client while it was still sitting
@@ -8181,7 +8041,6 @@ public final class DevScene {
 
     /**
      * A watcher resting on a life counter is told whose it is.
-     *
      * <p>It used to be told nothing: the tooltip started by asking whether this client held
      * a seat and gave up if it did not, so the one viewer with no way to work out whose
      * number that is was the one viewer it refused to tell. What a watcher must not get is
@@ -8245,7 +8104,6 @@ public final class DevScene {
 
     /**
      * Right-clicking an end asks how much, and the answer goes that way.
-     *
      * <p>The half of this counter a swing for eleven needs. Pressed on the end marked plus,
      * so a run that ever lost track of which end is which would put the life the other way.
      */
@@ -8280,7 +8138,6 @@ public final class DevScene {
 
     /**
      * Presses one end of this player's own life counter.
-     *
      * <p>Aimed at the rectangle the board gives out, the same as every other press here: a
      * harness that owns a second copy of the layout goes on passing after the layout moves.
      *
@@ -8317,7 +8174,6 @@ public final class DevScene {
 
     /**
      * Presses the tax written under this player's own commander.
-     *
      * <p>Aimed at the rectangle the board itself gives out rather than at a pixel worked out
      * here, because a harness that owns a second copy of the layout is a harness that goes on
      * passing after the layout moves - which this run has been caught doing twice.
@@ -8396,7 +8252,6 @@ public final class DevScene {
 
     /**
      * Checks that resting on a button produces its name and the key that does the same.
-     *
      * <p>Both halves matter. The name is the only thing a player has when the board is drawn
      * too small for the word to be printed on the button itself, and the key is what turns
      * somebody who is clicking buttons into somebody who is playing at speed.
@@ -8428,7 +8283,6 @@ public final class DevScene {
 
     /**
      * Presses one of the buttons printed on the player's own mat.
-     *
      * <p>At the place the board says the button is, rather than by calling what the button
      * calls: a box drawn where nothing listens for a click is exactly the fault worth
      * catching, and calling the action directly would pass with no box drawn at all.
@@ -8454,7 +8308,6 @@ public final class DevScene {
 
     /**
      * Checks the board's own picker against the game's, at the one point they both answer for.
-     *
      * <p>Everything else in this run that asks where the cursor is asks {@link TablePointer},
      * including the helper that finds a card to hover - so a picker that is off by a constant
      * would place the cursor by its own wrong answer and then agree with itself. Minecraft's
@@ -8510,12 +8363,10 @@ public final class DevScene {
 
     /**
      * Checks the picker away from the middle of the screen, where the projection matters.
-     *
      * <p>The center only proves there is no constant offset: a camera looks along its forward
      * axis whatever its lens does. An offset that grows toward the edges - the shape a wrong
      * field of view or a wrong aspect ratio makes - passes that check and ruins every click
      * that is not dead center.
-     *
      * <p>The second answer is a ray built by hand out of where the camera is, the three axes
      * it faces along, and the half-angle the view frames with. No matrices, no viewport, no
      * unprojection: none of the arithmetic under test. If the two disagree then either the
@@ -8593,7 +8444,6 @@ public final class DevScene {
 
     /**
      * Hands the turn on, off the table's own menu.
-     *
      * <p>The whole of the turn structure: there is no phase marker any more, so a pass that
      * did not move the marker would leave a table with nothing at all saying whose turn it is.
      */
@@ -8613,7 +8463,6 @@ public final class DevScene {
 
     /**
      * Puts a couple of cards in the deck being built, and names one of them commander.
-     *
      * <p>Through the screen's own clicks rather than by reaching into its state, because what
      * is worth checking is that the cells are where the click test thinks they are - a grid
      * drawn to one rule and hit-tested against another is the bug this catches.
@@ -8653,7 +8502,6 @@ public final class DevScene {
 
     /**
      * Every gesture the board has, aimed at somebody who has no seat.
-     *
      * <p>Each of them is written for a player with a seat and several insist on one. Whether
      * the ones that insist can be reached without a seat is a question about control flow, and
      * reasoning about control flow is how an unreachable path that turns out to be reachable
@@ -8725,7 +8573,6 @@ public final class DevScene {
 
     /**
      * Says what the server thinks about who is sitting where, and what the client thinks.
-     *
      * <p>Because they disagree, and a picture of the disagreement does not say which side is
      * wrong. The board draws the right name against seat nought while the client believes it
      * is watching, so one of the two stores that answer "is this my seat" is not being read.
@@ -8770,12 +8617,10 @@ public final class DevScene {
 
     /**
      * Puts a card that prints a token onto the battlefield.
-     *
      * <p>Looked up by name and put down directly rather than found in the library: the deck
      * on the table by this point in the run is three cards repeated twenty times, and which
      * card is on the felt matters here in a way it does not for the loyalty steps - the row
      * under test is named after what the card prints, so the run has to know what it played.
-     *
      * <p>It arrives marked as a token, which is what every card the mod brings in from
      * outside a deck is marked as. That changes nothing about the rows being checked: the
      * tokens a card offers come off its printing, not off how it got to the table.
@@ -8827,7 +8672,6 @@ public final class DevScene {
 
     /**
      * Right-clicks the table with the deck, exactly as a player would.
-     *
      * <p>Through the real interaction rather than by calling whatever the table does with a
      * deck: a harness that reaches past the path players take stops testing that path, and the
      * path players take is the one that breaks.
@@ -8863,7 +8707,6 @@ public final class DevScene {
 
     /**
      * Draws this many cards the way a player would: one press of the draw key each.
-     *
      * <p>The number row used to draw its own number, so seven cards was one press of 7. It
      * carries a verb per key now, the way the reference table binds them, and 7 sends the card
      * being pointed at to the graveyard - so a run that still pressed it would set up a
@@ -8881,7 +8724,6 @@ public final class DevScene {
 
     /**
      * Clicks the button with this label, wherever the layout has put it.
-     *
      * <p>By label rather than by coordinates: a harness that clicks a fixed spot on the screen
      * stops working the first time somebody moves a button, and does it silently - it goes on
      * taking pictures of a screen nothing was pressed on.
@@ -8905,7 +8747,6 @@ public final class DevScene {
 
     /**
      * Nothing the collection draws for a card lands outside the box it is drawn in.
-     *
      * <p>A cell is not the card. The stack of copies leans up and to the right of it by three
      * pixels a card, and the ring round a hovered one sits two pixels outside it, so a grid
      * laid out against cells alone puts every stack of two or more through the top of the
@@ -8926,7 +8767,6 @@ public final class DevScene {
 
     /**
      * How thick the wall of a recessed box is: its nine-slice border, which is eight.
-     *
      * <p>Content belongs inside the frame, not on it. Three was measured off the neutral
      * theme's own inset and was only ever true there - Future Sight's chrome band is the full
      * eight, Arcade's rail is seven, and Retro's pressed border reads wider still. Eight is
@@ -8956,7 +8796,6 @@ public final class DevScene {
 
     /**
      * No control on this screen is labelled with a piece of punctuation.
-     *
      * <p>The page turns were "&lt;" and "&gt;". A button labelled that way reads at a glance
      * as text somebody forgot to finish, and it is what a screen reader is handed too - so
      * they are arrows now, with a real sentence behind them for the tooltip and the narrator.
@@ -8993,12 +8832,10 @@ public final class DevScene {
 
     /**
      * Every control on screen is on the screen, and no two are on top of each other.
-     *
      * <p>Run at every photograph rather than left to somebody looking at the picture, which
      * is how a pot ended up drawn across a life total: a thing checked on its own reads
      * perfectly and still lands on top of its neighbor, and the only reliable way to catch
      * that is to check it against everything else that can be on screen at the same time.
-     *
      * <p>Widgets only. What is drawn rather than added - felt, mats, the pot - has its
      * geometry checked where the geometry lives, in the pure layer, for the same reason.
      */

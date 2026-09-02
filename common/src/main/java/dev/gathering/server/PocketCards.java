@@ -15,11 +15,9 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Cards a player is carrying, going into the deck they are holding.
- *
  * <p>The bundle gesture already does this one slot at a time - carry a deck, right-click a
  * stack of cards, the stack goes in. What it could not do is forty slots, and forty slots is
  * what somebody has after opening a box. This is that, once.
- *
  * <p>The client names what it wants moved and the server moves it, checking each card is
  * really in that player's inventory before it goes anywhere. It has to be checked rather than
  * trusted for the ordinary reason: the list crosses the wire, and a list that was believed
@@ -79,11 +77,9 @@ public final class PocketCards {
 
     /**
      * The loose cards this player is carrying, counted the way a collection counts.
-     *
      * <p>Only cards lying about as items. A card already sleeved into a deck is in the deck,
      * a card in an open pack is in the pack, and neither is a card somebody is holding - so
      * neither is offered to a builder that would take it out of their pockets.
-     *
      * <p>Server-side and read straight off the real inventory, which is what makes it safe to
      * pool with a box: the counts a builder shows are counts the server itself worked out.
      */
@@ -109,7 +105,6 @@ public final class PocketCards {
 
     /**
      * Takes one copy of this card out of the player's own inventory, or says they had none.
-     *
      * <p>Matched on the card the stack carries rather than on the slot the client named,
      * because a slot index is a thing that moves: the inventory can be rearranged inside the
      * round trip, and taking whatever is in slot nine by then is how a request for a Forest

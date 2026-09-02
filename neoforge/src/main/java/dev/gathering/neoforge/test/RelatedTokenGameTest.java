@@ -19,7 +19,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The tokens a card makes, on their way to the client that draws the menu row.
- *
  * <p>The names come off Scryfall on the server and the row that offers them is on the client,
  * so the only thing between the two is this codec. It grew an eighth component to carry them,
  * past the point where {@code StreamCodec.composite} can be used, which means the two halves
@@ -57,7 +56,6 @@ public final class RelatedTokenGameTest {
 
     /**
      * A printing claiming more tokens than the wire allows is trimmed, not refused.
-     *
      * <p>The count is read off a socket before the names are, so the reader caps it. If the
      * writer did not cap it too, the two would disagree by exactly the overflow and every
      * card after this one in the same packet would be read as garbage.

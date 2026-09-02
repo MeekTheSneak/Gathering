@@ -10,17 +10,14 @@ import net.minecraft.world.InteractionHand;
 
 /**
  * Client to server: put these cards, which I am carrying, into the deck in this hand.
- *
  * <p>The gesture this exists for is the one that took the longest in the game. Loose cards go
  * into a deck a right-click at a time, one slot at a time, and a player who has just opened
  * six boosters is looking at forty slots and forty right-clicks. This is the same job as one
  * press of Finish on a screen where the cards were picked out.
- *
  * <p><b>Nothing here is believed.</b> The client names printings it thinks it is carrying;
  * the server looks for each one in that player's own inventory and takes it out itself. A
  * client that names a card it does not have gets a deck without it and a line saying so -
  * which is the same answer {@link BuildDeckPayload} gives for a card the box did not hold.
- *
  * <p>Only ever the sender's own inventory and the sender's own hand, so unlike the collection
  * there is nobody else's property to check the rights on.
  */
@@ -29,7 +26,6 @@ public record PocketCardsPayload(boolean offHand, List<CardComponent> cards)
 
     /**
      * The most that may be asked for at once.
-     *
      * <p>A deck is the natural bound: nothing larger can be put into one, and the number
      * crosses the wire, so a request for two billion cards must be refused rather than
      * allocated a list.

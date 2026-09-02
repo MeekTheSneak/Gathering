@@ -17,17 +17,13 @@ import org.joml.Matrix4f;
 
 /**
  * Draws a card as the actual card, rather than as a generic icon.
- *
  * <p>A card item in your hand shows its own printed face, fetched from Scryfall and cached
  * by this client. Turn it over and it shows the other side: the back face for a double-faced
  * card, and the card back for everything else.
- *
  * <p><b>The card back is ours.</b> The mod ships no Wizards artwork - that is a pillar of the
  * project, not an oversight - so the back is our own design, and it is the seed of the sleeve
  * system: a card's back is the sleeve it sits in, dyeable and eventually player-supplied.
- *
  * <p>Both loaders call this; only the plumbing that reaches it differs.
- *
  * <p>Client-only.
  */
 public final class CardFaceRenderer {
@@ -48,7 +44,6 @@ public final class CardFaceRenderer {
 
     /**
      * Renders the card held in this stack.
-     *
      * <p>Always draws something card-shaped. A stack with no card on it - the blank from the
      * creative tab - shows as a card back, which is what a blank card is; drawing nothing
      * would make the item invisible in the creative menu.
@@ -85,14 +80,11 @@ public final class CardFaceRenderer {
 
     /**
      * The texture for one side of a card.
-     *
      * <p>A double-faced card genuinely has two printed sides, so turning one over shows its
      * other face. Everything else has a front and a back, and its back is the sleeve it sits
      * in - our own artwork, never Wizards'.
-     *
      * <p>Art that has not been fetched yet falls back to the back rather than to nothing, so a
      * hand of cards looks like a hand of cards while it loads.
-     *
      * <p>Note that {@code flipped} currently means two things at once: "show me the other
      * printed side" for a double-faced card, and "this card is face down" for everything
      * else. That is the right shape for a card in hand. When the table arrives and face-down
@@ -122,14 +114,12 @@ public final class CardFaceRenderer {
 
     /**
      * The holographic layer over a foil's printed face.
-     *
      * <p>Reported as a foil in the hand rendering as a flat picture. The shine already
      * existed for a card being read on a screen; what it had no way to know out here is which
      * way the card is turned, because there is no cursor and there are many cards at once -
      * a hand, a slot, an item frame across the room. So it is read off the card's own pose:
      * how far each of its axes has tilted toward the camera is exactly the rake the sheen
      * wants, per card, with nothing shared between them.
-     *
      * <p>Untextured translucent quads on the main target, which is what {@code debugQuads}
      * is - vanilla's name for the state rather than a debugging tool. Drawn just in front of
      * the face so it lies on the picture rather than fighting it.
@@ -147,7 +137,6 @@ public final class CardFaceRenderer {
 
     /**
      * A number that belongs to this printing, so two foils on a table do not glitter alike.
-     *
      * <p>The same one the reading screen uses, from the same id, so a card picked up off the
      * felt has the grain it had a moment ago on the board.
      */
@@ -162,7 +151,6 @@ public final class CardFaceRenderer {
 
     /**
      * How finely the sheen is cut up on a card held in the hand.
-     *
      * <p>Far coarser than the reading screen's, which is twenty-six by thirty-six: this card
      * is an inch of screen, and a full inventory of foils at the reading mesh would be tens
      * of thousands of quads a frame for a shimmer nobody can resolve.
@@ -172,7 +160,6 @@ public final class CardFaceRenderer {
 
     /**
      * One textured quad.
-     *
      * <p>Two of them back to back with a hair of separation, rather than one double-sided
      * quad, so the card has a front and a back and neither z-fights with the other.
      */

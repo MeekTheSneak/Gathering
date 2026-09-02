@@ -8,21 +8,17 @@ import java.util.Optional;
 
 /**
  * A set as Scryfall lists it, and the rule for which one a server means by "the current set".
- *
  * <p>An admin who has not chosen a set means the one on the shelves, and Scryfall knows what
  * that is. Working it out here rather than shipping a set code means a server installed in
  * two years' time is still current on the day it starts, with nobody editing anything.
- *
  * <p>What counts is a **premier** set that has actually come out on paper: an expansion or a
  * core set. That is the shape of release that gets draft, set, collector and play boosters,
  * which is the whole of what a shelf and a loot table can offer. Everything else Scryfall
  * lists - commander decks, masters sets, tokens, promos, the Arena-only sets - is either not
  * a booster release or not paper, and a shop pinned to one of them is a shop pinned to
  * something nobody would call the current set.
- *
  * <p>Future sets are on the list too, months ahead of release. Today's date decides: a set
  * announced for December is not what a server in August should be selling.
- *
  * <p>Pure.
  */
 public record SetRelease(
@@ -53,13 +49,11 @@ public record SetRelease(
 
     /**
      * How many cards the set was printed as: the number on the bottom of every card in it.
-     *
      * <p>Not the same as {@link #cardCount}, and the difference is the whole of what "a
      * complete set" means. A modern release has a few hundred numbered cards and then several
      * hundred more sharing the same set code - borderless, extended art, showcase, promos,
      * the buy-a-box card - which are numbered above the printed size and which nobody counts
      * against you. A player who owns one of every card the set says it has owns the set.
-     *
      * <p>Falls back to the full count for the older sets Scryfall gives no printed size for,
      * where the two were the same thing anyway because nobody was printing variants yet.
      */
@@ -69,7 +63,6 @@ public record SetRelease(
 
     /**
      * Whether a card with this collector number is one of the numbered set.
-     *
      * <p>Collector numbers are text, not numbers: a card can be "103a" or a star. What counts
      * is the number it starts with, and a number that runs past the printed size - or one
      * that does not start with a digit at all - is one of the extras.
@@ -106,7 +99,6 @@ public record SetRelease(
 
     /**
      * Whether this had come out by a given day.
-     *
      * <p>Dates compare as text because Scryfall writes them as {@code YYYY-MM-DD}, where
      * that is the same answer as comparing them as dates and does not need a calendar.
      */
@@ -128,7 +120,6 @@ public record SetRelease(
 
     /**
      * The last few premier sets, newest first.
-     *
      * <p>What a server drawing its packs from more than one release is drawing from. Twelve
      * is about three years of Magic, which is the span a player has any feel for.
      *

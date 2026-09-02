@@ -14,28 +14,23 @@ import java.util.Set;
 
 /**
  * How much of a set somebody has.
- *
  * <p>The question every collector actually asks of a binder, and the one thing a pile of ten
  * thousand cards cannot answer by being looked at. A collection screen can already say what is
  * in it; this says what is <em>missing</em> from it, which is what makes the next pack worth
  * opening.
- *
  * <p><b>What counts as the set.</b> The numbered cards, and only those. A modern release has
  * a few hundred numbered cards and then several hundred more sharing the same set code -
  * borderless, extended art, showcase, promos, the buy-a-box card - numbered above the printed
  * size. Nobody counts those against you: a player who owns one of every card the set says it
  * has owns the set. So they are counted separately, as extras, because owning forty of them is
  * worth saying and is not worth being told you are forty short of anything.
- *
  * <p><b>One of each card, either finish.</b> A foil and a non-foil of the same card are the
  * same slot filled. A foil set is a different thing to collect and would be a different number
  * beside this one; claiming somebody is missing a card they are holding, because the copy they
  * are holding is shiny, would be the screen arguing with them.
- *
  * <p><b>Variants of one number fill one slot.</b> A card numbered {@code 12a} and one numbered
  * {@code 12b} are two printings of card twelve, so owning either fills twelve - see
  * {@link SetRelease#leadingNumber}.
- *
  * <p>Pure: this is arithmetic over what a player owns and what Scryfall says a set is, so it
  * is tested rather than played.
  */
@@ -66,7 +61,6 @@ public record SetCompletion(String code, String name, int owned, int size, int e
 
     /**
      * Most finished first, then whoever has more of it, then by name.
-     *
      * <p>"What am I closest to finishing" is the question somebody opens this to ask. The
      * second key matters more than it looks: a two-card set nobody prints boosters for would
      * otherwise sit above the release somebody has spent a month on.
@@ -78,7 +72,6 @@ public record SetCompletion(String code, String name, int owned, int size, int e
 
     /**
      * Works out how much of each set is here.
-     *
      * <p>A set the list of sets says nothing about is left out rather than shown with an
      * unknown size. Scryfall lists every set there has ever been, so that is a set whose data
      * has not arrived rather than one that exists - and a row reading "14 of ?" answers

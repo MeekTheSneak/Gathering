@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What the picture push offers a viewer, over a table with real and custom cards on it.
- *
  * <p>The safety half - only printings the view already revealed - is asserted by the
  * visibility suite. This checks the other half: the set it hands the sender has to be one the
  * sender can actually use.

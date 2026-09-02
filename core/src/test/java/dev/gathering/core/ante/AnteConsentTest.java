@@ -93,7 +93,6 @@ class AnteConsentTest {
 
     /**
      * Somebody who sits down after the question was asked has to be asked too.
-     *
      * <p>The seats are fixed when the question goes out, so without rebuilding against who is
      * actually there, a table could reach unanimity and start with a player who was never
      * asked - a card taken off somebody who did not agree, which is the single failure this
@@ -114,7 +113,6 @@ class AnteConsentTest {
 
     /**
      * Whatever anybody says in whatever order, a table is only settled when every seat is in.
-     *
      * <p>The property that matters, because the cost of getting it wrong is somebody losing a
      * card they never agreed to play for.
      */

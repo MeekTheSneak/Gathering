@@ -16,7 +16,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The color a deck box is painted, and that it stays painted.
- *
  * <p>The point of the color is that you find your deck by looking at the shelf. Two ways that
  * fails without a word from anything: a box that forgets its color when a card comes out of
  * the deck, and a box whose color never crosses the wire - the second of which would look
@@ -62,7 +61,6 @@ public final class DeckBoxColorGameTest {
 
     /**
      * Editing a deck does not repaint the box.
-     *
      * <p>The failure this guards is quiet and maddening: take one card out and your deck is a
      * different color on the shelf, so the one thing you were using to find it moves.
      */
@@ -90,7 +88,6 @@ public final class DeckBoxColorGameTest {
 
     /**
      * A painted deck survives the wire.
-     *
      * <p>The deck component's stream codec is written out by hand, because composing one
      * stops at six parts and a deck now has seven. Hand-written means the two halves can
      * disagree, and the failure would be invisible in single player: the box would be right

@@ -16,13 +16,11 @@ import javax.crypto.SecretKey;
 
 /**
  * A whole session, ready to be written down, and put back together again.
- *
  * <p>Two blobs: one readable, one sealed. Which of a session's parts goes where is not a
  * judgment call made here - the log's own {@code Secrecy} decides that - with one addition.
  * The shuffle seed goes in the sealed blob, because seed plus decklist is every card anybody
  * will draw for the rest of the game, which makes it more sensitive than any single hidden
  * card rather than less.
- *
  * <p>Seats, starting life and undo mode stay in the open. They are the shape of the table,
  * not its secrets, and keeping them readable is what lets a stored session be identified
  * without being unsealed.

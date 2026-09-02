@@ -64,23 +64,16 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The table, seen from above.
- *
- * <p>The whole screen is the felt. Every seat has a mat on it, everybody's board is visible at
- * once, and a camera says which part you are looking at - scroll to zoom, middle-drag to pan,
- * the way every table simulator works. This replaced four bands with a play surface panelled
- * into the middle of them, which was a menu with a game in it: you could only look at one
- * player's board at a time, which is the one thing a table is for.
- *
- * <p><b>There is no grid and no focused seat.</b> A card goes exactly where you dropped it, at
- * the angle you left it, on whosever mat you dropped it on - so stealing a creature is
- * literally dragging it to your side of the table, and the move event falls out of where it
- * landed rather than out of a mode somebody had to set first.
- *
- * <p>The screen draws only what it was sent. It never asks the game anything, because it has
- * not been told the game - it has been told a {@code GameView}, which is the board with
- * everything this player is not entitled to already removed. An opponent's hand is a number
- * here because a number is all that arrived.
- *
+ * <p>The whole screen is the felt: every seat has a mat, every board is visible at once, and
+ * a camera says which part you are looking at - scroll to zoom, middle-drag to pan, the way
+ * every table simulator works.
+ * <p><b>No grid and no focused seat.</b> A card goes exactly where you dropped it, at the
+ * angle you left it, on whosever mat you dropped it on, so stealing a creature is dragging it
+ * to your side of the table and the move event falls out of where it landed rather than out
+ * of a mode somebody set first.
+ * <p>The screen draws only what it was sent and never asks the game anything: it has been
+ * told a {@code GameView}, the board with everything this player is not entitled to already
+ * removed. An opponent's hand is a number here because a number is all that arrived.
  * <p>Client-only.
  */
 public final class TableScreen extends Screen {
@@ -126,7 +119,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The smallest a life counter is drawn at, and the smallest box worth drawing one in.
-     *
      * <p>Six-tenths is where the font stops being letters, which is the floor everything else
      * that shrinks in this mod uses. Four pixels is where the box itself stops being a box.
      */
@@ -139,7 +131,6 @@ public final class TableScreen extends Screen {
 
     /**
      * How long a press has to be held still before it means the whole pile, in milliseconds.
-     *
      * <p>Long enough that nobody picks up their graveyard by accident on the way to picking
      * up the top card of it, short enough that it is a gesture rather than a wait. Measured
      * against the same monotonic clock the card flights use.
@@ -151,7 +142,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The key list, in the order it reads best rather than the order the switch handles them.
-     *
      * <p>Translation keys only - the strings themselves live in the language file, because a
      * control list is exactly the thing somebody translating the mod has to be able to reword.
      */
@@ -197,7 +187,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The same list for somebody watching a game back, which is a much shorter one.
-     *
      * <p>Its own list rather than the game's with the verbs grayed out. A watcher cannot draw
      * a card or pass a turn, and a help panel that lists what you may not do is a panel that
      * has to be read twice before it says anything.
@@ -238,15 +227,12 @@ public final class TableScreen extends Screen {
 
     /**
      * The two ways of looking at this board, and which one is being used.
-     *
-     * <p>Both exist at once on purpose. The seated screen is a felt drawn on the window and it
-     * works; playing on the block is the same game seen through the game's own camera, and
-     * whether it is nicer to play is not a thing that can be decided by reading it. So there
-     * is a key that swaps them, and the answer comes from playing both.
-     *
-     * <p>They cost almost nothing to keep side by side, because the only thing they disagree
-     * about is what a point means - see {@link BoardPlacement}. Everything from working out
-     * which card is under the cursor onwards is the same code either way.
+     * <p>Both on purpose: the seated screen is a felt drawn on the window, and the block is
+     * the same game through the game's own camera. Which is nicer to play cannot be decided by
+     * reading it, so a key swaps them and the answer comes from playing both.
+     * <p>They cost almost nothing side by side, because the only thing they disagree about is
+     * what a point means - see {@link BoardPlacement}. Everything from finding the card under
+     * the cursor onwards is the same code.
      */
     private BoardGeometry geometry;
 
@@ -260,7 +246,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether the press currently down ever wandered.
-     *
      * <p>Latched, rather than asked of the cursor's position each frame: a drag that happens
      * to pass back over the point it started from is still a drag, and must not turn into a
      * long hold three seconds in because the hand came home.
@@ -269,7 +254,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The cards a player has picked out to act on together.
-     *
      * <p>Purely this client's idea. Nothing about a selection reaches the server: what gets
      * sent is the same events one card at a time would have sent, so a selection cannot do
      * anything a sequence of ordinary moves could not, and the log reads the same either way.
@@ -284,7 +268,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The cards waiting to be put onto something, once their host has been picked.
-     *
      * <p>A mode rather than a gesture, because dragging already means "put this here" and a
      * drop that sometimes attached and sometimes stacked would be a coin flip.
      */
@@ -306,7 +289,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Where the cursor was last frame.
-     *
      * <p>Key handlers are not given a mouse position, and every TTS object key acts on
      * whatever is under the cursor - so the screen has to remember where that was.
      */
@@ -326,7 +308,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Where a replay's board is filed in the client's per-table maps.
-     *
      * <p>The flights, the chat lines and the roll announcements are all kept by table, and a
      * replay has no table. Rather than teach four of them what a null means, it is given a
      * place no table can be - the world does not go down that far, so nothing a player builds
@@ -336,7 +317,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The same screen, showing a finished game instead of a live one.
-     *
      * <p>The same screen deliberately. A replay drawn by a second renderer would be a second
      * copy of every layout rule on the table, free to drift from the one people play on - and
      * the whole point of watching a game back is that it looks like the game did. What
@@ -354,7 +334,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether this screen is showing a finished game rather than a table in the world.
-     *
      * <p>Every guard in the screen that stops a watcher touching the board reads this, and so
      * does the frame handler, which must not open a second screen over the first.
      */
@@ -372,7 +351,6 @@ public final class TableScreen extends Screen {
 
     /**
      * What the cursor is resting on, if it is something that can say what it is.
-     *
      * <p>Collected while the felt is drawn and written out at the very end, because a
      * tooltip drawn where it is discovered would be painted over by the cards on top of it.
      */
@@ -393,7 +371,6 @@ public final class TableScreen extends Screen {
 
     /**
      * What the hand strip wrote in itself last frame, or empty when it drew cards.
-     *
      * <p>For the scripted harness, and recorded rather than worked out again: a strip with
      * nothing drawn in it and a strip with a line in it are the same to anything counting
      * cards, which is exactly why nobody noticed there was no line. Asked of the board state
@@ -405,7 +382,6 @@ public final class TableScreen extends Screen {
 
     /**
      * How many seats this screen drew a zone column for last frame. For the harness.
-     *
      * <p>Counted while drawing rather than worked out from the board, which is what makes it
      * worth asking at all: the run's first attempt at this asked the board how many seats had
      * a board, which is the same question the screen asks, so putting the old condition back
@@ -432,7 +408,6 @@ public final class TableScreen extends Screen {
 
     /**
      * What the last frame made of the card in the air. For the harness, as above.
-     *
      * <p>Written from inside the frame because that is the only place the answer exists: the
      * aim is computed while drawing, from the cursor the game passed in, and a harness asking
      * afterwards can only see whether it agreed - not which of the three steps said no.
@@ -443,7 +418,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which zone slot the last frame aimed a held card at, and which one lit up, or -1.
-     *
      * <p>Two numbers rather than one because they are worked out in two places that cannot
      * see each other - the aim while the held card is drawn, the light while the column is -
      * and the whole question is whether they agree. For the scripted harness.
@@ -460,7 +434,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which zone slot actually lit up as the target, last frame, or -1.
-     *
      * <p>Recorded where the ring is drawn rather than where the aim is worked out, because
      * those are two different places and the whole point is to find out whether they agree.
      * The aim is computed in {@link #renderHeldCard} and read back in {@link #drawPile}, and
@@ -480,7 +453,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which key the menu says does the same as this row, for the scripted run to check.
-     *
      * <p>Exists because the labels went wrong once and nothing noticed: the number row was
      * corrected against the reference table and the menu went on printing the old keys, so
      * the interface was teaching a player the wrong thing in the one place they were looking
@@ -498,7 +470,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Takes the menu entry with this label, if a menu is up and has one. As above.
-     *
      * <p>The menu goes away first, exactly as it does when a real click takes an entry - the
      * click path clears it before dispatching so an entry that opens a screen does not leave
      * a menu behind on the board underneath.
@@ -524,7 +495,6 @@ public final class TableScreen extends Screen {
 
     /**
      * A card that has been picked up.
-     *
      * <p>The grab offset is the whole reason this is a record rather than an id: a card that
      * snaps its corner to the cursor jumps out from under your finger the moment you touch it,
      * and putting something down where you are pointing is the one thing a table has to get
@@ -562,7 +532,6 @@ public final class TableScreen extends Screen {
 
     /**
      * One card as it is currently drawn: whose it is, where on screen, and which way round.
-     *
      * <p>Built once a frame and used by both the drawing and the hit-testing, which is what
      * stops them disagreeing about where anything is. In back-to-front order, so drawing walks
      * it forwards and picking walks it backwards.
@@ -617,7 +586,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether this player's own mat is the far half of the table from the block's corner.
-     *
      * <p>Asked of the mats rather than of the seat's side, because the mats are what is drawn
      * and a seat that ended up on a different half than its side suggested would turn the
      * camera the wrong way round without anything else noticing.
@@ -639,7 +607,6 @@ public final class TableScreen extends Screen {
 
     /**
      * What the seated view is framing, for the scripted run to write down beside the block's.
-     *
      * <p>The two views are supposed to differ only in whether a point is a pixel or a place
      * on the felt, and the only way to know whether they do is to read the same numbers off
      * both of them at the same moment.
@@ -660,7 +627,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Where the cursor is, in whatever space the board being played is measured in.
-     *
      * <p>Pixels on the seated screen. On the block it is a ray cast against the table, so it
      * is empty whenever the pointer is not over the felt at all - which is a real answer and
      * the reason a card let go over the floor goes back where it came from.
@@ -682,15 +648,11 @@ public final class TableScreen extends Screen {
 
     /**
      * The last question put to the pointer and the answer it gave.
-     *
-     * <p>Casting a ray at the table means building a view-projection, inverting it and
-     * intersecting a plane, and one frame drawn on the block asks the same question of the
-     * same pixel three times over - what card is under the cursor, what button, what pile.
-     * The answer cannot change between those three, so it is worked out once.
-     *
-     * <p>Thrown away at the top of every frame and whenever the view changes, so it can only
-     * ever serve the frame that asked for it or a click arriving before the next one - which
-     * is the frame the player was looking at when they clicked.
+     * <p>Casting a ray means building a view-projection, inverting it and intersecting a
+     * plane, and one frame on the block asks it of the same pixel three times - what card,
+     * what button, what pile. The answer cannot change between them, so it is worked out once.
+     * <p>Thrown away at the top of every frame and whenever the view changes, so it serves
+     * only the frame that asked or a click arriving before the next one.
      */
     private double askedX = Double.NaN;
     private double askedY = Double.NaN;
@@ -704,7 +666,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Swaps which board is being played.
-     *
      * <p>The camera goes over the table on the way in and back to the player on the way out.
      * Nothing about the game moves: both views are showing the same board, so the swap is
      * only ever a change of where it is being looked at from.
@@ -754,7 +715,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether the game on this board was played with a command zone.
-     *
      * <p>For a replay, where there is no block left to ask. A seat that named a commander or
      * has one in its command zone played Commander; nothing else in a view says so, and a
      * board drawn with the wrong number of piles puts every pile in the wrong place.
@@ -776,7 +736,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The shape of the table, as the mat layout needs it.
-     *
      * <p>Derived from how many seats the session has rather than from the blocks in the world:
      * the client is told a board, not a building, and the session froze the cluster's shape
      * when it started. Seats come in facing pairs, which is what {@code SEATS_PER_TABLE} means,
@@ -1014,11 +973,9 @@ public final class TableScreen extends Screen {
 
     /**
      * What has just been said at this table, and what is being typed to it.
-     *
      * <p>Drawn on the board rather than left to the chat window, because the board is a screen
      * and a screen covers the chat window. A player who has to close the game to hear the
      * person across the table from them will stop using either.
-     *
      * <p>Above the hand and along the left, where the felt is emptiest and where nothing else
      * claims a row. It fades out on its own - see {@link ClientTableChat} - so a table that
      * has gone quiet goes back to being a table.
@@ -1064,20 +1021,13 @@ public final class TableScreen extends Screen {
 
     /**
      * The last die or coin, announced across the middle of the felt.
-     *
-     * <p>Reported as "need visuals for rolling dice and flipping coins as well as a visual
-     * announcement outside of the log". A result that only ever appeared in a panel players
-     * keep closed is the one place it must not be: the whole reason the server rolls is that
-     * a player rolling their own die is a player making a claim, and a result nobody at the
-     * table saw is exactly as good as a claim.
-     *
-     * <p>Across the middle rather than in a corner, and large, because everybody at the table
-     * has to catch it at once without being told to look. It fades on its own, so the felt
-     * goes back to being felt - the log still has the line for anybody who missed it, which is
-     * what the log is for.
-     *
+     * <p>The server rolls because a player rolling their own die is making a claim - and a
+     * result nobody at the table saw is exactly as good as a claim, so it cannot live only in
+     * a panel players keep closed.
+     * <p>Across the middle and large, so everybody catches it at once without being told to
+     * look. It fades on its own and the log keeps the line for anybody who missed it.
      * <p>The same sentence the log draws, through {@link GameLogText}, so the flourish and the
-     * record cannot end up saying different things about the same roll.
+     * record cannot say different things about one roll.
      */
     private void renderRoll(GuiGraphics graphics, GameView board) {
         long now = System.currentTimeMillis();
@@ -1131,24 +1081,15 @@ public final class TableScreen extends Screen {
 
     /**
      * Everybody else's hand, held where they are sitting.
-     *
-     * <p>Reported as "cant see cards in opponents hand". A hand that is not drawn at all
-     * reads as a player who has nothing, and at a four-player table three of the four boards
-     * looked empty. A real table shows you a fan across from you: how many, held where their
-     * player is sitting.
-     *
-     * <p>Backs or faces, and it is not this method's decision. What arrives in the view is
-     * what is drawn - a card the server sent has a face because this client was entitled to
-     * it, and everything else is a back. So a hand turned face up toward you is face up
-     * here, and a replay of a finished game shows all of them, without either case needing
-     * to be special: the fence is the view, and it was passed before this ran.
-     *
-     * <p>At {@link SurfaceBoard#handEdgeRect}, which is the place the board already says a
-     * hand is - just outside the near edge of that seat's mat, where a person holds theirs -
-     * so a card drawn flies to the same spot the fan is sitting in.
-     *
-     * <p>Not your own: yours runs along the bottom of the screen face up, which is the whole
-     * point of sitting in that chair.
+     * <p>A hand not drawn at all reads as a player holding nothing, which left three of four
+     * boards looking empty. A real table shows a fan across from you: how many, held where
+     * their player is sitting.
+     * <p>Backs or faces is not this method's decision - what arrives in the view is what is
+     * drawn. So a hand turned face up toward you is face up here, and a replay shows all of
+     * them, without either case being special: the fence is the view and was passed already.
+     * <p>At {@link SurfaceBoard#handEdgeRect}, where the board already says a hand is, so a
+     * card drawn flies to the spot the fan is sitting in. Not your own - yours runs along the
+     * bottom of the screen face up.
      */
     private void renderOtherHands(GuiGraphics graphics, GameView board) {
         SeatId me = mySeat().orElse(null);
@@ -1198,7 +1139,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Everybody's mat, with their name and life on it.
-     *
      * <p>On the mat rather than in a list across the top, because that is where the
      * information belongs: you look at somebody's board and their life total is right there
      * with it, the way a life pad sits beside a real one.
@@ -1246,12 +1186,10 @@ public final class TableScreen extends Screen {
 
     /**
      * A seat's life total, on the table just past the far edge of its own board.
-     *
      * <p>The number a game of Magic is played to, and until now it was a word in a strip
      * along the top of the window - the one place on the screen that is not the table. Here
      * it is on the table, where a player looks to read somebody else's, and it is a pair of
      * buttons: press the left of it to take one off and the right of it to put one on.
-     *
      * <p>The two halves are marked, faintly until the cursor is on one and brightly when it
      * is, because a number nobody has told you is a button is a number.
      */
@@ -1307,7 +1245,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether this seat's counter is drawn turned about in the view being played.
-     *
      * <p>Asked of the surface rather than worked out here, because the board drawn in the
      * world asks the same question before it writes the signs on the ends - and the two
      * asking separately is how the end marked plus came to take a life off.
@@ -1329,7 +1266,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Where the end of a seat's counter meaning this way is, in the view being played.
-     *
      * <p>Package-private for the scripted harness, which has to aim at the end this screen
      * would actually read that way rather than at whichever end of the rectangle it guesses.
      */
@@ -1339,7 +1275,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Everybody's zones, in a column down the outer edge of their own mat.
-     *
      * <p>Two boxes rather than four loose slots: the three a hand is in and out of all game
      * grouped together, and the command zone on its own past a gap. That is how the tables
      * people already play on are marked out, and it is what makes a glance at somebody's
@@ -1382,7 +1317,6 @@ public final class TableScreen extends Screen {
 
     /**
      * What resting on a pile says: its name, and what a press on it would do.
-     *
      * <p>Worked out from the same two facts the press itself is - whose pile it is and which
      * one - so that the tooltip cannot promise a draw where a press would open a screen. Your
      * own library draws; every other pile opens; somebody else's library does nothing at all
@@ -1410,7 +1344,6 @@ public final class TableScreen extends Screen {
     /**
      * What resting on the tax under a commander says, or null when that is not where the
      * cursor is.
-     *
      * <p>One place asks the question for both views, so the board on the block and the board
      * on the screen cannot end up offering different presses on the same box.
      */
@@ -1433,7 +1366,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The buttons printed on each seated player's own mat.
-     *
      * <p>Only on their own mat: pressing somebody else's untap button is not a thing anybody
      * does at a table, and drawing four boxes on every mat that only work on one of them
      * would be four lies per opponent.
@@ -1484,7 +1416,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The cards currently crossing the felt on their way somewhere.
-     *
      * <p>Drawn over the board and under everything that is not the board, because a card in
      * the air is above the table and below the hand holding the mouse. Face down unless this
      * client was already entitled to know what it is - a card crossing to somebody's hand is
@@ -1512,7 +1443,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which of this seat's mat buttons a point is on, or -1.
-     *
      * <p>Asked through the pointer rather than of the raw cursor, so it answers in whichever
      * space the board being played is measured in - pixels on the seated screen and units on
      * the felt when the board is the real one. The buttons are drawn on the block as well as
@@ -1551,12 +1481,10 @@ public final class TableScreen extends Screen {
 
     /**
      * A pile somebody has just shuffled, rattling where it stands.
-     *
      * <p>A shuffle changes nothing anybody may look at - not a count, not a zone, and the
      * order it changes is the order nobody is entitled to know - so it is the one thing a
      * player can do that the board cannot show. A stack of cards briefly rattling is what it
      * looks like at a real table, and it is enough.
-     *
      * <p>The seat and the zone are the seed, so two libraries shuffled at once are two hands
      * shuffling rather than one board vibrating.
      */
@@ -1576,7 +1504,6 @@ public final class TableScreen extends Screen {
 
     /**
      * How many zones this table's column holds.
-     *
      * <p>Three, or four where the format has a command zone. Read once a tick rather than per
      * call: it comes off the block entity, every loop over the column asks, and the answer
      * changes twice a match.
@@ -1587,7 +1514,6 @@ public final class TableScreen extends Screen {
 
     /**
      * One pile: the top card if anyone may see it, the sleeve if not, and the count.
-     *
      * <p>Showing the graveyard's top card rather than a generic stack is what makes a board
      * readable from across the table - "he has a Bolt on top of his yard" is information the
      * rules already give everyone, and hiding it behind a number just makes people click.
@@ -1688,16 +1614,12 @@ public final class TableScreen extends Screen {
 
     /**
      * What resting on a life total says: whose it is, what it is, and that it is a button.
-     *
-     * <p>Named, because a number floating on the table between two boards belongs to one of
-     * them and which one is the whole question a four-seat table asks.
-     *
-     * <p>Named for a watcher too, and that is the case the naming is really for. Somebody
-     * sitting down has their own board under their own number and can work the rest out from
-     * where it is; somebody standing behind the table has no such anchor, and it was exactly
-     * that viewer the tooltip used to say nothing at all to. What a watcher does not get is
-     * the two lines about pressing it, because they have no seat to press it from - an
-     * offer nobody can take is worse than no offer.
+     * <p>Named, because a number floating between two boards belongs to one of them and which
+     * one is the question a four-seat table asks. Named for a watcher above all: somebody
+     * seated has their own board under their own number to work from, and somebody standing
+     * behind the table has no such anchor.
+     * <p>A watcher does not get the two lines about pressing it - they have no seat to press
+     * from, and an offer nobody can take is worse than no offer.
      */
     private List<Component> tipForLife(GameView board, int x, int y) {
         for (SeatView seat : board.seats()) {
@@ -1722,7 +1644,6 @@ public final class TableScreen extends Screen {
     /**
      * A press on somebody's life total: one off the left half, one on the right, or a typed
      * amount on a right-click.
-     *
      * <p>Anybody seated may change anybody's, like everything else public at this table. Who
      * did it is in the log, which is how the mod answers that question everywhere rather than
      * by refusing.
@@ -1762,7 +1683,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The commander whose tax the cursor is resting on, or null.
-     *
      * <p>One question asked once, because a press and the tooltip that promised it have to
      * agree exactly. Written out twice they agreed on the day they were written and would
      * have parted company the first time either grew a condition - which is a tooltip
@@ -1787,7 +1707,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The band a press would land on for this seat's slot, or empty when there is none.
-     *
      * <p>Package-private for the scripted harness, which has to aim at the box this screen
      * would actually accept a press on rather than at one worked out a second time - a run
      * that owns its own copy of a rule is a run that goes on passing after the rule moves.
@@ -1800,11 +1719,9 @@ public final class TableScreen extends Screen {
     /**
      * Whether a slot this size has its tax written on it, which is also whether it may be
      * pressed.
-     *
      * <p>One rule for both, because a button nobody can see is worse than no button: a board
      * zoomed out far enough that the number will not fit is a board where clicking a command
      * slot should pick the commander up, the same as clicking anywhere else on it.
-     *
      * <p>The board on the block writes its numbers at whatever size the slot is, scaling the
      * letters down with it, so there the answer is always yes.
      */
@@ -1814,7 +1731,6 @@ public final class TableScreen extends Screen {
 
     /**
      * How many cards are in this slot, written in its own corner.
-     *
      * <p>Shrunk rather than dropped on a board drawn small. A number is not a word: "24" at
      * six-tenths is still twenty-four, and how many cards are left in a library is something
      * a player reads constantly and cannot get at any other way once the board is framed
@@ -1840,7 +1756,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether a box this tall has room for a number at all.
-     *
      * <p>The same question for a pile's count and for a commander's tax, so the two numbers
      * on the board appear and disappear together rather than one of them outlasting the
      * other on a board being zoomed out. The floor is where the box stops being a box rather
@@ -1858,7 +1773,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The tax written across the foot of a command slot.
-     *
      * <p>On a backing rather than straight onto the art, the same as a pile's count: a pale
      * commander with a white number over it is a number nobody can read. Lit when the cursor
      * is on it, because it is a button and a button that looks like a label is a button
@@ -1878,7 +1792,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether there is room for the name of every zone in the column, not just this one.
-     *
      * <p>Asked of the whole column because the answer is about the column. "Exile" is four
      * letters shorter than "Graveyard", so asking each name for itself named exactly one zone
      * in four on a board drawn small - which reads as that zone being special rather than as
@@ -1893,7 +1806,6 @@ public final class TableScreen extends Screen {
 
     /**
      * And the same for the buttons down the other side.
-     *
      * <p>Measured against its own longest word rather than against the longest word anywhere
      * on the mat. Sharing one measurement was tried, so that the labels on the two sides would
      * come and go together: the buttons are narrower than the strip of felt the zone names are
@@ -1919,7 +1831,6 @@ public final class TableScreen extends Screen {
 
     /**
      * A name, and under it in gray the key that does the same thing.
-     *
      * <p>The key is on the tooltip rather than only in the key list because the moment a
      * player wants to know it is the moment they are already pointing at the button, and a
      * list they have to open and read is a step this saves them for good: they press the
@@ -1947,15 +1858,11 @@ public final class TableScreen extends Screen {
 
     /**
      * The key that runs each mat button, in the order of the buttons.
-     *
-     * <p>-1 where there is no key. Mulligan has none on purpose: it is wanted once a game and
-     * putting it on the number row would cost a key that a verb wanted every turn could have
-     * had.
-     *
-     * <p>One table, read three ways: the key press dispatches through it, the tooltip names
-     * the key from it, and the button and the key therefore cannot come to mean different
-     * things. They were three separate lists for about an hour, which is how long it took to
-     * notice that changing one of them would have left the other two lying.
+     * <p>-1 where there is no key. Mulligan has none on purpose: wanted once a game, it would
+     * cost a number a verb wanted every turn could have had.
+     * <p>One table read three ways - the key press dispatches through it, the tooltip names
+     * the key from it, and the labels come off it - so the button and the key cannot come to
+     * mean different things.
      */
     private static final int[] VERB_KEYS = {
         org.lwjgl.glfw.GLFW.GLFW_KEY_1,
@@ -1990,7 +1897,6 @@ public final class TableScreen extends Screen {
 
     /**
      * What a mat button does, wherever it was asked for.
-     *
      * <p>One body for the button and for the key, because they are the same verb: pressing
      * Draw and pressing 2 have to reach the same event or one of them is a second, quieter
      * implementation of drawing a card.
@@ -2011,7 +1917,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The card showing on top of a pile, which is not the one currently in the air.
-     *
      * <p>A card lifted off a graveyard has not moved yet - the server has not been told, and
      * will not be until it lands - so the pile still lists it. Drawing it anyway leaves a copy
      * of the card sitting in the zone while its twin follows the cursor, which reads as the
@@ -2031,7 +1936,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Every card on every mat, back to front, ready to draw or to click.
-     *
      * <p>Built once a frame and handed to both, which is what stops them disagreeing about
      * where anything is. Attachments come immediately after the card they are on, so they draw
      * over their host and are found before it - otherwise the creature underneath swallows
@@ -2075,7 +1979,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether this card has gone off the edges of the window entirely.
-     *
      * <p>Generous by a whole card on every side, because a rectangle is not the whole of what
      * is drawn for one: a tapped card turns about its middle and reaches further than its
      * upright rectangle does, a highlight ring sits outside its edge, and a shadow is cast
@@ -2100,7 +2003,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Where a card on a mat is drawn.
-     *
      * <p>Its own place, leaned up and to the left by however many cards are under it. The card
      * has not moved - that is state - but a pile that draws every card in exactly the same
      * pixels is a pile that looks like one card.
@@ -2139,16 +2041,10 @@ public final class TableScreen extends Screen {
 
     /**
      * The pile count, on the corner nearest the top of the stack.
-     *
-     * <p>A corner, and not more than one. This was drawn at whatever size the font happens to
-     * be, which is fine on a card filling half the screen and absurd on the card a two-player
-     * board actually draws: at that size "x2" was as wide as the card and covered its name and
-     * a third of its art. A count that hides the thing it is counting has stopped being a
-     * count and become a sticker.
-     *
-     * <p>So it is measured against the card rather than against the font, and shrinks with it
-     * to the smallest size text is drawn at anywhere here. Below that the card is too small
-     * for the badge to say anything, and the check at the top drops it entirely.
+     * <p>Measured against the card rather than the font, and shrinking with it to the smallest
+     * size text is drawn at anywhere here. At the font's own size "x2" is as wide as the card
+     * a two-player board draws, covering its name and a third of its art - a count that hides
+     * what it counts is a sticker. Below the floor the check at the top drops it entirely.
      */
     private void drawPileBadge(GuiGraphics graphics, Rect where, int size) {
         if (where.height() < this.font.lineHeight + 3) {
@@ -2168,7 +2064,6 @@ public final class TableScreen extends Screen {
 
     /**
      * How much of a card's width the pile count may take, and the least it is ever drawn in.
-     *
      * <p>A third, because a badge is a corner mark and a corner is about a third of an edge.
      * The floor stops the arithmetic collapsing to nothing on a card drawn very small - at
      * which point the badge is dropped rather than drawn as a smudge.
@@ -2179,7 +2074,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The angle a card is drawn at: the angle it was left at, plus a quarter turn if tapped.
-     *
      * <p>Tapping being a quarter turn on top of whatever angle the card already has is what
      * makes the two independent - a card you angled thirty degrees taps to a hundred and
      * twenty and untaps back to thirty, rather than forgetting you ever touched it.
@@ -2196,7 +2090,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Your hand, fanned along the bottom, with the card under the cursor risen out of it.
-     *
      * <p>No panel behind it and no frame around each card. Both were clutter over the only
      * part of the screen that is nothing but pictures: a hand is read by looking at the art,
      * and a border on every card in a fan is a row of borders.
@@ -2250,12 +2143,10 @@ public final class TableScreen extends Screen {
 
     /**
      * Says so, across the top of your own hand, while your hand is face up to somebody.
-     *
      * <p>The whole feature turns on this line existing. Showing a hand is a state rather than
      * a moment - it stays until it is taken back - so the one way it goes wrong is a player
      * who showed it during somebody's turn and has forgotten by their own. A log line
      * scrolled past three minutes ago is not a reminder; a band over the cards themselves is.
-     *
      * <p>Warm, like the numbers somebody typed on a card, because it is the same kind of
      * fact: a thing a person did on purpose rather than something the game worked out.
      */
@@ -2292,7 +2183,6 @@ public final class TableScreen extends Screen {
 
     /**
      * What is being typed to the table, or null when nobody is typing.
-     *
      * <p>Typed here rather than on a screen of its own. Saying something at a table is done in
      * the middle of somebody else's turn while you are looking at the board, and a screen that
      * took the board away to ask for a sentence would be a conversation that costs you the
@@ -2321,7 +2211,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The strip along the top: everybody's name and life, and whose turn it is.
-     *
      * <p>In both views now. On the block the mats are two blocks away and a life total painted
      * on one would be unreadable at any height worth playing at; on the screen it frees the
      * mats to be nothing but board, which is what they are for.
@@ -2394,7 +2283,6 @@ public final class TableScreen extends Screen {
 
     /**
      * What has happened, most recent last.
-     *
      * <p>Over the table rather than beside it. The log is read in bursts - somebody asks
      * "wait, what did you just do" - and giving it a permanent column would cost table space
      * every turn to answer a question asked twice a game.
@@ -2488,15 +2376,11 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether there is room to open the log at all.
-     *
-     * <p>A real question rather than a formality: the panel used to measure itself against
-     * the hand strip, and a watcher has no hand, so for them the height came out negative
-     * and the log silently refused to open.
-     *
-     * <p>Asked by the panel itself before it draws and by the scripted harness afterwards,
-     * from here rather than from two copies of the arithmetic - a harness holding its own
-     * copy of a rule goes on saying yes after the rule has moved, which is the shape of every
-     * check in this run that has ever been green over a live fault.
+     * <p>A real question: measured against the hand strip, a watcher has no hand, the height
+     * comes out negative and the log silently refuses to open.
+     * <p>Asked by the panel before it draws and by the scripted harness afterwards, from here
+     * rather than two copies - a harness holding its own copy of a rule goes on saying yes
+     * after the rule has moved, which is how a check stays green over a live fault.
      */
     boolean theLogHasRoom() {
         return roomForTheLog() >= (this.font.lineHeight + 1) * 3;
@@ -2504,7 +2388,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The first line down the window at which a panel across this span covers no life total.
-     *
      * <p>A life counter is the one thing on the felt that has to stay readable while
      * something else is open over it - it is the number the thing being read is usually
      * about.
@@ -2530,7 +2413,6 @@ public final class TableScreen extends Screen {
 
     /**
      * How far down the window the felt goes before something else starts.
-     *
      * <p>The hand, when there is one. A watcher holds no cards and the strip is not reserved
      * for them, and a panel that measured itself against a hand that is not there came out
      * with no height at all - so the one person at the table who most wants to read the log
@@ -2543,7 +2425,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Every key, in one place.
-     *
      * <p>A Tabletop Simulator control scheme is a good one and a completely undiscoverable
      * one: nothing on screen suggests that F turns a card over or that Home finds the table
      * again. The bar along the bottom carries the handful people need in the first minute and
@@ -2651,7 +2532,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The one size every line of the key list is drawn at.
-     *
      * <p>Measured off the longest line rather than off each in turn, which is the rule the
      * mat's own labels have followed since they were added. Remembered against the width it
      * was worked out for, because the list is redrawn every frame it is open and the answer
@@ -2682,7 +2562,6 @@ public final class TableScreen extends Screen {
 
     /**
      * One line of the key list.
-     *
      * <p>The lines that name a mat button's key take that key as an argument rather than
      * spelling it out, so the list cannot go on saying "2 - draw a card" after 2 has stopped
      * drawing one. Everything else is prose that names no key of its own.
@@ -2726,7 +2605,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which of a seat's zone slots a point is over, or -1 for none of them.
-     *
      * <p>Its own method because two different things have to agree about it and neither can
      * see the other: {@code pileAt} decides, walking slot rectangles, and {@code pileRect}
      * draws. They are built from the same arithmetic and could still drift - a count passed
@@ -2740,7 +2618,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The same question asked from outside a frame, for the harness.
-     *
      * <p>A held card's aim cannot be scripted directly: the board works out what is under a
      * card in the air from the cursor the game hands it while drawing, and moving the real
      * cursor mid-drag does not reach a frame that already has a button held. So the run
@@ -2767,7 +2644,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The card in the air, drawn under the cursor exactly where it would land.
-     *
      * <p>Same size and angle as it will have once dropped, so the drag is a preview rather
      * than a promise, and an outline on the mat it would land on so you can see whose side you
      * are about to put it on.
@@ -2880,7 +2756,6 @@ public final class TableScreen extends Screen {
 
     /**
      * A whole pile in the air: the pile, drawn as a pile, with how many are in it.
-     *
      * <p>Offset copies behind the top card rather than one card with a number stuck on it,
      * because the difference between carrying a card and carrying a graveyard has to be
      * visible at a glance - the drop is the same gesture either way and the only warning is
@@ -2911,16 +2786,11 @@ public final class TableScreen extends Screen {
 
     /**
      * The card in the air over the board on the block, at the size a card is on that board.
-     *
-     * <p>It used to be drawn the height of a card in your hand, which on the block is roughly
-     * two and a half times the size of a card lying on the table - so picking one up made it
-     * balloon, and it covered the very place it was about to be put down.
-     *
-     * <p>Asked of the camera rather than of a constant, for the same reason the drag is. How
-     * big a card is on the block depends on how high the eye is, and that now spans an
-     * eleven-fold range - so a fixed conversion drew the card in the air right at one zoom
-     * and at four times or a quarter of the cards underneath it everywhere else, which is the
-     * ballooning again by another route.
+     * <p>At the board's size, not the hand's: a card in the hand is about two and a half times
+     * a card on the table, so picking one up balloons it over the place it is going.
+     * <p>Asked of the camera rather than a constant. How big a card is on the block depends on
+     * eye height, which spans an eleven-fold range, so a fixed conversion is right at one zoom
+     * and four times or a quarter of the cards underneath it everywhere else.
      */
     private Rect centeredOnCursor(int mouseX, int mouseY, SeatId sizedFor) {
         double blocks = board().surface().cardHeightOn(sizedFor.index())
@@ -3055,7 +2925,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Picks a card up, remembering where on it the cursor took hold.
-     *
      * <p>The offset is the whole reason a drag feels right: a card that snaps its corner to
      * the cursor jumps out from under your finger the moment you touch it. A card coming out
      * of the hand has no such offset to keep - its slot in the fan is not where it is going -
@@ -3087,16 +2956,12 @@ public final class TableScreen extends Screen {
 
     /**
      * Turns a press that has been held still into a hold on the whole pile or the whole stack.
-     *
-     * <p>The gesture a physical table has: a finger on the top card slides that card, a hand
-     * flat on the pile for a moment picks the pile up. Nothing is sent here - what changes is
-     * only what the release will mean, and what is drawn in the meantime, so a player who
-     * decides against it lets go somewhere harmless exactly as before.
-     *
-     * <p>Asked once a frame from the drawing, which is the only place that runs while a button
-     * is simply being held. Whether the hand wandered is not asked of the cursor here: it is
-     * latched by the drag events themselves, so a press that never produced one is a press
-     * that never moved, whatever the pointer happens to be doing.
+     * <p>The gesture a physical table has: a finger on the top card slides that card, a flat
+     * hand held a moment picks the pile up. Nothing is sent - only what the release will mean
+     * changes, so deciding against it is letting go somewhere harmless.
+     * <p>Asked once a frame from the drawing, the only place that runs while a button is
+     * merely held. Whether the hand wandered is latched by the drag events rather than read
+     * off the cursor, so a press that produced none never moved.
      */
     private void checkLongHold(GameView board) {
         if (held == null || held.whole() || held.fromHand()) {
@@ -3140,7 +3005,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Every card this client may name lying on the same spot as this one, itself included.
-     *
      * <p>Asked of where the cards are rather than of where they are drawn. What is drawn is
      * staggered - that is what makes a pile read as a pile - so a hit test against the drawn
      * rectangles finds the top card and misses everything leaning out from under it, which is
@@ -3325,7 +3189,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which cards a drop is carrying: the selection when this card is part of it, else itself.
-     *
      * <p>Only for cards already on the felt. One coming out of a hand or off a pile is the one
      * card that was picked up, whatever else happens to be selected.
      */
@@ -3341,7 +3204,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Puts a whole pile down somewhere, as one act rather than as forty moves.
-     *
      * <p>One event, naming the pile and not its contents. That is what lets a library be
      * moved at all: nobody may name the cards in one, so a client that had to list them could
      * not ask - and it is what keeps the log to a line and undo to a step.
@@ -3355,7 +3217,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Puts a whole selection down, keeping the arrangement it was in.
-     *
      * <p>One delta for all of them, trimmed until every card fits on the mat - so a group
      * shoved into a corner slides along the edge instead of collapsing into a single pile,
      * which is what clamping each card on its own would do to a board somebody spent the game
@@ -3393,7 +3254,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The wheel zooms, anchored to the cursor.
-     *
      * <p>Tabletop Simulator's wheel, and every map's: turning a card is Q and E, which leaves
      * the wheel free for the thing a wheel is for.
      */
@@ -3427,7 +3287,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The card under a point, front-most first.
-     *
      * <p>Front to back, because the card you can see is the card you meant, and turned cards
      * are tested at the angle they are drawn at - so the empty corner of an angled card is
      * table and a click there reaches whatever is underneath it.
@@ -3489,7 +3348,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which pile a point is on, as one number covering both which seat and which zone.
-     *
      * <p>One walk rather than two, because the two used to walk the piles separately and
      * could in principle stop at different ones - the seat from the first and the zone from
      * the second, which is a click that shuffles somebody else's library.
@@ -3516,7 +3374,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The cards a verb should apply to.
-     *
      * <p>The selection when the card acted on is part of it, and just that card otherwise.
      * Right-clicking a card outside the selection is somebody addressing that card, not
      * forgetting what they had picked.
@@ -3540,7 +3397,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Picks out every card the box touches, in place of whatever was picked before.
-     *
      * <p>The box is dragged on the screen and the cards may not be measured there, so it is
      * carried across corner by corner. A corner that lands off the table takes the selection
      * with it: a box half over the floor has no honest answer, and picking whatever happened
@@ -3733,7 +3589,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Sends one event per target, built from the id alone.
-     *
      * <p>For verbs where every card gets the same instruction - tap them all, turn them all
      * face down - which is what makes a selection useful rather than just faster clicking.
      */
@@ -3751,7 +3606,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Sends one event per target, built from what that card currently is.
-     *
      * <p>For verbs whose answer differs per card - which angle it is at, whose graveyard it
      * goes to. Cards that have already left the board are skipped rather than guessed at.
      */
@@ -3770,17 +3624,13 @@ public final class TableScreen extends Screen {
 
     /**
      * Pressing one of the piles.
-     *
-     * <p>Left does the obvious thing and right offers the rest, which is the same bargain as
-     * everywhere else on this screen. The obvious thing for a library is to draw a card,
-     * because that is what a library is for; for every other pile it is to open it, because a
-     * pile you cannot look through is a number.
-     *
-     * <p>But a left press might also be the start of a drag. A zone that only ever swallowed
-     * cards was half a zone: putting something in the graveyard was a drag and getting it back
-     * out was a screen and two clicks, for a thing that on a real table is picking it up. So a
-     * press on a pile whose top card this player can see picks that card up, and the release
-     * decides which gesture it was.
+     * <p>Left does the obvious thing and right offers the rest, the same bargain as everywhere
+     * else here: for a library that is drawing a card, for every other pile it is opening it,
+     * because a pile you cannot look through is a number.
+     * <p>A left press may also start a drag. A zone that only swallows cards is half a zone -
+     * putting something in the graveyard is a drag and getting it back is a screen and two
+     * clicks, for what on a real table is picking it up. So a press on a pile whose top card
+     * this player can see picks that card up, and the release decides which gesture it was.
      */
     private boolean pressPile(GameView board, SeatId owner, Zone pile, int x, int y, int button) {
         SeatId me = mySeat().orElse(null);
@@ -3821,7 +3671,6 @@ public final class TableScreen extends Screen {
     /**
      * What a press on a pile does when it turns out to have been a click, and whether that
      * was anything at all.
-     *
      * <p>Opening a public pile asks nothing of the viewer's seat: a graveyard is public
      * information, and somebody watching a game is exactly the person who wants to read one.
      * What is actually in it is still the server's decision - the screen shows what this
@@ -3841,7 +3690,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The card a press on this pile would pick up, or null.
-     *
      * <p>Only a card this client has actually been sent. The top of a library is face down and
      * has no identity here - which is the visibility rule doing its job, and the reason a
      * library stays a click that draws rather than a card you can lift off.
@@ -3861,12 +3709,10 @@ public final class TableScreen extends Screen {
 
     /**
      * A press on the tax written under a commander: one more cast, or one fewer.
-     *
      * <p>Counted in casts and shown in mana, the same as the counters screen does it, because
      * casts are what the rule counts and mana is what the player is about to pay. Left adds a
      * cast, right takes one back - the mistake has to be as cheap to undo as it was to make,
      * and a number that only goes up is a number somebody has to restart a game over.
-     *
      * <p>Anybody seated may press it, like everything else in a public zone. Who did it is in
      * the log, which is how this mod answers that question everywhere.
      */
@@ -3957,7 +3803,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Asks what token, then how many.
-     *
      * <p>Two questions rather than one screen with two fields, because they are answered in
      * that order and the second one is usually "one". The name goes to the server, which does
      * the looking up - a token is a real printing from Scryfall and not something a client
@@ -3980,7 +3825,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Asks what it should say, then puts it on the table.
-     *
      * <p>One question, because a blank card with nothing on it is a blank card nobody can
      * read - and the words are the whole of what is being made. Rewriting it afterwards is
      * the pen, on the card's own menu, like any other note.
@@ -3997,7 +3841,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which dungeon.
-     *
      * <p>Four buttons rather than a typing box, because there are four of them and they are
      * all spellable wrongly - the same reason the basic lands get buttons. The name is not on
      * the wire at all: the client sends which of the four, and the server knows what they are
@@ -4019,7 +3862,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Asks before doing something that cannot be taken back, then does it.
-     *
      * <p>The question, what it means and the word on the button all come off one key, so a
      * verb that needs asking about cannot end up asking half a question.
      */
@@ -4051,7 +3893,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Opens the top of your own library with a decision attached.
-     *
      * <p>Looking is half of a scry. Without the other half the cards are revealed and then
      * left exactly where they were, which is a scry that did nothing.
      */
@@ -4062,7 +3903,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Spreads a pile out on its own screen.
-     *
      * <p>{@code opensALibrary} is what makes the screen responsible for closing it again. A
      * library is open because an event said so, so it stays open until an event says
      * otherwise - not until a screen happens to go away.
@@ -4176,15 +4016,12 @@ public final class TableScreen extends Screen {
 
     /**
      * Which set of GUI art to draw with, cycled from the table's own menu.
-     *
-     * <p>Here rather than in a settings screen nobody would find, and on the watchers' menu
-     * as well as the players': the table is where the mod's art is, so the table is where
-     * somebody looks to change it. One entry rather than a list of three, because the change
-     * is visible the instant it is made - the menu behind it repaints - and a list would be a
-     * dialog asking about something you can simply see.
-     *
-     * <p>Saved to this player's own file, not sent anywhere. See {@link ClientSettings}. The
-     * same choice is a row of the game's own video settings; see {@link GuiThemeOption}.
+     * <p>On the table rather than in a settings screen, and on the watchers' menu as well as
+     * the players', because the table is where the mod's art is. One entry rather than a list:
+     * the change is visible the instant it is made, so a list would be a dialog asking about
+     * something you can see.
+     * <p>Saved to this player's own file, not sent anywhere - see {@link ClientSettings}. The
+     * same choice is a row of the game's video settings; see {@link GuiThemeOption}.
      */
     private ContextMenu.Entry themeEntry() {
         java.util.List<GuiTheme> looks = GuiThemes.all();
@@ -4213,7 +4050,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Opens the pen on this card, filled in with whatever it already says.
-     *
      * <p>Filled in from the card that was clicked rather than from the selection, because a
      * selection of five cards has five notes and only one of them was under the cursor.
      * Writing goes to all of them; what is offered to edit is the one you pointed at.
@@ -4236,7 +4072,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The box for typing a power and toughness over the printed ones.
-     *
      * <p>The same screen the pen uses, because it is the same act: something a player writes
      * on a card and everybody reads. What differs is how much fits and what the words say.
      */
@@ -4259,7 +4094,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which die, out of the ones Magic actually prints.
-     *
      * <p>Six buttons and a way out to any other number. A card asks for a d20 more than for
      * everything else combined, and none of them is worth typing a number for - but the odd
      * one exists, so "another number" is there rather than a wall of twenty buttons.
@@ -4289,11 +4123,9 @@ public final class TableScreen extends Screen {
 
     /**
      * Who may read my hand.
-     *
      * <p>One screen rather than a verb per player, and it toggles rather than only turning
      * on: a player who has shown Bob their hand and wants to stop has to find the same place
      * they turned it on, or the feature is a door that only opens.
-     *
      * <p>Only occupied seats, and never your own. Showing your hand to an empty chair is not
      * a thing anybody means to do, and it would sit in the log looking like a mistake.
      */
@@ -4340,7 +4172,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Which basic land, and then how many.
-     *
      * <p>Buttons rather than a typing box. There are six answers and they are all spellable
      * wrongly, so a question that cannot be answered wrongly is worth a screen.
      */
@@ -4358,7 +4189,6 @@ public final class TableScreen extends Screen {
 
     /**
      * How many of them.
-     *
      * <p>Named, because the second question arrives after the first has gone and "How many?"
      * on its own is a question about something the player can no longer see.
      */
@@ -4381,7 +4211,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether this card is printed with a second face to turn to.
-     *
      * <p>A question about a printing, not about the game, so it is answered out of the card
      * data this client has been sent. A card whose data has not arrived yet answers no: an
      * entry that appears a second after the menu opens is worse than one that is not there.
@@ -4400,7 +4229,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Asks the table to take back this player's most recent action.
-     *
      * <p>One at a time, because that is what a misclick is. Whether it happens is the
      * session's decision - your own action, this table's undo mode, and never across
      * something that let somebody see a card - and the answer comes back as a message when
@@ -4420,15 +4248,10 @@ public final class TableScreen extends Screen {
 
     /**
      * The number row, once.
-     *
-     * <p>This used to be written twice - once as the switch that acts on a press, once as the
-     * labels the menu prints beside its rows - and the two drifted the moment the row was
-     * corrected against the reference table. The menu went on saying "To graveyard 7" while 7
-     * had started exiling, which is worse than no label at all: a player who reads it is
-     * being taught the wrong key by the interface itself.
-     *
-     * <p>So the numbers live here and nowhere else. {@link #verbKey} looks the verb up rather
-     * than switching on the number, and the labels below are built from the same map.
+     * <p>Written twice - as the switch acting on a press and as the labels the menu prints -
+     * the two drift, and a menu saying "To graveyard 7" while 7 exiles teaches the wrong key.
+     * So the numbers live here and nowhere else: {@link #verbKey} looks the verb up rather
+     * than switching on the number, and the labels are built from the same map.
      */
     private static final java.util.Map<Integer, String> NUMBER_ROW = java.util.Map.ofEntries(
             java.util.Map.entry(0, "pass_turn"),
@@ -4444,7 +4267,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The key that does the same thing as each menu entry, for the menu to say so.
-     *
      * <p>Keyed off the same name the entry is, so an entry and its key cannot drift apart, and
      * an entry with no key simply has none here. This is the only place a player is looking
      * straight at a verb, so it is the only place worth telling them there is a faster way -
@@ -4470,15 +4292,10 @@ public final class TableScreen extends Screen {
 
     /**
      * The keys, matched to Tabletop Simulator's defaults.
-     *
-     * <p>Anybody arriving at this table has played on that one, and a key that does something
-     * else here is a key they will press by accident all evening. So F flips, Q and E turn,
-     * G groups, R is the deck verb and Alt reads a card - Tabletop Simulator's own object
-     * keys - while the number row carries the nine verbs the Magic table binds it to: untap,
-     * draw, scry, mill, reveal, and the three that send a card to a zone.
-     *
-     * <p>Where TTS has no equivalent - passing the turn, the log, life - the key is ours and
-     * chosen not to collide with one of theirs.
+     * <p>A key that does something else here is one people press by accident all evening. So
+     * F flips, Q and E turn, G groups, R is the deck verb and Alt reads a card, while the
+     * number row carries the nine verbs the Magic table binds it to. Where TTS has no
+     * equivalent - the turn, the log, life - the key is ours and avoids theirs.
      */
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
@@ -4615,7 +4432,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Slides the view, whichever view it is.
-     *
      * <p>Pixels either way now. The seated board is already in pixels, and the camera over
      * the real one turns them into blocks itself, from the height it is actually at - which
      * is the only thing that knows. Panning that moves the world by a different amount than
@@ -4642,7 +4458,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Plus and minus: a counter on the card being pointed at, or a life if there is none.
-     *
      * <p>Reported as "having to right click then click put a +1/+1 every time is too slow",
      * and it was: a +1/+1 counter is the single most frequent thing anybody does to a card in
      * a game of Magic and it cost a menu. It reads the cursor exactly as tap and untap do, so
@@ -4664,7 +4479,6 @@ public final class TableScreen extends Screen {
 
     /**
      * What a key press acts on: the selection if there is one, else the card under the cursor.
-     *
      * <p>TTS's rule exactly, and the reason its keys feel immediate - you never have to click
      * something first to act on it.
      */
@@ -4684,19 +4498,12 @@ public final class TableScreen extends Screen {
 
     /**
      * The number row: one press does one thing to the game, or to the card being pointed at.
-     *
-     * <p>Matched to the reference table, key for key, because somebody arriving from that
-     * table already knows them and a row that is nearly the same is worse than one that is
-     * different: 0 passes, 1 untaps, 2 draws, 3 scries, 4 mills, 5 reveals, 7 exiles, 8 bins
-     * and 9 puts cards under the library in a random order.
-     *
-     * <p>Six is the one deliberate difference. That table splits revealing into a fan and a
-     * stack, which is a choice about how the cards it has already turned over are laid out;
-     * this one draws revealed cards one way and spends the key on surveil instead, which is a
-     * verb rather than a display and comes up in a real game far more often.
-     *
-     * <p>Drawing a named number of cards is still on the library's menu, where a thing done
-     * once a game belongs.
+     * <p>Matched to the reference table key for key, because a row that is nearly the same is
+     * worse than one that is different: 0 passes, 1 untaps, 2 draws, 3 scries, 4 mills, 5
+     * reveals, 7 exiles, 8 bins, 9 puts cards under the library in a random order.
+     * <p>Six is the one deliberate difference. That table spends it on a second reveal layout;
+     * this one spends it on surveil, which is a verb rather than a display and comes up far
+     * more often. Drawing a named number is still on the library's menu.
      */
     private boolean verbKey(SeatId me, int number) {
         String verb = NUMBER_ROW.get(number);
@@ -4738,10 +4545,8 @@ public final class TableScreen extends Screen {
 
     /**
      * Puts your hand in order of what things cost.
-     *
      * <p>Worked out here because the mana cost is card data and the client is what has it -
      * the game itself knows a hand as a list of ids and has never heard of a mana value.
-     *
      * <p>A card whose data has not arrived yet goes to the end rather than to the front. Both
      * are arbitrary; the end is the one where an unsorted card is obviously unsorted instead
      * of looking like the cheapest thing in the hand.
@@ -4769,7 +4574,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether this card is printed as a planeswalker.
-     *
      * <p>A question about a printing rather than about the game, so it is answered out of the
      * card data this client holds. A card whose data has not arrived yet answers no, and its
      * loyalty rows appear the moment the data does - which is better than showing every card
@@ -4794,7 +4598,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Puts whatever the keys are pointing at back under the library, in no order.
-     *
      * <p>Asked of the server rather than done here, because the order cards go back in is a
      * fact about the bottom of a library and a client that chose it would be the only thing
      * at the table that knew it - see {@link ToBottomAtRandomPayload}.
@@ -4811,7 +4614,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Sends whatever the keys are pointing at to one of its owner's zones.
-     *
      * <p>Its owner's, not the presser's: a creature somebody stole dies to its own owner's
      * graveyard, which is the rule the card menu already follows and the reason this asks the
      * card who owns it rather than assuming.
@@ -4840,7 +4642,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Taps or untaps whatever the keys are pointing at, which is a quarter turn on screen.
-     *
      * <p>These used to nudge the resting angle instead, which drew the same picture and meant
      * something else entirely: a card turned that way looks tapped, is not tapped, and does
      * not come back when the player untaps everything. Tapping is a state the whole table can
@@ -4859,7 +4660,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Turns these cards sideways, or back, whichever they are now.
-     *
      * <p>One method for the key and for the menu row, so the two can never come to mean
      * slightly different things - which is the failure the whole "one gesture per verb" pass
      * is about. A card already the way it is asked for sends nothing.
@@ -4872,7 +4672,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Puts every selected card onto the first one, which is what a stack is.
-     *
      * <p>TTS's group makes a deck out of a selection. Here the equivalent is dropping them all
      * on the same spot: the pile reads as a pile, and picking the top one off works, because
      * the stacking code already handles exactly this.
@@ -4901,7 +4700,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Removes what is under the cursor, for the one kind of card that can be removed.
-     *
      * <p>Only tokens cease to exist. A real card has an owner and a deck to go back to, so
      * deleting one would be losing somebody's card - which is why this sends the token verb
      * and silently passes over anything else.
@@ -4919,7 +4717,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Hands the turn on, and nothing else.
-     *
      * <p>It used to untap the seat receiving the turn as well, on the argument that untapping
      * is unambiguous and forgetting it is how a paper game goes wrong. Playtesters reported
      * it as a bug - "passing turn automatically untaps opponents boards" - and they were
@@ -4934,7 +4731,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Sends an event, and notes any card it moves as this client's own doing.
-     *
      * <p>A card this player just dragged has already crossed the felt under their own cursor,
      * and a card they clicked into their graveyard was under the cursor when they did it. The
      * board coming back and agreeing is not news, so it is not drawn flying: a second copy
@@ -4968,11 +4764,9 @@ public final class TableScreen extends Screen {
 
     /**
      * The pot, face up in the middle of the table.
-     *
      * <p>The one thing on the felt that belongs to nobody, which is why it sits where the
      * mats meet rather than on anybody's side. Drawn whenever there is one and taking no room
      * at all when there is not, so a table not playing for keeps looks exactly as it did.
-     *
      * <p>Face up, always, with no face-down case to get wrong: a pot everybody agreed to play
      * for is a pot everybody can see, and that is the whole drama of the thing.
      */
@@ -5018,23 +4812,17 @@ public final class TableScreen extends Screen {
 
     /**
      * A card: its picture, turned to its own angle, and nothing drawn round it.
-     *
-     * <p>No border, anywhere. A card is a picture before it is a token, and a frame drawn
-     * round every one of them turns a hand into a row of lines with slivers of art between,
-     * and a pile into a stack of boxes. The art has its own black border printed on it - it
-     * is a card - so a second one is somebody else's idea of a card drawn over the real one.
-     *
-     * <p>What is left is feedback rather than decoration: a shadow under a card lying on the
-     * felt, so a stack reads as a stack; a tint on a tapped one; a ring on the one under the
-     * cursor.
+     * <p>No border, anywhere. The art has its own printed one, so a second is somebody else's
+     * idea of a card drawn over the real one - and a frame round every card turns a hand into
+     * a row of lines with slivers of art between them.
+     * <p>What is left is feedback rather than decoration: a shadow under a card on the felt so
+     * a stack reads as a stack, a tint on a tapped one, a ring on the one under the cursor.
+     * <p>The sleeve is handed in rather than looked up, because a face-down card carries no
+     * owner - that is the visibility rule. Whose card it is is a fact about the zone it lies
+     * in, so it is known where the zones are walked and nowhere else.
      *
      * @param onTheFelt whether this is a card lying on the table, which is what earns it a
      *     shadow and a tapped tint - a card in a hand or in a list has neither
-     *
-     * <p>The sleeve is handed in rather than looked up, because a face-down card carries
-     * no owner - that is the visibility rule, and it is right. Whose card it is was never
-     * a secret, but it is a fact about the zone it is lying in rather than about the card,
-     * so it is known at the place that walks the zones and nowhere else.
      */
     private void drawCard(
             GuiGraphics graphics, CardView card, dev.gathering.core.card.Sleeve sleeve,
@@ -5100,14 +4888,10 @@ public final class TableScreen extends Screen {
 
     /**
      * What somebody wrote on the card, across the top of it.
-     *
-     * <p>At the top because the counters are along the bottom and the two must not fight over
-     * the same band: a card with three counters and a note is a card in play that somebody is
-     * keeping track of, which is exactly when both have to be readable at once.
-     *
-     * <p>Over the name rather than over the art. A card's own name is the one thing on it a
-     * player already knows - they put it there - and the art is what makes a board readable
-     * from across the table.
+     * <p>At the top because the counters are along the bottom, and a card carrying both is
+     * one somebody is keeping track of - exactly when both must be readable at once.
+     * <p>Over the name rather than the art: the name is the one thing on a card its owner
+     * already knows, and the art is what makes a board readable from across the table.
      */
     private void drawWriting(GuiGraphics graphics, CardView card, Rect art) {
         // Not on blank stock. There the writing is the card - drawn across the whole of it by
@@ -5121,12 +4905,9 @@ public final class TableScreen extends Screen {
 
     /**
      * The power and toughness somebody wrote on it, in the corner where the printed ones are.
-     *
-     * <p>Where the card already puts them, so a board reads the same whether the numbers are
-     * printed or written. Right-hand corner, one line, on a badge dark enough to be read over
-     * whatever the art is doing down there.
-     *
-     * <p>Nothing is worked out here. What is drawn is exactly what somebody typed - see
+     * <p>Where the card already puts them, so a board reads the same printed or written:
+     * right-hand corner, one line, on a badge dark enough to read over whatever the art is
+     * doing. Nothing is worked out - what is drawn is exactly what somebody typed. See
      * {@link dev.gathering.core.game.CardStrength}, and section 16 of the brief.
      *
      * @return the line the counters may stack up from, which is above this when there is one
@@ -5138,15 +4919,12 @@ public final class TableScreen extends Screen {
 
     /**
      * What goes in the corner where a card prints its own numbers, or nothing.
-     *
-     * <p>One corner, so one answer. A written power and toughness wins, because somebody
-     * typed it and typing it is a statement that the printed numbers are wrong. Otherwise a
-     * planeswalker's loyalty goes there, which is where the card prints it - and it is worth
-     * that spot rather than a line in the counter stack, because loyalty is the number a
-     * planeswalker <em>is</em>.
-     *
-     * <p>Nothing decides which of the two a card ought to have. A creature somebody has put
-     * loyalty on shows loyalty; that is a table's business, not the mod's.
+     * <p>One corner, so one answer. A written power and toughness wins: typing it is a
+     * statement that the printed numbers are wrong. Otherwise loyalty goes there, where the
+     * card prints it, and it earns the spot over a line in the counter stack because loyalty
+     * is the number a planeswalker <em>is</em>.
+     * <p>Nothing decides which a card ought to have. A creature somebody put loyalty on shows
+     * loyalty; that is a table's business.
      */
     private static String cornerNumberOf(CardView card) {
         String written = card.writtenStrength().orElse(null);
@@ -5159,14 +4937,11 @@ public final class TableScreen extends Screen {
 
     /**
      * What a frozen card looks like: a rime along its edges.
-     *
-     * <p>Round the outside rather than over the art, because a card can already be carrying a
-     * note across its top, counters up its bottom and numbers in its corner, and the frame is
-     * the last piece of it nothing else has claimed. It reads at any size the board draws a
-     * card at, which a mark in a corner does not.
-     *
-     * <p>Cold on purpose against the warm gold of a written power and toughness and the cyan
-     * of the cursor: three marks on one card have to be three colors or they are one mark.
+     * <p>Round the outside rather than over the art: a card may already carry a note across
+     * its top, counters up its bottom and numbers in its corner, so the frame is the last
+     * piece nothing else has claimed - and it reads at any size, which a corner mark does not.
+     * <p>Cold against the warm gold of a written power and toughness and the cursor's cyan:
+     * three marks on one card have to be three colors or they read as one.
      */
     private void drawFrost(GuiGraphics graphics, Rect where) {
         GatheringSprites.draw(graphics, Element.FROZEN_TINT,
@@ -5184,7 +4959,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The counters on a card, along its bottom edge.
-     *
      * <p>On the card rather than beside it, because a counter that lives next to a card stops
      * being on that card the moment somebody moves either of them.
      */
@@ -5261,7 +5035,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The tokens and emblems this card makes, if the client has been told what the card is.
-     *
      * <p>Off the summary the server already sent, so this costs nothing and asks nobody: a
      * card whose metadata has not arrived yet simply offers no token rows, the same way it
      * draws no name. The server does the lookup when a row is pressed, so what ends up on the
@@ -5365,7 +5138,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Room for "Replay 128 / 340", measured rather than guessed so the bar never runs under it.
-     *
      * <p>The word is in the line rather than off in a banner of its own because this strip is
      * the one piece of furniture a replay has that a game does not, and somebody who opened it
      * by accident should be able to read what they are looking at without pressing anything.
@@ -5388,7 +5160,6 @@ public final class TableScreen extends Screen {
 
     /**
      * A watcher's click. Three buttons, a bar, and nothing else on the whole screen.
-     *
      * <p>Everything is swallowed rather than passed on, which is the point: a finished game
      * has no verbs, and a click that fell through to the board would be looking for one.
      */
@@ -5429,7 +5200,6 @@ public final class TableScreen extends Screen {
 
     /**
      * A watcher's key. The panels that read the game, the transport, and the way out.
-     *
      * <p>Space, the arrows and Home and End, because that is what every video scrubber in the
      * world uses and nobody should have to be told. L still opens the log - a replay is mostly
      * read alongside it - and F1 still lists the keys.
@@ -5481,7 +5251,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The strip along the bottom of a replay: where you are in the game, and the way about it.
-     *
      * <p>Drawn last, over the felt, because the board is fitted to the window above it and
      * anything that reached down here would be a card half under a control.
      */
@@ -5521,7 +5290,6 @@ public final class TableScreen extends Screen {
 
     /**
      * One transport button, and what it says when the cursor rests on it.
-     *
      * <p>Four arrows eighteen pixels wide can only be told apart by somebody who already
      * knows what they do, and the moment anybody wants to know is the moment they are already
      * pointing at one. So the name and the key are on the tooltip, exactly as the mat buttons
@@ -5548,7 +5316,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The furniture around the felt, for whichever kind of screen this is.
-     *
      * <p>One place, because the three that used to build it separately are the three that
      * would have to learn about a replay's scrubber one at a time.
      */
@@ -5560,7 +5327,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Whether anything is open on top of the felt.
-     *
      * <p>What Escape shuts, and the one list that decides it. Written out at the key it
      * would have grown a copy the first time something else asked - the log's own close
      * button, say - and those two lists parting company is a panel Escape will not close.
@@ -5584,7 +5350,6 @@ public final class TableScreen extends Screen {
 
     /**
      * The keys that mean something while a line is being typed, and whether this was one.
-     *
      * <p>Its own method rather than four cases at the top of the key handler, because the
      * answer to everything else is the same: swallow it. A key that fell through to the board
      * while somebody was mid-sentence would play a card out of a word.
@@ -5636,7 +5401,6 @@ public final class TableScreen extends Screen {
 
     /**
      * Says it, and closes the line either way.
-     *
      * <p>Closed even when there was nothing to say, because Enter on an empty line is
      * somebody changing their mind - and a bar that stayed open would eat the next key press
      * they meant for the board.

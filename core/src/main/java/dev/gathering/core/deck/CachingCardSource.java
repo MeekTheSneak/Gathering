@@ -14,7 +14,6 @@ import java.util.Map;
 /**
  * The cache in front of the network, which is the whole reason a re-import of a known
  * decklist makes no requests at all.
- *
  * <p>Anything the store already holds is answered from disk; only the remainder is batched
  * to Scryfall, and everything that comes back is stored before it is returned.
  */

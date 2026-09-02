@@ -48,11 +48,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The table: two blocks by two, and the thing a game of cards happens on.
- *
  * <p>Four blocks, one of which - the north-west corner - carries the block entity and owns
  * the session. Breaking any quarter takes the whole table with it, in the way a bed or a door
  * does, because a table missing a corner is not a smaller table.
- *
  * <p>Tables pushed edge to edge become one cluster running one session. Which tables join, how
  * many seats that makes and where the seats go is all decided in {@code :core} and reached
  * through {@link TableClusters}, so what happens in a world is the arithmetic that was tested
@@ -88,7 +86,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * A table turned with the building it is in.
-     *
      * <p>A structure is placed at one of four rotations, block by block. Without this a table
      * inside one comes out as four north-west corners on top of each other: four tables in the
      * space of one, none of them whole, and nothing to say what went wrong.
@@ -110,7 +107,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Solid up to the felt, so you stand on the surface rather than a pixel above it.
-     *
      * <p>Square-sided rather than following the legs: a shape with a gap under it is a shape
      * a player can walk into and a card can fall through, and neither is worth the accuracy.
      */
@@ -123,7 +119,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Only the corner that owns the table ticks, and only when there is a game on it.
-     *
      * <p>Three empty block entities per table ticking for nothing is the sort of cost that
      * does not show up until somebody builds a shop full of tables.
      */
@@ -157,7 +152,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Whether a table can be placed with its corner here.
-     *
      * <p>Two questions, both of which have to be answered before anything is placed: is there
      * room for four blocks, and would joining what is already there make a cluster bigger than
      * a cluster is allowed to be.
@@ -191,7 +185,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Takes the rest of the table with it.
-     *
      * <p>Guarded by checking the neighbor really is the rest of this table: without that,
      * removing one table's corner would take a bite out of the table pushed up against it.
      */
@@ -215,12 +208,10 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Gives back everything the table was holding before it stops existing.
-     *
      * <p>A table cannot be broken while anybody is sitting at it, so this is the case where
      * everyone has walked away from an unfinished match. The decks are still theirs, and a
      * table that ate four of them because the last player left is not a table anybody should
      * put a deck on twice.
-     *
      * <p>And the pot with them. The pot lives on the block entity and nowhere else, so a
      * table broken with a stake in it took every staked card out of the world - the one loss
      * ante cannot survive, because a staked card is a card somebody agreed to risk against
@@ -237,7 +228,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * The block entity holding this table's things, while the table is being taken apart.
-     *
      * <p>Not {@link TableSessions#anchorOf}, or not only. That walks the cluster out of the
      * world, and half of teardown happens once the world no longer has the block in it:
      * {@code playerWillDestroy} runs before the block goes, but {@code onRemove} runs after,
@@ -246,7 +236,6 @@ public class TableBlock extends BaseEntityBlock {
      * found no table, gave nothing back, and took every held deck and the whole ante pot out
      * of the world with it. Silently, which is the part that matters: nobody watching a
      * quarry sees the four decks that did not drop.
-     *
      * <p>So the world is asked first, because a live cluster is the right answer when there
      * is one, and the state in hand is the fallback: it still says which part this is, which
      * is enough to name the origin whose block entity is still there to be read.
@@ -281,7 +270,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Right-click an edge to take that seat, or your own seat to leave it.
-     *
      * <p>The edge you clicked, not the nearest free one: a seat is a place at a table and
      * which place you take is the one social decision this interaction carries. Clicking the
      * top of the table, or an edge that is not a seat, says what the cluster is instead -
@@ -435,7 +423,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * The crouch gesture, reachable without a click.
-     *
      * <p>Named and public so a test can perform the thing a player performs rather than the
      * pieces underneath it - the seating and the starting are one gesture and the bug worth
      * catching is in how they fit together.
@@ -446,7 +433,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Crouching on a table: either "what shall we play" or "next game, please".
-     *
      * <p>Which one depends on whether a set is already running here. Asking the format again
      * between games of a best-of-three would be asking a question that has been answered, and
      * offering to change it mid-set is offering to make the score meaningless.
@@ -475,7 +461,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Cuts the deck in somebody's hand into packs and deals them round the tables.
-     *
      * <p>The cube is not taken. It is a decklist, and what the drafters walk away with are
      * their own pools - so the cube's owner keeps it and can run the same draft again next
      * week, which is what a cube is for.
@@ -523,13 +508,11 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Everything between holding a deck and playing with it, in one gesture.
-     *
      * <p>It used to be four: sit at an edge, crouch to ask for a game, pick a format from a
      * screen, then click again with the deck. Every one of them is a thing to get wrong in
      * order, and getting them wrong in order is most of what "it doesn't work" means to
      * somebody trying a mod for the first time. Walking up to a table holding a deck says what
      * you want as clearly as anybody ever says anything.
-     *
      * <p>The format prompt has not gone anywhere - crouching still asks, which is the
      * deliberate gesture for a table that wants to be something other than the usual. It is
      * just no longer in the way of the usual.
@@ -572,11 +555,9 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Sends the board out again after somebody has sat down or stood up.
-     *
      * <p>What a client is shown depends on whether it has a seat: a seated player gets their
      * own hand and their own library's shape, and everybody else gets the public board. So the
      * moment somebody takes or gives up a seat, the board they are holding is the wrong one.
-     *
      * <p>It corrected itself eventually - the ambient beat sends the public board to the room
      * every so often - which is the worst of both: a player who sat down mid-game watched
      * their own hand refuse to appear for a second or two, and a player who stood up went on
@@ -597,12 +578,10 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Puts the player in a seat if they are not already in one.
-     *
      * <p>Somebody crouching on a table to start a game has said what they want clearly enough.
      * Refusing because they had not performed the separate ceremony of clicking an edge first
      * is the kind of thing that makes a mod look broken to the person trying it alone - which
      * is everybody, the first time.
-     *
      * <p>Only ever takes a free seat, and never moves somebody who already has one.
      *
      * @return whether they now have a seat
@@ -646,7 +625,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Puts a deck a player was just handed straight down at their seat.
-     *
      * <p>The loaner path. Somebody who has borrowed a deck at the table they are sitting at
      * has already made the only decision there is, and asking them to right-click the table
      * with the thing the table just gave them is a step that exists only because the code is
@@ -660,7 +638,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * Puts a deck into the game, then shuffles it.
-     *
      * <p>Two events rather than one, because they are two different things and the log should
      * say so: an unshuffled deck is an unshuffled deck, and "shuffled" is a line somebody at
      * the table is entitled to see happen.
@@ -759,21 +736,17 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * The deck check, and what a player is told when their deck does not pass it.
-     *
      * <p>Before anything happens to the deck: it stays in their hand, the seat stays theirs,
      * and the table stays where it was. A refusal that also ate the deck would be a refusal
      * nobody could act on.
-     *
      * <p>Only errors stop a game, and only on a table somebody chose a format for. A deck
      * check is a tournament deck check, and a tournament deck check happens because somebody
      * entered a tournament: walking up to a bare table holding a deck says "let me play", not
      * "hold me to Commander". The table has to start with some rules and it starts with
      * Commander, so a deck that fails there is told what is wrong and dealt out anyway. Pick
      * a format off the setup screen and the same failure is a refusal.
-     *
      * <p>A warning is never either of those - it is the check noticing something odd, like
      * commanders listed for a format with no command zone - and nothing stops for odd.
-     *
      * <p>Named and public so a test can ask the question a right-click asks, rather than
      * reaching past it to the validator and leaving the two lines that actually consult it
      * untested - which is how the validator came to be wired to nothing in the first place.
@@ -820,7 +793,6 @@ public class TableBlock extends BaseEntityBlock {
 
     /**
      * How much of a bad deck to read out.
-     *
      * <p>A sixty-card deck built for the wrong format produces sixty problems, and sixty lines
      * of chat is not a message - it is a wall that pushes everything else off the screen. Five
      * is enough to see what kind of wrong it is.

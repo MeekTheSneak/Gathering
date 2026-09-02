@@ -6,12 +6,10 @@ import java.util.List;
 
 /**
  * Where to put a handful of cards so they can all be seen at once.
- *
  * <p>For the one thing a scripted board is for: filling a mat up so somebody can look at what
  * a real game's worth of cards actually does to the layout. A player arranges their own board
  * and would not thank anything for doing it for them - this exists so that "the cards render
  * tiny on a crowded table" can be reproduced without playing forty cards by hand first.
- *
  * <p>A grid, wider than it is tall because a mat is, inset from the edges so no card hangs
  * off. Cards never share a spot: a stack of forty is one card as far as looking at it goes,
  * and looking at it is the whole point.
@@ -29,7 +27,6 @@ public final class TableSpread {
 
     /**
      * Somewhere for each of {@code howMany} cards, in reading order.
-     *
      * <p>Deterministic: the same count gives the same board twice, so two runs of a scripted
      * test photograph the same thing.
      */
@@ -59,7 +56,6 @@ public final class TableSpread {
 
     /**
      * Where the nth of {@code count} sits along a run of {@code room}.
-     *
      * <p>A single one goes in the middle rather than hard against the near edge, which is
      * what dividing by {@code count - 1} would do to it.
      */

@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The one thing that must not go wrong here is asking twice.
- *
  * <p>This runs from a tick handler, so a mistake is twenty requests a second at somebody
  * else's server rather than a visual glitch.
  */

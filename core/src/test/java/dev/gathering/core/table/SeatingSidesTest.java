@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * How many chairs a table has, and which edges they are at.
- *
  * <p>Two, facing each other, and it matters that it stays two: the seated view turns the whole
  * board around so the player's own mat is the near one, and "the near one" only means anything
  * while there are exactly two halves to be near.

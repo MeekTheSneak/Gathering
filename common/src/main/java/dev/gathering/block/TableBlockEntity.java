@@ -32,17 +32,14 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * What a table remembers.
- *
  * <p>One per table, on the corner that owns it. It holds who has taken which of its edges,
  * which is a table's share of a cluster's seating: a seat is identified by the table it is at
  * and the edge it is on, so storing the claim on that table means it is saved with that table
  * and comes back with it.
- *
  * <p>Seats are registrations rather than chairs. Nobody is sitting anywhere - the design has
  * seated players walking around, tending a furnace and heckling over a shoulder - so a claim
  * is a name against an edge and nothing more. It survives logging out, because the design
  * says leaving does not drop your seat.
- *
  * <p>The session itself will live here too, for the same reason: a block entity is the one
  * thing in Minecraft saved with the world at the position it belongs to.
  */
@@ -88,7 +85,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * The game on this cluster, if there is one and this is the table holding it.
-     *
      * <p>Restored from {@link #stored} the first time somebody asks rather than at load,
      * because reading it needs the session key and a key that cannot be read must never be
      * the reason a world fails to load.
@@ -103,7 +99,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * The set of games this table is playing, if any.
-     *
      * <p>Kept beside the session rather than in it, and in the open rather than sealed: a
      * match outlives the game it is currently on, and who has won how many is the most public
      * fact at a table.
@@ -112,7 +107,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * The draft running on this cluster, if any.
-     *
      * <p>Saved with the world, because a draft is twenty minutes of decisions and a server
      * restart in the middle of one must not eat it.
      */
@@ -120,12 +114,10 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * The decks that were put down on this table, held until the match is over.
-     *
      * <p>A deck committed to a game used to be a deck destroyed: the item was consumed, the
      * library and commanders went into the session, and the sideboard went nowhere at all.
      * Ending the game then left its owner with nothing, which is not something a table may do
      * to somebody's deck.
-     *
      * <p>So the table is a deckbox for the duration. It holds each seat's whole deck -
      * sideboard included, which is the only reason sideboarding between games is possible at
      * all - hands it back when the match ends, and is saved with the world, because a server
@@ -135,7 +127,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * And the pool each of those was drafted from, for the ones that were.
-     *
      * <p>Beside the decks rather than inside them: a deck's contents change every time
      * somebody boards a card in and a pool never changes at all.
      */
@@ -143,7 +134,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Who put each held deck down, so it goes back to them rather than to the chair.
-     *
      * <p>Decks used to be handed back to whoever was sitting in the seat when the match
      * ended. A player who stood up mid-match got their deck dropped on the floor, and a
      * player who took the vacated chair got somebody else's deck put in their inventory -
@@ -153,7 +143,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Who put each seat's stake in the pot.
-     *
      * <p>Beside the pot, exactly as {@code deckOwners} sits beside the decks: a seat says
      * where a card was staked from and a UUID says whose it was, and only the second is any
      * use when a pot goes back to the people who filled it.
@@ -162,7 +151,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * The pot, when this table is playing for keeps.
-     *
      * <p>Held here rather than inside the game because it outlives one: a session that dies
      * to a crash has to give its cards back, and the only thing that survives that is what
      * was written to disk. The brief is blunt about it - a pot that could be eaten by a
@@ -173,7 +161,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Whether the game running here is being played for keeps.
-     *
      * <p>Set when the table agreed and cleared when the session ends, so it says something
      * about this game rather than about the server. Saved, because a deck put down after a
      * restart has to be staked from on exactly the terms everyone agreed to before it.
@@ -219,7 +206,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * The draft running on this cluster, if there is one.
-     *
      * <p>Beside the session rather than inside it, because a pod is not a game: it forms
      * before there is anything to play, it holds no board, and the games it turns into are
      * ordinary sessions afterwards. Kept in the open rather than sealed, because unlike a
@@ -248,14 +234,12 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Whether somebody actually asked for the format this table is playing.
-     *
      * <p>The deck check is a tournament deck check, and a tournament deck check happens
      * because somebody entered a tournament. Walking up to a bare table holding a deck and
      * right-clicking it says "let me play", not "hold me to Commander" - the table has to
      * pick some rules to start with and it picks Commander, but the player never named it. So
      * a deck that fails there is told what is wrong and dealt out anyway, and only a table
      * somebody chose a format for turns that into a refusal.
-     *
      * <p>Server-side only: no client draws anything from it, so it is not in the update tag.
      */
     public boolean formatWasChosen() {
@@ -272,7 +256,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Whether the game on this table has a command zone, which decides whether one is drawn.
-     *
      * <p>Presentation, not a rule: nothing during play consults the format, and this does not
      * either - it asks the match what kind of game was started and stops. The server has the
      * match and works it out; a client is never sent one, so it is told the answer instead.
@@ -283,7 +266,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * What a client was told about the above, because a client has no match to ask.
-     *
      * <p>Only ever read when {@code match} is absent, which on a server is only before a game
      * has started - and then it is false either way.
      */
@@ -301,7 +283,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Pushes what a client is told about this table out again.
-     *
      * <p>The block entity's own data, not the game's: whether the felt is dyed and whether the
      * game has a command zone. A blockstate never changes for either, so nothing else would.
      */
@@ -314,12 +295,10 @@ public class TableBlockEntity extends BlockEntity {
     /**
      * Takes a seat's deck into the table's keeping for the rest of the match, and the pool it
      * was drafted from - null for a deck nobody drafted, which is every imported one.
-     *
      * <p>The pool is held with the deck rather than left on the item, because the item is
      * gone: the table takes the whole deck for the length of a match and hands back a new
      * stack afterwards. Without this a drafted deck came back from its first game with no
      * pool on it, and the limited check it had been playing under quietly stopped applying.
-     *
      * <p>There is deliberately no two-argument version. One that defaulted the pool to null
      * would drop a pool every time somebody called the short form out of habit - which is a
      * deck quietly stopping being a drafted deck, and nothing to see when it happens.
@@ -357,13 +336,11 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Puts a seat's stake into the pot, and remembers the person who put it there.
-     *
      * <p>The person, not only the chair. A pot that is handed back - a game voided, a table
      * broken, a match nobody finished - is handed back by seat, and a seat is not a player: a
      * staker who stood up and was replaced had their card given to whoever sat down after
      * them. That is cards changing hands because of where somebody happened to be standing,
      * in the one feature whose whole point is that a card really changes owner.
-     *
      * <p>Beside the pot rather than inside it, which is where the held decks keep the same
      * fact for the same reason. The pot itself stays a pure record of seats and cards.
      */
@@ -391,7 +368,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Hands the pot over and forgets it.
-     *
      * <p>Emptied here rather than by the caller, so a pot cannot be paid out twice. The one
      * arithmetic mistake this feature must not make is a card existing in two places, and a
      * pot read without being cleared is exactly how that happens.
@@ -405,7 +381,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Who staked, kept until the pot is settled rather than released with it.
-     *
      * <p>Released separately because the caller needs both, and needs them after the release:
      * the pot is emptied before a single card is handed anywhere, so that a settle which runs
      * twice pays out once, and the names have to outlive that by exactly one call.
@@ -426,7 +401,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Every deck the table is holding, in seat order.
-     *
      * <p>In seat order, which Map.copyOf would have thrown away for a hash order salted once
      * per launch. This is walked to put held decks back down between games of a set, and each
      * one puts a line in the session log - so the log's own order would have come out
@@ -439,7 +413,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Hands the decks back and forgets them, which is what the end of a match is.
-     *
      * <p>Deck and pool together in one value, because handing one back without the other is
      * the bug this shape exists to prevent - and two calls that must both happen is one call
      * somebody forgets.
@@ -458,7 +431,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * A deck the table is holding, what it may be built from if it was drafted, and whose.
-     *
      * <p>All three together in one value, because handing one back without the others is the
      * bug this shape exists to prevent - and three calls that must all happen is two calls
      * somebody forgets. The owner may be null for a deck held by a world saved before decks
@@ -469,7 +441,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Hands one seat's deck back and forgets it, leaving everybody else's where it is.
-     *
      * <p>For a player leaving the table, which is the moment they mean "give me my cards" and
      * which used to hand them nothing: a deck came back only when the whole match ended, and
      * ending a match is a thing the rest of the table is in the middle of.
@@ -494,7 +465,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Ends the game and the match, keeping nothing.
-     *
      * <p>Does not hand the decks back on its own - the caller has players to hand them to and
      * this does not. It does drop them, so a caller that forgets loses them loudly at the next
      * save rather than quietly leaving four decks inside a table forever.
@@ -530,7 +500,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Keeps the room's view of this table up to date.
-     *
      * <p>Moves are pushed as they happen, but somebody who walks up to a game in progress has
      * missed all of them - so the public board goes out on a slow beat as well. Slow because
      * it is ambience: a miniature that lags a second behind is a miniature, and a miniature
@@ -559,7 +528,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Dyes the felt, and says whether anything changed.
-     *
      * <p>Color is a property of the table rather than of its blockstate, which is what keeps
      * a dyeable surface from multiplying the blockstate count by sixteen for something that
      * is never asked about except when drawing.
@@ -580,16 +548,13 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Asks the client to draw this table again, because its color has changed.
-     *
      * <p>The felt is a tint on a texture rather than sixteen textures, and a tint is baked
      * into the chunk's mesh when it is built. Telling the client the block entity's data has
      * changed does not rebuild that mesh - so a table dyed while somebody was looking at it
      * stayed the old color until something else happened nearby that rebuilt the chunk,
      * which is a fix nobody can find and looks exactly like the dye not working.
-     *
      * <p>All four quarters, not just this one. One block entity owns a two-by-two table and
      * every quarter's tint asks it for the color, so all four meshes are out of date.
-     *
      * <p>Done here rather than in a packet handler because {@code onDataPacket} is a NeoForge
      * extension and this class is loader-free. Both loaders arrive at {@code loadAdditional}
      * for a block entity update, so this catches the update either way - and catches a
@@ -647,7 +612,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * What a joining client is told.
-     *
      * <p>Only the felt color: seat claims are player identity and nothing on a client draws
      * them yet, so sending them would be data leaving the server for no reason.
      */
@@ -793,7 +757,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Writes the pot down.
-     *
      * <p>The whole reason escrow is on the block. Losing this to a restart is losing cards
      * that people agreed to play for and never got the chance to win back.
      */
@@ -858,7 +821,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * Writes the game down, sealed.
-     *
      * <p>A session that could not be opened is written back exactly as it was found. It is
      * still somebody's game, and replacing it with nothing because this server could not read
      * it is the one irreversible thing available here.
@@ -889,7 +851,6 @@ public class TableBlockEntity extends BlockEntity {
 
     /**
      * The set of games, written in the open.
-     *
      * <p>By format id rather than by anything derived from the preset, so a format whose
      * numbers change does not silently change a match already in progress into a different
      * one - it changes what the preset says, which is the honest outcome.

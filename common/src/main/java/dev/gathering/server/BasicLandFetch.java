@@ -24,26 +24,21 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Going and getting a basic land out of your own deck.
- *
  * <p>Out of the deck, and never out of nowhere. A Forest that was never in your library is a
  * Forest you did not build for, and a table where anybody can call one up whenever they like
  * is not playing the same game as the person who chose to run twelve. This used to make a
  * token off a Scryfall lookup, which was quick to write and wrong: it turned a search into a
  * conjuring trick, and a deck's land count into a suggestion.
- *
  * <p>So a deck with no Forests in it fetches no Forest, and is told so. That is the answer,
  * not a failure.
- *
  * <p>Read out of the card cache only, never a fetch: this runs on the server thread with a
  * player waiting. A card nobody has looked up is passed over rather than guessed at - see
  * {@link LibraryBasics} - which in practice means a card from an imported deck, since importing
  * is what put it in the cache.
- *
  * <p>Nothing is shuffled afterwards. Searching a library and shuffling it are two things a
  * player does, and this mod does not do the second one for them - section 16, no rules
  * enforcement. Nobody has learned anything about the order: the server picked the cards, and
  * the player never saw the library.
- *
  * <p>Server thread only.
  */
 public final class BasicLandFetch {
@@ -95,7 +90,6 @@ public final class BasicLandFetch {
 
     /**
      * What each card in the library is, as far as this server knows.
-     *
      * <p>Parallel to the library itself: the same length, in the same order, with a null
      * wherever the cache cannot say. {@link LibraryBasics} joins the two by position.
      */

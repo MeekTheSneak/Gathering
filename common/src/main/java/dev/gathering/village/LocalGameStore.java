@@ -16,17 +16,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Putting a card shop in the villages.
- *
  * <p>A local game store is a room with a counter, a chest of stock behind it and a table or two
  * to play at, and it belongs where every other shop in Minecraft belongs: in a village, built by
  * the same generator, in the village's own materials. So there is one building per village style
  * and it goes into the same pool the fletcher and the librarian come out of.
- *
  * <p>Which means editing a pool the game has already loaded, because a data pack can only replace
  * one of those whole - and a mod that replaced {@code village/plains/houses} would be a mod that
  * quietly deleted every other mod's village building. Adding to the list is the only version of
  * this that is a good neighbor.
- *
  * <p>Everything about the shop itself is published data: the buildings are structure files and
  * the pool entry that names one is a template pool of this mod's own, so what is added here is
  * read rather than built. What each loader supplies is the one line that reaches the pool's
@@ -60,7 +57,6 @@ public final class LocalGameStore {
 
     /**
      * Adds a card shop to every village that has houses.
-     *
      * <p>Once, when the server starts, before anything has generated. Never fails a start: a
      * village style whose pool is missing - another mod replaced it, a data pack removed it -
      * is a village with no card shop and a line in the log, not a server that will not come up.
@@ -89,7 +85,6 @@ public final class LocalGameStore {
 
     /**
      * Which villages this server could build a card shop in, and what it would build.
-     *
      * <p>Apart from the adding, because looking things up is where this goes wrong and it is
      * worth being able to ask the question without changing anything. A village style whose
      * pool is missing - another mod replaced it, a data pack removed it - is left out with a

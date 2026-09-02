@@ -16,7 +16,6 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Places a whole table, or none of it.
- *
  * <p>The block clicked becomes the table's north-west corner and the table extends east and
  * south from it. All four quarters go down in one go: a table that placed its first quarter
  * and then discovered there was no room for the fourth would leave a stump behind, and the
@@ -56,7 +55,6 @@ public class TableBlockItem extends BlockItem {
 
     /**
      * How to use it, on the thing you are holding.
-     *
      * <p>Two gestures and neither of them is guessable: a table you right-click with a deck
      * sits you down and starts a game, and one you crouch at asks what kind of game first.
      * Somebody who has just crafted this has no way to find either out, and a mod whose first

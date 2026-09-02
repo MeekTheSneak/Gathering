@@ -24,12 +24,10 @@ import java.util.UUID;
 
 /**
  * The mod's whole conversation with Scryfall.
- *
  * <p>Everything here obeys the API guidelines: one request at a time behind a
  * {@link RateLimiter}, an identifying User-Agent, an explicit Accept header, and batch
  * resolution through the collection endpoint rather than a request per card. A hundred-card
  * decklist costs two requests, not a hundred.
- *
  * <p>This class blocks. It is pure core with an injected transport, so it knows nothing
  * about threads; it is the adapter layer's job to keep it on a dedicated executor and off
  * every game thread.
@@ -43,7 +41,6 @@ public final class ScryfallClient {
 
     /**
      * As far as a paged search is followed: 175 a page, so well past the largest set printed.
-     *
      * <p>A bound rather than a limit anybody will meet. A search that kept saying there was
      * more would otherwise be an unbounded loop against somebody else's server.
      */
@@ -82,7 +79,6 @@ public final class ScryfallClient {
 
     /**
      * Every printing of one card, cheapest first.
-     *
      * <p>This is what makes "resolve to the cheapest matching printing by default, with a
      * chooser in the import screen" one request instead of a research project.
      */
@@ -100,10 +96,8 @@ public final class ScryfallClient {
 
     /**
      * Every printing in one set.
-     *
      * <p>What a set with no published collation has to be opened from: the cards that are in
      * it, so a pack can be dealt off plain rarity odds instead of not existing.
-     *
      * <p>Paged by number rather than by following the {@code next_page} the reply carries.
      * The set code is checked and the query built from it here, so nothing a server owner
      * typed - and nothing a reply contained - reaches the network as a URL. It is the same
@@ -133,10 +127,8 @@ public final class ScryfallClient {
 
     /**
      * Every set Scryfall knows about, newest listed first.
-     *
      * <p>One request and about a megabyte, which is why nothing asks it per card: what it is
      * for is working out which set is the current one, once, when a server starts.
-     *
      * <p>Not paged. Scryfall returns the whole list in one reply and says so with
      * {@code has_more: false}; if that ever changes, a truncated list still answers the only
      * question asked of it, because the list arrives newest first.
@@ -148,7 +140,6 @@ public final class ScryfallClient {
 
     /**
      * A set code, or a refusal.
-     *
      * <p>This goes into a search query and arrives from a server config or a command
      * argument. What counts as one is {@link SetCode}'s to say, in one place.
      */
@@ -159,12 +150,10 @@ public final class ScryfallClient {
 
     /**
      * Tokens whose name matches, most-printed first.
-     *
      * <p>Its own lookup rather than a name search with a filter, because the named endpoint
      * deliberately prefers real cards: asking it for "Thrull" returns the creature from Fallen
      * Empires, not the token Tevesh Szat makes. Tokens live in their own layout on Scryfall and
      * this asks for that layout by name.
-     *
      * <p>A prefix search rather than an exact one. Nobody types "Thrull Token" and half the
      * tokens anybody wants are called something like "Beast" with six different printings, so
      * the useful answer is a short list to pick from rather than one guess.

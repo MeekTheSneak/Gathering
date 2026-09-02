@@ -10,17 +10,14 @@ import javax.crypto.SecretKey;
 
 /**
  * The key that seals sessions, kept where the sessions are not.
- *
  * <p>The design's requirement is that the key is sealed server-side and never stored beside
  * the data. So it lives in the server's own configuration directory while sessions live in
  * the world save - copy a world folder and you have taken the ciphertext and left the key
  * behind, which is the case this is for: a save file opened with external tools by somebody
  * who was never at the table.
- *
  * <p>One key per server rather than one per world. A per-world key would have to be stored
  * somewhere that says which world it belongs to, and the obvious place to put that is beside
  * the world.
- *
  * <p>What this does not defend against, stated plainly: whoever runs the server has both
  * halves. That is true of every online card game, and the design says so.
  */
@@ -33,7 +30,6 @@ public final class SessionKeys {
 
     /**
      * The server's session key, generated on first use.
-     *
      * <p>Created read-and-write for its owner only where the filesystem has an opinion about
      * that. Where it does not - Windows, most notably - the file is still only as protected
      * as the directory it is in, which is the same protection the world save has.

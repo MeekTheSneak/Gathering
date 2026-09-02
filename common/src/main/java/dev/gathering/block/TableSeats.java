@@ -12,7 +12,6 @@ import net.minecraft.world.level.Level;
 
 /**
  * Taking and giving up a seat at a cluster of tables.
- *
  * <p>A seat belongs to an edge of one table, so the claim is stored on that table and comes
  * back with it. What this adds is the cluster's view: whether that edge is a seat at all -
  * an edge two tables share is not - and whether anyone anywhere in the cluster is seated,
@@ -30,7 +29,6 @@ public final class TableSeats {
 
     /**
      * Takes a seat, and says what happened.
-     *
      * <p>Every refusal is its own answer rather than a bare false, because "you cannot sit
      * there" and "somebody is already there" and "you are already sitting at this table" want
      * three different things said to the player.
@@ -93,7 +91,6 @@ public final class TableSeats {
 
     /**
      * Whether the cluster's shape may change.
-     *
      * <p>Adding or removing a table reshapes the perimeter, which moves the seats: somebody
      * registered at an edge could find that edge is now the middle of the surface. So while
      * anybody is seated the shape is frozen, which is also what the design says about a live
@@ -108,7 +105,6 @@ public final class TableSeats {
 
     /**
      * Whether this block may be broken.
-     *
      * <p>Only tables answer no, and only while somebody at their cluster is seated. Refusing
      * has to happen at the loader's break event: a block cannot decline to be broken in
      * vanilla, and by the time the block itself hears about it the decision is made.

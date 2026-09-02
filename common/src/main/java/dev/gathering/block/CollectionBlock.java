@@ -21,11 +21,9 @@ import net.minecraft.world.phys.BlockHitResult;
 
 /**
  * The block a collection lives in.
- *
  * <p>Right-click with a card and it goes in. Right-click with an empty hand and the
  * collection opens. Nothing else: a collection block is a container, and a container that
  * needs a manual is a container nobody uses.
- *
  * <p>Looking is public and touching is not. Anybody may open one and read every card in it,
  * because a collection is a thing you show off and browsing the playgroup's pool without
  * asking is most of what one is for. Putting cards in and taking them out are rights the
@@ -57,7 +55,6 @@ public class CollectionBlock extends BaseEntityBlock {
 
     /**
      * Whoever places it owns it, and nobody else may touch what is inside.
-     *
      * <p>A collection placed from an item that already held one keeps its owner: it was
      * somebody's before it was picked up, and the person carrying it home is usually them.
      */
@@ -75,7 +72,6 @@ public class CollectionBlock extends BaseEntityBlock {
 
     /**
      * A card in hand goes in.
-     *
      * <p>The whole stack, because cards do not stack, and because a player holding a card
      * over a collection block means to put that card in it. A deck is left alone: sleeving
      * and unsleeving are the deck screen's, and a deck dropped in here by accident would be
@@ -125,11 +121,9 @@ public class CollectionBlock extends BaseEntityBlock {
 
     /**
      * An empty hand opens it, for anybody. Crouching, it puts everything loose away instead.
-     *
      * <p>Shift for "all of it", which is what shift means everywhere else in this game and
      * in Minecraft. It is the same errand the deck builder's shift-click is: a booster box is
      * thirty-six stacks, and putting them away one right-click at a time is an evening.
-     *
      * <p><b>Both hands have to be empty for the crouching half to happen at all</b>, and that
      * is vanilla's rule rather than this block's: {@code ServerPlayerGameMode#useItemOn}
      * skips block interaction entirely when the player is crouching and holding anything in
@@ -158,7 +152,6 @@ public class CollectionBlock extends BaseEntityBlock {
 
     /**
      * What one drops: itself, holding its contents.
-     *
      * <p>Every card inside travels in the item's own data, so a collection moved across a
      * base is the same collection when it is put down. Ten thousand cards is a few hundred
      * entries, which is a size an item can carry.

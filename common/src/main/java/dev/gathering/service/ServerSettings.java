@@ -14,14 +14,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The running server's settings, read from one file next to every other mod's.
- *
  * <p>Written out with its own explanations on first start, so the way to find out what this
  * mod can be told is to open the file rather than to go looking for a wiki.
- *
  * <p>A server always starts. A file that cannot be read is an error in the log and the
  * defaults in memory - which are play mode with collection off, the conservative pair - never
  * a refusal to boot somebody's world over a stray bracket.
- *
  * <p>Read once at start and held. Settings do not change under a running server: a booster
  * that could be opened at one moment and not the next, halfway through somebody opening it,
  * is worse than one that waits for a restart.
@@ -51,12 +48,10 @@ public final class ServerSettings {
 
     /**
      * Changes one setting, in the file and in memory.
-     *
      * <p>The file first, because the file is what the server comes back up on: a setting
      * changed in game that a restart forgot would be worse than one that could not be changed
      * at all. Then the whole file is read again rather than the one value patched into what is
      * held, so what the server is running on is always what somebody would read off the disk.
-     *
      * <p>What has to be re-read after a change - the shop's shelf, the loot pool, which set is
      * current - is the caller's, because those live in a layer this one knows nothing about.
      *

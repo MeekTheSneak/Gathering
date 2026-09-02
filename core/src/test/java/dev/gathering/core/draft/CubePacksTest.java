@@ -25,7 +25,6 @@ class CubePacksTest {
 
     /**
      * A smaller one gets thinner packs rather than a refusal.
-     *
      * <p>Eight drafters want three hundred and sixty cards for full packs, which most groups'
      * cubes are not. Refusing would make the answer to "draft our cube" be "build a bigger
      * one", so the packs get thinner instead.

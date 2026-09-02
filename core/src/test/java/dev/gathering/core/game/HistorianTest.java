@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The one viewer that is entitled to everything.
- *
  * <p>A replay is this mod's disclosure moment: during play nothing hidden is ever sent, and
  * once the game is over there is nothing left to protect. That makes a viewer who sees
  * everything both necessary and the single most dangerous type in the codebase, so what these
@@ -52,7 +51,6 @@ class HistorianTest {
 
     /**
      * The fence, and the reason it is a test rather than a comment.
-     *
      * <p>{@code allViews} is what the invariant suites walk and what a live table hands out.
      * A historian appearing in it would not fail anything loudly - it would quietly become one
      * of the boards a running game sends, which is the exact failure the whole visibility

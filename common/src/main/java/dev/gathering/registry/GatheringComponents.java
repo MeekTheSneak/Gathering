@@ -10,7 +10,6 @@ import net.minecraft.core.component.DataComponentType;
 
 /**
  * The mod's data component types, bound by the loader bootstrap.
- *
  * <p>Six: what a card is, where it has been, what a deck is, what a sealed pack is, what a
  * sealed box is, and - on a deck a draft handed out - what it may be built from. Everything
  * else about a card is derived from a cache rather than stored on the stack.
@@ -46,7 +45,6 @@ public final class GatheringComponents {
 
     /**
      * Where a card has been.
-     *
      * <p>Not cached the way the card's own component is: almost no card has one, so there is
      * nothing to cache for almost every card, and the ones that do have one are looked at
      * rather than drawn in their hundreds.

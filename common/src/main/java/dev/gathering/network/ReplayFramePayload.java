@@ -7,7 +7,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: one moment of a finished game.
- *
  * <p>The bytes are a {@code GameView} exactly as a live board's are, so the screen that draws
  * a game draws a replay without knowing the difference. What is <em>not</em> in here is the
  * log's events, the session seed, or anything else a client could fold a different frame out

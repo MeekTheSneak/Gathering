@@ -9,7 +9,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: put this card on my wants list, or take it off.
- *
  * <p>A printing rather than a name, which is also what makes this safe to accept from anywhere:
  * it names a card by its Scryfall id and the server writes that id into a file. Nothing is
  * looked up, nothing is granted, and a card nobody has ever heard of is a line in a list.

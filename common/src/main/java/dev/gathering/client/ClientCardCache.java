@@ -11,12 +11,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Everything this client has been told about cards.
- *
  * <p>Emphasis on "been told". The client never resolves a card itself and never asks
  * Scryfall what a card is; it knows exactly the printings the server has sent it summaries
  * for, which is exactly the set the visibility rules entitle it to. A card it has not been
  * told about has no name here, and that is correct rather than a gap to paper over.
- *
  * <p>Cleared on disconnect so nothing survives into the next server.
  */
 public final class ClientCardCache implements CardNameLookup {
@@ -25,13 +23,11 @@ public final class ClientCardCache implements CardNameLookup {
 
     /**
      * Concurrent as insurance, not because anything crosses a thread today.
-     *
      * <p>It used to say the opposite - written from the network thread, read from the render
      * one - and that was never true on either loader. NeoForge wraps every payload handler in
      * {@code MainThreadPayloadHandler} unless a registrar asks otherwise, and Fabric's
      * {@code ClientPlayNetworking} says in as many words that a handler "is called on the
      * render thread". Summaries arrive on the same thread that draws them.
-     *
      * <p>It stays a {@link java.util.concurrent.ConcurrentHashMap} anyway. The cost is
      * nothing at this size, and the failure it would guard against - a handler moved onto the
      * network thread by somebody chasing a frame of latency - is an intermittent,

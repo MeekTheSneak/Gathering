@@ -21,18 +21,14 @@ import net.minecraft.util.Mth;
 
 /**
  * One card, drawn: its printed face and its oracle text.
- *
  * <p>This is the only place a card is drawn for reading, in three sizes for three places -
  * beside the cursor, into a box a screen set aside, and filling the screen. They share every
  * pixel of the drawing so the card looks like itself wherever you meet it; only the geometry
  * differs. The table's inspect panel will be the cursor variant, unchanged.
- *
  * <p>Oracle text rather than printed text throughout, because errata accuracy is the reason
  * to show text at all rather than just the image.
- *
  * <p>Everything here draws from what this client already has. It never blocks and never asks
  * the server for anything, so it can run every frame.
- *
  * <p>Client-only.
  */
 public final class CardInspectPanel {
@@ -42,7 +38,6 @@ public final class CardInspectPanel {
 
     /**
      * What somebody wrote on a card, across the top of it, and the band it is written on.
-     *
      * <p>Pale blue rather than the card's own ink so a note reads as somebody's handwriting
      * and not as printed text, and on a backing because a card's own name is light on dark as
      * often as it is dark on light and a note has to be readable over either.
@@ -53,7 +48,6 @@ public final class CardInspectPanel {
 
     /**
      * The panel's own nine-slice border, which is eight in every look there is.
-     *
      * <p>Not a measurement of one theme: the sprite is thirty-two with a border of eight, so
      * everything at that depth or deeper is the stretched field and everything shallower is
      * frame, whatever the theme draws there.
@@ -62,7 +56,6 @@ public final class CardInspectPanel {
 
     /**
      * How far in from the panel's edge the words start.
-     *
      * <p>Past the frame, not up against it. This used to be eight, which is exactly the
      * frame's thickness - so the first pixel of every line was the first pixel of the field,
      * and any look whose border reaches in at all had its text sitting on the border.
@@ -74,7 +67,6 @@ public final class CardInspectPanel {
     /**
      * How tall the art is in the cursor panel, as a share of the screen, and the bounds it
      * may not leave.
-     *
      * <p>Relative because a GUI-scaled screen is anywhere between about 240 and 700 units
      * tall depending on the player's GUI scale, and a fixed size that reads as a small
      * preview on one is most of the screen on another.
@@ -110,7 +102,6 @@ public final class CardInspectPanel {
 
     /**
      * How far in front of everything else a panel drawn over a screen sits.
-     *
      * <p>Slot items are drawn at depth 150 and above, so a panel drawn afterwards at depth
      * zero still comes out behind them - the item pokes through the card you are trying to
      * read. Vanilla puts tooltips at 400 for the same reason, and this sits with them.
@@ -122,7 +113,6 @@ public final class CardInspectPanel {
 
     /**
      * The card beside the cursor, as an enclosed panel that follows it.
-     *
      * <p>Positioned the way a tooltip is - down and to the right, flipping to the other side
      * near an edge - because that is the movement a player's hand already expects, and
      * because this panel is drawn over the vanilla tooltip and should sit where it sat.
@@ -215,7 +205,6 @@ public final class CardInspectPanel {
 
     /**
      * The printed face, or both of them, filling a box a screen has set aside.
-     *
      * <p>The art keeps its proportions and is centered in whatever is left, so a box that is
      * not exactly card-shaped - or a double-faced card sharing one box - letterboxes rather
      * than stretching. A stretched card looks like a rendering bug; a centered one looks like
@@ -228,7 +217,6 @@ public final class CardInspectPanel {
 
     /**
      * The same, showing the side this card is currently sitting on.
-     *
      * <p>One side, not all of them. A transform card drawn as both its printed sides side by
      * side comes out as two half-size cards, which is not a thing that exists - a card lies
      * on a table one way up. Which way up is the caller's, because it is state about that
@@ -241,7 +229,6 @@ public final class CardInspectPanel {
 
     /**
      * The same, turned, and with its shine if it is a foil.
-     *
      * <p>For a screen that is showing a card as a thing rather than as an entry in a list -
      * the cards coming out of a booster, so far. It goes through the same door every other
      * card does, so a foil pulled out of a pack sparkles by exactly the machinery a foil held
@@ -262,7 +249,6 @@ public final class CardInspectPanel {
 
     /**
      * Where the light is on a card turned this far.
-     *
      * <p>The shine follows the turn rather than the cursor, because a card in a grid is
      * turned by how near the cursor is to it rather than by being held - so the only thing
      * that knows where the light should be is the angle itself.
@@ -303,7 +289,6 @@ public final class CardInspectPanel {
 
     /**
      * Everything the card says, filling a box a screen has set aside.
-     *
      * <p>No background of its own: the screen has already framed the space, and a second
      * panel inside the first is just a smaller hole.
      */
@@ -322,12 +307,10 @@ public final class CardInspectPanel {
 
     /**
      * The whole window: the card down the left, everything it says beside it.
-     *
      * <p>For picking a card up and looking at it. Two columns rather than a card with a
      * caption, because that is the shape somebody already has in their hands, and the card is
      * drawn as large as a card can be drawn - the picture is the card, and one shrunk to make
      * room for its own text is a reading tool with the priority backwards.
-     *
      * <p>The card turns with the mouse. Out here the mouse is the player's head, so reading a
      * card and turning slightly tips it, which is what a hand does without being asked - and
      * it is the only way a foil can exist at all, because a sheen that never moves is a
@@ -372,7 +355,6 @@ public final class CardInspectPanel {
 
     /**
      * A number to sparkle by: this printing and no other.
-     *
      * <p>Taken from the Scryfall id, so a foil glitters the same way every time it is picked
      * up and two foils on the same table do not glitter alike. It is not a secret and it is
      * not sent anywhere - the client already holds it, because it is what it fetched the
@@ -385,7 +367,6 @@ public final class CardInspectPanel {
 
     /**
      * How a particular copy of a card is being held: foil or not, and turned how far.
-     *
      * <p>Carried rather than read from {@link CardTilt} where the card is drawn, because most
      * of the cards this class draws are rows in a list and a list that leaned every time
      * somebody inspected something else would be a list with a fault in it. Only the two
@@ -413,13 +394,11 @@ public final class CardInspectPanel {
 
     /**
      * A printed face, turned the way it is being held, with its shine if it is a foil.
-     *
      * <p><b>The only place a foil is ever drawn.</b> The shine goes on inside the branch that
      * has just been handed a printed face's texture, so there is no arrangement of callers
      * that can put one on anything else: a sleeve is a different texture drawn by different
      * code with no path here, and a card whose art has not arrived gets the placeholder below
      * and no shine, because a sheen over a "fetching" box is a shine on a box.
-     *
      * <p>Both printed sides of a double-faced card arrive here, so turning one over shows a
      * foil on its back too. That is a face rather than a sleeve, and it was foil when it was
      * printed.
@@ -503,7 +482,6 @@ public final class CardInspectPanel {
 
     /**
      * Everything the card says, in a panel beside it.
-     *
      * <p>The mod's own panel rather than a filled rectangle with a line round it. Every other
      * box in the interface is drawn with this one, and the full-window read is the largest
      * thing on screen when it is up - a box that looked like nothing else in the mod would be
@@ -524,7 +502,6 @@ public final class CardInspectPanel {
 
     /**
      * Everything worth saying about a card, wrapped to a width.
-     *
      * <p>Measured up front so a panel that has to size itself around the text can ask how
      * tall it will be before drawing any of it.
      */
@@ -547,13 +524,11 @@ public final class CardInspectPanel {
 
     /**
      * The power and toughness, under the rules text, where a card prints it.
-     *
      * <p>Reported as missing: "need to have cards power toughness default in the alt menu".
      * It was not being left out of the panel - it was never reaching the client at all, since
      * the wire summary carried a name, a cost, a type line and the rules text and stopped
      * there. So a player reading a creature could see everything about it except the one
      * number the combat they were in the middle of turns on.
-     *
      * <p>What somebody has written over the top wins, and says so, because that is the
      * number the table is playing with. Nothing is drawn for a card that has neither, which
      * is most of them.
@@ -571,7 +546,6 @@ public final class CardInspectPanel {
 
     /**
      * A power and toughness a player has written over the printed one, while it is being drawn.
-     *
      * <p>Held the way {@link #told} is and for the same reason: the method that builds these
      * lines is also how the panel measures itself, and it is reached from callers that know
      * about a card summary and nothing about a card in play. Set on the way in and cleared on
@@ -581,7 +555,6 @@ public final class CardInspectPanel {
 
     /**
      * Which card's history the panel is drawing, for as long as it is drawing it.
-     *
      * <p>Held here rather than threaded through {@code describe} because that method is also
      * how a panel measures itself, and it is reached from half a dozen places that know
      * nothing about stories. Set on the way in and cleared on the way out, on the one thread
@@ -627,7 +600,6 @@ public final class CardInspectPanel {
 
     /**
      * The Scryfall credit, which every panel showing card data carries.
-     *
      * <p>Kept out of {@link #describe} and pinned to the bottom of the text area by each
      * caller, with its height reserved. Flowed in with the oracle text it would be the first
      * thing a wordy card pushes off the end of the panel, and the one line here that is not
@@ -702,12 +674,10 @@ public final class CardInspectPanel {
 
     /**
      * Writes a card's note across the top of the art it is drawn on.
-     *
      * <p>One method rather than one per screen. The felt draws notes and so does every pile
      * screen opened off it, and a note that read one way on the table and another way in a
      * graveyard would be two features wearing the same name. It was two copies until one of
      * them grew a guard about slots too short to write in and the other did not.
-     *
      * <p>At the top because counters go along the bottom and the two must not fight over the
      * same band: a card with three counters and a note is a card somebody is keeping careful
      * track of, which is exactly when both have to be readable at once.
@@ -731,7 +701,6 @@ public final class CardInspectPanel {
 
     /**
      * How tall a card has to be drawn before it is worth the crisp tier.
-     *
      * <p>The ordinary tier is 680 pixels tall, so anything drawn under about a third of that
      * is throwing detail away rather than missing it. Above this the card is being scaled up
      * toward its own resolution and past it, which is where the softness the players
@@ -743,11 +712,9 @@ public final class CardInspectPanel {
 
     /**
      * The power and toughness somebody wrote on it, in the corner where the printed ones are.
-     *
      * <p>Where the card already puts them, so a board reads the same whether the numbers are
      * printed or written - and here rather than in either screen, so a card in a graveyard
      * and the same card on the felt can never come to look like different features.
-     *
      * <p>Nothing is worked out. What is drawn is exactly what somebody typed - see
      * {@link dev.gathering.core.game.CardStrength}, and section 16 of the brief.
      *

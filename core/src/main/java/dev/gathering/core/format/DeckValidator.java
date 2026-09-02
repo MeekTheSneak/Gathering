@@ -12,12 +12,10 @@ import java.util.UUID;
 
 /**
  * The one referee this mod permits.
- *
  * <p>A static deck check before a formatted game begins, exactly like a tournament deck
  * check, and then it is over. Nothing in here runs during play, nothing in here is consulted
  * by any verb, and free play skips it entirely. This fence is permanent, not a phase-one
  * limitation.
- *
  * <p>Everything is driven from the {@link FormatPreset} and from cached Scryfall data, so
  * the ban lists are Scryfall's rather than ours and go stale only as fast as the cache does.
  */
@@ -133,7 +131,6 @@ public final class DeckValidator {
 
     /**
      * Copies are counted per card, not per printing.
-     *
      * <p>Scryfall's oracle id is shared by every printing of the same card, which is exactly
      * what "four copies" means. Falling back to the name keeps a card with missing data from
      * silently escaping the limit.

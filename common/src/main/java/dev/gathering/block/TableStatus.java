@@ -12,7 +12,6 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The board, in words, for a player standing at the table.
- *
  * <p>A stand-in for the seated view, and a useful one: it is built from the same
  * visibility-filtered {@code GameView} a real client will be sent, so what it can say is
  * exactly what that client would be entitled to know. Reading the game state directly here
@@ -59,7 +58,6 @@ public final class TableStatus {
 
     /**
      * How many cards are in a zone, as this viewer is entitled to know it.
-     *
      * <p>A count is a count whether or not the identities came with it - an opponent's hand
      * arrives as a number and nothing else, which is the point.
      */

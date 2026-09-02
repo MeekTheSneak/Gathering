@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Tells everyone at a table what the board looks like - each of them something different.
- *
  * <p>A view is built per recipient and sent to that recipient alone. There is no shared board
  * packet, because a shared board packet is the whole class of bug this design exists to
  * prevent: it would have to contain everybody's hand, and every client would hold it.
@@ -46,7 +45,6 @@ public final class TableBroadcast {
 
     /**
      * How much of the log goes out with each board.
-     *
      * <p>Enough to read what just happened during a complicated turn, and few enough that the
      * board payload stays a board payload. The whole log lives on the server.
      */
@@ -72,7 +70,6 @@ public final class TableBroadcast {
 
     /**
      * Sends the public board to everyone nearby who is not sitting at it.
-     *
      * <p>This is what the miniature on the table top is drawn from, and it is the spectator
      * view rather than anybody's: a player walking past a game sees what somebody standing
      * over the table would see, which is the whole point of having a table in a world rather
@@ -95,7 +92,6 @@ public final class TableBroadcast {
 
     /**
      * Sends the pot to everybody who can see this table.
-     *
      * <p>Alongside the board rather than inside it. Every card in a pot is face up to the
      * room by definition, so this needs none of the visibility machinery the board needs -
      * and the pictures go out through the same channel a public zone's do, for the same
@@ -159,7 +155,6 @@ public final class TableBroadcast {
 
     /**
      * Everybody near enough to be watching this table, seated or not.
-     *
      * <p>The same range the ambient board goes out at, and the same one for the same reason:
      * a person who can see your game is a person at your game. Written once here so that the
      * miniature's audience and the table's conversation cannot come to be two different

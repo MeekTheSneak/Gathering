@@ -7,19 +7,15 @@ import java.util.UUID;
 
 /**
  * What this player is chasing, as their client last heard it.
- *
  * <p>Held rather than asked for, because it is read while drawing: every row of a collection,
  * every card out of a pack, every card in a trade wants to know whether it is on the list, and
  * a question asked per card per frame cannot be a packet.
- *
  * <p>Never decided here. Pressing the button sends the change and draws nothing; what is drawn
  * is what came back. A client that marked its own card and then heard the server refuse - a
  * full list does refuse - would show a mark on a card nobody is chasing, and nothing would
  * ever correct it.
- *
  * <p>Emptied when a connection ends: what one server knows about somebody is not true of the
  * next one.
- *
  * <p>Client thread only.
  */
 public final class ClientWants {

@@ -2,18 +2,15 @@ package dev.gathering.core.ui;
 
 /**
  * Where the card and its words go when a player is reading one.
- *
  * <p>The full-window read: the card down the left at as close to the height of the window as
  * a card can be, and everything it says beside it. That is the shape somebody already has in
  * their hands - you hold a card up and read down it - and it is why this is a two-column
  * layout rather than a card with a caption. A card drawn small so its text has room is a
  * reading tool that has got the priority backwards: the picture is the card.
- *
  * <p>The words get whatever is left, down to a floor. Past that floor the card gives way
  * instead, because a column too narrow to hold a line of oracle text is a column that has
  * stopped being text and started being a shape - and a window that narrow is a window where
  * the card was never going to be readable at full height either.
- *
  * <p>Pure, so the arithmetic is checked in milliseconds rather than looked at in a
  * screenshot. Which matters here more than usual: this is drawn over a running game at every
  * window size a player might have, and the failure mode is a column of text off the edge of
@@ -38,7 +35,6 @@ public record InspectLayout(Rect card, Rect text) {
 
     /**
      * The two boxes, for a window this size.
-     *
      * <p>Centered as a pair rather than each in its own half, so a card with little to say and
      * a card with a lot are drawn in the same place - a picture that jumps sideways depending
      * on how wordy the card is reads as the interface being unsure of itself.

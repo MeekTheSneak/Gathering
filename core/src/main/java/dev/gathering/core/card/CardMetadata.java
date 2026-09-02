@@ -9,7 +9,6 @@ import java.util.UUID;
 
 /**
  * Everything derived from a Scryfall printing that the mod actually uses.
- *
  * <p>This is cache content, not game state. A {@link CardIdentity} plus this cache is
  * enough to render, read, and validate a card; nothing here is ever authoritative for a
  * session, and nothing here is ever consulted during play.
@@ -54,7 +53,6 @@ public record CardMetadata(
 
     /**
      * The same printing with nothing related to it.
-     *
      * <p>{@code all_parts} arrived after everything that builds one of these by hand, and a
      * card with no tokens is the ordinary case, so the shorter form stays the one most
      * callers write.
@@ -84,7 +82,6 @@ public record CardMetadata(
 
     /**
      * The tokens and emblems this card makes, named once each, in Scryfall's order.
-     *
      * <p>Names rather than ids, because that is what the token search takes and what a player
      * would otherwise have typed. Deduplicated because a card that makes two Thrulls lists
      * the Thrull once per printing it could use, and a menu with the same row twice reads as
@@ -130,7 +127,6 @@ public record CardMetadata(
 
     /**
      * Whether this card is a land, read off its type line.
-     *
      * <p>The word, not the substring, so a subtype that merely contains the letters cannot
      * make a land of something else. This is the one place the question is answered - it was
      * briefly answered three ways in three files, each one drift waiting to happen, and
@@ -173,7 +169,6 @@ public record CardMetadata(
 
     /**
      * The copy allowance the card's own text grants, when it grants one.
-     *
      * <p>"A deck can have any number of cards named ..." - Relentless Rats, Persistent
      * Petitioners - comes back as {@link #ANY_NUMBER}. "A deck can have up to seven cards
      * named Seven Dwarves." comes back as seven; Nazgul's nine as nine. Both read off the

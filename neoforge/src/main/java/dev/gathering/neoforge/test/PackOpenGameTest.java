@@ -19,7 +19,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Right-clicking a pack, and the one thing that must never happen when it will not open.
- *
  * <p>A booster is taken out of the hand before the opening starts, because opening reaches a
  * network and comes back later and a pack still in the hand when it does is a pack that can
  * be opened twice. Which means every way an opening can fail has to hand one back - and the

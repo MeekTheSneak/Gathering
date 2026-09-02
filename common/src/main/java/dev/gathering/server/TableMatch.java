@@ -15,12 +15,10 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * The bit between one game and the next.
- *
  * <p>A game is a board and a log; a match is a score. When a game finishes, the score moves on
  * and one of three things is true: somebody has taken the match, or there is another game to
  * play and people get to sideboard first, or there is another game and this format has no
  * sideboard so they simply play it.
- *
  * <p>Nothing here starts the next game by itself. Paper does not either: you finish, you talk
  * about it, you change your deck, and then somebody shuffles up. Crouching on the table starts
  * the next one, using the rules the match was already set up with rather than asking again -
@@ -33,7 +31,6 @@ public final class TableMatch {
 
     /**
      * Called after every accepted move: settles the game if that move ended it.
-     *
      * <p>Here rather than at the end of the game because there is no end of the game to hook -
      * the only thing that finishes one is a player conceding, which arrives like any other
      * move.
@@ -92,7 +89,6 @@ public final class TableMatch {
 
     /**
      * Starts the next game of a set already under way.
-     *
      * <p>Keeps the score and the format: this is the next game of that match, not a new one.
      * The decks the table is holding - sideboarded or not - go back down and get shuffled by
      * {@link TableSessions#start}, so players keep their decks between games the way they do
@@ -114,7 +110,6 @@ public final class TableMatch {
 
     /**
      * Whether this table is between games of a set it has not finished.
-     *
      * <p>The state where the decks are on the table, the score is on the table, and there is
      * no board - which is when sideboarding happens and when crouching means "next game"
      * rather than "what format?".

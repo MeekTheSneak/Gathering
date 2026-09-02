@@ -27,13 +27,11 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Building a deck out of a collection, in a running world.
- *
  * <p>What the pure rule cannot check is the half that moves things: that the cards actually
  * leave the box, that the deck that arrives holds exactly them, and that neither happens for
  * somebody who is not allowed to take. Cards that exist in two places at once is the one
  * failure collection mode must not have, and it is a failure of this half rather than of the
  * arithmetic.
- *
  * <p>Names come from the list rather than from the card cache, which is what lets this run
  * without reaching a network: a deck poured back into a box and rebuilt from the same list is
  * the ordinary case, and it is the case that needs no lookup at all.
@@ -79,7 +77,6 @@ public final class CollectionDeckGameTest {
 
     /**
      * A list the box cannot fill builds the part it can.
-     *
      * <p>Ninety cards you have and a list of the ten to find is what somebody sitting at their
      * binder actually wants. A refusal would send them back to taking cards one at a time.
      */
@@ -153,7 +150,6 @@ public final class CollectionDeckGameTest {
 
     /**
      * A list longer than a deck can hold leaves the rest in the box.
-     *
      * <p>A deck holds a thousand cards and past that it cannot be sent to the client that
      * asked for it. Taking the cards first and then failing to hand them over would be
      * somebody's collection gone for a list that was too long.

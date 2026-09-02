@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Where auras and equipment are drawn.
- *
  * <p>The point of drawing them at all is that a stacked aura is an aura nobody can see, so the
  * two things worth guarding are that an attachment never lands on top of its host and that two
  * attachments never land on top of each other.

@@ -20,15 +20,12 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Where a collection lives.
- *
  * <p>One shared inventory rather than a per-player one. A private view would make this a
  * convenience; one shared pile makes it social infrastructure, which is the point - a
  * playgroup pools a collection, a gym leader keeps their decks in the clubhouse, a server
  * runs a lending library.
- *
  * <p>Counts rather than stacks, so a real collection fits. Ten thousand cards is a few
  * hundred entries here and would be four hundred double chests anywhere else.
- *
  * <p>Nothing about who owns it or what is in it is sent to a client with the block. A
  * collection is public to read, but reading it is a screen somebody opened on purpose, and
  * pushing every card in it to every player who walks past would be a lot of bytes for a
@@ -54,12 +51,10 @@ public class CollectionBlockEntity extends BlockEntity {
 
     /**
      * The copies in here that have a history, beside the count rather than in it.
-     *
      * <p>A collection stores counts - forty Forests is one entry with a forty on it, which is
      * what makes ten thousand cards fit - and a count cannot hold a story. So the handful of
      * cards that have one are kept as themselves alongside, and they are still counted in the
      * tally: the box holds three of a card whether or not one of them was won off somebody.
-     *
      * <p>Ordinary copies leave first. The one somebody won in an ante game stays at the bottom
      * of the box until it is the only one left, which is both what a person does with a card
      * like that and the safe way round: a trophy traded away by accident is the one loss here
@@ -116,7 +111,6 @@ public class CollectionBlockEntity extends BlockEntity {
 
     /**
      * Puts one card in, keeping whatever it remembers.
-     *
      * <p>The count goes up either way; the story is kept beside it. A collection that quietly
      * dropped a card's history the moment it was put away would be the one place in the mod
      * that destroys something a player cannot get back.
@@ -134,7 +128,6 @@ public class CollectionBlockEntity extends BlockEntity {
 
     /**
      * How many stories one box keeps.
-     *
      * <p>A bound rather than a rule anybody will meet: these are cards won, traded for and
      * pulled as rares, so a box with a thousand of them is a box somebody has played a great
      * deal with. Past it the count still rises and the story is what is lost, because a card
@@ -144,7 +137,6 @@ public class CollectionBlockEntity extends BlockEntity {
 
     /**
      * Takes the story of one copy of this card, if a copy in here has one.
-     *
      * <p>Asked for only once the plain copies are gone, so what comes out of a box is an
      * ordinary card until there are no ordinary ones left. The most recently put away comes
      * out first: it is the one somebody is most likely to be looking for.
@@ -176,7 +168,6 @@ public class CollectionBlockEntity extends BlockEntity {
 
     /**
      * Puts cards in.
-     *
      * <p>Says nothing about whether they were allowed to; that is asked before this is
      * called, by whoever has the player.
      */
@@ -206,7 +197,6 @@ public class CollectionBlockEntity extends BlockEntity {
 
     /**
      * Takes copies out and hands back the histories that leave with them.
-     *
      * <p>Not something a caller can do with {@link #take} and {@link #takeStory} in either
      * order. Taking first prunes the stories the box no longer has copies for - that is what
      * makes a history belong to a copy rather than to a printing - so by then they are gone;
@@ -214,7 +204,6 @@ public class CollectionBlockEntity extends BlockEntity {
      * Both were got wrong here in turn, and the visible result was the same either way: the
      * card somebody won off somebody else came out of the box as an ordinary card, its
      * history deleted behind it with nothing anywhere to say it had ever had one.
-     *
      * <p>Ordinary copies leave first, so the histories that leave are the last ones: a box
      * holding four copies of which one is a trophy hands out three plain cards before the
      * trophy is touched at all.
@@ -243,13 +232,11 @@ public class CollectionBlockEntity extends BlockEntity {
 
     /**
      * Drops stories the box no longer has copies to hang them on.
-     *
      * <p>Here rather than at each place cards leave, because they leave several ways - one at
      * a time into a hand, a hundred at a time into a deck being sleeved - and a story left
      * behind by a copy that has gone would be a card's history attached to nothing, handed to
      * whoever took the next copy of that printing out. One rule, at the one door every
      * departure goes through.
-     *
      * <p>The oldest go first, so what is left is the most recent history the box holds.
      */
     private void prune(CardIdentity card) {
@@ -301,7 +288,6 @@ public class CollectionBlockEntity extends BlockEntity {
 
     /**
      * The cards in here that remember something, off the disk.
-     *
      * <p>Through the same codec the component on an item uses, so a card put away and taken
      * out again is the same card - one written format for one thing, rather than two that can
      * come to disagree about what a story is.
@@ -360,7 +346,6 @@ public class CollectionBlockEntity extends BlockEntity {
 
     /**
      * Reads the tally back.
-     *
      * <p>An entry that will not read is dropped and the rest are kept. Losing one card of ten
      * thousand to a corrupted byte is a bad day; losing all ten thousand because of it is the
      * end of somebody's server.

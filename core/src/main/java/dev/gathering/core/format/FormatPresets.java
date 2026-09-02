@@ -8,7 +8,6 @@ import java.util.Optional;
 
 /**
  * The formats that ship, as one table.
- *
  * <p>Commander is first because it is the one the mod is built around, but nothing in the
  * validator knows that. A server wanting Brawl or Duel Commander adds a row.
  */
@@ -30,7 +29,6 @@ public final class FormatPresets {
 
     /**
      * Vintage needs no special handling at all.
-     *
      * <p>Its restricted list arrives as a per-card legality of {@code restricted}, which
      * carries its own copy ceiling of one, so the general copy-limit check handles it.
      */
@@ -38,16 +36,13 @@ public final class FormatPresets {
 
     /**
      * What a drafted or sealed pool is played as.
-     *
      * <p>Forty cards, no maximum, and no copy limit at all - which is not laxity but the
      * actual rule: in limited you may play every copy of a card you opened, and how many that
      * is was settled by the packs rather than by the format. What stops somebody playing
      * eight of a good uncommon is that they only drafted one, and that is a question about a
      * pool rather than about a format, so it is asked by {@link PoolCheck} instead.
-     *
      * <p>Its sideboard is unbounded for the same reason: in limited, everything you opened
      * and did not play is your sideboard, and how much that is was decided by the packs.
-     *
      * <p>Its legalities key is Vintage's. Limited has no ban list of its own - a card that
      * came out of a pack is legal in the pack it came out of - so the only thing worth
      * inheriting is the handful of cards that are not legal anywhere in paper at all.
@@ -81,7 +76,6 @@ public final class FormatPresets {
 
     /**
      * The presets by id, in the order they are written above.
-     *
      * <p>Not {@code Map.copyOf}, whose iteration order is unspecified and in practice comes
      * out of a hash salted once per launch - so the format buttons came up in a different
      * order every time the game started, and nobody could ever learn where Commander was.

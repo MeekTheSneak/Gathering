@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Looking at the table.
- *
  * <p>Everything that draws a card and everything that works out what the cursor is pointing at
  * goes through this one transform, so the only property that really matters is that the two
  * directions are inverses. When they are not, cards land next to where you dropped them and

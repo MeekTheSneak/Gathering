@@ -8,12 +8,10 @@ import java.util.UUID;
 
 /**
  * Which card pictures a viewer still has to be told about.
- *
  * <p>A client only ever asked what a card looks like on behalf of cards in its own inventory,
  * which is the right scope for a request - it grants no access the player did not have - but
  * it leaves somebody else's cards with no picture at all. A public graveyard opens onto empty
  * recesses under a count saying there is something in it.
- *
  * <p>So the server pushes instead, and this decides what. Pure, and here rather than beside
  * the networking, because the one thing that matters about it is a security property rather
  * than a rendering one: <b>every printing named here is one this view already revealed.</b>

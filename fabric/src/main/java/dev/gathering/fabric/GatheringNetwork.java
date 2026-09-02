@@ -26,7 +26,6 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Payload registration and the server-side handlers, mirroring the NeoForge bootstrap.
- *
  * <p>Clientbound types are registered here too so both sides agree on the protocol; their
  * handlers are installed by the client entry point, which is the only place allowed to name
  * a client class.

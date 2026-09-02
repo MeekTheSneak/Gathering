@@ -23,7 +23,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Finishing a deck in the builder.
- *
  * <p>The client says which printings it wants and the server is the one that decides whether
  * the box had them. These check that: a deck comes out holding what was really there, the box
  * is that many cards lighter, and a client asking for cards nobody owns gets a deck without
@@ -77,7 +76,6 @@ public final class DeckBuilderGameTest {
 
     /**
      * A client asking for what the box does not have gets a deck without it.
-     *
      * <p>The whole reason the server takes the cards itself rather than believing a list. A
      * deck built out of cards nobody owns is a deck conjured from a packet.
      */
@@ -108,7 +106,6 @@ public final class DeckBuilderGameTest {
 
     /**
      * A card loose in the player's own pockets counts as one they own.
-     *
      * <p>The box and the inventory are one pool to a builder, because they are one pool to
      * the person: putting a card you just opened into the box only to take it straight back
      * out is two errands for a card that never moved. What matters is that it is really
@@ -149,7 +146,6 @@ public final class DeckBuilderGameTest {
 
     /**
      * Somebody who may not take from the box can still build out of their own pockets.
-     *
      * <p>It used to refuse the whole press, which refused cards the box had no claim on.
      */
     @GameTest(template = "empty")

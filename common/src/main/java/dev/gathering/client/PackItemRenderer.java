@@ -9,12 +9,10 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * The pack item's renderer, in vanilla terms so both loaders can reach it.
- *
  * <p>The same shape as the card renderer next door, for the same reason: {@code
  * BlockEntityWithoutLevelRenderer} is a Minecraft class rather than a loader one,
  * which is why this can live in common: NeoForge hands one of these back from its client
  * item extensions, and Fabric's builtin renderer calls straight into the same drawing code.
- *
  * <p>Client-only.
  */
 public final class PackItemRenderer extends BlockEntityWithoutLevelRenderer {
@@ -27,7 +25,6 @@ public final class PackItemRenderer extends BlockEntityWithoutLevelRenderer {
 
     /**
      * Built on first use rather than at registration.
-     *
      * <p>Its superclass wants two things off {@code Minecraft.getInstance()}, and registration
      * runs long before either exists.
      */

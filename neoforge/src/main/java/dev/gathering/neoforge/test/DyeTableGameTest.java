@@ -17,7 +17,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Dyeing the felt.
- *
  * <p>A table is four blocks and one block entity, so the half of this that can go wrong
  * without anybody noticing is which cell you clicked: dye applied to the corner and read from
  * the corner would pass every test and still do nothing for a player who right-clicked one of
@@ -73,7 +72,6 @@ public final class DyeTableGameTest {
 
     /**
      * The color is in what the client is sent, not only in what is saved.
-     *
      * <p>Color lives on the block entity rather than in the blockstate, so nothing tells a
      * client about it unless the update tag carries it - and a dyed table that only the
      * server knows about is a table that is not dyed as far as anybody can see.

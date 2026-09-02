@@ -5,7 +5,6 @@ import java.util.Locale;
 
 /**
  * Ties a card Scryfall returned back to the query that asked for it.
- *
  * <p>Its own class rather than a private helper because positional matching is the obvious
  * wrong answer here and it is wrong quietly: Scryfall returns found cards in request order
  * but drops the ones it could not find, so the moment one card is missing every card after

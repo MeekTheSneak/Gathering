@@ -6,15 +6,12 @@ import java.util.List;
 
 /**
  * What is on a shop's shelf, and what each thing costs.
- *
  * <p>Sealed only, ever. The line is the one paper Magic proved: the manufacturer sells sealed
  * and singles come from people. An infinite-stock shop selling single cards is the classic way
  * to kill a player economy, and there is no version of this where that is worth trying.
- *
  * <p>Everything the set was really sold as, in the order somebody would want to see it: the
  * packs first and cheapest first, because a booster is what most people came in for and a
  * shelf that opens with a two-hundred-booster case is a shelf nobody reads to the end of.
- *
  * <p>Pure. What a server actually stocks is which sets it points this at.
  */
 public record SealedShelf(List<Item> items) {
@@ -45,7 +42,6 @@ public record SealedShelf(List<Item> items) {
 
     /**
      * The shelf for one set's catalog.
-     *
      * <p>Ordered rather than left as the file wrote it: packs first, then everything else by
      * price. Within each, by price and then by name, so two shelves built from the same file
      * are the same shelf - a shop whose rows moved between two visits is a shop nobody can
@@ -59,7 +55,6 @@ public record SealedShelf(List<Item> items) {
 
     /**
      * The shelf for one set, looked up in a catalog that may span several.
-     *
      * <p>Which is what a precon needs: the box is published in the Commander set and the deck
      * it names is published there too, but a starter kit names decks belonging to the set it
      * came out beside.

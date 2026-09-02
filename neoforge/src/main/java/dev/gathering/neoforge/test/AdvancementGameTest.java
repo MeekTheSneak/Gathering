@@ -13,7 +13,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The advancements load, and the code that grants them can.
- *
  * <p>Both halves fail silently otherwise, which is the reason this is worth a test. An
  * advancement file with a mistyped trigger is dropped by the loader with a line in the log
  * nobody reads, and {@link Achievements#award} on a name that is not there does nothing at
@@ -97,7 +96,6 @@ public final class AdvancementGameTest {
 
     /**
      * A name nothing matches is silence, not a crash.
-     *
      * <p>Which is the contract a data pack removing one relies on.
      */
     @GameTest(template = "empty")

@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A pod view, written and read back.
- *
  * <p>A codec that encodes fine and decodes wrong is invisible until two people try to draft,
  * so every field gets a round trip rather than a reading.
  */
@@ -77,7 +76,6 @@ class DraftViewCodecTest {
 
     /**
      * A length nobody could mean is refused before it allocates anything.
-     *
      * <p>Not a hypothetical: a length field is the cheapest way to turn a malformed packet
      * into an out-of-memory kill, so it is checked before it is used to size a list.
      */

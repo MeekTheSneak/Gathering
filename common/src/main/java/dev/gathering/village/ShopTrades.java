@@ -22,13 +22,11 @@ import net.minecraft.world.item.trading.MerchantOffer;
 
 /**
  * What a shopkeeper offers, at each level.
- *
  * <p>A vanilla trade list, built when a villager levels up rather than when the mod loads,
  * because what this server sells is not known until it has read what its sets were sold as. An
  * offer is asked for deep inside a villager's brain, so nothing here blocks or fetches: it
  * reads a shelf that was worked out at start and returns null if there is nothing at that
  * level yet, which vanilla skips over.
- *
  * <p>Every shopkeeper has the same shelf. Not a random two of what is at their level: the same
  * two, in every village, on every counter. A villager's trades are decided once, when they take
  * the job, so anything else would be a shelf you could break the counter and re-place until it
@@ -45,7 +43,6 @@ public final class ShopTrades {
 
     /**
      * How far a price is allowed to drift, as vanilla scales it.
-     *
      * <p>Not the price. Vanilla moves a trade around its base price with demand and with how
      * a villager feels about you, and this is the multiplier on that - the same 0.05 an
      * ordinary villager trade uses. What the thing is actually worth is
@@ -63,7 +60,6 @@ public final class ShopTrades {
 
     /**
      * The listings for one level, at one turnover.
-     *
      * <p>A turnover of -1 means "whatever the shelf is when you ask", which is what the
      * registered trade list wants: a villager taking the job reads the counter as it stands.
      * A number is used by {@link Shopkeepers} to bring an already-hired shopkeeper back in

@@ -4,7 +4,6 @@ import java.io.IOException;
 
 /**
  * A fetch that could not be completed.
- *
  * <p>Always recoverable: everything that reaches out from this mod - card data, deck sites,
  * collation - does so on behalf of somebody looking at a screen, and a failure is a sentence
  * for them rather than a crash. The message is written to be read by that person.

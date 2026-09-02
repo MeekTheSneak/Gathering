@@ -6,23 +6,19 @@ import java.util.Optional;
 
 /**
  * Where the Archive Pack comes from, and how rarely.
- *
  * <p>The Archive Pack is the closing move on completeness. Everything else a server can hand
  * out comes off a print sheet or a shop shelf; whatever those between them cannot reach - an
  * old promo, a buy-a-box card, the long tail of a set nobody sells any more - is exactly what
  * this pack holds, and it shrinks by computation as a server adds products. A server whose
  * faucets already cover its catalog has an empty archive and drops none of these, which is
  * the goal rather than a fault.
- *
  * <p>Because it is the only path to those cards, it is not a shop item and never will be:
  * something you can buy is not a long tail, it is a shelf. It comes out of the three places
  * worth going to - treasure at the bottom of the sea, the chests people build expeditions
  * around, and the bosses - and out of nowhere else.
- *
  * <p>Which tables those are is a rule rather than a setting, for the reason every other loot
  * rule here is: a server owner picks whether their players find cards at all, not whether an
  * ancient city is a better find than a village.
- *
  * <p>Pure.
  */
 public enum ArchiveDrops {
@@ -38,7 +34,6 @@ public enum ArchiveDrops {
 
     /**
      * The bosses, by the loot table each drops through.
-     *
      * <p>Named rather than matched on a prefix: {@code entities/} is every mob in the game,
      * and an archive pack out of a zombie is the opposite of what this is for.
      */
@@ -61,7 +56,6 @@ public enum ArchiveDrops {
 
     /**
      * Whether an archive pack can come out of this loot table, and how often.
-     *
      * <p>Minecraft's own tables only, like everything else here: a pack falling out of
      * somebody else's dungeon is a surprise nobody asked this mod for.
      *

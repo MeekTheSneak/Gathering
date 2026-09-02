@@ -12,14 +12,12 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A table cannot be grown until nobody can be sent it.
- *
  * <p>The board goes out as one payload with a megabyte bound, and that bound throws rather
  * than truncating - so a board past it is a board that can never reach anybody again. Counter
  * names are the way to get there: a name is a map key, so a new one is a new entry rather
  * than a replaced one, and counters are saved with the session, which means restarting the
  * server does not undo it. That is a table anybody sitting at it can permanently destroy,
  * from an ordinary client with an unusual string in it.
- *
  * <p>The numbers below are written out rather than read from {@link CounterName}. A bound
  * checked against itself is not checked: raise the constant and an assertion phrased in terms
  * of it simply moves, which is how a test comes to pass on code that has stopped working.
@@ -70,7 +68,6 @@ class CounterBoundsTest {
 
     /**
      * And the board that comes out of all of it still fits on the wire.
-     *
      * <p>The two bounds above are the mechanism; this is the thing they are for, stated where
      * somebody changing either of them will see it.
      */

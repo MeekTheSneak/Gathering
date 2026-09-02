@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Turning a two-by-two, which is what a building full of tables does when it is placed.
- *
  * <p>The block side of this lives in {@code TablePart} and cannot be checked here, so what is
  * checked is the arithmetic it does: turning the four corners of a square a quarter turn is a
  * cycle of length four that visits every corner, and nothing else is a rotation.

@@ -12,47 +12,28 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The whole cluster as one surface, with a playmat for every seat.
- *
- * <p>Until now a card's position meant "somewhere on my own board" and a screen showed one
- * board at a time. That is not a table - it is four boards you flick between, and you cannot
- * see what your opponent is doing while you do something. This lays every seat's mat out on
- * one surface, so a single camera over it shows the whole game.
- *
- * <p>A mat is where somebody sits, worked out from the cluster's own shape: each table cell
- * takes its share of the surface, and each seat takes the part of its cell nearest the edge it
- * sits at. Push two tables together and the mats move accordingly, because the cluster arithmetic
- * already decided where the seats are and this only has to agree with it.
- *
- * <p>A card keeps saying where it is on <em>its own mat</em>, which is the one thing that must
- * not change: positions are state, they are in the log and in undo, and a card whose meaning
- * depends on how many tables are currently pushed together would move when somebody built a
- * table two blocks away.
+ * The whole cluster as one surface, with a playmat for every seat, so one camera shows the
+ * whole game rather than one board at a time.
+ * <p>A mat is a seat's share of its table cell, taken from the edge that seat sits at, so the
+ * mats follow whatever shape the cluster arithmetic already decided on.
+ * <p>A card's position stays relative to <em>its own mat</em>. Positions are state - they are
+ * in the log and in undo - so a position that meant something different once another table was
+ * pushed against this one would move cards when somebody built two blocks away.
  */
 public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int height) {
 
     /**
-     * How many units one table is across, both ways.
-     *
-     * <p>The same number a card's position is measured in, so the math is one step - but the
-     * <em>surface</em> is no longer this square. Two tables pushed together are four blocks by
-     * two, and squashing that into a square stretched every mat on it into something no card
-     * was ever the right shape for. The surface is however many tables across by however many
-     * deep, in these units, and a mat comes out two by one wherever it sits.
+     * How many units one table is across, both ways - the same units a card's position is in.
+     * <p>The surface itself is not square: it is however many tables across by however many
+     * deep, so a mat comes out two by one wherever it sits.
      */
     public static final int SPAN = TablePosition.SPAN;
 
     /**
      * A gap around each mat, so two mats read as two rather than as one big felt.
-     *
-     * <p>Two pixels. The surface is the table's whole footprint, so a pixel is a sixteenth of
-     * a block and the whole span is two blocks across: two pixels is a two-thirty-second of
-     * the span, and a playmat comes out a fraction under the two-by-one it sits in.
-     *
-     * <p>Not less than two, and the reason is the life totals rather than the felt. Each seat's
-     * life sits on the table just past the far edge of its own mat, so the strip between two
-     * facing mats has to hold two of them back to back: at one pixel they overlap, and there
-     * is a test that says so.
+     * <p>Never less than two, for the life totals rather than the felt: each seat's sits just
+     * past the far edge of its mat, so the strip between two facing mats holds two of them back
+     * to back and they overlap at one pixel. A test covers it.
      */
     private static final int MAT_INSET_PIXELS = 2;
 
@@ -60,28 +41,17 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     private static final int PIXELS_ACROSS_A_TABLE = TableCell.BLOCKS_PER_TABLE * 16;
 
     /**
-     * The most of a mat the border is ever allowed to eat, per side.
-     *
-     * <p>Two pixels is right on a table somebody is actually playing at, and wrong on a mat
-     * that has been squeezed - a cell seating three cuts one into thirds, and two pixels off
-     * every side of that took a mat down to a sliver a card would not fit on. So the border
-     * is two pixels or an eighth of the mat, whichever is less.
+     * The most of a mat the border may eat, per side: two pixels or an eighth, whichever is
+     * less. A cell seating three cuts each mat into thirds, and a flat two pixels off every
+     * side of that leaves a sliver no card fits on.
      */
     private static final int MAT_INSET_SHARE = 8;
 
     /**
-     * How many cards fit across a mat.
-     *
-     * <p>This is what decides how big a card is, and it is a number about playing rather than
-     * about arithmetic. Deriving the size from the mat's shorter side instead - which is what
-     * it used to do - gave a two-player table cards a twentieth of its width, and a board that
-     * read as a mosaic from directly above it.
-     *
-     * <p>A real playmat is nearer nine across, but a real playmat is not this shape: two
-     * blocks by one is wider and shallower than the twenty-four by fourteen inches a mat comes
-     * in, and matching the width would leave only two and a half card-heights of depth. Eleven
-     * across gives three rows - lands, creatures, and the zones along the near edge - which is
-     * what a board actually needs.
+     * How many cards fit across a mat, which is what decides how big a card is.
+     * <p>Chosen for play rather than derived: a real playmat is nearer nine across, but this
+     * mat is two blocks by one and so wider and shallower than a real one. Eleven leaves three
+     * rows deep - lands, creatures, and the zones along the near edge.
      */
     private static final int CARDS_ACROSS_A_MAT = 11;
 
@@ -92,10 +62,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     private static final double PILE_GROUP_GAP = 0.45;
 
     /**
-     * How far the box round a group sits outside the zones in it, as a share of the gap.
-     *
-     * <p>Not the whole gap: the column already sits one gap in from the edge of the mat, so a
-     * box a full gap wider than its zones would have its line exactly on the mat's own border.
+     * How far the box round a group sits outside the zones in it, as a share of the gap. Not
+     * the whole gap: the column is already one gap in from the mat's edge, so a full-gap box
+     * would draw its line exactly on the border.
      */
     private static final double PILE_GROUP_PAD = 0.8;
 
@@ -116,13 +85,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * How far in from its own edge of the mat anything printed down a side sits, in card
-     * heights.
-     *
-     * <p>One number for both sides. They used to be worked out separately - the buttons from
-     * the gap between buttons, the zone column from the gap between zones - and those two
-     * gaps are shares of two different things, so a mat came out with a comfortable margin
-     * down one side and its zone column jammed against the border on the other. Nobody would
-     * report that; it just looks like the board was laid out by two people.
+     * heights. One number for both sides: worked out separately they are shares of two
+     * different gaps, and the mat comes out with an even margin down one side and a zone
+     * column jammed against the border on the other.
      */
     private static final double EDGE_MARGIN = 0.23;
 
@@ -146,7 +111,6 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * How wide a card is on a table with one mat on it, in surface units.
-     *
      * <p>Ten cards across. That is roughly what a real table holds in a row, and it is what
      * makes a zoomed-out board readable rather than a mosaic.
      */
@@ -168,12 +132,10 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * The layout for a table with this many seats, which is the shape everything asks for.
-     *
      * <p>Remembered rather than rebuilt. The table in the world lays this out on every frame
      * it is on screen, and a seat count is all it depends on - so a surface that was worked
      * out once was being worked out sixty times a second per table, allocating a map, two
      * arrays and a rectangle per seat each time, to arrive at the identical answer.
-     *
      * <p>Safe to share: a {@code TableSurface} is a record of immutable lists, and the answer
      * for a given seat count never changes. The map is concurrent because the client thread
      * and the render thread both ask.
@@ -188,12 +150,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * Whether this seat's board is laid out the other way up.
-     *
-     * <p>Two people at a table sit opposite each other, so their boards face each other: the
-     * edge of the mat nearest its own player is the north edge for one of them and the south
-     * edge for the other. Without this every board was laid out as though its player were
-     * sitting at the bottom of the table, which put one player's zones along the far side of
-     * their own mat and read, from their chair, as somebody else's board.
+     * <p>Players sit opposite each other, so the mat edge nearest its own player is north for
+     * one of them and south for the other. Without it a seat's zones run along the far side of
+     * its own mat, which from that chair reads as somebody else's board.
      */
     public boolean isTurned(int seat) {
         return seat >= 0 && seat < turned.size() && turned.get(seat);
@@ -204,12 +163,7 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         return isTurned(seat) ? 180 : 0;
     }
 
-    /**
-     * Lays out one mat per seat, in seat order.
-     *
-     * <p>Seat order is the session's own numbering, so mat <i>n</i> belongs to seat <i>n</i>
-     * and nothing has to be looked up by cell.
-     */
+    /** One mat per seat, in the session's own seat order: mat <i>n</i> belongs to seat <i>n</i>. */
     public static TableSurface forSeats(List<SeatAnchor> anchors) {
         if (anchors == null || anchors.isEmpty()) {
             return empty();
@@ -226,8 +180,8 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
             List<Rect> shares = split(cells[seatIndexes.get(0)], seatIndexes.size(), along);
 
             // Ranked, then handed out in order. Mapping each side straight to an end collides
-            // the moment a cell seats three - south and east both want the last band, and two
-            // players end up sharing one mat while a band goes spare.
+            // once a cell seats three: south and east both want the last band, so two players
+            // share one mat and a band goes spare.
             List<Integer> ranked = new ArrayList<>(seatIndexes);
             ranked.sort(java.util.Comparator.comparingInt(
                     seat -> rankAlong(anchors.get(seat).side(), along)));
@@ -247,11 +201,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * How much border a mat gets, in surface units.
-     *
-     * <p>Two pixels of the <em>table</em> rather than of the whole surface. Those are the same
-     * thing on one table and nowhere near it on a cluster: with four seats the surface covers
-     * two tables, so a border measured against the surface came out twice as thick and left
-     * the four mats floating in a sea of felt with the gaps wider than the zones.
+     * <p>Two pixels of the <em>table</em>, not of the surface. They differ on a cluster: a
+     * border measured against a two-table surface comes out twice as thick, leaving the mats
+     * floating with the gaps wider than the zones.
      */
     private static int borderFor(Rect cell, Rect mat) {
         int pixel = Math.min(cell.width(), cell.height()) / PIXELS_ACROSS_A_TABLE;
@@ -261,12 +213,10 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
-     * How far along the split a side wants to be.
-     *
-     * <p>Bands run top to bottom when a cell is cut across, and left to right when it is cut
-     * down, so the side facing the start of that run ranks first and its opposite ranks last.
-     * The two sides at right angles to the run land in the middle - they have no preference
-     * along it, and what matters is only that they get a band of their own.
+     * How far along the split a side wants to be. Bands run top to bottom when a cell is cut
+     * across and left to right when it is cut down, so the side facing the start of the run
+     * ranks first and its opposite last. The two at right angles have no preference and only
+     * need a band of their own.
      */
     private static int rankAlong(Side side, Side along) {
         boolean horizontal = along == Side.NORTH || along == Side.SOUTH;
@@ -281,11 +231,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
-     * Cuts an area into equal bands.
-     *
-     * <p>Across the short way for a north or south seat and down the long way for east or
-     * west, so a mat is always wider than it is deep - which is the shape of the space in front
-     * of somebody sitting at a table, and the shape a row of lands wants.
+     * Cuts an area into equal bands: across for a north or south seat, down for east or west,
+     * so a mat is always wider than it is deep - the shape of the space in front of a chair,
+     * and the shape a row of lands wants.
      */
     private static List<Rect> split(Rect area, int count, Side along) {
         List<Rect> shares = new ArrayList<>(count);
@@ -317,9 +265,8 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         Rect[] rects = new Rect[anchors.size()];
         for (int index = 0; index < anchors.size(); index++) {
             TableCell cell = anchors.get(index).cell();
-            // One table is SPAN by SPAN, always. The surface grows with the cluster rather
-            // than the tables shrinking to fit a square, which is what kept every mat the
-            // shape of a mat.
+            // One table is SPAN by SPAN, always: the surface grows with the cluster rather
+            // than the tables shrinking to fit a square.
             rects[index] = new Rect(
                     (cell.x() - minX) * SPAN, (cell.z() - minZ) * SPAN, SPAN, SPAN);
         }
@@ -352,10 +299,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
-     * Where a card sitting at this position on this seat's mat is, on the whole surface.
-     *
-     * <p>The one conversion between "where on my board" - which is what the game stores - and
-     * "where on the table", which is what a camera looking at everything needs.
+     * Where a card at this position on this seat's mat is, on the whole surface: the one
+     * conversion between "where on my board", which is what the game stores, and "where on the
+     * table", which is what a camera over everything needs.
      */
     public double surfaceX(int seat, double positionX) {
         Rect mat = matOf(seat);
@@ -384,28 +330,17 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * Where a seat's zones sit: a column of card-shaped slots down the outer edge of their mat.
-     *
-     * <p>Down the side rather than across the near edge, which is where the tables people
-     * already play on put them and, once you see it, obviously right: the near edge is the
-     * part of a mat you reach across constantly, and a row of zones along it is four things to
-     * knock into every time you play a land. The outer edge is dead space on every board.
-     *
-     * <p>Outer meaning the player's own right hand, which is where a deck goes on every table
-     * anybody has ever played at. Two players facing each other reach for their own libraries
-     * in mirror image, so the column is at the east edge of the surface for one of them and
-     * the west edge for the other - stating it against the table instead put both columns on
-     * the same side, which is one player's right hand and the other player's left.
-     *
-     * <p><b>Card-shaped, exactly.</b> These used to be a share of the mat's width by a share
-     * of its depth, which on a two-player table made each one wider than it was tall and drew
-     * a library as a letterbox. A zone holds a stack of cards and has to be the shape of one,
-     * or the card on top of it is stretched to fit a slot that is not card-shaped.
-     *
-     * <p><b>The command zone stands apart.</b> It is the last of the four and the furthest
-     * from its player, with a gap between it and the other three - which is how the tables
-     * people already play on lay it out, and it says the right thing: three zones a hand is in
-     * and out of all game, and one it touches twice. A format with no commanders passes a
-     * count of three and the box is simply not there.
+     * <p>Down the side rather than across the near edge, which is dead space on every board -
+     * the near edge is reached across constantly, and zones along it are things to knock into.
+     * Outer means the player's own right hand, so two players facing each other have their
+     * columns on opposite edges of the surface; stated against the table instead, both land on
+     * the same side and one player's is on their left.
+     * <p>Card-shaped exactly, because a slot holds a stack of cards and the top one is drawn
+     * to fit it. A share of the mat's width by a share of its depth draws a library as a
+     * letterbox on a two-player table.
+     * <p>The command zone is the last of the four and stands apart from the other three, which
+     * is how a real board reads: three zones a hand is in and out of all game, and one it
+     * touches twice. A format without commanders passes three and gets no gap.
      *
      * @param index which zone, nearest its own player first
      * @param count how many zones the column holds - four with a command zone, three without
@@ -415,15 +350,12 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         if (mat.isEmpty() || count <= 0 || index < 0 || index >= count) {
             return Rect.NONE;
         }
-        // A zone is a card, unless a column of them would be taller than the mat - which it is
-        // on a two-player board, where a mat is twice as wide as it is deep. Then they shrink
-        // together, which keeps them a set rather than letting the last one fall off the edge.
+        // A zone is a card, unless the column would be taller than the mat - which it is on a
+        // two-player board. Then they shrink together and stay a set.
         boolean separated = count > Zone.PILES_WITHOUT_A_COMMAND_ZONE;
         double worth = count * (1 + PILE_GAP) + PILE_GAP + (separated ? PILE_GROUP_GAP : 0);
-        // Fitted into the mat inside its margin rather than into the whole of it. Measured
-        // against the full height the column filled the mat top to bottom, so a board whose
-        // zones had to shrink to fit came out with its graveyard sitting on the mat's own
-        // border - a margin down the sides and none at the ends reads as a printing mistake.
+        // Fitted inside the mat's margin, not the whole mat: against the full height the
+        // column runs edge to edge, putting the graveyard on the mat's own border.
         int height = Math.min(
                 (int) Math.round(cardHeightOn(seat)), (int) (usableHeight(mat, seat) / worth));
         height = Math.max(1, height);
@@ -434,13 +366,12 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         int step = height + gap;
         int total = count * step - gap + apart;
         int top = mat.y() + (mat.height() - total) / 2;
-        // Zone nought sits nearest its own player, and the column runs away from them. Which
-        // end of the mat that is depends on which chair the board belongs to.
+        // Zone nought is nearest its own player and the column runs away from them, so which
+        // end of the mat that is depends on the chair.
         int slot = isTurned(seat) ? index : count - 1 - index;
-        // The mat's own margin, which the run of buttons down the other side uses too. Taken
-        // from the gap between zones it shrank whenever the zones did, so a column squeezed
-        // onto a shallow mat ended up hard against the border while the buttons opposite kept
-        // their room.
+        // The mat's own margin, shared with the buttons down the other side. Taken from the
+        // gap between zones it shrinks when they do, leaving a squeezed column against the
+        // border while the buttons opposite keep their room.
         int inset = edgeMargin(seat);
         int left = isTurned(seat) ? mat.x() + inset : mat.right() - inset - width;
         return new Rect(left, top + slot * step + (slot >= breakAt(seat, count) ? apart : 0),
@@ -448,39 +379,25 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
-     * Which slot down the surface the gap sits in front of.
-     *
-     * <p>The command slots are the far end of the column from their own player, and which end
-     * of the <em>mat</em> that is depends on the chair - so for one player the gap is before
-     * them and for the one opposite it is after them.
+     * Which slot down the surface the gap sits in front of. The command slots are at the far
+     * end of the column from their player, so the gap comes before them for one chair and
+     * after them for the one opposite.
      */
     private int breakAt(int seat, int count) {
-        // However many command slots this table is drawing, which is however many the column
-        // has beyond the three a hand reaches for. Written from the count rather than fixed
-        // at one, because a table with two of them sets both apart, not just the last.
+        // However many the column has beyond the three a hand reaches for. From the count
+        // rather than fixed at one, so a table with two sets both apart.
         int commandSlots = Math.max(0, count - Zone.PILES_WITHOUT_A_COMMAND_ZONE);
         return isTurned(seat) ? count - commandSlots : commandSlots;
     }
 
     /**
      * One of the buttons printed on a mat for the verbs a player uses every turn.
-     *
-     * <p>On the player's own left, mirroring the zone column on their right, because a real
-     * playmat has both and because a board with no affordances on it at all is a rectangle of
-     * felt that a new player has no reason to think they can click.
-     *
-     * <p>A card wide and well under half that tall. Not card-shaped and not square either:
-     * they are labels you press, and the only thing a button needs room for is its own word.
-     * Square ones were a card wide <em>and</em> a card wide tall, so four of them came to
-     * three and a half card heights - most of the depth of a mat, given over to four words on
-     * the side of a table whose whole point is the space in the middle. Flat, they take about
-     * a third of that and read more like the strip of buttons a table simulator puts down the
-     * edge of a board, which is the thing they are for being.
-     *
-     * <p>The width is what the writing needs, so it is the width that stays: a name is fitted
-     * across a button and shrinks with it, and a button narrowed to save felt is a button
-     * whose word stops being written at all.
-     *
+     * <p>On the player's own left, mirroring the zone column on their right: a rectangle of
+     * felt with no affordances on it gives a new player no reason to think they can click it.
+     * <p>A card wide and well under half that tall. Square, four of them come to three and a
+     * half card heights - most of a mat's depth given over to four words. The width is what
+     * the writing needs and so is what stays: a name is fitted across a button and shrinks
+     * with it, and a narrowed button stops being written on at all.
      * <p>Index nought sits nearest its own player, the same way the zone column runs.
      */
     public Rect verbSlot(int seat, int index, int count) {
@@ -489,8 +406,7 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
             return Rect.NONE;
         }
         int width = Math.max(1, (int) Math.round(cardWidthOn(seat)));
-        // Shorter still on a mat with no room for the run, the same way the zone column
-        // shrinks together rather than letting its last box fall off the edge.
+        // Shorter still where the run does not fit, the same way the zone column shrinks.
         double worth = count * (1 + VERB_GAP) + VERB_GAP;
         int height = Math.max(1, Math.min(
                 (int) Math.round(width * VERB_HEIGHT), (int) (usableHeight(mat, seat) / worth)));
@@ -506,19 +422,12 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * Where a seat's life total is written, on the table just past the far edge of its mat.
-     *
-     * <p>Not on the mat. A life total is a thing about a player rather than a thing on their
-     * board, and the board is where cards go - a number printed in the middle of the play
-     * area is a number somebody will put a land on top of. Past the far edge it sits in the
-     * strip of table between the mats, which is where the counters go on a real table and
-     * where a player facing their own board looks up to read somebody else's.
-     *
-     * <p>Which edge is "far" depends on the chair, the same way everything else on a mat
-     * does, so both players find their own number between their board and the middle.
-     *
-     * <p>Empty when there is not room for it off the end of the mat - a table drawn with the
-     * seats crammed together has no strip to put it in, and a number half under a mat is
-     * worse than a number in the status row alone.
+     * <p>Not on the mat: the board is where cards go, and a number in the play area is one
+     * somebody puts a land on. Past the far edge it sits in the strip between the mats, which
+     * is where counters go on a real table. Which edge is "far" depends on the chair, so both
+     * players find their own number between their board and the middle.
+     * <p>Empty where there is no room off the end of the mat - a number half under a mat is
+     * worse than one in the status row alone.
      */
     public Rect lifeBox(int seat) {
         Rect mat = matOf(seat);
@@ -533,8 +442,7 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         int top = isTurned(seat) ? mat.bottom() + standoff : mat.y() - standoff - height;
         int left = mat.x() + (mat.width() - width) / 2;
         Rect box = new Rect(left, top, width, height);
-        // Room on the table for the whole of it, and not overlapping anybody else's mat -
-        // which is what a seat with somebody sitting directly opposite and close up means.
+        // Room on the table for the whole of it, and clear of every other mat.
         if (box.y() < 0 || box.bottom() > height() || box.x() < 0 || box.right() > width()) {
             return Rect.NONE;
         }
@@ -548,12 +456,9 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * A seat's mat together with the life total printed off its far edge.
-     *
-     * <p>What "your own board" means to a camera. The counter is deliberately not on the mat
-     * - a number in the play area is a number somebody puts a land on - but it is still part
-     * of a player's own board, and both views framed the mat alone at first. On the seated
-     * board that put the number the game is played to just past the top of the window; on the
-     * board drawn in the world it put it under the status row. One rule, asked by both.
+     * <p>What "your own board" means to a camera. The counter is off the mat but still part
+     * of the board, and a view framing the mat alone puts the number the game is played to
+     * outside the window. One rule, asked by both views.
      */
     public Rect ownBoard(int seat) {
         Rect mat = matOf(seat);
@@ -571,20 +476,13 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /**
      * Which half of a seat's life counter a point is on: -1 for the left, 1 for the right, 0
      * for neither.
-     *
      * <p>Here rather than in whichever view took the click, because the halves are drawn as
-     * well as pressed - the number has a minus over one end and a plus over the other - and a
-     * board that draws the plus on the side that takes one off is worse than no button.
-     *
-     * <p>Given the box rather than the seat, because the two views measure one in different
-     * spaces: pixels on the window, units of felt on the block. Read out of absolute surface
-     * units it would answer about the wrong end of the counter on the seated board, whose
-     * camera turns the felt round on its way to the screen.
-     *
-     * <p>And given whether the counter is drawn turned about, because that is the other thing
-     * the two views differ on: the seated camera has already turned the felt to face its own
-     * player, so a box arrives in their frame and this is false; the board in the world turns
-     * each seat's own writing instead, so there it is that seat's facing.
+     * well as pressed: a board drawing the plus on the side that takes one off is worse than
+     * no button at all.
+     * <p>Given the box rather than the seat: the two views measure one in different spaces,
+     * pixels on the window and units of felt on the block. Given the facing for the same
+     * reason - the seated camera has already turned the felt, so a box arrives in its own
+     * player's frame; the board in the world turns each seat's writing instead.
      */
     public static int lifeWayAt(Rect box, boolean turned, double x, double y) {
         if (box.isEmpty() || !box.contains((int) Math.round(x), (int) Math.round(y))) {
@@ -597,13 +495,10 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     /**
      * Whether a seat's counter is drawn turned about, in a view that may already have turned
      * the felt.
-     *
-     * <p>The seated camera turns the whole surface to face whoever is looking, so a counter
-     * arrives there already in their frame and nothing more is done to it. The board in the
-     * world turns nothing: it writes each seat's own marks facing that seat, so there the
-     * seat's facing is what decides. One method because the drawing and the press both have
-     * to ask, and they were asking separately - which is how the end marked plus came to take
-     * a life off on every seat facing the other way.
+     * <p>The seated camera turns the whole surface, so a counter arrives already in its
+     * player's frame. The board in the world turns nothing and writes each seat's marks facing
+     * that seat. One method because the drawing and the press both ask: asking separately is
+     * how the end marked plus came to take a life off on every seat facing the other way.
      */
     public boolean lifeIsTurned(int seat, boolean cameraAlreadyTurnedTheFelt) {
         return !cameraAlreadyTurnedTheFelt && isTurned(seat);
@@ -611,12 +506,8 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * The end of a counter that means this way, which is where its sign is written.
-     *
-     * <p>The other half of the same rule. A view draws its minus here and takes its press
-     * from {@link #lifeWayAt}, so the two cannot end up on opposite ends - which is what they
-     * were, on the board drawn in the world, for every seat facing the other way: the sign
-     * was turned round with the mat and the press was not, so the end marked plus took a life
-     * off.
+     * <p>The other half of the same rule: a view draws its minus here and takes its press
+     * from {@link #lifeWayAt}, so the sign and the press cannot land on opposite ends.
      *
      * @param way -1 for the end that takes one off, 1 for the end that puts one on
      */
@@ -631,11 +522,8 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * The room left for the number itself, between a counter's two ends.
-     *
-     * <p>What the ends leave, rather than a share of the box worked out separately. Given
-     * halves of their own the three came to more than the whole - the number was allowed half
-     * and each end better than a quarter - so on a board drawn small enough for two figures
-     * to fill their allowance, the minus ran into the four and the plus into the nought.
+     * <p>What the ends leave, not a share worked out separately: given their own halves the
+     * three come to more than the whole, and the signs run into the digits.
      */
     public static Rect lifeMiddle(Rect box) {
         if (box.isEmpty()) {
@@ -652,10 +540,8 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * The margin down either side of a mat, which both the buttons and the zones sit inside.
-     *
-     * <p>Off a card's height rather than off whatever is being printed, so the two sides
-     * match on a mat too shallow to draw either of them at full size - which is the case they
-     * stopped matching in.
+     * <p>Off a card's height rather than off whatever is printed, so the two sides still
+     * match on a mat too shallow to draw either at full size.
      */
     private int edgeMargin(int seat) {
         return Math.max(1, (int) Math.round(cardHeightOn(seat) * EDGE_MARGIN));
@@ -681,48 +567,40 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * Where a zone's name is printed on the mat, beside its slot.
-     *
-     * <p>Not inside the slot. A slot is exactly one card wide, because that is what it holds,
-     * and no word longer than "Exile" fits across a card at the size a whole two-player board
-     * is drawn at - so a name written in the slot arrives as "Grav...". Beside it there is
-     * bare felt and room for the word, which is also where a printed playmat puts it.
-     *
-     * <p>On the mat side of the column, so the writing runs into the table rather than off
-     * the edge of it, whichever chair the mat belongs to.
+     * <p>Not inside it: a slot is one card wide, and no word longer than "Exile" fits across
+     * a card at two-player size, so a name in the slot arrives as "Grav...". Beside it is bare
+     * felt, which is where a printed playmat puts it too. On the mat side of the column, so
+     * the writing runs into the table rather than off the edge whichever chair it belongs to.
      */
     public Rect pileLabel(int seat, int index, int count) {
         Rect slot = pileSlot(seat, index, count);
         if (slot.isEmpty()) {
             return Rect.NONE;
         }
-        // The command slots are one zone drawn as two boxes, so they are named once. Written
-        // beside each of them the mat said "Command" twice down the same column, which reads
-        // as two zones that somebody forgot to give different names rather than as one zone
-        // with room for a partner. A printed playmat labels the region, not each slot.
+        // The command slots are one zone drawn as two boxes, so they are named once: twice
+        // down the same column reads as two zones nobody bothered to name differently.
         int firstCommand = Zone.PILES_WITHOUT_A_COMMAND_ZONE;
         boolean commandSlot = count > firstCommand && index >= firstCommand;
         if (commandSlot && index > firstCommand) {
             return Rect.NONE;
         }
         Rect mat = matOf(seat);
-        // Clear of the line drawn round the group of slots, not just of the slot itself. The
-        // name is written flush against the column, so a gap measured to the slot put the
-        // last letter of the longest name underneath that line - which on the board drawn in
-        // the world is a letter with its right-hand half missing.
+        // Clear of the line round the group, not just of the slot: the name sits flush
+        // against the column, so a gap measured to the slot alone puts the last letter of the
+        // longest name under that line.
         int gap = Math.max(2, (int) Math.round(slot.height() * PILE_GAP * (1 + PILE_GROUP_PAD)));
         int width = Math.max(1, (int) Math.round(slot.width() * PILE_LABEL_WIDTHS));
         int height = Math.max(1, (int) Math.round(slot.height() * PILE_LABEL_HEIGHT));
-        // Centered on whatever the name names: its own slot, or the run of command slots. The
-        // span is measured off the same pileSlot arithmetic that placed them, so the one name
-        // cannot drift away from the pair it belongs to.
+        // Centered on whatever it names - its own slot, or the run of command slots - and
+        // measured off the same pileSlot arithmetic that placed them.
         Rect last = commandSlot ? pileSlot(seat, count - 1, count) : slot;
         int spanTop = Math.min(slot.y(), last.y());
         int spanBottom = Math.max(slot.bottom(), last.bottom());
         int top = spanTop + (spanBottom - spanTop - height) / 2;
         int left = isTurned(seat) ? slot.right() + gap : slot.x() - gap - width;
         Rect label = new Rect(left, top, width, height);
-        // A mat with three seats round it is narrow enough that the word would start off the
-        // side of it, and a name half on the felt is worse than no name.
+        // A mat shared by three seats is narrow enough that the word starts off the side of
+        // it, and a name half on the felt is worse than no name.
         return mat.contains(label.x(), label.y()) && mat.contains(label.right(), label.bottom())
                 ? label
                 : Rect.NONE;
@@ -730,15 +608,11 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * How tall a pile's count is written, in surface units.
-     *
-     * <p>Exactly as tall as the pile's own name, so the two read as one label rather than as
-     * a word and a footnote. The count used to take its height from a separate constant that
-     * came out about half the size, which made the number a player reads most often - how
-     * much library is left - the smallest thing written anywhere on the board.
-     *
-     * <p>Falls back to the name's height as it would have been, for the narrow mats where
-     * there is no room beside the slot to write a name at all: the count is written on the
-     * slot itself and does not need the room the name could not find.
+     * <p>Exactly as tall as the pile's own name, so the two read as one label rather than a
+     * word and a footnote. From its own constant it came out half the size, making the number
+     * read most often - how much library is left - the smallest thing on the board.
+     * <p>Still the name's height on the narrow mats with no room to write a name at all: the
+     * count is written on the slot itself and does not need the room the name could not find.
      */
     public int pileCountHeight(int seat, int index, int count) {
         Rect slot = pileSlot(seat, index, count);
@@ -750,22 +624,13 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * The band across the foot of a slot where a commander's tax is written.
-     *
-     * <p>A command slot holds one commander, so a number under it counting cards says "1" for
-     * the whole game - the one number in the column that tells a player nothing. It says the
-     * tax instead, which is the number a Commander deck actually reads off that box, and
-     * pressing it records another cast.
-     *
-     * <p>Across the whole slot rather than in its corner like a count, for two reasons that
-     * point the same way: a number you press has to be big enough to press, and a number
-     * shaped differently from every count on the board does not get read as one.
-     *
-     * <p>Taken from the slot it is handed rather than worked out from the seat, because the
-     * two views measure a slot in different spaces - pixels on the screen, surface units on
-     * the block - and the seated camera turns the felt round so that the player's own mat is
-     * nearest them. Written in surface units the band came out at the top of the slot on
-     * screen, which is what a y axis that has been flipped does to a rectangle that was
-     * measured against the wrong end of it.
+     * <p>A command slot holds one commander, so a count under it says "1" all game. It says
+     * the tax instead - the number a Commander deck actually reads off that box - and pressing
+     * it records another cast. Across the whole slot rather than in a corner: a number you
+     * press has to be big enough to press.
+     * <p>Taken from the slot it is handed rather than from the seat, because the two views
+     * measure a slot in different spaces and the seated camera flips the y axis. In surface
+     * units the band lands at the top of the slot on screen.
      *
      * @param slot the slot, in whatever space its view measures rectangles in
      * @return the band, or {@link Rect#NONE} for a slot too small to write a number on
@@ -780,10 +645,8 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * How tall an ante card is drawn, as a share of the whole surface.
-     *
-     * <p>Smaller than a card in play. The pot is not a zone anybody reaches into - it sits
-     * there being looked at for the whole game - so it wants to read as an object on the
-     * table rather than compete with the board for the eye.
+     * <p>Smaller than a card in play: the pot is looked at rather than reached into, so it
+     * reads as an object on the table rather than competing with the board.
      */
     private static final double POT_CARD_HEIGHT = 0.15;
 
@@ -798,16 +661,11 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * Where the pot sits: a row of cards across the middle of the table.
-     *
-     * <p>The middle, deliberately, and it is the one thing on the surface that belongs to
-     * nobody. Every other rectangle here is somebody's - a mat, a zone, a life box - and the
-     * pot is the opposite of that, which is why it goes where the mats meet.
-     *
-     * <p>But the middle is not empty. A seat's life box sits on the edge of its mat facing
-     * the middle, which is the same strip of table, so a pot drawn centered lands straight on
-     * top of one. It goes in the widest clear span of that strip instead, which is usually
-     * still the middle and is never on top of a number somebody needs to read.
-     *
+     * <p>The middle, because it is the one thing on the surface belonging to nobody - every
+     * other rectangle here is somebody's mat, zone or life box.
+     * <p>The middle is not empty, though: the life boxes sit on that same strip, so a pot
+     * drawn centered lands on one. It takes the widest clear span instead, which is usually
+     * still the middle and never on top of a number somebody has to read.
      * <p>Empty when there is nothing in it, so a table not playing for keeps has no space set
      * aside for a thing that will never appear.
      */
@@ -839,7 +697,6 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * The whole space the pot takes, cards and the label under them.
-     *
      * <p>What is checked for room is what is drawn: a tray checked at the size of its cards
      * and then drawn taller is a tray that overlaps something nobody tested against.
      */
@@ -861,7 +718,6 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * The widest stretch of a horizontal band with none of the mats' furniture on it.
-     *
      * <p>Life boxes, zone columns and verb runs: everything a mat puts near its own edges,
      * which is where a band across the middle of the table meets them.
      */
@@ -900,7 +756,6 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * Where one card of the pot goes.
-     *
      * <p>Spread when there is room and leaning when there is not, which falls out of dividing
      * the row by the gaps between cards rather than by the cards: with one card there are no
      * gaps and it takes the whole row, and with twenty the step is smaller than a card and
@@ -921,12 +776,10 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * The line across a mat that marks off the row nearest its own player.
-     *
      * <p>Where the lands go, on every playmat ever printed. A mat with nothing on it is
      * otherwise a rectangle, and a rectangle does not tell a player where to put their first
      * land - which is a question every game starts with. The line is a marking, not a rule:
      * nothing stops anybody putting anything either side of it.
-     *
      * <p>It starts past the zone column rather than running under it, because a line through a
      * graveyard reads as part of the graveyard.
      *
@@ -971,7 +824,6 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * The box drawn round a run of the column, from one zone to another inclusive.
-     *
      * <p>Two of these: one round the three zones a hand lives in and one round the command
      * zone on its own. Asked of the same arithmetic that places the slots, so a border can
      * never end up round the wrong ones.
@@ -990,7 +842,6 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * Which of this seat's piles a surface point is on, or -1.
-     *
      * <p>Here rather than in whatever is drawing, because dropping a card into a zone and
      * drawing that zone have to agree about where it is - and a drop that lands a pixel off
      * the graveyard it looks like it is over is the kind of thing nobody reports as a bug,
@@ -1031,13 +882,11 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
 
     /**
      * Where a card going into or out of this seat's hand passes over the mat.
-     *
      * <p>A hand is not on the table - it is private, and belongs to its player rather than to
      * a place - so it has no slot to fly to. What it has is an edge: the one nearest its
      * player, where a real hand is held. A card drawn crosses that edge and stops being
      * something anybody can point at, which is exactly what happens to a card picked up off a
      * real table.
-     *
      * <p>The same edge for everybody, so a draw looks the same to the player making it and to
      * the three people watching. Only the player whose hand it is has anywhere for it to go
      * afterwards, and that is drawn by the screen rather than by the mat.

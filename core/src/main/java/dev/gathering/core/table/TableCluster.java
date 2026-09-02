@@ -11,13 +11,11 @@ import java.util.Set;
 
 /**
  * Tables pushed together, and where the seats end up.
- *
  * <p>The design is the literal shop gesture: one table seats two facing each other, and when
  * more people turn up you push another table against it. Edge-adjacent tables become one
  * surface running one session, seating two more each, up to four tables and eight seats -
  * which lands on the pod sizes that matter, a 4-player Commander game on two tables and an
  * 8-player draft on four.
- *
  * <p>All of it is arithmetic on a handful of coordinates, so it lives here where it can be
  * checked against every shape a player can build. A cluster that miscounts its seats, or puts
  * one on an edge two tables share, is not something anybody would notice until four people
@@ -41,7 +39,6 @@ public final class TableCluster {
 
     /**
      * The cluster reachable from one table.
-     *
      * <p>{@code present} answers whether there is a table at a cell. Walking outward from the
      * one placed, rather than scanning a region, means the cost is the size of the cluster and
      * not the size of whatever the player has built nearby.
@@ -74,12 +71,10 @@ public final class TableCluster {
 
     /**
      * The shape a client should assume from nothing but a seat count.
-     *
      * <p>A client is told a board, not a building: the session froze the cluster's shape when
      * it started, and what arrives on the wire is a list of seats. That is enough, because
      * seats come in facing pairs, so a row of {@code seats / 2} tables reproduces the seating
      * the server laid out.
-     *
      * <p>Here rather than in whichever screen needs it, because the seated view and the table
      * in the world both have to work this out and two answers would be two different boards -
      * one of them behind the other by however long it took somebody to notice.
@@ -98,7 +93,6 @@ public final class TableCluster {
 
     /**
      * A cluster from a known set of tables.
-     *
      * <p>Ordered before anything is derived from it, so the same set of tables always produces
      * the same seats in the same order however it was discovered - a seat index that depends
      * on which table happened to load first is a seat that changes hands on a chunk reload.
@@ -135,7 +129,6 @@ public final class TableCluster {
 
     /**
      * Whether another table may join.
-     *
      * <p>A cluster is capped rather than allowed to sprawl, so the answer to "can I push one
      * more table against this" has to be given at placement time, where it can be explained,
      * rather than silently by a table that sits next to a cluster without joining it.
@@ -146,13 +139,11 @@ public final class TableCluster {
 
     /**
      * Where the seats go: around the outside of the cluster, facing pairs first.
-     *
      * <p>Every table adds two to the capacity, but the two are not necessarily on that table.
      * Push four tables into a T and the middle one has a single outward edge - two seats on it
      * would put somebody inside the furniture, and dropping one would make a four-table
      * cluster seat seven. So the count is per cluster and the placement is around its
      * perimeter, which is what the design says and what pushed-together tables look like.
-     *
      * <p>Facing pairs are taken first, because sitting opposite your opponent is the shape of
      * the game and a table with two free opposite edges should use them. What is left over is
      * filled from the remaining outward edges in a fixed order, so the same cluster always
@@ -183,7 +174,6 @@ public final class TableCluster {
 
     /**
      * Whether every table in this shape would seat people on facing north and south edges.
-     *
      * <p>Which is to say: whether it is a line. A table with another one above or below it
      * has lost one of the two edges the game is played across, and the players it could still
      * seat would be sitting at the sides reading their own boards sideways. Asked where a

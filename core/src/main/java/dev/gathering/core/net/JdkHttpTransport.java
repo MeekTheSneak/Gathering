@@ -10,7 +10,6 @@ import java.util.Map;
 
 /**
  * The real transport, on the JDK's HTTP client. No dependency, no shading, no surprises.
- *
  * <p>Blocking by design; the executor discipline lives one layer up.
  */
 public final class JdkHttpTransport implements HttpTransport {

@@ -8,12 +8,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: the board, as this client is entitled to know it.
- *
  * <p>The bytes are a {@code GameView} and never a {@code GameState}. The view has already
  * been through the visibility rules, so an opponent's hand is a number and a face-down card
  * is a marker with no path back to a card - there is nothing in this packet for a modified
  * client to extract, which is the whole design.
- *
  * <p>One of these is addressed to each seated player separately, because each of them is
  * entitled to something different. A single broadcast board is the mistake this shape exists
  * to make impossible.

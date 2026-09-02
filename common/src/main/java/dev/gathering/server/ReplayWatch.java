@@ -13,7 +13,6 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Answering a client that wants to watch a game back.
- *
  * <p>Two questions and no third: what have you got, and show me step N of that one. The
  * client never receives the game itself - not the log, not the seed - only the picture of one
  * moment, folded here. That is what makes it safe to reuse the live board's screen for a
@@ -23,7 +22,6 @@ public final class ReplayWatch {
 
     /**
      * How many replays are held open at once.
-     *
      * <p>One per watcher, and there are never many: a replay is something one or two people
      * are looking at while everybody else plays. The oldest goes when the cap is reached,
      * which costs whoever it belonged to one slow frame and nothing else.
@@ -33,7 +31,6 @@ public final class ReplayWatch {
     /**
      * The replay each watcher has open, so scrubbing forward is one event rather than a fold
      * of the whole game. See {@link Replays.Watching}.
-     *
      * <p>Server thread only, which is where every payload handler in this mod runs. Access
      * ordered, so the entry that goes is the one nobody has looked at for longest rather than
      * the one that happens to be first in a hash.
@@ -67,7 +64,6 @@ public final class ReplayWatch {
 
     /**
      * Whether this player may watch this particular game back.
-     *
      * <p>The middle setting is the one most groups want: settle your own argument about what
      * was on top of the library without a stranger reading your deck for the rematch. An
      * operator may open any of them, because an operator can read the file anyway and the
@@ -152,7 +148,6 @@ public final class ReplayWatch {
 
     /**
      * The replay this player has open, opening it if this is a different one.
-     *
      * <p>One at a time per watcher: two open replays is two folded games held for somebody
      * who is looking at one of them.
      */

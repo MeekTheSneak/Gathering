@@ -9,7 +9,6 @@ import net.minecraft.network.codec.StreamCodec;
 
 /**
  * What a sealed pack is: which set, and which of that set's products.
- *
  * <p>Two strings and nothing else, for the same reason a card item is a pointer. What is
  * inside a pack is not decided when the pack is made - it is decided when the pack is opened,
  * out of the set's published collation, by a seed nobody has seen. A pack carrying its
@@ -43,7 +42,6 @@ public record PackComponent(String setCode, String kind) {
 
     /**
      * The set code an Archive Pack carries.
-     *
      * <p>A word rather than a real code, and it lives here rather than beside the code that
      * fills the pack because both the client and the server have to recognize one: the
      * client so it does not go looking for a set symbol that does not exist, the server so

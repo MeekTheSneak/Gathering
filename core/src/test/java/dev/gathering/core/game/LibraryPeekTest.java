@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Looking through a library, which is the only thing that makes one anything but a number.
- *
  * <p>A library is a count to everybody, its owner included. That rule has exactly one
  * exception and this is it: a search, a scry or a surveil opens the library to the one seat
  * doing it, until something closes it again. So every one of those "until"s is a leak if it

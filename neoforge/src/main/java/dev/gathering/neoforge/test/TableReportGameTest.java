@@ -35,11 +35,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The two commands that answer "it does not work".
- *
  * <p>Both are about a table in a running world, so neither can be checked anywhere else: the
  * report reads a block entity, a cluster and a session together, and filling a board submits
  * real move events through a real session.
- *
  * <p>The report is checked for what it must never say as much as for what it says. Every line
  * is sent to whoever asked, which on a shared server is not necessarily a player entitled to
  * know what is in anybody's library.
@@ -74,7 +72,6 @@ public final class TableReportGameTest {
 
     /**
      * A report never names a card.
-     *
      * <p>The whole report goes to whoever typed the command, and on a server that is not
      * necessarily somebody entitled to read a library. Counts are public; identities are the
      * one thing the mod guards.
@@ -109,7 +106,6 @@ public final class TableReportGameTest {
 
     /**
      * Filling a board puts cards on it, one per spot.
-     *
      * <p>Counted at both ends: the library must lose exactly what the battlefield gains, and
      * no two cards may end up on the same place - a fill that stacked them all would leave a
      * board that looks like one card, which is the opposite of what it is for.

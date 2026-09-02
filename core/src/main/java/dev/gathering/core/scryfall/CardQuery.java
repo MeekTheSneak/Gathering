@@ -7,7 +7,6 @@ import java.util.UUID;
 
 /**
  * One request for one card, in the shapes Scryfall's collection endpoint accepts.
- *
  * <p>Decklist import produces these directly from parsed entries: a line with a set and
  * collector number becomes {@link #byPrinting}, a line with only a name becomes
  * {@link #byName}. Resolution keeps the query alongside its answer so an ambiguity can be
@@ -49,13 +48,11 @@ public sealed interface CardQuery {
 
     /**
      * The name to actually put on the wire.
-     *
      * <p>Scryfall's collection endpoint does not accept a combined name. Asking it for
      * "Fire // Ice", "Wear // Tear", or "Delver of Secrets // Insectile Aberration" - all
      * exactly as every decklist exporter writes them - comes back not-found, while asking for
      * either half alone returns the whole card. So every split card, transform card and modal
      * double-faced card in a list would silently fail to import.
-     *
      * <p>Verified against the live API rather than inferred; see DIALECT.md.
      */
     static String lookupName(String name) {

@@ -2,16 +2,13 @@ package dev.gathering.core.ui;
 
 /**
  * A color per seat, so a board can be told from the board next to it.
- *
  * <p>The thing a four-player table needs most and the cheapest to give it. Four playmats laid
  * out on one surface are four identical rectangles; the moment each has a color, "whose
  * creature is that" and "which life total is mine" stop being questions you have to work out
  * from where things are sitting. Every table simulator does this and so does every paper
  * playgroup, with sleeves.
- *
  * <p>Ordered rather than chosen, so a seat's color is the same for everybody looking at the
  * table - a color one player picked and another did not see would be worse than none.
- *
  * <p>Chosen to stay apart for the commonest kinds of color blindness: no red next to green,
  * and the pairs that could be confused differ in brightness as well as in hue. Card games are
  * played by people who have spent years being told which of two similar greens is theirs.
@@ -20,7 +17,6 @@ public final class SeatColor {
 
     /**
      * Eight, because eight is the most seats a cluster can have.
-     *
      * <p>Yellow, blue, red and white first, which is the order the four-player tables people
      * already play on use - so somebody coming from one finds their own color where they
      * expect it.

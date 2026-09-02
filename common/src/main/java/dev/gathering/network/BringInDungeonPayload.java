@@ -9,12 +9,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: put a dungeon on the table.
- *
  * <p>Carries which one rather than what it is called. A dungeon starts outside the game and
  * there is no way to draw one, so something has to bring it in - and the thing that brings it
  * in must not be a name a client made up. There are four dungeons and they are a fact about
  * Magic rather than about this mod, so they are an enum and the wire carries its position.
- *
  * <p>Clamped on decode, so an index nobody printed is the first dungeon rather than a crash.
  */
 public record BringInDungeonPayload(BlockPos table, int which) implements CustomPacketPayload {

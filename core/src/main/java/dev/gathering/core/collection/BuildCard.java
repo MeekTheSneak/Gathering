@@ -7,7 +7,6 @@ import java.util.UUID;
 
 /**
  * One card as a deck builder needs to think about it.
- *
  * <p>Deliberately not {@link dev.gathering.core.card.CardMetadata} and deliberately not the
  * network summary either. The builder's logic is pure and lives here where it can be checked
  * in milliseconds, so it needs a shape with no Minecraft on its classpath and nothing on it
@@ -51,7 +50,6 @@ public record BuildCard(
 
     /**
      * Whether this card may be in a deck led by a commander of this identity.
-     *
      * <p>Stated here and used to <em>say so</em>, never to refuse. A deck builder that will
      * not let somebody put a card in their own deck has decided it knows the format better
      * than they do, and this mod's whole shape is the other way round - the pre-game check is

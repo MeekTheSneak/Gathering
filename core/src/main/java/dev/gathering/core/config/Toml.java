@@ -10,23 +10,19 @@ import java.util.Set;
 
 /**
  * A config file, read.
- *
  * <p>Deliberately a small corner of TOML rather than the whole language: sections, comments,
  * and four kinds of value - true or false, a whole number, a quoted string, and a list of
  * quoted strings. That covers every setting this mod has and every setting the design brief
  * describes, and the one file it has to read is the one it writes itself.
- *
  * <p>TOML rather than JSON because this file is for a server owner to edit in a text editor
  * with a comment above every line, and because it is what every other mod on their server
  * puts in the same folder. A parser small enough to read in one sitting is the price, and a
  * far better price than a JSON file nobody can annotate.
- *
  * <p><b>Loud about what it does not understand.</b> A line it cannot read is an error with a
  * line number, and a key nobody asked for is reported by {@link #unknownKeys}. Both matter
  * for the same reason: a setting that was silently dropped is a server running differently
  * from the file its owner is reading, and there is no way to find that out from inside the
  * game.
- *
  * <p>Pure.
  */
 public final class Toml {
@@ -131,7 +127,6 @@ public final class Toml {
 
     /**
      * Settings in the file that nobody asked about.
-     *
      * <p>Almost always a typo, and the one mistake a config file cannot report on its own: a
      * misspelled key looks exactly like a key for a feature you have not enabled.
      */
@@ -278,7 +273,6 @@ public final class Toml {
 
     /**
      * A line with its comment taken off.
-     *
      * <p>A '#' inside quotes is part of the value, not the start of a comment - which is the
      * difference between a price item called "minecraft:diamond # the good one" being a typo
      * and being a crash.

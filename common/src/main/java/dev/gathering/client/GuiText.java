@@ -10,13 +10,11 @@ import net.minecraft.util.FormattedCharSequence;
 
 /**
  * Text that fits the space it was given.
- *
  * <p>Minecraft's font draws at one size and runs straight off the end of whatever it does
  * not fit in, and in a mod full of card names - which are arbitrary text a player did not
  * choose and cannot shorten - that is not an edge case. So text shrinks to fit, and only
  * when shrinking any further would stop it being readable does it lose its tail to an
  * ellipsis instead.
- *
  * <p>Client-only.
  */
 public final class GuiText {
@@ -26,7 +24,6 @@ public final class GuiText {
 
     /**
      * How many times something has been drawn at a scale nobody asked for.
-     *
      * <p>Not a log line: a mistake like this happens every frame, and a log that says so a
      * hundred times a second is a log nobody reads. It is a number the scripted run reads at
      * the end and fails on, which is the only place that can see the whole mod being drawn.
@@ -40,13 +37,11 @@ public final class GuiText {
 
     /**
      * Which of the mod's own lines have had their tails cut off.
-     *
      * <p>Trimming a card name is the job: those are arbitrary text nobody chose and a panel
      * cannot be built around the longest one in Magic. Trimming a line the mod wrote is not -
      * it is a label that has stopped saying what it was written to say, and the fix is more
      * room or fewer words rather than an ellipsis. So the two are counted apart, by whether
      * the line came from the language file.
-     *
      * <p>Keys rather than a count, because a count says something is wrong and a key says
      * which. Read by the scripted run at the end, which is the only place that sees the whole
      * mod drawn; a set, because a label too long is too long on every frame.
@@ -61,7 +56,6 @@ public final class GuiText {
 
     /**
      * Notes a line that lost its tail, if it was one of ours.
-     *
      * <p>A translatable component is the mod talking; a literal is almost always a name out
      * of a card or a deck. A translatable with arguments counts as ours too - "Look: %s" that
      * does not fit is still a label nobody can read - and the key is enough to find it.
@@ -97,7 +91,6 @@ public final class GuiText {
 
     /**
      * How many lines this text needs at this width, so a panel can be built to hold it.
-     *
      * <p>Asked of the same wrapping {@link #drawWrapped} does, so a panel is never a line
      * short of the words it is about to be given.
      */
@@ -108,7 +101,6 @@ public final class GuiText {
     /**
      * Draws text over as many lines as it needs, each line centered, and says how tall it
      * came out.
-     *
      * <p>For a whole sentence in a box that may be narrower than it - a message in the middle
      * of an empty pile, say. Shrinking a sentence to fit one line makes it unreadable and
      * trimming it makes it untrue; breaking it costs a line of height and keeps every word.
@@ -136,7 +128,6 @@ public final class GuiText {
 
     /**
      * The one size a whole set of labels should be drawn at, given the longest of them.
-     *
      * <p>Fitting each label to the space on its own gives a set in as many sizes as it has
      * lengths - "Draw" full size beside a squashed "Mulligan" - which reads as unfinished
      * however correct each one is. The set is measured from its longest and every member is
@@ -159,7 +150,6 @@ public final class GuiText {
 
     /**
      * Draws with its right-hand end at {@code rightX}, at exactly this scale.
-     *
      * <p>For a column of labels that belongs to something to one side of it. Centering each
      * one in its own box gives a column with a ragged edge against the thing it names, and
      * the shorter the word the further it sits from what it is labeling - which reads as
@@ -201,7 +191,6 @@ public final class GuiText {
 
     /**
      * Draws at one size, cutting the tail off rather than shrinking to fit.
-     *
      * <p>The opposite trade to {@link #draw}, and it exists for writing that sits <em>on</em>
      * something whose size the player controls. Reported from the four-player session:
      * "writing on cards should not scale with scrolling out - stay one size". Shrinking is
@@ -209,7 +198,6 @@ public final class GuiText {
      * live in it. It is wrong for a note on a card, where zooming out shrank every note on
      * the board toward illegible while the player was still being asked to read them - and a
      * word and a half at full size beats a whole sentence nobody can make out.
-     *
      * <p>Nothing at all below {@code leastWidth}, because a note trimmed to one letter and an
      * ellipsis is not information, it is a smudge on the card.
      */

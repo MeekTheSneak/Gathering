@@ -4,16 +4,13 @@ import dev.gathering.core.card.ImageTier;
 
 /**
  * How wide a card is against how tall it is.
- *
  * <p>One number, and until now six copies of it: the hand fan, the deck screen, the table
  * surface, the pile screen, the inspect panel and the zoom overlay each wrote {@code 488f /
  * 680f} out again. None of them was wrong, and that is the point - a constant spelled out in
  * six places is six chances for five of them to be changed and one to be missed, and the one
  * that is missed draws a card that is very slightly the wrong shape on one screen.
- *
  * <p>Derived from the image tier the art actually arrives in, so the shape a card is drawn in
  * and the shape of the picture inside it cannot come apart.
- *
  * <p>Pure.
  */
 public final class CardShape {

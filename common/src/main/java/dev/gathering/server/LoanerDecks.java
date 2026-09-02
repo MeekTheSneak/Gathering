@@ -21,17 +21,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Decks the server lends out.
- *
  * <p>The starter-deck moment. Somebody joins, owns nothing, and may be on a server where
  * importing is off entirely - and they can still walk to a table, sit down and play a real
  * deck in their first minute. Without this that player's first hour is asking somebody else
  * to make them a deck.
- *
  * <p>Admin-defined and file-shaped on purpose: a decklist is a hundred lines of text and a
  * command is a single line, so the way to add one is to drop a list in a folder. The folder
  * is written on first start with one deck already in it, so a server that touches nothing is
  * a server that can already lend.
- *
  * <p>Resolved once, when the server starts, through the same pipeline every other decklist
  * goes through - so a loaner costs no requests when somebody takes it, and a list naming a
  * card that does not exist is a line in the log at boot rather than a failure in front of a
@@ -50,7 +47,6 @@ public final class LoanerDecks {
 
     /**
      * A loaner nobody has to write: a real deck out of cards every set has.
-     *
      * <p>Written once, if the folder is not there. A server that wants no loaners deletes it
      * and the folder stays empty, because this only ever runs when there is no folder at all.
      */
@@ -80,7 +76,6 @@ public final class LoanerDecks {
 
     /**
      * What is on the shelf, by name.
-     *
      * <p>Sorted rather than merely concurrent, because the order is the menu's order and it
      * has to be the same on every client and after every restart. {@link LoanerShelf} sorts
      * the files it reads by the same rule; keeping a second ordered list beside this map was
@@ -105,7 +100,6 @@ public final class LoanerDecks {
 
     /**
      * The deck by that name, made out for this borrower.
-     *
      * <p>A fresh component every time, owned by whoever asked. The shelf copy is never handed
      * out: a loaner that came back with somebody else's name on it would be a loaner nobody
      * else could put down.
@@ -125,7 +119,6 @@ public final class LoanerDecks {
 
     /**
      * Puts a deck on the shelf under that name.
-     *
      * <p>The one way onto it. Reading a folder produces a name and a resolved deck and calls
      * this; so would an admin command that lent a deck somebody had in their hands, and so
      * does the test that proves borrowing works without a network in the way.
@@ -144,7 +137,6 @@ public final class LoanerDecks {
 
     /**
      * Reads the folder and starts resolving what is in it.
-     *
      * <p>Returns immediately. Resolution is a Scryfall lookup per distinct card and runs on
      * the card pipeline, so a server with ten loaners is not a server that boots ten lookups
      * slower - it is one where the decks arrive on the shelf a moment after the world does.
@@ -155,10 +147,8 @@ public final class LoanerDecks {
 
     /**
      * Reads the folder again, for an admin who has just added a decklist.
-     *
      * <p>Without this, lending a new deck means restarting the server, which for the one
      * feature whose whole point is a new player's first minute is a poor trade.
-     *
      * <p>Nothing is taken off the shelf until the replacement is ready. Clearing first and
      * resolving afterwards would leave a window - seconds wide, because resolving is a
      * network call - where the server lends nothing at all, and somebody sitting down inside
@@ -242,7 +232,6 @@ public final class LoanerDecks {
 
     /**
      * Every decklist in the folder, by file name.
-     *
      * <p>A folder that is not there is written with one deck in it, so the feature is on
      * before anybody has read about it. A folder that cannot be read at all is a warning and
      * an empty shelf: a server always starts.

@@ -30,7 +30,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
  * Payload registration and the server-side handlers.
- *
  * <p>The client handlers live in the client package, wired in from there, so nothing on a
  * dedicated server ever names a client class.
  */

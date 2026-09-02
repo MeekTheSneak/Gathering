@@ -6,7 +6,6 @@ import java.util.Map;
 /**
  * The one place the pure core touches the network, expressed as an interface so it can be
  * replaced by a fake in tests and by a JDK client in the game.
- *
  * <p>Keeping this abstract is what lets the entire Scryfall layer - batching, rate
  * limiting, error handling, codec - be unit tested in milliseconds with no sockets.
  */

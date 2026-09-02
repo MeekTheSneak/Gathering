@@ -7,11 +7,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: "here is a decklist I pasted, make me a deck".
- *
  * <p>The text is capped well above any real decklist and well below anything worth
  * worrying about. Parsing and resolution happen on the server, on the card pipeline's own
  * executor, and the client is told what came of it - it never resolves anything itself.
- *
  * <p>With a collection named, the same list builds a deck out of that collection's cards
  * instead of out of nothing - which is the same request with the cards having to come from
  * somewhere, rather than a second kind of import. The position is checked at the other end

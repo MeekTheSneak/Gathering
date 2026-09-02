@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A pod, saved and loaded.
- *
  * <p>A draft runs twenty minutes or more and a server restart in the middle of one must not
  * eat it - or, worse, hand it back subtly wrong, with somebody holding a pack that is not
  * theirs. So every field gets a round trip, at every point in a pod's life.
@@ -35,7 +34,6 @@ class DraftPodCodecTest {
 
     /**
      * And one caught mid-turn, with some drafters declared and some not.
-     *
      * <p>The moment a restart is most likely to be noticed and the state hardest to rebuild:
      * half the pod has said what they are taking and the packs have not moved.
      */
@@ -99,7 +97,6 @@ class DraftPodCodecTest {
 
     /**
      * And a pod that does not add up comes back as a refusal rather than a crash.
-     *
      * <p>A corrupt save is a real thing that happens to real servers. The caller has a
      * decision to make about it - tell the drafters, keep the world loading - and it can only
      * make that decision if this fails in a way it can catch.

@@ -37,7 +37,6 @@ public record CoverageReport(int catalog, Set<UUID> uncovered, Map<String, Integ
 
     /**
      * How much of the catalog is reachable, as a fraction.
-     *
      * <p>One for an empty catalog: a server that says nothing is obtainable has covered
      * everything it asked for, and reporting nought would send an admin looking for a
      * hole that is not there.

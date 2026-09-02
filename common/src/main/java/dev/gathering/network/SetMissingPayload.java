@@ -13,7 +13,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: the cards of one set this collection has not got.
- *
  * <p>The list behind the number. Names and numbers rather than card details: the art comes
  * the way art always comes, asked for by the screen showing it as it scrolls, so opening a
  * three-hundred-card list is not three hundred pictures nobody looked at.
@@ -23,7 +22,6 @@ public record SetMissingPayload(String code, String name, List<Row> cards, int m
 
     /**
      * How many rows are worth sending.
-     *
      * <p>Comfortably past the largest set anybody has printed, so in practice nothing is ever
      * cut - it is here because a list off the wire needs a bound, not because a set is
      * expected to reach it. {@link #missing} carries the real total either way, so a list

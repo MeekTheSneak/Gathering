@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A deck's sleeves on their way into the log, and a log written before there were any.
- *
  * <p>Adding a field to a stored event is the one change that can put somebody's saved game out
  * of reach, so the older shape stays readable and this is what says so.
  */

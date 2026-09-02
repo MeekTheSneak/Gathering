@@ -26,11 +26,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Nobody plays for keeps without saying so, in a running world.
- *
  * <p>The rule about who has agreed is pure and has its own tests. What cannot be checked
  * there is the part that decides whether a game actually begins - and that is the part where
  * a mistake costs somebody a card they never agreed to play for.
- *
  * <p>The test server runs with ante off, which is itself worth checking: a server that has
  * not turned it on must never see the question at all.
  */
@@ -40,7 +38,6 @@ public final class AnteConsentGameTest {
 
     /**
      * With ante off, nothing asks and the game starts exactly as it always did.
-     *
      * <p>The regression that would matter most: a gate added in front of every game that
      * silently stops games on the servers that never wanted it.
      */
@@ -73,7 +70,6 @@ public final class AnteConsentGameTest {
 
     /**
      * An answer from somebody who is not at the table is not a vote.
-     *
      * <p>Somebody watching does not get to decide whether the people playing lose a card, and
      * the seat is read off the server's own record rather than out of the payload - so this
      * is checking that a made-up answer reaches nothing.
@@ -124,7 +120,6 @@ public final class AnteConsentGameTest {
 
     /**
      * Two tables at the same coordinates in different worlds are two tables.
-     *
      * <p>A position on its own is not a table. Keyed on the block alone, the overworld and the
      * nether would have shared one question - and either table could have answered for the
      * other, which for a question about losing a card is not a coincidence anybody should be
@@ -156,14 +151,12 @@ public final class AnteConsentGameTest {
 
     /**
      * A game started through the ante question still knows its format was named.
-     *
      * <p>The deck check refuses only on a table that was told somebody picked a format, and
      * the ordinary start says so. The ante path starts its game later - out of the last
      * answer, when whoever picked the format is long gone from the call stack - and said
      * nothing at all. So on any server with ante turned on, the deck check could not refuse
      * a deck at any table, ever. Not a crash and not a message: a whole feature quietly
      * downgraded from a refusal to a note, on exactly the servers most likely to want it.
-     *
      * <p>Driven through the real question with ante switched on, rather than through a seam
      * put here for the test, because the bug was entirely in what the real path forgot.
      */
@@ -202,7 +195,6 @@ public final class AnteConsentGameTest {
 
     /**
      * Saying no to ante starts an ordinary game; it does not stop the table playing.
-     *
      * <p>Declining at a real table means "deal me in, but I am not playing for my cards". It
      * used to mean nothing happened at all: the question was withdrawn, no game started, and
      * the next attempt asked the same question and got the same answer. One person who did

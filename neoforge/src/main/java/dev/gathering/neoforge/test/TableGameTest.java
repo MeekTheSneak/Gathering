@@ -29,7 +29,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Tables in an actual world.
- *
  * <p>Which tables join up and where the seats go is worked out in the pure core and checked
  * there over every shape somebody can build. What these check is the part that only exists in
  * a world: that four blocks go down and come up together, that the corner owning the table is

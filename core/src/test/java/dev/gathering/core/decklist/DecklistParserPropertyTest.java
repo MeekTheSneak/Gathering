@@ -11,7 +11,6 @@ import net.jqwik.api.constraints.IntRange;
 
 /**
  * Example tests cover the inputs somebody thought of. These cover the ones nobody did.
- *
  * <p>The interesting property of a parser at the front door of a mod is not that it
  * understands good input - it is that no input at all, however malformed, can make it
  * throw, return null, or emit an entry the rest of the pipeline cannot handle.

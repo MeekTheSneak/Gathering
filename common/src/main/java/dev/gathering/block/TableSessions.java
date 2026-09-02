@@ -23,12 +23,10 @@ import net.minecraft.world.level.Level;
 
 /**
  * Starting, finding and ending the game on a cluster of tables.
- *
  * <p>A cluster runs one game, so one of its tables has to hold it. That is the cluster's
  * first cell in its own stable order - the same order that numbers the seats - so every table
  * in a cluster agrees on where the game is without anything having to be written down about
  * it.
- *
  * <p>Seats are numbered by that order too: seat <i>n</i> of the session is the <i>n</i>th of
  * the cluster's seat positions. The shape is frozen while anybody is seated, so those
  * numbers cannot move under a live game.
@@ -66,7 +64,6 @@ public final class TableSessions {
 
     /**
      * Marks the table's saved state dirty, so the log just appended to reaches the disk.
-     *
      * <p>One name for a three-line idiom seven handlers each spelled out - and the eighth
      * would have been the one that forgot, which is a game that plays fine until the chunk
      * unloads and comes back without its last few moves.
@@ -86,7 +83,6 @@ public final class TableSessions {
 
     /**
      * Starts a game on this cluster.
-     *
      * <p>Every seat the cluster has becomes a seat in the session, whether or not anybody is
      * in it: the shape is frozen for the duration, so the seats cannot move, and somebody
      * arriving later should find a seat waiting rather than a game that has no room.
@@ -97,7 +93,6 @@ public final class TableSessions {
 
     /**
      * Starts a game, either the first of a set or the next one.
-     *
      * <p>{@code continuing} is the score so far, or null to begin a new set at nil-nil. The
      * next game of a set also gets every deck the table is holding put straight back down and
      * shuffled: in paper you keep your deck between games of a match, and making people hand
@@ -193,7 +188,6 @@ public final class TableSessions {
 
     /**
      * Marks a game finished for everybody still sitting at it.
-     *
      * <p>Everybody rather than a winner, because this mod has no idea who won one and is
      * never going to: it does not enforce a rule and does not read a board. Playing a game
      * through to the end is the thing worth remembering, and the table can honestly say that
@@ -211,7 +205,6 @@ public final class TableSessions {
 
     /**
      * Keeps the finished game, and tells the people who played it that it was kept.
-     *
      * <p>Named here rather than folded into the line above because it is the one thing in
      * {@code end} that is not about tidying the table away. Failure is silent past a log line:
      * a replay that could not be written is a replay nobody watches, and it must never be the
@@ -239,7 +232,6 @@ public final class TableSessions {
 
     /**
      * Gives every deck back to whoever put it down.
-     *
      * <p>To the player if they are still here, and onto the table if they are not - never
      * nowhere. A deck is somebody's collection and hours of building; losing one because its
      * owner logged out before the game ended is not a trade-off, it is a bug with an
@@ -251,7 +243,6 @@ public final class TableSessions {
 
     /**
      * Hands one seat's deck back, if the table is holding one.
-     *
      * <p>Called when a player leaves the table, which is the moment they mean "give me my
      * cards" and which used to hand them nothing at all: a deck came back only when the whole
      * match ended, and ending a match is something the rest of the table is in the middle of.
@@ -267,13 +258,11 @@ public final class TableSessions {
 
     /**
      * Puts a released deck into somebody's hands, or onto the table if nobody's are here.
-     *
      * <p>To whoever put it down, wherever they are on the server - not to whoever is sitting
      * in the chair now. Handing it to the chair meant a player who stood up mid-match had
      * their deck dropped on the floor, and a player who took the vacated chair had somebody
      * else's collection put into their inventory, which is cards changing hands because of
      * where a person happened to be standing.
-     *
      * <p>The seat is still the fallback, for a world saved before decks remembered whose they
      * were, and the floor beside the table is the fallback after that: a deck is somebody's
      * collection and hours of building, and losing one because its owner logged out is not a
@@ -303,12 +292,10 @@ public final class TableSessions {
 
     /**
      * Settles the pot: to the winner, or back to everybody who put a card in.
-     *
      * <p>Called wherever a game stops being a game, which is two places - a match that ended
      * with somebody ahead, and a session that was voided or ended by hand. Those are the two
      * resolutions the pot was built to tell apart, and passing null for the winner is how the
      * second one says so.
-     *
      * <p>The pot is emptied by the release, before any card is handed anywhere, so a settle
      * that runs twice pays out once. Cards go to the player if they are still here and onto
      * the table if they are not - never nowhere, exactly as a deck does.
@@ -367,11 +354,9 @@ public final class TableSessions {
 
     /**
      * Who put this card in the pot, if it was not the person taking it out.
-     *
      * <p>A name rather than a seat, because a story is read by a person years later and "seat
      * two" means nothing to them. Blank where the staker has logged out: their name is not
      * worth holding a profile lookup for, and "won in an ante game" is still the fact.
-     *
      * <p>Where two people staked the same printing this names the first of them, which is a
      * guess. It is the right kind of guess: the alternative is naming nobody, and the card
      * genuinely did come out of one of their hands.
@@ -404,14 +389,12 @@ public final class TableSessions {
 
     /**
      * Puts the running game's seats back in step with who is actually sitting at the table.
-     *
      * <p>A seat is claimed on the table block and a seat is taken in the session, and until
      * now only the first happened after a game had started: everybody present when the game
      * began was seated into it, and anybody who walked up afterwards claimed a chair the
      * session never heard about. Their column said "(away)" for the rest of the evening with
      * them sitting in it, which is the report this exists to answer - and they were a
      * spectator to their own board, because a seat nobody holds is a seat nobody can act as.
-     *
      * <p>Reconciling rather than reacting to the one click: the same walk fixes a player who
      * reconnected under a new display name, a chair that changed hands while the server was
      * down, and a session loaded from disk beside a table whose claims outlived it. Every

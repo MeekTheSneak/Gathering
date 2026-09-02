@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Where the Archive Pack may come from.
- *
  * <p>Worth pinning because both halves are wrong in a way nothing else would catch: a table
  * that stops matching drops nothing and says nothing, and a table that starts matching too
  * widely turns the one path to a server's long tail into a zombie drop.

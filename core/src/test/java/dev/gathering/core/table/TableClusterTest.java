@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Every shape somebody can push four tables into.
- *
  * <p>Seats are the thing a player notices immediately and the thing this arithmetic is most
  * able to get quietly wrong: two seats on the edge two tables share, a cluster that seats
  * seven, an eighth seat that appears and disappears as chunks load. So the shapes are
@@ -151,7 +150,6 @@ class TableClusterTest {
 
     /**
      * Nobody is ever seated where their own board would read sideways.
-     *
      * <p>The whole reason a shape that is not a line seats fewer people. Stated over every
      * shape rather than over the ones the placement rule allows, because a world built before
      * that rule existed still loads and still has to put nobody at a side.

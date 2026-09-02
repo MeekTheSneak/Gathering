@@ -17,11 +17,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Trading, in a running world.
- *
  * <p>The rules are pure and checked in {@code :core}; what cannot be checked there is the half
  * that moves things. Cards existing in two places at once is the one failure a trade must not
  * have, and it is a failure of this half rather than of the arithmetic.
- *
  * <p>Every test here counts the cards on both sides afterwards. A trade that went through and
  * a trade that fell over should both leave the same number of cards in the world.
  */
@@ -68,7 +66,6 @@ public final class TradeGameTest {
 
     /**
      * Changing an offer takes back both agreements.
-     *
      * <p>The scam this whole feature is shaped around: agree, wait for the other side, swap
      * the good card for a worse one, and take theirs.
      */

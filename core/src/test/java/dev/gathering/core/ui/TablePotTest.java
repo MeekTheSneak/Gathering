@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Where the pot sits, as geometry.
- *
  * <p>The one rectangle on the table that belongs to nobody, so the thing worth pinning down is
  * that it stays in the middle and stays on the table however many cards end up in it.
  */
@@ -38,7 +37,6 @@ class TablePotTest {
 
     /**
      * The pot never covers anything anybody has to read.
-     *
      * <p>The fault this exists for: a life box sits on the edge of a mat facing the middle of
      * the table, which is the same strip of table the pot wants, so a pot drawn centered lands
      * straight on top of one. Checked at every seat count and every size, against the whole

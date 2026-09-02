@@ -8,12 +8,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: say this to the people at that table.
- *
  * <p>A game of Magic is half conversation - "attacking you with everything", "hold on, in
  * response", "how much life are you on" - and on a server the global chat is the wrong room
  * for it: everybody mining two hundred blocks away reads a turn they cannot see, and the
  * four people who need it lose it in the noise. So the table is its own room.
- *
  * <p>The text is cleaned by the server rather than trusted, by the same rule the pen follows -
  * one line, no formatting escapes - because it is the same thing: writing from one client
  * drawn on everybody else's screen. See {@link dev.gathering.core.game.PlayerText}.
@@ -24,7 +22,6 @@ public record TableChatPayload(BlockPos table, String text) implements CustomPac
 
     /**
      * How much may be said at once.
-     *
      * <p>About two lines across a board. Long enough for anything anybody says during a turn
      * and short enough that the corner of the felt is not somebody's essay.
      */

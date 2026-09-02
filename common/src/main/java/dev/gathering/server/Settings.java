@@ -9,13 +9,11 @@ import java.util.List;
 
 /**
  * Changing what this server is, without stopping it.
- *
  * <p>Settings used to be read once at start and held, on the argument that a booster which
  * could be opened at one moment and not the next - halfway through somebody opening it - is
  * worse than one that waits for a restart. That argument is still right about the moment a
  * setting changes, and wrong about needing a restart to change one: nobody can test limited
  * play on a server whose collection mode takes a shutdown to turn on.
- *
  * <p>So a change is deliberate, announced, and followed immediately by re-reading everything
  * that depends on it. What is re-read is listed here rather than left to whoever calls it,
  * because a setting that changed and a shop that did not notice is exactly the half-applied
@@ -43,7 +41,6 @@ public final class Settings {
 
     /**
      * What a setting is currently set to, as a string anybody can read.
-     *
      * <p>Read off the live config rather than off the file, because the live config is what
      * the server is actually running on - and a command that reported the file while the
      * server ran on something else would be the one problem a config file cannot recover
@@ -118,7 +115,6 @@ public final class Settings {
 
     /**
      * Reads the sets, the loot pool, the shop and the loaner shelf again.
-     *
      * <p>Off the game thread where it needs to be - these are the same calls a server start
      * makes, and they reach the network - so a command returns immediately and the shelf
      * arrives a moment later, exactly as it does at boot.
@@ -134,7 +130,6 @@ public final class Settings {
 
     /**
      * Whether this setting is one where "off" means false, or one where it is a word.
-     *
      * <p>Asked of the setting rather than of the word. Every setting used to go through
      * {@link #flagWords}, which was right while every switch was a switch - and the moment
      * one grew a third state, typing "off" at it wrote {@code false} into a line the file
@@ -147,7 +142,6 @@ public final class Settings {
 
     /**
      * Turns the words people actually use into the two the file understands.
-     *
      * <p>Somebody switching a mode on types "on". Refusing that and printing the word "true"
      * at them is a command being right at the cost of being usable.
      */

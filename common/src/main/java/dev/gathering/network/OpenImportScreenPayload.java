@@ -6,7 +6,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: open the decklist import screen.
- *
  * <p>Import is reached through a command so it is discoverable and permission-gated on the
  * server, rather than through a client keybind that would work whether or not the server
  * allows importing at all.

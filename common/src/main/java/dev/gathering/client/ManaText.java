@@ -9,12 +9,10 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * Card text with its mana and tap symbols drawn as symbols.
- *
  * <p>Braced codes become private-use characters styled with the mod's symbol font, which
  * means the result is an ordinary {@link Component}: the game's own text layout wraps it,
  * measures it and draws it, symbols included, with no separate layout pass to write and
  * nothing that could disagree with how the rest of the text is handled.
- *
  * <p>Client-only.
  */
 public final class ManaText {

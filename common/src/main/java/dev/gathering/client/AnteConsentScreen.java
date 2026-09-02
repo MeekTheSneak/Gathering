@@ -11,15 +11,12 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Playing for keeps: the question, before the game.
- *
  * <p>The one screen in the mod that stands between somebody and losing a card, so it says
  * what it costs in the first line and gives equal weight to both answers. No default, no
  * button that is easier to hit than the other, and no way to answer it by pressing Escape:
  * the mistake this exists to prevent is somebody agreeing without reading.
- *
  * <p>Once said, an answer can be changed for as long as anybody is still deciding - which is
  * the honest window, because the pot does not exist until the last seat answers.
- *
  * <p>Client-only.
  */
 public final class AnteConsentScreen extends Screen {

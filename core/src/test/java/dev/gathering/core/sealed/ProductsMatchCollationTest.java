@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The one join the whole of collection mode rests on.
- *
  * <p>A pack found in a chest or bought off a shelf is a product, read by one adapter; opening
  * it is collation, read by another. What ties them is a single string - the name a product's
  * pack entry gives its arrangement - and if the two readers ever disagree about that string,
@@ -27,11 +26,9 @@ class ProductsMatchCollationTest {
 
     /**
      * One file with both halves, in the shape MTGJSON publishes them.
-     *
      * <p>Made up, and its shape is not: the two kinds here are the two a modern set really
      * sells, and the pack entry naming its arrangement by {@code code} and its set by
      * {@code set} is exactly how a real file writes it.
-     *
      * <p>The collector pack's {@code subtype} deliberately says something its pack entry does
      * not. A product's subtype is a label and its pack entry's code is the key; they agree in
      * most files and not in all of them, and a reader that quietly used the label instead

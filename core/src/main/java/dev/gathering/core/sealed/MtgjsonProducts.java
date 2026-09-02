@@ -14,19 +14,16 @@ import java.util.UUID;
 
 /**
  * Reads a set's real products out of the same file its collation comes from.
- *
  * <p>Sealed product is published per set alongside the booster sheets - every pack, box,
  * case, bundle, precon and prerelease kit that was actually sold, with what is in each. So
  * the two ways into a collection are built from the same place the packs are: what a player
  * finds in the world and what a shop sells are both real products, and nothing exists in the
  * game that was not on a shelf.
- *
  * <p>Read the way collation is read, and for the same reasons. Card contents are bridged to
  * Scryfall printings through the bridge the caller hands in, so a bundle's promo is a real
  * printing rather than a name; anything that cannot be bridged is left out and counted rather
  * than guessed at. And a container names what it holds by that product's own id rather than
  * copying its contents, so a booster's odds live in exactly one place.
- *
  * <p>Pure. Nothing here reaches a network or a file.
  */
 public final class MtgjsonProducts {

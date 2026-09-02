@@ -9,12 +9,10 @@ import java.util.Optional;
 
 /**
  * Who, if anybody, won the game that just happened.
- *
  * <p>The mod has no rules engine, so there is exactly one thing here that counts as a result:
  * conceding. Nothing works out that somebody is dead - life reaching zero is a number reaching
  * zero, and a player at minus four who is about to gain twelve has not lost. What ends a game
  * is a player saying it has.
- *
  * <p>Which makes the arithmetic simple and worth stating in one place rather than in whichever
  * caller happened to need it: when everybody still in the game but one has conceded, the one
  * left has won it. Empty seats are not players and never win anything.
@@ -26,11 +24,9 @@ public final class GameOutcome {
 
     /**
      * The seat that has won, if the game is over.
-     *
      * <p>Empty while more than one player is still in - which is most of the time - and empty
      * when everybody has conceded, because a game nobody won is a drawn game and
      * {@link MatchState#afterDrawnGame()} is what that is for.
-     *
      * <p><b>Winning by outlasting requires somebody to outlast.</b> One player left standing
      * out of one is not a victory, it is a person sitting at a table on their own, and calling
      * it a win ends a solo game the instant it starts.
@@ -44,7 +40,6 @@ public final class GameOutcome {
 
     /**
      * Whether the game is over at all, won or drawn.
-     *
      * <p>Three ways, and the third is the one that is easy to leave out. The session has been
      * ended outright; everybody who was playing has conceded; or one player is left out of
      * two or more. A table with a single player at it is none of those until they concede,

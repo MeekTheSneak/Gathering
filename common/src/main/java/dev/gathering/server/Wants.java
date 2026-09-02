@@ -18,24 +18,19 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The cards each player is chasing, on this server.
- *
  * <p>Per player rather than per collection, because a collection is shared - a playgroup pools
  * one - and what somebody is looking for is theirs. Two people at one binder are after
  * different cards, and a wants list attached to the box would be one of them writing on the
  * other's.
- *
  * <p>On the server rather than the client for the reason everything else about a collection
  * is: it has to survive changing machines, and it has to be readable by the things that will
  * want to read it - a pack being opened, a trade being offered - which run here.
- *
  * <p>One small file per player under the mod's data directory, which is how this mod keeps
  * everything that is not block state. Read when a player joins and written when their list
  * changes; a list that could not be read is an empty list and a line in the log, never a
  * refusal to let somebody play.
- *
  * <p>The map is concurrent because a save can be asked for off the server thread when the
  * world does; everything else here is server thread only.
- *
  * <p>The file is written off the server thread. Marking a card is one click, and one click
  * used to be a disk write inside the tick that handled it - which on a busy server with a
  * slow disk is the whole server waiting on somebody's want list. What the rest of the mod
@@ -75,7 +70,6 @@ public final class Wants {
 
     /**
      * Reads a player's list and tells them what is on it.
-     *
      * <p>On joining, so a client knows from its first frame which cards to mark - a list that
      * arrived when the first pack was opened would have marked nothing on the screen before
      * it.
@@ -99,7 +93,6 @@ public final class Wants {
 
     /**
      * Puts a card on this player's list, or takes it off, and tells them.
-     *
      * <p>Told rather than assumed. The client asked for a change and the server decides
      * whether it happened - a full list takes nothing more - so the answer comes back and the
      * screen draws what is true rather than what it hoped.

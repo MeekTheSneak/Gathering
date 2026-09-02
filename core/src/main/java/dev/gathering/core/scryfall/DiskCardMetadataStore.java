@@ -14,11 +14,9 @@ import java.util.UUID;
 
 /**
  * The server-side card metadata cache, on disk as JSON.
- *
  * <p>One file per printing holding Scryfall's own response, sharded two characters deep so
  * no directory ends up with a hundred thousand entries. Cards are parsed on demand rather
  * than all at startup, so a large cache costs disk and not heap.
- *
  * <p>All of this is blocking file I/O and belongs on the same dedicated executor as the
  * HTTP client. Nothing here may be called from a game thread.
  */
@@ -64,7 +62,6 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
 
     /**
      * Reads every cached card into the name and printing indexes.
-     *
      * <p>Costs one pass over the cache directory, which is why it is an explicit call rather
      * than something the constructor does: a server that only ever resolves by id never
      * needs to pay for it.

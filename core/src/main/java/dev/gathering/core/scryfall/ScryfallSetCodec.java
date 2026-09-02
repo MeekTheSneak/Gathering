@@ -9,17 +9,14 @@ import java.util.List;
 
 /**
  * Scryfall's list of every set, read.
- *
  * <p>Only the handful of fields anything here asks for. The reply is a megabyte of set
  * descriptions and none of the rest of it is worth carrying around: what a set is called on
  * the shelf, what kind it is, when it came out, whether it exists on paper, and the two
  * numbers that say how big it is - how many cards carry the code, and how many the set was
  * printed as. The difference between those two is what "a complete set" means.
- *
  * <p>A row missing a field it needs is skipped rather than refused. Scryfall's list runs back
  * to 1993 and includes things that barely fit the shape of a set; one strange row is not a
  * reason for a server to have no current set at all.
- *
  * <p>Pure.
  */
 public final class ScryfallSetCodec {

@@ -19,19 +19,15 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Changing your deck between games.
- *
  * <p>Two columns, deck on the left and sideboard on the right, and a card goes across when you
  * click it. That is the whole interaction, because that is the whole task: nobody sideboarding
  * between games of a match wants a deckbuilder, they want to swap four cards in ninety seconds
  * while the other player shuffles.
- *
  * <p>Grouped by card with a count rather than listed one line per copy, because "3 Lightning
  * Bolt" is how anybody thinks about a deck and eleven identical rows of Mountain is not.
- *
  * <p>Every change is sent as it happens and the server sends the deck back. There is no
  * confirm step: the deck the table is holding is the deck that will be played, so a screen
  * closed halfway through has still done exactly what it looked like it was doing.
- *
  * <p>Client-only.
  */
 public final class SideboardScreen extends ChildScreen implements CardPreviewHost {
@@ -65,7 +61,6 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
 
     /**
      * The two columns, grouped by card, worked out when the deck changes.
-     *
      * <p>Not per frame. Both columns were grouped inside {@code render}, which meant a map and
      * a list built twice a frame off a deck that only changes when the server says a card
      * moved - a hundred and twenty allocations a second to draw a list that had not moved.
@@ -75,11 +70,9 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
 
     /**
      * Opens the sideboard, or refreshes the one already open.
-     *
      * <p>Refreshing rather than reopening matters: every swap sends the deck back, and a
      * screen that was rebuilt each time would lose its scroll position after every single
      * card - which is most of the interaction.
-     *
      * <p>Both loaders come through here rather than each keeping their own copy of that rule,
      * and both get the same answer about where closing goes: back to the table if the player
      * was at it, which between games they were.
@@ -163,7 +156,6 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
 
     /**
      * The panel goes here, not in {@link #render}.
-     *
      * <p>{@code Screen#render} applies a full-screen blur itself, so anything drawn before
      * {@code super.render} is blurred with the world. Without one - which is how this screen
      * shipped - the three columns floated on the sky with chat showing between them.
@@ -337,7 +329,6 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
 
     /**
      * A section as "3 Lightning Bolt" rather than as three lines saying Lightning Bolt.
-     *
      * <p>Insertion-ordered, so a card that moves across and back lands where it was rather
      * than at the bottom - which matters when you are doing this against a clock and looking
      * for the row you just clicked.

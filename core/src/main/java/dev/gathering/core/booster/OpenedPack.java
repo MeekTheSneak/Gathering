@@ -5,7 +5,6 @@ import java.util.List;
 
 /**
  * What came out of a pack, in the order it should be shown.
- *
  * <p>Ordered on purpose. Opening a booster is a ceremony - you go through the commons, then
  * the uncommons, then the thing you were actually waiting for - and a pack handed over as an
  * unordered bag throws that away. What order to reveal in is a question about the cards, so

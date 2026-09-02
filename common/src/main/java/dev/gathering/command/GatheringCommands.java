@@ -17,7 +17,6 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * The mod's commands, built once here and registered by whichever loader is running.
- *
  * <p>Import is a command rather than a client keybind so it is discoverable, and so a
  * server that has import switched off can simply not grant it - a keybind would work
  * whether the server allowed importing or not.
@@ -159,7 +158,6 @@ public final class GatheringCommands {
 
     /**
      * Sends the finished games to whoever asked, which opens the list on their client.
-     *
      * <p>No permission. A replay only shows a game that has already ended, and every one of
      * them was played in public on a table anybody could stand at.
      */
@@ -201,7 +199,6 @@ public final class GatheringCommands {
 
     /**
      * Changes one, writes it to the file, and brings the server back into step with it.
-     *
      * <p>Announced to the whole server rather than to whoever typed it: what a server is for
      * is not a private setting, and somebody midway through opening a booster deserves to
      * know the rules changed underneath them.
@@ -236,7 +233,6 @@ public final class GatheringCommands {
 
     /**
      * Reads the folder again.
-     *
      * <p>Answers twice: once immediately, because resolving a shelf of decklists is a network
      * call and a command that said nothing until it finished would look like it had failed,
      * and once when the decks are actually on the shelf.
@@ -253,7 +249,6 @@ public final class GatheringCommands {
 
     /**
      * Ends the game at the table the player is looking at.
-     *
      * <p>The table has to be named by pointing at it: a player standing in a shop full of
      * them should not be able to end the wrong game by typing.
      */
@@ -305,7 +300,6 @@ public final class GatheringCommands {
 
     /**
      * Opens one booster of a set into the player's inventory.
-     *
      * <p>Says nothing here about whether the server allows it; that answer lives with the
      * opening, which is also where a pack item will ask.
      */
@@ -331,7 +325,6 @@ public final class GatheringCommands {
 
     /**
      * How much of this server's own catalog nothing but the archive reaches.
-     *
      * <p>Read off what the server worked out at start rather than audited again here: the
      * audit is a file and a search per set, and a command that ran it would take a minute and
      * report a different number from the one the loot tables are using.

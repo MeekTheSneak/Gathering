@@ -14,12 +14,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The Archive Pack, on a server that has none to give.
- *
  * <p>Which is the case worth testing in a running game, because it is the case every server
  * starts in and the one where the failure is silent: the archive is empty until the coverage
  * audit has run, and an empty archive that dropped packs anyway would hand out nothing and
  * eat the pack doing it.
- *
  * <p>What is in one, and which chests it comes out of, is decided in the pure layer where it
  * can be checked properly - see {@code ArchiveDropsTest} and {@code CoverageAuditTest}.
  */
@@ -53,7 +51,6 @@ public final class ArchivePackGameTest {
 
     /**
      * Nothing drops while the archive is empty, whatever the chest.
-     *
      * <p>A test server is not collecting, so the archive is empty here for the same reason it
      * is empty on a server that has just come up - and a pack out of it either way would be a
      * pack holding nothing.

@@ -9,7 +9,6 @@ import java.util.List;
 
 /**
  * A deck flattened for checking: one entry per physical card.
- *
  * <p>Flattened rather than quantity-bearing because every question the validator asks is
  * about cards rather than about lines - "how many copies of this" is a count, and counting a
  * list is simpler than summing quantities and getting it subtly wrong.

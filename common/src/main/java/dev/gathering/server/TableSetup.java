@@ -18,13 +18,11 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Starting a game: the asking and the answering.
- *
  * <p>Crouching on a table asks what kind of game this is, and the answer comes back as a
  * format id and a length. Neither is taken at face value. The id is looked up against the
  * server's own presets, so a client cannot invent a format with a two-card minimum and a
  * thousand life; the length is checked against the ones a match can be, so it cannot be best
  * of two - which can be drawn, and a drawn match settles nothing.
- *
  * <p>Everything else about starting a game already lived in {@link TableSessions} and stays
  * there. This is the part that has a client in it.
  */
@@ -82,7 +80,6 @@ public final class TableSetup {
 
     /**
      * Whether this payload is asking for a game with no format at all.
-     *
      * <p>One empty id and nothing else. A format this server does not have is not free play,
      * it is a client that is out of date or making things up, and it goes on being refused -
      * otherwise "start a game of Vintage" on a server without Vintage would quietly become a
@@ -94,7 +91,6 @@ public final class TableSetup {
 
     /**
      * The rules to play by: the named format's, or the table's own when none was named.
-     *
      * <p>Free play borrows the walk-up path's numbers - Commander's life total and command
      * zone - because a table has to start somewhere, and the player never named a format so
      * nothing holds them to one.
@@ -108,7 +104,6 @@ public final class TableSetup {
 
     /**
      * The rules this payload names, if the server agrees they exist.
-     *
      * <p>Rebuilt from the server's own preset rather than from anything in the payload beyond
      * a name, which is the same shape as every other place the mod takes a string from a
      * client.

@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Where a card is drawn and where a dropped card lands.
- *
  * <p>Two conversions stacked on each other - a position on a mat becomes a point on the table,
  * and a point on the table becomes a pixel - and the screen goes one way to draw and the other
  * way to work out what the cursor is on. When they disagree by even a little, every card lands

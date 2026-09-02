@@ -10,7 +10,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: here are the decks this server will lend you.
- *
  * <p>Names only. What is in a loaner is a hundred cards, and a client that has not borrowed
  * one has no reason to be told - it gets the deck, with everything in it, at the moment it
  * takes one.

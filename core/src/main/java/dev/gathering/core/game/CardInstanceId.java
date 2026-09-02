@@ -2,11 +2,9 @@ package dev.gathering.core.game;
 
 /**
  * One physical card in one session.
- *
  * <p>Distinct from {@link dev.gathering.core.card.CardIdentity}, which says *what* a card is.
  * Four copies of Lightning Bolt are one identity and four instances, because four copies is
  * four objects on a table and each one taps, moves, and gets exiled separately.
- *
  * <p>Instance ids are session-scoped and sequential. They are safe to show to any client
  * that is entitled to see the card at all - and the ones that are not entitled never receive
  * an instance id either, only an opaque {@link MarkerId}.

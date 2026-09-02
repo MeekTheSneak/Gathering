@@ -2,19 +2,16 @@ package dev.gathering.core.ui;
 
 /**
  * The row of buttons along the bottom of the deck builder.
- *
  * <p>Four buttons, in two groups that answer different questions. On the left, ways of
  * filling the deck in - from a decklist, or by picking sleeves for it. On the right, the
  * two ways out - cancel, or finish. Laid out from constants they read correctly at the
  * window the author happened to be running and overlap below about 346 units wide, which
  * is inside the range Minecraft allows: the smallest window is 320 GUI units, and every
  * GUI scale from 1 to 4 lands somewhere different.
- *
  * <p>So when both groups will not fit on one line, the left group takes a line of its own
  * above rather than sliding underneath the right one. Hiding it was the other option and
  * is the wrong one here: the sleeve picker has no other way in while a deck is being built,
  * so a narrow window would mean a deck nobody can sleeve.
- *
  * <p>Coordinates are GUI-scaled screen units, origin top left.
  */
 public record BuilderFooter(Rect fromList, Rect sleeves, Rect cancel, Rect finish, int rows) {

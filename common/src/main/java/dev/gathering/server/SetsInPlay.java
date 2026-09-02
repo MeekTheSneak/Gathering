@@ -11,11 +11,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Which sets this server's product comes from.
- *
  * <p>One answer for both ways into a collection. What turns up in a chest and what is on the
  * shop counter are the same sets, because a server that drops Bloomburrow and sells Innistrad
  * is a server where nobody can tell you what era they are playing in.
- *
  * <p>What to do with the three config answers is {@link LootSets}'s and is checked there; this
  * is going and getting them. "Current" and "recent" come out of the same one request, so
  * asking for both costs no more than asking for either.

@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A session's log, out to bytes and back.
- *
  * <p>State is the fold of the log, so a log that does not survive a round trip is a game that
  * does not survive a restart - and it will not fail loudly, it will fold to a board that never
  * existed. Checked over arbitrary logs rather than the handful anybody thought to write down.

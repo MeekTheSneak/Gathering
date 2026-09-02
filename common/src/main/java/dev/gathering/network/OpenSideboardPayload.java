@@ -9,7 +9,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: here is your deck, change it before the next game.
- *
  * <p>Carries the whole deck rather than a diff, because the client has not seen it since it
  * was put down and the table has been holding it ever since. It is the player's own deck, so
  * there is nothing here they are not entitled to - which is why a sideboard screen can exist

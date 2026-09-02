@@ -2,7 +2,6 @@ package dev.gathering.core.ui;
 
 /**
  * A rectangle in GUI-scaled screen coordinates.
- *
  * <p>Plain integers with no Minecraft in sight, so screen layout can be worked out - and
  * checked at every window size anyone might have - without a game running.
  */
@@ -53,7 +52,6 @@ public record Rect(int x, int y, int width, int height) {
 
     /**
      * Whether a point is on this rectangle after it has been turned about its center.
-     *
      * <p>A card lying at an angle is still a card-shaped thing, so clicking it means clicking
      * the card and not its bounding box: turn a card forty-five degrees and a quarter of that
      * box is table, where a click should reach whatever is underneath. This spins the point

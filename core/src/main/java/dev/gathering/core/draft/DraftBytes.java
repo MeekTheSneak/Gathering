@@ -11,7 +11,6 @@ import java.util.UUID;
 
 /**
  * The pieces both of the pod's codecs write the same way.
- *
  * <p>There are two - one for what a drafter is sent and one for what the server keeps - and
  * they share every primitive below. Written out twice they would agree on the day they were
  * written; the first time either grew a field, a pod saved by one would come back wrong
@@ -71,7 +70,6 @@ final class DraftBytes {
 
     /**
      * A length off the wire or off the disk, refused before it sizes anything.
-     *
      * <p>A hostile or merely corrupt source saying "two billion cards follow" must not get an
      * allocation of two billion out of this before the read fails.
      */

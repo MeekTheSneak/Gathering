@@ -5,7 +5,6 @@ import java.util.List;
 
 /**
  * One zone as one viewer sees it.
- *
  * <p>For a hidden zone the viewer is not entitled to, {@code cards} is empty and
  * {@code count} is the whole of what is sent. Not a list of placeholders - an empty list.
  * A placeholder per card would be a per-card payload addressed to a client with no

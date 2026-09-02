@@ -22,14 +22,11 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The pack in front of you, and the cards you have taken out of it.
- *
  * <p>A draft is one decision made forty-five times, so the screen is the decision and almost
  * nothing else: the pack laid out face up, click what you want, take it. What everybody else
  * is doing is a line at the bottom rather than a panel, because the answer is always either
  * "still picking" or "waiting for you" and neither deserves a box.
- *
  * <p>Nothing here knows what is in anybody else's pack, because nothing here was sent it.
- *
  * <p>Client-only.
  */
 public final class DraftScreen extends ChildScreen implements CardPreviewHost {
@@ -45,7 +42,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * The largest a card is drawn, so a four-card pack is not blown up to fill the window.
-     *
      * <p>Only a ceiling. A full pack in a small window comes out smaller than this, because
      * every card being on screen matters more than any of them being large - and Alt reads
      * whichever one the cursor is on, at any size.
@@ -65,7 +61,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Whether the grid is showing what has been picked rather than what is on offer.
-     *
      * <p>The half of drafting the screen was missing. In paper you read your picks constantly
      * - the question a pack asks is "what am I building", and it cannot be answered by a
      * number. The cards were already on this client, sent with the pack; there was simply no
@@ -85,7 +80,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Shows the pack that just arrived, opening the screen if it is not already up.
-     *
      * <p>Opening and refreshing are the same call, because from here they are the same event:
      * a pack arrived. Which of the two it is was decided by the server, which knows whether
      * this was somebody sitting down to draft or a neighbor picking.
@@ -123,7 +117,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * The pod moved on: a new pack, or a neighbor picking.
-     *
      * <p>The chosen cards are dropped whenever the pack itself changes, because a place in
      * one pack means a different card in the next - keeping them would turn "I had picked
      * that" into taking something nobody looked at.
@@ -213,7 +206,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * How much of the footer row the buttons take, leaving the rest for the sentence.
-     *
      * <p>Asked before they are made, because the panel has to be built wide enough to hold
      * them and they are placed from the panel. The buttons only - what the words need is
      * added by the one caller that cares, rather than folded in here and subtracted again by
@@ -225,7 +217,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Swaps the grid between the pack and the pool.
-     *
      * <p>The same grid rather than a second panel. A pack and a pool are the same thing to
      * look at - a spread of cards you are reading - and two boxes would mean deciding which
      * one is small, which is deciding which of them does not matter.
@@ -255,7 +246,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Behind the widgets, not over them.
-     *
      * <p>Drawn in {@code render} - which runs after {@code super.render} has already drawn
      * every button - the panel painted over its own buttons, so what was left was the label
      * with no frame under it and no sign it could be pressed. {@code CountersScreen} hit this
@@ -321,7 +311,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Who the pod is waiting on, which is the only thing anybody wants to know between packs.
-     *
      * <p>By count rather than by name. Naming them would be a list that changes every few
      * seconds and reads as pressure on whoever is last; the count answers the real question,
      * which is whether the hold-up is somebody else or yourself.
@@ -383,7 +372,6 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     /**
      * Clicking a card takes it, and clicking it again puts it back.
-     *
      * <p>In a pod that picks two, the third click replaces the oldest rather than being
      * ignored: a drafter who has chosen two and sees a third they prefer is changing their
      * mind, and making them un-click something first is a step that exists only because the

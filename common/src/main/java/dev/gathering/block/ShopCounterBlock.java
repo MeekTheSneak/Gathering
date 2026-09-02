@@ -11,12 +11,10 @@ import net.minecraft.world.level.block.state.StateDefinition;
 
 /**
  * The counter a card shop's keeper works behind.
- *
  * <p>A workstation and nothing else. Put one down and an unemployed villager takes the job the
  * same way one takes a lectern or a grindstone; break it and they lose it. There is no screen,
  * no inventory and nothing to right-click, because the thing you came to do is talk to the
  * person standing behind it.
- *
  * <p>It faces the way it was placed so a shop can be laid out - a counter with its display
  * side turned to the wall is a counter that looks like a mistake.
  */

@@ -2,17 +2,14 @@ package dev.gathering.core.ui;
 
 /**
  * Where the cards sitting on a card are drawn.
- *
  * <p>Small, and fanned down the left of the card they are on, the way a stack of equipment
  * sits under the creature holding it on a real table. Small because the host is the thing you
  * are reading and its attachments are a list of modifiers; fanned because two auras have to be
  * visibly two.
- *
  * <p>Fanned, not spread. Each one overlaps the one above it and leaves a strip showing, which
  * is what a real stack of cards does and what lets six fit beside a card rather than four
  * running off the table. What matters is that the strip is big enough to see and to click,
  * not that the cards are clear of each other.
- *
  * <p>Deliberately not centered on the host. A card drawn on top of another one hides it, and
  * the whole reason to have this rather than letting people stack cards by hand is that a
  * stacked aura is an aura nobody can see.
@@ -39,13 +36,11 @@ public final class TableAttachments {
 
     /**
      * Everything on this list that is sitting on something else, grouped by what it is on.
-     *
      * <p>Here rather than in either view because both of them need it and they must not
      * disagree: a card fanned onto its host in one and lying loose in the other is the same
      * game drawn two ways. That is exactly what happened - the board on the table block drew
      * every permanent at its own recorded position, so an aura appeared in the corner of the
      * mat instead of on the creature it was enchanting.
-     *
      * <p>One pass rather than one scan per card. Searching the whole battlefield for every
      * permanent on it, every frame, is three and a half thousand comparisons on a board with
      * sixty permanents to find the handful of auras anybody actually has out.
@@ -82,7 +77,6 @@ public final class TableAttachments {
 
     /**
      * The nth attachment on a card drawn at {@code host}.
-     *
      * <p>Runs down the left rather than up, so the first one attached stays where it was as
      * more arrive - a fan that grows upwards renumbers itself every time somebody equips
      * something, and the card you were about to click moves.
@@ -100,7 +94,6 @@ public final class TableAttachments {
 
     /**
      * The same fan, mirrored to the right.
-     *
      * <p>For a host near the left edge of the table, where the fan would otherwise be drawn
      * off the surface and half of somebody's equipment would be invisible.
      */
@@ -115,7 +108,6 @@ public final class TableAttachments {
 
     /**
      * How much of each attachment shows past the one drawn over it.
-     *
      * <p>The number that decides whether a fan of six is six cards or one card, so it is
      * floored rather than left to shrink with the card size.
      */

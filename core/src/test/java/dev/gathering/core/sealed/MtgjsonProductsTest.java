@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Reading a set's real products.
- *
  * <p>The files are made up and the shapes are not: a pack holding one arrangement, a box
  * holding twelve of that pack by its own id, and a bundle holding some packs, an exact foil
  * promo, a land deck and a spindown die are all straight out of what is published for a real

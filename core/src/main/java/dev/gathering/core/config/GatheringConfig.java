@@ -10,18 +10,15 @@ import java.util.Set;
 
 /**
  * One server's settings, read.
- *
  * <p>Modes are config, not forks. A server runs import mode, collection mode, or both, and
  * that is a choice made in one file rather than by installing a different build - which is
  * why this exists at all, and why every switch has a working default so a server that never
  * opens the file still runs.
- *
  * <p>What it will not do is fail quietly. A value out of range is clamped and said out loud,
  * a combination that cannot work is corrected and said out loud, and a setting nobody
  * recognizes is reported. All three go in {@link #notes}, because a server owner reading
  * their config file and a server behaving differently from it is the one problem no amount of
  * in-game polish can rescue.
- *
  * <p>Pure. Reading the file off disk and writing the default one belong to the layer that has
  * a folder.
  */
@@ -47,7 +44,6 @@ public record GatheringConfig(
 
     /**
      * Who a kept game is shown to.
-     *
      * <p>Three states rather than a switch because the middle one is the one most servers
      * actually want: a group can settle their own argument about what was on top of the
      * library without a stranger reading their deck for the rematch.
@@ -122,13 +118,11 @@ public record GatheringConfig(
 
     /**
      * Settings the file describes and this version does not act on yet, and what is missing.
-     *
      * <p>The file is written from the design rather than from what happens to be finished, so
      * a server owner can see the shape of the thing. That is only honest as long as changing
      * one of these says so: a setting that is read, kept, and never consulted is a server
      * running differently from the file its owner is reading, which is the one failure a
      * config file cannot recover from.
-     *
      * <p>Entries come off this list as the feature behind them lands.
      */
     private static final java.util.Map<String, String> NOT_BUILT_YET = java.util.Map.ofEntries(
@@ -138,7 +132,6 @@ public record GatheringConfig(
 
     /**
      * Where sealed product turns up on a server that has not said otherwise.
-     *
      * <p>Every source there is, because a server that switched collecting on wants the
      * feature. Turning one off is a decision worth making deliberately; having one silently
      * absent from the file you were given is not.
@@ -159,13 +152,11 @@ public record GatheringConfig(
 
     /**
      * Which sets a server's packs come from when it has not said.
-     *
      * <p>All of them. This used to be the current set alone, on the reasoning that a server
      * pinned to one release is what most people mean by turning collecting on - but what it
      * actually meant is that everything anybody ever fished out of the sea was from the same
      * three months of Magic, and a collection is a thing you build out of the whole game. A
      * server that wants an era or a season names it; a server that says nothing gets Magic.
-     *
      * <p>It costs a longer list at startup and nothing else: the sealed data for a set is
      * fetched when something needs it, not when the list is worked out.
      */
@@ -304,7 +295,6 @@ public record GatheringConfig(
 
     /**
      * The loot sources a file asked for, keeping only ones that are a place in the world.
-     *
      * <p>A name nobody knows is dropped and said out loud. Silently keeping it would be a
      * server owner who believes packs come out of somewhere they never come out of, and this
      * is exactly the list a typo is easiest to make in.
@@ -326,12 +316,10 @@ public record GatheringConfig(
 
     /**
      * Which sets packs may be found from, keeping only what means something.
-     *
      * <p>Four shapes: {@code "all"} for everything ever sold in a booster, {@code "current"}
      * for whatever is out now, {@code "recent"} for the last few releases, and a set code for
      * exactly that set. A seasonal server names the set it is about; an era server names the
      * block it lives in; a server that says nothing gets all of them.
-     *
      * <p>Anything else is dropped and said out loud. A set code with a typo in it is a set
      * that never drops anything, and finding that out from an empty chest is no way to find
      * it out.
@@ -366,13 +354,11 @@ public record GatheringConfig(
 
     /**
      * The ante exclusions, complaining about any word the rule does not know.
-     *
      * <p>{@link dev.gathering.core.ante.AnteExclusions} has always named the words it could
      * not use, and nothing has ever listened: the reading was done again at every stake, where
      * only the categories were taken and the notes were dropped on the floor. So a server that
      * wrote "basic land" instead of "basic lands" protected nothing, was told nothing, and
      * found out when somebody's Island went into the pot.
-     *
      * <p>Read here as well, at load, so the complaint arrives with all the others - in the
      * log, and in what the settings command reads back - rather than nowhere.
      */
@@ -383,7 +369,6 @@ public record GatheringConfig(
 
     /**
      * A value, and a note if changing it will not have changed anything.
-     *
      * <p>Compared against the default rather than against whether the file mentions it,
      * because the file this mod writes mentions every setting - so "is it in the file" would
      * mean a fresh server reporting a dozen things it has not been asked to do.
@@ -410,7 +395,6 @@ public record GatheringConfig(
 
     /**
      * The file a server gets on its first start.
-     *
      * <p>Every setting written out at its default with the sentence explaining it, because a
      * config file whose options you have to find in a wiki is a config file nobody changes.
      */

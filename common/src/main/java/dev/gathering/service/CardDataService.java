@@ -27,12 +27,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The card pipeline, wired up and kept off every game thread.
- *
  * <p>Both the Scryfall client and the disk cache block by design. This service is the only
  * thing that calls them, it does so on its own executor, and every method here hands back a
  * {@link CompletableFuture}. There is no blocking method to misuse - the API shape is the
  * enforcement.
- *
  * <p>The executor is single-threaded on purpose: Scryfall's guidelines ask for one request
  * at a time with a delay between them, and a single worker makes that structural instead of
  * a promise the rate limiter has to keep alone.
@@ -43,7 +41,6 @@ public final class CardDataService implements AutoCloseable {
 
     /**
      * The pipeline belonging to the running server.
-     *
      * <p>A singleton because a server is one, bound and cleared by the loader's own start
      * and stop handlers. Commands and payload handlers reach it through here rather than
      * threading a reference through every call site.
@@ -75,7 +72,6 @@ public final class CardDataService implements AutoCloseable {
 
     /**
      * Every set Scryfall lists, by code, once it has been fetched.
-     *
      * <p>Volatile and written once: several things ask for it and any of them may be first.
      * Never written empty, so a failed fetch is asked again rather than remembered as an
      * answer.
@@ -114,7 +110,6 @@ public final class CardDataService implements AutoCloseable {
 
     /**
      * One card by exact name, through the cache first.
-     *
      * <p>The single-card counterpart to an import: what the grant command and, later, a
      * collection search resolve against.
      */
@@ -127,7 +122,6 @@ public final class CardDataService implements AutoCloseable {
 
     /**
      * What is already known about a printing, without going to look.
-     *
      * <p>The one lookup a game thread may make. Everything else here is a network call
      * wearing a cache, and a game thread that waited on one would stall the server; this
      * reads a map. An empty answer means "not looked up yet" rather than "no such card", so
@@ -139,7 +133,6 @@ public final class CardDataService implements AutoCloseable {
 
     /**
      * Several printings at once, cache first.
-     *
      * <p>What answers a client opening a deck: one batched resolution rather than a hundred
      * separate ones, and usually zero network at all.
      */
@@ -157,7 +150,6 @@ public final class CardDataService implements AutoCloseable {
 
     /**
      * Every printing in one set, kept in the cache on the way past.
-     *
      * <p>What a set nobody has published the collation of is opened from. Stored as it
      * arrives, because the next thing that happens to these cards is a pack being dealt out
      * of them and then looked up one by one - and looking them up again over the network
@@ -176,12 +168,10 @@ public final class CardDataService implements AutoCloseable {
 
     /**
      * Every set there has ever been, by its code.
-     *
      * <p>Fetched once and kept, because it is a megabyte of reply that changes about six times
      * a year and three separate features want it: which set is current, which sets a server
      * draws packs from, and how big a set is when somebody asks how much of one they have.
      * Asking Scryfall three times for the same answer would be rude as well as slow.
-     *
      * <p>The failure is remembered as an absence rather than as a value, so a server that
      * started with no network answers again the next time somebody asks rather than insisting
      * for the rest of its life that there are no sets.
@@ -206,7 +196,6 @@ public final class CardDataService implements AutoCloseable {
 
     /**
      * Every premier set that has come out, newest first, from Scryfall's list of all of them.
-     *
      * <p>The whole list rather than only the newest, because a server drawing its packs from
      * the last few releases wants the same answer the current-set question does and it would
      * be a second megabyte to ask twice. One request, asked once at start.
@@ -225,7 +214,6 @@ public final class CardDataService implements AutoCloseable {
 
     /**
      * Warms the name and printing indexes from whatever is already on disk.
-     *
      * <p>Worth doing once at server start so a re-import of a known decklist makes no
      * requests at all; costs one pass over the cache directory and nothing afterwards.
      */

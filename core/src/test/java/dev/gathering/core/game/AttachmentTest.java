@@ -15,11 +15,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Cards sitting on other cards: auras, equipment, and whatever a group means by it.
- *
  * <p>Attachment is a drawing relationship and nothing else. The mod does not know what an aura
  * is, does not check that one may legally be where it is, and does not move anything to a
  * graveyard when its host dies - the group decides all of that, as with every other rule.
- *
  * <p>What it does have to guarantee is that the relationship can always be drawn. A card
  * attached to itself, to something in a pile, or to something that has left the table are all
  * arrangements with no picture, and the ones below are where each of them gets refused.

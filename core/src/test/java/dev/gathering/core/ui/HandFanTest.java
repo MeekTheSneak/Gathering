@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The hand along the bottom of the screen.
- *
  * <p>A hand has no fixed size, which is the whole difficulty: everything here has to hold for
  * one card and for twenty, and the ways it goes wrong are all at the ends of that range. A big
  * hand that keeps its cards side by side runs off the screen; one that shrinks them to fit

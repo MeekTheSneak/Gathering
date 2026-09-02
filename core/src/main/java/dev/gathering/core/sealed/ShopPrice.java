@@ -4,16 +4,13 @@ import java.util.Optional;
 
 /**
  * A price, in the two piles a villager can be handed.
- *
  * <p>A trade takes at most two stacks and a stack is at most sixty-four, so a case worth four
  * hundred and thirty-two of anything cannot be paid for in one pile of it. Which is why there
  * are two denominations: the blocks go in the first slot and what is left over goes in the
  * second, the same way somebody counting out change would do it.
- *
  * <p>Exact, never rounded. A price that came to forty-eight blocks and three loose is what it
  * says; rounding it up to forty-nine blocks would be a shop quietly charging six more than the
  * number it worked out, and rounding down would be the reverse.
- *
  * <p>Pure.
  */
 public record ShopPrice(int blocks, int loose) {
@@ -34,7 +31,6 @@ public record ShopPrice(int blocks, int loose) {
 
     /**
      * How to pay a price, or nothing where it is more than two stacks can carry.
-     *
      * <p>Something too dear to pay for is not put on the shelf at all. A trade nobody can
      * afford because the arithmetic overflowed is worse than a shelf that is one row shorter.
      *

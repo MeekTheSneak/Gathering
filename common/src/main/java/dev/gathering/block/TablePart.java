@@ -7,11 +7,9 @@ import net.minecraft.world.level.block.Rotation;
 
 /**
  * Which quarter of a table a block is.
- *
  * <p>A table is two blocks by two, and only one of the four is real: the north-west corner
  * carries the block entity and is what the rest of the mod means by "a table". The other
  * three know where it is and forward everything to it.
- *
  * <p>Doing it this way rather than with a separate controller block means a table cannot be
  * broken into a state where three quarters of it exist without the quarter that owns the
  * game.
@@ -54,12 +52,10 @@ public enum TablePart implements StringRepresentable {
 
     /**
      * Which quarter this becomes when the whole table is turned.
-     *
      * <p>A structure is placed at one of four rotations, block by block, and a table whose
      * quarters were not turned with it would come out of the ground as four north-west
      * corners overlapping - four tables in the space of one, none of them whole. So the
      * quarter is turned the way the building is.
-     *
      * <p>Worked out from the corner each quarter points at rather than from a table of
      * sixteen answers: turning north-west a quarter clockwise is north-east, and that is the
      * whole rule.

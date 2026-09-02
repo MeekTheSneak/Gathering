@@ -8,13 +8,11 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Server to client: somebody at that table said this.
- *
  * <p>Its own payload rather than a plain chat message, because the board is a screen and a
  * screen covers the chat window. A player reading their hand has to be able to hear the person
  * across the table without closing the game, so the line goes to the client as data and the
  * client both puts it in the chat window - for whoever is walking around - and draws it over
  * the felt for whoever is playing.
- *
  * <p>Carries a name rather than a seat: the people at a table include the ones watching it,
  * and a watcher has no seat. It is the speaker's own profile name, which every player at the
  * table can already read off the name above their head.

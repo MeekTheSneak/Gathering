@@ -13,13 +13,11 @@ import net.minecraft.world.level.Level;
 
 /**
  * Keeping every card shop the same shop.
- *
  * <p>Vanilla decides a villager's trades once, when they take the job, and never looks again.
  * That is right for a librarian and wrong here twice over: it would let somebody break the
  * counter and re-place it until the shelf offered what they wanted, and it would freeze one
  * shopkeeper on the stock of the afternoon they were hired while the shop down the road moved
  * on. So the offers are brought back in step whenever somebody walks up to one.
- *
  * <p>Bringing them back in step is not restocking. A product that is still on the counter keeps
  * the offer it had, with however many have been sold today still counted against it; only what
  * has actually left the shelf is replaced, and what replaces it is new stock and starts full.
@@ -42,7 +40,6 @@ public final class Shopkeepers {
 
     /**
      * Which turnover the world is on.
-     *
      * <p>Off the world's own clock rather than the wall's, so a server that was switched off
      * for a week comes back to the shelf it left rather than to a week of turnovers nobody
      * was there for. Every shop in the world reads the same number.
@@ -57,7 +54,6 @@ public final class Shopkeepers {
 
     /**
      * Brings one shopkeeper's counter up to date, before anybody looks at it.
-     *
      * <p>Server thread only, and cheap: ten offers at most, compared by what they sell.
      */
     public static void refresh(Villager villager) {

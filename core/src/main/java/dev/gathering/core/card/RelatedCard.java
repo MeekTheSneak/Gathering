@@ -5,7 +5,6 @@ import java.util.UUID;
 
 /**
  * One entry from a printing's {@code all_parts}: another card Scryfall says belongs with it.
- *
  * <p>Scryfall lists everything related under the one key - the token a creature makes, the
  * emblem a planeswalker gives, the halves of a meld pair, and the card itself. Only some of
  * those are things a player puts on a battlefield, so the sorting happens here rather than at
@@ -27,7 +26,6 @@ public record RelatedCard(UUID id, String name, String typeLine, String componen
 
     /**
      * Whether this is something the card puts onto the battlefield: a token or an emblem.
-     *
      * <p>Emblems are filed under {@code combo_piece} rather than {@code token}, alongside the
      * card itself and the other half of a meld pair, so the type line decides that one. Meld
      * results are deliberately out: melding is moving two cards you already own, not making a

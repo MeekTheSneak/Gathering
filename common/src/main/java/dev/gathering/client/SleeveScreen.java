@@ -9,14 +9,11 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Which sleeves.
- *
  * <p>Every sleeve drawn as the card it produces, at the size a card sits on a table, because
  * that is the only honest way to pick one: a list of names would be twenty-five rows of words
  * for a choice that is entirely about what it looks like.
- *
  * <p>Opened from a deck, and it changes the deck rather than the player - somebody with three
  * decks sleeves them differently, which is most of the point.
- *
  * <p>Client-only.
  */
 public final class SleeveScreen extends ChildScreen {
@@ -32,7 +29,6 @@ public final class SleeveScreen extends ChildScreen {
 
     /**
      * How many to a row.
-     *
      * <p>Nine, because the plain sleeves are the classic one and the sixteen dyes - seventeen,
      * which is nine and eight - and the pictured ones then start a row of their own. A grid
      * that ran the two groups together would put a sword between two shades of blue.
@@ -99,7 +95,6 @@ public final class SleeveScreen extends ChildScreen {
 
     /**
      * Where the swatch for that sleeve is drawn. Asked by both the drawing and the clicking.
-     *
      * <p>The pictured sleeves begin a row of their own, so the grid reads as the two kinds of
      * thing it holds rather than as twenty-five squares in a heap.
      */

@@ -18,17 +18,14 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Opening a booster by hand.
- *
  * <p>The pack comes to the middle of the screen and stays sealed until somebody tears it.
  * Take hold of the corner, drag across, and the wrapper comes apart where the cursor goes -
  * and light comes out of the tear before a single card is shown, yellow for a rare inside and
  * orange for a mythic. That moment is what a booster is for, and everything here exists to
  * put it before the cards rather than after them.
- *
  * <p>Nothing on this screen decides anything. The cards were in the inventory before it
  * opened, so closing it early, disconnecting, or never finishing the tear costs nobody a
  * card. What it does is let you find out.
- *
  * <p>Client-only.
  */
 public final class PackOpeningScreen extends Screen {
@@ -48,7 +45,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * Which rows of the wrapper texture are which.
-     *
      * <p>The item texture is one picture of a whole pack, and this screen draws two pieces of
      * one - so it cuts them from where they are. Named here so a new wrapper is these four
      * numbers rather than a hunt through the drawing.
@@ -62,7 +58,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * How many rows each piece is cut into down the pack, for the turn to be a curve.
-     *
      * <p>The body gets more because it is most of the pack and because its top edge is the
      * tear; the strip is a sixth of the height and two are plenty.
      */
@@ -78,7 +73,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * How far the pack is turned, and how far it is easing toward being turned.
-     *
      * <p>Its own rather than {@link CardTilt}'s, which belongs to the inspect panel. Two
      * things easing one value would fight over it the moment a card was hovered on top of a
      * pack, and the numbers are not the same either: a pack held in front of you turns less
@@ -103,7 +97,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * What color comes out of the tear, and whether that answer is final.
-     *
      * <p>Worked out from the summaries this client holds, which arrive in the packets just
      * ahead of the pack - so almost always before the screen opens, and not always. Until
      * every card in the pack has one it is worked out again each frame, because a pack that
@@ -115,7 +108,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * Where the revealed cards were last drawn.
-     *
      * <p>Kept rather than worked out again, so the scripted run can put a cursor on a card
      * using the numbers the drawing used rather than a second copy of the same arithmetic
      * that could disagree with it.
@@ -241,7 +233,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * What was in it, laid out over the torn wrapper.
-     *
      * <p>The best card last, wherever it came out of the pack. Every ritual anybody has for
      * opening a booster is about arriving at that card rather than starting from it, and a
      * grid in collation order would hand it over in the middle of the second row.
@@ -335,7 +326,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * How far one of the pulled cards is turned toward the cursor, from nought to one.
-     *
      * <p>For the scripted run, which cannot photograph this: the cards it opens are made up
      * and have no art, so they take the placeholder path and nothing turns. What can be
      * checked is the arithmetic - the card under the cursor leans most, and one across the
@@ -369,7 +359,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * How far away the cursor has to be before a card stops paying attention to it.
-     *
      * <p>In card widths. Without a falloff every card in the grid turns the same amount as
      * the one under the cursor, because a card three widths away is still to its left - which
      * came out as the whole grid leaning in one direction like a stack about to fall over.
@@ -393,7 +382,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * What came out, worst first.
-     *
      * <p>Sorted rather than left in collation order so the ceremony ends where it should. A
      * pack's own order puts the rare somewhere in the middle, which is the one place it must
      * not be.
@@ -409,7 +397,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * How many columns the torn edge is cut into.
-     *
      * <p>The paper and the light are drawn from this same count, because they have to be the
      * same edge. They were not: the wrapper was cut off at a straight line and the light was
      * drawn along a wandering one, so the glow floated above the paper down half the tear and
@@ -426,7 +413,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * How far the tear may bite into the body, in pixels.
-     *
      * <p>Down into the body and never up into the crimp: an edge that wandered both ways
      * would need paper drawn above the line to wander into, and there is none - the strip up
      * there is the piece being torn off. So the whole wander is a bite out of what is left,
@@ -438,11 +424,9 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * The torn edge, as a share of the way down the pack per column.
-     *
      * <p>One array, handed to whatever is drawing: the paper, the light, and anything else
      * that ever needs to know where the tear is. In the pack's own space rather than in
      * screen rows, because the pack is turned and a screen row is not a place on it any more.
-     *
      * <p>Columns the tear has not reached sit at nought - the top of the pack - because the
      * strip up there is still attached and the whole wrapper is showing.
      */
@@ -467,7 +451,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * Turns the pack toward the cursor, a little way, easing rather than snapping.
-     *
      * <p>Square while it is being torn: the tear follows the hand across the top edge, and an
      * edge that swung away from the hand aiming at it would be the interface arguing with the
      * gesture. Aimed at its own middle rather than switched off, so it settles over a few
@@ -493,11 +476,9 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * The light coming out of the tear.
-     *
      * <p>Drawn as a run of short bars along the torn edge rather than a line, because the
      * light is what is being drawn: a bar per column, brightest at the paper and fading
      * upward, so the pack looks lit from inside rather than outlined.
-     *
      * <p>Through the same lens the paper went through, off the same line, so it stays on the
      * tear at every angle. Drawn flat it slid off the moment the pack turned - which is the
      * whole argument for the pack being a thing in space rather than two pictures.
@@ -535,7 +516,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * The set's symbol, printed on the wrapper in the product's color.
-     *
      * <p>On the pack rather than over it: it goes through the lens like everything else, so
      * it lies on the paper and turns with it instead of hovering in front.
      */
@@ -584,7 +564,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * Where the pack is on screen, so the scripted run can aim a real cursor at it.
-     *
      * <p>Given rather than a "tear it for me" hook on purpose: what is worth checking is that
      * dragging across the wrapper tears it, and a shortcut past the mouse would check that
      * the tear works and not that anything reaches it.
@@ -612,7 +591,6 @@ public final class PackOpeningScreen extends Screen {
 
     /**
      * The middle of one revealed card, as it was last drawn, or null before it has been.
-     *
      * <p>For the scripted run, which points a real cursor at a real card to find out whether
      * the read-a-card key answers over one.
      */

@@ -9,13 +9,11 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Client to server: roll a die where everyone can see it.
- *
  * <p>Carries how many sides and nothing else. The number rolled is the server's to decide -
  * a client that sent its own result would be a client that always rolled twenty, and a die
  * only means anything because nobody at the table chose it. Same reasoning as a discard at
  * random, and the same place the randomness comes from: the level's own generator, never the
  * session's shuffle seed, which is sealed and must stay that way.
- *
  * <p>Carries no seat either: it is your roll, and which seat that is comes from the player the
  * packet arrived from.
  */

@@ -5,7 +5,6 @@ import java.util.List;
 
 /**
  * Whether a format has a command zone, and what is allowed to sit in it.
- *
  * <p>Part of a preset's data rather than a branch in the validator, so adding a
  * commander-shaped format later is a table entry.
  */
@@ -42,7 +41,6 @@ public enum CommanderRules {
 
     /**
      * Whether a card may lead a deck under these rules.
-     *
      * <p>Read off the type line and the printed text rather than a list of names, so a card
      * printed next year that says it can be your commander works with no code change - which
      * is the same principle as reading the any-number exception off oracle text.

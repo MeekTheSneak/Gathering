@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Real Scryfall responses, saved verbatim.
- *
  * <p>Hand-written fixtures test the parser we imagined; these test the one Scryfall
  * actually talks to, including the fields nobody remembers exist.
  */

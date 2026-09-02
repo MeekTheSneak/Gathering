@@ -22,16 +22,13 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Which of a set's cards no pack of it could ever produce.
- *
  * <p>The question an admin has before turning a set on, and one nobody can answer by reading:
  * a modern set's collation is a dozen sheets across eight products, and whether the union of
  * them covers the set is arithmetic. Completeness guaranteed rather than intended.
- *
  * <p>Answered for a server that has not turned collecting on yet, deliberately. "Would this
  * set be complete if I enabled it" is exactly the question you ask beforehand, and a report
  * that refused until you had already committed would be useless at the only moment it
  * mattered.
- *
  * <p>Everything blocking happens on the two pipelines that own it; only the telling runs on
  * the server thread.
  */
@@ -78,7 +75,6 @@ public final class PackCoverage {
 
     /**
      * The paths a card of this set can come out of.
-     *
      * <p>Every kind of pack the set was really printed with, and nothing else. A set that was
      * never sold in packs has none, and the honest report for one of those is that it has
      * none rather than a coverage figure against a pack that does not exist.
@@ -96,7 +92,6 @@ public final class PackCoverage {
 
     /**
      * The catalog: every printing in the set a pack could ever have held.
-     *
      * <p>The same rule the fallback pack is built to, asked once in one place, because an
      * audit measuring a different catalog from the one packs are cut from would report
      * holes that are not there.
@@ -150,7 +145,6 @@ public final class PackCoverage {
 
     /**
      * A few of the missing cards, by name.
-     *
      * <p>A count on its own is a number an admin cannot act on. Named, the answer is usually
      * obvious at a glance - a handful of promos, or a whole cycle that only came in a product
      * this server has not configured.

@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The geometry every screen is built out of.
- *
  * <p>Most of it is arithmetic too plain to be worth a test. The turned hit-test is not: it
  * decides what a click on a table full of overlapping, angled cards actually reaches, and
  * getting the sign of the rotation backwards produces a table that works perfectly at zero

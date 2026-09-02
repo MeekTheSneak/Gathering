@@ -20,7 +20,6 @@ class DraftPodTest {
 
     /**
      * A drafter can only pick for themselves.
-     *
      * <p>The security rule, and the only one. Declaring somebody else's pick would empty a
      * pack this client is not allowed to read, and what came back afterwards would say what
      * had been in it - so a client that could sign a pick with another place could read the
@@ -50,7 +49,6 @@ class DraftPodTest {
 
     /**
      * A pick naming a card that is not in the pack is refused, not thrown.
-     *
      * <p>{@code denialFor} is what the network handler asks before it does anything, and for
      * a long time it counted the picks without looking at them. So a client naming card 999
      * of an eight-card pack, or the same card twice, was told it could go ahead and then

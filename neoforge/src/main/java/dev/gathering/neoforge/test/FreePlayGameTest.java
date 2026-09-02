@@ -13,11 +13,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Starting a game nobody will be held to.
- *
  * <p>The setup screen could only ever start a formatted game, so the one mode most tables
  * actually want - sit down, put cards down, no questions asked - was reachable only by
  * closing the screen and finding the walk-up path, which nothing on the screen mentions.
- *
  * <p>What has to stay true of it: free play is the absence of a format rather than a twelfth
  * entry in the list of them, it borrows a table's own numbers so a game has somewhere to
  * start, and it must not become the thing an unknown format id quietly turns into.

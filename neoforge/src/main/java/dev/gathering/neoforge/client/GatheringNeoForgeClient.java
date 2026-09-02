@@ -42,7 +42,6 @@ import org.lwjgl.glfw.GLFW;
 
 /**
  * Client setup for NeoForge.
- *
  * <p>The side is declared on the annotation rather than guarded inside each method, so a
  * dedicated server never loads this class or anything it names.
  */
@@ -76,7 +75,6 @@ public final class GatheringNeoForgeClient {
     @SubscribeEvent
     /**
      * Attaches the card's own renderer, so a card in hand shows its printed face.
-     *
      * <p>Through the event rather than {@code Item#initializeClient}, which is deprecated for
      * removal - and which would have forced a NeoForge-only subclass of an item that otherwise
      * has no loader-specific behavior at all.
@@ -273,7 +271,6 @@ public final class GatheringNeoForgeClient {
 
     /**
      * Clears the hovered stack before the screen draws.
-     *
      * <p>The tooltip event only fires when there is a tooltip, so without this the last card
      * the cursor touched would keep answering for every empty slot after it.
      */
@@ -283,7 +280,6 @@ public final class GatheringNeoForgeClient {
 
     /**
      * Puts the look picker into the game's own video settings.
-     *
      * <p>The condition and the widget are in :common, so this loader and the other one offer
      * the same row rather than two rows that drifted apart.
      */
@@ -302,7 +298,6 @@ public final class GatheringNeoForgeClient {
 
     /**
      * The inspect panel over an open screen, beside the cursor.
-     *
      * <p>Drawn last, so it sits over the vanilla tooltip it replaces rather than fighting it
      * for the same patch of screen.
      */

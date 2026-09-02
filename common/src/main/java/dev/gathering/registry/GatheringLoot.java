@@ -5,7 +5,6 @@ import net.minecraft.world.level.storage.loot.entries.LootPoolEntryType;
 
 /**
  * The mod's loot types, bound by the loader bootstrap.
- *
  * <p>One: the entry that sometimes produces a sealed pack. It is registered on both loaders
  * even though only one of them adds it to Minecraft's own tables, because a registered type
  * is what lets a data pack write {@code gathering:sealed_product} into a table of its own,

@@ -12,25 +12,21 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Whether the player asking is actually standing at the table they named.
- *
  * <p>Every payload the table accepts carries a position, and a position is any position: a
  * client can put whatever coordinates it likes in one. So each handler has to check that the
  * player is really there before it answers - and each handler was checking it separately, with
  * its own copy of the number, in eight places. Two of them measured a different distance. That
  * is the shape of a rule that drifts: the day the reach changes, seven files quietly disagree
  * about who may reach a table, and nothing fails.
- *
  * <p>Measured from where the player is to the middle of the block they named, which is the
  * question being asked. Block-to-block was one of the two versions and it is the wrong one: it
  * ignores where in the block the player is standing and is short by up to most of a meter.
- *
  * <p>Server thread only.
  */
 public final class TableReach {
 
     /**
      * How far a player may be from a table and still be playing at it.
-     *
      * <p>Generous on purpose, and not vanilla's reach. A player at a table steps back to read
      * their own board on the block, walks round to see somebody else's, and leans in again -
      * and a verb that stopped working halfway through that is a table that feels like it is
@@ -52,7 +48,6 @@ public final class TableReach {
 
     /**
      * The corner of the table this player is asking about, if it is a table and they are at it.
-     *
      * <p>A table is four blocks and every verb is written against the corner one, so the
      * conversion belongs here rather than in each caller - a handler that worked from the
      * block that was clicked would find a different session depending on which quarter of the
@@ -72,13 +67,11 @@ public final class TableReach {
 
     /**
      * Whether this player still holds that seat at that table.
-     *
      * <p>For asking <em>again</em>, after a wait. Anything that looks a card up goes to
      * somebody else's host and comes back later, and a player can stand up in between - at
      * which point the seat they asked from may be empty, or may be somebody else's. Whatever
      * was going to land on that board has to be checked against the table as it is now, not
      * as it was when the question was asked.
-     *
      * <p>The same shape as the rule the collection blocks follow: a position is re-checked
      * after every round trip, never trusted across one.
      */
@@ -97,7 +90,6 @@ public final class TableReach {
 
     /**
      * All of that plus the seat, for the verbs that act on your own board.
-     *
      * <p>The seat comes from the player the packet arrived from and never from the packet.
      * That is the whole of the authorization for these verbs: a client cannot ask to shuffle
      * somebody else's library because there is nowhere in the request to say whose.

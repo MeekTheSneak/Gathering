@@ -27,12 +27,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The card shop, as a building a village can put up.
- *
  * <p>Structure files are the one part of a mod that fails silently and completely. A block name
  * with a typo in it is read as air; a property that block does not have is dropped and the
  * default used. Either way the file loads, the village builds, and the shop has a hole in it
  * where the counter should be - with nothing in any log to say so.
- *
  * <p>So every block state in every one of the five buildings is read here the way the game reads
  * it, and anything that came back as air or lost a property fails the run.
  */
@@ -87,7 +85,6 @@ public final class CardShopBuildingGameTest {
 
     /**
      * A shop has a counter, a chest and two tables in it.
-     *
      * <p>Cheap to break by accident: the layout is generated, and a generator that stopped
      * emitting the counter would still produce a perfectly valid house.
      */
@@ -126,7 +123,6 @@ public final class CardShopBuildingGameTest {
 
     /**
      * A table turns with the building it is in.
-     *
      * <p>Villages place their buildings at any of four rotations. A table whose quarters did
      * not turn with it would come out of the ground as four north-west corners on top of each
      * other - four tables in the space of one, none of them whole.
@@ -153,7 +149,6 @@ public final class CardShopBuildingGameTest {
 
     /**
      * The five village styles all resolve to a real house pool and a real shop.
-     *
      * <p>The pool files are data, and a data file with a typo in an element type does not stop
      * a server - it stops that one pool from existing, quietly, and the villages go up without
      * a card shop in them.
@@ -178,12 +173,10 @@ public final class CardShopBuildingGameTest {
 
     /**
      * The chest behind the counter rolls, and does not throw.
-     *
      * <p>Its pool entry is the one with no source on it, which means "always a pack" rather
      * than "one chest in eight" - a shop's stock is not a lucky find. That path is only ever
      * taken by this one table, so without this nothing would notice it was broken until
      * somebody opened the chest in a village and found nothing in it.
-     *
      * <p>Nothing comes out here because collecting is off on a test server, which is the same
      * thing every other loot test in this mod checks. What is being checked is that a table
      * with a sourceless entry in it rolls at all.

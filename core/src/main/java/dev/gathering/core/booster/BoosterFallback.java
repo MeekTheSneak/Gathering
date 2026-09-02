@@ -9,22 +9,18 @@ import java.util.UUID;
 
 /**
  * A pack for a set nobody has published the collation of.
- *
  * <p>Built as sheets and arrangements for the one interpreter rather than as a second way of
  * opening a pack. That is the whole of the design here: there is one opener, and this only
  * decides what to hand it. A separate fallback opener would be a second implementation of
  * duplicates, foils, weights and short sheets, and the two would agree until the day one of
  * them was fixed.
- *
  * <p>What it produces is deliberately plain - one sheet per rarity, every card on it once, so
  * every common is as likely as every other common. That is not how any real set was printed
  * and it is not pretending to be: it is what "we do not know how this set was collated"
  * honestly comes to.
- *
  * <p>The sometimes-a-mythic rare slot is an arrangement rather than a special case, because
  * that is exactly what an arrangement is: one pack in eight comes out with a different set of
  * slots. Written as a weight, it needs no code in the opener at all.
- *
  * <p>Pure.
  */
 public final class BoosterFallback {
@@ -103,7 +99,6 @@ public final class BoosterFallback {
 
     /**
      * The sheet a rarity's cards go on.
-     *
      * <p>Named from the rarity rather than numbered, so a config built this way reads the same
      * as one that came from published data - which is what makes the two indistinguishable to
      * everything downstream, including the coverage auditor.

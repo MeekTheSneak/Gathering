@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Turning a card to its other printed face.
- *
  * <p>The whole point of these is that turned over and face down are different things. One is
  * a transforming card showing its back, which everybody may read; the other is a sleeve
  * nobody may name. A model that folded them together would make a morph and a werewolf the

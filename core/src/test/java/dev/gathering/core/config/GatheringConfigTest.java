@@ -103,7 +103,6 @@ class GatheringConfigTest {
 
     /**
      * A word the exclusion rule does not know is reported rather than ignored.
-     *
      * <p>AnteExclusions has always named the words it could not use, and nothing listened: the
      * list was read again at every stake, where the categories were taken and the notes were
      * dropped. So "basic land" instead of "basic lands" protected nothing, said nothing, and

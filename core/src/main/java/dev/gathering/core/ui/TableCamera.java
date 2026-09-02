@@ -4,12 +4,10 @@ import dev.gathering.core.game.TablePosition;
 
 /**
  * Where the table is being looked at from.
- *
  * <p>The whole screen is the felt now, so something has to say which part of the table is
  * on it: a point the view is centered on and how many pixels a table unit is worth. Everything
  * that draws a card or works out what the cursor is pointing at goes through here, which is
  * what keeps them agreeing.
- *
  * <p><b>Floating point here, deliberately, having refused it for positions.</b> A card's place
  * is state - it crosses the wire, the log and undo, and two clients disagreeing in the last
  * bit of a float drift apart over a long game. A camera is one player's view for one frame. It
@@ -27,7 +25,6 @@ public record TableCamera(
 
     /**
      * A card on a table with one mat on it, which is what the zoom limits are stated against.
-     *
      * <p>Not the size anything is drawn at. A card is a share of its own mat and a mat is a
      * share of the table, so how big a card really is depends on whose board it is on -
      * {@link TableSurface#cardWidthOn} is the only answer to that, and it is the one both
@@ -42,7 +39,6 @@ public record TableCamera(
 
     /**
      * The same two limits, for the view that measures its zoom in blocks rather than pixels.
-     *
      * <p>How far in and out a board may go is a statement about reading cards, not about
      * cameras, so both views have to reach the same answer or the same key gives two
      * different boards. The in-world one had its own pair of numbers and framed the whole
@@ -58,13 +54,11 @@ public record TableCamera(
 
     /**
      * <b>Turned</b> is the difference between watching a game and playing in one.
-     *
      * <p>A surface is laid out once, against the table: north is north for everybody. Half the
      * players are sitting at the north edge, and from that chair the table is the other way
      * up - their own mat is the near one, their own right hand is the table's west. Drawing
      * the surface the same way for both of them gives one player somebody else's view of their
      * own board: their zones along the far edge, their opponent behind them.
-     *
      * <p>So the whole mapping between the surface and the screen turns half of the time, and
      * it turns <em>here</em> - once, where drawing and pointing both go through it - rather
      * than in each thing that draws. The board in the world does the same thing with a camera
@@ -80,7 +74,6 @@ public record TableCamera(
 
     /**
      * A camera over a single table, which is the shape most of them are.
-     *
      * <p>The surface used to be assumed square and one table across, and the assumption was
      * spread through the arithmetic rather than stated. It is stated now, and this is the
      * common case rather than the only one.
@@ -101,7 +94,6 @@ public record TableCamera(
 
     /**
      * How much of the view a framed table leaves clear, at each edge.
-     *
      * <p>Small: enough to see that the border is there, not enough to make the board smaller
      * in any way somebody would notice.
      */
@@ -109,7 +101,6 @@ public record TableCamera(
 
     /**
      * A camera showing the whole table in a viewport of this size.
-     *
      * <p>What a player gets the first time they sit down: everything, at whatever size
      * everything happens to be, rather than a close-up of a corner they have to find their way
      * out of.
@@ -120,7 +111,6 @@ public record TableCamera(
 
     /**
      * A camera showing the whole of a surface this size in a viewport that size.
-     *
      * <p>The surface's own proportions, not a square: two tables pushed together are twice as
      * wide as they are deep, and fitting that to a square left the board in a box in the
      * middle of the screen with the rest of the window empty.
@@ -159,7 +149,6 @@ public record TableCamera(
 
     /**
      * How tall a reference card is at this zoom, which is how far in or out the view is.
-     *
      * <p>A readout of {@link #scale} in the units the limits are written in, not the size of
      * anything on the board - see {@link #REFERENCE_CARD_HEIGHT}.
      */
@@ -178,7 +167,6 @@ public record TableCamera(
 
     /**
      * Zooms about a point on screen, so whatever is under the cursor stays under it.
-     *
      * <p>The thing every map and every table does, and the thing you notice immediately when
      * it is missing: zooming about the middle of the screen means the card you were looking at
      * slides away as you lean in on it.

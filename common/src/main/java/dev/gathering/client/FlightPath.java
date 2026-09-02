@@ -11,13 +11,11 @@ import java.util.Optional;
 
 /**
  * Where a card in the air is, in whichever space the board being drawn is measured in.
- *
  * <p>The two views disagree about exactly one thing - what a point means, pixels on a window
  * or a place on the felt - and a {@link BoardPlacement} is the thing that knows which. So a
  * flight is kept as the two places it goes between and turned into a rectangle here, once per
  * view per frame, rather than as a pair of rectangles that would be right in one view and
  * nonsense in the other.
- *
  * <p>Client-only.
  */
 final class FlightPath {
@@ -39,7 +37,6 @@ final class FlightPath {
 
     /**
      * Where a place is on this board.
-     *
      * <p>A pile has a slot. A hand has an edge rather than a slot, because a hand is not on
      * the table. The battlefield has wherever the card actually was, which the flight carries
      * with it - a card that has just left a mat is not in the board any more, and the middle

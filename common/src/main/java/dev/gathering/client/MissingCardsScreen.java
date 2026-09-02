@@ -14,18 +14,15 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The cards of one set that are not in this collection.
- *
  * <p>What was behind the number. The set list says a collection is one card into a set of
  * three hundred and seventy-three and then, until this existed, had nothing to answer the only
  * question that raises. A count is a scoreboard; this is a list to go and find, which is what
  * somebody sitting at their binder actually wanted.
- *
  * <p>Rows rather than a grid of art, because the shape of the question is "what do I need"
  * rather than "what does it look like" - a hundred pictures is a lovely thing to scroll and a
  * poor thing to read down. The art is still a glance away: the cursor offers each row to the
  * inspect panel, the same as every other list in the mod, so a card can be read without
  * leaving the list.
- *
  * <p>Client-only.
  */
 public final class MissingCardsScreen extends ChildScreen {
@@ -62,7 +59,6 @@ public final class MissingCardsScreen extends ChildScreen {
 
     /**
      * Which collection somebody asked about, if they are still waiting to be shown.
-     *
      * <p>The same rule the set list follows: only the answer somebody asked for opens a
      * screen. Without it a list that arrived after they had moved on would open itself on
      * top of whatever they were doing.
@@ -167,7 +163,6 @@ public final class MissingCardsScreen extends ChildScreen {
 
     /**
      * One card: its number, its name, and its rarity.
-     *
      * <p>The number first and in a column, because a set is laid out in that order and
      * somebody working through one is reading down it. Rarity as the color of the name rather
      * than a word, because it is a column of three hundred and a word would be a column of
@@ -198,7 +193,6 @@ public final class MissingCardsScreen extends ChildScreen {
 
     /**
      * Pressing a card puts it on the wants list, or takes it off.
-     *
      * <p>The one thing to do to a card on this screen, so it is the plain click. A list of
      * three hundred cards to find is a list somebody reads once; a list they can tick down is
      * one they come back to - and the ticking has to happen here, where they are already

@@ -25,20 +25,16 @@ import java.util.UUID;
 
 /**
  * Where collation comes from: one MTGJSON set file at a time, cached on disk.
- *
  * <p>Per set on demand, never the everything file. MTGJSON publishes one download with every
  * set in it and it is enormous; a server that wants to sell this month's boosters wants this
  * month's set, and the file for it is a few megabytes.
- *
  * <p>It follows a pack where it reaches. A modern booster's Special Guest or List slot is
  * printed in a different set, and the file says which, so asking for one set quietly fetches
  * the handful it points at and comes back with every kind of pack openable rather than with
  * most of them dropped. A companion set that cannot be fetched is a note on the reading, not
  * a failure: the packs that do not need it still open.
- *
  * <p>The set code is checked before it is put in a URL or a path. It arrives from a server
  * config, and a config value is a thing a person typed.
- *
  * <p>This blocks on the network and on the disk. Pure core with an injected transport, so it
  * knows nothing about threads; keeping it off every game thread is the adapter layer's job.
  */
@@ -48,7 +44,6 @@ public final class MtgjsonFeed {
 
     /**
      * How long a cached set file is trusted for.
-     *
      * <p>Collation for a released set does not change, but MTGJSON corrects data, and a week
      * is short enough to pick a correction up and long enough that a server never fetches the
      * same file twice in a session.
@@ -257,7 +252,6 @@ public final class MtgjsonFeed {
 
     /**
      * A set code as MTGJSON names its files, or a refusal.
-     *
      * <p>What counts as one is {@link SetCode}'s to say - this value goes into a URL and into
      * a file name and arrives from a server config, and that rule is worth having exactly one
      * of. All this adds is the case MTGJSON writes them in and the refusal a caller can show.

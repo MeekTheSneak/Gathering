@@ -11,16 +11,13 @@ import java.util.function.Predicate;
 
 /**
  * Decides which printings a client still needs to be told about.
- *
  * <p>What a client knows about cards is memory only and is thrown away on disconnect, on
  * purpose: what one server said is not true of the next. The consequence is that after a
  * restart a card sitting in an inventory is a UUID and nothing else, so something has to ask
  * again - and the thing that asks runs every tick, which makes "ask once, not every tick"
  * the entire problem.
- *
  * <p>So the deciding lives here, where it can be checked, rather than in a tick handler
  * where a mistake is a request storm aimed at somebody else's server.
- *
  * <p>A printing that goes unanswered is retried, but slowly. The server may have been unable
  * to reach Scryfall for that moment, and never trying again would leave the card nameless
  * for the rest of the session.

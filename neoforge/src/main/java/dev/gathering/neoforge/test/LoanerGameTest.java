@@ -36,7 +36,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Borrowing a deck, in a running world.
- *
  * <p>What the shelf is - which files become which names - is a pure rule with its own tests.
  * What cannot be checked there is the part that matters to a new player: sit down at a table
  * with nothing, pick a deck, and be playing. That is three separate pieces of machinery
@@ -81,7 +80,6 @@ public final class LoanerGameTest {
 
     /**
      * A deck the shelf does not have is nothing at all.
-     *
      * <p>The name crosses the wire, so this is the request a client makes up. It must not
      * conjure a deck, and it must not throw either - a thrown handler is a disconnect.
      */
@@ -104,7 +102,6 @@ public final class LoanerGameTest {
 
     /**
      * Borrowing from across the world does not work.
-     *
      * <p>The offer names a table and the deck goes down at one. Without this, a client with
      * the screen open could walk away and keep taking decks out of a table it is nowhere near.
      */
@@ -129,7 +126,6 @@ public final class LoanerGameTest {
 
     /**
      * With no session yet, the deck is handed over rather than dropped on the floor.
-     *
      * <p>Sitting down before anybody has started a game is the ordinary case, and a loaner
      * that vanished because there was nowhere to put it would be the worst possible first
      * minute.
@@ -196,7 +192,6 @@ public final class LoanerGameTest {
 
     /**
      * Reading the folder again never empties the shelf while it is doing it.
-     *
      * <p>Resolving a decklist is a network call, so a reload that cleared first and resolved
      * afterwards would leave a window seconds wide where the server lends nothing - and
      * somebody who sat down inside it would be told this server has no decks. The folder here

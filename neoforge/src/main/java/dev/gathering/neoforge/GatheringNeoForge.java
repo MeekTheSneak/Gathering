@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * NeoForge entry point.
- *
  * <p>Does three things and no more: register content, provide the platform service, and own
  * the card pipeline's lifetime. Everything else lives in {@code common} or, better, in
  * {@code core}.
@@ -100,7 +99,6 @@ public final class GatheringNeoForge {
 
     /**
      * Brings a shopkeeper's counter back in step before anybody looks at it.
-     *
      * <p>Here rather than on a tick because this is the only moment it matters, and because a
      * villager nobody is talking to is a villager whose offers nobody can see.
      */

@@ -27,7 +27,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Which pack gets opened, and whether one may be at all.
- *
  * <p>The drawing itself is checked where it is pure. What is here is the part that needs a
  * server: the config gate, and the choosing between the several kinds of pack a real set
  * publishes - which is the only place a set could end up opening the wrong product.

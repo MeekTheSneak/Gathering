@@ -6,7 +6,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * How client code sends a payload without knowing which loader is underneath.
- *
  * <p>One method, bound once at client init. Sending is the only network verb the client
  * has: it never asks for card identity it has not been offered, because the server decides
  * what it is entitled to and pushes exactly that.

@@ -14,38 +14,31 @@ import java.util.UUID;
 
 /**
  * Reads real collation out of one MTGJSON set file.
- *
  * <p>The interpreter next door consumes data and knows nothing about any set, which is what
  * makes it work for every set past and future. This is where the data comes from: MTGJSON
  * publishes, per set, the actual print sheets and the actual pack arrangements, and they map
  * onto the interpreter's own concepts almost exactly, because both are describing the same
  * physical thing.
- *
  * <p>The shapes were read off the published data model and off real set files, not off a
  * memory of them; checked against MTGJSON 5.3.0. A sheet there is
  * {@code { foil, allowDuplicates?, fixed?, balanceColors?, totalWeight, cards: { uuid: weight } }}
  * and a pack arrangement is {@code { weight, contents: { sheetName: count } }}, which is
  * {@link BoosterSheet} and {@link BoosterVariant} under other names.
- *
  * <p>Two things do not map, and both are handled rather than ignored:
- *
  * <p><b>Identity.</b> MTGJSON keys cards by its own uuid, and this mod's one canonical
  * identity is the Scryfall printing id. Every card in a set file carries both, so a set file
  * is its own bridge - but a sheet may name cards printed in <em>another</em> set. The List
  * slot in a modern set booster is nothing but that. So the bridge is a parameter: hand in the
  * printings from as many set files as you have, and what could not be bridged is reported
  * rather than quietly dropped, along with the set codes to go and fetch.
- *
  * <p><b>Color balancing.</b> Real common sheets are cut so a pack is not five cards of one
  * color. MTGJSON says which sheets that applies to; this reproduces the sheet and the odds
  * but not the balancing, and says so in the reading's notes rather than pretending otherwise.
- *
  * <p>Strict where the file makes a claim it can check. MTGJSON writes down both a sheet's
  * total weight and every card's weight, and both a pack's total weight and every arrangement's
  * weight; if those disagree the file is not what this thinks it is, and reading on would
  * produce packs that are wrong in a way nobody could see. Every real set checked agrees, so a
  * disagreement is news.
- *
  * <p>Pure. Nothing here reaches a network or a file; something else fetches the JSON.
  */
 public final class MtgjsonCollation {
@@ -96,7 +89,6 @@ public final class MtgjsonCollation {
 
     /**
      * The uuid-to-printing bridge one set file carries.
-     *
      * <p>Every card and token in the file, keyed by the uuid its sheets refer to them by. Join
      * several of these to open a set whose packs reach into other sets.
      */
@@ -315,7 +307,6 @@ public final class MtgjsonCollation {
 
     /**
      * The sets a kind of pack draws its cards from, as the file names them.
-     *
      * <p>Published per kind and authoritative: a set booster that reaches into The List says
      * so here, which is a better answer to "what is missing" than working it out backwards
      * from the ids that could not be bridged.

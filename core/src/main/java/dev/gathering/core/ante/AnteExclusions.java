@@ -10,12 +10,10 @@ import java.util.Set;
 
 /**
  * What a server refuses to let anybody stake.
- *
  * <p>Written in the config as a list of plain words - {@code exclusions = ["basic lands"]} -
  * because the person setting it is deciding what their server's ante feels like, not writing
  * a query. A short vocabulary answers every reason anybody has for protecting a category:
  * lands nobody would miss, cards too good to lose, or a set an era server is built around.
- *
  * <p>An unrecognized word protects nothing and says so. It never protects everything and
  * never protects nothing silently: a typo that quietly turned the exclusion list off would
  * be a server where somebody loses a card they were told was safe, which is the one failure
@@ -58,7 +56,6 @@ public record AnteExclusions(Set<String> categories) {
 
     /**
      * Reads a config's list, keeping what it understands and naming what it does not.
-     *
      * <p>Case and surrounding space are the config author's business, not the rule's, so
      * {@code "Basic Lands"} and {@code "basic lands"} are the same thing. A word this does not
      * know is dropped with a note rather than guessed at.
@@ -96,7 +93,6 @@ public record AnteExclusions(Set<String> categories) {
 
     /**
      * Whether this card may not be staked.
-     *
      * <p>A card nothing is known about is protected. Everywhere else in the mod an unknown
      * card is a blank to be filled in later; here it is somebody's property about to change
      * hands, and the only safe answer to "is this one of the ones we agreed not to play for"

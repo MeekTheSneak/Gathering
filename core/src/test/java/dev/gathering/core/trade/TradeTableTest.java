@@ -175,7 +175,6 @@ class TradeTableTest {
 
     /**
      * A run of things people do at a trade table.
-     *
      * <p>The provider builds the whole list rather than one move: {@code @ForAll("moves")} on
      * a list parameter is resolved against the parameter's own type, so a provider handing
      * back a single move fails the property with an argument mismatch rather than a finding.

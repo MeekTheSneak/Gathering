@@ -12,7 +12,6 @@ class LegibilityTest {
 
     /**
      * The measurement this rule was written from.
-     *
      * <p>A seated player's mat buttons are 29 interface pixels wide inside their border and
      * the longest of the four words on them is 38. On an interface drawn at two screen pixels
      * per interface pixel that is sharp and was photographed being read; on one drawn at one

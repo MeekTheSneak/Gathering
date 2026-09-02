@@ -19,7 +19,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Cards going into a collection and coming out of it.
- *
  * <p>What is checked here is the block: the tally itself is pure and checked next door in
  * milliseconds. This is the part that only exists in a world - a card in a hand becoming a
  * count in a block, a block that survives being saved and read back, and permissions that
@@ -182,7 +181,6 @@ public final class CollectionBlockGameTest {
 
     /**
      * Reading is public, and something other than a card in hand still opens it.
-     *
      * <p>The opening itself is a screen, so it is checked by the scripted client run rather
      * than here - a mock player has no connection to send one to. What is checked here is
      * the two answers the block gives before it gets that far: that a stranger may look, and
@@ -235,7 +233,6 @@ public final class CollectionBlockGameTest {
 
     /**
      * A deck in hand fills up from the collection rather than the inventory.
-     *
      * <p>Which is what sleeving is: you do not carry forty loose cards from the binder to the
      * table. Holding a deck is the whole of the gesture, so this is the one that must not
      * quietly stop working.
@@ -401,7 +398,6 @@ public final class CollectionBlockGameTest {
 
     /**
      * The sweep takes every loose card and nothing else.
-     *
      * <p>The whole gesture in one assertion: cards go, the deck stays a deck, the sealed pack
      * stays sealed. Those two are the ones worth pinning - a sweep that dissolved a hundred
      * card Commander deck would be a misclick with no way back, and one that opened somebody's
@@ -485,7 +481,6 @@ public final class CollectionBlockGameTest {
 
     /**
      * Somebody else's collection cannot be picked up by breaking it.
-     *
      * <p>Every other way in asks first, so a break that did not would be the way round all
      * of them: swing once and the block is in your inventory with ten thousand cards of
      * somebody else's in it. The block itself cannot say no - vanilla has decided by the

@@ -23,19 +23,16 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Turning a library over until something turns up: cascade, and reveal until type.
- *
  * <p>The half of these that has to be here rather than on the client is the counting. Nobody
  * may know their own library's order, so nobody can say how many cards a cascade turns over -
  * only the server can walk down and look. What it does with the answer is an ordinary reveal,
  * through the same event, the same fold and the same visibility decision every other reveal
  * goes through; there is no second way of showing cards.
- *
  * <p>No rules enforcement, which is section 16 and not a detail. Nothing here casts the card
  * it stopped on, moves anything, or knows what cascade means - the mod turns cards face up and
  * the players decide what that meant, exactly as they do across a table. What it saves is
  * counting cards down a face-down pile, which is the part a computer is better at and the part
  * nobody enjoys.
- *
  * <p>Server thread only.
  */
 public final class LibraryReveals {
@@ -74,7 +71,6 @@ public final class LibraryReveals {
 
     /**
      * How many cards down the answer is, or none.
-     *
      * <p>The cache only, never a fetch: this runs on the server thread with a player waiting,
      * and a hundred and forty lookups against somebody else's host is not something to do
      * between two frames. A card nobody has looked up is passed over rather than stopped on -

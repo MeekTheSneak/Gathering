@@ -24,7 +24,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * What the coverage report measures, and against what.
- *
  * <p>The arithmetic is checked where it is pure. What is here is the pair of decisions this
  * layer makes and could get wrong quietly: which printings count as the catalog, and which
  * packs count as the ways out of it. Either one measured against the wrong thing gives a
@@ -57,7 +56,6 @@ public final class PackCoverageGameTest {
 
     /**
      * A set nobody has published a collation for still opens.
-     *
      * <p>{@link dev.gathering.core.booster.BoosterFallback} was written for exactly this and
      * for a long time nothing called it: a real set with no MTGJSON booster handed every pack
      * straight back. What is checked here is the join - that the catalog this layer hands the

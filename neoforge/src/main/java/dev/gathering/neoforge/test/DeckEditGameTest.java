@@ -27,7 +27,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Editing a deck: taking cards out of the list, naming commanders, and putting cards back.
- *
  * <p>These run against real item stacks and a real slot because that is where the asymmetry
  * this feature is built on actually lives. Cards go into a deck with the bundle gesture and
  * never come out of it that way - taking a card is done from the deck list, where you can
@@ -447,7 +446,6 @@ public final class DeckEditGameTest {
 
     /**
      * Removes every dropped copy of this card from the world and says how many there were.
-     *
      * <p>Matched by the card itself rather than by position, because a mock player stands at
      * the world origin and not where this test's structure is. Clearing rather than counting
      * is what makes the test mean something twice in a row.
@@ -483,7 +481,6 @@ public final class DeckEditGameTest {
 
     /**
      * A deck can be called something else, including nothing.
-     *
      * <p>The one thing a deck could not have done to it. A deck started by putting two cards
      * together has no name and had no way to get one, which made starting a deck something
      * you could do and never finish.
@@ -551,7 +548,6 @@ public final class DeckEditGameTest {
 
     /**
      * The section a left-click sends a card to is never the one it is already in.
-     *
      * <p>The gesture that means "move this" must always move it. A section that mapped to
      * itself would be a click that silently did nothing, which is the worst kind - and the
      * one nobody reports, because it looks like a missed click rather than a bug.
@@ -581,7 +577,6 @@ public final class DeckEditGameTest {
 
     /**
      * And a move both ways puts the deck back exactly as it was.
-     *
      * <p>Which is what makes the new left-click safe to press: a card moved by mistake is one
      * click from where it was, rather than something to go looking for.
      */

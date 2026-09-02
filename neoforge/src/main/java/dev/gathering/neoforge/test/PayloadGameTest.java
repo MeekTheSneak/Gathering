@@ -31,7 +31,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Every payload, written and read back against the server's real registries.
- *
  * <p>A stream codec that encodes fine and decodes wrong is invisible until two people try
  * to play, so each one gets a round trip here rather than a reading. The buffer is also
  * asserted empty afterwards, which is what catches a codec that writes more than it reads
@@ -317,7 +316,6 @@ public final class PayloadGameTest {
 
     /**
      * A cascade, on the wire.
-     *
      * <p>Worth a test of its own because this one carries an enum, and an enum on the wire is
      * an ordinal: the two questions this payload can ask are one number apart, and a codec
      * that read them the wrong way round would turn somebody's library over looking for the
@@ -370,7 +368,6 @@ public final class PayloadGameTest {
 
     /**
      * A random discard, on the wire.
-     *
      * <p>The count is the whole payload, so the clamping is the whole test. This is the one
      * number a client sends that the server acts on without the player naming any cards, and
      * a hand does not survive a request for two billion of them.
@@ -402,7 +399,6 @@ public final class PayloadGameTest {
 
     /**
      * Cards going back under a library, on the wire.
-     *
      * <p>The list is what a box-drag produced, so its ceiling is the guard that stops a
      * misdrag putting every permanent on the table under somebody's deck.
      */
@@ -437,7 +433,6 @@ public final class PayloadGameTest {
 
     /**
      * A basic land, on the wire.
-     *
      * <p>The land is an enum and an enum on the wire is an ordinal, so the six values are one
      * number apart and a codec that read them wrong would put an Island on the table for
      * somebody who pressed Plains. The unknown-id refusal matters more than usual here: this
@@ -596,14 +591,12 @@ public final class PayloadGameTest {
 
     /**
      * A deck too big to encode is refused rather than handed over.
-     *
      * <p>Each of a deck's sections crosses the wire as a bounded list, and a bounded list
      * throws when it is <em>written</em> past its bound, not only when it is read. So an
      * oversized deck is not one that arrives short - it is an item stack that cannot be
      * encoded at all, sitting in somebody's inventory and saved with their player data. Every
      * inventory sync after that throws, which is a player who cannot log in again until an
      * administrator edits their file by hand.
-     *
      * <p>Building a deck a card at a time could never get here - withAdded has always refused
      * past the bound, and the collection builder stops and says what it left in the box. An
      * import builds the whole list at once, and that was the one way past it.

@@ -17,12 +17,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The symbol font and the code that writes into it, checked against each other.
- *
  * <p>Three artifacts have to agree on which glyph is which: the name list in
  * {@code ManaSymbols}, the generator that draws the textures, and the font definition that
  * maps codepoints to them. Nothing connects them at compile time, and getting it wrong does
  * not fail - it silently draws the wrong symbol, which on a card is a different cost.
- *
  * <p>So the font file is read back here and matched against the list, which is the one thing
  * that catches a glyph inserted rather than appended.
  */

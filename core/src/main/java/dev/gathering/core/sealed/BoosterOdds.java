@@ -7,16 +7,13 @@ import java.util.Map;
 
 /**
  * Which kind of booster comes out of a chest.
- *
  * <p>Every kind a set really sold can turn up, and they are not equally likely. A collector
  * booster is the one worth finding, so it is the one you rarely find - and it is much more
  * likely out of the chests people build expeditions around than out of a village barrel,
  * which is the whole of what makes where you looked matter.
- *
  * <p>The weights are a starting point rather than a balance pass, written down in one place
  * so they can be argued about. What they are not is a setting: a server owner picks which
  * sets and which chests, not whether a collector booster is rarer than a draft booster.
- *
  * <p>Pure.
  */
 public final class BoosterOdds {
@@ -32,7 +29,6 @@ public final class BoosterOdds {
 
     /**
      * A sample pack: a collector booster's four best slots and none of the rest.
-     *
      * <p>Between the two, because that is what it is.
      */
     public static final int SAMPLE = 4;
@@ -71,7 +67,6 @@ public final class BoosterOdds {
 
     /**
      * The weights for every kind on offer, in the order they were offered.
-     *
      * <p>Kept in order because the choosing walks it: a per-launch hash order would make the
      * same seed pick a different pack on a different day, and an economy nobody can check is
      * an economy nobody can audit.
@@ -101,7 +96,6 @@ public final class BoosterOdds {
 
     /**
      * The kind a roll landed on.
-     *
      * <p>Walked in order rather than sampled, so the same roll against the same offer is the
      * same pack every time.
      *

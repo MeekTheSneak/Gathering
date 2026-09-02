@@ -44,7 +44,6 @@ class DraftStateTest {
 
     /**
      * Nothing moves until everybody has picked.
-     *
      * <p>Real drafting is simultaneous. Resolving each pick as it arrived would hand the
      * pack on while somebody was still reading it, and the fastest drafter in the pod would
      * see packs the slowest one never got.
@@ -68,7 +67,6 @@ class DraftStateTest {
 
     /**
      * A pick-two takes both of the cards the drafter pointed at.
-     *
      * <p>The trap this exists for: removing the first pick shifts everything after it along,
      * so a second index applied afterwards means a different card than the one on the screen.
      * Both are named against the pack as it was, and both come out together.
@@ -116,7 +114,6 @@ class DraftStateTest {
 
     /**
      * The last card of a pack is picked on its own, even in a pod that picks two.
-     *
      * <p>A pack with an odd number of cards ends on a single, and asking for two would have
      * stalled the pod one card from the end of every round.
      */
@@ -160,7 +157,6 @@ class DraftStateTest {
 
     /**
      * Every card opened ends up in exactly one pool, and nowhere else.
-     *
      * <p>The conservation property. A pack passing bug does not announce itself - it drops a
      * card, or hands the same one to two drafters - and either way the pod plays to the end
      * looking fine.
@@ -248,7 +244,6 @@ class DraftStateTest {
 
     /**
      * The same opening packs and the same picks give back the same pools.
-     *
      * <p>Which is what makes a pod something the server can log and replay rather than
      * something it has to keep in memory and hope survives a restart.
      */
@@ -272,7 +267,6 @@ class DraftStateTest {
 
     /**
      * A pod is never dealt an empty pack.
-     *
      * <p>Not fussiness: with nothing in a pack nobody has a pick due, so nobody can declare,
      * so the turn never resolves and the round never ends. The pod would sit at its first
      * round for ever with nothing anybody could do to move it on.
