@@ -318,6 +318,7 @@
   "message.gathering.pack_unresolved": "%s cards could not be looked up.",
   "message.gathering.pack_unresolved_one": "One card could not be looked up.",
   "message.gathering.pipeline_unavailable": "The card service is not running on this server.",
+  "message.gathering.card_is_a_grant": "Cards are collected on this server. Open packs, or buy from a card shop.",
   "message.gathering.player_only": "Only a player can run this.",
   "message.gathering.pocket_cards_added": "Sleeved %s card(s) from your inventory.",
   "message.gathering.pocket_cards_short": "%s would not fit and stayed in your inventory.",

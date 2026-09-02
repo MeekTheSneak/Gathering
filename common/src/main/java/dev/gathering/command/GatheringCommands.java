@@ -353,6 +353,20 @@ public final class GatheringCommands {
     private static int giveCard(CommandSourceStack source, String cardName, boolean foil)
             throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
+        // The same rule /gathering pack states one screen up: product out of nothing is an
+        // admin grant, not a way to collect. A single card is more of a grant than a sealed
+        // pack, not less - it is the thing the packs exist to produce, chosen by name, with
+        // no odds in the way - and it was the one path with nothing in front of it at all.
+        //
+        // Only where cards are property. A server with collecting switched off is a table
+        // with a box of proxies next to it, and conjuring one there is the point rather than
+        // a way round anything. Said out loud instead of hidden behind requires(), because a
+        // command that vanishes teaches nobody why.
+        if (dev.gathering.service.ServerSettings.get().modes().collectionEnabled()
+                && !source.hasPermission(2)) {
+            source.sendFailure(Component.translatable("message.gathering.card_is_a_grant"));
+            return 0;
+        }
         CardDataService service = CardDataService.active().orElse(null);
         if (service == null) {
             source.sendFailure(Component.translatable("message.gathering.pipeline_unavailable"));

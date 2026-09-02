@@ -87,6 +87,49 @@ public final class TableCommandGameTest {
     }
 
     /**
+     * A card out of nothing is an admin grant where cards are property.
+     *
+     * <p>/gathering pack requires an operator, and says why: product out of nothing is a
+     * grant, not a way to collect. /gathering card had nothing in front of it at all - and a
+     * single card by name is more of a grant than a sealed pack, not less, being the thing
+     * packs exist to produce with the odds taken out. On a server running the whole
+     * collecting economy, anybody could type past all of it.
+     *
+     * <p>Only where collecting is on. With it off the mod is a table and a box of proxies,
+     * and conjuring a card is the point rather than a way round anything - so that case is
+     * checked here too, since a gate that is always shut would have broken it.
+     *
+     * <p>Asked for by a name nothing can resolve, on purpose. The gate decides the return
+     * value before any lookup happens, so the refusal is what is being read either way - and
+     * a card that really arrived would go into the server's card cache, which stocks the
+     * archive sheet, which another test asserts is empty. A test that quietly changes what
+     * the next one is looking at is worse than the bug it was written for.
+     */
+    @GameTest(template = "empty")
+    public static void conjuringACardIsAnAdminGrantWhereCardsAreProperty(GameTestHelper helper) {
+        boolean before = dev.gathering.service.ServerSettings.get().modes().collectionEnabled();
+        try {
+            ServerPlayer player = helper.makeMockServerPlayerInLevel();
+
+            dev.gathering.server.Settings.set("modes.collection_enabled", "on");
+            if (run(helper, player, "gathering card Zzz Not A Real Card") != 0) {
+                helper.fail("a player conjured a card by name on a server that collects them");
+                return;
+            }
+            dev.gathering.server.Settings.set("modes.collection_enabled", "off");
+            if (run(helper, player, "gathering card Zzz Not A Real Card") == 0) {
+                helper.fail("a card could not be conjured on a server with collecting off,"
+                        + " where that is the ordinary way to hold one");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            dev.gathering.server.Settings.set(
+                    "modes.collection_enabled", before ? "on" : "off");
+        }
+    }
+
+    /**
      * Runs a command as this player and hands back what it returned.
      *
      * <p>Through the dispatcher rather than {@code performPrefixedCommand}, which returns

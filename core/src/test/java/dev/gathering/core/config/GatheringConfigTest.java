@@ -101,6 +101,39 @@ class GatheringConfigTest {
         assertThat(config.notes()).isEmpty();
     }
 
+    /**
+     * A word the exclusion rule does not know is reported rather than ignored.
+     *
+     * <p>AnteExclusions has always named the words it could not use, and nothing listened: the
+     * list was read again at every stake, where the categories were taken and the notes were
+     * dropped. So "basic land" instead of "basic lands" protected nothing, said nothing, and
+     * was discovered when somebody's Island went into the pot - on a server that had written
+     * the line specifically to stop that.
+     */
+    @Test
+    @DisplayName("a misspelt ante exclusion is named in the notes")
+    void aMisspeltExclusionIsReported() throws Exception {
+        GatheringConfig config = read("""
+                [modes]
+                collection_enabled = true
+                [ante]
+                enabled = true
+                exclusions = ["basic land"]
+                """);
+
+        assertThat(config.notes())
+                .describedAs("a server protecting nothing should be told so")
+                .anySatisfy(note -> assertThat(note).contains("basic land"));
+        // And the spelling that works still says nothing at all.
+        assertThat(read("""
+                [modes]
+                collection_enabled = true
+                [ante]
+                enabled = true
+                exclusions = ["basic lands", "Foils"]
+                """).notes()).isEmpty();
+    }
+
     @Test
     @DisplayName("a number out of range is clamped and said out loud")
     void numbersOutOfRangeAreClamped() throws Exception {

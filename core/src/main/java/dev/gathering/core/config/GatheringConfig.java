@@ -283,7 +283,7 @@ public record GatheringConfig(
                         clamped(toml.number("ante.cards_per_player", 1), 1, 10,
                                 "ante.cards_per_player", notes), 1, notes),
                 noted("ante.exclusions",
-                        List.copyOf(toml.strings("ante.exclusions", List.of("basic lands"))),
+                        exclusions(toml.strings("ante.exclusions", List.of("basic lands")), notes),
                         List.of("basic lands"), notes),
                 noted("ante.allow_per_table_opt_out",
                         toml.flag("ante.allow_per_table_opt_out", true), true, notes));
@@ -362,6 +362,23 @@ public record GatheringConfig(
             return DEFAULT_LOOT_SETS;
         }
         return List.copyOf(kept);
+    }
+
+    /**
+     * The ante exclusions, complaining about any word the rule does not know.
+     *
+     * <p>{@link dev.gathering.core.ante.AnteExclusions} has always named the words it could
+     * not use, and nothing has ever listened: the reading was done again at every stake, where
+     * only the categories were taken and the notes were dropped on the floor. So a server that
+     * wrote "basic land" instead of "basic lands" protected nothing, was told nothing, and
+     * found out when somebody's Island went into the pot.
+     *
+     * <p>Read here as well, at load, so the complaint arrives with all the others - in the
+     * log, and in what the settings command reads back - rather than nowhere.
+     */
+    private static List<String> exclusions(List<String> written, List<String> notes) {
+        notes.addAll(dev.gathering.core.ante.AnteExclusions.of(written).notes());
+        return List.copyOf(written);
     }
 
     /**
@@ -482,8 +499,13 @@ public record GatheringConfig(
                 max_cards_per_session = 1600
 
                 [ante]
-                # Playing for keeps. Not built yet. Needs collection_enabled, and every player at
-                # the table will have to agree before a game with it on can start.
+                # Playing for keeps: a card out of each deck goes face up in the middle, and the
+                # winner takes the pot. Needs collection_enabled, and every player at the table is
+                # asked before a game with it on starts - one no and the game is played for
+                # nothing instead, unless allow_per_table_opt_out is off.
+                # exclusions names what may never be staked. The words it knows are
+                # "basic lands", "lands", "rares", "mythics" and "foils"; anything else is
+                # reported in the log at startup and protects nothing.
                 enabled = false
                 cards_per_player = 1
                 exclusions = ["basic lands"]
