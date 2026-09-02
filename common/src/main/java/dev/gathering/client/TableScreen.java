@@ -3106,19 +3106,13 @@ public final class TableScreen extends Screen {
             return true;
         }
 
-        // A stack lifted off the felt and put straight back down. Nothing moved, so nothing
-        // is sent - and it is emphatically not the click below, which would tap the card on
-        // top of the stack somebody had just decided not to move.
-        if (dropped.whole() && dropped.fromPile() == null && !dropped.hasMoved(x, y)) {
-            return true;
-        }
-
-        // A press that never moved is a card picked up and put back, and that is all it is.
-        // It used to tap, which made the plainest gesture on the table mean two things at
-        // once: every mis-click tapped something, and a card could not be picked up and
-        // reconsidered without turning it sideways. Tapping is E, untapping is Q, and the
-        // card's own menu says so - one gesture per verb, and the menu is where you learn it.
-        if (!dropped.fromHand() && dropped.fromPile() == null && !dropped.hasMoved(x, y)) {
+        // What letting go here means, decided in the pure module so every combination of the
+        // four booleans is covered by a test - see DropMeaning. The rule it holds is that a
+        // press which never moved is a card picked up and put back and nothing else: it used
+        // to tap, which made the plainest gesture on the table mean two things at once.
+        if (dev.gathering.core.ui.DropMeaning.of(
+                dropped.fromHand(), dropped.fromPile() != null, dropped.whole(),
+                dropped.hasMoved(x, y)) == dev.gathering.core.ui.DropMeaning.NOTHING) {
             return true;
         }
 

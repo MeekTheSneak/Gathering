@@ -699,13 +699,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
      * bar is a promise about the release and two copies of a promise drift.
      */
     private int gapUnder(int x, int y, int howMany) {
-        int landing = Math.max(0, Math.min(howMany - 1, slotUnder(x, y)));
-        Rect slot = slotOf(landing);
-        // Past the card it is over when the cursor is on the last card's right-hand half:
-        // dropping "on" the last card has to be able to mean after it, or the far end of
-        // the row is unreachable.
-        boolean after = landing == howMany - 1 && !slot.isEmpty() && x > slot.centerX();
-        return after ? howMany : landing;
+        return laidOut().gapAt(howMany, x, y);
     }
 
     /** How far a press has to travel sideways before it counts as a drag. */
@@ -743,10 +737,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /** Which slot of the grid a point is over, whether or not a card is in it. */
     private int slotUnder(int x, int y) {
-        int cardWidth = Math.max(8, CardShape.widthFor(CARD_HEIGHT));
-        int column = Math.max(0, Math.min(columns - 1, (x - grid.x()) / (cardWidth + GAP)));
-        int row = Math.max(0, (y + scroll - grid.y()) / (CARD_HEIGHT + GAP));
-        return row * columns + column;
+        return laidOut().nearestSlot(x, y);
     }
 
     /**

@@ -50,6 +50,37 @@ public record PileLayout(
         return -1;
     }
 
+    /**
+     * Which slot a point falls in, clamped into the grid rather than answering -1.
+     * <p>What a drag wants, where {@link #slotAt} is what a click wants. A drag is always
+     * going somewhere - the card is in the air and has to come down - so a point past the last
+     * column lands in the last column rather than nowhere.
+     */
+    public int nearestSlot(int x, int y) {
+        int column = Math.clamp((x - grid.x()) / (cardWidth + gap), 0, columns - 1);
+        int row = Math.max(0, (y + scroll - grid.y()) / (cardHeight + gap));
+        return row * columns + column;
+    }
+
+    /**
+     * The gap a drag at this point is aimed at, for a row of {@code count} cards.
+     * <p>Gap <i>g</i> is the space before slot <i>g</i>; {@code count} means past the end of
+     * the row. One rule, asked by the bar drawn during the drag and by the release that
+     * follows it - the bar is a promise about the release, and two copies of a promise drift.
+     * <p>The last card counts as two gaps, split down its middle. Without that the far end of
+     * the row cannot be reached at all: every point over the last card would mean "before it",
+     * and there would be no way to say "after everything".
+     */
+    public int gapAt(int count, int x, int y) {
+        if (count <= 0) {
+            return 0;
+        }
+        int landing = Math.clamp(nearestSlot(x, y), 0, count - 1);
+        Rect slot = slot(landing);
+        boolean past = landing == count - 1 && !slot.isEmpty() && x > slot.centerX();
+        return past ? count : landing;
+    }
+
     /** How far past the bottom of the grid the last row reaches, at this scroll. */
     public int hiddenBelow(int count) {
         int rows = (count + columns - 1) / columns;

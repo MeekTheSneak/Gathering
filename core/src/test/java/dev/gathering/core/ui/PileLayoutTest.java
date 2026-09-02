@@ -1,6 +1,10 @@
 package dev.gathering.core.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import net.jqwik.api.ForAll;
+import net.jqwik.api.Label;
+import net.jqwik.api.Property;
+import net.jqwik.api.constraints.IntRange;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -70,5 +74,69 @@ class PileLayoutTest {
                 across,
                 panel.height() - MARGIN * 2 - header - FOOTER);
         return new PileLayout(grid, columns, cardWidth, CARD_HEIGHT, GAP, scroll);
+    }
+
+    /** A row laid out the way the pile screen lays one: one line of cards, no scroll. */
+    private static PileLayout aRowOf(int cards) {
+        return new PileLayout(new Rect(20, 40, cards * 34, 60), cards, 30, 42, 4, 0);
+    }
+
+    @Test
+    @DisplayName("the far end of the row can be reached")
+    void theFarEndIsReachable() {
+        // Every point over the last card meaning "before it" leaves no way to say "after
+        // everything", so the one place a card most often goes is the one place unreachable.
+        PileLayout row = aRowOf(4);
+        Rect last = row.slot(3);
+
+        assertThat(row.gapAt(4, last.x() + 1, last.y() + 2)).isEqualTo(3);
+        assertThat(row.gapAt(4, last.right() - 1, last.y() + 2)).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("a drag onto an empty row lands at the front")
+    void anEmptyRow() {
+        assertThat(aRowOf(1).gapAt(0, 500, 500)).isZero();
+    }
+
+    @Property
+    @Label("every gap in the row is reachable from somewhere, and no other value ever comes out")
+    void everyGapIsReachable(@ForAll @IntRange(min = 1, max = 8) int cards) {
+        PileLayout row = aRowOf(cards);
+        java.util.Set<Integer> reached = new java.util.HashSet<>();
+        for (int index = 0; index < cards; index++) {
+            Rect slot = row.slot(index);
+            for (int x = slot.x(); x < slot.right(); x++) {
+                int gap = row.gapAt(cards, x, slot.y() + 2);
+                assertThat(gap).isBetween(0, cards);
+                reached.add(gap);
+            }
+        }
+        for (int gap = 0; gap <= cards; gap++) {
+            assertThat(reached).contains(gap);
+        }
+    }
+
+    @Property
+    @Label("the bar drawn during a drag and the release agree, because they are one rule")
+    void theBarAndTheReleaseAgree(
+            @ForAll @IntRange(min = 1, max = 8) int cards,
+            @ForAll @IntRange(min = -50, max = 400) int x,
+            @ForAll @IntRange(min = -50, max = 200) int y) {
+        PileLayout row = aRowOf(cards);
+
+        assertThat(row.gapAt(cards, x, y)).isEqualTo(row.gapAt(cards, x, y));
+        assertThat(row.gapAt(cards, x, y)).isBetween(0, cards);
+    }
+
+    @Property
+    @Label("a drag always lands somewhere, however far outside the grid it is let go")
+    void aDragAlwaysLandsSomewhere(
+            @ForAll @IntRange(min = -500, max = 900) int x,
+            @ForAll @IntRange(min = -500, max = 900) int y) {
+        PileLayout row = aRowOf(5);
+
+        assertThat(row.nearestSlot(x, y)).isGreaterThanOrEqualTo(0);
+        assertThat(row.gapAt(5, x, y)).isBetween(0, 5);
     }
 }
