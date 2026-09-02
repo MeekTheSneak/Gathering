@@ -62,7 +62,7 @@ public final class TableSetup {
         // A table playing for keeps asks everybody first, and the game starts when the last
         // seat answers rather than now. Nothing is staked until they have all said yes; this
         // is only the question.
-        if (Antes.askedFirst(level, origin, rules)) {
+        if (Antes.askedFirst(level, origin, rules, !freePlay)) {
             return;
         }
 

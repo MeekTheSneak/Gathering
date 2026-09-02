@@ -554,7 +554,10 @@ public class TableBlock extends BaseEntityBlock {
             // The same question the setup screen's path asks. Both ways into a game go
             // through it, because a gate on one of two doors is not a gate.
             if (level instanceof net.minecraft.server.level.ServerLevel asking
-                    && dev.gathering.server.Antes.askedFirst(asking, tableOrigin, walkUp)) {
+                    // Nobody named a format on the walk-up path, so nothing holds this
+                    // table to one - the same answer the setup screen's free play gives.
+                    && dev.gathering.server.Antes.askedFirst(
+                            asking, tableOrigin, walkUp, false)) {
                 return;
             }
             TableSessions.Outcome outcome =

@@ -12,6 +12,9 @@ import dev.gathering.core.match.MatchRules;
 import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.item.GatheringContent;
 import dev.gathering.server.Antes;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import dev.gathering.block.TableBlockEntity;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -49,7 +52,7 @@ public final class AnteConsentGameTest {
         }
         BlockPos origin = seatedTable(helper, 2);
         if (Antes.askedFirst(helper.getLevel(), origin,
-                MatchRules.single(FormatPresets.COMMANDER))) {
+                MatchRules.single(FormatPresets.COMMANDER), true)) {
             helper.fail("a server with ante off put the question to a table anyway");
             return;
         }
@@ -100,7 +103,7 @@ public final class AnteConsentGameTest {
         Antes.clear();
         BlockPos origin = seatedTable(helper, 0);
         if (Antes.askedFirst(helper.getLevel(), origin,
-                MatchRules.single(FormatPresets.COMMANDER))) {
+                MatchRules.single(FormatPresets.COMMANDER), true)) {
             helper.fail("an empty table was asked whether it wanted to play for keeps");
             return;
         }
@@ -149,6 +152,90 @@ public final class AnteConsentGameTest {
         }
         Antes.clear();
         helper.succeed();
+    }
+
+    /**
+     * A game started through the ante question still knows its format was named.
+     *
+     * <p>The deck check refuses only on a table that was told somebody picked a format, and
+     * the ordinary start says so. The ante path starts its game later - out of the last
+     * answer, when whoever picked the format is long gone from the call stack - and said
+     * nothing at all. So on any server with ante turned on, the deck check could not refuse
+     * a deck at any table, ever. Not a crash and not a message: a whole feature quietly
+     * downgraded from a refusal to a note, on exactly the servers most likely to want it.
+     *
+     * <p>Driven through the real question with ante switched on, rather than through a seam
+     * put here for the test, because the bug was entirely in what the real path forgot.
+     */
+    @GameTest(template = "empty")
+    public static void aGameStartedForKeepsKnowsItsFormatWasNamed(GameTestHelper helper) {
+        withAnteOn(helper, () -> {
+            Antes.clear();
+            BlockPos origin = seatedTable(helper, 0);
+            ServerPlayer player = helper.makeMockServerPlayerInLevel();
+            player.setPos(origin.getCenter());
+            List<SeatAnchor> anchors = TableClusters.at(helper.getLevel(), origin).seats();
+            TableSeats.take(helper.getLevel(), origin, anchors.get(0).cell(),
+                    anchors.get(0).side(), player.getUUID());
+
+            if (!Antes.askedFirst(helper.getLevel(), origin,
+                    MatchRules.single(FormatPresets.COMMANDER), true)) {
+                return "a server with ante on did not put the question to a seated table";
+            }
+            // The only seat says yes, which settles it and starts the game.
+            Antes.answer(player, origin, AnteConsent.Answer.IN);
+
+            if (!TableSessions.hasSession(helper.getLevel(), origin)) {
+                return "the table agreed to play for keeps and no game started";
+            }
+            TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+            if (!table.playingForKeeps()) {
+                return "a game started through the ante question is not for keeps";
+            }
+            if (!table.formatWasChosen()) {
+                return "a game started through the ante question does not know its format was"
+                        + " named, so the deck check can only warn and never refuse";
+            }
+            return null;
+        });
+    }
+
+    /** Runs something on a server that is playing for keeps, and puts the config back. */
+    private static void withAnteOn(GameTestHelper helper, java.util.function.Supplier<String> what) {
+        java.nio.file.Path file = dev.gathering.platform.Platform.get()
+                .configDirectory().resolve("gathering-server.toml");
+        String before = null;
+        try {
+            if (java.nio.file.Files.isRegularFile(file)) {
+                before = java.nio.file.Files.readString(file, StandardCharsets.UTF_8);
+            }
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(file,
+                    "[modes]\ncollection_enabled = true\n\n[ante]\nenabled = true\n",
+                    StandardCharsets.UTF_8);
+            dev.gathering.service.ServerSettings.load(dev.gathering.platform.Platform.get());
+
+            String wrong = what.get();
+            if (wrong != null) {
+                helper.fail(wrong);
+                return;
+            }
+            helper.succeed();
+        } catch (IOException couldNotWrite) {
+            helper.fail("The config file could not be written: " + couldNotWrite);
+        } finally {
+            Antes.clear();
+            try {
+                if (before == null) {
+                    java.nio.file.Files.deleteIfExists(file);
+                } else {
+                    java.nio.file.Files.writeString(file, before, StandardCharsets.UTF_8);
+                }
+            } catch (IOException couldNotRestore) {
+                // Nothing useful to do here; the next start writes a fresh one.
+            }
+            dev.gathering.service.ServerSettings.load(dev.gathering.platform.Platform.get());
+        }
     }
 
     // ------------------------------------------------------------------ bits

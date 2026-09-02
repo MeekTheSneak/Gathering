@@ -61,8 +61,16 @@ public final class Antes {
         }
     }
 
-    /** A question in progress: the answers, and what to start if they all say yes. */
-    private record Asking(AnteConsent consent, MatchRules rules) {
+    /**
+     * A question in flight, and everything the game it starts will need.
+     *
+     * <p>{@code formatChosen} travels with it because the game starts later, out of the last
+     * answer, and by then whoever picked the format is long gone from the call stack. Without
+     * it the table came up never having been told a format was named - so the deck check,
+     * which refuses only on a table that was, could not refuse anything on any server with
+     * ante turned on.
+     */
+    private record Asking(AnteConsent consent, MatchRules rules, boolean formatChosen) {
     }
 
     private Antes() {
@@ -97,7 +105,8 @@ public final class Antes {
      * question has gone out, and the caller does nothing: the game starts when the last seat
      * answers, not now.
      */
-    public static boolean askedFirst(ServerLevel level, BlockPos tableOrigin, MatchRules rules) {
+    public static boolean askedFirst(ServerLevel level, BlockPos tableOrigin,
+            MatchRules rules, boolean formatChosen) {
         if (!isOffered()) {
             return false;
         }
@@ -114,7 +123,7 @@ public final class Antes {
             return false;
         }
 
-        ASKING.put(where, new Asking(AnteConsent.asking(seats), rules));
+        ASKING.put(where, new Asking(AnteConsent.asking(seats), rules, formatChosen));
         show(level, tableOrigin);
         return true;
     }
@@ -139,7 +148,7 @@ public final class Antes {
         }
 
         AnteConsent said = asking.consent().from(seat, answer);
-        ASKING.put(where, new Asking(said, asking.rules()));
+        ASKING.put(where, new Asking(said, asking.rules(), asking.formatChosen()));
 
         if (said.refused()) {
             ASKING.remove(where);
@@ -154,7 +163,7 @@ public final class Antes {
 
         tell(level, tableOrigin, "message.gathering.ante_agreed");
         close(level, tableOrigin);
-        TableSessions.Outcome outcome = startForKeeps(level, tableOrigin, asking.rules());
+        TableSessions.Outcome outcome = startForKeeps(level, tableOrigin, asking.rules(), asking.formatChosen());
         ASKING.remove(where);
         if (outcome == TableSessions.Outcome.STARTED) {
             TableBroadcast.sendToTable(level, tableOrigin);
@@ -194,7 +203,7 @@ public final class Antes {
         // Rebuilt against who is actually sitting there. A yes left behind by somebody who
         // has stood up is not a vote, and the rule in :core drops it for us.
         AnteConsent said = new AnteConsent(seats, asking.consent().answers());
-        ASKING.put(where, new Asking(said, asking.rules()));
+        ASKING.put(where, new Asking(said, asking.rules(), asking.formatChosen()));
         if (!said.settled()) {
             show(level, tableOrigin);
             return;
@@ -203,7 +212,7 @@ public final class Antes {
         // have all said yes, so the game they agreed to starts rather than hanging.
         tell(level, tableOrigin, "message.gathering.ante_agreed");
         close(level, tableOrigin);
-        TableSessions.Outcome outcome = startForKeeps(level, tableOrigin, asking.rules());
+        TableSessions.Outcome outcome = startForKeeps(level, tableOrigin, asking.rules(), asking.formatChosen());
         ASKING.remove(where);
         if (outcome == TableSessions.Outcome.STARTED) {
             TableBroadcast.sendToTable(level, tableOrigin);
@@ -221,12 +230,18 @@ public final class Antes {
      * to last night, or on none at all.
      */
     private static TableSessions.Outcome startForKeeps(
-            ServerLevel level, BlockPos tableOrigin, MatchRules rules) {
+            ServerLevel level, BlockPos tableOrigin, MatchRules rules, boolean formatChosen) {
         TableSessions.Outcome outcome = TableSessions.start(level, tableOrigin, rules);
         if (outcome == TableSessions.Outcome.STARTED) {
             TableSessions.anchorOf(level, tableOrigin)
                     .flatMap(anchor -> TableBlock.entityAt(level, anchor))
-                    .ifPresent(table -> table.playForKeeps(true));
+                    .ifPresent(table -> {
+                        table.playForKeeps(true);
+                        // Exactly what the ordinary start does. A game that went through the
+                        // ante question is still a game somebody picked a format for, and a
+                        // table that does not know it was named cannot be held to it.
+                        table.formatWasChosen(formatChosen);
+                    });
         }
         return outcome;
     }
