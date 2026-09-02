@@ -61,7 +61,8 @@ public final class GatheringFabric implements ModInitializer {
                     tableBuilder.withPool(LootPool.lootPool()
                             .setRolls(ConstantValue.exactly(1.0f))
                             .add(dev.gathering.loot.PackLootEntry.forTable(
-                                    from, dev.gathering.core.sealed.LootRichness.of(table)))));
+                                    from, dev.gathering.core.sealed.LootRichness.of(table),
+                                    table))));
         });
 
         // A player's wants list, read when they arrive and let go when they leave. Both are

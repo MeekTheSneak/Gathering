@@ -72,19 +72,51 @@ public final class PackLootEntry extends LootPoolSingletonContainer {
     private final LootSource source;
     private final LootRichness richness;
 
+    /**
+     * Which loot table this entry was built for, when the mod built it.
+     *
+     * <p>Not in the codec, and deliberately absent from a data pack's entry: the archive is
+     * about the mod's own reading of the vanilla tables, not something a pack declares. It is
+     * here because the archive roll needs the table's name and only one loader hands it over
+     * at roll time - {@code LootContext.getQueriedLootTableId} is a NeoForge patch, and this
+     * class is shared. Carried from where the name is already known instead.
+     */
+    private final String archiveTable;
+
     private PackLootEntry(java.util.Optional<LootSource> source, LootRichness richness,
             int weight, int quality, List<LootItemCondition> conditions,
+            List<LootItemFunction> functions) {
+        this(source, richness, null, weight, quality, conditions, functions);
+    }
+
+    private PackLootEntry(java.util.Optional<LootSource> source, LootRichness richness,
+            String archiveTable, int weight, int quality, List<LootItemCondition> conditions,
             List<LootItemFunction> functions) {
         super(weight, quality, conditions, functions);
         this.source = source == null ? null : source.orElse(null);
         this.richness = richness == null ? LootRichness.PLAIN : richness;
+        this.archiveTable = archiveTable;
     }
 
     /** An entry for one chest, ready to go into a pool. */
     public static LootPoolSingletonContainer.Builder<?> forTable(
             LootSource source, LootRichness richness) {
+        return forTable(source, richness, null);
+    }
+
+    /**
+     * The same, naming the table so the archive can be rolled for it too.
+     *
+     * <p>NeoForge reaches the archive through {@code SealedLoot.rollFor}, which asks it first
+     * and skips the ordinary pack when it answers. Fabric adds this entry to the table
+     * instead, and this entry went straight to {@code rollFrom} - which never asks. So the
+     * rarest thing in the mod could not drop on Fabric at all, and nothing said so: the
+     * chests kept producing ordinary packs exactly as they were meant to.
+     */
+    public static LootPoolSingletonContainer.Builder<?> forTable(
+            LootSource source, LootRichness richness, String table) {
         return simpleBuilder((weight, quality, conditions, functions) -> new PackLootEntry(
-                java.util.Optional.ofNullable(source), richness, weight, quality,
+                java.util.Optional.ofNullable(source), richness, table, weight, quality,
                 conditions, functions));
     }
 
@@ -95,9 +127,18 @@ public final class PackLootEntry extends LootPoolSingletonContainer {
 
     @Override
     public void createItemStack(Consumer<ItemStack> stackConsumer, LootContext lootContext) {
-        (source == null
-                ? SealedLoot.packFrom(richness, lootContext.getRandom())
-                : SealedLoot.rollFrom(source, richness, lootContext.getRandom()))
-                .ifPresent(stackConsumer);
+        if (source == null) {
+            SealedLoot.packFrom(richness, lootContext.getRandom()).ifPresent(stackConsumer);
+            return;
+        }
+        if (archiveTable != null) {
+            // The same call NeoForge's loot modifier makes, rather than the same behaviour
+            // written out again: it asks the archive first and skips the ordinary pack when
+            // the archive answers, and that ordering is the sort of thing that is copied
+            // once and then only fixed in one place. One function, both loaders.
+            SealedLoot.rollFor(archiveTable, lootContext.getRandom()).ifPresent(stackConsumer);
+            return;
+        }
+        SealedLoot.rollFrom(source, richness, lootContext.getRandom()).ifPresent(stackConsumer);
     }
 }
