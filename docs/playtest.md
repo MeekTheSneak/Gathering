@@ -7,8 +7,8 @@ me what broke.
 ## 0. Before you start
 
 - **Minecraft 1.21.1.** Everyone on the same loader — a NeoForge client can't join a Fabric server.
-  - **NeoForge:** `gathering-neoforge-0.0.1.jar`, needs NeoForge 21.1.0+
-  - **Fabric:** `gathering-fabric-0.0.1.jar`, needs Fabric Loader 0.19.3+ **and Fabric API**
+  - **NeoForge:** `gathering-neoforge-0.1.0.jar`, needs NeoForge 21.1.0+
+  - **Fabric:** `gathering-fabric-0.1.0.jar`, needs Fabric Loader 0.19.3+ **and Fabric API**
 - Jar goes in `mods/` on the server **and** every client. Fabric API goes in `mods/` too.
 - Be online the first time. Card names, text and art come from Scryfall and cache to disk. No
   account, no API key. A card you've seen works offline forever.
