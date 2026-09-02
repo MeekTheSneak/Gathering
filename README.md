@@ -137,8 +137,9 @@ past and see.
 deck, sit down, play a full game, collect and draft if your server wants that. Two things stand
 between this and a first release:
 
-- **The art is placeholder.** Textures, block models and the interface graphics are generated
-  stand-ins, being drawn properly now.
+- **Some of the art is still generated.** The mana symbols, the booster wrapper, the felt and
+  the shopkeeper are drawn; the collection block, the shop counter and the interface sprites
+  are still generated stand-ins.
 - **It has never been played by four humans at once.** Multiplayer is built, and tested by
   machine including the hidden-information rules, but the real four-player session that proves
   it is enjoyable hasn't happened yet.
@@ -194,9 +195,11 @@ checklist. Gradle must run on **Java 21**.
 
 `core` is pure Java with no Minecraft on its classpath and `common` has no loader imports, both
 enforced by the build rather than by convention, which keeps the layer that can be tested in
-milliseconds as large as possible. Beside the gate sit checks for translation keys, stranded
-documentation, GUI art with nothing drawing it, and a scripted client that plays a whole game
-and photographs every step.
+milliseconds as large as possible. Beside the gate sit eight checks - translation keys, stranded
+documentation, dev-scene steps, game-test plots, one gesture per verb, GUI art with nothing
+drawing it, teardown lists, and the mana symbols against their parts - plus `tools/smoke.sh`,
+which boots both loaders, and `tools/shots.sh`, a scripted client that plays a whole game and
+photographs every step. [`tools/README.md`](tools/README.md) lists all of it.
 
 ## License
 

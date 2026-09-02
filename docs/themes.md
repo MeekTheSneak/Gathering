@@ -13,7 +13,7 @@ element is drawn as a labeled diagram so you can see what you are painting over.
 
 ![Every element](gui-elements.png)
 
-`docs/gui-elements.png` shows all fifty-five elements, at four times life size, with the name
+`docs/gui-elements.png` shows all seventy-five elements, at four times life size, with the name
 of the file, how big it is, how it stretches, and — where it is nine-sliced — where the slices
 cut. Magenta is the edge of the file. Cyan is where a nine-slice cuts. The checkerboard is
 transparency.
@@ -58,7 +58,7 @@ The file's own name is the look's id: `assets/mypack/gui_themes/bubble.json` is 
 
 ## You do not have to paint all of it
 
-A look inherits anything it does not draw. Repaint six elements and leave the other forty-nine
+A look inherits anything it does not draw. Repaint six elements and leave the other sixty-nine
 alone and you have a complete look — the rest comes from the basic look. That is worth using: a "Retro"
 pass that only changes the panels, the rings and the card stock is a real look and an
 afternoon's work, not a week's.

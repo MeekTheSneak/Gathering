@@ -63,14 +63,17 @@ Or live, no restart: `/gathering config import.allow_all_players true`
 - [ ] Push a second table against it edge to edge. 2 tables seat 4, 3 seat 6, 4 seat 8. A fifth
       should refuse. A table offset by one block should stay its own cluster — that's deliberate.
 - [ ] Right-click with a dye to color the felt. Should survive a restart and a chunk reload.
+- [ ] Craft a **Collection** — four leather round a chest — and put it down. It's the binder
+      everything you own lives in, and it holds your cards through a break and a re-place.
 - [ ] **Walk up holding the deck and right-click.** You should be seated, shuffled and holding
       seven, in that one click.
 - [ ] Press **F1** at the board for every key. That list is the only teaching this mod does — tell
       me if anything on it is a lie.
 
 **How it looks**
-- [ ] Options → Video Settings → **Gathering look**: felt, slate, walnut, template. The template
-      look draws every element as a labeled diagram *on purpose* — it's a blueprint, not a bug.
+- [ ] Options → Video Settings → **Gathering look** cycles thirteen of them and a template.
+      The template look draws every element as a labeled diagram *on purpose* — a blueprint,
+      not a bug. It is also a row on the table's own menu, which is where you'll actually meet it.
 - [ ] Squash the window as small as it goes, then try GUI scale 1–4. Nothing should overlap, run off
       an edge, or disappear.
 
@@ -192,7 +195,7 @@ set contains what that pack contained.
       at the same prices, so re-placing a counter until the shelf offers what you want doesn't work.
 - [ ] Collection block → right-click. Everything you own, searchable, a page at a time.
       Sneak-right-click it holding a deck to pour the whole deck back in.
-- [ ] **Build a deck…** and paste a list — you get the deck it can make out of the box, and a list
+- [ ] **Build deck** and paste a list — you get the deck it can make out of the box, and a list
       of what it was short of. Matches by card not printing; plain copies go in before foils; basics
       are conjured because basics are free.
 - [ ] Set progress → left-click a set for what you're missing, colored by rarity. Left-click a row
@@ -279,9 +282,10 @@ Matched to Tabletop Simulator's defaults where they exist.
 
 ## Known, not a bug
 
-- **The art is placeholder.** Textures, block models, the booster wrapper, the collection block and
-  most interface graphics are generated stand-ins. Report how something *works*, not how it looks —
-  unless it's unreadable, which is worth knowing.
+- **Some of the art is still generated.** The collection block, the shop counter and the
+  interface sprites are stand-ins; the mana symbols, the booster wrapper, the sealed box, the
+  felt and the shopkeeper are drawn. Report how something *works*, not how it looks — unless
+  it's unreadable, which is worth knowing.
 - **A village may get two card shops, or none.** A jigsaw pool can only say how often to try.
 - **Moxfield links can't be fetched.** Their API refuses other tools. Use More → Export → Text.
 - **There are no card recommendations.** A suggestions tab was built and cut: EDHREC publishes no

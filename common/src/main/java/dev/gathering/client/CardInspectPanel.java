@@ -74,8 +74,8 @@ public final class CardInspectPanel {
     // stay legible and renderAtCursor bows out on any screen that does, so what is left here
     // is inventories and chests, where there is nothing behind worth protecting.
     //
-    // 0.55 of a GUI-scale-3 window is under two hundred pixels of card. The text column is
-    // sized from the art, so this is the one knob.
+    // Two thirds of a GUI-scale-3 window is a little over two hundred pixels of card. The text
+    // column is sized from the art, so this is the one knob.
     private static final float CURSOR_ART_FRACTION = 0.66f;
     private static final int CURSOR_ART_MAX = 400;
     private static final int CURSOR_ART_MIN = 96;

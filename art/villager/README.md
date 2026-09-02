@@ -18,9 +18,14 @@ has to be copied across before it does anything:
 
     python3 tools/install_villager.py
 
-which copies `shopkeeper.png` and, if it is there, `shopkeeper_zombie.png` into the two places
-the game reads, and refuses anything that is not 64x64 RGBA - the wrong size does not fail,
-it stretches across the same UVs and comes out as a smeared villager.
+which copies the two drawings in this folder into the two places the game reads, and refuses
+anything that is not 64x64 RGBA - the wrong size does not fail, it stretches across the same
+UVs and comes out as a smeared villager.
+
+It finds them by name rather than by an exact filename, because the names come from whoever
+drew them: the zombie is whichever one says "zombie", and the living one is the shopkeeper
+that does not. `ShopkeeperZombie.png`, `shopkeeper_zombie.png` and `zombie shopkeeper.png` are
+all read the same way.
 
 Transparent everywhere except the cloth. The villager underneath is already drawn, tinted by
 biome, and the profession layer goes over the top of it.

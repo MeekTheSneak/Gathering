@@ -197,7 +197,8 @@ this way shows on the item in gold like an imported one does.
 
 ### 5. Put some tables together
 
-Craft a **Gathering Table** (three wool over planks, two legs) or take one from the creative
+Craft a **Gathering Table** (three wool over planks, two legs) or a **Collection** (four
+leather round a chest), or take either from the creative
 tab. It is a 2x2 multiblock: the block you click becomes its north-west corner.
 
 - **Right-click an edge** to take that seat, and the same edge again to leave it. Right-click
@@ -354,7 +355,7 @@ searchable, one page at a time. Cards go in one at a time and come out one at a 
 the deck in your hand if you are holding one — and a whole deck poured back in is one gesture
 (sneak and right-click the block with the deck).
 
-- **Build a deck from a list.** Open a collection and press **Build a deck...**, paste a
+- **Build a deck from a list.** Open a collection and press **Build deck**, paste a
   decklist, and you get the deck it can make with the cards taken out of the box. It matches
   by card rather than by printing, so a list off a deck site works even though it names
   printings you do not own; the plain copy goes in before the foil; basics are conjured
@@ -500,7 +501,7 @@ In rough order of how much it would change what I build next:
    **F3+T** in game applies the change immediately, with no rebuild.
 2. **Is Left Alt right, and is the cursor panel the right size?** The key conflicts with
    nothing I know of, but you'll find out in a minute what I can't. The panel sizes its art
-   to 45% of the screen height and shrinks it further on a wordy card to keep the text on
+   to 66% of the screen height and shrinks it further on a wordy card to keep the text on
    screen — both numbers are guesses.
 3. **Is the sidebar readable** — width, wrapping, whether oracle text gets cut off on a
    wordy card. Try `/gathering card Kozilek, Butcher of Truth`.
@@ -522,8 +523,10 @@ In rough order of how much it would change what I build next:
   switches between thirteen of them and a template, and a fourteenth is a folder of PNGs and
   a four-line file in a resource pack — but every one that ships is `tools/gui_art.py`'s
   output rather than drawn art, and template is a labeled diagram on purpose.
-- **Placeholder art.** The booster wrapper and the collection block are generated templates,
-  not drawn textures.
+- **Some art is still generated.** The collection block and the shop counter are
+  `tools/block_art.py`'s output rather than drawn textures. The booster wrapper, the sealed
+  box, the felt, all thirty-five mana marks and the shopkeeper have been drawn by hand since
+  and are on the protected list in `tools/pngwrite.py`, which refuses to write over them.
 
 ### 4. Squash the window
 
