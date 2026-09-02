@@ -22,7 +22,6 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
     private final Map<String, UUID> byPrinting = new ConcurrentHashMap<>();
     private final Map<String, UUID> byName = new ConcurrentHashMap<>();
     private final Map<String, UUID> byNameInSet = new ConcurrentHashMap<>();
-    private final Map<UUID, JsonObject> raw = new ConcurrentHashMap<>();
 
     /**
      * What is already in memory for this printing, and never anything else.
@@ -66,9 +65,6 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
             return;
         }
         byId.put(card.scryfallId(), card);
-        if (rawJson != null) {
-            raw.put(card.scryfallId(), rawJson);
-        }
         if (card.setCode() != null && card.collectorNumber() != null) {
             byPrinting.put(printingKey(card.setCode(), card.collectorNumber()), card.scryfallId());
         }
