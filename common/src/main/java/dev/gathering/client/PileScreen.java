@@ -12,6 +12,7 @@ import dev.gathering.core.game.visibility.CardView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.ui.CardShape;
+import dev.gathering.core.ui.PileLayout;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
@@ -532,14 +533,22 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     }
 
     private Rect slotOf(int index) {
-        int cardWidth = Math.max(8, CardShape.widthFor(CARD_HEIGHT));
-        int column = index % columns;
-        int row = index / columns;
-        return new Rect(
-                grid.x() + column * (cardWidth + GAP),
-                grid.y() + row * (CARD_HEIGHT + GAP) - scroll,
-                cardWidth,
-                CARD_HEIGHT);
+        return laidOut().slot(index);
+    }
+
+    /**
+     * The box's grid, as the shared layout sees it.
+     *
+     * <p>Shared because the question "which card is under the pointer" has an answer that a
+     * screen cannot be trusted to remember: a pile holding more than fits keeps laying the
+     * rest out below the fold, and those slots are taller than the gap between the grid and
+     * the Done button. Asked slot by slot, an invisible card lay across the way out and
+     * swallowed every click on it. {@link PileLayout} asks about the grid first.
+     */
+    private PileLayout laidOut() {
+        return new PileLayout(
+                grid, columns, Math.max(8, CardShape.widthFor(CARD_HEIGHT)),
+                CARD_HEIGHT, GAP, scroll);
     }
 
     // ---------------------------------------------------- the scripted harness
@@ -616,10 +625,8 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         }
 
         List<CardView> cards = inOrder();
-        for (int index = 0; index < cards.size(); index++) {
-            if (!slotOf(index).contains(x, y)) {
-                continue;
-            }
+        int index = laidOut().slotAt(cards.size(), x, y);
+        if (index >= 0) {
             if (cards.get(index) instanceof CardView.Visible visible) {
                 if (mySeat().isEmpty()) {
                     // No seat, nothing to move it with. The sound is the answer to "did that

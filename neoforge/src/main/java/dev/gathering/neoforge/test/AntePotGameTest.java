@@ -226,6 +226,61 @@ public final class AntePotGameTest {
         helper.succeed();
     }
 
+    /**
+     * A pot handed back goes to the people who filled it, not to the chairs.
+     *
+     * <p>A seat says where a card was staked from; it does not say whose it was. Somebody who
+     * stakes, stands up, and is replaced before the game is voided had their card handed to
+     * whoever sat down after them - a card changing owner because of where a person happened
+     * to be standing, in the one feature whose entire point is that a card changes owner
+     * deliberately. The held decks fixed exactly this by recording who put each one down;
+     * the pot is the same fact, kept in the same place.
+     */
+    @GameTest(template = "tables")
+    public static void aPotGoesBackToWhoStakedItAndNotToTheChair(GameTestHelper helper) {
+        BlockPos origin = seatedTable(helper, 0);
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+
+        ServerPlayer staker = helper.makeMockServerPlayerInLevel();
+        ServerPlayer stranger = helper.makeMockServerPlayerInLevel();
+        staker.setPos(origin.getCenter());
+        stranger.setPos(origin.getCenter());
+
+        table.stake(new SeatId(0), List.of(card(RING)), staker.getUUID());
+
+        // The staker walks away and somebody else takes the chair.
+        List<SeatAnchor> anchors = TableClusters.at(helper.getLevel(), origin).seats();
+        TableSeats.take(helper.getLevel(), origin, anchors.get(0).cell(), anchors.get(0).side(),
+                stranger.getUUID());
+
+        // Nobody won, so the pot goes back to whoever put each card in.
+        TableSessions.settlePot(helper.getLevel(), origin, table, null);
+
+        if (countIn(stranger) != 0) {
+            helper.fail("the person who sat down in a vacated chair was handed somebody"
+                    + " else's staked card");
+            return;
+        }
+        if (countIn(staker) != 1) {
+            helper.fail("the card went back to the chair rather than to the person who"
+                    + " staked it: the staker has " + countIn(staker));
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** Card items this player is carrying. */
+    private static int countIn(ServerPlayer player) {
+        int found = 0;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (CardItem.cardOf(stack).isPresent()) {
+                found += stack.getCount();
+            }
+        }
+        return found;
+    }
+
     /** Staking nothing leaves the deck exactly as it was. */
     @GameTest(template = "empty")
     public static void stakingNothingChangesNothing(GameTestHelper helper) {

@@ -126,6 +126,11 @@ public final class DecklistImportScreen extends Screen {
                                 : "screen.gathering.import.confirm"), button -> submit())
                 .bounds(left + inner - buttonWidth, buttonTop, buttonWidth, BUTTON_HEIGHT)
                 .build();
+        // A fresh button comes up enabled, and init runs again on every resize - so dragging
+        // the window while an import was in flight handed back a live Import button and a
+        // second press sent the same list twice, for two decks off one paste. The waiting
+        // flag outlives the widgets; the widget's state is put back in step with it.
+        this.importButton.active = !this.waiting;
         this.addRenderableWidget(this.importButton);
 
         this.addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), button -> this.onClose())
@@ -134,6 +139,12 @@ public final class DecklistImportScreen extends Screen {
     }
 
     private void submit() {
+        if (this.waiting) {
+            // The button is disabled while an import is in flight, and this is the belt to
+            // that brace: whether the widget is in the right state is a question about the
+            // screen, and whether a second list is sent is a question about somebody's cards.
+            return;
+        }
         String decklist = this.decklistField.getValue();
         if (decklist.isBlank()) {
             this.status = Component.translatable(fromCollection()

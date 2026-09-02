@@ -712,7 +712,7 @@ public class TableBlock extends BaseEntityBlock {
                 player.sendSystemMessage(
                         Component.translatable("message.gathering.ante_nothing_to_stake"));
             } else {
-                holding.stake(seat, stake.staked());
+                holding.stake(seat, stake.staked(), player.getUUID());
                 library = stake.library();
                 // And out of the deck the table is about to hold, not only out of the library
                 // the game is dealt. The table hands that deck back when the match ends, so a

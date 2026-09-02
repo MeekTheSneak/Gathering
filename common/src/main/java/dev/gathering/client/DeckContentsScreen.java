@@ -179,21 +179,26 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
     }
 
     /**
-     * Sends the name on the way out, and only if it changed.
+     * Sends the name whenever this screen goes away, and only if it changed.
      *
-     * <p>Rather than on every keystroke, which would be a packet per letter. Closing covers
-     * the Done button, Escape and walking away from the screen, which is every way out there
-     * is.
+     * <p>Rather than on every keystroke, which would be a packet per letter. On {@code
+     * removed} rather than on {@code onClose}, which is the whole of a bug this had: closing
+     * covers the Done button, Escape and walking away, but it does not cover leaving through
+     * one of this screen's own buttons. Opening the gather builder or the sleeve picker
+     * replaces the screen, and replacing a screen calls {@code removed} and never {@code
+     * onClose} - so a name typed and then followed by the very next thing somebody would do
+     * with the deck was thrown away without a word. {@code removed} is the one call every
+     * way out goes through, including {@code onClose}'s own.
      */
     @Override
-    public void onClose() {
+    public void removed() {
         DeckComponent deck = deck().orElse(null);
         if (this.nameField != null && deck != null
                 && !this.nameField.getValue().strip().equals(deck.name())) {
             ClientNetworking.send(
                     dev.gathering.network.RenameDeckPayload.of(hand, this.nameField.getValue()));
         }
-        super.onClose();
+        super.removed();
     }
 
     /** How many a shift-click asks for, which is about a third of a limited mana base. */

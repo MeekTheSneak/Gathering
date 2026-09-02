@@ -74,6 +74,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String FOR_KEEPS_KEY = "for_keeps";
     private static final String ANTE_SEAT_KEY = "seat";
     private static final String ANTE_CARDS_KEY = "cards";
+    private static final String ANTE_STAKER_KEY = "staker";
 
     /** Two seconds. Ambience, not gameplay - moves are pushed as they happen. */
     private static final int AMBIENT_INTERVAL_TICKS = 40;
@@ -149,6 +150,15 @@ public class TableBlockEntity extends BlockEntity {
      * which is a collection changing hands because of where a person was standing.
      */
     private final Map<SeatId, UUID> deckOwners = new LinkedHashMap<>();
+
+    /**
+     * Who put each seat's stake in the pot.
+     *
+     * <p>Beside the pot, exactly as {@code deckOwners} sits beside the decks: a seat says
+     * where a card was staked from and a UUID says whose it was, and only the second is any
+     * use when a pot goes back to the people who filled it.
+     */
+    private final Map<SeatId, UUID> stakers = new LinkedHashMap<>();
 
     /**
      * The pot, when this table is playing for keeps.
@@ -340,13 +350,38 @@ public class TableBlockEntity extends BlockEntity {
         setChanged();
     }
 
-    /** Puts a seat's stake into the pot. */
+    /** Puts a seat's stake into the pot, without recording whose it was. */
     public void stake(SeatId seat, java.util.List<dev.gathering.core.card.CardIdentity> cards) {
+        stake(seat, cards, null);
+    }
+
+    /**
+     * Puts a seat's stake into the pot, and remembers the person who put it there.
+     *
+     * <p>The person, not only the chair. A pot that is handed back - a game voided, a table
+     * broken, a match nobody finished - is handed back by seat, and a seat is not a player: a
+     * staker who stood up and was replaced had their card given to whoever sat down after
+     * them. That is cards changing hands because of where somebody happened to be standing,
+     * in the one feature whose whole point is that a card really changes owner.
+     *
+     * <p>Beside the pot rather than inside it, which is where the held decks keep the same
+     * fact for the same reason. The pot itself stays a pure record of seats and cards.
+     */
+    public void stake(SeatId seat, java.util.List<dev.gathering.core.card.CardIdentity> cards,
+            UUID who) {
         if (seat == null || cards == null || cards.isEmpty()) {
             return;
         }
         pot = pot.with(seat, cards);
+        if (who != null) {
+            stakers.put(seat, who);
+        }
         setChanged();
+    }
+
+    /** Who put this seat's stake in, if the table was told. */
+    public Optional<UUID> stakerOf(SeatId seat) {
+        return Optional.ofNullable(stakers.get(seat));
     }
 
     /** What is in the pot, and whose. */
@@ -366,6 +401,18 @@ public class TableBlockEntity extends BlockEntity {
         pot = dev.gathering.core.ante.AntePot.EMPTY;
         setChanged();
         return taken;
+    }
+
+    /**
+     * Who staked, kept until the pot is settled rather than released with it.
+     *
+     * <p>Released separately because the caller needs both, and needs them after the release:
+     * the pot is emptied before a single card is handed anywhere, so that a settle which runs
+     * twice pays out once, and the names have to outlive that by exactly one call.
+     */
+    public void forgetStakers() {
+        stakers.clear();
+        setChanged();
     }
 
     public Optional<DeckComponent> deckOf(SeatId seat) {
@@ -680,6 +727,7 @@ public class TableBlockEntity extends BlockEntity {
 
         forKeeps = tag.getBoolean(FOR_KEEPS_KEY);
         pot = dev.gathering.core.ante.AntePot.EMPTY;
+        stakers.clear();
         ListTag staked = tag.getList(ANTE_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < staked.size(); index++) {
             CompoundTag entry = staked.getCompound(index);
@@ -695,6 +743,9 @@ public class TableBlockEntity extends BlockEntity {
                         .ifPresent(component -> read.add(component.toIdentity()));
             }
             pot = pot.with(seat, read);
+            if (entry.hasUUID(ANTE_STAKER_KEY)) {
+                stakers.put(seat, entry.getUUID(ANTE_STAKER_KEY));
+            }
         }
 
         claims.clear();
@@ -767,6 +818,10 @@ public class TableBlockEntity extends BlockEntity {
             CompoundTag entry = new CompoundTag();
             entry.putInt(ANTE_SEAT_KEY, seat.index());
             entry.put(ANTE_CARDS_KEY, written);
+            UUID who = stakers.get(seat);
+            if (who != null) {
+                entry.putUUID(ANTE_STAKER_KEY, who);
+            }
             staked.add(entry);
         });
         tag.put(ANTE_KEY, staked);

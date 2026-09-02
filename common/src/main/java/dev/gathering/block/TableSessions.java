@@ -324,26 +324,45 @@ public final class TableSessions {
                 winner == null ? pot.backToOwners() : pot.toWinner(winner);
 
         payout.to().forEach((seat, cards) -> {
-            Player owner = seat.index() < anchors.size()
-                    ? occupantOf(level, tableOrigin, anchors.get(seat.index())).orElse(null)
+            // A pot going back to the people who filled it goes back to the people, not to
+            // the chairs they were sitting in: a staker who stood up and was replaced had
+            // their card handed to whoever sat down after them, which is a card changing
+            // owner because of where somebody happened to be standing. Wherever they are on
+            // the server, then the seat, then the table top - the same ladder a held deck
+            // comes back down, and for the same reason.
+            //
+            // A pot going to a winner is different and stays as it was: the winner is whoever
+            // just won, which is whoever is in that chair now.
+            Player owner = winner == null
+                    ? table.stakerOf(seat).map(level::getPlayerByUUID).orElse(null)
                     : null;
+            if (owner == null) {
+                owner = seat.index() < anchors.size()
+                        ? occupantOf(level, tableOrigin, anchors.get(seat.index())).orElse(null)
+                        : null;
+            }
             for (dev.gathering.core.card.CardIdentity card : cards) {
                 ItemStack stack = dev.gathering.item.CardItem.of(
                         dev.gathering.item.CardComponent.of(card));
                 // A card that came back to whoever staked it is a card nothing happened to.
                 // A card that did not is the one the whole feature is for: this is the moment
                 // it stops being a copy of a printing and becomes a thing with a history.
-                if (winner != null && owner instanceof net.minecraft.server.level.ServerPlayer won) {
+                Player receiving = owner;
+                if (winner != null && receiving instanceof net.minecraft.server.level.ServerPlayer won) {
                     dev.gathering.server.CardStories.remember(stack,
                             dev.gathering.server.CardStories.wonBy(won,
-                                    whoStaked(level, tableOrigin, anchors, pot, card, seat)));
+                                    whoStaked(level, tableOrigin, table, anchors, pot, card, seat)));
                 }
-                if (owner == null || !owner.getInventory().add(stack)) {
+                if (receiving == null || !receiving.getInventory().add(stack)) {
                     Containers.dropItemStack(level, tableOrigin.getX() + 0.5,
                             tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
                 }
             }
         });
+        // Last, and only once the pot has actually been paid out: the names outlive the
+        // release by exactly one call, because the release is what stops a settle running
+        // twice, and the names are what the payout needs after it.
+        table.forgetStakers();
     }
 
     /**
@@ -358,20 +377,27 @@ public final class TableSessions {
      * genuinely did come out of one of their hands.
      */
     private static String whoStaked(
-            Level level, BlockPos tableOrigin, List<SeatAnchor> anchors,
+            Level level, BlockPos tableOrigin, TableBlockEntity table, List<SeatAnchor> anchors,
             dev.gathering.core.ante.AntePot pot, dev.gathering.core.card.CardIdentity card,
             SeatId taking) {
         for (var stake : pot.stakes().entrySet()) {
             if (stake.getKey().equals(taking) || !stake.getValue().contains(card)) {
                 continue;
             }
-            int index = stake.getKey().index();
-            if (index >= anchors.size()) {
-                continue;
+            // The person the table recorded, before the chair they were in: a staker who
+            // stood up mid-match is exactly the case where the chair names somebody else,
+            // and putting the wrong name on a card's history is worse than putting none.
+            Player staker = table.stakerOf(stake.getKey())
+                    .map(level::getPlayerByUUID)
+                    .orElse(null);
+            if (staker == null) {
+                int index = stake.getKey().index();
+                if (index >= anchors.size()) {
+                    continue;
+                }
+                staker = occupantOf(level, tableOrigin, anchors.get(index)).orElse(null);
             }
-            return occupantOf(level, tableOrigin, anchors.get(index))
-                    .map(player -> player.getGameProfile().getName())
-                    .orElse("");
+            return staker == null ? "" : staker.getGameProfile().getName();
         }
         return "";
     }

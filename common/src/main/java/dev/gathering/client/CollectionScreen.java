@@ -788,6 +788,15 @@ public final class CollectionScreen extends Screen {
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
+        // The syntax card is drawn over the grid, and the grid takes cards out of the box on
+        // a click. So reading the help and clicking anywhere on it took a card - a real card,
+        // out of a real collection, while somebody was looking up how to search. Put away by
+        // the click instead, which is also the way out of it that a reminder should have.
+        if (showingSyntax) {
+            showingSyntax = false;
+            GatheringButtons.clickSound();
+            return true;
+        }
         if (!mayTake) {
             return false;
         }

@@ -262,6 +262,22 @@ public final class DeckBuilderScreen extends Screen {
         return new Rect(MARGIN, top, across, Math.max(1, this.height - bottomBar() - top));
     }
 
+    /**
+     * The part of the deck pane the list itself occupies.
+     *
+     * <p>The pane less the mana curve along its foot, which is what the drawing already uses
+     * to decide whether a row is on the screen. Clicks ask the same question, because a row
+     * that is not drawn is not there to be clicked.
+     */
+    private Rect deckList() {
+        Rect pane = deckPane();
+        return new Rect(pane.x(), pane.y(), pane.width(),
+                Math.max(0, pane.height() - CURVE_HEIGHT));
+    }
+
+    /** How tall the mana curve along the foot of the deck pane is. */
+    private static final int CURVE_HEIGHT = 26;
+
     private Rect deckPane() {
         Rect box = boxPane();
         return new Rect(box.right() + GAP, topBar(),
@@ -606,7 +622,7 @@ public final class DeckBuilderScreen extends Screen {
      */
     private void drawDeck(GuiGraphics graphics, int mouseX, int mouseY) {
         Rect pane = deckPane();
-        int curveHeight = 26;
+        int curveHeight = CURVE_HEIGHT;
         int listBottom = pane.bottom() - curveHeight;
 
         graphics.drawString(this.font,
@@ -740,11 +756,19 @@ public final class DeckBuilderScreen extends Screen {
             return true;
         }
 
-        for (DeckRow row : deckRows) {
-            if (row.at().contains(x, y)) {
-                build = build.without(row.card().printing());
-                GatheringButtons.clickSound();
-                return true;
+        // Inside the list before any row is asked about. Every row of the deck gets a hit
+        // rectangle, including the ones scrolled above the top or below the fold - they are
+        // only skipped when drawing - so a row nobody can see kept a strip of the screen and
+        // the mana curve and the footer are drawn on top of exactly that strip. A click on
+        // either removed a card from the deck, silently, with nothing under the pointer that
+        // looked like a card at all.
+        if (deckList().contains(x, y)) {
+            for (DeckRow row : deckRows) {
+                if (row.at().contains(x, y)) {
+                    build = build.without(row.card().printing());
+                    GatheringButtons.clickSound();
+                    return true;
+                }
             }
         }
         return false;
