@@ -10,9 +10,12 @@ all until the model turns round.
 The numbers below are copied from 1.21.1's VillagerModel and nothing else. Re-run this if
 the model ever changes; do not hand-correct the picture.
 
-Two pictures come out of it. The big one is for reading; the 64x64 one is for working -
-it drops into Aseprite as a layer directly over the texture, one guide pixel per texture
-pixel, and can be toggled off to see the art underneath.
+Two pictures come out of it. uv-guide.png is 64x64 - the size of the texture itself - and
+drops into Aseprite as a layer directly over the art, one guide pixel per texture pixel.
+uv-guide-labelled.png is the same map at ten times size with names on it, for reading.
+
+The plain name belongs to the one you paint against. The first version of this had it the
+other way round, and the ten-times picture is not a thing anybody can use as a layer.
 
     python3 tools/villager_guide.py
 """
@@ -62,8 +65,8 @@ def main():
             if face in ("front", "right", "left", "back") and fw >= 4 and fh >= 4:
                 draw.text((box[0] + 4, box[1] + 3), name, fill=(255, 255, 255, 235))
                 draw.text((box[0] + 4, box[1] + 15), face, fill=(255, 255, 255, 150))
-    img.save("art/villager/uv-guide.png")
-    print("art/villager/uv-guide.png")
+    img.save("art/villager/uv-guide-labelled.png")
+    print("art/villager/uv-guide-labelled.png")
     overlay()
 
     # And the same rectangles as numbers, for anyone reading rather than looking.
@@ -85,8 +88,8 @@ def overlay():
     for name, u, v, w, h, d, color in PARTS:
         for face, fx, fy, fw, fh in faces(u, v, w, h, d):
             draw.rectangle([fx, fy, fx + fw - 1, fy + fh - 1], outline=color + (255,))
-    img.save("art/villager/uv-overlay-64.png")
-    print("art/villager/uv-overlay-64.png")
+    img.save("art/villager/uv-guide.png")
+    print("art/villager/uv-guide.png  (64x64, the one to paint against)")
 
 
 if __name__ == "__main__":
