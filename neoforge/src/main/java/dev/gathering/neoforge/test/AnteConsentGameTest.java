@@ -200,6 +200,48 @@ public final class AnteConsentGameTest {
         });
     }
 
+    /**
+     * Saying no to ante starts an ordinary game; it does not stop the table playing.
+     *
+     * <p>Declining at a real table means "deal me in, but I am not playing for my cards". It
+     * used to mean nothing happened at all: the question was withdrawn, no game started, and
+     * the next attempt asked the same question and got the same answer. One person who did
+     * not want to play for keeps could stop that table ever starting a game - and the message
+     * said "Ante declined. Nothing is at stake.", which describes a game in progress.
+     */
+    @GameTest(template = "empty")
+    public static void decliningTheAnteStillStartsAGame(GameTestHelper helper) {
+        withAnteOn(helper, () -> {
+            Antes.clear();
+            BlockPos origin = seatedTable(helper, 0);
+            ServerPlayer player = helper.makeMockServerPlayerInLevel();
+            player.setPos(origin.getCenter());
+            List<SeatAnchor> anchors = TableClusters.at(helper.getLevel(), origin).seats();
+            TableSeats.take(helper.getLevel(), origin, anchors.get(0).cell(),
+                    anchors.get(0).side(), player.getUUID());
+
+            if (!Antes.askedFirst(helper.getLevel(), origin,
+                    MatchRules.single(FormatPresets.COMMANDER), true)) {
+                return "a server with ante on did not put the question to a seated table";
+            }
+            Antes.answer(player, origin, AnteConsent.Answer.OUT);
+
+            if (!TableSessions.hasSession(helper.getLevel(), origin)) {
+                return "somebody declined the ante and the table could not start a game at all";
+            }
+            TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+            if (table.playingForKeeps()) {
+                return "a table that declined the ante is playing for keeps anyway";
+            }
+            // And the format it was told still holds, exactly as it does when they agree.
+            if (!table.formatWasChosen()) {
+                return "the game that started after a decline does not know its format was"
+                        + " named, so the deck check can only warn";
+            }
+            return null;
+        });
+    }
+
     /** Runs something on a server that is playing for keeps, and puts the config back. */
     private static void withAnteOn(GameTestHelper helper, java.util.function.Supplier<String> what) {
         java.nio.file.Path file = dev.gathering.platform.Platform.get()

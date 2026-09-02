@@ -277,9 +277,24 @@ public final class GatheringCommands {
 
         net.minecraft.core.BlockPos origin =
                 dev.gathering.block.TableBlock.originOf(state, block.getBlockPos());
+        // The seat this player actually holds. Falling back to seat zero meant anybody who
+        // walked past a table could end the game on it, signed as whoever was sitting in the
+        // first chair - a match nobody at it agreed to stop, and with ante on, a pot settled
+        // by a stranger. Ending a game cannot be undone, which is why it is a command in the
+        // first place; it should not also be a thing done to you by somebody else.
         dev.gathering.core.game.SeatId seat = dev.gathering.block.TableSessions
                 .seatIdOf(player.level(), origin, player.getUUID())
-                .orElseGet(() -> new dev.gathering.core.game.SeatId(0));
+                .orElse(null);
+        if (seat == null) {
+            // Operators keep the override, because clearing a stuck table is the reason a
+            // server administrator would ever type this at a table they are not sitting at.
+            if (!source.hasPermission(2)) {
+                source.sendFailure(net.minecraft.network.chat.Component.translatable(
+                        "message.gathering.session_not_your_table"));
+                return 0;
+            }
+            seat = new dev.gathering.core.game.SeatId(0);
+        }
 
         dev.gathering.block.TableSessions.Outcome outcome = dev.gathering.block.TableSessions.end(
                 player.level(), origin, seat, "ended by " + player.getGameProfile().getName());

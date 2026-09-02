@@ -152,8 +152,24 @@ public final class Antes {
 
         if (said.refused()) {
             ASKING.remove(where);
-            tell(level, tableOrigin, "message.gathering.ante_declined");
             close(level, tableOrigin);
+            // And then the game starts anyway, without a stake. Declining ante at a real
+            // table means "deal me in, but I am not playing for my cards" - it does not mean
+            // nobody plays. This used to stop here, so one person saying no left a table that
+            // could not start a game at all: the next attempt asked the same question and got
+            // the same answer, for ever. The message even said what should have happened -
+            // "Ante declined. Nothing is at stake." - while nothing at all did.
+            //
+            // Unless the server says a table may not opt out, which is what
+            // allow_per_table_opt_out has always meant and what nothing has ever read. A
+            // server that turns it off wants ante or no game, and now says so out loud
+            // rather than leaving the table clicking at nothing.
+            if (!ServerSettings.get().ante().allowPerTableOptOut()) {
+                tell(level, tableOrigin, "message.gathering.ante_required");
+                return;
+            }
+            tell(level, tableOrigin, "message.gathering.ante_declined");
+            begin(level, tableOrigin, asking.rules(), asking.formatChosen(), false);
             return;
         }
         if (!said.settled()) {
@@ -163,13 +179,8 @@ public final class Antes {
 
         tell(level, tableOrigin, "message.gathering.ante_agreed");
         close(level, tableOrigin);
-        TableSessions.Outcome outcome = startForKeeps(level, tableOrigin, asking.rules(), asking.formatChosen());
         ASKING.remove(where);
-        if (outcome == TableSessions.Outcome.STARTED) {
-            TableBroadcast.sendToTable(level, tableOrigin);
-        } else {
-            tell(level, tableOrigin, outcome.messageKey());
-        }
+        begin(level, tableOrigin, asking.rules(), asking.formatChosen(), true);
     }
 
     /**
@@ -212,38 +223,40 @@ public final class Antes {
         // have all said yes, so the game they agreed to starts rather than hanging.
         tell(level, tableOrigin, "message.gathering.ante_agreed");
         close(level, tableOrigin);
-        TableSessions.Outcome outcome = startForKeeps(level, tableOrigin, asking.rules(), asking.formatChosen());
         ASKING.remove(where);
-        if (outcome == TableSessions.Outcome.STARTED) {
-            TableBroadcast.sendToTable(level, tableOrigin);
-        } else {
-            tell(level, tableOrigin, outcome.messageKey());
-        }
+        begin(level, tableOrigin, asking.rules(), asking.formatChosen(), true);
     }
 
     /**
-     * Starts the game the table agreed to, and marks it as one played for keeps.
+     * Starts the game the table settled on, for keeps or not.
      *
      * <p>Marked on the table rather than remembered here, because the decks arrive after the
      * game starts and a stake is drawn as each one goes down. It also has to survive a
      * restart: a deck put down tomorrow morning is staked from on the terms everybody agreed
      * to last night, or on none at all.
+     *
+     * <p>Both answers come through here. A table that declined is still a table that asked
+     * for a game, and every step after the question - the format it was told, the board its
+     * seats are sent - is the same whichever way the vote went.
      */
-    private static TableSessions.Outcome startForKeeps(
-            ServerLevel level, BlockPos tableOrigin, MatchRules rules, boolean formatChosen) {
+    private static void begin(ServerLevel level, BlockPos tableOrigin, MatchRules rules,
+            boolean formatChosen, boolean forKeeps) {
         TableSessions.Outcome outcome = TableSessions.start(level, tableOrigin, rules);
-        if (outcome == TableSessions.Outcome.STARTED) {
-            TableSessions.anchorOf(level, tableOrigin)
-                    .flatMap(anchor -> TableBlock.entityAt(level, anchor))
-                    .ifPresent(table -> {
-                        table.playForKeeps(true);
-                        // Exactly what the ordinary start does. A game that went through the
-                        // ante question is still a game somebody picked a format for, and a
-                        // table that does not know it was named cannot be held to it.
-                        table.formatWasChosen(formatChosen);
-                    });
+        if (outcome != TableSessions.Outcome.STARTED) {
+            tell(level, tableOrigin, outcome.messageKey());
+            return;
         }
-        return outcome;
+        TableSessions.anchorOf(level, tableOrigin)
+                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
+                .ifPresent(table -> {
+                    table.playForKeeps(forKeeps);
+                    // Exactly what the ordinary start does. A game that went through the ante
+                    // question is still a game somebody picked a format for, and a table that
+                    // does not know it was named cannot be held to it - which is as true of
+                    // the table that declined as of the one that agreed.
+                    table.formatWasChosen(formatChosen);
+                });
+        TableBroadcast.sendToTable(level, tableOrigin);
     }
 
     // ------------------------------------------------------------------ bits
