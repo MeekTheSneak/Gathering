@@ -376,18 +376,49 @@ public final class AntePotGameTest {
         helper.succeed();
     }
 
-    /** A pot with a winner is the same cards, all going one way. */
-    @GameTest(template = "empty")
+    /**
+     * A pot with a winner is the same cards, all going one way - to the winner.
+     *
+     * <p>Checked by looking in the two players' hands, which is the whole point and is what
+     * this used to leave out. It counted the cards lying on the floor and found three, and
+     * three is what falls on the floor whichever way the pot goes: a payout to the wrong seat
+     * drops three, a payout split back to both owners drops three, and a table with nobody
+     * sitting at it drops three no matter what. The test passed on all of them.
+     *
+     * <p>So the seats hold real players now. The winner should be holding all three and the
+     * loser none, and nothing should be on the floor at all.
+     */
+    @GameTest(template = "tables")
     public static void aWonPotIsTheSameCardsGoingOneWay(GameTestHelper helper) {
-        BlockPos origin = seatedTable(helper, 2);
+        BlockPos origin = seatedTable(helper, 0);
         TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
-        table.stake(new SeatId(0), List.of(card(BOLT)));
-        table.stake(new SeatId(1), List.of(card(RING), card(RING)));
+
+        ServerPlayer loser = helper.makeMockServerPlayerInLevel();
+        ServerPlayer winner = helper.makeMockServerPlayerInLevel();
+        loser.setPos(origin.getCenter());
+        winner.setPos(origin.getCenter());
+        List<SeatAnchor> anchors = TableClusters.at(helper.getLevel(), origin).seats();
+        TableSeats.take(helper.getLevel(), origin, anchors.get(0).cell(), anchors.get(0).side(),
+                loser.getUUID());
+        TableSeats.take(helper.getLevel(), origin, anchors.get(1).cell(), anchors.get(1).side(),
+                winner.getUUID());
+
+        table.stake(new SeatId(0), List.of(card(BOLT)), loser.getUUID());
+        table.stake(new SeatId(1), List.of(card(RING), card(RING)), winner.getUUID());
 
         TableSessions.settlePot(helper.getLevel(), origin, table, new SeatId(1));
 
-        if (cardsAround(helper, origin) != 3) {
-            helper.fail("a three-card pot paid out " + cardsAround(helper, origin) + " cards");
+        if (countIn(winner) != 3) {
+            helper.fail("the winner of a three-card pot is holding " + countIn(winner));
+            return;
+        }
+        if (countIn(loser) != 0) {
+            helper.fail("the loser kept " + countIn(loser) + " card(s) of a pot they lost");
+            return;
+        }
+        if (cardsAround(helper, origin) != 0) {
+            helper.fail(cardsAround(helper, origin) + " card(s) of a paid-out pot ended up on"
+                    + " the floor beside two players who could have been handed them");
             return;
         }
         helper.succeed();

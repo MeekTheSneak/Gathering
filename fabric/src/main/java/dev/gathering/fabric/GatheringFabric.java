@@ -57,12 +57,23 @@ public final class GatheringFabric implements ModInitializer {
                 return;
             }
             String table = key.location().toString();
-            dev.gathering.core.sealed.LootSource.of(table).ifPresent(from ->
-                    tableBuilder.withPool(LootPool.lootPool()
-                            .setRolls(ConstantValue.exactly(1.0f))
-                            .add(dev.gathering.loot.PackLootEntry.forTable(
-                                    from, dev.gathering.core.sealed.LootRichness.of(table),
-                                    table))));
+            // Two reasons a table gets an entry, and only one of them was checked. A pack
+            // source is a chest or the fishing table; an archive table is a boss, which is
+            // not a pack source and never will be. Asking only about the first meant the
+            // rarest thing in the mod could not drop from the four fights it was written for
+            // - on this loader alone, because NeoForge's modifier runs for every table there
+            // is and never had to ask.
+            java.util.Optional<dev.gathering.core.sealed.LootSource> from =
+                    dev.gathering.core.sealed.LootSource.of(table);
+            boolean archive = dev.gathering.core.sealed.ArchiveDrops.of(table).isPresent();
+            if (from.isEmpty() && !archive) {
+                return;
+            }
+            tableBuilder.withPool(LootPool.lootPool()
+                    .setRolls(ConstantValue.exactly(1.0f))
+                    .add(dev.gathering.loot.PackLootEntry.forTable(
+                            from.orElse(null), dev.gathering.core.sealed.LootRichness.of(table),
+                            table)));
         });
 
         // A player's wants list, read when they arrive and let go when they leave. Both are

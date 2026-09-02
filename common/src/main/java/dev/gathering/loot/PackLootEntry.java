@@ -127,16 +127,20 @@ public final class PackLootEntry extends LootPoolSingletonContainer {
 
     @Override
     public void createItemStack(Consumer<ItemStack> stackConsumer, LootContext lootContext) {
-        if (source == null) {
-            SealedLoot.packFrom(richness, lootContext.getRandom()).ifPresent(stackConsumer);
-            return;
-        }
+        // The archive first, and before the source is looked at, because the two are not the
+        // same question. A boss is not a source of ordinary packs and never will be, but it
+        // is an archive table - so an entry built for one has no LootSource and still has to
+        // reach the archive. Asked the other way round, it never did.
         if (archiveTable != null) {
             // The same call NeoForge's loot modifier makes, rather than the same behaviour
             // written out again: it asks the archive first and skips the ordinary pack when
             // the archive answers, and that ordering is the sort of thing that is copied
             // once and then only fixed in one place. One function, both loaders.
             SealedLoot.rollFor(archiveTable, lootContext.getRandom()).ifPresent(stackConsumer);
+            return;
+        }
+        if (source == null) {
+            SealedLoot.packFrom(richness, lootContext.getRandom()).ifPresent(stackConsumer);
             return;
         }
         SealedLoot.rollFrom(source, richness, lootContext.getRandom()).ifPresent(stackConsumer);
