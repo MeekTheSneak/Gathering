@@ -19,20 +19,43 @@ from pathlib import Path
 from PIL import Image
 
 ASSETS = Path("common/src/main/resources/assets/gathering/textures/entity")
+DRAWN = Path("art/villager")
 
-# drawn here -> shipped here
-PAIRS = [
-    ("art/villager/shopkeeper.png", ASSETS / "villager/profession/shopkeeper.png"),
-    ("art/villager/shopkeeper_zombie.png", ASSETS / "zombie_villager/profession/shopkeeper.png"),
-]
+
+def found(words, without=()):
+    """The drawing whose name contains all of these words, however it was capitalised.
+
+    By what is in the name rather than by an exact filename, because these arrive from
+    whoever drew them and "ShopkeeperZombie.png", "shopkeeper_zombie.png" and
+    "zombie shopkeeper.png" are all obviously the same intent. A rule that only accepts one
+    spelling turns a drawing into a silent no-op, which is the exact failure this script was
+    written to stop.
+    """
+    for path in sorted(DRAWN.glob("*.png")):
+        name = path.stem.lower().replace("_", "").replace("-", "").replace(" ", "")
+        if all(word in name for word in words) and not any(
+                word in name for word in (*without, "uv")):
+            return path
+    return None
 
 
 def main():
+    # drawn here -> shipped here. The living one is the shopkeeper that is not the zombie,
+    # said as an exclusion rather than by picking the first match: "ShopkeeperZombie.png"
+    # sorts before "shopkeeper.png", so first-match found the zombie and the living drawing
+    # was quietly never installed.
+    pairs = [
+        (found(("shopkeeper",), without=("zombie",)),
+         ASSETS / "villager/profession/shopkeeper.png"),
+        (found(("shopkeeper", "zombie")),
+         ASSETS / "zombie_villager/profession/shopkeeper.png"),
+    ]
+
     moved, problems = 0, []
-    for source, target in PAIRS:
-        drawn = Path(source)
-        if not drawn.is_file():
+    for drawn, target in pairs:
+        if drawn is None or not drawn.is_file():
             continue
+        source = str(drawn)
         image = Image.open(drawn)
         if image.size != (64, 64):
             problems.append(f"{source} is {image.size[0]}x{image.size[1]}, and has to be 64x64")
