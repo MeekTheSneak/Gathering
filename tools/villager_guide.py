@@ -10,6 +10,10 @@ all until the model turns round.
 The numbers below are copied from 1.21.1's VillagerModel and nothing else. Re-run this if
 the model ever changes; do not hand-correct the picture.
 
+Two pictures come out of it. The big one is for reading; the 64x64 one is for working -
+it drops into Aseprite as a layer directly over the texture, one guide pixel per texture
+pixel, and can be toggled off to see the art underneath.
+
     python3 tools/villager_guide.py
 """
 from PIL import Image, ImageDraw
@@ -18,15 +22,15 @@ SIZE, SCALE = 64, 10
 
 # name -> (texOffs u, v, width, height, depth), straight out of VillagerModel
 PARTS = [
-    ("head",     0,  0,  8, 10, 8, (232,  90,  70)),
-    ("hat",     32,  0,  8, 10, 8, ( 74, 144, 226)),
-    ("hat rim", 30, 47, 16, 16, 1, ( 46,  96, 160)),
-    ("nose",    24,  0,  2,  4, 2, (240, 168,  50)),
-    ("body",    16, 20,  8, 12, 6, ( 96, 176,  96)),
-    ("jacket",   0, 38,  8, 20, 6, ( 60, 128,  70)),
-    ("arm",     44, 22,  4,  8, 4, (168, 110, 200)),
-    ("arm bar", 40, 38,  8,  4, 4, (140,  88, 170)),
-    ("leg",      0, 22,  4, 12, 4, (200, 150, 110)),
+    ("head",     0,  0,  8, 10, 8, (255,  80,  80)),
+    ("hat",     32,  0,  8, 10, 8, ( 80, 170, 255)),
+    ("hat rim", 30, 47, 16, 16, 1, (110, 220, 255)),
+    ("nose",    24,  0,  2,  4, 2, (255, 190,  40)),
+    ("body",    16, 20,  8, 12, 6, ( 90, 230,  90)),
+    ("jacket",   0, 38,  8, 20, 6, (170, 255, 100)),
+    ("arm",     44, 22,  4,  8, 4, (215, 130, 255)),
+    ("arm bar", 40, 38,  8,  4, 4, (255, 120, 220)),
+    ("leg",      0, 22,  4, 12, 4, (255, 165, 120)),
 ]
 
 def faces(u, v, w, h, d):
@@ -60,11 +64,30 @@ def main():
                 draw.text((box[0] + 4, box[1] + 15), face, fill=(255, 255, 255, 150))
     img.save("art/villager/uv-guide.png")
     print("art/villager/uv-guide.png")
+    overlay()
 
     # And the same rectangles as numbers, for anyone reading rather than looking.
     for name, u, v, w, h, d, _ in PARTS:
         where = "  ".join(f"{f}({x},{y}) {fw}x{fh}" for f, x, y, fw, fh in faces(u, v, w, h, d))
         print(f"{name:9} texOffs({u},{v}) {w}x{h}x{d}\n          {where}")
+
+def overlay():
+    """The same map at 1:1, as an outline over nothing.
+
+    <p>Outlines only and no fill, because this one goes on top of the art rather than beside
+    it: every pixel it covers is a pixel somebody wants to paint, so it marks the seams and
+    leaves the middles alone. Adjacent faces share a border, which is not a rounding error -
+    those pixels really are the seam between two faces of the model, and a stroke that runs
+    across one lands on both.
+    """
+    img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    for name, u, v, w, h, d, color in PARTS:
+        for face, fx, fy, fw, fh in faces(u, v, w, h, d):
+            draw.rectangle([fx, fy, fx + fw - 1, fy + fh - 1], outline=color + (255,))
+    img.save("art/villager/uv-overlay-64.png")
+    print("art/villager/uv-overlay-64.png")
+
 
 if __name__ == "__main__":
     main()
