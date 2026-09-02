@@ -660,6 +660,11 @@ public sealed interface GameEvent {
 
     /** Loyalty, +1/+1, and anything a player cares to name. Deltas, and they may go negative. */
     record CounterChanged(SeatId actor, CardInstanceId card, String counter, int delta) implements GameEvent {
+        /** Cleaned and cut where it enters, like every other line a player types. */
+        public CounterChanged {
+            counter = dev.gathering.core.game.CounterName.kept(counter);
+        }
+
         @Override
         public LogLine describe(GameState before) {
             return LogLine.of("log.gathering.counter_changed", actor, CardRef.publicRefFor(before, card), counter, delta);
@@ -798,6 +803,11 @@ public sealed interface GameEvent {
      * not the same sentence.
      */
     record SeatCounterChanged(SeatId actor, SeatId seat, String counter, int delta) implements GameEvent {
+        /** Cleaned and cut where it enters, like every other line a player types. */
+        public SeatCounterChanged {
+            counter = dev.gathering.core.game.CounterName.kept(counter);
+        }
+
         @Override
         public LogLine describe(GameState before) {
             return LogLine.of("log.gathering.seat_counter_changed", actor, seat, counter, delta);

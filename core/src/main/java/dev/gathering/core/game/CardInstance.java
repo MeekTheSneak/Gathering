@@ -137,7 +137,16 @@ public record CardInstance(
      * legal; a player who wants a negative counter has a reason, and the mod does not argue.
      */
     public CardInstance withCounter(String name, int delta) {
+        if (name == null) {
+            return this;
+        }
         Map<String, Integer> updated = new LinkedHashMap<>(counters);
+        // A name this card does not already carry is a new key, and keys are what grow. One
+        // card cannot collect more kinds of counter than anybody would put on it; changing a
+        // counter it already has is never refused.
+        if (!updated.containsKey(name) && updated.size() >= CounterName.MOST_PER_CARD) {
+            return this;
+        }
         int now = updated.getOrDefault(name, 0) + delta;
         if (now == 0) {
             updated.remove(name);

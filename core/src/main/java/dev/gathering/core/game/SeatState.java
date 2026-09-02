@@ -185,7 +185,15 @@ public record SeatState(
      * has a reason and the mod does not argue.
      */
     public SeatState withCounter(String name, int delta) {
+        if (name == null) {
+            return this;
+        }
         Map<String, Integer> updated = new LinkedHashMap<>(counters);
+        // The same bound a card has, for the same reason: a new name is a new key, and the
+        // board these end up on goes out as one payload with a bound that throws.
+        if (!updated.containsKey(name) && updated.size() >= CounterName.MOST_PER_CARD) {
+            return this;
+        }
         int now = updated.getOrDefault(name, 0) + delta;
         if (now == 0) {
             updated.remove(name);
