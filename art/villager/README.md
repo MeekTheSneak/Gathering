@@ -16,10 +16,11 @@ that costs an afternoon.
 source, not something the game reads. The game only ever looks in `assets/`, so a new drawing
 has to be copied across before it does anything:
 
-    cp art/villager/shopkeeper.png \
-       common/src/main/resources/assets/gathering/textures/entity/villager/profession/shopkeeper.png
+    python3 tools/install_villager.py
 
-and the zombie the same, into `entity/zombie_villager/profession/shopkeeper.png`.
+which copies `shopkeeper.png` and, if it is there, `shopkeeper_zombie.png` into the two places
+the game reads, and refuses anything that is not 64x64 RGBA - the wrong size does not fail,
+it stretches across the same UVs and comes out as a smeared villager.
 
 Transparent everywhere except the cloth. The villager underneath is already drawn, tinted by
 biome, and the profession layer goes over the top of it.
