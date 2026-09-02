@@ -567,7 +567,7 @@ Everything below works in single player and on a server. `<>` marks an argument.
 The half of the mod that never appears on screen has its own gate:
 
 ```bash
-./gradlew verify        # everything: unit tests, data generation, in-world game tests
+./gradlew verify        # everything: unit tests, data generation, both loaders' game tests
 ./gradlew :core:test    # just the fast pure-core suite, a few seconds
 tools/smoke.sh          # boots both loaders, client and dedicated server
 python3 tools/langcheck.py  # every translation key the source asks for has an entry
@@ -575,7 +575,7 @@ python3 tools/doccheck.py   # no paragraph left attached to the wrong method
 python3 tools/spritecheck.py  # every drawn element has art, in every theme
 ```
 
-The last three run inside `smoke.sh` as well, along with five more; `tools/README.md` lists
+The last three run inside `smoke.sh` as well, along with six more; `tools/README.md` lists
 every check and every art generator. They are listed separately here because they take a
 second and catch three failures the compiler is completely blind to. A missing translation key
 draws itself on screen where a sentence should be. An orphaned javadoc — one left sitting
@@ -597,10 +597,17 @@ A theme is a file in a resource pack rather than a class, so `spritecheck` reads
 element is, and the elements most worth a template — the tints and the washes — are exactly the
 ones that are see-through everywhere else. [`docs/themes.md`](docs/themes.md) is the guide.
 
-`verify` proves the code is right. It cannot prove a *loader* was wired up right — a loader
-serving the mod's classes without its assets compiles, builds, passes every test, boots,
-registers everything, and then draws missing textures and untranslated keys. Fabric was doing
-precisely that until the resource pack list got read on startup, so `smoke.sh` now checks for
+`verify` runs both loaders' in-world tests. NeoForge's are the game: every rule that lives in
+`:common` is checked once, there, because running the same assertions against the same code on
+a second loader proves nothing the first run did not. Fabric's cover only what is that loader's
+own — the loot hook, the registration bootstrap, the break rules — which is the code that had
+no coverage at all while smoke proved it booted, and the code that had already been wrong on
+one loader and right on the other for months at a stretch.
+
+Even so, `verify` cannot prove a loader was wired up right in the way that matters to a player:
+a loader serving the mod's classes without its assets compiles, builds, passes every test,
+boots, registers everything, and then draws missing textures and untranslated keys. Fabric was
+doing precisely that until the resource pack list got read on startup, so `smoke.sh` checks for
 it.
 
 Every stage of that has been confirmed capable of failing — a gate that can't fail
@@ -614,6 +621,7 @@ Two of these are cheap and two are not, and the cheap two catch most of it.
 |---|---|---|
 | `./gradlew build` | seconds | every change |
 | `:neoforge:runGameTestServer` | ~20s | every change |
+| `:fabric:runGametest` | ~20s | anything in `:fabric` - the loot hook, registration, the break rules. Its own source set, so none of it ships. |
 | `tools/smoke.sh` | ~10 min | a new registration, a new model or texture, or a loader entry point - the things that can boot wrong. Not for a string added to the language file. |
 | `tools/shots.sh` | ~11 min | on demand, and once at the end of a piece of visual work rather than after each fix |
 | `LOADER=fabric tools/shots.sh` | ~6 min | when anything crosses the loader boundary - a payload, a registration, an entry point. The scene lives in `:common`, so both loaders drive it; smoke.sh proves Fabric boots, and only this proves Fabric plays. |
