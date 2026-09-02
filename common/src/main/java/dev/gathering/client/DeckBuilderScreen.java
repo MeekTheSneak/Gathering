@@ -73,7 +73,11 @@ public final class DeckBuilderScreen extends Screen {
      * needs, and the foot is built around that rather than the other way round.
      */
     private int bottomBar() {
-        return ROW + GAP * 3 + hintLines() * (this.font.lineHeight + 1);
+        return footer().height() + GAP * 3 + hintLines() * (this.font.lineHeight + 1);
+    }
+
+    private dev.gathering.core.ui.BuilderFooter footer() {
+        return dev.gathering.core.ui.BuilderFooter.of(this.width, this.height, !fromPockets());
     }
 
     private int hintLines() {
@@ -114,18 +118,6 @@ public final class DeckBuilderScreen extends Screen {
     private final BlockPos where;
     private final String label;
 
-    /**
-     * The bar along the foot: two buttons at each end and the hint between them.
-     *
-     * <p>Named rather than written into both the layout and the drawing, because they were
-     * written into both and then only one of them was updated.
-     */
-    private static final int ROW = 18;
-    private static final int FROM_LIST = 84;
-    private static final int SLEEVES = 78;
-    private static final int CANCEL = 70;
-    private static final int FINISH = 78;
-    private static final int FOOT_RIGHT = CANCEL + GAP + FINISH;
 
     /** What the deck being built will be sleeved in. Picked here, carried to the deck. */
     private dev.gathering.core.card.Sleeve sleeve = dev.gathering.core.card.Sleeve.DEFAULT;
@@ -211,7 +203,7 @@ public final class DeckBuilderScreen extends Screen {
         this.nameBox = null;
         this.searchBox = null;
 
-        int buttonTop = this.height - ROW - GAP;
+        dev.gathering.core.ui.BuilderFooter footer = footer();
         if (!fromPockets()) {
             int boxWidth = boxPane().width();
             this.nameBox = new EditBox(this.font, MARGIN, MARGIN + 12, Math.min(180, boxWidth), 16,
@@ -230,22 +222,19 @@ public final class DeckBuilderScreen extends Screen {
             this.searchBox.setResponder(text -> askFor(0));
             addRenderableWidget(this.searchBox);
 
-            addRenderableWidget(GatheringButtons.of(MARGIN, buttonTop, FROM_LIST, ROW,
+            addRenderableWidget(GatheringButtons.of(footer.fromList(),
                     Component.translatable("screen.gathering.builder.from_list"),
                     () -> this.minecraft.setScreen(new DecklistImportScreen(where))));
             // Chosen while the deck is being built rather than after it exists, because a deck
             // handed over in somebody else's sleeves is a deck they have to go and fix.
-            addRenderableWidget(GatheringButtons.of(
-                    MARGIN + FROM_LIST + GAP, buttonTop, SLEEVES, ROW,
+            addRenderableWidget(GatheringButtons.of(footer.sleeves(),
                     Component.translatable("screen.gathering.deck.sleeves"),
                     () -> this.minecraft.setScreen(
                             new SleeveScreen(sleeve, picked -> sleeve = picked, this))));
         }
-        addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - FOOT_RIGHT, buttonTop, CANCEL, ROW,
+        addRenderableWidget(GatheringButtons.of(footer.cancel(),
                 Component.translatable("gui.cancel"), this::onClose));
-        addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - FINISH, buttonTop, FINISH, ROW,
+        addRenderableWidget(GatheringButtons.of(footer.finish(),
                 Component.translatable(fromPockets()
                         ? "screen.gathering.builder.add_them"
                         : "screen.gathering.builder.finish"),

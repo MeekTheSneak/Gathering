@@ -72,7 +72,30 @@ public final class ClientCardImages {
     private final LinkedHashMap<String, ResourceLocation> resident = new LinkedHashMap<>(64, 0.75f, true);
 
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
-    private final Set<String> failed = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Urls this session has given up on, oldest forgotten first.
+     *
+     * <p>Bounded, so a session spent looking at cards nobody has art for cannot grow forever.
+     * It used to be a plain set that stopped accepting anything once it was full, which meant
+     * the five-hundred-and-thirteenth dead link was neither remembered as failed nor put on a
+     * retry wait - so every frame that asked for it started another fetch, and a client left
+     * open on a set with no art fetched the same missing picture as fast as two threads could
+     * ask for it.
+     *
+     * <p>Forgetting the oldest is the right way round: the url that has not come up for
+     * longest is the one a later retry costs least, and something genuinely gone will simply
+     * fail again once and go back in.
+     */
+    private final Set<String> failed = java.util.Collections.newSetFromMap(
+            java.util.Collections.synchronizedMap(
+                    new LinkedHashMap<>(64, 0.75f, false) {
+                        @Override
+                        protected boolean removeEldestEntry(
+                                java.util.Map.Entry<String, Boolean> eldest) {
+                            return size() > MAX_REMEMBERED_FAILURES;
+                        }
+                    }));
 
     /**
      * Urls whose fetch went wrong in a way that might not go wrong next time, and when it is
@@ -351,10 +374,11 @@ public final class ClientCardImages {
     }
 
     private void markFailed(String url) {
-        // Bounded, so a session spent looking at cards nobody has art for cannot grow forever.
-        if (failed.size() < MAX_REMEMBERED_FAILURES) {
-            failed.add(url);
-        }
+        failed.add(url);
+        // The two maps that got it here are no use once it is in the failed set, and leaving
+        // them full would mean a url the set later forgets came back already out of tries.
+        waiting.remove(url);
+        attempts.remove(url);
     }
 
     private static String sha1(String value) {

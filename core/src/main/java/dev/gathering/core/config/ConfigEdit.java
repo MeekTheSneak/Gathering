@@ -69,18 +69,26 @@ public final class ConfigEdit {
                 inside = bare.substring(1, bare.length() - 1).strip();
                 continue;
             }
-            if (!section.equalsIgnoreCase(inside) || bare.isEmpty() || bare.startsWith("#")) {
+            if (bare.isEmpty() || bare.startsWith("#")) {
                 continue;
             }
             int equals = bare.indexOf('=');
             if (equals < 0) {
                 continue;
             }
-            if (bare.substring(0, equals).strip().equalsIgnoreCase(key)) {
-                // Written back with whatever indentation the line already had, so a file laid
-                // out one way does not come back laid out another.
+            // Against the whole path rather than the key alone, because TOML lets a setting
+            // be written either way - under a [modes] heading, or as "modes.collection_enabled"
+            // with no heading at all. Only the first was recognised, so setting one already
+            // written the second way appended a second copy under a heading of its own and
+            // left the one the owner could see doing nothing.
+            String named = bare.substring(0, equals).strip();
+            String here = inside == null || inside.isEmpty() ? named : inside + "." + named;
+            if (here.equalsIgnoreCase(path)) {
+                // Written back with whatever indentation and whatever spelling of the path
+                // the line already had, so a file laid out one way does not come back laid
+                // out another.
                 lines.set(index, line.substring(0, line.indexOf(line.strip()))
-                        + key + " = " + value);
+                        + named + " = " + value);
                 return new Edited(String.join("\n", lines), null);
             }
         }

@@ -726,7 +726,7 @@ def framed(look):
     """
     if not look.frame:
         return plate(32, look, heavy=True)
-    return Image.open(os.path.join(FRAMES, look.frame + ".png")).convert("RGBA"), NINE_64_TILED
+    return Image.open(os.path.join(FRAMES, look.frame + ".png")).convert("RGBA"), NINE_64
 
 
 def bar(size, look, kind):
@@ -891,7 +891,7 @@ PARTS = os.path.join(ROOT, "art", "gui", "parts")
 
 #: His button is forty-eight by twenty-two with an eight-pixel cap at each end. Every button
 #: the mod draws is at least sixteen each way, so the caps always have somewhere to go.
-BUTTON_SLICE = ("nine_slice", (48, 22), 8, True)
+BUTTON_SLICE = ("nine_slice", (48, 22), 8)
 
 
 def pipTones(look):
@@ -1164,16 +1164,19 @@ def deck_panel(look, width=256, height=512):
 
 # ---------------------------------------------------------------- the elements
 
-# A nine-slice's inner region is either stretched or tiled. Tiling is one draw call per tile,
-# so an element that covers a mat or a whole screen has to stretch: a tiled 16-pixel ring
-# round a 200-pixel mat is fifty draw calls a frame for a line.
-NINE_32 = ("nine_slice", 32, 8, True)
-NINE_16 = ("nine_slice", 16, 4, True)
-NINE_8 = ("nine_slice", 8, 2, True)
-NINE_32_TILED = ("nine_slice", 32, 8, False)
-NINE_64_TILED = ("nine_slice", 64, 16, False)
-NINE_16_TILED = ("nine_slice", 16, 4, False)
-STRETCH = ("stretch", 0, 0, False)
+# A nine-slice is corners at their painted size, edges and middle repeated to fill. Repeated,
+# not stretched: 1.21.1's GuiGraphics.blitNineSlicedSprite tiles every part that is not a
+# corner, and there is no setting that changes it - "stretch_inner" is a 1.21.2 field, and
+# every sprite here used to carry it, which is a knob anybody drawing a look would have
+# reached for and found did nothing.
+#
+# So a middle with a pattern in it repeats that pattern across whatever it is drawn in, and
+# an element the size of a mat or a whole screen wants a plain one.
+NINE_64 = ("nine_slice", 64, 16)
+NINE_32 = ("nine_slice", 32, 8)
+NINE_16 = ("nine_slice", 16, 4)
+NINE_8 = ("nine_slice", 8, 2)
+STRETCH = ("stretch", 0, 0)
 
 #: Every element the mod draws, how it stretches, and how it is painted from a look.
 #:
@@ -1182,9 +1185,9 @@ STRETCH = ("stretch", 0, 0, False)
 #: here unchanged: the alpha is the design, and only the color follows the look.
 ELEMENTS = [
     # Structure.
-    ("panel", NINE_32_TILED, lambda k: framed(k)),
-    ("panel_inset", NINE_32_TILED, lambda k: plate(32, k, sunken=True, heavy=True)),
-    ("row_highlight", NINE_32_TILED,
+    ("panel", NINE_32, lambda k: framed(k)),
+    ("panel_inset", NINE_32, lambda k: plate(32, k, sunken=True, heavy=True)),
+    ("row_highlight", NINE_32,
      lambda k: plate(32, k, body=k.accent, alpha=0x38, ink=k.accent,
                      lit=lighter(k.accent, 0.4), low=k.accent)),
     ("deck_panel", STRETCH, deck_panel),
@@ -1308,11 +1311,11 @@ ELEMENTS = [
     # than one over the other. The shear is most of what makes them read as pixel art rather
     # than as two rectangles, and it survives the nine-slice because each end's diagonal sits
     # inside its own corner tile.
-    ("bar_track", ("nine_slice", (48, 11), (6, 4, 6, 4), True),
+    ("bar_track", ("nine_slice", (48, 11), (6, 4, 6, 4)),
      lambda k: recut("bar_track", k, (darker(k.sunk, 0.3), lighter(k.bevel, 0.1)), label=True)),
-    ("bar_fill", ("nine_slice", (42, 5), (4, 1, 4, 1), True),
+    ("bar_fill", ("nine_slice", (42, 5), (4, 1, 4, 1)),
      lambda k: recut("bar_fill", k, (darker(k.good, 0.45), lighter(k.good, 0.35)), label=True)),
-    ("bar_done", ("nine_slice", (42, 5), (4, 1, 4, 1), True),
+    ("bar_done", ("nine_slice", (42, 5), (4, 1, 4, 1)),
      lambda k: recut("bar_fill", k, (darker(k.warn, 0.45), lighter(k.warn, 0.35)), label=True)),
 
     # A box of pips, in pieces: a cap, a lit cell, a dim cell, a cap. Built rather than
@@ -1335,7 +1338,7 @@ ELEMENTS = [
 # ---------------------------------------------------------------- writing
 
 
-def mcmeta(kind, size, border, stretch_inner):
+def mcmeta(kind, size, border):
     """The sprite's own scaling rule.
 
     The size may be a pair rather than a number. Everything the mod paints itself is square,
@@ -1352,6 +1355,11 @@ def mcmeta(kind, size, border, stretch_inner):
         # an eighteen-row sprite eight pixels wide, so it can only stay out of the stretched
         # middle if the top and bottom borders are wider than the left and right ones. The
         # game reads either form - GuiSpriteScaling.NineSlice.Border takes an int or a record.
+        #
+        # Three fields and no more. 1.21.1's NineSlice codec reads width, height and border;
+        # "stretch_inner" arrived a version later, and every sprite here used to carry it -
+        # ignored by the game and read by anybody drawing a look for this mod as a knob that
+        # did something.
         if isinstance(border, tuple):
             left, top, right, bottom = border
             edge = ('{\n'
@@ -1366,8 +1374,7 @@ def mcmeta(kind, size, border, stretch_inner):
             '      "type": "nine_slice",\n'
             f'      "width": {wide},\n'
             f'      "height": {tall},\n'
-            f'      "border": {edge},\n'
-            f'      "stretch_inner": {"true" if stretch_inner else "false"}\n')
+            f'      "border": {edge}\n')
     return '{\n  "gui": {\n    "scaling": {\n' + scaling + "    }\n  }\n}\n"
 
 
@@ -1445,7 +1452,7 @@ def contact_sheet(art):
     paint.text((SHEET_MARGIN, SHEET_MARGIN), "Gathering GUI elements", font=title,
                fill=SHEET_INK)
 
-    for index, (name, (kind, size, border, inner), _) in enumerate(ELEMENTS):
+    for index, (name, (kind, size, border), _) in enumerate(ELEMENTS):
         column, row = index % SHEET_COLUMNS, index // SHEET_COLUMNS
         left = SHEET_MARGIN + column * SHEET_CELL
         top = SHEET_TITLE + SHEET_MARGIN + row * (SHEET_CELL + SHEET_LABEL)
@@ -1459,7 +1466,7 @@ def contact_sheet(art):
         paint.text((left, top + room + 14), name, font=label, fill=SHEET_INK)
         note = f"{art[name].width}x{art[name].height}  " + (
             "stretch" if kind == "stretch"
-            else f"nine {border} {'stretch' if inner else 'tile'}")
+            else f"nine {border} tile")
         paint.text((left, top + room + 32), note, font=small, fill=SHEET_DIM)
     return sheet
 
@@ -1476,9 +1483,9 @@ def main():
             if isinstance(art, tuple):
                 art, spec = art
             art.save(os.path.join(folder, name + ".png"))
-            kind, size, border, inner = spec
+            kind, size, border = spec
             with open(os.path.join(folder, name + ".png.mcmeta"), "w") as out:
-                out.write(mcmeta(kind, size, border, inner))
+                out.write(mcmeta(kind, size, border))
         os.makedirs(THEME_FILES, exist_ok=True)
         with open(os.path.join(THEME_FILES, key + ".json"), "w") as out:
             out.write(theme_file(key, look.order))
@@ -1489,10 +1496,10 @@ def main():
         base[name] = art[0] if isinstance(art, tuple) else art
     folder = os.path.join(SPRITES, "template")
     os.makedirs(folder, exist_ok=True)
-    for name, (kind, size, border, inner), _ in ELEMENTS:
+    for name, (kind, size, border), _ in ELEMENTS:
         stencil(base[name], kind, size, border).save(os.path.join(folder, name + ".png"))
         with open(os.path.join(folder, name + ".png.mcmeta"), "w") as out:
-            out.write(mcmeta(kind, size, border, inner))
+            out.write(mcmeta(kind, size, border))
     with open(os.path.join(THEME_FILES, "template.json"), "w") as out:
         out.write(theme_file("template", TEMPLATE_ORDER))
 

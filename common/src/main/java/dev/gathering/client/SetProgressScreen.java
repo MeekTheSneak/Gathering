@@ -32,6 +32,10 @@ public final class SetProgressScreen extends ChildScreen {
     private static final int MARGIN = 16;
     private static final int TOP_BAR = 34;
     private static final int BOTTOM_BAR = 30;
+
+    /** The way out, and the space kept clear around everything on the bottom row. */
+    private static final int DONE_WIDTH = 56;
+    private static final int GAP = 8;
     /**
      * How tall a row is, and the bar that sits under its words.
      *
@@ -120,7 +124,7 @@ public final class SetProgressScreen extends ChildScreen {
     @Override
     protected void init() {
         addRenderableWidget(GatheringButtons.of(
-                this.width - MARGIN - 56, this.height - BOTTOM_BAR + 6, 56, 18,
+                this.width - MARGIN - DONE_WIDTH, this.height - BOTTOM_BAR + 6, DONE_WIDTH, 18,
                 Component.translatable("gui.done"), this::onClose));
     }
 
@@ -194,16 +198,23 @@ public final class SetProgressScreen extends ChildScreen {
             }
             drawRow(graphics, set, row);
         }
+        // Three things share the foot: the hint on the left, the Done button on the right,
+        // and this between them. Laid out from halves of the screen the first two ran into
+        // each other on any window narrow enough - which is every window at GUI scale 4.
+        int footY = this.height - BOTTOM_BAR + 10;
+        int rightEdge = this.width - MARGIN - DONE_WIDTH - GAP;
+        int hintRoom = rightEdge - MARGIN;
         if (hiddenBelow() > 0) {
-            GuiText.drawCentered(graphics, this.font,
-                    Component.translatable("screen.gathering.sets.more", hiddenBelow()),
-                    this.width / 2, this.height - BOTTOM_BAR + 10, this.width / 2, DIM);
+            Component more = Component.translatable("screen.gathering.sets.more", hiddenBelow());
+            int wide = this.font.width(more);
+            GuiText.drawFlushRight(graphics, this.font, more, rightEdge, footY, 1f, DIM);
+            hintRoom -= wide + GAP;
         }
         // Said, because the two buttons now do two different things and a row that answers
         // one question on the left and another on the right is a row nobody would guess at.
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.sets.hint"),
-                MARGIN, this.height - BOTTOM_BAR + 10, this.width / 2 - MARGIN, DIM);
+                MARGIN, footY, Math.max(1, hintRoom), DIM);
     }
 
     /**

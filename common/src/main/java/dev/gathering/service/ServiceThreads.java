@@ -10,12 +10,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  * dump says which service is doing what. One copy, because the card and collation services
  * each carried their own and a third service would have made a third.
  */
-final class ServiceThreads {
+public final class ServiceThreads {
 
     private ServiceThreads() {
     }
 
-    static ThreadFactory named(String prefix) {
+    public static ThreadFactory named(String prefix) {
         AtomicInteger counter = new AtomicInteger();
         return runnable -> {
             Thread thread = new Thread(runnable, prefix + "-" + counter.incrementAndGet());

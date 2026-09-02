@@ -41,6 +41,10 @@ public final class CurrentSet {
      *
      * <p>What the one fetch asks for. The config clamps its own number to this, so raising
      * the setting never means asking Scryfall again.
+     *
+     * <p>{@code loot_sets = ["all"]} is not clamped by it - see {@link #howManyReleases} -
+     * because a server that asked for every set and quietly got the newest sixty-four is a
+     * server whose config said one thing and did another.
      */
     private static final int MOST_RECENT_SETS = 64;
 
@@ -105,7 +109,8 @@ public final class CurrentSet {
             answer = Answer.pinnedTo(pinned);
             return;
         }
-        answer = new Answer(pinned, cards.premierSets(today(), MOST_RECENT_SETS)
+        answer = new Answer(pinned, cards.premierSets(
+                today(), howManyReleases(settings.collecting().lootSets()))
                 .handle((sets, failure) -> {
             if (failure != null) {
                 LOGGER.warn("Could not ask Scryfall which sets are out, so this server has no "
@@ -151,6 +156,19 @@ public final class CurrentSet {
                 .map(SetRelease::code)
                 .flatMap(code -> SetCode.of(code).stream())
                 .toList());
+    }
+
+    /**
+     * How far back the one fetch reaches, which is as far as the config could ever ask.
+     *
+     * <p>A window for {@code "recent"} and no window at all for {@code "all"}. Every premier
+     * set there has ever been is a few hundred entries out of a list already in hand, so the
+     * difference costs nothing but says the truth.
+     */
+    private static int howManyReleases(java.util.List<String> lootSets) {
+        return dev.gathering.core.sealed.LootSets.wantsEverySet(lootSets)
+                ? Integer.MAX_VALUE
+                : MOST_RECENT_SETS;
     }
 
     /** Between servers, so one world's answer is not the next one's. */

@@ -34,7 +34,7 @@ public record DeckScreenLayout(
      * Where the panel's right edge sits at the top and at the bottom, as fractions of the
      * rectangle it is drawn into.
      *
-     * <p>Shared with {@code tools/gui_textures.py}, which draws the taper into
+     * <p>Shared with {@code tools/gui_art.py}, which draws the taper into
      * {@code deck_panel.png}. A theme that replaces that texture keeps these, or the
      * scrollbar stops sitting on the edge it is drawn along.
      *

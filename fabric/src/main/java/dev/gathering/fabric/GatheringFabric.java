@@ -53,7 +53,14 @@ public final class GatheringFabric implements ModInitializer {
         // once per table at load, rather than on every roll. (NeoForge cannot append to a
         // loaded table and uses a global loot modifier instead - see PackLootModifier.)
         LootTableEvents.MODIFY.register((key, tableBuilder, source, registries) -> {
-            if (!source.isBuiltin()) {
+            // Everything except a table another mod built in REPLACE. A data pack that
+            // rewrites a dungeon chest is still that dungeon chest, and this used to ask
+            // isBuiltin() - which is false for a data pack - so a server with a loot pack
+            // installed got no card packs from the chests it had edited. NeoForge's global
+            // modifier never asked the question, so the two loaders disagreed about the same
+            // world. A table another mod handed over whole is the one case still skipped:
+            // there is no telling what it is meant to be any more.
+            if (source == net.fabricmc.fabric.api.loot.v3.LootTableSource.REPLACED) {
                 return;
             }
             String table = key.location().toString();

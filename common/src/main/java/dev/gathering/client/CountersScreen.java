@@ -12,6 +12,7 @@ import dev.gathering.item.CardComponent;
 import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.game.visibility.GameView;
 import dev.gathering.core.game.visibility.SeatView;
+import dev.gathering.core.ui.CountersLayout;
 import dev.gathering.core.ui.Rect;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -51,21 +52,10 @@ public final class CountersScreen extends ChildScreen {
     private static final int DIM = 0xFF9A9690;
     private static final int VALUE = 0xFFFFE9A8;
 
-    private static final int PANEL_WIDTH = 216;
-    private static final int MARGIN = 10;
-    private static final int ROW = 18;
-    private static final int GAP = 4;
+    /** Taken from the layout, so the drawing and the arithmetic cannot drift apart. */
+    private static final int MARGIN = CountersLayout.margin();
+    private static final int GAP = CountersLayout.gap();
     private static final int STEP_WIDTH = 18;
-
-    /**
-     * How many named counters the panel shows at once. The rest are a wheel away.
-     *
-     * <p>Six because a card with seven different named counters on it is rare, and a panel
-     * built for the rare case is a panel that is too tall every other time. This used to be a
-     * cap rather than a window: the seventh counter was drawn nowhere and had no buttons, so
-     * a player who had put one on could not see it, change it, or take it off again.
-     */
-    private static final int MAX_ROWS = 6;
 
     /** Which counter is at the top of the list, when there are more than fit. */
     private int scroll;
@@ -73,40 +63,24 @@ public final class CountersScreen extends ChildScreen {
     /**
      * How many counter rows this window shows.
      *
-     * <p>Usually {@link #MAX_ROWS}. Less on a short window or a crowded table, because the
-     * rest of the panel - the commander damage grid, the tax grid, the way to add one, the
-     * way out - is not optional and a panel that did not shrink for them drew its own buttons
-     * off the bottom of the screen, where nothing could be pressed.
-     *
-     * <p>Worked out when it is asked for rather than kept from the last layout. Held, it was
-     * whatever the board said when the panel was built - and this panel is opened the instant
-     * the counters are put on, before the server has said they are there, so it laid out for
-     * a card with nothing on it and then drew no rows at all under a line reading "8 more".
+     * <p>Usually {@link CountersLayout#MAX_ROWS}. Less on a short window or a crowded table,
+     * because the rest of the panel - the commander damage grid, the tax grid, the way to add
+     * one, the way out - is not optional and a panel that did not shrink for them drew its own
+     * buttons off the bottom of the screen, where nothing could be pressed.
      */
     private int showing() {
-        return Math.min(
-                rowsThatFit((common().size() + 2) / 3,
-                        commanderDamageFrom().size(), taxedCommanders().size()),
-                current().size());
+        return layout == null ? 0 : layout.counterRows();
     }
 
     /**
-     * How many counter rows fit under everything else the panel has to hold.
+     * Where everything on this panel goes, worked out once per rebuild.
      *
-     * <p>The height below is the same sum {@code init} builds the panel from, with the rows
-     * taken out of it - so what is left is the room they have. Never fewer than one while
-     * there is a counter to show: a list with no rows at all cannot be scrolled back into.
+     * <p>Held rather than recomputed while drawing, because the buttons are built from it and
+     * a panel whose drawing and buttons disagreed put one row's minus beside another row's
+     * name. Every input it reads - the counters, the named buttons, the opponents, the taxed
+     * commanders - is watched by {@link #tick()}, which rebuilds when any of them moves.
      */
-    private int rowsThatFit(int commonRows, int opponents, int taxed) {
-        int fixed = MARGIN * 2 + ROW * 2
-                + commonRows * (ROW + GAP)
-                + (opponents == 0 ? 0 : (opponents + 1) * (ROW + GAP))
-                + (taxed == 0 ? 0 : (taxed + 1) * (ROW + GAP))
-                + ROW + GAP * 3
-                + ROW + GAP;
-        int room = this.height - MARGIN * 2 - fixed;
-        return Math.max(1, Math.min(MAX_ROWS, room / (ROW + GAP)));
-    }
+    private CountersLayout layout;
 
     /** A counter name long enough for anything real and short enough not to be a payload. */
     private static final int MAX_NAME = 24;
@@ -289,109 +263,78 @@ public final class CountersScreen extends ChildScreen {
         List<String> present = new ArrayList<>(current().keySet());
         builtRows = List.copyOf(present);
         builtButtons = common();
-        int commonRows = (builtButtons.size() + 2) / 3;
         List<CardInstanceId> opponents = commanderDamageFrom();
         List<CardInstanceId> taxed = taxedCommanders();
         builtOpponents = opponents;
         builtTaxed = taxed;
 
-        int rows = Math.min(rowsThatFit(commonRows, opponents.size(), taxed.size()), present.size());
+        this.layout = CountersLayout.of(this.width, this.height,
+                present.size(), builtButtons.size(), opponents.size(), taxed.size());
         // Clamped here rather than where the wheel turns, because the list also shortens
         // under it: taking the last counter off a scrolled list would otherwise leave the
         // panel looking at rows that are no longer there.
-        this.scroll = Math.max(0, Math.min(this.scroll, present.size() - rows));
-        builtRowCount = rows;
-
-        int height = MARGIN * 2 + ROW * 2
-                + rows * (ROW + GAP)
-                + commonRows * (ROW + GAP)
-                + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP))
-                + (taxed.isEmpty() ? 0 : (taxed.size() + 1) * (ROW + GAP))
-                + ROW + GAP * 3
-                // Room for the way out.
-                + ROW + GAP;
-        panel = new Rect(
-                (this.width - PANEL_WIDTH) / 2,
-                Math.max(MARGIN, (this.height - height) / 2),
-                PANEL_WIDTH,
-                Math.min(height, this.height - MARGIN * 2));
-
-        int y = panel.y() + MARGIN + ROW;
+        this.scroll = Math.max(0, Math.min(this.scroll, present.size() - layout.counterRows()));
+        builtRowCount = layout.counterRows();
+        panel = layout.panel();
 
         // What is on it now, each with a minus and a plus.
-        for (int index = 0; index < rows; index++) {
+        for (int index = 0; index < layout.counterRows(); index++) {
             String name = present.get(this.scroll + index);
-            int rowY = y + index * (ROW + GAP);
-            addRenderableWidget(GatheringButtons.of(
-                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP, rowY, STEP_WIDTH, ROW,
-                    Component.literal("-"), () -> change(name, -1)));
-            addRenderableWidget(GatheringButtons.of(
-                    panel.right() - MARGIN - STEP_WIDTH, rowY, STEP_WIDTH, ROW,
-                    Component.literal("+"), () -> change(name, 1)));
+            steppers(layout.counterRow(index), () -> change(name, -1), () -> change(name, 1));
         }
 
         // The ones worth a button. Adding one that is already there just adds another.
-        int commonTop = y + rows * (ROW + GAP) + ROW;
-        int width = (panel.width() - MARGIN * 2 - GAP * 2) / 3;
-        List<String> common = common();
-        for (int index = 0; index < common.size(); index++) {
+        List<String> common = builtButtons;
+        for (int index = 0; index < layout.commonRows() * CountersLayout.BUTTON_COLUMNS
+                && index < common.size(); index++) {
             String name = common.get(index);
-            addRenderableWidget(GatheringButtons.of(
-                    panel.x() + MARGIN + (index % 3) * (width + GAP),
-                    commonTop + (index / 3) * (ROW + GAP), width, ROW,
+            addRenderableWidget(GatheringButtons.of(layout.commonButton(index),
                     Component.literal(CounterText.name(name)), () -> change(name, 1)));
         }
 
         // Commander damage, one row per opponent, on a table that has commanders. A grid on
         // paper, which is what everybody uses because twenty-one from each of three people is
         // three numbers nobody can hold in their head for an hour.
-        int damageTop = commonTop + commonRows * (ROW + GAP) + GAP;
-        for (int index = 0; index < opponents.size(); index++) {
+        for (int index = 0; index < layout.damageRows(); index++) {
             CardInstanceId from = opponents.get(index);
-            int rowY = damageTop + ROW + index * (ROW + GAP);
-            addRenderableWidget(GatheringButtons.of(
-                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP, rowY, STEP_WIDTH, ROW,
-                    Component.literal("-"), () -> hitBy(from, -1)));
-            addRenderableWidget(GatheringButtons.of(
-                    panel.right() - MARGIN - STEP_WIDTH, rowY, STEP_WIDTH, ROW,
-                    Component.literal("+"), () -> hitBy(from, 1)));
+            steppers(layout.damageRow(index), () -> hitBy(from, -1), () -> hitBy(from, 1));
         }
 
         // Commander tax, one row per commander here, on a table that has commanders. The same
         // shape as the damage grid above it and for the same reason: it is a number a player
         // has to keep for an hour and cannot hold in their head.
-        List<CardInstanceId> commanders = taxed;
-        int taxTop = damageTop
-                + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP));
-        for (int index = 0; index < commanders.size(); index++) {
-            CardInstanceId commander = commanders.get(index);
-            int rowY = taxTop + ROW + index * (ROW + GAP);
-            addRenderableWidget(GatheringButtons.of(
-                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP, rowY, STEP_WIDTH, ROW,
-                    Component.literal("-"), () -> castCommander(commander, -1)));
-            addRenderableWidget(GatheringButtons.of(
-                    panel.right() - MARGIN - STEP_WIDTH, rowY, STEP_WIDTH, ROW,
-                    Component.literal("+"), () -> castCommander(commander, 1)));
+        for (int index = 0; index < layout.taxRows(); index++) {
+            CardInstanceId commander = taxed.get(index);
+            steppers(layout.taxRow(index),
+                    () -> castCommander(commander, -1), () -> castCommander(commander, 1));
         }
 
-        int customTop = taxTop
-                + (commanders.isEmpty() ? 0 : (commanders.size() + 1) * (ROW + GAP));
+        Rect field = layout.custom();
         customName = new EditBox(this.font,
-                panel.x() + MARGIN, customTop, panel.width() - MARGIN * 2 - 44 - GAP, ROW,
+                field.x(), field.y(), field.width() - 44 - GAP, field.height(),
                 Component.translatable("screen.gathering.counters.custom"));
         customName.setMaxLength(MAX_NAME);
         customName.setHint(Component.translatable("screen.gathering.counters.custom"));
         addRenderableWidget(customName);
         addRenderableWidget(GatheringButtons.of(
-                panel.right() - MARGIN - 44, customTop, 44, ROW,
+                field.right() - 44, field.y(), 44, field.height(),
                 Component.translatable("screen.gathering.counters.add"), this::addCustom));
 
         // Every change here has already been sent by the time it is drawn, so this closes
         // rather than confirms - but a panel whose only exit is a key nobody was told about
         // is a dead end, and the sibling screens all offer the same button.
-        addRenderableWidget(GatheringButtons.of(
-                panel.x() + MARGIN, customTop + ROW + GAP, panel.width() - MARGIN * 2, ROW,
+        addRenderableWidget(GatheringButtons.of(layout.done(),
                 Component.translatable("gui.done"), this::onClose));
+    }
+
+    /** The minus and plus at the right-hand end of a row, which every grid here has. */
+    private void steppers(Rect row, Runnable down, Runnable up) {
+        addRenderableWidget(GatheringButtons.of(
+                row.right() - STEP_WIDTH * 2 - GAP, row.y(), STEP_WIDTH, row.height(),
+                Component.literal("-"), down));
+        addRenderableWidget(GatheringButtons.of(
+                row.right() - STEP_WIDTH, row.y(), STEP_WIDTH, row.height(),
+                Component.literal("+"), up));
     }
 
     /**
@@ -727,25 +670,29 @@ public final class CountersScreen extends ChildScreen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
+        if (layout == null) {
+            return;
+        }
 
         GuiText.drawCentered(graphics, this.font, subject.name(),
                 panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);
 
         Map<String, Integer> counters = current();
-        int y = panel.y() + MARGIN + ROW;
         int index = 0;
         for (Map.Entry<String, Integer> entry : shownRows(counters).entrySet()) {
-            int rowY = y + index * (ROW + GAP);
+            Rect row = layout.counterRow(index);
             GuiText.draw(graphics, this.font, Component.literal(entry.getKey()),
-                    panel.x() + MARGIN, rowY + 5, panel.width() - MARGIN * 2 - 60, LABEL);
+                    row.x(), row.y() + 5, row.width() - 60, LABEL);
             GuiText.draw(graphics, this.font, Component.literal(Integer.toString(entry.getValue())),
-                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP - 24, rowY + 5, 22, VALUE);
+                    row.right() - STEP_WIDTH * 2 - GAP - 24, row.y() + 5, 22, VALUE);
             index++;
         }
+        Rect under = layout.counterFooter();
         if (counters.isEmpty()) {
             GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.counters.none"),
-                    panel.x() + panel.width() / 2, y + 5, panel.width() - MARGIN * 2, DIM);
+                    panel.x() + panel.width() / 2, layout.firstCounter().y() + 5,
+                    panel.width() - MARGIN * 2, DIM);
         }
         // Said out loud, because a list that scrolls and gives no sign of it is a list
         // whose seventh row may as well not exist - which is what this used to be.
@@ -753,30 +700,26 @@ public final class CountersScreen extends ChildScreen {
         if (below > 0) {
             GuiText.draw(graphics, this.font,
                     Component.translatable("screen.gathering.counters.more", below),
-                    panel.x() + MARGIN, y + index * (ROW + GAP) - GAP + 1,
-                    panel.width() - MARGIN * 2, DIM);
+                    under.x(), under.y() + 1, under.width(), DIM);
         }
 
-        List<CardInstanceId> opponents = commanderDamageFrom();
-        renderCommanderTax(graphics, y);
-        if (opponents.isEmpty()) {
+        renderCommanderTax(graphics);
+        if (layout.damage().isEmpty()) {
             return;
         }
-        int commonRows = (common().size() + 2) / 3;
-        int damageTop = y + Math.min(showing(), counters.size()) * (ROW + GAP) + ROW
-                + commonRows * (ROW + GAP) + GAP;
         GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.counters.commander_damage"),
-                panel.x() + MARGIN, damageTop + 5, panel.width() - MARGIN * 2, DIM);
-        for (int row = 0; row < opponents.size(); row++) {
-            CardInstanceId from = opponents.get(row);
+                heading("screen.gathering.counters.commander_damage",
+                        builtOpponents.size() - layout.damageRows()),
+                layout.damage().x(), layout.damage().y() + 5, layout.damage().width(), DIM);
+        for (int row = 0; row < layout.damageRows(); row++) {
+            CardInstanceId from = builtOpponents.get(row);
             int taken = damageFrom(from);
-            int rowY = damageTop + ROW + row * (ROW + GAP);
+            Rect at = layout.damageRow(row);
             GuiText.draw(graphics, this.font, nameOf(from),
-                    panel.x() + MARGIN, rowY + 5, panel.width() - MARGIN * 2 - 60, LABEL);
+                    at.x(), at.y() + 5, at.width() - 60, LABEL);
             // Twenty-one is a fact about the number, not a thing the mod does about it.
             GuiText.draw(graphics, this.font, Component.literal(Integer.toString(taken)),
-                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP - 24, rowY + 5, 22,
+                    at.right() - STEP_WIDTH * 2 - GAP - 24, at.y() + 5, 22,
                     taken >= LETHAL_COMMANDER_DAMAGE ? LETHAL : VALUE);
         }
     }
@@ -787,32 +730,42 @@ public final class CountersScreen extends ChildScreen {
      * <p>Counted in casts and shown in mana, because casts are what the rule counts and mana
      * is what the player is about to pay. Two more for every cast that came before.
      */
-    private void renderCommanderTax(GuiGraphics graphics, int y) {
-        List<CardInstanceId> commanders = taxedCommanders();
+    private void renderCommanderTax(GuiGraphics graphics) {
         taxRowsDrawn = 0;
-        if (commanders.isEmpty()) {
+        if (layout.tax().isEmpty()) {
             return;
         }
-        List<CardInstanceId> opponents = builtOpponents;
-        int commonRows = (common().size() + 2) / 3;
-        int taxTop = y + Math.min(showing(), current().size()) * (ROW + GAP) + ROW
-                + commonRows * (ROW + GAP) + GAP
-                + (opponents.isEmpty() ? 0 : (opponents.size() + 1) * (ROW + GAP));
         GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.counters.commander_tax"),
-                panel.x() + MARGIN, taxTop + 5, panel.width() - MARGIN * 2, DIM);
-        for (int row = 0; row < commanders.size(); row++) {
-            CardInstanceId commander = commanders.get(row);
+                heading("screen.gathering.counters.commander_tax",
+                        builtTaxed.size() - layout.taxRows()),
+                layout.tax().x(), layout.tax().y() + 5, layout.tax().width(), DIM);
+        for (int row = 0; row < layout.taxRows(); row++) {
+            CardInstanceId commander = builtTaxed.get(row);
             int casts = castsOf(commander);
-            int rowY = taxTop + ROW + row * (ROW + GAP);
+            Rect at = layout.taxRow(row);
             GuiText.draw(graphics, this.font, nameOf(commander),
-                    panel.x() + MARGIN, rowY + 5, panel.width() - MARGIN * 2 - 60, LABEL);
+                    at.x(), at.y() + 5, at.width() - 60, LABEL);
             GuiText.draw(graphics, this.font,
                     Component.translatable("screen.gathering.counters.extra_mana",
                             CommandSlots.taxFor(casts)),
-                    panel.right() - MARGIN - STEP_WIDTH * 2 - GAP - 34, rowY + 5, 32, VALUE);
+                    at.right() - STEP_WIDTH * 2 - GAP - 34, at.y() + 5, 32, VALUE);
             taxRowsDrawn++;
         }
+    }
+
+    /**
+     * A grid's heading, which says so when the grid could not show every row.
+     *
+     * <p>The commander grids have no wheel of their own and nowhere to put a line under them,
+     * so what is missing is said in the heading rather than not said. It takes a window at the
+     * smallest size Minecraft allows and a table fielding five or more enemy commanders before
+     * this ever reads anything but the plain heading.
+     */
+    private Component heading(String key, int hidden) {
+        return hidden <= 0
+                ? Component.translatable(key)
+                : Component.translatable("screen.gathering.counters.grid_more",
+                        Component.translatable(key), hidden);
     }
 
     /**

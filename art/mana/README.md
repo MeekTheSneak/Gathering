@@ -78,5 +78,6 @@ python3 tools/mana_art.py --check    # what ships matches the parts on disk
 `--check` runs in `tools/smoke.sh`, so a mark that was repainted and never rebuilt fails there
 rather than quietly shipping the old picture.
 
-`tools/orb_grow.py` is a one-off that already ran — it is what gave the badges their middle
-pixel. There is no reason to run it again.
+The badges are an odd number of pixels across so that each one has a middle pixel to line a
+mark up on. A one-off script gave them that, years of commits ago; it is not kept, because the
+art on disk has been the source of truth ever since.

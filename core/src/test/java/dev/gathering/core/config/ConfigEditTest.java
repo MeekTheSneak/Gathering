@@ -106,6 +106,29 @@ class ConfigEditTest {
         assertThat(after).contains("current_set = \"say \\\"hello\\\"\"");
     }
 
+    /**
+     * A file that spells its settings out in full, which TOML allows and the reader accepts.
+     *
+     * <p>The edit used to look for the key only under a matching heading, so a file written
+     * this way got a second copy of the setting appended under a heading of its own - two
+     * definitions of one setting, with the one the owner could see doing nothing.
+     */
+    @Test
+    void aSettingWrittenAsADottedPathIsChangedWhereItIs() throws Exception {
+        String file = """
+                # Written the other way TOML allows.
+                modes.import_enabled = true
+                modes.collection_enabled = false
+                """;
+
+        String after = ConfigEdit.set(file, "modes.collection_enabled", "true").text();
+
+        assertThat(after).contains("modes.collection_enabled = true");
+        assertThat(after).doesNotContain("[modes]");
+        assertThat(after.split("collection_enabled", -1)).hasSize(2);
+        assertThat(Toml.read(after).flag("modes.collection_enabled", false)).isTrue();
+    }
+
     /** The round trip that matters: what is written can be read back by the real parser. */
     @Test
     void whatIsWrittenIsReadBackAsWhatWasMeant() throws Exception {

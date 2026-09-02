@@ -47,6 +47,11 @@ public final class GatheringButtons {
         return new Fitting(x, y, width, height, label, ignored -> action.run());
     }
 
+    /** The same, at a rectangle worked out in the pure layout module. */
+    public static Button of(dev.gathering.core.ui.Rect at, Component label, Runnable action) {
+        return of(at.x(), at.y(), at.width(), at.height(), label, action);
+    }
+
     /**
      * A button whose label fits inside it.
      *

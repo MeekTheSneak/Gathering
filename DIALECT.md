@@ -267,7 +267,7 @@ cannot be inferred from reading the code.
 - **`GuiText`, never `graphics.drawString`, for anything a player did not choose.** Card
   names are arbitrary text of arbitrary length and the font has one size, so text shrinks to
   fit and only trims when shrinking further would stop it being readable.
-- **The GUI sprites are generated from a palette** by `tools/gui_textures.py`, so a whole
+- **The GUI sprites are generated from a palette** by `tools/gui_art.py`, so a whole
   coherent set - and later a whole theme - comes from one block of colors rather than from
   editing seven PNGs by hand. The PNGs are still the source of truth: repaint one and the
   screens change, and a resource pack can replace any of them.

@@ -12,9 +12,8 @@ sun without touching any of them.
     art/mana/symbols/half-tl/<mark>.png, half-br/<mark>.png   for the two halves of a hybrid
     art/mana/ink.json                what colour each badge draws its marks in
 
-Where they came from: an earlier set was lost with an unpushed commit, and tools/refit.py
-rebuilt it from two screenshots. This script does not draw them - it assembles them, so that
-what ships is always exactly the parts on disk.
+This script does not draw the parts - it assembles them, so that what ships is always exactly
+what is on disk under art/mana.
 
     python3 tools/mana_art.py            # write the font textures and mana.json
     python3 tools/mana_art.py --check    # fail if what ships is not the parts on disk
@@ -28,21 +27,41 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import textures  # noqa: E402  - the PNG writer, kept in one place
+from pngwrite import write_png  # noqa: E402  - the PNG writer, kept in one place
 
 OUT = "common/src/main/resources/assets/gathering/textures/font/mana"
 FONT = "common/src/main/resources/assets/gathering/font/mana.json"
 BADGES = "art/mana/badges"
 MARKS = "art/mana/symbols"
 INK = "art/mana/ink.json"
-SIZE = textures.SYMBOL_SIZE
+
+#: The canvas every symbol is drawn on.
+#:
+#: Odd on purpose. A disc of an even width has no middle pixel - its centre is the corner
+#: where four of them meet - so a mark drawn about its own middle can only ever land half a
+#: pixel off the badge it is pressed into. Thirty-three gives a thirty-one pixel disc whose
+#: middle is pixel sixteen, which is exactly where every mark's ink is centred.
+SIZE = 33
+
+#: Must match dev.gathering.core.text.ManaSymbols.NAMES, in order: the index is the glyph.
+SYMBOL_NAMES = (
+    ["w", "u", "b", "r", "g", "c", "s"]
+    + [str(n) for n in range(0, 21)]
+    + ["x", "y", "z", "tap", "untap", "energy"]
+    + ["wu", "wb", "ub", "ur", "br", "bg", "rg", "rw", "gw", "gu"]
+    + ["2w", "2u", "2b", "2r", "2g"]
+    + ["wp", "up", "bp", "rp", "gp"]
+)
+
+#: Where the glyphs start, matching ManaSymbols.FIRST_CODEPOINT.
+FIRST_CODEPOINT = 0xE000
 
 # The badge: a thirty-pixel circle in a thirty-two pixel canvas, cut corner to corner when it
 # carries two colours, with the second colour on the bottom-right so that each half's mark
 # lands on its own colour rather than across the cut.
 #: The one pixel everything is lined up on: the middle of the canvas, the middle of the
 #: badge's disc, and the middle of every full-size mark. That there is a single pixel to name
-#: here is the whole reason the disc is an odd number across - see tools/orb_grow.py.
+#: here is the whole reason the disc is an odd number across - see SIZE above.
 MIDDLE = SIZE // 2
 
 
@@ -169,7 +188,7 @@ def read_png(path):
 
 def write_png(path, px):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    textures.write_png(path, len(px[0]), len(px), px)
+    write_png(path, len(px[0]), len(px), px)
 
 
 def font(names, path):
@@ -181,7 +200,7 @@ def font(names, path):
             f'      "file": "gathering:font/mana/{name}.png",\n'
             '      "ascent": 8,\n'
             '      "height": 9,\n'
-            f'      "chars": ["\\u{textures.FIRST_CODEPOINT + index:04X}"]\n'
+            f'      "chars": ["\\u{FIRST_CODEPOINT + index:04X}"]\n'
             "    }"
         )
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -262,11 +281,11 @@ def build(name, ink):
 
 
 def check(ink):
-    wrong = [name for name in textures.SYMBOL_NAMES
+    wrong = [name for name in SYMBOL_NAMES
              if build(name, ink) != read_png(os.path.join(OUT, name + ".png"))]
     if wrong:
         raise SystemExit("stale, rerun tools/mana_art.py: " + ", ".join(wrong))
-    print(f"{len(textures.SYMBOL_NAMES)} symbols match their badge and marks")
+    print(f"{len(SYMBOL_NAMES)} symbols match their badge and marks")
 
 
 def marks():
@@ -274,7 +293,7 @@ def marks():
     print(f"canvas {SIZE}x{SIZE}, middle pixel ({MIDDLE},{MIDDLE}),"
           f" badge disc {SIZE - 2} across")
     print(f"{'mark':<18}{'ink':>9}  {'middle':>8}  note")
-    for name in sorted({markName(n, r) for n in textures.SYMBOL_NAMES for r, _ in regions(n)
+    for name in sorted({markName(n, r) for n in SYMBOL_NAMES for r, _ in regions(n)
                         if r == "full"}):
         path = markPath("full", name)
         box = inkBox(read_png(path))
@@ -341,10 +360,10 @@ def main(argv):
         return marks()
     if "--check" in argv:
         return check(ink)
-    for name in textures.SYMBOL_NAMES:
+    for name in SYMBOL_NAMES:
         write_png(os.path.join(OUT, name + ".png"), build(name, ink))
-    font(textures.SYMBOL_NAMES, FONT)
-    print(f"assembled {len(textures.SYMBOL_NAMES)} symbols from {BADGES} and {MARKS}")
+    font(SYMBOL_NAMES, FONT)
+    print(f"assembled {len(SYMBOL_NAMES)} symbols from {BADGES} and {MARKS}")
 
 
 if __name__ == "__main__":

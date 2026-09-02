@@ -54,6 +54,16 @@ public final class GuiThemes {
     public static final ResourceLocation DEFAULT =
             ResourceLocation.fromNamespaceAndPath(Gathering.MOD_ID, GuiTheme.DEFAULT_FOLDER);
 
+    /**
+     * One sprite of the default theme, watched to notice a resource reload.
+     *
+     * <p>Built once. This is asked for on the way to every sprite the mod draws, and it used
+     * to build the path and the location again each time - a string and an object per sprite
+     * per frame, for a value that cannot change.
+     */
+    private static final ResourceLocation WATCHED =
+            DEFAULT.withSuffix("/" + GatheringSprites.Element.PANEL.fileName());
+
     /** Where a pack declares one. */
     private static final String FOLDER = "gui_themes";
 
@@ -134,8 +144,7 @@ public final class GuiThemes {
         if (client == null) {
             return;
         }
-        TextureAtlasSprite now = client.getGuiSprites().getSprite(
-                DEFAULT.withSuffix("/" + GatheringSprites.Element.PANEL.fileName()));
+        TextureAtlasSprite now = client.getGuiSprites().getSprite(WATCHED);
         if (now == readFor && !known.isEmpty()) {
             return;
         }

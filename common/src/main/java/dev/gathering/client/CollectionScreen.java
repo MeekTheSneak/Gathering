@@ -70,6 +70,15 @@ public final class CollectionScreen extends Screen {
 
     /** What the build button needs, and what the narrowest window has room for beside the pips. */
     private static final int BUILD_WIDTH = 86;
+
+    /**
+     * How wide the rarity button would like to be, and the least it will take.
+     *
+     * <p>It gives way rather than the button beside it, because its label shrinks to fit and
+     * that one's would have to leave the screen.
+     */
+    private static final int RARITY_WIDTH = 92;
+    private static final int RARITY_MIN = 62;
     /**
      * Where the card box starts, worked out from the row of buttons above it.
      *
@@ -246,20 +255,23 @@ public final class CollectionScreen extends Screen {
                     () -> query.colors().contains(color), () -> toggleColor(color)));
             pipsX += 20;
         }
-        rarityButton = GatheringButtons.of(pipsX + 6, pipsY, 92, 16, rarityLabel(), this::nextRarity);
-        addRenderableWidget(rarityButton);
-
         // The other way to take cards out, and the one worth finding. Sleeving a hundred-card
         // list a card at a time is a hundred clicks; this is one, and it is here rather than
         // on the import screen because the cards are here.
         //
-        // Sized for the narrowest window the game draws. At 320 the pips and the rarity
-        // button end at 214 and the margin leaves 304, which is exactly the eighty-six this
-        // takes; every wider window is slack. Clamped as well, so a longer rarity label some
-        // day pushes this off the edge where it can be seen rather than underneath it.
-        int afterRarity = rarityButton.getX() + rarityButton.getWidth() + 4;
+        // Anchored to the right edge, and the rarity button beside it gets whatever is left.
+        // It was the other way round - rarity at a fixed width and this pushed off the end of
+        // it - which put this button four pixels off the right of the screen the moment a
+        // sixth pip was added to the row, on the narrowest window the game draws.
+        int buildLeft = this.width - MARGIN - BUILD_WIDTH;
+        int rarityLeft = pipsX + 6;
+        int rarityWidth = Math.clamp(buildLeft - 4 - rarityLeft, RARITY_MIN, RARITY_WIDTH);
+        rarityButton = GatheringButtons.of(
+                rarityLeft, pipsY, rarityWidth, 16, rarityLabel(), this::nextRarity);
+        addRenderableWidget(rarityButton);
         addRenderableWidget(GatheringButtons.of(
-                Math.max(afterRarity, this.width - MARGIN - BUILD_WIDTH), pipsY, BUILD_WIDTH, 16,
+                Math.max(rarityButton.getX() + rarityWidth + 4, buildLeft), pipsY,
+                BUILD_WIDTH, 16,
                 Component.translatable("screen.gathering.collection.build_deck"),
                 () -> this.minecraft.setScreen(new DeckBuilderScreen(where, label))));
 
@@ -740,13 +752,28 @@ public final class CollectionScreen extends Screen {
      * ever be noticed.
      */
     Component blockGestureHint() {
-        if (heldDeckName() != null) {
-            return Component.translatable("screen.gathering.collection.hint_dissolve");
-        }
-        if (mayAdd && carryingLooseCards()) {
-            return Component.translatable("screen.gathering.collection.hint_sweep");
-        }
-        return null;
+        return switch (dev.gathering.core.collection.CollectionGesture.offered(
+                heldDeckName() != null, handsAreEmpty(), mayAdd, carryingLooseCards())) {
+            case DISSOLVE -> Component.translatable("screen.gathering.collection.hint_dissolve");
+            case SWEEP -> Component.translatable("screen.gathering.collection.hint_sweep");
+            case NONE -> null;
+        };
+    }
+
+    /**
+     * Whether a crouching right-click would reach the block at all.
+     *
+     * <p>Vanilla skips block interaction entirely when somebody crouches holding anything in
+     * either hand, so the sweep is an empty-handed gesture whether or not it is called one -
+     * see {@code CollectionBlock#useWithoutItem}. The line used to be offered to anybody
+     * carrying loose cards, which is exactly the player most likely to be holding one: they
+     * crouched, nothing happened, and the screen had told them it would.
+     */
+    private boolean handsAreEmpty() {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        return player != null
+                && player.getMainHandItem().isEmpty()
+                && player.getOffhandItem().isEmpty();
     }
 
     /**

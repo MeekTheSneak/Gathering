@@ -76,8 +76,7 @@ change it:
     "scaling": {
       "type": "nine_slice",
       "width": 32, "height": 32,
-      "border": 8,
-      "stretch_inner": true
+      "border": 8
     }
   }
 }
@@ -85,13 +84,18 @@ change it:
 
 - **stretch** — the whole file is squashed to fit whatever it is drawn in. Right for flat
   washes and tints.
-- **nine_slice** — the corners stay their painted size, the edges stretch along their run, and
-  the middle fills. Right for anything with a border. `width` and `height` must match the PNG.
+- **nine_slice** — the corners stay their painted size, and the edges and the middle repeat to
+  fill the rest. Right for anything with a border. `width` and `height` must match the PNG.
   `border` is how many pixels are corner, in texture pixels, drawn one-to-one on screen — so a
-  border of 8 is an 8-pixel-thick frame however large the panel is.
-- **stretch_inner: false** tiles the middle instead of stretching it. Good for a woven or
-  hatched fill; costs one draw call per tile, so keep it off anything the size of a mat or a
-  screen.
+  border of 8 is an 8-pixel-thick frame however large the panel is. It may also be a record —
+  `{"left": 6, "top": 4, "right": 6, "bottom": 4}` — for a sprite whose detail runs along one
+  axis.
+
+Those three fields are the whole of it on this version. A nine-slice repeats rather than
+stretches, and nothing turns that off: `stretch_inner` is a field from a later Minecraft and
+1.21.1 does not read it. So a middle with a pattern in it repeats that pattern across whatever
+it is drawn in — fine on a button, visible on a panel the size of a mat, which is why the
+mod's own large elements have plain middles.
 
 Higher-resolution art is fine — a 128×128 panel with a border of 32 draws a 32-pixel frame.
 That is a design choice about how heavy the mod's chrome looks, not just a resolution.
@@ -130,12 +134,18 @@ nothing draws (usually a typo in a name), and whether any `.mcmeta` is missing.
 
 ## What ships
 
-Eight looks and a template. `basic` is the default and the one every other falls back to, so it
-is the only one that has to be complete. `blue`, `red`, `yellow` and `pink` are the same
-construction in another palette. `future`, `bubble` and `retro` are built differently as well as
-colored differently - rounded and hairlined, rounded and glossy, and grooved and grainy - because
-those three name a card frame rather than a color, and a palette alone does not make one.
+Thirteen looks and a template.
 
-All of it comes out of `tools/gui_art.py`, where a look is one entry: a palette, and which of the
-four constructions it uses. Adding a ninth is a line in that table, or a folder in a resource pack
-if it is not ours to add.
+`basic` is the default and the one every other falls back to, so it is the only one that has to
+be complete. `blue`, `red`, `yellow` and `pink` are the same construction in another palette.
+
+`future`, `bubble`, `arcade` and `retro` are built differently as well as colored differently —
+hairlined, glossy, hard-pixelled and grainy — because those name a card frame rather than a
+color, and a palette alone does not make one.
+
+`ember`, `arcane`, `verdant` and `royal` are painted around a frame drawn by hand rather than
+generated: the palette is theirs, the panel comes from `art/gui/frames`.
+
+All of it comes out of `tools/gui_art.py`, where a look is one entry: a palette, and either the
+construction it uses or the frame it is painted around. Adding a fourteenth is a line in that
+table, or a folder in a resource pack if it is not ours to add.

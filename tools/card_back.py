@@ -5,7 +5,7 @@ Every card in Gathering is sleeved: the back of a card is this and never the pri
 behind it, which is a security property as much as a look - a face-down card has to be
 unreadable from every angle. So there is exactly one back, and it is ours.
 
-Drawn here rather than saved out of an image editor for the reason tools/textures.py exists:
+Drawn here rather than saved out of an image editor for the reason every generator here exists:
 a palette at the top of a file can be re-tinted for a theme, and a sleeve nobody can regenerate
 is a sleeve that can never match one.
 
@@ -23,7 +23,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from textures import write_png  # noqa: E402  - the PNG writer, kept in one place
+from pngwrite import write_png  # noqa: E402  - the PNG writer, kept in one place
 
 OUT = "common/src/main/resources/assets/gathering/textures/card/back.png"
 PLAIN_OUT = "common/src/main/resources/assets/gathering/textures/card/sleeve.png"

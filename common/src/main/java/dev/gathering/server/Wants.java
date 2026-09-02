@@ -35,6 +35,13 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The map is concurrent because a save can be asked for off the server thread when the
  * world does; everything else here is server thread only.
+ *
+ * <p>The file is written off the server thread. Marking a card is one click, and one click
+ * used to be a disk write inside the tick that handled it - which on a busy server with a
+ * slow disk is the whole server waiting on somebody's want list. What the rest of the mod
+ * reads is the map, which is already up to date by then, so the write has nothing waiting on
+ * it. A player leaving flushes theirs first, so a list changed and then disconnected on is
+ * still on disk.
  */
 public final class Wants {
 
@@ -50,6 +57,13 @@ public final class Wants {
             "# Cards this player is chasing, one printing to a line.";
 
     private static final Map<UUID, WantsList> HELD = new ConcurrentHashMap<>();
+
+    /** Lists changed but not yet on disk, newest wins - one write per player, not per click. */
+    private static final Map<UUID, WantsList> PENDING = new ConcurrentHashMap<>();
+
+    private static final java.util.concurrent.ExecutorService WRITER =
+            java.util.concurrent.Executors.newSingleThreadExecutor(
+                    dev.gathering.service.ServiceThreads.named("gathering-wants"));
 
     private Wants() {
     }
@@ -75,7 +89,12 @@ public final class Wants {
 
     /** Forgets a player who has gone, so a long-running server does not hold every list ever. */
     public static void left(ServerPlayer player) {
-        HELD.remove(player.getUUID());
+        UUID who = player.getUUID();
+        HELD.remove(who);
+        // Here rather than on the writer thread: a disconnect is the last moment this list is
+        // certainly still wanted, and one small file is nothing beside the player data the
+        // server is already writing at exactly this point.
+        flush(who);
     }
 
     /**
@@ -100,7 +119,7 @@ public final class Wants {
             return;
         }
         HELD.put(who, after);
-        write(who, after);
+        save(who, after);
         Sending.to(player, WantsPayload.of(after));
     }
 
@@ -124,6 +143,20 @@ public final class Wants {
         } catch (IOException couldNotRead) {
             LOGGER.warn("Could not read the wants list at {}: {}", where, couldNotRead.getMessage());
             return WantsList.EMPTY;
+        }
+    }
+
+    /** Queues the write. The list itself is already live in {@link #HELD}. */
+    private static void save(UUID player, WantsList wants) {
+        PENDING.put(player, wants);
+        WRITER.execute(() -> flush(player));
+    }
+
+    /** Writes whatever this player's latest queued list is, if it has not been written yet. */
+    private static void flush(UUID player) {
+        WantsList wants = PENDING.remove(player);
+        if (wants != null) {
+            write(player, wants);
         }
     }
 

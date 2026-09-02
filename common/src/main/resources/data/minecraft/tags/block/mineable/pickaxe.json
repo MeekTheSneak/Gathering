@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "gathering:cobblestone_table",
+    "gathering:blackstone_table",
+    "gathering:crying_obsidian_table"
+  ]
+}

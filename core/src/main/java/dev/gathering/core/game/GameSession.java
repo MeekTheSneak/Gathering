@@ -236,15 +236,17 @@ public final class GameSession {
             unanimous = true;
         }
 
-        for (SessionRecord.EventRecord record : standingTail(actionCount)) {
-            records.set(records.indexOf(record), record.asUndone());
+        for (int index : standingTailIndices(actionCount)) {
+            records.set(index, ((SessionRecord.EventRecord) records.get(index)).asUndone());
         }
         SessionRecord.UndoRecord undoRecord =
                 new SessionRecord.UndoRecord(nextSequence++, requester, actionCount, unanimous);
         records.add(undoRecord);
 
-        state = refold();
-        rebuildLog();
+        // One walk, not two. Rewriting the log has to fold the game anyway - every line
+        // describes the board before its own event - so this takes the board that walk
+        // arrived at rather than folding the whole game a second time to ask for it.
+        state = rebuildLogAndFold();
         return new Result.Accepted(undoRecord, state);
     }
 
@@ -293,17 +295,11 @@ public final class GameSession {
     }
 
     /**
-     * Rebuilds every line by folding the log again.
-     *
-     * <p>Only after a rewind, and only because a line describes the board before its own
-     * event: undoing something in the middle changes what every later line was describing.
-     */
-    private void rebuildLog() {
-        rebuildLogAndFold();
-    }
-
-    /**
      * Writes the log again and hands back the board it walked past on the way.
+     *
+     * <p>The log is rewritten only after a rewind, and only because a line describes the board
+     * before its own event: undoing something in the middle changes what every later line was
+     * describing.
      *
      * <p>One walk rather than two. Describing a line needs the board as it was before its own
      * event, so this fold has to happen anyway - and every caller that rebuilds the log also
@@ -354,13 +350,29 @@ public final class GameSession {
     /** The last {@code count} standing event records, oldest first. */
     private List<SessionRecord.EventRecord> standingTail(int count) {
         List<SessionRecord.EventRecord> standing = new ArrayList<>();
-        for (int index = records.size() - 1; index >= 0 && standing.size() < count; index--) {
+        for (int index : standingTailIndices(count)) {
+            standing.add((SessionRecord.EventRecord) records.get(index));
+        }
+        return standing;
+    }
+
+    /**
+     * Where those records are, oldest first.
+     *
+     * <p>Positions rather than the records themselves, for the one caller that has to write
+     * them back: it looked each one up again with {@code indexOf}, which walks the whole
+     * record from the front - so undoing ten actions of a four-thousand-event game was ten
+     * more passes over it.
+     */
+    private List<Integer> standingTailIndices(int count) {
+        List<Integer> found = new ArrayList<>();
+        for (int index = records.size() - 1; index >= 0 && found.size() < count; index--) {
             if (records.get(index) instanceof SessionRecord.EventRecord record && record.isStanding()) {
-                standing.add(record);
+                found.add(index);
             }
         }
-        java.util.Collections.reverse(standing);
-        return standing;
+        java.util.Collections.reverse(found);
+        return found;
     }
 
     /**

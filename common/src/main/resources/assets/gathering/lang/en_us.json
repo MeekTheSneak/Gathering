@@ -454,6 +454,7 @@
   "screen.gathering.counters.add": "Add",
   "screen.gathering.counters.commander_damage": "Commander damage taken",
   "screen.gathering.counters.commander_tax": "Commander tax",
+  "screen.gathering.counters.grid_more": "%s - %s not shown, the window is too short",
   "screen.gathering.counters.custom": "Counter name",
   "screen.gathering.counters.extra_mana": "+%s",
   "screen.gathering.counters.more": "%s more - scroll",
