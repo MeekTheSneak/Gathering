@@ -73,9 +73,41 @@ public final class ServerSettings {
             return "Could not read " + FILE_NAME + ": " + couldNotRead.getMessage();
         }
 
+        // What the file already says, so a note this edit did not cause is not blamed on it:
+        // a config with a pre-existing complaint in it would otherwise refuse every set.
+        GatheringConfig before;
+        try {
+            before = GatheringConfig.read(Toml.read(text));
+        } catch (TomlException alreadyBroken) {
+            before = GatheringConfig.defaults();
+        }
+
         ConfigEdit.Edited edited = ConfigEdit.set(text, path, value);
         if (!edited.worked()) {
             return edited.problem();
+        }
+        // Read the file back before writing it, not after. ConfigEdit only checks that the
+        // path has a dot in it and the value is not blank - it has no idea what the key is
+        // supposed to hold - so a value TOML cannot express went straight to disk, the reload
+        // failed, and the server dropped every setting it had back to the defaults. Import
+        // mode, collection mode, ante, loot: all of it, from one typed word. And it stayed
+        // that way, because the broken file is still there the next time the server starts.
+        //
+        // The command said it had worked, because writing the file had.
+        GatheringConfig would;
+        try {
+            would = GatheringConfig.read(Toml.read(edited.text()));
+        } catch (TomlException notReadable) {
+            return path + " cannot be set to \"" + value + "\": " + notReadable.getMessage();
+        }
+        // Parsing is not the same as taking. A value of the wrong shape for its key - a word
+        // where a number goes - parses as TOML and is then quietly ignored, with a note. If
+        // this edit produced one, the setting did not take, and writing it would leave a file
+        // saying one thing and a server doing another.
+        for (String note : would.notes()) {
+            if (!before.notes().contains(note)) {
+                return note;
+            }
         }
         try {
             Files.createDirectories(file.getParent());
@@ -83,7 +115,7 @@ public final class ServerSettings {
         } catch (IOException couldNotWrite) {
             return "Could not write " + FILE_NAME + ": " + couldNotWrite.getMessage();
         }
-        active = readOrDefault(file);
+        active = would;
         LOGGER.info("{} was set to {}", path, value);
         return null;
     }

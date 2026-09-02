@@ -78,6 +78,52 @@ public final class SettingsCommandGameTest {
         }
     }
 
+    /**
+     * A value of the wrong shape is refused, not written.
+     *
+     * <p>The setting command checked that the path had a dot in it and that the value was not
+     * blank, and nothing else - it has no idea what any key is meant to hold. The written file
+     * is always valid TOML, because ConfigEdit quotes anything it does not recognise; the
+     * damage happens one layer further in. GatheringConfig.read asks {@code toml.flag} for a
+     * boolean key, and flag throws when it finds a string - so the reload fails and the server
+     * drops <em>every</em> setting it has back to the defaults. Import mode, collection mode,
+     * ante, loot, all of it, from one mistyped word on an unrelated key. It stays that way at
+     * the next restart too, because the file is still on disk. And the command reported
+     * success, because writing the file had worked.
+     *
+     * <p>Checked through a setting deliberately left at a non-default value: a revert to the
+     * defaults is only visible on a setting whose default is not what it already says.
+     */
+    @GameTest(template = "empty")
+    public static void aValueOfTheWrongShapeIsRefusedRatherThanWritten(GameTestHelper helper) {
+        boolean collectionBefore = ServerSettings.get().modes().collectionEnabled();
+        boolean importBefore = ServerSettings.get().modes().importEnabled();
+        try {
+            // Import defaults to on, so off is the state a revert would undo.
+            Settings.set("modes.import_enabled", "off");
+            if (ServerSettings.get().modes().importEnabled()) {
+                helper.fail("could not put a setting into a non-default state to check against");
+                return;
+            }
+
+            Settings.Changed changed = Settings.set("modes.collection_enabled", "banana");
+            if (changed.worked()) {
+                helper.fail("a word was accepted for a setting that holds true or false");
+                return;
+            }
+            // The part that made this serious: the damage was never to the key being edited.
+            if (ServerSettings.get().modes().importEnabled()) {
+                helper.fail("a refused setting took an unrelated one with it - the whole config"
+                        + " reverted to its defaults");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            Settings.set("modes.import_enabled", importBefore ? "on" : "off");
+            Settings.set("modes.collection_enabled", collectionBefore ? "on" : "off");
+        }
+    }
+
     /** A name nothing reads is refused rather than written into the file. */
     @GameTest(template = "empty")
     public static void aSettingThatDoesNotExistIsRefused(GameTestHelper helper) {
