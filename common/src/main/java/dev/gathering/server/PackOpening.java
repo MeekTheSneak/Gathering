@@ -110,16 +110,12 @@ public final class PackOpening {
                 .thenComposeAsync(reading -> {
                     BoosterConfig config = pick(reading, kind);
                     if (config == null) {
-                        return java.util.concurrent.CompletableFuture.completedFuture(
-                                new Opened(reading, null, null, List.of()));
+                        // Nobody has published how this set was collated. Rather than hand
+                        // the pack back - which is a real set the player cannot open, and was
+                        // what happened - cut one from the set itself and say so.
+                        return madeUpPack(cards, reading, set, kind);
                     }
-                    OpenedPack pack = BoosterOpener.open(config, freshSeed(), config.id());
-                    List<UUID> printings = new ArrayList<>();
-                    for (CardIdentity card : pack.cards()) {
-                        card.printing().ifPresent(printings::add);
-                    }
-                    return cards.findAll(printings)
-                            .thenApply(found -> new Opened(reading, config, pack, found));
+                    return openAndName(cards, reading, config, false);
                 }, collation.worker())
                 .whenComplete((opened, failure) -> player.server.execute(() -> {
                     if (player.hasDisconnected()) {
@@ -142,6 +138,76 @@ public final class PackOpening {
                     deliver(player, opened, ceremony);
                 }));
     }
+
+    /**
+     * Opens a config and looks up the names of what came out of it.
+     *
+     * @param madeUp whether this config is the fallback rather than a published collation,
+     *               which the player is told about once the cards are in their hands
+     */
+    private static java.util.concurrent.CompletableFuture<Opened> openAndName(
+            CardDataService cards, MtgjsonCollation.Reading reading, BoosterConfig config,
+            boolean madeUp) {
+        OpenedPack pack = BoosterOpener.open(config, freshSeed(), config.id());
+        List<UUID> printings = new ArrayList<>();
+        for (CardIdentity card : pack.cards()) {
+            card.printing().ifPresent(printings::add);
+        }
+        return cards.findAll(printings)
+                .thenApply(found -> new Opened(reading, config, madeUp, pack, found));
+    }
+
+    /**
+     * A pack for a set nobody has published the collation of.
+     *
+     * <p>One sheet per rarity, every card on it once, which is what "we do not know how this
+     * was printed" honestly comes to - see {@link BoosterFallback}, which has always been
+     * written and tested and was never reached. A set MTGJSON has no booster for is a set
+     * that exists, that the shop will sell packs of, and that used to hand every one of them
+     * straight back.
+     *
+     * <p>Said out loud when it happens, because a pack cut this way is a different object
+     * from a real one: every common in it is exactly as likely as every other, which no real
+     * pack has ever been.
+     */
+    private static java.util.concurrent.CompletableFuture<Opened> madeUpPack(
+            CardDataService cards, MtgjsonCollation.Reading reading, String set, String kind) {
+        return cards.everyPrintingIn(set).thenCompose(inTheSet -> {
+            BoosterConfig made = dev.gathering.core.booster.BoosterFallback.configFor(
+                    set,
+                    kind == null || kind.isBlank() ? FALLBACK_KIND : kind,
+                    poolOf(inTheSet),
+                    dev.gathering.core.booster.RaritySlots.usual());
+            if (!made.isUsable()) {
+                return java.util.concurrent.CompletableFuture.completedFuture(
+                        new Opened(reading, null, false, null, List.of()));
+            }
+            return openAndName(cards, reading, made, true);
+        });
+    }
+
+    /**
+     * What a pack of this set could be cut from, by rarity.
+     *
+     * <p>The same rule {@link PackCoverage#catalogOf} audits against, sorted into sheets.
+     * Public so a test can check it without a card pipeline behind it: everything downstream
+     * of this is {@link BoosterFallback}'s and is checked in the pure module, and what is
+     * worth checking here is that the catalog going in is the one the audit measures.
+     */
+    public static Map<dev.gathering.core.card.Rarity, List<UUID>> poolOf(
+            List<CardMetadata> inTheSet) {
+        Map<dev.gathering.core.card.Rarity, List<UUID>> pool = new LinkedHashMap<>();
+        for (CardMetadata card : inTheSet) {
+            if (wasEverInABooster(card)) {
+                pool.computeIfAbsent(card.rarity(), rarity -> new ArrayList<>())
+                        .add(card.scryfallId());
+            }
+        }
+        return pool;
+    }
+
+    /** What a made-up pack calls itself when nobody asked for a particular kind. */
+    private static final String FALLBACK_KIND = "draft";
 
     /**
      * Whether a printing is one a pack could ever have contained.
@@ -177,7 +243,7 @@ public final class PackOpening {
      * A pack and the card data for what came out of it, or no pack and the reading that had
      * none to give - which is the difference between two very different sentences.
      */
-    private record Opened(MtgjsonCollation.Reading reading, BoosterConfig config,
+    private record Opened(MtgjsonCollation.Reading reading, BoosterConfig config, boolean madeUp,
             OpenedPack pack, List<CardMetadata> cards) {
     }
 
@@ -332,6 +398,13 @@ public final class PackOpening {
         String kind = opened.config().kind();
         Delivery delivery = whatToGive(opened.pack(), opened.cards());
         handOver(player, delivery.giving(), opened.cards(), set, kind, ceremony);
+        if (opened.madeUp()) {
+            // Said every time rather than once a session. A pack cut this way is a different
+            // object from a real one - every common in it is exactly as likely as every other
+            // - and somebody opening a box of them should be able to see which were which.
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.pack_made_up", set));
+        }
         if (delivery.unnameable() == 1) {
             player.sendSystemMessage(
                     Component.translatable("message.gathering.pack_unresolved_one"));

@@ -55,6 +55,53 @@ public final class PackCoverageGameTest {
         helper.succeed();
     }
 
+    /**
+     * A set nobody has published a collation for still opens.
+     *
+     * <p>{@link dev.gathering.core.booster.BoosterFallback} was written for exactly this and
+     * for a long time nothing called it: a real set with no MTGJSON booster handed every pack
+     * straight back. What is checked here is the join - that the catalog this layer hands the
+     * fallback is the one the audit measures, and that what comes back can actually be opened.
+     */
+    @GameTest(template = "empty")
+    public static void aSetWithNoPublishedCollationStillOpens(GameTestHelper helper) {
+        List<CardMetadata> set = new ArrayList<>();
+        for (int index = 0; index < 12; index++) {
+            set.add(card("common" + index, Rarity.COMMON, false, false));
+        }
+        for (int index = 0; index < 4; index++) {
+            set.add(card("uncommon" + index, Rarity.UNCOMMON, false, false));
+        }
+        set.add(card("rare", Rarity.RARE, false, false));
+        set.add(card("mythic", Rarity.MYTHIC, false, false));
+        // Neither of these was ever on a print sheet, so neither may reach a sheet here.
+        set.add(card("digital", Rarity.COMMON, true, false));
+        set.add(basic("Plains"));
+
+        Map<Rarity, List<UUID>> pool = dev.gathering.server.PackOpening.poolOf(set);
+        BoosterConfig made = dev.gathering.core.booster.BoosterFallback.configFor(
+                "tst", "draft", pool, dev.gathering.core.booster.RaritySlots.usual());
+
+        if (!made.isUsable()) {
+            helper.fail("A set of eighteen real cards could not be cut into a pack: "
+                    + made.whatIsMissing());
+            return;
+        }
+        if (pool.getOrDefault(Rarity.COMMON, List.of()).size() != 12) {
+            helper.fail("The common sheet came to "
+                    + pool.getOrDefault(Rarity.COMMON, List.of()).size()
+                    + " rather than twelve - a digital or basic printing reached it");
+            return;
+        }
+        byte[] seed = "a seed for a made-up pack".getBytes(StandardCharsets.UTF_8);
+        if (!dev.gathering.core.booster.BoosterOpener.open(made, seed, made.id())
+                .cards().isEmpty()) {
+            helper.succeed();
+            return;
+        }
+        helper.fail("The pack cut from that set came out empty");
+    }
+
     @GameTest(template = "empty")
     public static void basicLandsAreNotSomethingAPackHasToCover(GameTestHelper helper) {
         // Found by auditing a real set: it came out at ninety-three per cent, and every card

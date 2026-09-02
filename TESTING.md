@@ -518,10 +518,10 @@ In rough order of how much it would change what I build next:
 - **A chest does not decide which set.** It decides which kind of booster: a collector booster
   is much likelier out of an end city than out of a village. Tying a set to a structure is an
   idea and not built.
-- **The looks are placeholders too.** **Options → Video Settings → Gathering look** switches
-  between felt, slate, walnut and template, and a fourth is a folder of PNGs and a four-line
-  file in a resource pack — but the three colored ones are `tools/gui_art.py`'s output rather
-  than drawn art, and template is a labeled diagram on purpose.
+- **The looks are generated, not drawn.** **Options → Video Settings → Gathering look**
+  switches between thirteen of them and a template, and a fourteenth is a folder of PNGs and
+  a four-line file in a resource pack — but every one that ships is `tools/gui_art.py`'s
+  output rather than drawn art, and template is a labeled diagram on purpose.
 - **Placeholder art.** The booster wrapper and the collection block are generated templates,
   not drawn textures.
 
@@ -572,7 +572,8 @@ python3 tools/doccheck.py   # no paragraph left attached to the wrong method
 python3 tools/spritecheck.py  # every drawn element has art, in every theme
 ```
 
-The last three run inside `smoke.sh` as well; they are listed separately because they take a
+The last three run inside `smoke.sh` as well, along with five more; `tools/README.md` lists
+every check and every art generator. They are listed separately here because they take a
 second and catch three failures the compiler is completely blind to. A missing translation key
 draws itself on screen where a sentence should be. An orphaned javadoc — one left sitting
 above another one when its own member was renamed or moved — quietly hands a method's

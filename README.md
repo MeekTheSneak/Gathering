@@ -162,9 +162,10 @@ won't work around that.
 
 **Can I change how it looks?** Yes, all of it. Nothing in the mod draws a colored rectangle:
 every panel, band, tint, ring, badge and bar is a texture, so a resource pack can replace any
-of it. Four sets of that art ship — felt, slate, walnut, and a template that draws every
-element as a labeled diagram — and **Options → Video Settings → Gathering look** switches
-between them. Adding your own is a folder of PNGs and a four-line file in a resource pack, with
+of it. Thirteen sets of that art ship — five palettes of one construction, four built around
+their own card frame, four built around a frame drawn by hand — along with a template that
+draws every element as a labeled diagram, and **Options → Video Settings → Gathering look**
+switches between them. Adding your own is a folder of PNGs and a four-line file in a resource pack, with
 no code: a look may leave elements out and inherit them, so repainting six things is a complete
 look. [`docs/themes.md`](docs/themes.md) is the guide, and
 [`docs/gui-elements.png`](docs/gui-elements.png) is the one page to paint from.

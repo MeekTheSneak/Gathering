@@ -316,6 +316,7 @@
   "message.gathering.pack_no_such_kind": "%s has no \"%s\" booster. It publishes: %s.",
   "message.gathering.pack_opened": "Opened a %s %s booster: %s cards.",
   "message.gathering.pack_unresolved": "%s cards could not be looked up.",
+  "message.gathering.pack_made_up": "Nobody has published how %s was collated, so that pack was cut from the whole set evenly.",
   "message.gathering.pack_unresolved_one": "One card could not be looked up.",
   "message.gathering.pipeline_unavailable": "The card service is not running on this server.",
   "message.gathering.card_is_a_grant": "Cards are collected on this server. Open packs, or buy from a card shop.",
