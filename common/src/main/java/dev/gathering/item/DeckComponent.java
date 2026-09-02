@@ -203,6 +203,27 @@ public record DeckComponent(
         return totalCards() == 0;
     }
 
+    /**
+     * Whether this deck can be carried as an item at all.
+     *
+     * <p>Each section crosses the wire as a list bounded at {@link #MAX_CARDS}, and a bounded
+     * list throws when it is <em>written</em> past its bound, not only when it is read. So a
+     * deck bigger than this is not a deck that arrives truncated - it is a deck that cannot be
+     * encoded, in an item stack that is nonetheless in somebody's inventory and saved with
+     * their player data. Every inventory sync after that throws, which is a player who cannot
+     * log in until an administrator edits their file by hand.
+     *
+     * <p>{@code withAdded} has always refused past this bound, so nothing built a card at a
+     * time could get here. An import builds the whole list at once and skipped straight past
+     * it, which is the one way in.
+     */
+    public boolean fitsInAnItem() {
+        return entries.size() <= MAX_CARDS
+                && commanders.size() <= MAX_CARDS
+                && sideboard.size() <= MAX_CARDS
+                && totalCards() <= MAX_CARDS;
+    }
+
     public boolean hasDescription() {
         return !description.isBlank();
     }

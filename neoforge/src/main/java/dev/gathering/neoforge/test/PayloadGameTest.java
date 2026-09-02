@@ -594,6 +594,60 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /**
+     * A deck too big to encode is refused rather than handed over.
+     *
+     * <p>Each of a deck's sections crosses the wire as a bounded list, and a bounded list
+     * throws when it is <em>written</em> past its bound, not only when it is read. So an
+     * oversized deck is not one that arrives short - it is an item stack that cannot be
+     * encoded at all, sitting in somebody's inventory and saved with their player data. Every
+     * inventory sync after that throws, which is a player who cannot log in again until an
+     * administrator edits their file by hand.
+     *
+     * <p>Building a deck a card at a time could never get here - withAdded has always refused
+     * past the bound, and the collection builder stops and says what it left in the box. An
+     * import builds the whole list at once, and that was the one way past it.
+     */
+    @GameTest(template = "empty")
+    public static void aDeckTooBigToSendIsRecognisedAsSuch(GameTestHelper helper) {
+        List<dev.gathering.item.CardComponent> far = new java.util.ArrayList<>();
+        for (int copy = 0; copy < DeckComponent.MAX_CARDS + 200; copy++) {
+            far.add(dev.gathering.item.CardComponent.of(
+                    CardIdentity.ofPrinting(SOL_RING, false)));
+        }
+        DeckComponent huge = new DeckComponent(
+                "Far too much", "", Optional.empty(), List.copyOf(far), List.of(), List.of());
+
+        if (huge.fitsInAnItem()) {
+            helper.fail("a deck of " + huge.totalCards() + " says it fits in an item, and the"
+                    + " wire bound is " + DeckComponent.MAX_CARDS);
+            return;
+        }
+        // And this is what would happen if anything handed it over anyway.
+        RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(
+                Unpooled.buffer(), helper.getLevel().registryAccess());
+        try {
+            DeckComponent.STREAM_CODEC.encode(buffer, huge);
+            helper.fail("a deck past the wire bound encoded, so the bound is not what stops"
+                    + " it and this test is checking nothing");
+            return;
+        } catch (RuntimeException expected) {
+            // Exactly the throw that would reach a player's inventory sync.
+        }
+
+        // An ordinary deck is untouched by any of it.
+        DeckComponent ordinary = new DeckComponent(
+                "Ordinary", "", Optional.empty(),
+                List.of(dev.gathering.item.CardComponent.of(
+                        CardIdentity.ofPrinting(SOL_RING, false))),
+                List.of(), List.of());
+        if (!ordinary.fitsInAnItem()) {
+            helper.fail("a one-card deck was refused");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** Writes, reads back, and insists the buffer is fully consumed. */
     private static <T> T roundTrip(
             GameTestHelper helper, T payload, StreamCodec<RegistryFriendlyByteBuf, T> codec) {

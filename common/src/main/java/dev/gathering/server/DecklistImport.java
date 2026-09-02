@@ -209,6 +209,19 @@ public final class DecklistImport {
     private static void deliver(ServerPlayer player, ResolvedDeck deck, String deckName, String description) {
         DeckComponent component = toComponent(deck, player.getUUID(), deckName, description)
                 .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()));
+        if (!component.fitsInAnItem()) {
+            // Refused rather than handed over. A deck this size cannot be encoded, and the
+            // stack would still go into the inventory and be saved there - so the next login
+            // fails, and every one after it, until somebody edits the player file by hand.
+            // A list that big is a mistake or a probe either way; saying so costs nothing.
+            send(player, new ImportResultPayload("", 0, List.of(
+                    "That list is " + component.totalCards() + " cards. A deck holds "
+                            + DeckComponent.MAX_CARDS + ".")));
+            player.sendSystemMessage(Component.translatable(
+                    "message.gathering.import_too_big",
+                    component.totalCards(), DeckComponent.MAX_CARDS));
+            return;
+        }
         ItemStack stack = DeckItem.of(component);
 
         if (!player.getInventory().add(stack)) {

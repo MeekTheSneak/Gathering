@@ -299,6 +299,7 @@
   "message.gathering.game_recorded": "This game was kept. Watch it back with /gathering replay.",
   "message.gathering.import_complete": "Imported \"%s\": %s cards.",
   "message.gathering.import_started": "Importing decklist",
+  "message.gathering.import_too_big": "That list is %s cards. A deck holds %s.",
   "message.gathering.loaner_taken": "Borrowed %1$s, %2$s cards.",
   "message.gathering.loaners_are": "%1$s deck(s) lent here: %2$s",
   "message.gathering.loaners_reloaded": "%s loaner deck(s) are being lent.",
