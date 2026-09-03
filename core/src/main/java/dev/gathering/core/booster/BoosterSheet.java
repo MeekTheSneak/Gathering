@@ -30,11 +30,11 @@ import java.util.UUID;
  *                   published for those products says so on the sheet.
  */
 public record BoosterSheet(
-        String name, boolean foil, boolean duplicates, boolean fixed, Map<UUID, Integer> weights) {
+        String name, boolean foil, boolean duplicates, boolean fixed, Map<UUID, Long> weights) {
 
     public BoosterSheet {
         name = name == null ? "" : name;
-        Map<UUID, Integer> kept = new LinkedHashMap<>();
+        Map<UUID, Long> kept = new LinkedHashMap<>();
         if (weights != null) {
             weights.forEach((printing, weight) -> {
                 if (printing != null && weight != null && weight > 0) {
@@ -68,10 +68,15 @@ public record BoosterSheet(
      * <p>A long, and not out of caution: published collation writes a foil sheet's odds as
      * exact integer ratios, and a real one of those comes to two hundred billion. An int
      * total would be wrong for the sheets that need the precision most.
+     * <p>One card's weight is a long for the same reason, and it was not always. Marvel's
+     * Spider-Man puts a weight of 2,274,495,300 on one card of its foil sheet, which is past
+     * what an int holds - so the whole set's collation was refused and every pack of it came
+     * out of the fallback, opening at rarity odds rather than the real ones. Nothing said so
+     * except one line in the log.
      */
     public long total() {
         long total = 0;
-        for (int weight : weights.values()) {
+        for (long weight : weights.values()) {
             total += weight;
         }
         return total;
@@ -86,7 +91,7 @@ public record BoosterSheet(
      */
     public UUID at(long at) {
         long seen = 0;
-        for (Map.Entry<UUID, Integer> entry : weights.entrySet()) {
+        for (Map.Entry<UUID, Long> entry : weights.entrySet()) {
             seen += entry.getValue();
             if (at < seen) {
                 return entry.getKey();
@@ -100,7 +105,7 @@ public record BoosterSheet(
         if (printings == null || printings.isEmpty()) {
             return this;
         }
-        Map<UUID, Integer> left = new LinkedHashMap<>(weights);
+        Map<UUID, Long> left = new LinkedHashMap<>(weights);
         for (UUID printing : printings) {
             left.remove(printing);
         }

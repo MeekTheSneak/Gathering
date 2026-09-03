@@ -125,11 +125,11 @@ public final class BoosterCodec {
         boolean duplicates = flag(json, "duplicates", name);
         boolean fixed = flag(json, "fixed", name);
 
-        Map<UUID, Integer> weights = new LinkedHashMap<>();
+        Map<UUID, Long> weights = new LinkedHashMap<>();
         JsonObject cards = object(json, "cards", "sheet '" + name + "'");
         for (Map.Entry<String, JsonElement> card : cards.entrySet()) {
             UUID printing = printing(card.getKey(), name);
-            weights.put(printing, weight(card.getValue(), "sheet '" + name + "', card "
+            weights.put(printing, sheetWeight(card.getValue(), "sheet '" + name + "', card "
                     + card.getKey()));
         }
         if (weights.isEmpty()) {
@@ -226,14 +226,32 @@ public final class BoosterCodec {
     }
 
     /**
-     * One card's or one slot's weight.
+     * A count of things: how many cards are in a slot, how many of a product in a box.
      * <p>Read as a long and then checked to fit, rather than read straight as an int: Gson
-     * would quietly truncate a number too big for one, and a weight that came out a different
+     * would quietly truncate a number too big for one, and a count that came out a different
      * number than the file said is exactly the sort of wrong nobody could ever see in a pack.
-     * Sheet <em>totals</em> do run past an int - see {@link BoosterSheet#total} - but no
-     * single card's weight has yet, and the day one does this says so.
+     * These are things somebody physically holds, so a number past an int is a broken file
+     * rather than an unusual set.
      */
     public static int weight(JsonElement element, String where) throws BoosterCodecException {
+        long weight = sheetWeight(element, where);
+        if (weight > Integer.MAX_VALUE) {
+            throw new BoosterCodecException(
+                    where + ": weight " + weight + " is past what one card can carry");
+        }
+        return (int) weight;
+    }
+
+    /**
+     * One card's weight on a sheet.
+     * <p>Not bounded by an int. Published collation writes a foil sheet's odds as exact
+     * integer ratios and the numbers get very large: Marvel's Spider-Man puts 2,274,495,300
+     * on one card, which used to refuse the whole set's collation and drop every pack of it
+     * to the rarity fallback. The sum of a sheet has always been a long - see
+     * {@link BoosterSheet#total} - and there was never a reason for one card to be smaller.
+     */
+    public static long sheetWeight(JsonElement element, String where)
+            throws BoosterCodecException {
         if (element == null || !element.isJsonPrimitive()
                 || !element.getAsJsonPrimitive().isNumber()) {
             throw new BoosterCodecException(where + ": weight is missing or not a number");
@@ -242,11 +260,7 @@ public final class BoosterCodec {
         if (weight < 0) {
             throw new BoosterCodecException(where + ": weight " + weight + " is negative");
         }
-        if (weight > Integer.MAX_VALUE) {
-            throw new BoosterCodecException(
-                    where + ": weight " + weight + " is past what one card can carry");
-        }
-        return (int) weight;
+        return weight;
     }
 
     private static UUID printing(String raw, String sheet) throws BoosterCodecException {

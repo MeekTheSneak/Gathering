@@ -66,8 +66,8 @@ public final class BoosterOpener {
             // its weight, in the order the data was written - and no roll taken, so a pack
             // with one of these in it stays reproducible alongside packs without.
             int taken = 0;
-            for (Map.Entry<UUID, Integer> card : sheet.weights().entrySet()) {
-                for (int copy = 0; copy < card.getValue() && taken < howMany; copy++) {
+            for (Map.Entry<UUID, Long> card : sheet.weights().entrySet()) {
+                for (long copy = 0; copy < card.getValue() && taken < howMany; copy++) {
                     into.add(sheet.identityOf(card.getKey()));
                     taken++;
                 }

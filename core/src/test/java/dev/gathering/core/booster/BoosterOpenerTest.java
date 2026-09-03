@@ -117,9 +117,9 @@ class BoosterOpenerTest {
     void weightsActuallyDecideHowOftenACardTurnsUp() {
         UUID common = printing("common");
         UUID scarce = printing("scarce");
-        Map<UUID, Integer> weights = new LinkedHashMap<>();
-        weights.put(common, 9);
-        weights.put(scarce, 1);
+        Map<UUID, Long> weights = new LinkedHashMap<>();
+        weights.put(common, 9L);
+        weights.put(scarce, 1L);
         BoosterConfig config = config(
                 variant("plain", 1, Map.of("mixed", 1)),
                 new BoosterSheet("mixed", false, true, false, weights));
@@ -235,9 +235,9 @@ class BoosterOpenerTest {
     /** And a card printed zero times on a sheet is not on the sheet. */
     @Test
     void aCardWithNoWeightIsNotOnTheSheet() {
-        Map<UUID, Integer> weights = new LinkedHashMap<>();
-        weights.put(printing("there"), 2);
-        weights.put(printing("not-there"), 0);
+        Map<UUID, Long> weights = new LinkedHashMap<>();
+        weights.put(printing("there"), 2L);
+        weights.put(printing("not-there"), 0L);
 
         BoosterSheet sheet = new BoosterSheet("mixed", false, false, false, weights);
 
@@ -259,12 +259,12 @@ class BoosterOpenerTest {
     @DisplayName("a sheet is walked in the order it was written")
     void aSheetKeepsTheOrderItsDataWasWrittenIn() {
         List<UUID> written = new ArrayList<>();
-        Map<UUID, Integer> weights = new LinkedHashMap<>();
+        Map<UUID, Long> weights = new LinkedHashMap<>();
         // Enough keys that a hash order is near-certain to differ from the written one.
         for (int index = 0; index < 24; index++) {
             UUID printing = printing("in-order-" + index);
             written.add(printing);
-            weights.put(printing, 1);
+            weights.put(printing, 1L);
         }
 
         BoosterSheet sheet = new BoosterSheet("ordered", false, false, false, weights);
@@ -308,13 +308,13 @@ class BoosterOpenerTest {
      */
     @Test
     void aSheetHeavierThanAnIntIsDrawnFromAllTheWayAcross() {
-        Map<UUID, Integer> heavy = new LinkedHashMap<>();
+        Map<UUID, Long> heavy = new LinkedHashMap<>();
         UUID front = printing("front");
         UUID back = printing("back");
         // Two halves either side of the int mark, so a draw that cannot see past it can only
         // ever come up with the front card.
-        heavy.put(front, Integer.MAX_VALUE);
-        heavy.put(back, Integer.MAX_VALUE);
+        heavy.put(front, (long) Integer.MAX_VALUE);
+        heavy.put(back, (long) Integer.MAX_VALUE);
         BoosterSheet sheet = new BoosterSheet("heavy", false, true, false, heavy);
         assertThat(sheet.total()).isEqualTo(2L * Integer.MAX_VALUE);
 
@@ -330,9 +330,9 @@ class BoosterOpenerTest {
     /** And the same sheet opens the same way every time, which is what a seed is for. */
     @Test
     void aHeavySheetIsStillReproducible() {
-        Map<UUID, Integer> heavy = new LinkedHashMap<>();
-        heavy.put(printing("front"), Integer.MAX_VALUE);
-        heavy.put(printing("back"), Integer.MAX_VALUE);
+        Map<UUID, Long> heavy = new LinkedHashMap<>();
+        heavy.put(printing("front"), (long) Integer.MAX_VALUE);
+        heavy.put(printing("back"), (long) Integer.MAX_VALUE);
         BoosterConfig config = config(
                 new BoosterVariant("plain", 1, Map.of("heavy", 4)),
                 new BoosterSheet("heavy", false, true, false, heavy));
@@ -361,9 +361,9 @@ class BoosterOpenerTest {
 
     /** A sheet of {@code cards} distinct printings, each printed once. */
     private static BoosterSheet sheet(String name, boolean foil, boolean duplicates, int cards) {
-        Map<UUID, Integer> weights = new LinkedHashMap<>();
+        Map<UUID, Long> weights = new LinkedHashMap<>();
         for (int index = 0; index < cards; index++) {
-            weights.put(printing(name + "-" + index), 1);
+            weights.put(printing(name + "-" + index), 1L);
         }
         return new BoosterSheet(name, foil, duplicates, false, weights);
     }

@@ -48,11 +48,11 @@ public final class BoosterFallback {
             if (rarity == null || printings == null || printings.isEmpty()) {
                 continue;
             }
-            Map<UUID, Integer> weights = new LinkedHashMap<>();
+            Map<UUID, Long> weights = new LinkedHashMap<>();
             for (UUID printing : printings) {
                 // Once each. A card that appears twice in the catalog is still one card in
                 // the set, and counting it twice would make it quietly twice as common.
-                weights.putIfAbsent(printing, 1);
+                weights.putIfAbsent(printing, 1L);
             }
             sheets.put(nameOf(rarity), new BoosterSheet(nameOf(rarity), false, false, false, weights));
         }

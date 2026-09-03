@@ -78,10 +78,10 @@ public final class CoverageAudit {
      * draws from it has nothing to give, and both of those are correct.
      */
     public static BoosterSheet archiveSheet(CoverageReport report) {
-        Map<UUID, Integer> weights = new LinkedHashMap<>();
+        Map<UUID, Long> weights = new LinkedHashMap<>();
         if (report != null) {
             for (UUID printing : report.uncovered()) {
-                weights.put(printing, 1);
+                weights.put(printing, 1L);
             }
         }
         return new BoosterSheet("archive", false, false, false, weights);

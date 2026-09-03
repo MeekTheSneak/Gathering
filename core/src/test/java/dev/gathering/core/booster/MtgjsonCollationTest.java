@@ -30,6 +30,48 @@ class MtgjsonCollationTest {
     private static final String THREE = "33333333-3333-4333-8333-333333333333";
     private static final String FOUR = "44444444-4444-4444-8444-444444444444";
 
+    /**
+     * Real published collation, which does not stay inside an int.
+     * <p>Marvel's Spider-Man writes 2,274,495,300 on one card of its foil sheet - the odds
+     * are exact integer ratios and the numbers get very large. That refused the whole set's
+     * collation, so every pack of it opened out of the rarity fallback instead of the real
+     * sheets, and nothing said so except one line in the log.
+     * <p>The two halves here are either side of the int mark on purpose: a reader that
+     * cannot hold one of them is a reader that comes up with the first card every time.
+     */
+    @Test
+    @DisplayName("a card can weigh more than an int holds")
+    void aCardMayWeighMoreThanAnIntHolds() throws Exception {
+        long heavy = 2_274_495_300L;
+        MtgjsonCollation.Reading reading = MtgjsonCollation.read(file("""
+                {"data": {
+                  "code": "TST",
+                  "cards": [
+                    {"uuid": "a", "identifiers": {"scryfallId": "%s"}},
+                    {"uuid": "b", "identifiers": {"scryfallId": "%s"}}
+                  ],
+                  "booster": {
+                    "draft": {
+                      "sheets": {
+                        "foils": {"foil": true, "totalWeight": %s, "cards": {"a": %s, "b": 1}}
+                      },
+                      "boosters": [{"contents": {"foils": 1}, "weight": 1}],
+                      "boostersTotalWeight": 1
+                    }
+                  }
+                }}
+                """.formatted(ONE, TWO, heavy + 1, heavy)));
+
+        assertThat(reading.notes()).isEmpty();
+        BoosterSheet foils = reading.pack("draft").sheets().get("foils");
+        assertThat(foils.weights()).containsExactly(
+                Map.entry(UUID.fromString(ONE), heavy), Map.entry(UUID.fromString(TWO), 1L));
+        assertThat(foils.total()).isEqualTo(heavy + 1);
+        // And the light card is still reachable, which is the whole point of holding the
+        // heavy one exactly: it lives at the very last point on the sheet.
+        assertThat(foils.at(heavy)).isEqualTo(UUID.fromString(TWO));
+    }
+
     @Test
     @DisplayName("a set file's draft booster comes out as something that can be opened")
     void aDraftBoosterComesOutOfASetFile() throws Exception {
@@ -72,8 +114,8 @@ class MtgjsonCollationTest {
         assertThat(draft.variantAt(0).slots()).containsExactly(
                 Map.entry("common", 2), Map.entry("rare", 1));
         assertThat(draft.sheets().get("common").weights())
-                .containsExactly(Map.entry(UUID.fromString(ONE), 2),
-                        Map.entry(UUID.fromString(TWO), 1));
+                .containsExactly(Map.entry(UUID.fromString(ONE), 2L),
+                        Map.entry(UUID.fromString(TWO), 1L));
         assertThat(draft.sheets().get("rare").foil()).isTrue();
         assertThat(draft.sheets().get("rare").duplicates()).isTrue();
         assertThat(draft.sheets().get("common").foil()).isFalse();

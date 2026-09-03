@@ -205,7 +205,7 @@ public final class PackCoverageGameTest {
     private static BoosterConfig packOf(String kind, String holding) {
         Map<String, BoosterSheet> sheets = new LinkedHashMap<>();
         sheets.put("main", new BoosterSheet("main", false, false, false,
-                Map.of(idOf(holding), 1)));
+                Map.of(idOf(holding), 1L)));
         return new BoosterConfig("tst", kind, sheets,
                 List.of(new BoosterVariant("plain", 1, Map.of("main", 1))));
     }

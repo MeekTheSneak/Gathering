@@ -210,7 +210,7 @@ public final class PackOpeningGameTest {
     private static BoosterConfig config(String kind) {
         Map<String, BoosterSheet> sheets = new LinkedHashMap<>();
         sheets.put("common", new BoosterSheet("common", false, false, false,
-                Map.of(UUID.nameUUIDFromBytes(kind.getBytes(StandardCharsets.UTF_8)), 1)));
+                Map.of(UUID.nameUUIDFromBytes(kind.getBytes(StandardCharsets.UTF_8)), 1L)));
         return new BoosterConfig("tst", kind, sheets,
                 List.of(new BoosterVariant("plain", 1, Map.of("common", 1))));
     }

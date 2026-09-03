@@ -180,13 +180,13 @@ public final class MtgjsonCollation {
             }
             JsonObject json = entry.getValue().getAsJsonObject();
 
-            Map<UUID, Integer> weights = new LinkedHashMap<>();
+            Map<UUID, Long> weights = new LinkedHashMap<>();
             long claimed = 0;
             int unbridged = 0;
             int cards = 0;
             for (Map.Entry<String, JsonElement> card
                     : BoosterCodec.object(json, "cards", here).entrySet()) {
-                int weight = BoosterCodec.weight(card.getValue(), here + ", card "
+                long weight = BoosterCodec.sheetWeight(card.getValue(), here + ", card "
                         + card.getKey());
                 claimed += weight;
                 cards++;
@@ -197,14 +197,12 @@ public final class MtgjsonCollation {
                     // Two of a set's uuids can name the same printing. Summed with the
                     // overflow checked, because a weight that wrapped round to a negative
                     // number would take a card off its own sheet without saying anything.
-                    Integer already = weights.get(printing);
-                    long sum = already == null ? weight : (long) already + weight;
-                    if (sum > Integer.MAX_VALUE) {
+                    Long already = weights.get(printing);
+                    if (already != null && already > Long.MAX_VALUE - weight) {
                         throw new BoosterCodecException(here + ": the weights on '"
-                                + card.getKey() + "' come to " + sum
-                                + ", past what one card can carry");
+                                + card.getKey() + "' are past counting");
                     }
-                    weights.put(printing, (int) sum);
+                    weights.put(printing, already == null ? weight : already + weight);
                 }
             }
 
