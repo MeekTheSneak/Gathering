@@ -133,7 +133,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
             this.addRenderableWidget(GatheringButtons.of(
                     gather.x(), gather.y(), gather.width(), gather.height(),
                     Component.translatable("screen.gathering.deck.gather"),
-                    () -> this.minecraft.setScreen(new DeckBuilderScreen(hand))));
+                    () -> this.minecraft.setScreen(new DeckBuilderScreen(this, hand))));
         }
 
         // The title is the name, and the name is editable. A deck started by putting two

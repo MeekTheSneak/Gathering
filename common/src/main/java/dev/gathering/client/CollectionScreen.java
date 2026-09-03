@@ -235,7 +235,7 @@ public final class CollectionScreen extends Screen {
         addRenderableWidget(rarityButton);
         addRenderableWidget(GatheringButtons.of(row.build(),
                 Component.translatable("screen.gathering.collection.build_deck"),
-                () -> this.minecraft.setScreen(new DeckBuilderScreen(where, label))));
+                () -> this.minecraft.setScreen(new DeckBuilderScreen(this, where, label))));
 
         // How much of each set is in here, which is the one question a binder cannot answer
         // by being looked at. Beside the way out because it is a place to go rather than a

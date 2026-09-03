@@ -1481,6 +1481,8 @@ public final class DevScene {
                 // Photographed a step after the clicks, which is the convention: a shot asked
                 // for in the same step catches the frame that was already drawn.
                 shoot(client, "44a-a-deck-taking-shape");
+                cancellingGoesBack(client, "the collection it was opened from",
+                        CollectionScreen.class);
                 client.setScreen(null);
                 cardsInHandToTradeWith(client);
                 advance(SETTLE);
@@ -2832,6 +2834,8 @@ public final class DevScene {
                 // the inventory - which is what the next two steps are about. The deck goes
                 // away with it, because a hand holding one cannot crouch at a collection at
                 // all and the screen rightly offers that gesture instead.
+                cancellingGoesBack(client, "the deck it was opened from",
+                        DeckContentsScreen.class);
                 client.setScreen(null);
                 putTheDeckAway(client);
                 openTheCollection(client);
@@ -8719,6 +8723,29 @@ public final class DevScene {
                 return;
             }
             client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_2, 0, 0);
+        }
+    }
+
+    /**
+     * Cancelling out of this screen goes back to whatever opened it.
+     * <p>Reported from a real session: "when you hit cancel from the deck creation menu, it
+     * doesn't take you back to the last menu, it just kicks you out entirely". The builder
+     * was an ordinary screen rather than one of the detours, so closing it closed to the
+     * world, and the collection you were standing at - with the search you had typed in it -
+     * was gone.
+     * <p>Pressed and checked in the one step, because a button's handler runs while it is
+     * being pressed and going back waits on nobody.
+     */
+    private static void cancellingGoesBack(
+            Minecraft client, String where, Class<?> expected) {
+        String was = client.screen == null
+                ? "nothing" : client.screen.getClass().getSimpleName();
+        press(client, Component.translatable("gui.cancel").getString());
+        if (!expected.isInstance(client.screen)) {
+            fail("cancelling " + was + " went to "
+                    + (client.screen == null ? "nothing at all"
+                            : client.screen.getClass().getSimpleName())
+                    + " rather than back to " + where);
         }
     }
 

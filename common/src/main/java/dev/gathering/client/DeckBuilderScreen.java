@@ -43,7 +43,7 @@ import net.minecraft.world.InteractionHand;
  * door is this mod's one referee.
  * <p>Client-only.
  */
-public final class DeckBuilderScreen extends Screen {
+public final class DeckBuilderScreen extends ChildScreen {
 
     private static final int MARGIN = 12;
     private static final int GAP = 6;
@@ -130,8 +130,8 @@ public final class DeckBuilderScreen extends Screen {
 
     private int deckScroll;
 
-    public DeckBuilderScreen(BlockPos where, String label) {
-        super(Component.translatable("screen.gathering.builder"));
+    public DeckBuilderScreen(Screen back, BlockPos where, String label) {
+        super(Component.translatable("screen.gathering.builder"), back, false);
         this.where = where;
         this.hand = null;
         this.label = label == null ? "" : label;
@@ -146,8 +146,8 @@ public final class DeckBuilderScreen extends Screen {
      * <p>No search box and no paging beyond what the grid needs. A collection is thousands of
      * cards and has to be searched; an inventory is thirty-six slots and can simply be shown.
      */
-    public DeckBuilderScreen(InteractionHand hand) {
-        super(Component.translatable("screen.gathering.builder.pockets"));
+    public DeckBuilderScreen(Screen back, InteractionHand hand) {
+        super(Component.translatable("screen.gathering.builder.pockets"), back, false);
         this.where = null;
         this.hand = hand;
         this.label = "";
@@ -504,7 +504,6 @@ public final class DeckBuilderScreen extends Screen {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        GatheringSprites.draw(graphics, Element.SCREEN_BACKDROP, 0, 0, this.width, this.height);
         Rect box = boxPane();
         Rect deck = deckPane();
         GatheringSprites.inset(graphics, box.x() - BOX_WALL, box.y() - BOX_WALL,
@@ -755,17 +754,6 @@ public final class DeckBuilderScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, amountX, amountY);
-    }
-
-    @Override
-    public void onClose() {
-        ClientHoverState.clear();
-        super.onClose();
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
     }
 
     // ------------------------------------------------------- for the harness
