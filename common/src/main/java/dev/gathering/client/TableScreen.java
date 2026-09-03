@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.core.ui.CounterText;
 import com.mojang.math.Axis;
 import dev.gathering.SeatNames;
 import dev.gathering.block.TableBlockEntity;

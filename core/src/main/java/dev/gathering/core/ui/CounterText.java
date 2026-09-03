@@ -1,4 +1,4 @@
-package dev.gathering.client;
+package dev.gathering.core.ui;
 
 import dev.gathering.core.game.CardInstance;
 import dev.gathering.core.game.visibility.CardView;

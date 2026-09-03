@@ -1,5 +1,6 @@
 package dev.gathering.client;
 
+import dev.gathering.core.ui.CounterText;
 import dev.gathering.core.game.CardInstance;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.CommandSlots;

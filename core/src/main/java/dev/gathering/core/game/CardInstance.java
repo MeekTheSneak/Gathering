@@ -141,7 +141,14 @@ public record CardInstance(
         if (!updated.containsKey(name) && updated.size() >= CounterName.MOST_PER_CARD) {
             return this;
         }
-        int now = updated.getOrDefault(name, 0) + delta;
+        // Never below none. A counter is a physical thing sitting on a card: there is no such
+        // pile as minus two +1/+1 counters, and the board could hold one - nothing clamped
+        // this, so pressing minus on a counter a card did not have wrote a negative into the
+        // state and the card read "Charge x-1", or "+1/+1 x-2", which is a power and toughness
+        // with no meaning at all. Not a rule declined: whether a creature with a -1/-1 on it
+        // dies is a rule, whether a card can carry a negative number of objects is arithmetic,
+        // and the commander damage beside this had been clamped since it was written.
+        int now = Math.max(0, updated.getOrDefault(name, 0) + delta);
         if (now == 0) {
             updated.remove(name);
         } else {
