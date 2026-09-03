@@ -123,7 +123,7 @@ public final class Settings {
         CurrentSet.resolve();
         SealedLoot.warm();
         Archive.warm();
-        CardShop.warm();
+        CardShop.clear();
         LoanerDecks.warm();
         return true;
     }

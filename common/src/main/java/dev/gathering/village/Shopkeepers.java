@@ -1,6 +1,7 @@
 package dev.gathering.village;
 
 import dev.gathering.core.sealed.ShopCounter;
+import dev.gathering.server.CardShop;
 import dev.gathering.service.ServerSettings;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,6 +63,10 @@ public final class Shopkeepers {
         }
         int level = villager.getVillagerData().getLevel();
         long rotation = rotation(villager.level());
+        // Before the offers are asked for. Cheap when the shelf is already this turnover's,
+        // and when it is not it starts the reading and leaves this villager on the old stock
+        // rather than waiting on a network inside a villager's brain.
+        CardShop.stockFor(rotation);
 
         List<MerchantOffer> wanted = new ArrayList<>();
         for (int rung = 1; rung <= level; rung++) {

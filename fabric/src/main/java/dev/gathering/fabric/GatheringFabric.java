@@ -118,7 +118,7 @@ public final class GatheringFabric implements ModInitializer {
             dev.gathering.server.CurrentSet.resolve();
             dev.gathering.server.SealedLoot.warm();
             dev.gathering.server.Archive.warm();
-            dev.gathering.server.CardShop.warm();
+            dev.gathering.server.CardShop.clear();
             dev.gathering.server.LoanerDecks.warm();
             // The one line the access widener exists for. Everything about which building
             // goes into which pool is LocalGameStore's; this reaches the list.

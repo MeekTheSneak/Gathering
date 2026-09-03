@@ -66,6 +66,46 @@ public final class CardShopGameTest {
     }
 
     /**
+     * Somebody walking up to a shopkeeper is what stocks the shelf.
+     * <p>Which sets are behind a counter depends on the turnover the world is on, and there
+     * is no world to ask when a server is still starting - so nothing is read at start and
+     * the first shopkeeper anybody looks at does the asking. If that link were ever broken
+     * the shop would simply be empty forever, with nothing in any log to say why.
+     */
+    @GameTest(template = "empty")
+    public static void lookingAtAShopkeeperStocksTheShelf(GameTestHelper helper) {
+        TestConfig.run("[modes]\ncollection_enabled = true\n", () -> {
+            dev.gathering.server.CardShop.clear();
+            if (dev.gathering.server.CardShop.stockedFor() != -1) {
+                helper.fail("A cleared shop still says which turnover it is stocked for");
+                return;
+            }
+            Villager villager = EntityType.VILLAGER.create(helper.getLevel());
+            if (villager == null) {
+                helper.fail("Could not make a villager to stand behind the counter");
+                return;
+            }
+            villager.setPos(helper.absoluteVec(new BlockPos(1, 1, 1).getCenter()));
+            villager.setVillagerData(new VillagerData(
+                    VillagerType.PLAINS, GatheringVillagers.SHOPKEEPER.get(), 3));
+            helper.getLevel().addFreshEntity(villager);
+
+            Shopkeepers.refresh(villager);
+            // Either the reading is under way or it has already finished. What must not have
+            // happened is nothing at all.
+            boolean asked = dev.gathering.server.CardShop.isRestocking()
+                    || dev.gathering.server.CardShop.stockedFor() != -1;
+            villager.discard();
+            if (!asked) {
+                helper.fail("Looking at a shopkeeper did not start the shelf being read, so "
+                        + "this server's shop would stay empty forever");
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
      * Walking up to a shopkeeper twice changes nothing.
      * <p>Their counter is brought back in step every time somebody looks at it, which is what
      * keeps every card shop the same shop. The thing that must never follow is a restock: if

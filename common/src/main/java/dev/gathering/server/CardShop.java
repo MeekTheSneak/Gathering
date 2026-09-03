@@ -61,8 +61,88 @@ public final class CardShop {
 
     private static volatile Stock stock = Stock.NOTHING;
 
+    /** What {@link #stockedFor} says when nothing has been stocked yet. */
+    private static final long NOTHING_STOCKED = -1;
+
+    /**
+     * Which turnover the shelf on it was built for, or -1 for a shelf nobody has stocked.
+     * <p>Read on the server thread by every shopkeeper being looked at, written by whichever
+     * restock finishes. A stale read costs one more turnover of yesterday's stock.
+     */
+    private static volatile long stockedFor = NOTHING_STOCKED;
+
+    /** So a slow restock is not started a second time by the next villager to be looked at. */
+    private static final java.util.concurrent.atomic.AtomicBoolean RESTOCKING =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
+    /**
+     * How many sets are behind the counter at once.
+     * <p>Every set on the shelf is that set's own file - three or four megabytes - because
+     * what a precon holds is published beside it and a box that cannot say what is in it
+     * cannot be sold. A server drawing from every set ever printed would be reading a
+     * gigabyte to stock one counter, so the shop stocks a window of them and the window moves
+     * on with the shelf. Over a few turnovers the whole of what a server draws from has been
+     * on the counter.
+     */
+    private static final int MOST_SETS_STOCKED = 6;
+
     private CardShop() {
     }
+
+    /**
+     * Whether the shelf is being read right now.
+     * <p>A shopkeeper looked at during one is on the last turnover's stock, which is the
+     * intended answer rather than a fault - so anything explaining a shop can say so.
+     */
+    public static boolean isRestocking() {
+        return RESTOCKING.get();
+    }
+
+    /** Which turnover the shelf is for, or -1 if nothing has been stocked yet. */
+    public static long stockedFor() {
+        return stockedFor;
+    }
+
+    /**
+     * Brings the shelf up to this turnover, in the background, if it is not there already.
+     * <p>Called from the server thread by every shopkeeper about to be looked at, so it must
+     * be cheap to ask and must never block: the usual answer is one volatile read. When the
+     * turnover really has moved on, the reading is started and the old shelf stays up until
+     * the new one lands - a shopkeeper with yesterday's stock being much better than one with
+     * an empty counter.
+     */
+    public static void stockFor(long rotation) {
+        if (rotation == stockedFor || !isStocking()) {
+            return;
+        }
+        CollationService collation = CollationService.active().orElse(null);
+        if (collation == null || !RESTOCKING.compareAndSet(false, true)) {
+            return;
+        }
+        int perBooster = ServerSettings.get().collecting().sealedPriceBooster();
+        SetsInPlay.wanted()
+                .thenComposeAsync(codes -> readAll(collation,
+                                ShopCounter.behindTheCounter(codes, rotation, MOST_SETS_STOCKED)),
+                        collation.worker())
+                .thenApply(read -> build(read, perBooster))
+                .whenComplete((built, failure) -> {
+                    try {
+                        if (failure != null) {
+                            LOGGER.warn("Could not read what this server's sets were sold as, so "
+                                    + "the shop has nothing to sell", failure);
+                            return;
+                        }
+                        stock = built;
+                        stockedFor = rotation;
+                        LOGGER.info("The shop sells {} product(s) across {} set(s)",
+                                built.shelf().items().size(), built.shelf().items().stream()
+                                        .map(item -> item.product().setCode()).distinct().count());
+                    } finally {
+                        RESTOCKING.set(false);
+                    }
+                });
+    }
+
 
     /**
      * Whether this server's shop is open at all.
@@ -76,40 +156,15 @@ public final class CardShop {
     }
 
     /**
-     * Works out what this server sells.
-     * <p>Once at start, off every game thread, and not at all unless collecting is on and the
-     * shop is switched on with it.
+     * Empties the shelf, so the next shopkeeper somebody looks at stocks it again.
+     * <p>Between servers, and after any settings change - and at the moment a server finishes
+     * starting, which is why nothing is read here. Which sets the shop stocks depends on the
+     * turnover the world is on, and there is no world to ask yet; the first shopkeeper
+     * somebody walks up to says which turnover it is, and {@link #stockFor} does the reading.
      */
-    public static void warm() {
-        stock = Stock.NOTHING;
-        if (!isStocking()) {
-            return;
-        }
-        var settings = ServerSettings.get();
-        CollationService collation = CollationService.active().orElse(null);
-        if (collation == null) {
-            return;
-        }
-        int perBooster = settings.collecting().sealedPriceBooster();
-        SetsInPlay.wanted()
-                .thenComposeAsync(codes -> readAll(collation, codes), collation.worker())
-                .thenApply(read -> build(read, perBooster))
-                .whenComplete((built, failure) -> {
-                    if (failure != null) {
-                        LOGGER.warn("Could not read what this server's sets were sold as, so "
-                                + "the shop has nothing to sell", failure);
-                        return;
-                    }
-                    stock = built;
-                    LOGGER.info("The shop sells {} product(s) across {} set(s)",
-                            built.shelf().items().size(), built.shelf().items().stream()
-                                    .map(item -> item.product().setCode()).distinct().count());
-                });
-    }
-
-    /** Between servers, so one world's shelf is not the next one's. */
     public static void clear() {
         stock = Stock.NOTHING;
+        stockedFor = NOTHING_STOCKED;
     }
 
 

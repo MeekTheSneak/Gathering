@@ -40,6 +40,39 @@ public final class ShopCounter {
     }
 
     /**
+     * Which sets are behind the counter this turnover.
+     * <p>Every set on a shelf costs that set's own file to read - what a precon holds is
+     * published beside it, and a box that cannot say what is in it cannot be sold - so a
+     * server drawing from every set ever printed cannot have all of them behind one counter.
+     * <p>The first set in play is always one of them: it is the set the server named, or the
+     * one that is current, and somebody after this month's boosters should not have to wait
+     * for the shelf to come round. The rest is a window that moves along by its own width
+     * each turnover, so everything is stocked eventually and nothing is stocked forever.
+     *
+     * @param codes    the sets in play, in the order they were worked out - newest first
+     * @param rotation which turnover this is, counted from when the world began
+     * @param howMany  how many sets fit behind one counter
+     */
+    public static List<String> behindTheCounter(List<String> codes, long rotation, int howMany) {
+        if (codes == null || codes.isEmpty() || howMany <= 0) {
+            return List.of();
+        }
+        if (codes.size() <= howMany) {
+            return List.copyOf(codes);
+        }
+        List<String> stocked = new ArrayList<>(howMany);
+        stocked.add(codes.get(0));
+        long from = Math.floorMod(rotation * (howMany - 1L), codes.size());
+        for (int step = 0; stocked.size() < howMany; step++) {
+            String code = codes.get((int) Math.floorMod(from + step, codes.size()));
+            if (!stocked.contains(code)) {
+                stocked.add(code);
+            }
+        }
+        return List.copyOf(stocked);
+    }
+
+    /**
      * The two things a shopkeeper of this level has.
      * <p>Deterministic: the same shelf gives the same answer every time, on every counter, on
      * every server that read the same sets.
