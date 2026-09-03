@@ -141,6 +141,18 @@ public record CardMetadata(
         return isLand() && hasTypeWord("Basic");
     }
 
+    /**
+     * Whether the card is one of these, by the same reading {@link #isLand} uses.
+     * <p>Public because it is not only lands that have to be asked. What may lead a deck in a
+     * commander format is a question about type words too, and it was answering it with its
+     * own {@code contains} over the whole card's joined line - the one thing the comment
+     * below exists to warn against. One rule, in one place, rather than the same rule written
+     * twice and drifting apart in the second copy.
+     */
+    public boolean isOfType(String word) {
+        return hasTypeWord(word);
+    }
+
     private boolean hasTypeWord(String wanted) {
         // The front face's line, not the whole card's. Scryfall joins a double-faced card's
         // types as "Instant // Land", and a word search over that makes a land of Malakir

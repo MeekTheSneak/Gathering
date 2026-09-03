@@ -71,18 +71,23 @@ public enum CommanderRules {
         };
     }
 
+    // What a card is, asked of the card rather than worked out here. Scryfall joins a
+    // double-faced card's types into one line - "Instant // Land" - and these used to search
+    // that whole string, which is the exact mistake CardMetadata's own type reading is
+    // written to avoid: a card is its front face everywhere but the battlefield, so a search
+    // over the joined line answers for the back as well. Two copies of one rule, and only one
+    // of them had the comment explaining it.
+
     private static boolean isLegendaryCreature(CardMetadata card) {
-        String typeLine = card.typeLine();
-        return typeLine != null && typeLine.contains("Legendary") && typeLine.contains("Creature");
+        return card.isOfType("Legendary") && card.isOfType("Creature");
     }
 
     private static boolean isPlaneswalker(CardMetadata card) {
-        return card.typeLine() != null && card.typeLine().contains("Planeswalker");
+        return card.isOfType("Planeswalker");
     }
 
     private static boolean isInstantOrSorcery(CardMetadata card) {
-        String typeLine = card.typeLine();
-        return typeLine != null && (typeLine.contains("Instant") || typeLine.contains("Sorcery"));
+        return card.isOfType("Instant") || card.isOfType("Sorcery");
     }
 
     private static boolean saysCanBeYourCommander(CardMetadata card) {
