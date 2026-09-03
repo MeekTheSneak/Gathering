@@ -804,6 +804,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             drawn += drawAttached(poseStack, buffers, packedLight, attachments, card,
                     seat.sleeve(), placed, angle, lift, span, budget - drawn);
             writeOn(poseStack, buffers, packedLight, card, x, z, cardWidth, cardDepth, angle);
+            markUp(poseStack, buffers, packedLight, card, x, z, cardWidth, cardDepth, angle);
         }
         return drawn;
     }
@@ -871,6 +872,72 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
     /** How tall a note written on a card is drawn, against the card's own height. */
     private static final float NOTE_HEIGHT = 0.14f;
+
+    /**
+     * The numbers and counters on a card, the way the seated board writes them.
+     * <p>A board on a block was drawing what somebody had written across a card and nothing
+     * else, so a planeswalker's loyalty and a creature's counters were visible from a chair
+     * and invisible from the same table seen from above. Which counters are shown and what
+     * each is called is {@link CounterText}'s, so the two views cannot come to disagree; only
+     * where they go is decided here.
+     * <p>The corner number sits where a card prints its own, along the bottom edge, and the
+     * counters stack up from just above it. Counted from the bottom because that is the end
+     * of a card nothing else has claimed - the note goes across the top.
+     */
+    private void markUp(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight, CardView card,
+            float x, float z, float cardWidth, float cardDepth, int angle) {
+        java.util.List<CounterText.Line> counters = CounterText.linesOn(card);
+        String corner = CounterText.cornerNumber(card);
+        if (counters.isEmpty() && corner == null) {
+            return;
+        }
+        float line = cardDepth * MARK_HEIGHT;
+        float room = cardWidth * WRITING_ROOM;
+        float middleX = x + cardWidth / 2f;
+        // Down the card from its middle, in the card's own frame, so a turned card's numbers
+        // turn with it. The seat's own facing is already in the angle.
+        float fromMiddle = cardDepth / 2f - line / 2f - cardDepth * MARK_MARGIN;
+        if (corner != null) {
+            markAt(poseStack, buffers, packedLight, Component.literal(corner),
+                    middleX, z + cardDepth / 2f, fromMiddle, line, room, angle);
+            fromMiddle -= line;
+        }
+        for (CounterText.Line counter : counters) {
+            Component text = Component.literal(counter.count() == null
+                    ? counter.name()
+                    : counter.name() + " " + counter.count());
+            markAt(poseStack, buffers, packedLight, text,
+                    middleX, z + cardDepth / 2f, fromMiddle, line, room, angle);
+            fromMiddle -= line;
+            if (fromMiddle < -cardDepth / 2f) {
+                // Off the far end of the card. A stack of counters taller than the card it is
+                // on is a card whose art has been replaced by a list.
+                return;
+            }
+        }
+    }
+
+    /**
+     * One mark, this far down the card from its middle.
+     * <p>Placed in the card's own frame rather than the surface's, because a card lying at an
+     * angle has to have its numbers along its own bottom edge and not along the table's.
+     */
+    private void markAt(
+            PoseStack poseStack, MultiBufferSource buffers, int packedLight, Component text,
+            float middleX, float middleZ, float fromMiddle, float line, float room, int angle) {
+        double radians = Math.toRadians(angle);
+        float across = (float) (Math.sin(radians) * fromMiddle);
+        float down = (float) (Math.cos(radians) * fromMiddle);
+        writing(poseStack, buffers, packedLight, text,
+                middleX - across, middleZ + down, line, room, angle, COUNT_BACKING);
+    }
+
+    /** How tall one number or counter is drawn, against the card's own height. */
+    private static final float MARK_HEIGHT = 0.13f;
+
+    /** And how far the lowest one sits off the card's bottom edge. */
+    private static final float MARK_MARGIN = 0.03f;
 
     /**
      * A halo just larger than a card, marking the one the cursor is on.

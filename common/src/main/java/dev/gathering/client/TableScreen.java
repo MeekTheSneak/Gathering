@@ -4908,26 +4908,9 @@ public final class TableScreen extends Screen {
      */
     private int drawStrength(GuiGraphics graphics, CardView card, Rect art) {
         return CardInspectPanel.drawStrength(
-                graphics, this.font, cornerNumberOf(card), art);
+                graphics, this.font, CounterText.cornerNumber(card), art);
     }
 
-    /**
-     * What goes in the corner where a card prints its own numbers, or nothing.
-     * <p>One corner, so one answer. A written power and toughness wins: typing it is a
-     * statement that the printed numbers are wrong. Otherwise loyalty goes there, where the
-     * card prints it, and it earns the spot over a line in the counter stack because loyalty
-     * is the number a planeswalker <em>is</em>.
-     * <p>Nothing decides which a card ought to have. A creature somebody put loyalty on shows
-     * loyalty; that is a table's business.
-     */
-    private static String cornerNumberOf(CardView card) {
-        String written = card.writtenStrength().orElse(null);
-        if (written != null) {
-            return written;
-        }
-        int loyalty = card.counter(CardInstance.Counters.LOYALTY);
-        return loyalty == 0 ? null : Integer.toString(loyalty);
-    }
 
     /**
      * What a frozen card looks like: a rime along its edges.
@@ -4966,32 +4949,14 @@ public final class TableScreen extends Screen {
         // the lines rather than folded into them, because the count must never be the part
         // that gets trimmed off - it is written separately so it is fitted separately.
         List<Component> counts = new ArrayList<>();
-        // Asked once rather than once per counter. This runs for every card on the table
-        // every frame, and writtenStrength answers with an Optional - a cheap thing to make
-        // and a silly thing to make thirty times a frame for an answer that cannot change
-        // between two counters on the same card.
-        boolean loyaltyIsInTheCorner = card.writtenStrength().isEmpty();
-        for (Map.Entry<String, Integer> counter : card.counters().entrySet()) {
-            if (CardInstance.Counters.LOYALTY.equals(counter.getKey()) && loyaltyIsInTheCorner) {
-                // Already in the corner, where the card prints it. Saying it twice on one
-                // card is the sort of thing that makes a board look busier than it is.
-                continue;
-            }
-            // Several +1/+1 counters are one bigger counter rather than a count of small
-            // ones, so they are written that way: "+2/+2", not "+1/+1 x2".
-            String together = CounterText.addedUp(counter.getKey(), counter.getValue());
-            if (together != null) {
-                lines.add(Component.literal(together));
-                counts.add(null);
-                continue;
-            }
-            Component name = Component.literal(CounterText.name(counter.getKey()));
-            if (counter.getValue() == 1) {
+        for (CounterText.Line counter : CounterText.linesOn(card)) {
+            Component name = Component.literal(counter.name());
+            if (counter.count() == null) {
                 lines.add(name);
                 counts.add(null);
                 continue;
             }
-            Component amount = Component.literal("x" + counter.getValue());
+            Component amount = Component.literal(counter.count());
             if (this.font.width(name) <= room - this.font.width(amount) - 3) {
                 lines.add(name);
                 counts.add(amount);

@@ -894,6 +894,11 @@ public final class DevScene {
                 if (!theLogMentions("log.gathering.surveilled")) {
                     fail("the surveil never reached the game");
                 }
+                // Counters on before the board on the block is photographed, so the pictures
+                // of it carry a card with numbers on it. The seated board draws counters and
+                // the block drew none, which is a thing no picture of an empty board could
+                // have shown - and the same two counters are read back later, on the felt.
+                twoCountersOnACard(client);
                 if (client.screen != null) {
                     // Back onto the block, now that there is a played card, a full graveyard
                     // and a crowded hand to look at rather than an empty table.
@@ -3704,6 +3709,12 @@ public final class DevScene {
 
     /** Puts two +1/+1 counters on whatever is on this player's battlefield. */
     private static void twoCountersOnACard(Minecraft client) {
+        if (countered != null) {
+            // Already on. The counters go on once, early, so the board on the block is
+            // photographed carrying them; the later step that used to put them on now only
+            // reads them back. Counters are a delta, so asking twice would be four.
+            return;
+        }
         SeatId me = ClientTableState.seatAt(table).orElse(null);
         GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
         if (me == null || view == null) {

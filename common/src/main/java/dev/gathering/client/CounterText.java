@@ -1,6 +1,11 @@
 package dev.gathering.client;
 
+import dev.gathering.core.game.CardInstance;
+import dev.gathering.core.game.visibility.CardView;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * What a counter is called, in one place.
@@ -43,6 +48,73 @@ public final class CounterText {
      * there.
      */
     public static String addedUp(String counter, int howMany) {
-        return dev.gathering.core.game.CardInstance.Counters.addedUp(counter, howMany);
+        return CardInstance.Counters.addedUp(counter, howMany);
+    }
+
+    /**
+     * What goes in the corner where a card prints its own numbers, or null.
+     * <p>One corner, so one answer. A written power and toughness wins: typing it is a
+     * statement that the printed numbers are wrong. Otherwise loyalty goes there, where the
+     * card prints it, and it earns the spot over a line in the counter stack because loyalty
+     * is the number a planeswalker <em>is</em>.
+     * <p>Nothing decides which a card ought to have. A creature somebody put loyalty on shows
+     * loyalty; that is a table's business.
+     */
+    public static String cornerNumber(CardView card) {
+        if (card == null) {
+            return null;
+        }
+        String written = card.writtenStrength().orElse(null);
+        if (written != null) {
+            return written;
+        }
+        int loyalty = card.counter(CardInstance.Counters.LOYALTY);
+        return loyalty == 0 ? null : Integer.toString(loyalty);
+    }
+
+    /**
+     * One counter, as the name it is written by and the count beside it.
+     * <p>The count is separate so it can be fitted separately, or dropped to its own line, or
+     * left off - which is a drawing decision and differs between a board on a screen and a
+     * board lying on a block. What must not differ is which counters are shown and what each
+     * one is called, which is why that part is here.
+     *
+     * @param count what goes after the name, or null where the name says it all
+     */
+    public record Line(String name, String count) {
+    }
+
+    /**
+     * What a card's counters say, in the order they are written up its bottom edge.
+     * <p>Loyalty is left out where it is already in the corner: saying it twice on one card
+     * makes a board look busier than it is. Everything else is its name, added up where
+     * adding up is what Magic does - two +1/+1 counters are a +2/+2 creature and that is what
+     * goes on the card - and otherwise a name with a count beside it.
+     */
+    public static List<Line> linesOn(CardView card) {
+        if (card == null || card.counters().isEmpty()) {
+            return List.of();
+        }
+        // Asked once rather than once per counter. This runs for every card on the table
+        // every frame, and writtenStrength answers with an Optional - a cheap thing to make
+        // and a silly thing to make thirty times a frame for an answer that cannot change
+        // between two counters on the same card.
+        boolean loyaltyIsInTheCorner = card.writtenStrength().isEmpty();
+        List<Line> lines = new ArrayList<>();
+        for (Map.Entry<String, Integer> counter : card.counters().entrySet()) {
+            if (CardInstance.Counters.LOYALTY.equals(counter.getKey()) && loyaltyIsInTheCorner) {
+                continue;
+            }
+            String together = addedUp(counter.getKey(), counter.getValue());
+            if (together != null) {
+                lines.add(new Line(together, null));
+                continue;
+            }
+            String name = name(counter.getKey());
+            lines.add(counter.getValue() == 1
+                    ? new Line(name, null)
+                    : new Line(name, "x" + counter.getValue()));
+        }
+        return List.copyOf(lines);
     }
 }
