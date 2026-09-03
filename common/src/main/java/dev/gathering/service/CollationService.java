@@ -52,6 +52,14 @@ public final class CollationService implements AutoCloseable {
     private final Map<String, Catalog> catalogsRead = new ConcurrentHashMap<>();
 
     /**
+     * What every set that ever sold sealed product sold, read once.
+     * <p>One field rather than a map, because it is one file. Held as the future rather than
+     * the answer so that a dozen callers at server start share the one read instead of racing
+     * to start a dozen of them.
+     */
+    private volatile CompletableFuture<Map<String, MtgjsonProducts.Reading>> everySet;
+
+    /**
      * One set's file, read for everything a shop needs out of it.
      * <p>Products and decks together because they are two halves of one answer and one file:
      * a precon is published in {@code sealedProduct} and the hundred cards it names are
@@ -114,6 +122,48 @@ public final class CollationService implements AutoCloseable {
                 throw new java.util.concurrent.CompletionException(couldNotRead);
             }
         }, executor);
+    }
+
+    /**
+     * What every set sold, out of MTGJSON's one list of every set.
+     * <p>What a server drawing its packs from more than a handful of sets is drawing from.
+     * Ten megabytes once, against three or four for each of several hundred set files - which
+     * is the difference between a server that offers every set ever printed and a server that
+     * cannot afford to.
+     * <p>Products only. Cards published inside a product are counted rather than resolved
+     * here, so this says truthfully what is on a shelf and in the world, and says nothing
+     * about what comes out of a product: that is {@link #catalogFor}, read when somebody
+     * actually opens one.
+     * <p>Never fails the future: a list that could not be fetched comes back empty and says so
+     * in the log, the same way a set with no file does.
+     */
+    public CompletableFuture<Map<String, MtgjsonProducts.Reading>> everySetsProducts() {
+        CompletableFuture<Map<String, MtgjsonProducts.Reading>> known = everySet;
+        if (known != null) {
+            return known;
+        }
+        synchronized (this) {
+            if (everySet == null) {
+                everySet = CompletableFuture.supplyAsync(() -> {
+                    try {
+                        JsonObject list = feed.setList().orElse(null);
+                        if (list == null) {
+                            LOGGER.warn("MTGJSON has no list of sets, so this server knows of "
+                                    + "no sealed product beyond the sets it reads in full");
+                            return Map.<String, MtgjsonProducts.Reading>of();
+                        }
+                        return MtgjsonProducts.readSetList(list);
+                    } catch (IOException | RuntimeException
+                            | dev.gathering.core.booster.BoosterCodecException couldNotRead) {
+                        LOGGER.warn("Could not read the list of every set, so this server knows "
+                                + "of no sealed product beyond the sets it reads in full: {}",
+                                couldNotRead.getMessage());
+                        return Map.<String, MtgjsonProducts.Reading>of();
+                    }
+                }, executor);
+            }
+            return everySet;
+        }
     }
 
     /**

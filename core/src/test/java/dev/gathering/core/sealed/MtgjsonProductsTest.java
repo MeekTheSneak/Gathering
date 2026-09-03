@@ -173,6 +173,53 @@ class MtgjsonProductsTest {
         assertThat(reading.notes()).hasSize(3);
     }
 
+    @Test
+    @DisplayName("a card in it that could not be bridged still means it is not a plain booster")
+    void anUnbridgedCardIsStillACardInIt() throws Exception {
+        // The promo is printed in another set, so nothing here can turn it into a printing.
+        // Counted rather than forgotten: dropping it would leave a wrapper holding one
+        // arrangement and nothing else, which is the shape of a booster.
+        MtgjsonProducts.Reading reading = MtgjsonProducts.read(file("""
+                [{"uuid": "promo-pack-1", "name": "Test Promo Pack", "setCode": "TST",
+                  "category": "bundle", "cardCount": 15,
+                  "contents": {"pack": [{"code": "play", "set": "tst"}],
+                               "card": [{"uuid": "elsewhere-1", "name": "Promo", "set": "oth"}]}}]
+                """), Map.of());
+
+        SealedProduct product = reading.products().get(0);
+        assertThat(product.contents().cards()).isEmpty();
+        assertThat(product.contents().unbridged()).isEqualTo(1);
+        assertThat(product.isOneBooster()).isFalse();
+        assertThat(reading.boosters()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("every set's products come out of the one list of every set")
+    void theSetListReadsEverySet() throws Exception {
+        Map<String, MtgjsonProducts.Reading> bySet = MtgjsonProducts.readSetList(
+                JsonParser.parseString("""
+                {"data": [
+                  {"code": "TST", "name": "Test", "sealedProduct": [
+                    {"uuid": "pack-1", "name": "Test Play Booster Pack", "setCode": "TST",
+                     "category": "booster_pack", "subtype": "play", "cardCount": 14,
+                     "contents": {"pack": [{"code": "play", "set": "tst"}]}}]},
+                  {"code": "OTH", "name": "Other", "sealedProduct": [
+                    {"uuid": "bundle-1", "name": "Other Bundle", "setCode": "OTH",
+                     "category": "bundle", "cardCount": 15,
+                     "contents": {"pack": [{"code": "draft", "set": "oth"}],
+                                  "card": [{"uuid": "x", "name": "Promo", "set": "oth"}]}}]},
+                  {"code": "NON", "name": "Sells nothing sealed"}
+                ]}
+                """).getAsJsonObject());
+
+        assertThat(bySet.keySet()).containsExactlyInAnyOrder("tst", "oth");
+        assertThat(bySet.get("tst").boosters()).hasSize(1);
+        assertThat(bySet.get("tst").boosters().get(0).asBooster())
+                .isEqualTo(new SealedProduct.Booster("tst", "play"));
+        // Its cards cannot be bridged out of this file, so it is a bundle here too.
+        assertThat(bySet.get("oth").boosters()).isEmpty();
+    }
+
     private static JsonObject file(String products) {
         return JsonParser.parseString(
                 "{\"data\": {\"code\": \"TST\", \"sealedProduct\": " + products + "}}")

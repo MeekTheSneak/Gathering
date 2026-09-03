@@ -3,6 +3,7 @@ package dev.gathering.server;
 import dev.gathering.core.sealed.BoosterOdds;
 import dev.gathering.core.sealed.LootRichness;
 import dev.gathering.core.sealed.LootSource;
+import dev.gathering.core.sealed.MtgjsonProducts;
 import dev.gathering.core.sealed.SealedProduct;
 import dev.gathering.item.PackComponent;
 import dev.gathering.item.PackItem;
@@ -13,7 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
@@ -61,6 +61,9 @@ public final class SealedLoot {
         }
     }
 
+    /** How many sets the "this worked" line names before it stops. See {@link #describe}. */
+    private static final int MOST_SETS_NAMED = 8;
+
     /** Decided at start and read on the loot thread. Replaced whole, never edited. */
     private static volatile Pool pool = Pool.NOTHING;
 
@@ -96,7 +99,7 @@ public final class SealedLoot {
             return;
         }
         SetsInPlay.wanted(settings)
-                .thenComposeAsync(codes -> readAll(collation, codes), collation.worker())
+                .thenCombine(collation.everySetsProducts(), SealedLoot::boostersOf)
                 .whenComplete((found, failure) -> {
                     if (failure != null) {
                         LOGGER.warn("Could not read what this server's sets were sold as, so "
@@ -189,39 +192,37 @@ public final class SealedLoot {
     // ------------------------------------------------------------------ bits
 
     /**
-     * What each set really sold, read one set at a time.
-     * <p>On the collation worker, one after another, because every set is a file to fetch and
-     * a server asking for a dozen of them at once is a server asking somebody else's host for
-     * forty megabytes at once.
+     * Which single boosters each of the wanted sets sold.
+     * <p>Out of the one list of every set rather than a file per set. A server drawing from
+     * everything ever printed reads ten megabytes once here; reading each set's own file to
+     * learn the same thing would be several hundred fetches and better than a gigabyte, and
+     * nothing in a chest needs what those files hold. The set's own file is read when
+     * somebody opens one of its packs, which is when what is inside starts to matter.
+     * <p>A set the list says nothing about drops nothing, which is the same answer as a set
+     * that sold no boosters.
      */
-    private static CompletableFuture<Map<String, List<String>>> readAll(
-            CollationService collation, List<String> codes) {
-        CompletableFuture<Map<String, List<String>>> reading =
-                CompletableFuture.completedFuture(new LinkedHashMap<>());
+    private static Map<String, List<String>> boostersOf(
+            List<String> codes, Map<String, MtgjsonProducts.Reading> everySet) {
+        Map<String, List<String>> pool = new LinkedHashMap<>();
         for (String code : codes) {
-            reading = reading.thenCompose(pool -> collation.productsFor(code)
-                    .handle((found, failure) -> {
-                        if (failure != null) {
-                            LOGGER.warn("Could not read what {} was sold as, so it drops nothing",
-                                    code, failure);
-                            return pool;
-                        }
-                        List<String> kinds = new ArrayList<>();
-                        for (SealedProduct booster : found.boosters()) {
-                            // Only ever a single booster: a box or a precon is the shop's.
-                            SealedProduct.Booster names = booster.asBooster();
-                            if (names != null && names.setCode().equals(code)
-                                    && !kinds.contains(names.kind())) {
-                                kinds.add(names.kind());
-                            }
-                        }
-                        if (!kinds.isEmpty()) {
-                            pool.put(code, List.copyOf(kinds));
-                        }
-                        return pool;
-                    }));
+            MtgjsonProducts.Reading sold = everySet.get(code);
+            if (sold == null) {
+                continue;
+            }
+            List<String> kinds = new ArrayList<>();
+            for (SealedProduct booster : sold.boosters()) {
+                // Only ever a single booster: a box or a precon is the shop's.
+                SealedProduct.Booster names = booster.asBooster();
+                if (names != null && names.setCode().equals(code)
+                        && !kinds.contains(names.kind())) {
+                    kinds.add(names.kind());
+                }
+            }
+            if (!kinds.isEmpty()) {
+                pool.put(code, List.copyOf(kinds));
+            }
         }
-        return reading.thenApply(Map::copyOf);
+        return Map.copyOf(pool);
     }
 
     /** Whether the server's config asked for this source. */
@@ -234,9 +235,19 @@ public final class SealedLoot {
         return false;
     }
 
+    /**
+     * The pool in one line of log, and one line it stays.
+     * <p>A server drawing from every set has a hundred and forty of them, each with a handful
+     * of booster kinds beside it. Naming all of them is several thousand characters in
+     * somebody's console for a line that is meant to say "this worked".
+     */
     private static String describe(Map<String, List<String>> pool) {
         List<String> said = new ArrayList<>();
         for (Map.Entry<String, List<String>> entry : pool.entrySet()) {
+            if (said.size() == MOST_SETS_NAMED) {
+                said.add("and " + (pool.size() - MOST_SETS_NAMED) + " more");
+                break;
+            }
             said.add(entry.getKey().toUpperCase(java.util.Locale.ROOT)
                     + " " + entry.getValue());
         }

@@ -183,35 +183,40 @@ public final class CardShopBuildingGameTest {
      */
     @GameTest(template = "empty")
     public static void theShopsOwnChestRolls(GameTestHelper helper) {
-        var table = helper.getLevel().getServer().reloadableRegistries().getLootTable(
-                net.minecraft.resources.ResourceKey.create(
-                        net.minecraft.core.registries.Registries.LOOT_TABLE,
-                        Gathering.id("chests/card_shop")));
-        var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(
-                helper.getLevel())
-                .withParameter(
-                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
-                        net.minecraft.world.phys.Vec3.atCenterOf(
-                                helper.absolutePos(net.minecraft.core.BlockPos.ZERO)))
-                .create(net.minecraft.world.level.storage.loot.parameters
-                        .LootContextParamSets.CHEST);
+        // Switched off here rather than assumed. These tests share one server with
+        // tests that switch collecting on, so a test that reads a setting it did not
+        // set passes or fails by the order the tests happened to run in.
+        TestConfig.run("[modes]\ncollection_enabled = false\n", () -> {
+            var table = helper.getLevel().getServer().reloadableRegistries().getLootTable(
+                    net.minecraft.resources.ResourceKey.create(
+                            net.minecraft.core.registries.Registries.LOOT_TABLE,
+                            Gathering.id("chests/card_shop")));
+            var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(
+                    helper.getLevel())
+                    .withParameter(
+                            net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
+                            net.minecraft.world.phys.Vec3.atCenterOf(
+                                    helper.absolutePos(net.minecraft.core.BlockPos.ZERO)))
+                    .create(net.minecraft.world.level.storage.loot.parameters
+                            .LootContextParamSets.CHEST);
 
-        boolean anything = false;
-        for (int roll = 0; roll < 32; roll++) {
-            for (var stack : table.getRandomItems(params)) {
-                anything = true;
-                if (stack.is(dev.gathering.item.GatheringContent.PACK.get())) {
-                    helper.fail("A pack came out of a shop's chest with collecting switched off");
-                    return;
+            boolean anything = false;
+            for (int roll = 0; roll < 32; roll++) {
+                for (var stack : table.getRandomItems(params)) {
+                    anything = true;
+                    if (stack.is(dev.gathering.item.GatheringContent.PACK.get())) {
+                        helper.fail("A pack came out of a shop's chest with collecting switched off");
+                        return;
+                    }
                 }
             }
-        }
-        if (!anything) {
-            helper.fail("The shop's chest is empty however many times it is rolled, so the "
-                    + "loot table is not in the jar or holds nothing");
-            return;
-        }
-        helper.succeed();
+            if (!anything) {
+                helper.fail("The shop's chest is empty however many times it is rolled, so the "
+                        + "loot table is not in the jar or holds nothing");
+                return;
+            }
+            helper.succeed();
+        });
     }
 
     private static <T extends Comparable<T>> String value(BlockState state, Property<T> property) {

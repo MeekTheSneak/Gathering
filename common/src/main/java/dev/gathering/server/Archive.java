@@ -46,6 +46,13 @@ public final class Archive {
     /** What an archive pack's set code is. See {@link PackComponent#ARCHIVE}. */
     public static final String SET = PackComponent.ARCHIVE;
 
+    /**
+     * How many sets the remainder is worked out across.
+     * <p>Roughly two years of releases, which is the span whose cards a player would notice
+     * they could not find. See {@link #audited}.
+     */
+    private static final int MOST_SETS_AUDITED = 8;
+
     /** Decided at start and read on the loot thread. Replaced whole, never edited. */
     private static volatile BoosterSheet sheet = BoosterSheet.EMPTY;
 
@@ -86,7 +93,8 @@ public final class Archive {
             return;
         }
         SetsInPlay.wanted(settings)
-                .thenComposeAsync(codes -> remainderOf(collation, cards, codes), collation.worker())
+                .thenComposeAsync(codes -> remainderOf(collation, cards, audited(codes)),
+                        collation.worker())
                 .whenComplete((remainder, failure) -> {
                     if (failure != null) {
                         LOGGER.warn("Could not work out what this server's faucets miss, so no "
@@ -147,6 +155,24 @@ public final class Archive {
     }
 
     // ------------------------------------------------------------------ bits
+
+    /**
+     * As many sets as are worth auditing, newest first.
+     * <p>Every set audited is that set's file fetched and its whole printing list asked for,
+     * which is a few megabytes and a search each. A server drawing from every set ever
+     * printed would spend a gigabyte and several hundred searches at every start working out
+     * a remainder that is mostly cards nobody was going to miss - so this reaches back over
+     * the sets people are actually opening and stops. The sets in play are newest first
+     * already, which is the order that matters.
+     */
+    private static List<String> audited(List<String> codes) {
+        if (codes.size() <= MOST_SETS_AUDITED) {
+            return codes;
+        }
+        LOGGER.info("Working out what this server's faucets miss across its newest {} set(s), "
+                + "out of the {} it draws from", MOST_SETS_AUDITED, codes.size());
+        return codes.subList(0, MOST_SETS_AUDITED);
+    }
 
     /** Every printing in these sets that none of their own products reaches. */
     private static CompletableFuture<Set<UUID>> remainderOf(

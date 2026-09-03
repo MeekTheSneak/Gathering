@@ -56,6 +56,9 @@ public final class MtgjsonFeed {
     /** A set file is a few megabytes. Anything this size is not one. */
     private static final int MOST_BODY_CHARACTERS = 96 * 1024 * 1024;
 
+    /** MTGJSON's name for the list of every set, which is not a set code. */
+    private static final String SET_LIST = "SetList";
+
     private final HttpFetcher fetcher;
     private final String baseUrl;
     private final Map<String, String> headers;
@@ -191,7 +194,23 @@ public final class MtgjsonFeed {
      *         failure - not every set code is a set with a file
      */
     public Optional<JsonObject> setFile(String setCode) throws IOException {
-        String code = checked(setCode);
+        return file(checked(setCode));
+    }
+
+    /**
+     * MTGJSON's one list of every set there has ever been.
+     * <p>Around ten megabytes, and it carries each set's sealed product with it. That is the
+     * whole of what a server needs to know which sets sell which boosters, so a server drawing
+     * its packs from every set reads this one file rather than the several hundred set files
+     * it would otherwise fetch to learn the same thing. What is actually inside a product -
+     * the printings and the decks - still comes from that product's own set file, and only
+     * when somebody opens one.
+     */
+    public Optional<JsonObject> setList() throws IOException {
+        return file(SET_LIST);
+    }
+
+    private Optional<JsonObject> file(String code) throws IOException {
         Path cached = cacheRoot.resolve(code + ".json");
         if (isFresh(cached)) {
             try {

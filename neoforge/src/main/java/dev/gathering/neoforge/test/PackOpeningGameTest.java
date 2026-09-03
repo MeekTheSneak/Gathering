@@ -9,13 +9,8 @@ import dev.gathering.core.booster.OpenedPack;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.card.Rarity;
-import dev.gathering.platform.Platform;
 import dev.gathering.server.PackOpening;
-import dev.gathering.service.ServerSettings;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,11 +30,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class PackOpeningGameTest {
 
-    private static final String FILE_NAME = "gathering-server.toml";
-
     @GameTest(template = "empty")
     public static void noPackOpensOnAPlayOnlyServer(GameTestHelper helper) {
-        withConfig(helper, "[modes]\ncollection_enabled = false\n", () -> {
+        TestConfig.with(helper, "[modes]\ncollection_enabled = false\n", () -> {
             String refusal = PackOpening.whyNot();
             if (refusal == null) {
                 return "A server with collection off was willing to open a booster";
@@ -53,7 +46,7 @@ public final class PackOpeningGameTest {
 
     @GameTest(template = "empty")
     public static void packsOpenOnceCollectionIsOn(GameTestHelper helper) {
-        withConfig(helper, "[modes]\ncollection_enabled = true\n", () -> {
+        TestConfig.with(helper, "[modes]\ncollection_enabled = true\n", () -> {
             String refusal = PackOpening.whyNot();
             return refusal == null ? null : "Collection was on and a booster was still refused: "
                     + refusal;
@@ -62,7 +55,7 @@ public final class PackOpeningGameTest {
 
     @GameTest(template = "empty")
     public static void theKindAskedForIsTheKindOpened(GameTestHelper helper) {
-        withConfig(helper, "[modes]\ncollection_enabled = true\n", () -> {
+        TestConfig.with(helper, "[modes]\ncollection_enabled = true\n", () -> {
             MtgjsonCollation.Reading reading = reading("draft", "collector");
             BoosterConfig chosen = PackOpening.pick(reading, "collector");
             return "tst:collector".equals(chosen == null ? null : chosen.id())
@@ -73,7 +66,7 @@ public final class PackOpeningGameTest {
 
     @GameTest(template = "empty")
     public static void theServersOwnBoosterModelWinsWhenNobodySaid(GameTestHelper helper) {
-        withConfig(helper, """
+        TestConfig.with(helper, """
                 [modes]
                 collection_enabled = true
                 [collection]
@@ -89,7 +82,7 @@ public final class PackOpeningGameTest {
 
     @GameTest(template = "empty")
     public static void aSetWithoutTheUsualPacksStillOpensSomething(GameTestHelper helper) {
-        withConfig(helper, "[modes]\ncollection_enabled = true\n", () -> {
+        TestConfig.with(helper, "[modes]\ncollection_enabled = true\n", () -> {
             // No play, draft or set booster anywhere - a real thing for older and stranger
             // products, and the case where a chain of preferences quietly gives up.
             BoosterConfig chosen = PackOpening.pick(reading("jumpstart"), "");
@@ -105,7 +98,7 @@ public final class PackOpeningGameTest {
 
     @GameTest(template = "empty")
     public static void aSetWithNoCollationOpensNothing(GameTestHelper helper) {
-        withConfig(helper, "[modes]\ncollection_enabled = true\n", () -> {
+        TestConfig.with(helper, "[modes]\ncollection_enabled = true\n", () -> {
             MtgjsonCollation.Reading nothing =
                     new MtgjsonCollation.Reading("tst", Map.of(), List.of(), List.of());
             return PackOpening.pick(nothing, "") == null
@@ -222,42 +215,4 @@ public final class PackOpeningGameTest {
                 List.of(new BoosterVariant("plain", 1, Map.of("common", 1))));
     }
 
-    /** What a check found wrong, or null if it found nothing. */
-    @FunctionalInterface
-    private interface Check {
-        String run();
-    }
-
-    private static void withConfig(GameTestHelper helper, String text, Check check) {
-        Path file = Platform.get().configDirectory().resolve(FILE_NAME);
-        String before = null;
-        try {
-            if (Files.isRegularFile(file)) {
-                before = Files.readString(file, StandardCharsets.UTF_8);
-            }
-            Files.createDirectories(file.getParent());
-            Files.writeString(file, text, StandardCharsets.UTF_8);
-            ServerSettings.load(Platform.get());
-
-            String wrong = check.run();
-            if (wrong != null) {
-                helper.fail(wrong);
-                return;
-            }
-            helper.succeed();
-        } catch (IOException couldNotWrite) {
-            helper.fail("The config file could not be written: " + couldNotWrite);
-        } finally {
-            try {
-                if (before == null) {
-                    Files.deleteIfExists(file);
-                } else {
-                    Files.writeString(file, before, StandardCharsets.UTF_8);
-                }
-            } catch (IOException couldNotRestore) {
-                // Nothing useful to do here; the next start writes a fresh one.
-            }
-            ServerSettings.load(Platform.get());
-        }
-    }
 }

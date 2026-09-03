@@ -32,13 +32,22 @@ public record SealedProduct(
         int cardCount,
         Contents contents) {
 
-    /** What is inside, in the four kinds the published data distinguishes. */
+    /**
+     * What is inside, in the four kinds the published data distinguishes.
+     *
+     * @param unbridged how many cards were published in it that could not be turned into a
+     *                  printing, and so are not in {@code cards}. Counted rather than
+     *                  forgotten: a product read without a card bridge would otherwise look
+     *                  like a product with nothing in it, and a bundle with a promo in it
+     *                  would read as a plain booster.
+     */
     public record Contents(
             List<Booster> boosters,
             List<Held> holds,
             List<CardIdentity> cards,
             List<InDeck> decks,
-            List<String> extras) {
+            List<String> extras,
+            int unbridged) {
 
         public Contents {
             boosters = boosters == null ? List.of() : List.copyOf(boosters);
@@ -46,10 +55,18 @@ public record SealedProduct(
             cards = cards == null ? List.of() : List.copyOf(cards);
             decks = decks == null ? List.of() : List.copyOf(decks);
             extras = extras == null ? List.of() : List.copyOf(extras);
+            unbridged = Math.max(0, unbridged);
+        }
+
+        /** Contents where every card published in it was bridged. */
+        public Contents(List<Booster> boosters, List<Held> holds, List<CardIdentity> cards,
+                List<InDeck> decks, List<String> extras) {
+            this(boosters, holds, cards, decks, extras, 0);
         }
 
         public boolean isEmpty() {
-            return boosters.isEmpty() && holds.isEmpty() && cards.isEmpty() && decks.isEmpty();
+            return boosters.isEmpty() && holds.isEmpty() && cards.isEmpty() && decks.isEmpty()
+                    && unbridged == 0;
         }
     }
 
@@ -113,6 +130,7 @@ public record SealedProduct(
         return contents.boosters().size() == 1
                 && contents.holds().isEmpty()
                 && contents.cards().isEmpty()
+                && contents.unbridged() == 0
                 && contents.decks().isEmpty();
     }
 

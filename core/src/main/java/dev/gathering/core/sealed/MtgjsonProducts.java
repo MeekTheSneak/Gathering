@@ -103,6 +103,55 @@ public final class MtgjsonProducts {
         return new Reading(setCode, products, notes);
     }
 
+    /**
+     * Every set's products, out of MTGJSON's one list of every set.
+     * <p>The same entries the per-set files carry, published together. What it buys is a
+     * server that draws its packs from every set ever printed for one request rather than
+     * several hundred.
+     * <p>No card bridge, because the list carries no cards to bridge with. Cards published
+     * inside a product are counted as unbridged rather than dropped, so a bundle with a promo
+     * in it is still a bundle here and not a booster - see
+     * {@link SealedProduct.Contents#unbridged()}. That makes this the right thing to read for
+     * what is on a shelf and what is in the world, and the wrong thing to read for what comes
+     * out of a product: that is the set's own file, fetched when somebody opens one.
+     *
+     * @return one reading per set that publishes sealed product, keyed by set code
+     */
+    public static Map<String, Reading> readSetList(JsonObject setList)
+            throws BoosterCodecException {
+        return readSets(BoosterCodec.array(setList, "data"));
+    }
+
+    private static Map<String, Reading> readSets(JsonArray sets) throws BoosterCodecException {
+        Map<String, Reading> bySet = new LinkedHashMap<>();
+        for (JsonElement element : sets) {
+            if (!element.isJsonObject()) {
+                throw new BoosterCodecException("the set list holds something that is not a set");
+            }
+            JsonObject set = element.getAsJsonObject();
+            String setCode = text(set, "code").trim().toLowerCase(java.util.Locale.ROOT);
+            JsonElement sealed = set.get("sealedProduct");
+            if (setCode.isEmpty() || sealed == null || sealed.isJsonNull()) {
+                continue;
+            }
+            if (!sealed.isJsonArray()) {
+                throw new BoosterCodecException(setCode + ": 'sealedProduct' is not a list");
+            }
+            List<String> notes = new ArrayList<>();
+            List<SealedProduct> products = new ArrayList<>();
+            for (JsonElement each : sealed.getAsJsonArray()) {
+                if (!each.isJsonObject()) {
+                    throw new BoosterCodecException(setCode + ": a product that is not an object");
+                }
+                products.add(product(each.getAsJsonObject(), setCode, Map.of(), notes));
+            }
+            if (!products.isEmpty()) {
+                bySet.put(setCode, new Reading(setCode, products, notes));
+            }
+        }
+        return Map.copyOf(bySet);
+    }
+
     private static SealedProduct product(
             JsonObject json, String setCode, Map<String, UUID> printings, List<String> notes)
             throws BoosterCodecException {
@@ -180,7 +229,7 @@ public final class MtgjsonProducts {
         for (JsonObject entry : listOf(json, "other", where)) {
             extras.add(text(entry, "name"));
         }
-        return new SealedProduct.Contents(boosters, holds, cards, decks, extras);
+        return new SealedProduct.Contents(boosters, holds, cards, decks, extras, unbridged);
     }
 
     private static List<JsonObject> listOf(JsonObject json, String field, String where)

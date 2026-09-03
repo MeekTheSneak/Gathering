@@ -442,10 +442,12 @@ public record GatheringConfig(
                 # Where sealed product turns up: any of "fishing", "structures", "archaeology".
                 # Needs collection_enabled.
                 pack_loot_sources = ["fishing", "structures", "archaeology"]
-                # Which sets those packs are from. "all" is everything ever sold in a booster,
-                # "current" is whatever is out now, "recent" is the last few releases, and a set
-                # code is exactly that set - so a seasonal server names its set and an era server
-                # names its block. They combine: ["mh3", "current"] is one set plus whatever is new.
+                # Which sets those packs are from. "all" is everything ever sold in a booster
+                # and is the default, "current" is whatever is out now, "recent" is the last few
+                # releases, and a set code is exactly that set - so a seasonal server names its
+                # set and an era server names its block. They combine: ["mh3", "current"] is one
+                # set plus whatever is new. Drawing from every set costs one list of every set
+                # at start, not a file per set.
                 loot_sets = ["all"]
                 # How far back "recent" reaches. Twelve is about three years of Magic.
                 loot_recent_sets = 12

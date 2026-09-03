@@ -51,8 +51,8 @@ formats = ["commander"]      # informational only, no enforcement
 
 [collection]
 pack_loot_sources = ["fishing", "structures", "archaeology"]
-loot_sets = ["current"]              # "current", "recent", or set codes: a seasonal server names its set
-loot_recent_sets = 12                # how far back "recent" reaches; each set is a few MB fetched at start
+loot_sets = ["all"]                  # "all", "current", "recent", or set codes: a seasonal server names its set
+loot_recent_sets = 12                # how far back "recent" reaches
 sealed_store_enabled = true          # the card-shop villager sells sealed product only, never singles
 sealed_price_item = "minecraft:emerald"  # what the shop prices in; no IRL pricing anywhere, ever
 sealed_price_block = "minecraft:emerald_block"  # and what it takes for the dear things

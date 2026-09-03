@@ -42,6 +42,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class SealedLootGameTest {
 
+    /** What these tests are about: a server that is not collecting. */
+    private static final String COLLECTING_OFF =
+            "[modes]\ncollection_enabled = false\n";
+
     private static final ResourceLocation DUNGEON =
             ResourceLocation.withDefaultNamespace("chests/simple_dungeon");
 
@@ -52,23 +56,28 @@ public final class SealedLootGameTest {
      */
     @GameTest(template = "empty")
     public static void aChestRollsAndHasNoPackInIt(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        LootTable table = level.getServer().reloadableRegistries()
-                .getLootTable(ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE, DUNGEON));
-        LootParams params = new LootParams.Builder(level)
-                .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
-                        Vec3.atCenterOf(helper.absolutePos(net.minecraft.core.BlockPos.ZERO)))
-                .create(LootContextParamSets.CHEST);
+        // Switched off here rather than assumed. These tests share one server with
+        // tests that switch collecting on, so a test that reads a setting it did not
+        // set passes or fails by the order the tests happened to run in.
+        TestConfig.run(COLLECTING_OFF, () -> {
+            ServerLevel level = helper.getLevel();
+            LootTable table = level.getServer().reloadableRegistries()
+                    .getLootTable(ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE, DUNGEON));
+            LootParams params = new LootParams.Builder(level)
+                    .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
+                            Vec3.atCenterOf(helper.absolutePos(net.minecraft.core.BlockPos.ZERO)))
+                    .create(LootContextParamSets.CHEST);
 
-        for (int roll = 0; roll < 64; roll++) {
-            for (ItemStack stack : table.getRandomItems(params)) {
-                if (stack.is(GatheringContent.PACK.get())) {
-                    helper.fail("A pack came out of a dungeon chest with collecting switched off");
-                    return;
+            for (int roll = 0; roll < 64; roll++) {
+                for (ItemStack stack : table.getRandomItems(params)) {
+                    if (stack.is(GatheringContent.PACK.get())) {
+                        helper.fail("A pack came out of a dungeon chest with collecting switched off");
+                        return;
+                    }
                 }
             }
-        }
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     /** The modifier's own two files, which nothing complains about the absence of. */
@@ -146,16 +155,21 @@ public final class SealedLootGameTest {
      */
     @GameTest(template = "empty")
     public static void aPlayOnlyServerNeverAsksWhichSetIsCurrent(GameTestHelper helper) {
-        var known = dev.gathering.server.CurrentSet.whenKnown();
-        if (!known.isDone()) {
-            helper.fail("A server with collecting off went looking for the current set");
-            return;
-        }
-        if (known.join().isPresent()) {
-            helper.fail("A server with collecting off has a current set: " + known.join().get());
-            return;
-        }
-        helper.succeed();
+        // Off here rather than assumed, and resolved again under it: the answer is a static
+        // that another test's server may already have filled in.
+        TestConfig.run(COLLECTING_OFF, () -> {
+            dev.gathering.server.CurrentSet.resolve();
+            var known = dev.gathering.server.CurrentSet.whenKnown();
+            if (!known.isDone()) {
+                helper.fail("A server with collecting off went looking for the current set");
+                return;
+            }
+            if (known.join().isPresent()) {
+                helper.fail("A server with collecting off has a current set: " + known.join().get());
+                return;
+            }
+            helper.succeed();
+        });
     }
 
     /** Nothing is available on a server that has not been told a set, so nothing drops. */
@@ -185,26 +199,31 @@ public final class SealedLootGameTest {
      */
     @GameTest(template = "empty")
     public static void theEntryRollsInsideARealTable(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        LootTable table = LootTable.lootTable()
-                .withPool(LootPool.lootPool()
-                        .setRolls(ConstantValue.exactly(1.0f))
-                        .add(PackLootEntry.forTable(
-                                LootSource.STRUCTURES, dev.gathering.core.sealed.LootRichness.RICH)))
-                .build();
-        LootParams params = new LootParams.Builder(level).create(LootContextParamSets.EMPTY);
+        // Switched off here rather than assumed. These tests share one server with
+        // tests that switch collecting on, so a test that reads a setting it did not
+        // set passes or fails by the order the tests happened to run in.
+        TestConfig.run(COLLECTING_OFF, () -> {
+            ServerLevel level = helper.getLevel();
+            LootTable table = LootTable.lootTable()
+                    .withPool(LootPool.lootPool()
+                            .setRolls(ConstantValue.exactly(1.0f))
+                            .add(PackLootEntry.forTable(
+                                    LootSource.STRUCTURES, dev.gathering.core.sealed.LootRichness.RICH)))
+                    .build();
+            LootParams params = new LootParams.Builder(level).create(LootContextParamSets.EMPTY);
 
-        for (int roll = 0; roll < 64; roll++) {
-            for (ItemStack stack : table.getRandomItems(params)) {
-                if (stack.is(GatheringContent.PACK.get())) {
-                    helper.fail("A pack came out of a sealed_product entry with collecting off");
+            for (int roll = 0; roll < 64; roll++) {
+                for (ItemStack stack : table.getRandomItems(params)) {
+                    if (stack.is(GatheringContent.PACK.get())) {
+                        helper.fail("A pack came out of a sealed_product entry with collecting off");
+                        return;
+                    }
+                    helper.fail("A sealed_product entry produced " + stack + ", which is not nothing");
                     return;
                 }
-                helper.fail("A sealed_product entry produced " + stack + ", which is not nothing");
-                return;
             }
-        }
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     private static String read(GameTestHelper helper, ResourceLocation where) {
