@@ -165,14 +165,19 @@ public final class DevScene {
      */
     private static final int LAST_STEP = 279;
 
+    /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
+    private static final int GALLERY_ZOOM_OUT = 6;
+
     /**
-     * The gallery, if it was asked for: three pictures of every look installed.
-     * <p>Six steps a look, because a screen has to be opened in one step and photographed in
-     * the next - a shot asked for in the same breath catches the frame that was already
-     * drawn, which is the convention the whole scene follows.
+     * The gallery, if it was asked for: five pictures of every look installed.
+     * <p>Two steps a screen, because a screen has to be opened in one step and photographed
+     * in the next - a shot asked for in the same breath catches the frame that was already
+     * drawn, which is the convention the whole scene follows. The board takes four of them:
+     * walk to it, start a game on it if the tour finished the last one, open it, photograph
+     * it - and then two more for the same board zoomed out.
      */
     private static final int GALLERY_FIRST = LAST_STEP + 1;
-    private static final int STEPS_PER_LOOK = 6;
+    private static final int STEPS_PER_LOOK = 12;
 
     /** The last step this run will reach, which is further when the gallery is on. */
     private static int lastStep() {
@@ -4864,6 +4869,18 @@ public final class DevScene {
      * it to do anything, and the rolls would be refused with nothing on screen to say why.
      */
     private static void backToTheBoard(Minecraft client) {
+        walkToTheTable(client);
+        client.setScreen(new TableScreen(table));
+    }
+
+    /**
+     * Puts the player back within reach of the table without opening anything.
+     * <p>Two halves because the teleport is done on the server's own thread and arrives a tick
+     * later. A board opened in the same breath is a board opened while the player is still
+     * wherever they were, and it closes itself for being out of reach - which in the gallery
+     * came out as a photograph of a field.
+     */
+    private static void walkToTheTable(Minecraft client) {
         MinecraftServer server = client.getSingleplayerServer();
         if (table == null || server == null) {
             fail("there is no table to go back to");
@@ -4882,7 +4899,6 @@ public final class DevScene {
             player.teleportTo(atX, atY, atZ);
             player.connection.teleport(atX, atY, atZ, 0f, 0f);
         });
-        client.setScreen(new TableScreen(table));
     }
 
     /** Opens the table menu and asks for a die. */
@@ -5935,9 +5951,45 @@ public final class DevScene {
                 aFiveColorCardInHand(client);
                 readingACard(client, true);
             }
-            default -> {
+            case 5 -> {
                 shoot(client, "look-" + named + "-3-reading");
                 readingACard(client, false);
+            }
+            // The board itself, which is the screen a game is actually played on and the one
+            // this gallery did not show. Reported from a real session: "a few of the in table
+            // views look really bad on some of the themes. for example the top bar on in the
+            // table when using the future sight theme" - which nothing here would ever have
+            // caught, because every look was only ever photographed wearing a menu.
+            case 6 -> {
+                if (client.screen != null) {
+                    client.screen.onClose();
+                }
+                client.setScreen(null);
+                walkToTheTable(client);
+            }
+            case 7 -> {
+                // The tour plays a game and then finishes it, so by the time the gallery runs
+                // the table has no session and this client is told nothing about it - which is
+                // why a board opened here closed itself and the picture came out as a field.
+                // A deck put down starts one, by the same one right-click the tour opens with.
+                if (table != null && ClientTableState.viewOf(table).isEmpty()) {
+                    putTheDeckDown(client);
+                }
+            }
+            case 8 -> client.setScreen(new TableScreen(table));
+            case 9 -> {
+                expectScreen(client, "the board wearing the " + named + " look",
+                        TableScreen.class);
+                shoot(client, "look-" + named + "-4-the-board");
+            }
+            // And the same board zoomed out, where a themed border has the fewest pixels to
+            // be itself in: "GUI borders also scale with zoom, that makes certain zones (like
+            // graveyard or exile) look really bad when zoomed out on certain themes".
+            case 10 -> scrollTheBoard(client, -GALLERY_ZOOM_OUT);
+            default -> {
+                shoot(client, "look-" + named + "-5-zoomed-out");
+                // Back where it was, so the next look starts from the same board this one did.
+                scrollTheBoard(client, GALLERY_ZOOM_OUT);
             }
         }
         advance(SETTLE);

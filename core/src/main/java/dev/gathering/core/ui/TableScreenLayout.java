@@ -15,8 +15,16 @@ package dev.gathering.core.ui;
  */
 public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
 
-    /** The strip along the top carrying names, life, and whose turn it is. */
-    private static final int STATUS_HEIGHT = 16;
+    /**
+     * The strip along the top carrying names, life, and whose turn it is.
+     * <p>It was sixteen, which is exactly twice the panel border it is drawn on - so the
+     * panel's top edge met its bottom edge with no middle between them, and on the looks
+     * whose border is a heavy band that came out as a squashed strip rather than a bar.
+     * Reported as "the top bar on in the table when using the future sight theme". Tall
+     * enough for the frame to be a frame now, which is also more room round the writing.
+     */
+    private static final int STATUS_HEIGHT =
+            Math.max(24, SpriteFrames.smallestFor(SpriteFrames.PANEL));
 
     /**
      * How much of the screen the hand gets.

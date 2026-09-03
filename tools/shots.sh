@@ -31,14 +31,14 @@ if ! command -v xvfb-run >/dev/null 2>&1; then
     echo "needs xvfb-run"; exit 1
 fi
 
-# The gallery adds three pictures a look on top of the tour, so it needs longer than the
+# The gallery adds five pictures a look on top of the tour, so it needs longer than the
 # tour's own budget - and a run cut off by the timer is a gallery missing whichever looks
 # came last, which is not obvious from the pictures that did arrive.
 EXTRA=""
 BUDGET="${SHOT_SECONDS:-720}"
 if [ "${GALLERY:-}" = 1 ]; then
     EXTRA="-Pgallery"
-    BUDGET="${SHOT_SECONDS:-1500}"
+    BUDGET="${SHOT_SECONDS:-2400}"
 fi
 
 timeout "$BUDGET" xvfb-run -a -s "-screen 0 1280x800x24" \

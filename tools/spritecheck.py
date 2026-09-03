@@ -29,9 +29,45 @@ SPRITES = os.path.join(
 
 
 def elements_in_java():
+    return [name for name, _ in elements_and_frames()]
+
+
+def elements_and_frames():
+    """Every element, with the border thickness it declares - zero where it declares none.
+
+    The second argument is optional, so the pattern has to allow it. It did not, once: three
+    elements gained a border and quietly stopped being checked for existing at all, because a
+    pattern that ended at the closing bracket no longer matched the lines that had a number
+    before it.
+    """
     text = open(os.path.join(JAVA, "GatheringSprites.java")).read()
     body = text.split("public enum Element {", 1)[1].split("\n        private final String name;", 1)[0]
-    return [name for name in re.findall(r'^\s*[A-Z][A-Z0-9_]*\("([a-z0-9_]+)"\)', body, re.M)]
+    frames = frames_in_core()
+    found = re.findall(
+        r'^\s*[A-Z][A-Z0-9_]*\("([a-z0-9_]+)"(?:\s*,\s*([A-Za-z0-9_.]+))?[^)]*\)', body, re.M)
+    read = []
+    for name, frame in found:
+        if not frame:
+            read.append((name, 0))
+        elif frame.isdigit():
+            read.append((name, int(frame)))
+        else:
+            named = frame.rsplit(".", 1)[-1]
+            if named not in frames:
+                raise SystemExit(
+                    f"{name} names a frame SpriteFrames does not declare: {frame}")
+            read.append((name, frames[named]))
+    return read
+
+
+def frames_in_core():
+    """The border thicknesses core declares, which the enum names and the art must match."""
+    where = os.path.join(
+        ROOT, "core", "src", "main", "java", "dev", "gathering", "core", "ui",
+        "SpriteFrames.java")
+    text = open(where).read()
+    return {name: int(value) for name, value in
+            re.findall(r'public static final int ([A-Z_]+) = (\d+);', text)}
 
 
 def elements_in_generator():
@@ -255,6 +291,33 @@ def main():
         for names in same:
             problems.append(
                 "the spinner does not turn: " + ", ".join(names) + " are the same picture")
+
+    # A declared border has to be the border the art really has. The mod skips drawing a
+    # frame that has no room left for its middle, and it works that out from the number in
+    # the enum - so a number that disagrees with the picture is a frame drawn as a smear or
+    # one left off a box that had room for it.
+    for name, frame in elements_and_frames():
+        if frame <= 0:
+            continue
+        for theme, folder in themes.items():
+            meta = os.path.join(SPRITES, folder, name + ".png.mcmeta")
+            if not os.path.isfile(meta):
+                problems.append(
+                    f"{name} declares a border of {frame} and {theme} gives it no scaling")
+                continue
+            try:
+                scaling = json.load(open(meta)).get("gui", {}).get("scaling", {})
+            except (OSError, ValueError) as broken:
+                problems.append(f"{theme}/{name}.png.mcmeta could not be read: {broken}")
+                continue
+            if scaling.get("type") != "nine_slice":
+                problems.append(
+                    f"{name} declares a border and {theme} draws it as "
+                    f"{scaling.get('type')!r} rather than nine_slice")
+            elif scaling.get("border") != frame:
+                problems.append(
+                    f"{name} declares a border of {frame} and {theme}'s art has "
+                    f"{scaling.get('border')!r}")
 
     for note in notes:
         print(f"note: {note}")

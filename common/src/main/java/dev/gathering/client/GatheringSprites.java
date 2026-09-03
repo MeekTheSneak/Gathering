@@ -89,13 +89,16 @@ public final class GatheringSprites {
         /** The table top itself, under everything. */
         TABLE_FELT("table_felt"),
         /** Somebody's half of the table. Lighter than the felt, so it reads as their space. */
-        SEAT_MAT("seat_mat"),
+        SEAT_MAT("seat_mat", dev.gathering.core.ui.SpriteFrames.SEAT_MAT,
+                WhenCramped.DRAWN_ANYWAY),
         /** Your own half of it, in the accent, so your board is the one you find first. */
-        SEAT_MAT_MINE("seat_mat_mine"),
+        SEAT_MAT_MINE("seat_mat_mine", dev.gathering.core.ui.SpriteFrames.SEAT_MAT,
+                WhenCramped.DRAWN_ANYWAY),
         /** The line across a mat marking off the row nearest its player. */
         SEAT_DIVIDER("seat_divider"),
         /** Round a zone or a group of slots: a marking on the mat, not a piece of interface. */
-        ZONE_BORDER("zone_border"),
+        ZONE_BORDER("zone_border", dev.gathering.core.ui.SpriteFrames.ZONE_BORDER,
+                WhenCramped.LEFT_OFF),
         /**
          * Round somebody's half of the table, and round the controls that belong to it.
          * <p>Drawn in the seat's own color, which is what makes four identical rectangles
@@ -279,15 +282,69 @@ public final class GatheringSprites {
         CURVE_TRACK("curve_track"),
         CURVE_FILL("curve_fill");
 
+        /** What an element does when its box has no room left for its border. */
+        public enum WhenCramped {
+            /**
+             * Drawn anyway, rough corners and all.
+             * <p>For an element that <em>is</em> the surface. A mat left off is a seat with no
+             * board under it, which is worse than a mat whose edge has run together.
+             */
+            DRAWN_ANYWAY,
+            /**
+             * Left off.
+             * <p>For a marking over something else. A zone's outline smeared into its own
+             * corners reads as a fault; the same zone as a clean dark recess reads as a zone.
+             */
+            LEFT_OFF
+        }
+
         private final String name;
+        private final int frame;
+        private final WhenCramped cramped;
 
         Element(String name) {
+            this(name, 0, WhenCramped.DRAWN_ANYWAY);
+        }
+
+        /**
+         * An element whose art is a border of this thickness around a middle.
+         * <p>Declared here so the mod knows how small is too small to draw it, and against
+         * what {@code tools/spritecheck.py} checks every theme's own metadata - so the number
+         * and the art cannot drift apart.
+         */
+        Element(String name, int frame, WhenCramped cramped) {
             this.name = name;
+            this.frame = frame;
+            this.cramped = cramped;
         }
 
         /** The file name this element is painted in, the same in every theme. */
         public String fileName() {
             return name;
+        }
+
+        /** How thick this element's border is, or zero where it is not a border at all. */
+        public int frame() {
+            return frame;
+        }
+
+        /**
+         * Whether a box this size has room for this element's border to be itself.
+         * <p>A nine-slice narrower than twice its border has no middle left: the game tiles
+         * what it can and overlaps the corners, and what comes out is not the picture anybody
+         * drew. Reported from a real session: "GUI borders also scale with zoom, that makes
+         * certain zones (like graveyard or exile) look really bad when zoomed out on certain
+         * themes like future sight" - Future Sight's border being the heaviest of the
+         * fourteen and so the first to have nothing left to be drawn in.
+         * <p>Below it the frame is left off. A zone that is a clean dark recess when the board
+         * is pulled right out reads as a zone; the same zone smeared into its own corners
+         * reads as a fault.
+         */
+        public boolean readsAt(int width, int height) {
+            return frame <= 0
+                    || cramped == WhenCramped.DRAWN_ANYWAY
+                    || (width >= dev.gathering.core.ui.SpriteFrames.smallestFor(frame)
+                            && height >= dev.gathering.core.ui.SpriteFrames.smallestFor(frame));
         }
 
         /** Every element, once. {@code values()} clones its array and this is walked per theme. */
@@ -333,7 +390,7 @@ public final class GatheringSprites {
 
     /** Draws one element into a box. */
     public static void draw(GuiGraphics graphics, Element element, int x, int y, int width, int height) {
-        if (width <= 0 || height <= 0) {
+        if (width <= 0 || height <= 0 || !element.readsAt(width, height)) {
             return;
         }
         RenderSystem.enableBlend();
