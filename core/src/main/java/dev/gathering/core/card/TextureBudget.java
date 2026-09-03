@@ -19,14 +19,24 @@ public final class TextureBudget {
     private TextureBudget() {
     }
 
-    /** The two tiers the mod fetches, as Scryfall serves them. */
+    /** The three tiers the mod fetches, as Scryfall serves them. */
     public enum Tier {
 
         /** What the table miniatures are drawn from. */
         SMALL(146, 204),
 
-        /** What a card read at full size, and every card in a GUI, is drawn from. */
-        NORMAL(488, 680);
+        /** What every card on a board and in every list is drawn from. */
+        NORMAL(488, 680),
+
+        /**
+         * What a card being read is drawn from, and nothing else.
+         * <p>Two and a half times a normal one. Reported from a real session: "GUI mode when
+         * you zoom in gets extremely laggy, like almost crashes" - which is this tier being
+         * chosen by how large a card was being drawn and by nothing else, so a board zoomed
+         * in past the threshold asked for one of these per permanent. See
+         * {@link #CRISP_AT_ONCE} for how many may be resident at once and why.
+         */
+        CRISP(745, 1040);
 
         private final int width;
         private final int height;
@@ -59,4 +69,14 @@ public final class TextureBudget {
      * megabytes, and so the two numbers cannot drift apart again.
      */
     public static final long CEILING_MEBIBYTES = 325;
+
+    /**
+     * How many crisp textures can honestly be on screen at once.
+     * <p>Two: the card being read, and the one it is a transform of. That is the whole of what
+     * asks for the tier, and it is why the ceiling above is worked out in normal ones - a
+     * board's worth of crisp textures is not a case the budget covers, it is a fault. A
+     * hundred of them is seven hundred and ninety megabytes, which is not a slow frame, it is
+     * a client that stops.
+     */
+    public static final int CRISP_AT_ONCE = 2;
 }

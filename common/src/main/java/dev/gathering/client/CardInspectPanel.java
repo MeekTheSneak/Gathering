@@ -190,7 +190,7 @@ public final class CardInspectPanel {
             // would be two things answering one hand. Same drawing either way, so a foil
             // looks like a foil wherever it is met.
             drawFace(graphics, summaryFace, Holding.inspected(foil, grainOf(summary)),
-                    face, y + PADDING, artWidth, artHeight);
+                    face, y + PADDING, artWidth, artHeight, true);
             face += artWidth + GAP;
         }
         int textTop = y + PADDING + artHeight + GAP;
@@ -343,7 +343,7 @@ public final class CardInspectPanel {
             return;
         }
         drawFace(graphics, summary.sideShown(flipped), Holding.inspected(foil, grainOf(summary)),
-                card.x(), card.y(), card.width(), card.height());
+                card.x(), card.y(), card.width(), card.height(), true);
         drawTextPanel(graphics, summary.faces(), words.x(), words.y(), words.width(), words.height());
     }
 
@@ -400,6 +400,22 @@ public final class CardInspectPanel {
     private static void drawFace(
             GuiGraphics graphics, CardFaceSummary face, Holding held,
             int x, int y, int width, int height) {
+        drawFace(graphics, face, held, x, y, width, height, false);
+    }
+
+    /**
+     * The same, saying whether this card may have the crisp tier fetched for it.
+     * <p>Only a card being read - the full-screen one, and the panel that follows the cursor -
+     * ever asks. Reported from a real session: "GUI mode when you zoom in gets extremely
+     * laggy, like almost crashes." The tier was chosen by how large the card was being drawn
+     * and by nothing else, so zooming a board in past the threshold asked for a three-megabyte
+     * texture for every permanent on it at once, one upload each, mid-frame. The comment
+     * beside the tier already said it was meant for "the read overlay and the pack, and
+     * nothing on a board" - it just had no way to tell which it was in.
+     */
+    private static void drawFace(
+            GuiGraphics graphics, CardFaceSummary face, Holding held,
+            int x, int y, int width, int height, boolean beingRead) {
         // The best picture there is once the card is being drawn larger than the ordinary
         // tier's own resolution, and the ordinary one everywhere else. Reported as "the mod
         // pretty much exclusively uses the low quality scryfall image pull": it read 488x680
@@ -410,9 +426,10 @@ public final class CardInspectPanel {
         // Decided by the size rather than by a setting, so nobody has to know the tiers exist
         // - and only by the size, because a board of sixty permanents at the crisp tier is
         // sixty textures four times the area for no gain at all.
-        Optional<String> url = height >= CRISP_ABOVE ? face.bestImage() : face.readableImage();
+        boolean crisp = beingRead && height >= CRISP_ABOVE;
+        Optional<String> url = crisp ? face.bestImage() : face.readableImage();
         Optional<ResourceLocation> texture = url.flatMap(ClientCardImages.get()::texture);
-        if (texture.isEmpty() && height >= CRISP_ABOVE) {
+        if (texture.isEmpty() && crisp) {
             // The crisp one has not arrived yet. Show the ordinary one rather than a
             // "fetching" box over a card this client can already draw: the swap when it lands
             // is a card getting sharper, which is a better half-second than an empty frame.

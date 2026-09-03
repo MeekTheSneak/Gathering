@@ -8,7 +8,20 @@ import org.junit.jupiter.api.Test;
 class TextureBudgetTest {
 
     /**
-     * The cap {@code ClientCardImages.MAX_RESIDENT_TEXTURES} ships with.
+     * The cap {@code ClientCardImages.MAX_RESIDENT_TEXTURES
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("a board's worth of crisp textures is not a budget, it is a fault")
+    void theCrispTierIsNotABoardTier() {
+        // What the reported near-crash actually cost: the tier chosen by drawn size alone, on
+        // a board of sixty permanents zoomed in.
+        assertThat(TextureBudget.mebibytesFor(TextureBudget.Tier.CRISP, 60))
+                .isGreaterThan(TextureBudget.CEILING_MEBIBYTES);
+        // And what it costs when only a card being read may ask for it.
+        assertThat(TextureBudget.mebibytesFor(
+                TextureBudget.Tier.CRISP, TextureBudget.CRISP_AT_ONCE))
+                .isLessThan(TextureBudget.CEILING_MEBIBYTES / 10);
+    }
+} ships with.
      * <p>Repeated rather than imported: that constant is in the Minecraft layer and this module
      * has no Minecraft on its classpath. A game test checks the two are the same number, so
      * this copy cannot go stale on its own.
