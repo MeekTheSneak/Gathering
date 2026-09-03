@@ -141,14 +141,7 @@ public record CardInstance(
         if (!updated.containsKey(name) && updated.size() >= CounterName.MOST_PER_CARD) {
             return this;
         }
-        // Never below none. A counter is a physical thing sitting on a card: there is no such
-        // pile as minus two +1/+1 counters, and the board could hold one - nothing clamped
-        // this, so pressing minus on a counter a card did not have wrote a negative into the
-        // state and the card read "Charge x-1", or "+1/+1 x-2", which is a power and toughness
-        // with no meaning at all. Not a rule declined: whether a creature with a -1/-1 on it
-        // dies is a rule, whether a card can carry a negative number of objects is arithmetic,
-        // and the commander damage beside this had been clamped since it was written.
-        int now = Math.max(0, updated.getOrDefault(name, 0) + delta);
+        int now = updated.getOrDefault(name, 0) + delta;
         if (now == 0) {
             updated.remove(name);
         } else {
@@ -301,9 +294,15 @@ public record CardInstance(
          * a charge counter has no arithmetic to do, and the caller writes its name with the
          * count beside it instead. Null rather than the name itself so a caller cannot
          * accidentally lose the count by treating every counter as though it added up.
+         * <p>Negative piles add up too. A player who presses the minus on a card that has
+         * none is not arguing with, anywhere in this mod - see the misplay tests - so a card
+         * really can be carrying minus two +1/+1 counters, and it used to say so as
+         * "+1/+1 x-2": the arithmetic below produced "+-2" for that and the whole method
+         * gave up rather than print it. Minus two +1/+1 counters is -2/-2, which is a real
+         * thing to be, and minus two -1/-1 counters is +2/+2. Both are now what it says.
          */
         public static String addedUp(String counter, int howMany) {
-            if (howMany <= 0 || !addUp(counter)) {
+            if (howMany == 0 || !addUp(counter)) {
                 return null;
             }
             java.util.regex.Matcher parts = POWER_AND_TOUGHNESS.matcher(counter);
@@ -319,12 +318,16 @@ public record CardInstance(
          * <p>{@code long} on the way through because a player who has been pressing the plus
          * button all game can get a counter into the millions, and a card reading a negative
          * power because the arithmetic wrapped would be worse than one reading a silly
-         * number. Clamped to what an int holds, which is far past any real board.
+         * number. Clamped to what an int holds at both ends, which is far past any real board.
+         * <p>The sign is worked out rather than carried through. Sticking the counter's own
+         * sign in front of the total is right only while the total is positive: a pile of
+         * minus two +1/+1 counters came out "+-2", which is why anything below zero used to
+         * be refused outright.
          */
         private static String side(String sign, String size, int howMany) {
-            long total = Long.parseLong(size) * howMany;
-            long capped = Math.min(total, Integer.MAX_VALUE);
-            return sign + capped;
+            long each = "-".equals(sign) ? -Long.parseLong(size) : Long.parseLong(size);
+            long total = Math.clamp(each * howMany, Integer.MIN_VALUE, Integer.MAX_VALUE);
+            return total < 0 ? Long.toString(total) : "+" + total;
         }
     }
 }

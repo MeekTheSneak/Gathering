@@ -190,13 +190,7 @@ public record SeatState(
         if (!updated.containsKey(name) && updated.size() >= CounterName.MOST_PER_CARD) {
             return this;
         }
-        // Never below none. A counter is a physical thing a player keeps beside them: there is no such
-        // pile as minus two poison counters, and the board could hold one - nothing clamped
-        // this, so pressing minus on a counter a player did not have wrote a negative into the
-        // state and the seat read "Poison x-1". Not a rule declined: whether ten poison counters lose the
-        // game is a rule, whether a player can carry a negative number of objects is arithmetic,
-        // and the commander damage beside this had been clamped since it was written.
-        int now = Math.max(0, updated.getOrDefault(name, 0) + delta);
+        int now = updated.getOrDefault(name, 0) + delta;
         if (now == 0) {
             updated.remove(name);
         } else {

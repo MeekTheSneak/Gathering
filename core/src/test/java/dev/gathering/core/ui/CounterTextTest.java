@@ -44,6 +44,19 @@ class CounterTextTest {
         assertThat(lines(one("-1/-1", 1))).containsExactly(line("-1/-1", null));
     }
 
+    /**
+     * A pile pressed below none reads as the creature it makes, not as a count of nothing.
+     * <p>Nothing in this mod argues with a player, so the minus takes a card past having any
+     * - which used to write "+1/+1 x-2" on it, because the arithmetic gave up rather than
+     * print the "+-2" it had produced.
+     */
+    @Test
+    @DisplayName("a pile below none still adds up")
+    void aPileBelowNoneStillAddsUp() {
+        assertThat(lines(one("+1/+1", -2))).containsExactly(line("-2/-2", null));
+        assertThat(lines(one("-1/-1", -2))).containsExactly(line("+2/+2", null));
+    }
+
     @Test
     @DisplayName("a card may carry both, because nothing here enforces a rule")
     void bothKindsAtOnce() {

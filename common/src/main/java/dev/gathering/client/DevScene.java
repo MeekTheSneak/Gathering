@@ -2062,11 +2062,11 @@ public final class DevScene {
             }
             case 184 -> {
                 shoot(client, "54j-every-kind-of-counter");
-                theMinusStopsAtNone(client);
+                theMinusGoesPastNone(client);
                 advance(SETTLE);
             }
             case 185 -> {
-                nothingIsOwedOnACounter(client);
+                aPileBelowNoneStillAddsUp(client);
                 advance(SETTLE / 2);
             }
             case 186 -> {
@@ -3901,44 +3901,48 @@ public final class DevScene {
     }
 
     /**
-     * And the minus never goes past none.
-     * <p>Pressing it on a counter a card does not have used to write a negative into the
-     * state, and the card read "Charge x-1" - a pile of minus one objects. Checked on the
-     * real board rather than only in core, because the button that sends it is here.
+     * And what a pile pressed below none reads as.
+     * <p>Nothing in this mod argues with a player, so the minus really does take a card past
+     * having none: press it five times on three +1/+1 counters and the card is carrying minus
+     * two of them. That used to be written on the card as "+1/+1 x-2", because the arithmetic
+     * gave up rather than print the "+-2" it had produced. Minus two +1/+1 counters is -2/-2,
+     * which is a real thing for a creature to be, and that is what it says now.
      */
-    private static void theMinusStopsAtNone(Minecraft client) {
+    private static void theMinusGoesPastNone(Minecraft client) {
         SeatId me = ClientTableState.seatAt(table).orElse(null);
-        if (me == null || kindsWentOn.isEmpty()) {
+        if (me == null || kindsWentOn.size() < 2) {
             fail("there was no board to press a counter's minus on");
             return;
         }
-        CardInstanceId card = kindsWentOn.get(kindsWentOn.size() - 1);
-        for (int press = 0; press < 6; press++) {
-            ClientTableActions.send(table,
-                    new GameEvent.CounterChanged(me, card, "charge", -1));
+        for (int press = 0; press < 5; press++) {
+            ClientTableActions.send(table, new GameEvent.CounterChanged(
+                    me, kindsWentOn.get(1), CardInstance.Counters.PLUS_ONE_PLUS_ONE, -1));
         }
         System.out.println("[devscene] pressed the minus past the end of a counter");
     }
 
-    /** What that left behind, which must be no counter rather than a negative one. */
-    private static void nothingIsOwedOnACounter(Minecraft client) {
-        CardView card = kindsWentOn.isEmpty()
-                ? null : findOnTheBattlefield(kindsWentOn.get(kindsWentOn.size() - 1)).orElse(null);
+    /** And that it reads as a creature that much smaller, rather than as a count of nothing. */
+    private static void aPileBelowNoneStillAddsUp(Minecraft client) {
+        CardView card = kindsWentOn.size() < 2
+                ? null : findOnTheBattlefield(kindsWentOn.get(1)).orElse(null);
         if (card == null) {
             fail("the card the minus was pressed on left the battlefield");
             return;
         }
-        int left = card.counter("charge");
-        if (left != 0) {
-            fail("four charge counters had the minus pressed six times and " + left
-                    + " are left");
+        List<String> said = new ArrayList<>();
+        for (CounterText.Line line : CounterText.linesOn(card)) {
+            said.add(line.count() == null ? line.name() : line.name() + " " + line.count());
+        }
+        // The -1/-1 it was already carrying is untouched, and the +1/+1 pile has gone from
+        // three to minus two - and is now the second line rather than the first, because on
+        // its way down it passed through none, which takes a counter off a card entirely. It
+        // comes back at the end of the list, where a counter put on for the first time goes.
+        if (!said.equals(List.of("-1/-1", "-2/-2"))) {
+            fail("three +1/+1 counters had the minus pressed five times and the card reads "
+                    + said);
             return;
         }
-        if (!CounterText.linesOn(card).isEmpty()) {
-            fail("a card with no counters left still writes " + CounterText.linesOn(card));
-            return;
-        }
-        System.out.println("[devscene] the minus stops at none rather than owing counters");
+        System.out.println("[devscene] a pile pressed below none reads " + said);
     }
 
     /** How many differently named counters the crowded card gets. Two more than fit. */

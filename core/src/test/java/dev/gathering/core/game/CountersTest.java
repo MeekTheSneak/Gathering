@@ -48,7 +48,8 @@ class CountersTest {
     @DisplayName("nothing to say about none of them, or about nothing")
     void theEmptyAnswers() {
         assertThat(Counters.addedUp(Counters.PLUS_ONE_PLUS_ONE, 0)).isNull();
-        assertThat(Counters.addedUp(Counters.PLUS_ONE_PLUS_ONE, -1)).isNull();
+        // A pile below none used to be nothing to say as well, and it was the wrong answer:
+        // see aNegativePileStillAddsUp.
         assertThat(Counters.addedUp(null, 2)).isNull();
         assertThat(Counters.addUp(null)).isFalse();
         assertThat(Counters.addUp("")).isFalse();
@@ -68,46 +69,34 @@ class CountersTest {
     }
 
     /**
-     * Never below none.
-     * <p>A counter is a physical thing sitting on a card. There is no such pile as minus two
-     * +1/+1 counters, and the board could hold one: nothing clamped the arithmetic, so
-     * pressing the minus on a counter a card did not have wrote a negative into the state and
-     * the card read "Charge x-1" - or "+1/+1 x-2", which is a power and toughness with no
-     * meaning at all, since a multiplier is what a pile of those adds up to.
-     * <p>Not a rule this mod declines to enforce. Whether a creature with a -1/-1 on it dies
-     * is a rule; whether a card can carry a negative number of objects is arithmetic, and the
-     * commander damage written beside this had been clamped since the day it was written.
+     * A pile that has gone below none adds up too.
+     * <p>Nothing in this mod argues with a player - see the misplay tests, which state it -
+     * so pressing the minus on a card that has no +1/+1 counters really does leave it
+     * carrying minus one of them. What that used to say on the card was "+1/+1 x-1", because
+     * the arithmetic here produced "+-1" and the method gave up rather than print it.
+     * <p>Minus two +1/+1 counters is -2/-2, which is a real thing for a creature to be. And
+     * minus two -1/-1 counters is +2/+2, for the same reason and in the other direction.
      */
     @Test
-    @DisplayName("a counter never goes below none, however often the minus is pressed")
-    void aCounterNeverGoesNegative() {
-        CardInstance card = CardInstance.faceUp(
-                CardInstanceId.of(1),
-                dev.gathering.core.card.CardIdentity.ofPrinting(
-                        java.util.UUID.nameUUIDFromBytes("bear".getBytes()), false),
-                new SeatId(0));
-
-        // Pressing minus on one that is not there does nothing at all.
-        assertThat(card.withCounter("charge", -1).counters()).isEmpty();
-        assertThat(card.withCounter(Counters.PLUS_ONE_PLUS_ONE, -3).counters()).isEmpty();
-        assertThat(card.withCounter(Counters.MINUS_ONE_MINUS_ONE, -1).counters()).isEmpty();
-
-        // And taking away more than there are takes them all off, rather than owing some.
-        CardInstance two = card.withCounter(Counters.PLUS_ONE_PLUS_ONE, 2);
-        assertThat(two.counter(Counters.PLUS_ONE_PLUS_ONE)).isEqualTo(2);
-        assertThat(two.withCounter(Counters.PLUS_ONE_PLUS_ONE, -5).counters()).isEmpty();
-        assertThat(two.withCounter(Counters.PLUS_ONE_PLUS_ONE, -1)
-                .counter(Counters.PLUS_ONE_PLUS_ONE)).isOne();
+    @DisplayName("a pile below none adds up, rather than falling back to a count")
+    void aNegativePileStillAddsUp() {
+        assertThat(Counters.addedUp(Counters.PLUS_ONE_PLUS_ONE, -1)).isEqualTo("-1/-1");
+        assertThat(Counters.addedUp(Counters.PLUS_ONE_PLUS_ONE, -2)).isEqualTo("-2/-2");
+        assertThat(Counters.addedUp(Counters.MINUS_ONE_MINUS_ONE, -2)).isEqualTo("+2/+2");
+        assertThat(Counters.addedUp("+2/+2", -3)).isEqualTo("-6/-6");
+        // A mixed printing keeps each side's own direction when it turns round.
+        assertThat(Counters.addedUp("+1/-1", -2)).isEqualTo("-2/+2");
     }
 
+    /**
+     * And the other end of the same clamp.
+     * <p>{@link #theArithmeticDoesNotWrapAround} states the top. There was no bottom, because
+     * nothing below zero was ever printed; there is one now.
+     */
     @Test
-    @DisplayName("nor does one a player keeps beside them")
-    void aSeatsCounterNeverGoesNegativeEither() {
-        SeatState seat = SeatState.startingAt(new SeatId(0), 20);
-
-        assertThat(seat.withCounter("poison", -1).counters()).isEmpty();
-        assertThat(seat.withCounter("poison", 3).withCounter("poison", -10).counters()).isEmpty();
-        assertThat(seat.withCounter("poison", 3).withCounter("poison", -1).counter("poison"))
-                .isEqualTo(2);
+    @DisplayName("a silly number below none is clamped rather than wrapped, too")
+    void theArithmeticDoesNotWrapTheOtherWayEither() {
+        assertThat(Counters.addedUp("+1000000/+1000000", -100_000))
+                .isEqualTo(Integer.MIN_VALUE + "/" + Integer.MIN_VALUE);
     }
 }
