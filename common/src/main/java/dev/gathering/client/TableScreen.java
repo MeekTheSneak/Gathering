@@ -26,6 +26,7 @@ import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.CardShape;
+import dev.gathering.core.ui.CardText;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Legibility;
 import dev.gathering.core.ui.Rect;
@@ -4944,6 +4945,12 @@ public final class TableScreen extends Screen {
             return;
         }
         int room = Math.max(1, art.width() - 4);
+        // Against the card rather than against the screen, the same as the note across its
+        // top - see CardText. A counter pinned to the font's own size took a third of a card
+        // on a board zoomed out, and three of them took the card.
+        float scale = CardText.scaleFor(art.height(), CardText.COUNTER, this.font.lineHeight);
+        // Everything measured below is measured at the size it will be drawn at.
+        int roomInLetters = Math.max(1, Math.round(room / scale));
         List<Component> lines = new ArrayList<>();
         // The count that goes flush right on the line at the same index, or null. Parallel to
         // the lines rather than folded into them, because the count must never be the part
@@ -4957,7 +4964,7 @@ public final class TableScreen extends Screen {
                 continue;
             }
             Component amount = Component.literal(counter.count());
-            if (this.font.width(name) <= room - this.font.width(amount) - 3) {
+            if (this.font.width(name) <= roomInLetters - this.font.width(amount) - 3) {
                 lines.add(name);
                 counts.add(amount);
             } else {
@@ -4971,19 +4978,22 @@ public final class TableScreen extends Screen {
                 counts.add(null);
             }
         }
-        int line = floor - this.font.lineHeight * lines.size();
+        int high = CardText.lineAt(scale, this.font.lineHeight);
+        int line = floor - high * lines.size();
         for (int index = 0; index < lines.size(); index++) {
             Component amount = counts.get(index);
-            int amountRoom = amount == null ? 0 : this.font.width(amount) + 3;
+            int amountRoom = amount == null
+                    ? 0 : Math.round(this.font.width(amount) * scale) + 3;
             GatheringSprites.draw(graphics, Element.COUNTER_BAND,
-                    art.x(), line - 1, art.width(), this.font.lineHeight);
-            GuiText.draw(graphics, this.font, lines.get(index),
-                    art.x() + 2, line, room - amountRoom, COUNTER_TEXT);
+                    art.x(), line - 1, art.width(), high);
+            GuiText.drawTrimmedAt(graphics, this.font, lines.get(index),
+                    art.x() + 2, line, room - amountRoom, 1, scale, COUNTER_TEXT);
             if (amount != null) {
-                GuiText.draw(graphics, this.font, amount,
-                        art.right() - 1 - this.font.width(amount), line, amountRoom, COUNTER_TEXT);
+                GuiText.drawTrimmedAt(graphics, this.font, amount,
+                        art.right() - 1 - Math.round(this.font.width(amount) * scale), line,
+                        amountRoom, 1, scale, COUNTER_TEXT);
             }
-            line += this.font.lineHeight;
+            line += high;
         }
     }
 

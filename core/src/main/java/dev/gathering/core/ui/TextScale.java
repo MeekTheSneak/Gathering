@@ -27,21 +27,34 @@ public final class TextScale {
      */
     public static final float SMALLEST = 0.6f;
 
-    /** Full size. Nothing here draws text larger than the font: it shrinks, it never grows. */
+    /** Full size. */
     public static final float FULL = 1.0f;
+
+    /**
+     * The largest anything is drawn at.
+     * <p>It used to be full size: text shrank and never grew, so anything over one was the
+     * mistake. Writing on a card grows now - it is drawn against the card rather than against
+     * the screen, so zooming in makes it bigger, which is what was asked for - and the
+     * ceiling moved up to let it.
+     * <p>Still well under any width. The mistake this catches is an int width arriving where
+     * a float scale goes, and a width is a number of pixels: the narrowest thing in the mod
+     * anybody fits text into is a good deal wider than this. So the guard still fires on
+     * every one of them and no longer fires on honest growth.
+     */
+    public static final float LARGEST = 2.0f;
 
     private TextScale() {
     }
 
     /**
      * Whether this is a scale anything in the mod meant to ask for.
-     * <p>Larger than full size is the mistake this exists to catch, because no caller wants
-     * it and an int width arriving here is always larger. Zero, negative and not-a-number are
-     * the other ways a scale goes wrong - a degenerate transform draws geometry nobody can
-     * predict.
+     * <p>Much larger than full size is the mistake this exists to catch, because an int width
+     * arriving here is always a good deal larger than {@link #LARGEST}. Zero, negative and
+     * not-a-number are the other ways a scale goes wrong - a degenerate transform draws
+     * geometry nobody can predict.
      */
     public static boolean isSane(float scale) {
-        return !Float.isNaN(scale) && scale > 0f && scale <= FULL;
+        return !Float.isNaN(scale) && scale > 0f && scale <= LARGEST;
     }
 
     /** The nearest scale worth drawing at, for carrying on after a mistake. */
@@ -49,6 +62,6 @@ public final class TextScale {
         if (Float.isNaN(scale) || scale <= 0f) {
             return SMALLEST;
         }
-        return Math.min(FULL, Math.max(SMALLEST, scale));
+        return Math.min(LARGEST, Math.max(SMALLEST, scale));
     }
 }

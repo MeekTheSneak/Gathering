@@ -180,7 +180,17 @@ public final class GuiText {
             wrongScales++;
             scale = TextScale.sane(scale);
         }
-        FormattedCharSequence sequence = Language.getInstance().getVisualOrder(text);
+        drawAt(graphics, font, Language.getInstance().getVisualOrder(text), x, y, scale, color);
+    }
+
+    /** The same, for text that has already been laid out - a trimmed line, say. */
+    private static void drawAt(
+            GuiGraphics graphics, Font font, FormattedCharSequence sequence, float x, int y,
+            float scale, int color) {
+        if (!TextScale.isSane(scale)) {
+            wrongScales++;
+            scale = TextScale.sane(scale);
+        }
         graphics.pose().pushPose();
         graphics.pose().translate(
                 x, y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
@@ -204,22 +214,36 @@ public final class GuiText {
     public static void drawTrimmed(
             GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth,
             int leastWidth, int color) {
-        if (maxWidth < leastWidth) {
+        drawTrimmedAt(graphics, font, text, x, y, maxWidth, leastWidth, 1f, color);
+    }
+
+    /**
+     * The same, at a scale the caller chose.
+     * <p>For writing that belongs to the thing it is on rather than to the screen: a note on a
+     * card is drawn against the card's own size, so it grows and shrinks with it. Trimming
+     * still happens at that scale, in the space the scaled letters actually take.
+     */
+    public static void drawTrimmedAt(
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth,
+            int leastWidth, float scale, int color) {
+        if (maxWidth < leastWidth || scale <= 0f) {
             return;
         }
         int width = font.width(text);
         if (width == 0) {
             return;
         }
-        if (width <= maxWidth) {
-            graphics.drawString(font, text, x, y, color, false);
-            return;
+        // Everything below is in font pixels, so the room is measured there too and the whole
+        // line is scaled once at the end.
+        int room = Math.max(0, Math.round(maxWidth / scale));
+        FormattedText shown = text;
+        if (width > room) {
+            noteTrim(text);
+            shown = FormattedText.composite(
+                    font.substrByWidth(text, Math.max(0, room - font.width(ELLIPSIS))),
+                    FormattedText.of(ELLIPSIS));
         }
-        noteTrim(text);
-        int room = maxWidth - font.width(ELLIPSIS);
-        FormattedText shown = FormattedText.composite(
-                font.substrByWidth(text, Math.max(0, room)), FormattedText.of(ELLIPSIS));
-        graphics.drawString(font, Language.getInstance().getVisualOrder(shown), x, y, color, false);
+        drawAt(graphics, font, Language.getInstance().getVisualOrder(shown), x, y, scale, color);
     }
 
     /**

@@ -3,6 +3,7 @@ package dev.gathering.client;
 import dev.gathering.Gathering;
 import dev.gathering.client.GatheringSprites.Element;
 import dev.gathering.core.ui.CardShape;
+import dev.gathering.core.ui.CardText;
 import dev.gathering.core.ui.InspectLayout;
 import dev.gathering.core.story.CardStory;
 import dev.gathering.core.ui.Rect;
@@ -672,17 +673,23 @@ public final class CardInspectPanel {
      * track of, which is exactly when both have to be readable at once.
      */
     public static void drawNote(GuiGraphics graphics, Font font, String note, Rect art) {
-        if (note == null || note.isBlank() || art.height() < font.lineHeight + 2) {
+        if (note == null || note.isBlank()) {
             return;
         }
+        // Against the card rather than against the screen - see CardText. A note pinned to
+        // the font's own size grew against the card as the board was zoomed out, until it was
+        // a band of letters with a picture behind it; below the floor nothing is written at
+        // all, which is the part of the old rule worth keeping.
+        if (!CardText.worthDrawing(art.height(), CardText.NOTE, font.lineHeight)) {
+            return;
+        }
+        float scale = CardText.scaleFor(art.height(), CardText.NOTE, font.lineHeight);
+        int line = CardText.lineAt(scale, font.lineHeight);
         GatheringSprites.draw(graphics, Element.NAME_BACKDROP,
-                art.x(), art.y() + 1, art.width(), font.lineHeight);
-        // One size, whatever size the card is. Fitting it to the card meant zooming out
-        // shrank every note on the board toward illegible while still asking the player to
-        // read them; a word and a half at full size beats a whole sentence nobody can make
-        // out, and below a few characters' room it says nothing rather than a smudge.
-        GuiText.drawTrimmed(graphics, font, Component.literal(note),
-                art.x() + 2, art.y() + 2, art.width() - 4, LEAST_NOTE_WIDTH, WRITING_TEXT);
+                art.x(), art.y() + 1, art.width(), line);
+        GuiText.drawTrimmedAt(graphics, font, Component.literal(note),
+                art.x() + 2, art.y() + 2, art.width() - 4,
+                Math.round(LEAST_NOTE_WIDTH * scale), scale, WRITING_TEXT);
     }
 
     /** Narrower than this and a note is an ellipsis, so nothing is drawn at all. */
