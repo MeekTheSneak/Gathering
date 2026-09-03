@@ -175,6 +175,10 @@ public final class SealedLootGameTest {
     /** Nothing is available on a server that has not been told a set, so nothing drops. */
     @GameTest(template = "empty")
     public static void nothingDropsBeforeASetIsKnown(GameTestHelper helper) {
+        // Emptied here rather than assumed empty. The pool used to take long enough to fill
+        // that it was still empty whenever this ran; it is one read now and fills in seconds,
+        // so a test about a server that has read no set has to be the thing that unreads them.
+        SealedLoot.clear();
         for (LootSource source : LootSource.values()) {
             if (SealedLoot.rollFrom(source, dev.gathering.core.sealed.LootRichness.PLAIN,
                     helper.getLevel().getRandom()).isPresent()) {

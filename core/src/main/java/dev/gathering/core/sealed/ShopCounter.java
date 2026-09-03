@@ -46,8 +46,14 @@ public final class ShopCounter {
      * server drawing from every set ever printed cannot have all of them behind one counter.
      * <p>The first set in play is always one of them: it is the set the server named, or the
      * one that is current, and somebody after this month's boosters should not have to wait
-     * for the shelf to come round. The rest is a window that moves along by its own width
-     * each turnover, so everything is stocked eventually and nothing is stocked forever.
+     * for the shelf to come round.
+     * <p>The rest are spread across the whole of what the server draws from rather than taken
+     * as a block beside it. A window that simply walked forward from the newest set would put
+     * nothing but this year's product on the counter of every new world - a turnover is hours
+     * of world time and a new world is on turnover zero - and would take a month of them
+     * before anything old turned up. Striding means the first shop anybody walks into sells
+     * one current set and five from across Magic's history, and the stride shifts by one each
+     * turnover so everything still comes round.
      *
      * @param codes    the sets in play, in the order they were worked out - newest first
      * @param rotation which turnover this is, counted from when the world began
@@ -60,13 +66,20 @@ public final class ShopCounter {
         if (codes.size() <= howMany) {
             return List.copyOf(codes);
         }
+        int size = codes.size();
         List<String> stocked = new ArrayList<>(howMany);
         stocked.add(codes.get(0));
-        long from = Math.floorMod(rotation * (howMany - 1L), codes.size());
-        for (int step = 0; stocked.size() < howMany; step++) {
-            String code = codes.get((int) Math.floorMod(from + step, codes.size()));
-            if (!stocked.contains(code)) {
-                stocked.add(code);
+        long stride = Math.max(1, size / (long) (howMany - 1));
+        for (int slot = 0; slot < howMany - 1 && stocked.size() < howMany; slot++) {
+            long want = Math.floorMod(rotation + slot * stride, size);
+            // Forward from where the stride landed until something not already up is found,
+            // which is only ever a step or two: the strides are a whole set apart.
+            for (int step = 0; step < size; step++) {
+                String code = codes.get((int) Math.floorMod(want + step, size));
+                if (!stocked.contains(code)) {
+                    stocked.add(code);
+                    break;
+                }
             }
         }
         return List.copyOf(stocked);
