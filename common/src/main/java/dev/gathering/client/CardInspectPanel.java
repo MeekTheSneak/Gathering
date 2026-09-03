@@ -6,6 +6,7 @@ import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.InspectLayout;
 import dev.gathering.core.story.CardStory;
 import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.StrengthBadge;
 import dev.gathering.network.CardFaceSummary;
 import dev.gathering.network.CardSummary;
 import java.util.ArrayList;
@@ -715,12 +716,21 @@ public final class CardInspectPanel {
         }
         Component numbers = Component.literal(strength);
         int room = Math.max(1, art.width() - 4);
-        int wide = Math.min(room, font.width(numbers) + 4);
-        int high = font.lineHeight + 1;
-        int left = art.right() - 2 - wide;
-        int top = floor - high;
-        GatheringSprites.draw(graphics, Element.STRENGTH_BADGE, left, top, wide, high);
-        GuiText.drawCenteredAt(graphics, font, numbers, left + wide / 2, top + 1, 1f, STRENGTH_TEXT);
+        if (!StrengthBadge.fitsOn(room)) {
+            // A card drawn this small has nowhere to put numbers, and a badge wider than the
+            // card is worse than none.
+            return floor;
+        }
+        // Measured from the text after it has been fitted rather than clamped to the card and
+        // left to be overrun - which is what "the box does not render large enough to contain
+        // the numbers" was. See StrengthBadge, where the rule lives and is checked.
+        StrengthBadge.Fit badge = StrengthBadge.of(font.width(numbers), font.lineHeight, room);
+        int left = art.right() - 2 - badge.width();
+        int top = floor - badge.height();
+        GatheringSprites.draw(graphics, Element.STRENGTH_BADGE,
+                left, top, badge.width(), badge.height());
+        GuiText.drawCenteredAt(graphics, font, numbers, left + badge.textX(),
+                top + badge.textY(), badge.scale(), STRENGTH_TEXT);
         return top - 1;
     }
 }

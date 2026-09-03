@@ -1741,8 +1741,8 @@ public final class DevScene {
             case 155 -> {
                 expectScreen(client, "a card with numbers written on it", TableScreen.class);
                 String numbers = whatStrengthIsOnTheCard();
-                if (!"6/6".equals(numbers)) {
-                    fail("6/6 was written on a card and the board says \"" + numbers + "\"");
+                if (!"12/12".equals(numbers)) {
+                    fail("12/12 was written on a card and the board says \"" + numbers + "\"");
                     advance(SETTLE / 2);
                     return;
                 }
@@ -1987,12 +1987,12 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 177 -> {
-                putLoyaltyOn(client, 3);
+                putLoyaltyOn(client, LOYALTY_PUT_ON);
                 advance(SETTLE);
             }
             case 178 -> {
-                if (loyaltyNow() != 3) {
-                    fail("three loyalty went on and the board says " + loyaltyNow());
+                if (loyaltyNow() != LOYALTY_PUT_ON) {
+                    fail(LOYALTY_PUT_ON + " loyalty went on and the board says " + loyaltyNow());
                     advance(SETTLE / 2);
                     return;
                 }
@@ -2019,7 +2019,7 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 180 -> {
-                if (loyaltyNow() != 4) {
+                if (loyaltyNow() != LOYALTY_PUT_ON + 1) {
                     fail("Loyalty +1 was pressed and the board says " + loyaltyNow());
                     advance(SETTLE / 2);
                     return;
@@ -3212,8 +3212,11 @@ public final class DevScene {
             fail("there was no written card to put numbers on");
             return;
         }
-        ClientTableActions.send(table, new GameEvent.CardStrengthSet(me, written, "6/6"));
-        System.out.println("[devscene] wrote 6/6 on " + written);
+        // Two digits either side rather than one. A 6/6 fits any card at any zoom, so the
+        // badge that has to hold it was never asked a hard question - and "the box does not
+        // render large enough to contain the numbers" is a question about the wide case.
+        ClientTableActions.send(table, new GameEvent.CardStrengthSet(me, written, "12/12"));
+        System.out.println("[devscene] wrote 12/12 on " + written);
     }
 
     /** What the board says is written in the corner of that card, or null. */
@@ -3435,6 +3438,13 @@ public final class DevScene {
                 .flatMap(CardView::writtenStrength)
                 .orElse(null);
     }
+
+    /**
+     * How much loyalty the loyalty steps put on.
+     * <p>Three digits, because the corner it is written in has to hold them and a single
+     * digit never asked it to - see {@link dev.gathering.core.ui.StrengthBadge}.
+     */
+    private static final int LOYALTY_PUT_ON = 137;
 
     /** The card the loyalty steps are working on. */
     private static CardInstanceId loyal;

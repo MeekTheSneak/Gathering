@@ -19,6 +19,12 @@ it is needed to build the mod, and none of it ships in the jar.
 | `statecheck.py` | Every in-memory holder is emptied when the thing that filled it goes away. |
 | `texturecheck.py` | Every texture a model names exists, and every texture that ships is named by something. |
 
+## Looking at what the game drew
+
+| | |
+|---|---|
+| `crop.py` | Cuts a rectangle out of a shot and magnifies it by whole pixels, so a badge or a shadow can be judged. `crop.py <shot> <out> <x0> <y0> <x1> <y1> [scale]` |
+
 ## Hooks — run by Claude Code, not by hand
 
 | | |
