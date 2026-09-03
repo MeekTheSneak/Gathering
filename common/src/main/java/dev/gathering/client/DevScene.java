@@ -8510,6 +8510,15 @@ public final class DevScene {
         if (builder.commanderName().isEmpty()) {
             fail("right-clicking a card in the deck builder did not name a commander");
         }
+        // And something the curve can draw. A curve leaves lands out - they are what a deck
+        // spends mana with rather than on - so a deck of nothing but lands gives eight empty
+        // columns, which is the picture that made "the bars communicate nothing" true.
+        for (int card = 2; card < builder.showing() && builder.curveTotal() == 0; card++) {
+            builder.clickCard(card, 0);
+        }
+        if (builder.curveTotal() == 0) {
+            fail("nothing in the box was a spell, so the curve had no shape to draw");
+        }
     }
 
     /** Asks the table to take back the last thing this player did, off its own menu. */

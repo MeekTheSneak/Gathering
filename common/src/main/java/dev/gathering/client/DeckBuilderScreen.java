@@ -253,8 +253,27 @@ public final class DeckBuilderScreen extends ChildScreen {
                 Math.max(0, pane.height() - CURVE_HEIGHT));
     }
 
-    /** How tall the mana curve along the foot of the deck pane is. */
-    private static final int CURVE_HEIGHT = 26;
+    /**
+     * How much of the deck column the curve takes, including what it is called and the mana
+     * values along its foot.
+     * <p>Reported from a real session: "the bars in the deck building menu have seemingly no
+     * purpose... it isn't immediately obvious what they are communicating." They were eight
+     * bare columns, on the theory that a curve is read as a shape rather than as data. A
+     * shape nobody can name is not read at all, so it says what it is and what its axis
+     * counts, and costs eight more pixels of list to do it.
+     */
+    private static final int CURVE_HEIGHT = 40;
+
+    /**
+     * The line the curve's name sits on, and the shorter one its mana values sit on.
+     * <p>A whole line for the name, because anything less and the letters come down over the
+     * tops of the columns; the values are written half size, so they need half as much.
+     */
+    private static final int CURVE_TITLE = 9;
+    private static final int CURVE_FOOT = 6;
+
+    /** How small the mana values under the columns are written. */
+    private static final float CURVE_FOOT_SCALE = 0.5f;
 
     private Rect deckPane() {
         Rect box = boxPane();
@@ -525,6 +544,13 @@ public final class DeckBuilderScreen extends ChildScreen {
         drawBox(graphics, mouseX, mouseY);
         drawDeck(graphics, mouseX, mouseY);
         drawFooter(graphics);
+
+        // Last, so it goes over everything, and after drawDeck because that is what says
+        // where the columns ended up this frame.
+        List<Component> tip = tipForCurve(mouseX, mouseY);
+        if (!tip.isEmpty()) {
+            graphics.renderTooltip(this.font, tip, java.util.Optional.empty(), mouseX, mouseY);
+        }
     }
 
     private void drawBox(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -644,35 +670,74 @@ public final class DeckBuilderScreen extends ChildScreen {
     }
 
     /**
-     * The mana curve, as eight columns.
-     * <p>Small and unlabeled past the numbers along the bottom: it is read as a shape rather
-     * than as data, and a chart with axes on it in the corner of a deck builder is a chart
-     * nobody looks at twice.
+     * The mana curve: what it is called, eight columns, and the mana value under each.
+     * <p>Named and labeled, because it was neither and a player could not tell what it was
+     * saying. Still small - the point of a curve is the shape - but a shape with "Mana curve"
+     * over it and 0 to 7+ along its foot answers "what am I looking at" in one glance, which
+     * is the whole of what it was failing to do. How many cards are in a column is a hover
+     * away rather than printed, because eight numbers over eight columns this size is a
+     * thicket.
      */
     private void drawCurve(GuiGraphics graphics, Rect area) {
-        if (area.height() <= 0 || area.width() <= 0) {
+        if (area.height() <= CURVE_TITLE + CURVE_FOOT || area.width() <= 0) {
             return;
         }
+        GuiText.draw(graphics, this.font,
+                Component.translatable("screen.gathering.builder.curve"),
+                area.x(), area.y(), area.width(), DIM);
+
+        Rect columns = new Rect(area.x(), area.y() + CURVE_TITLE,
+                area.width(), area.height() - CURVE_TITLE - CURVE_FOOT);
         int[] curve = build.curve();
         int tallest = 1;
         for (int count : curve) {
             tallest = Math.max(tallest, count);
         }
-        int columnWidth = Math.max(1, area.width() / DeckBuild.CURVE_BUCKETS);
+        int columnWidth = Math.max(1, columns.width() / DeckBuild.CURVE_BUCKETS);
         for (int at = 0; at < DeckBuild.CURVE_BUCKETS; at++) {
-            int high = Math.round(area.height() * (curve[at] / (float) tallest));
-            int x = area.x() + at * columnWidth;
+            int high = Math.round(columns.height() * (curve[at] / (float) tallest));
+            int x = columns.x() + at * columnWidth;
             // The curve's own elements, not the progress bar's. A column stands up, and the
             // bar the set list draws only reads one way round - its ends are cut on the
             // diagonal and its light runs along the top.
             GatheringSprites.draw(graphics, Element.CURVE_TRACK,
-                    x, area.y(), columnWidth - 1, area.height());
+                    x, columns.y(), columnWidth - 1, columns.height());
             if (high > 0) {
                 GatheringSprites.draw(graphics, Element.CURVE_FILL,
-                        x, area.bottom() - high, columnWidth - 1, high);
+                        x, columns.bottom() - high, columnWidth - 1, high);
             }
+            GuiText.drawCenteredAt(graphics, this.font, footOf(at),
+                    x + (columnWidth - 1) / 2, columns.bottom() + 1, CURVE_FOOT_SCALE, DIM);
         }
+        curveArea = columns;
     }
+
+    /** What goes under one column: its mana value, and "7+" under the one that shares. */
+    private static Component footOf(int bucket) {
+        return bucket == DeckBuild.CURVE_BUCKETS - 1
+                ? Component.translatable("screen.gathering.builder.curve_top")
+                : Component.literal(Integer.toString(bucket));
+    }
+
+    /**
+     * How many cards are in the column under the cursor, said in words.
+     * <p>The count is the one thing the shape cannot tell you, and it is only ever wanted for
+     * the column you are looking at - so it is a hover rather than eight numbers printed over
+     * eight columns a few pixels wide.
+     */
+    private List<Component> tipForCurve(int mouseX, int mouseY) {
+        if (curveArea == null || !curveArea.contains(mouseX, mouseY)) {
+            return List.of();
+        }
+        int columnWidth = Math.max(1, curveArea.width() / DeckBuild.CURVE_BUCKETS);
+        int at = Math.clamp((mouseX - curveArea.x()) / columnWidth,
+                0, DeckBuild.CURVE_BUCKETS - 1);
+        return List.of(Component.translatable("screen.gathering.builder.curve_bucket",
+                footOf(at), build.curve()[at]));
+    }
+
+    /** Where the columns were last drawn, so the cursor can be asked which one it is over. */
+    private Rect curveArea;
 
     private void drawFooter(GuiGraphics graphics) {
         GuiText.drawWrappedCentered(graphics, this.font, hint(), this.width / 2,
@@ -786,6 +851,15 @@ public final class DeckBuilderScreen extends ChildScreen {
 
     int deckSize() {
         return build.total();
+    }
+
+    /** How many cards the curve is counting - everything in the deck that is not a land. */
+    int curveTotal() {
+        int total = 0;
+        for (int count : build.curve()) {
+            total += count;
+        }
+        return total;
     }
 
     String commanderName() {
