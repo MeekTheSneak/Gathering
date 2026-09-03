@@ -77,9 +77,7 @@ public class SealedItem extends Item {
 
         stack.shrink(1);
         for (ItemStack one : inside) {
-            if (!buyer.getInventory().add(one)) {
-                buyer.drop(one, false);
-            }
+            dev.gathering.server.Handing.give(buyer, one);
         }
         level.playSound(null, buyer.blockPosition(),
                 net.minecraft.sounds.SoundEvents.ITEM_FRAME_REMOVE_ITEM,

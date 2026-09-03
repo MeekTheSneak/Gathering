@@ -259,9 +259,7 @@ public final class TradeSessions {
     private static void give(ServerPlayer player, List<ItemStack> stacks, ServerPlayer from) {
         for (ItemStack stack : stacks) {
             CardStories.remember(stack, CardStories.tradedTo(player, from));
-            if (!player.getInventory().add(stack)) {
-                player.drop(stack, false);
-            }
+            dev.gathering.server.Handing.give(player, stack);
         }
     }
 

@@ -57,10 +57,10 @@ public final class ArchivePackGameTest {
      */
     @GameTest(template = "empty")
     public static void anEmptyArchiveDropsNothing(GameTestHelper helper) {
-        if (Archive.size() != 0) {
-            helper.fail("a test server has an archive of " + Archive.size() + " card(s)");
-            return;
-        }
+        // Set the state rather than assume it. The sheet is filled by an asynchronous warm at
+        // boot, so whether it has landed by the time this test runs is a matter of how long the
+        // tests before it took - which is not something this test is about.
+        Archive.clear();
         for (String table : java.util.List.of(
                 "minecraft:entities/ender_dragon",
                 "minecraft:chests/ancient_city",

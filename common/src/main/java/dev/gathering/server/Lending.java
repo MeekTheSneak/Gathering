@@ -92,9 +92,7 @@ public final class Lending {
     }
 
     private static void give(ServerPlayer player, ItemStack stack) {
-        if (!player.getInventory().add(stack)) {
-            player.drop(stack, false);
-        }
+        dev.gathering.server.Handing.give(player, stack);
     }
 
     /** Whether this borrower is seated at a live game here that has no deck down yet. */

@@ -135,9 +135,7 @@ public final class CollectionDecks {
         DeckComponent deck = assembled.deck()
                 .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()));
         ItemStack stack = DeckItem.of(deck);
-        if (!player.getInventory().add(stack)) {
-            player.drop(stack, false);
-        }
+        dev.gathering.server.Handing.give(player, stack);
 
         for (CardMetadataPayload packet
                 : CardMetadataPayload.inPackets(DecklistImport.summariesFor(list))) {

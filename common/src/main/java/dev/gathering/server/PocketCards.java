@@ -139,8 +139,6 @@ public final class PocketCards {
 
     private static void giveBack(ServerPlayer player, CardComponent card) {
         ItemStack stack = CardItem.of(card);
-        if (!player.getInventory().add(stack)) {
-            player.drop(stack, false);
-        }
+        dev.gathering.server.Handing.give(player, stack);
     }
 }

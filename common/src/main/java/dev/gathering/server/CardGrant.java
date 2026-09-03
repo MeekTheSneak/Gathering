@@ -61,9 +61,7 @@ public final class CardGrant {
         Sending.to(player,
                 new CardMetadataPayload(List.of(CardSummary.of(card))));
 
-        if (!player.getInventory().add(stack)) {
-            player.drop(stack, false);
-        }
+        dev.gathering.server.Handing.give(player, stack);
         player.sendSystemMessage(Component.translatable("message.gathering.card_given", card.name()));
     }
 

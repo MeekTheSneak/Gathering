@@ -284,9 +284,15 @@ public final class TableSessions {
                     ? occupantOf(level, tableOrigin, anchors.get(seat.index())).orElse(null)
                     : null;
         }
-        if (owner == null || !owner.getInventory().add(stack)) {
+        // On the table rather than at their feet when nobody can take it: a deck handed back
+        // where the table was is a deck somebody can find, and a player who is not here has no
+        // feet to drop it at. Handing#give is the room test - Inventory#add reports success on
+        // a creative player with a full bag and empties the stack doing it.
+        if (owner == null || !dev.gathering.server.Handing.hasRoomFor(owner, stack)) {
             Containers.dropItemStack(level,
                     tableOrigin.getX() + 0.5, tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
+        } else {
+            dev.gathering.server.Handing.give(owner, stack);
         }
     }
 
@@ -340,9 +346,12 @@ public final class TableSessions {
                             dev.gathering.server.CardStories.wonBy(won,
                                     whoStaked(level, tableOrigin, table, anchors, pot, card, seat)));
                 }
-                if (receiving == null || !receiving.getInventory().add(stack)) {
+                if (receiving == null
+                        || !dev.gathering.server.Handing.hasRoomFor(receiving, stack)) {
                     Containers.dropItemStack(level, tableOrigin.getX() + 0.5,
                             tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
+                } else {
+                    dev.gathering.server.Handing.give(receiving, stack);
                 }
             }
         });

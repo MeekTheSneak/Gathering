@@ -218,9 +218,7 @@ public final class DecklistImport {
         }
         ItemStack stack = DeckItem.of(component);
 
-        if (!player.getInventory().add(stack)) {
-            player.drop(stack, false);
-        }
+        dev.gathering.server.Handing.give(player, stack);
 
         // Split, because a deck may be a cube of a thousand cards and a summary carries
         // oracle text and two image links per face. One packet of that is a packet the game

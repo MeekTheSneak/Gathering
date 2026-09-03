@@ -138,9 +138,7 @@ public final class DraftActions {
             // table the draft happened at.
             stack.set(dev.gathering.registry.GatheringComponents.POOL.get(),
                     new dev.gathering.item.DraftedPool(cards, podName));
-            if (!drafter.getInventory().add(stack)) {
-                drafter.drop(stack, false);
-            }
+            dev.gathering.server.Handing.give(drafter, stack);
             drafter.sendSystemMessage(Component.translatable(
                     "message.gathering.draft_finished", pool.size()));
             Achievements.award(drafter, Achievements.FIRST_DRAFT);

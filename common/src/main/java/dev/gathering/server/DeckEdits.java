@@ -113,9 +113,7 @@ public final class DeckEdits {
             return Optional.empty();
         }
         ItemStack drawn = CardItem.of(card);
-        if (!player.getInventory().add(drawn)) {
-            player.drop(drawn, false);
-        }
+        dev.gathering.server.Handing.give(player, drawn);
         return without;
     }
 

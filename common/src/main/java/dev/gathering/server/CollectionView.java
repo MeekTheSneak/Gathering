@@ -285,9 +285,7 @@ public final class CollectionView {
                             dev.gathering.item.StoryComponent.of(story));
                 }
             }
-            if (!player.getInventory().add(stack)) {
-                player.drop(stack, false);
-            }
+            dev.gathering.server.Handing.give(player, stack);
         }
         return took;
     }
@@ -347,9 +345,7 @@ public final class CollectionView {
                 // client picks, and it decides nothing but what the cards look like.
                 .sleeved(asked.sleeve());
         ItemStack stack = DeckItem.of(deck);
-        if (!player.getInventory().add(stack)) {
-            player.drop(stack, false);
-        }
+        dev.gathering.server.Handing.give(player, stack);
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.deck_built", deck.totalCards()));
         Achievements.award(player, Achievements.FIRST_DECK);
@@ -439,7 +435,8 @@ public final class CollectionView {
      *
      * @return whether the deck was dissolved, so the caller knows whether to keep the item
      */
-    public static boolean dissolve(ServerPlayer player, BlockPos where, ItemStack held) {
+    public static boolean dissolve(ServerPlayer player, BlockPos where, ItemStack held,
+            net.minecraft.world.InteractionHand hand) {
         CollectionBlockEntity collection = at(player, where);
         DeckComponent deck = DeckItem.deckOf(held).orElse(null);
         if (collection == null || deck == null) {
@@ -463,7 +460,15 @@ public final class CollectionView {
         }
         CardTally poured = pouring.build();
         collection.putAll(poured);
-        held.shrink(1);
+        // The hand is replaced rather than the stack shrunk, and that is not a style choice.
+        // A creative player's item survives its own useOn: ServerPlayerGameMode reads the
+        // count before calling it and writes the same number back afterwards, so a shrink is
+        // undone and the deck stays in hand with its cards now also in the collection - the
+        // one gesture in the mod that could mint cards out of nothing. Putting a different
+        // stack in the slot leaves vanilla restoring the count on an object nothing holds.
+        ItemStack left = held.copy();
+        left.shrink(1);
+        player.setItemInHand(hand, left);
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.collection_dissolved",
                 deck.name().isBlank()

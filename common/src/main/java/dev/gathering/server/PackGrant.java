@@ -57,9 +57,7 @@ public final class PackGrant {
         // it is never sold, and finding one is the point.
         if (dev.gathering.item.PackComponent.ARCHIVE.equals(set)) {
             ItemStack archive = Archive.pack();
-            if (!player.getInventory().add(archive)) {
-                player.drop(archive, false);
-            }
+            dev.gathering.server.Handing.give(player, archive);
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.archive_given", Archive.size()));
             return;
@@ -84,9 +82,7 @@ public final class PackGrant {
             }
             ItemStack stack = PackItem.of(new PackComponent(
                     product.asBooster().setCode(), product.asBooster().kind()));
-            if (!player.getInventory().add(stack)) {
-                player.drop(stack, false);
-            }
+            dev.gathering.server.Handing.give(player, stack);
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.sealed_given", product.name()));
         }));

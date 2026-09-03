@@ -326,7 +326,8 @@ public final class CollectionBlockGameTest {
         player.setItemInHand(InteractionHand.MAIN_HAND, deck);
 
         if (!dev.gathering.server.CollectionView.dissolve(
-                player, helper.absolutePos(at), player.getMainHandItem())) {
+                player, helper.absolutePos(at), player.getMainHandItem(),
+                InteractionHand.MAIN_HAND)) {
             helper.fail("A deck held at a collection would not dissolve into it");
             return;
         }
@@ -342,6 +343,53 @@ public final class CollectionBlockGameTest {
         }
         if (!player.getMainHandItem().isEmpty()) {
             helper.fail("A dissolved deck is still in the hand as well as in the collection");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * And a creative player's deck is really gone afterwards.
+     * <p>Reported from a real session: pouring a deck in "puts the cards into the collection,
+     * but doesn't remove them from the deck, so it just dupes the cards". Vanilla is the reason
+     * - {@code ServerPlayerGameMode.useItemOn} reads the held count before calling
+     * {@code useOn} and writes the same number back afterwards, so a creative player keeps
+     * whatever they clicked with. This goes the whole way round through that path, because
+     * calling dissolve directly is exactly what hid the bug.
+     */
+    @GameTest(template = "tables")
+    public static void aCreativeDeckDoesNotSurviveDissolving(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        CollectionBlockEntity collection = place(helper, at);
+        var player = helper.makeMockServerPlayerInLevel();
+        collection.setRights(CollectionRights.ownedBy(player.getUUID()));
+        player.setPos(net.minecraft.world.phys.Vec3.atCenterOf(helper.absolutePos(at)));
+        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+
+        CardComponent forest = CardComponent.of(CardIdentity.ofPrinting(FOREST, false));
+        player.setItemInHand(InteractionHand.MAIN_HAND,
+                dev.gathering.item.DeckItem.of(new dev.gathering.item.DeckComponent(
+                        "Jank", "", java.util.Optional.of(player.getUUID()),
+                        java.util.List.of(forest, forest),
+                        java.util.List.of(), java.util.List.of())));
+
+        // Shift, because that is the gesture: with an item in hand and secondary use held,
+        // vanilla skips the block's own use and goes straight to the item's.
+        player.setShiftKeyDown(true);
+        BlockPos abs = helper.absolutePos(at);
+        player.gameMode.useItemOn(player, helper.getLevel(), player.getMainHandItem(),
+                InteractionHand.MAIN_HAND,
+                new net.minecraft.world.phys.BlockHitResult(
+                        net.minecraft.world.phys.Vec3.atCenterOf(abs),
+                        net.minecraft.core.Direction.UP, abs, false));
+
+        if (collection.cards().total() != 2) {
+            helper.fail("A two-card deck poured in as " + collection.cards().total());
+            return;
+        }
+        if (!player.getMainHandItem().isEmpty()) {
+            helper.fail("A creative player still holds the deck they poured in, so every card "
+                    + "in it now exists twice");
             return;
         }
         helper.succeed();
@@ -363,7 +411,8 @@ public final class CollectionBlockGameTest {
         player.setItemInHand(InteractionHand.MAIN_HAND, deck);
 
         dev.gathering.server.CollectionView.dissolve(
-                player, helper.absolutePos(at), player.getMainHandItem());
+                player, helper.absolutePos(at), player.getMainHandItem(),
+                InteractionHand.MAIN_HAND);
 
         if (!collection.cards().isEmpty()) {
             helper.fail("A stranger poured a deck into somebody else's collection");

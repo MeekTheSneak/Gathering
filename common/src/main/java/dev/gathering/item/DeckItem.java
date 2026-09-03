@@ -99,7 +99,8 @@ public class DeckItem extends Item {
             return InteractionResult.PASS;
         }
         return dev.gathering.server.CollectionView.dissolve(
-                        player, context.getClickedPos(), context.getItemInHand())
+                        player, context.getClickedPos(), context.getItemInHand(),
+                        context.getHand())
                 ? InteractionResult.SUCCESS
                 : InteractionResult.PASS;
     }

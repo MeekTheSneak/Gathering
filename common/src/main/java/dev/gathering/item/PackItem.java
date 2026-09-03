@@ -65,9 +65,7 @@ public class PackItem extends Item {
      */
     private static void giveBack(ServerPlayer player, PackComponent pack) {
         ItemStack stack = of(pack);
-        if (!player.getInventory().add(stack)) {
-            player.drop(stack, false);
-        }
+        dev.gathering.server.Handing.give(player, stack);
     }
 
     @Override

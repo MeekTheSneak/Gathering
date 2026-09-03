@@ -436,9 +436,7 @@ public final class PackOpening {
             if (card.equals(best)) {
                 CardStories.remember(stack, CardStories.pulledBy(player, set));
             }
-            if (!player.getInventory().add(stack)) {
-                player.drop(stack, false);
-            }
+            dev.gathering.server.Handing.give(player, stack);
         }
 
         if (ceremony) {
