@@ -19,6 +19,25 @@ it is needed to build the mod, and none of it ships in the jar.
 | `statecheck.py` | Every in-memory holder is emptied when the thing that filled it goes away. |
 | `texturecheck.py` | Every texture a model names exists, and every texture that ships is named by something. |
 
+## Hooks — run by Claude Code, not by hand
+
+| | |
+|---|---|
+| `sync-branch.sh` | Before any file is written, checks this clone still agrees with `origin` and fast-forwards it if not. |
+| `session-start.sh` | The same at session start, plus dropping a repo-local git identity that would make commits show as Unverified. |
+
+The session runs in a container that is reclaimed and restored from an earlier snapshot,
+sometimes mid-turn - on 2026-09-03 the clone came back 142 commits behind while work was going
+on, so edits landed on old code and the code was described as it had been rather than as it
+is. The remote is the only thing a snapshot cannot roll back, so the check reaches it: at most
+once every ninety seconds, because a fetch is about four hundred milliseconds and an edit
+should not wait that long. What records the last check lives in `.git`, so a restored snapshot
+brings back an old one and the very next edit really checks. Neither script ever blocks a tool
+call; both are wired up in `.claude/settings.json`.
+
+Only pushed work survives a restore. That is the whole reason this repo commits and pushes
+every finished piece rather than at the end.
+
 ## Art — the generators, and the one file they share
 
 The PNGs they write are checked in, so the build never runs any of this. Run one when you
