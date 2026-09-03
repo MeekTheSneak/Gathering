@@ -29,45 +29,22 @@ SPRITES = os.path.join(
 
 
 def elements_in_java():
-    return [name for name, _ in elements_and_frames()]
+    return [name for name, _ in elements_and_policies()]
 
 
-def elements_and_frames():
-    """Every element, with the border thickness it declares - zero where it declares none.
+def elements_and_policies():
+    """Every element, with what it does in a box too small for its border.
 
     The second argument is optional, so the pattern has to allow it. It did not, once: three
-    elements gained a border and quietly stopped being checked for existing at all, because a
-    pattern that ended at the closing bracket no longer matched the lines that had a number
-    before it.
+    elements gained an argument and quietly stopped being checked for existing at all, because
+    a pattern that ended at the closing bracket no longer matched the lines that had one.
     """
     text = open(os.path.join(JAVA, "GatheringSprites.java")).read()
-    body = text.split("public enum Element {", 1)[1].split("\n        private final String name;", 1)[0]
-    frames = frames_in_core()
+    body = text.split("public enum Element {", 1)[1].split(
+        "\n        /** What an element does", 1)[0]
     found = re.findall(
         r'^\s*[A-Z][A-Z0-9_]*\("([a-z0-9_]+)"(?:\s*,\s*([A-Za-z0-9_.]+))?[^)]*\)', body, re.M)
-    read = []
-    for name, frame in found:
-        if not frame:
-            read.append((name, 0))
-        elif frame.isdigit():
-            read.append((name, int(frame)))
-        else:
-            named = frame.rsplit(".", 1)[-1]
-            if named not in frames:
-                raise SystemExit(
-                    f"{name} names a frame SpriteFrames does not declare: {frame}")
-            read.append((name, frames[named]))
-    return read
-
-
-def frames_in_core():
-    """The border thicknesses core declares, which the enum names and the art must match."""
-    where = os.path.join(
-        ROOT, "core", "src", "main", "java", "dev", "gathering", "core", "ui",
-        "SpriteFrames.java")
-    text = open(where).read()
-    return {name: int(value) for name, value in
-            re.findall(r'public static final int ([A-Z_]+) = (\d+);', text)}
+    return [(name, (policy or "SQUASHED").rsplit(".", 1)[-1]) for name, policy in found]
 
 
 def elements_in_generator():
@@ -292,18 +269,20 @@ def main():
             problems.append(
                 "the spinner does not turn: " + ", ".join(names) + " are the same picture")
 
-    # A declared border has to be the border the art really has. The mod skips drawing a
-    # frame that has no room left for its middle, and it works that out from the number in
-    # the enum - so a number that disagrees with the picture is a frame drawn as a smear or
-    # one left off a box that had room for it.
-    for name, frame in elements_and_frames():
-        if frame <= 0:
+    # An element only left off when it is cramped has to be art that can be cramped. The mod
+    # reads each sprite's real border off the sprite as it draws it - the looks do not agree
+    # on how thick a border is, so no number here would be right for all of them - and skips
+    # a marking whose box has no room left for its middle. A marking whose art is stretched
+    # rather than nine-sliced has no border to run out of room for, so the policy on it says
+    # something that can never happen, and the element it was meant for goes unprotected.
+    for name, policy in elements_and_policies():
+        if policy != "LEFT_OFF":
             continue
         for theme, folder in themes.items():
             meta = os.path.join(SPRITES, folder, name + ".png.mcmeta")
             if not os.path.isfile(meta):
                 problems.append(
-                    f"{name} declares a border of {frame} and {theme} gives it no scaling")
+                    f"{name} is left off when cramped and {theme} gives it no scaling")
                 continue
             try:
                 scaling = json.load(open(meta)).get("gui", {}).get("scaling", {})
@@ -312,12 +291,8 @@ def main():
                 continue
             if scaling.get("type") != "nine_slice":
                 problems.append(
-                    f"{name} declares a border and {theme} draws it as "
-                    f"{scaling.get('type')!r} rather than nine_slice")
-            elif scaling.get("border") != frame:
-                problems.append(
-                    f"{name} declares a border of {frame} and {theme}'s art has "
-                    f"{scaling.get('border')!r}")
+                    f"{name} is left off when cramped and {theme} draws it as "
+                    f"{scaling.get('type')!r} rather than nine_slice, which never is")
 
     for note in notes:
         print(f"note: {note}")

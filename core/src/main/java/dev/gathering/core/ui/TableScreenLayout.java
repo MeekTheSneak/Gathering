@@ -17,14 +17,15 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
 
     /**
      * The strip along the top carrying names, life, and whose turn it is.
-     * <p>It was sixteen, which is exactly twice the panel border it is drawn on - so the
+     * <p>It was sixteen, which is exactly twice the panel border most looks draw - so the
      * panel's top edge met its bottom edge with no middle between them, and on the looks
      * whose border is a heavy band that came out as a squashed strip rather than a bar.
-     * Reported as "the top bar on in the table when using the future sight theme". Tall
-     * enough for the frame to be a frame now, which is also more room round the writing.
+     * Reported as "the top bar on in the table when using the future sight theme".
+     * <p>How thick that border really is belongs to the art rather than to this file, and it
+     * differs between looks, so the caller passes in what the look somebody is wearing needs
+     * and this is the floor under it: room for the writing, whatever the frame wants.
      */
-    private static final int STATUS_HEIGHT =
-            Math.max(24, SpriteFrames.smallestFor(SpriteFrames.PANEL));
+    private static final int STATUS_HEIGHT = SpriteFrames.ROOMY_ENOUGH;
 
     /**
      * How much of the screen the hand gets.
@@ -38,6 +39,22 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
     /** The layout for somebody with a hand to hold, which is anybody in a chair. */
     public static TableScreenLayout of(int screenWidth, int screenHeight) {
         return of(screenWidth, screenHeight, true);
+    }
+
+    /**
+     * The same, with the strip along the top made tall enough for the frame it is drawn in.
+     * <p>The frame is a picture in a resource pack and its border is whatever the artist drew
+     * it at. A box shorter than a border's two edges has no middle for the middle of the
+     * picture to tile into, so the game runs the corners together and what comes out is not
+     * the bar anybody painted. The client reads the number off the sprite it is about to draw
+     * and passes it here; nothing else has to know a number at all.
+     *
+     * @param needsForItsFrame the shortest the strip may be for this look's panel, or zero
+     */
+    public static TableScreenLayout of(
+            int screenWidth, int screenHeight, boolean holdingAHand, int needsForItsFrame) {
+        TableScreenLayout fitted = of(screenWidth, screenHeight, holdingAHand);
+        return fitted.withStatusAtLeast(needsForItsFrame, screenHeight);
     }
 
     /**
@@ -76,6 +93,29 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
     public static TableScreenLayout watching(int screenWidth, int screenHeight) {
         return withStrip(screenWidth, screenHeight,
                 Math.min(SCRUBBER_HEIGHT, Math.max(1, screenHeight) / 2));
+    }
+
+    /** The same, for a look whose panel needs more room than the default. */
+    public static TableScreenLayout watching(
+            int screenWidth, int screenHeight, int needsForItsFrame) {
+        return watching(screenWidth, screenHeight)
+                .withStatusAtLeast(needsForItsFrame, screenHeight);
+    }
+
+    /**
+     * This layout with the top strip grown to fit a frame, if it can be grown.
+     * <p>Never past a quarter of the window: a look with a heavy border on a very short
+     * window would otherwise spend a third of the table on a name bar, and a squashed frame
+     * is the lesser of those two. The cap is the same one the strip is fitted under to begin
+     * with, so on any window somebody would really play at nothing is capped at all.
+     */
+    private TableScreenLayout withStatusAtLeast(int needsForItsFrame, int screenHeight) {
+        int room = Math.max(1, screenHeight) / 4;
+        int wanted = Math.min(Math.max(status.height(), needsForItsFrame), room);
+        return wanted == status.height()
+                ? this
+                : new TableScreenLayout(felt, hand, new Rect(status.x(), status.y(),
+                        status.width(), wanted));
     }
 
     private static TableScreenLayout withStrip(int screenWidth, int screenHeight, int stripHeight) {

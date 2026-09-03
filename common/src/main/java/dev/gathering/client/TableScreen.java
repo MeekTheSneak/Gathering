@@ -2226,8 +2226,14 @@ public final class TableScreen extends Screen {
         List<SeatView> seats = board.seats();
         SeatId me = mySeat().orElse(null);
         SeatId active = board.turn().activeSeat();
-        int turnWidth = Math.min(area.width() / 3, 190);
-        int column = seats.isEmpty() ? area.width() : (area.width() - turnWidth) / seats.size();
+        // Inside the frame rather than four pixels in from it. How thick that frame is is a
+        // number in a resource pack, and the shipped looks do not agree on it - the four that
+        // draw a panel at sixteen pixels had the first letter of the first name sitting on
+        // the corner ornament.
+        int pad = Math.max(4, GatheringSprites.borderOf(Element.PANEL));
+        int inside = Math.max(1, area.width() - pad * 2);
+        int turnWidth = Math.min(inside / 3, 190);
+        int column = seats.isEmpty() ? inside : (inside - turnWidth) / seats.size();
         int line = area.y() + (area.height() - this.font.lineHeight) / 2;
 
         for (int index = 0; index < seats.size(); index++) {
@@ -2259,7 +2265,7 @@ public final class TableScreen extends Screen {
                 }
             }
             GuiText.draw(graphics, this.font, text,
-                    area.x() + 4 + index * column, line, column - 8,
+                    area.x() + pad + index * column, line, column - 4,
                     SeatColor.at(seat.seat().index(), 0xFF));
         }
 
@@ -2279,7 +2285,7 @@ public final class TableScreen extends Screen {
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.table.turn",
                         board.turn().turnNumber(), who),
-                area.right() - turnWidth + 2, line, turnWidth - 4, mine ? ACCENT : DIM);
+                area.right() - pad - turnWidth, line, turnWidth, mine ? ACCENT : DIM);
     }
 
     /**
@@ -5289,9 +5295,13 @@ public final class TableScreen extends Screen {
      * would have to learn about a replay's scrubber one at a time.
      */
     private TableScreenLayout freshLayout() {
+        // What the look somebody is wearing needs for its panel border, which core has no way
+        // to ask: it is a number in a resource pack, and the shipped looks do not agree on it.
+        int frame = GatheringSprites.smallestFor(Element.PANEL);
         return replay
-                ? TableScreenLayout.watching(this.width, this.height)
-                : TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
+                ? TableScreenLayout.watching(this.width, this.height, frame)
+                : TableScreenLayout.of(
+                        this.width, this.height, mySeat().isPresent(), frame);
     }
 
     /**

@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.metadata.gui.GuiSpriteScaling;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -89,31 +90,28 @@ public final class GatheringSprites {
         /** The table top itself, under everything. */
         TABLE_FELT("table_felt"),
         /** Somebody's half of the table. Lighter than the felt, so it reads as their space. */
-        SEAT_MAT("seat_mat", dev.gathering.core.ui.SpriteFrames.SEAT_MAT,
-                WhenCramped.DRAWN_ANYWAY),
+        SEAT_MAT("seat_mat"),
         /** Your own half of it, in the accent, so your board is the one you find first. */
-        SEAT_MAT_MINE("seat_mat_mine", dev.gathering.core.ui.SpriteFrames.SEAT_MAT,
-                WhenCramped.DRAWN_ANYWAY),
+        SEAT_MAT_MINE("seat_mat_mine"),
         /** The line across a mat marking off the row nearest its player. */
         SEAT_DIVIDER("seat_divider"),
         /** Round a zone or a group of slots: a marking on the mat, not a piece of interface. */
-        ZONE_BORDER("zone_border", dev.gathering.core.ui.SpriteFrames.ZONE_BORDER,
-                WhenCramped.LEFT_OFF),
+        ZONE_BORDER("zone_border", WhenCramped.LEFT_OFF),
         /**
          * Round somebody's half of the table, and round the controls that belong to it.
          * <p>Drawn in the seat's own color, which is what makes four identical rectangles
          * four boards - so this one is painted neutral and tinted, unlike everything else
          * here, whose color is the artist's.
          */
-        SEAT_RING("seat_ring"),
+        SEAT_RING("seat_ring", WhenCramped.LEFT_OFF),
         /** Round whatever the cursor is on. */
-        FOCUS_RING("focus_ring"),
+        FOCUS_RING("focus_ring", WhenCramped.LEFT_OFF),
         /** Round something merely pointed at, in the quieter of the two. */
-        HOVER_RING("hover_ring"),
+        HOVER_RING("hover_ring", WhenCramped.LEFT_OFF),
         /** Round a button that is switched on. Thicker: it has to read against a button's own edge. */
-        CHOSEN_RING("chosen_ring"),
+        CHOSEN_RING("chosen_ring", WhenCramped.LEFT_OFF),
         /** The rubber band dragged out to pick several cards at once. */
-        SELECT_BOX("select_box"),
+        SELECT_BOX("select_box", WhenCramped.LEFT_OFF),
         /**
          * The pile a card is being dragged at.
          * <p>Drawn behind the slot rather than over it, so whatever is already sitting there
@@ -121,7 +119,7 @@ public final class GatheringSprites {
          * thing that has to change. Two rings and a wash rather than one thin line, because
          * this is answering "which of five" among slots that all have borders already.
          */
-        AIMED_PILE("aimed_pile"),
+        AIMED_PILE("aimed_pile", WhenCramped.LEFT_OFF),
         /** Under a life total, so it reads against the table rather than into it. */
         LIFE_BACKING("life_backing"),
         /** Behind what the table has been saying. Quiet: it is not part of the board. */
@@ -175,7 +173,7 @@ public final class GatheringSprites {
          * <p>The same amber {@link #DRAG_LANDING} uses in the scry box, because it is the
          * same sentence: this is where the thing in your hand goes if you let go now.
          */
-        CARD_FOOTPRINT("card_footprint"),
+        CARD_FOOTPRINT("card_footprint", WhenCramped.LEFT_OFF),
         /** Over a tapped card. */
         TAPPED_TINT("tapped_tint"),
         /**
@@ -236,7 +234,7 @@ public final class GatheringSprites {
          * is the second of the two neutral sprites, painted white and tinted like
          * {@link #SEAT_RING}.
          */
-        RARITY_RING("rarity_ring"),
+        RARITY_RING("rarity_ring", WhenCramped.LEFT_OFF),
 
         /**
          * Five frames of a dashed ring with the lit dash travelling round it, cut off
@@ -285,11 +283,13 @@ public final class GatheringSprites {
         /** What an element does when its box has no room left for its border. */
         public enum WhenCramped {
             /**
-             * Drawn anyway, rough corners and all.
+             * Drawn as one squashed picture instead of a frame round a middle.
              * <p>For an element that <em>is</em> the surface. A mat left off is a seat with no
-             * board under it, which is worse than a mat whose edge has run together.
+             * board under it, and a mat nine-sliced into a box too small for its border is a
+             * smear of corners - so it is stretched instead, which is the picture somebody
+             * painted, made small.
              */
-            DRAWN_ANYWAY,
+            SQUASHED,
             /**
              * Left off.
              * <p>For a marking over something else. A zone's outline smeared into its own
@@ -299,22 +299,21 @@ public final class GatheringSprites {
         }
 
         private final String name;
-        private final int frame;
         private final WhenCramped cramped;
 
         Element(String name) {
-            this(name, 0, WhenCramped.DRAWN_ANYWAY);
+            this(name, WhenCramped.SQUASHED);
         }
 
         /**
-         * An element whose art is a border of this thickness around a middle.
-         * <p>Declared here so the mod knows how small is too small to draw it, and against
-         * what {@code tools/spritecheck.py} checks every theme's own metadata - so the number
-         * and the art cannot drift apart.
+         * An element that is a line round something else rather than a surface of its own.
+         * <p>Which matters only where there is no room for its border, and only for art that
+         * has one - what that border is is the artist's, and is read off the sprite as it is
+         * drawn rather than written down here, because four of the fourteen shipped looks
+         * draw a panel at sixteen pixels where the other ten draw it at eight.
          */
-        Element(String name, int frame, WhenCramped cramped) {
+        Element(String name, WhenCramped cramped) {
             this.name = name;
-            this.frame = frame;
             this.cramped = cramped;
         }
 
@@ -323,28 +322,9 @@ public final class GatheringSprites {
             return name;
         }
 
-        /** How thick this element's border is, or zero where it is not a border at all. */
-        public int frame() {
-            return frame;
-        }
-
-        /**
-         * Whether a box this size has room for this element's border to be itself.
-         * <p>A nine-slice narrower than twice its border has no middle left: the game tiles
-         * what it can and overlaps the corners, and what comes out is not the picture anybody
-         * drew. Reported from a real session: "GUI borders also scale with zoom, that makes
-         * certain zones (like graveyard or exile) look really bad when zoomed out on certain
-         * themes like future sight" - Future Sight's border being the heaviest of the
-         * fourteen and so the first to have nothing left to be drawn in.
-         * <p>Below it the frame is left off. A zone that is a clean dark recess when the board
-         * is pulled right out reads as a zone; the same zone smeared into its own corners
-         * reads as a fault.
-         */
-        public boolean readsAt(int width, int height) {
-            return frame <= 0
-                    || cramped == WhenCramped.DRAWN_ANYWAY
-                    || (width >= dev.gathering.core.ui.SpriteFrames.smallestFor(frame)
-                            && height >= dev.gathering.core.ui.SpriteFrames.smallestFor(frame));
+        /** What this one does in a box with no room for its border. */
+        public WhenCramped whenCramped() {
+            return cramped;
         }
 
         /** Every element, once. {@code values()} clones its array and this is walked per theme. */
@@ -390,12 +370,120 @@ public final class GatheringSprites {
 
     /** Draws one element into a box. */
     public static void draw(GuiGraphics graphics, Element element, int x, int y, int width, int height) {
-        if (width <= 0 || height <= 0 || !element.readsAt(width, height)) {
+        if (width <= 0 || height <= 0) {
             return;
         }
+        ResourceLocation sprite = of(element);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        graphics.blitSprite(of(element), x, y, width, height);
+        if (hasRoomForItsBorder(sprite, width, height)) {
+            graphics.blitSprite(sprite, x, y, width, height);
+            return;
+        }
+        if (element.whenCramped() == Element.WhenCramped.LEFT_OFF) {
+            return;
+        }
+        TextureAtlasSprite squashed = drawn(sprite);
+        if (squashed != null) {
+            graphics.blit(x, y, 0, width, height, squashed);
+        }
+    }
+
+    /**
+     * Whether a box this size has room for this sprite's border to be itself.
+     * <p>A nine-slice keeps its border at a fixed size and tiles what is between them. Give
+     * it a box no wider than its two edges and there is nothing between them: the game tiles
+     * what it can and runs the corners together, and what comes out is not the picture
+     * anybody painted. Reported from a real session - "GUI borders also scale with zoom, that
+     * makes certain zones (like graveyard or exile) look really bad when zoomed out on
+     * certain themes like future sight" - the zone slots on a board scrolled right out
+     * being the first boxes small enough for it to show.
+     * <p>The border is read off the sprite that is about to be drawn rather than written down
+     * anywhere: it is a number in a resource pack, and the fourteen shipped looks do not
+     * agree on it - four draw a panel at sixteen pixels where the other ten draw it at eight.
+     * A number in the mod would have been wrong for one of those groups.
+     * <p>Stricter than the game's own rule, which only refuses a nine-slice with no middle
+     * at all. See {@link #across}.
+     */
+    private static boolean hasRoomForItsBorder(ResourceLocation sprite, int width, int height) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null) {
+            return true;
+        }
+        TextureAtlasSprite drawn = drawn(sprite);
+        if (drawn == null) {
+            return true;
+        }
+        if (!(client.getGuiSprites().getSpriteScaling(drawn)
+                instanceof GuiSpriteScaling.NineSlice nine)) {
+            return true;
+        }
+        GuiSpriteScaling.NineSlice.Border border = nine.border();
+        return width >= across(border) && height >= along(border);
+    }
+
+    /**
+     * The stitched sprite behind a name, or null before the atlas has one.
+     * <p>Null rather than an exception: this is asked once per drawn rectangle, and a frame
+     * that will not draw at all is worse than a frame drawn without one panel in it.
+     */
+    private static TextureAtlasSprite drawn(ResourceLocation sprite) {
+        Minecraft client = Minecraft.getInstance();
+        return client == null ? null : client.getGuiSprites().getSprite(sprite);
+    }
+
+    /**
+     * The shortest a box may be for this element's border to read, or zero where it has none.
+     * <p>For a layout that has to reserve room before it draws anything - the strip along the
+     * top of the table, which was laid out at exactly twice the panel border and so had no
+     * middle at all on any look.
+     */
+    public static int smallestFor(Element element) {
+        Minecraft client = Minecraft.getInstance();
+        TextureAtlasSprite drawn = drawn(of(element));
+        if (client == null || drawn == null
+                || !(client.getGuiSprites().getSpriteScaling(drawn)
+                        instanceof GuiSpriteScaling.NineSlice nine)) {
+            return 0;
+        }
+        GuiSpriteScaling.NineSlice.Border border = nine.border();
+        return Math.max(across(border), along(border));
+    }
+
+    /**
+     * How thick this element's border is on its heaviest side, or zero where it has none.
+     * <p>For laying writing out inside one. A fixed margin is wrong for art somebody else
+     * drew: the strip along the top of the table indented its names by four pixels, which is
+     * inside the border on the four looks that draw a panel at sixteen, so the first letter
+     * sat on the corner ornament.
+     */
+    public static int borderOf(Element element) {
+        Minecraft client = Minecraft.getInstance();
+        TextureAtlasSprite drawn = drawn(of(element));
+        if (client == null || drawn == null
+                || !(client.getGuiSprites().getSpriteScaling(drawn)
+                        instanceof GuiSpriteScaling.NineSlice nine)) {
+            return 0;
+        }
+        GuiSpriteScaling.NineSlice.Border border = nine.border();
+        return Math.max(Math.max(border.left(), border.right()),
+                Math.max(border.top(), border.bottom()));
+    }
+
+    /**
+     * How wide a box has to be for this border: its two edges, and a middle as wide as one.
+     * <p>The game refuses only a nine-slice with no middle at all. That is not enough for a
+     * board somebody has scrolled out: a card there is about seventeen pixels across, and a
+     * border of eight leaves one pixel of middle - a solid block of border with a hairline of
+     * picture in it.
+     */
+    private static int across(GuiSpriteScaling.NineSlice.Border border) {
+        return border.left() + border.right() + Math.max(border.left(), border.right());
+    }
+
+    /** And how tall, the same way. */
+    private static int along(GuiSpriteScaling.NineSlice.Border border) {
+        return border.top() + border.bottom() + Math.max(border.top(), border.bottom());
     }
 
     /**
@@ -418,7 +506,7 @@ public final class GatheringSprites {
                 ((color >> 8) & 0xFF) / 255f,
                 (color & 0xFF) / 255f,
                 ((color >>> 24) & 0xFF) / 255f);
-        graphics.blitSprite(of(element), x, y, width, height);
+        draw(graphics, element, x, y, width, height);
         graphics.setColor(1f, 1f, 1f, 1f);
     }
 
