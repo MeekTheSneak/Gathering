@@ -4874,6 +4874,30 @@ public final class DevScene {
     }
 
     /**
+     * Asks the server for the board again, the way walking up to a table does.
+     * <p>The board is broadcast to whoever is nearby when something happens on it. A player
+     * who walks away and comes back is told nothing until it does - which is fine in the game,
+     * because the way back in is a right-click and that asks - and is not fine here, where the
+     * screen is constructed rather than opened. The gallery runs after the tour has wandered
+     * off to a village, so its first board came out as a photograph of a field.
+     */
+    private static void askTheTableForTheBoard(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (table == null || server == null) {
+            fail("there is no table to ask for a board");
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream()
+                    .findFirst().orElse(null);
+            if (player != null) {
+                dev.gathering.server.TableActions.openFor(player, where);
+            }
+        });
+    }
+
+    /**
      * Puts the player back within reach of the table without opening anything.
      * <p>Two halves because the teleport is done on the server's own thread and arrives a tick
      * later. A board opened in the same breath is a board opened while the player is still
@@ -5967,15 +5991,7 @@ public final class DevScene {
                 client.setScreen(null);
                 walkToTheTable(client);
             }
-            case 7 -> {
-                // The tour plays a game and then finishes it, so by the time the gallery runs
-                // the table has no session and this client is told nothing about it - which is
-                // why a board opened here closed itself and the picture came out as a field.
-                // A deck put down starts one, by the same one right-click the tour opens with.
-                if (table != null && ClientTableState.viewOf(table).isEmpty()) {
-                    putTheDeckDown(client);
-                }
-            }
+            case 7 -> askTheTableForTheBoard(client);
             case 8 -> client.setScreen(new TableScreen(table));
             case 9 -> {
                 expectScreen(client, "the board wearing the " + named + " look",
