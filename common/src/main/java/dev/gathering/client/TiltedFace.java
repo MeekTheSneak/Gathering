@@ -65,10 +65,16 @@ public final class TiltedFace {
     private static final int SHINE_ROWS = 36;
 
 
-    /** The shadow the card casts on the backdrop behind it, and how far it drops and slides. */
+    /**
+     * The shadow the card casts on the backdrop behind it, and how far it drops and slides.
+     * <p>Fractions of the card rather than a number of pixels. They were pixels, which is why
+     * it was "cast much too far behind the card": nine pixels down and thirteen across is a
+     * hint under a card filling the screen and a slab lying well clear of one drawn small,
+     * and the same card at two sizes had two different lights on it.
+     */
     private static final int SHADOW = 0x59000000;
-    private static final float SHADOW_DROP = 9f;
-    private static final float SHADOW_REACH = 13f;
+    private static final float SHADOW_DROP = 0.030f;
+    private static final float SHADOW_REACH = 0.045f;
 
     private TiltedFace() {
     }
@@ -97,7 +103,7 @@ public final class TiltedFace {
         CardLens lens = CardLens.of(where, yaw, pitch);
         Matrix4f matrix = graphics.pose().last().pose();
         if (!lens.isSquare()) {
-            castShadow(matrix, lens, shineX);
+            castShadow(matrix, lens, where, shineX);
         }
         paint(matrix, lens, texture);
         if (foil) {
@@ -139,8 +145,12 @@ public final class TiltedFace {
      * narrows. A shadow that kept the flat shape read as a gray slab lying beside the card,
      * which is worse than no shadow at all.
      */
-    private static void castShadow(Matrix4f matrix, CardLens lens, float shineX) {
-        float cast = -shineX * SHADOW_REACH;
+    private static void castShadow(Matrix4f matrix, CardLens lens, Rect where, float shineX) {
+        // Measured off the card's own height both ways, so the light comes from one place
+        // whatever size the card is drawn at rather than from further away the smaller it is.
+        float span = Math.max(1, where.height());
+        float cast = -shineX * SHADOW_REACH * span;
+        float drop = SHADOW_DROP * span;
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -150,10 +160,10 @@ public final class TiltedFace {
         // The card's own outline, corners and all, so what falls behind it is card-shaped.
         // Walked coarsely: a shadow needs a silhouette and nothing inside it.
         CardMesh.walk(lens.aspect(), 1, 1, SHADOW_ARC, (u1, v1, u2, v2, u3, v3, u4, v4) -> {
-            shade(buffer, matrix, lens, corner, u1, v1, cast);
-            shade(buffer, matrix, lens, corner, u2, v2, cast);
-            shade(buffer, matrix, lens, corner, u3, v3, cast);
-            shade(buffer, matrix, lens, corner, u4, v4, cast);
+            shade(buffer, matrix, lens, corner, u1, v1, cast, drop);
+            shade(buffer, matrix, lens, corner, u2, v2, cast, drop);
+            shade(buffer, matrix, lens, corner, u3, v3, cast, drop);
+            shade(buffer, matrix, lens, corner, u4, v4, cast, drop);
         });
         BufferUploader.drawWithShader(buffer.buildOrThrow());
         RenderSystem.disableBlend();
@@ -161,8 +171,8 @@ public final class TiltedFace {
 
     private static void shade(
             BufferBuilder buffer, Matrix4f matrix, CardLens lens, float[] corner,
-            float u, float v, float cast) {
+            float u, float v, float cast, float drop) {
         lens.at(u, v, corner);
-        buffer.addVertex(matrix, corner[0] + cast, corner[1] + SHADOW_DROP, 0f).setColor(SHADOW);
+        buffer.addVertex(matrix, corner[0] + cast, corner[1] + drop, 0f).setColor(SHADOW);
     }
 }
