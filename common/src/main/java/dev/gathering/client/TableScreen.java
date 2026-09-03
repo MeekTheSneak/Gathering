@@ -83,6 +83,23 @@ public final class TableScreen extends Screen {
     private static final int DIM = 0xFF9A9690;
     private static final int ACCENT = 0xFF6FD3E8;
 
+    /**
+     * The same quiet grey as {@link #DIM}, lifted for writing that sits on the board.
+     * <p>A mid grey reads as quiet on a painted panel and reads as barely there on felt with
+     * card art behind it. This is the off-turn label's colour now that the strip along the
+     * top has no panel: still plainly the quieter of the two, still not competing with the
+     * seat colours, and light enough that its shadow does the work.
+     */
+    private static final int QUIET = 0xFFC9C4B8;
+
+    /**
+     * How far in from the edge the writing along the top sits.
+     * <p>A plain margin. It used to be the thickness of the panel's own border, because the
+     * writing was inside a frame and the four heaviest looks drew the first letter on top of
+     * their corner ornament. There is no frame now, so there is no number to ask anybody for.
+     */
+    private static final int PAD = 6;
+
     /** The pot's own color: the stakes gold the consent screen uses, not a board accent. */
     private static final int POT_LABEL = 0xFFE0B15A;
 
@@ -1195,7 +1212,7 @@ public final class TableScreen extends Screen {
      * is, because a number nobody has told you is a button is a number.
      */
     private void drawLife(GuiGraphics graphics, SeatView seat) {
-        Rect box = board().lifeRect(seat.seat());
+        Rect box = lifeBoxOf(seat.seat());
         // Drawn at whatever size there is, down to a hard floor where the box is a smear.
         // It used to stop at a full line of text, so framing the whole table - which is one
         // key - took every life total off the felt and left two mats with no numbers on them
@@ -1254,6 +1271,30 @@ public final class TableScreen extends Screen {
         return board().surface().lifeIsTurned(seat.index(), !playingOnTheBlock);
     }
 
+    /**
+     * A seat's life counter, held clear of the writing along the top of the window.
+     * <p>Its place on the surface is just past the far edge of its own board, which for the
+     * seat across the table is above the top of the screen's own board - so the far player's
+     * life total was drawn under the strip along the top. While that strip was an opaque
+     * panel this was invisible rather than wrong-looking: the number the game is played to,
+     * for one of the two players, painted over every frame and never seen. Taking the panel
+     * off is what showed it.
+     * <p>Asked here rather than clamped where it is drawn, because this rectangle is also
+     * what says whether a click landed on the plus or the minus. A drawing pushed down and a
+     * hit test left where it was is two controls, one you can see and one you can press.
+     * <p>Only on the screen's board. The board lying on the block has no strip along its top
+     * and is measured in surface units, where this number would mean nothing.
+     * <p>Package-private for the scripted harness, which has to check the rectangle this
+     * screen really draws and reads rather than the one the surface would have put there.
+     */
+    Rect lifeBoxOf(SeatId seat) {
+        Rect box = board().lifeRect(seat);
+        int floor = layout().status().bottom();
+        return playingOnTheBlock || box.isEmpty() || box.y() >= floor
+                ? box
+                : new Rect(box.x(), floor, box.width(), box.height());
+    }
+
     /** Which way a press at this screen point on a seat's counter would go: -1, 1, or 0. */
     private int lifeWayUnder(SeatId seat, int x, int y) {
         double[] at = pointer(x, y);
@@ -1262,7 +1303,7 @@ public final class TableScreen extends Screen {
         // on the seated board, whose camera turns the felt round on its way to the screen.
         return at == null ? 0
                 : TableSurface.lifeWayAt(
-                        board().lifeRect(seat), lifeIsTurned(seat), at[0], at[1]);
+                        lifeBoxOf(seat), lifeIsTurned(seat), at[0], at[1]);
     }
 
     /**
@@ -1271,7 +1312,7 @@ public final class TableScreen extends Screen {
      * would actually read that way rather than at whichever end of the rectangle it guesses.
      */
     Rect lifeEndFor(SeatId seat, int way) {
-        return TableSurface.lifeEnd(board().lifeRect(seat), lifeIsTurned(seat), way);
+        return TableSurface.lifeEnd(lifeBoxOf(seat), lifeIsTurned(seat), way);
     }
 
     /**
@@ -2221,18 +2262,17 @@ public final class TableScreen extends Screen {
         if (area.isEmpty()) {
             return;
         }
-        GatheringSprites.panel(graphics, area.x(), area.y(), area.width(), area.height());
-
+        // No panel behind it. It was one, and a bar across the top of the table is a bar
+        // across the top of the table: it took a band of the felt on every frame of every
+        // game to hold four short lines, and it wore each look's heaviest frame while doing
+        // it. The writing sits on the board now and carries its own shadow, which is what the
+        // game does for every word it draws over the world.
         List<SeatView> seats = board.seats();
         SeatId me = mySeat().orElse(null);
         SeatId active = board.turn().activeSeat();
-        // Inside the frame rather than four pixels in from it. How thick that frame is is a
-        // number in a resource pack, and the shipped looks do not agree on it - the four that
-        // draw a panel at sixteen pixels had the first letter of the first name sitting on
-        // the corner ornament.
-        int pad = Math.max(4, GatheringSprites.borderOf(Element.PANEL));
-        // And a gap between one seat's line and the next, so "library 1" and the next name
-        // do not read as one sentence on a narrow window.
+        int pad = PAD;
+        // A gap between one seat's line and the next, so "library 1" and the next name do
+        // not read as one sentence on a narrow window.
         int gap = 8;
         int inside = Math.max(1, area.width() - pad * 2);
         int turnWidth = Math.min(inside / 3, 190);
@@ -2267,7 +2307,7 @@ public final class TableScreen extends Screen {
                     text = text.copy().append(Component.literal("  " + describeCounters(seat)));
                 }
             }
-            GuiText.draw(graphics, this.font, text,
+            GuiText.drawOverTheBoard(graphics, this.font, text,
                     area.x() + pad + index * column, line, column - gap,
                     SeatColor.at(seat.seat().index(), 0xFF));
         }
@@ -2285,10 +2325,10 @@ public final class TableScreen extends Screen {
         // checked against it, and the tables people already play on do not have one either.
         // What it actually did was spend a third of this strip telling four people something
         // they had just said out loud.
-        GuiText.draw(graphics, this.font,
+        GuiText.drawOverTheBoard(graphics, this.font,
                 Component.translatable("screen.gathering.table.turn",
                         board.turn().turnNumber(), who),
-                area.right() - pad - turnWidth, line, turnWidth, mine ? ACCENT : DIM);
+                area.right() - pad - turnWidth, line, turnWidth, mine ? ACCENT : QUIET);
     }
 
     /**
@@ -2405,7 +2445,7 @@ public final class TableScreen extends Screen {
     private int clearOfTheLifeControls(GameView board, int from, int to, int top) {
         int clear = top;
         for (SeatView seat : board.seats()) {
-            Rect life = board().lifeRect(seat.seat());
+            Rect life = lifeBoxOf(seat.seat());
             if (life.isEmpty() || life.right() <= from || life.x() >= to) {
                 continue;
             }
@@ -5298,13 +5338,9 @@ public final class TableScreen extends Screen {
      * would have to learn about a replay's scrubber one at a time.
      */
     private TableScreenLayout freshLayout() {
-        // What the look somebody is wearing needs for its panel border, which core has no way
-        // to ask: it is a number in a resource pack, and the shipped looks do not agree on it.
-        int frame = GatheringSprites.smallestFor(Element.PANEL);
         return replay
-                ? TableScreenLayout.watching(this.width, this.height, frame)
-                : TableScreenLayout.of(
-                        this.width, this.height, mySeat().isPresent(), frame);
+                ? TableScreenLayout.watching(this.width, this.height)
+                : TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
     }
 
     /**

@@ -22,30 +22,27 @@ package dev.gathering.core.ui;
 public final class SpriteFrames {
 
     /**
-     * The smallest a box wearing a border of this thickness may be.
-     * <p>Both edges, and a middle no smaller than one of them. The game itself only refuses a
-     * nine-slice with no middle at all, and that is not enough: a card at the far end of the
-     * zoom is twenty-four pixels tall and about seventeen across, so a border of eight leaves
-     * a middle one pixel wide. What that draws is a solid block of border with a hairline of
-     * picture down the middle of it, which is what "look really bad when zoomed out" was.
+     * The smallest a box may be for a border of these two thicknesses to be itself.
+     * <p>Both edges, and a middle no smaller than the wider of them. The game itself only
+     * refuses a nine-slice with no middle at all, and that is not enough: a card at the far
+     * end of the zoom is twenty-four pixels tall and about seventeen across, so a border of
+     * eight leaves a middle one pixel wide. What that draws is a solid block of border with a
+     * hairline of picture down the middle of it, which is what "look really bad when zoomed
+     * out" was.
      * <p>Below this the sprite is squashed whole instead, which is the picture somebody
      * painted, made small - and a frame is never more than two thirds border.
+     * <p>Two thicknesses because a nine-slice's border need not be square: the art declares
+     * left, top, right and bottom separately, and the client asks this once for each axis.
      */
-    public static int smallestFor(int frame) {
-        return frame <= 0 ? 0 : frame * 3;
+    public static int smallestFor(int nearEdge, int farEdge) {
+        int edges = Math.max(0, nearEdge) + Math.max(0, farEdge);
+        return edges <= 0 ? 0 : edges + Math.max(nearEdge, farEdge);
     }
 
-    /**
-     * What a layout assumes a panel's border needs, having no way to ask.
-     * <p>The strip along the top of the table is laid out in core, where there is no theme to
-     * ask and no atlas to read. The client passes in the real number for the look somebody is
-     * wearing; this is what everything else gets - the preview renderer, the tests, and the
-     * one frame after a resource reload when the atlas has not been stitched yet.
-     * <p>What the ten looks that draw a panel border at eight pixels need, which is also room
-     * enough for the writing that sits in it. The four that draw it at sixteen ask for more
-     * and get it.
-     */
-    public static final int ROOMY_ENOUGH = 24;
+    /** The same for a border the same thickness all the way round, which most art is. */
+    public static int smallestFor(int frame) {
+        return smallestFor(frame, frame);
+    }
 
     private SpriteFrames() {
     }

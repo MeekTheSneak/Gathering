@@ -436,34 +436,6 @@ public final class GatheringSprites {
     }
 
     /**
-     * The shortest a box may be for this element's border to read, or zero where it has none.
-     * <p>For a layout that has to reserve room before it draws anything - the strip along the
-     * top of the table, which was laid out at exactly twice the panel border and so had no
-     * middle at all on any look.
-     */
-    public static int smallestFor(Element element) {
-        GuiSpriteScaling.NineSlice nine = sliced(drawn(of(element)));
-        return nine == null ? 0 : Math.max(across(nine.border()), along(nine.border()));
-    }
-
-    /**
-     * How thick this element's border is on its heaviest side, or zero where it has none.
-     * <p>For laying writing out inside one. A fixed margin is wrong for art somebody else
-     * drew: the strip along the top of the table indented its names by four pixels, which is
-     * inside the border on the four looks that draw a panel at sixteen, so the first letter
-     * sat on the corner ornament.
-     */
-    public static int borderOf(Element element) {
-        GuiSpriteScaling.NineSlice nine = sliced(drawn(of(element)));
-        if (nine == null) {
-            return 0;
-        }
-        GuiSpriteScaling.NineSlice.Border border = nine.border();
-        return Math.max(Math.max(border.left(), border.right()),
-                Math.max(border.top(), border.bottom()));
-    }
-
-    /**
      * How wide a box has to be for this border: its two edges, and a middle as wide as one.
      * <p>The game refuses only a nine-slice with no middle at all. That is not enough for a
      * board somebody has scrolled out: a card there is about seventeen pixels across, and a
@@ -471,12 +443,12 @@ public final class GatheringSprites {
      * picture in it.
      */
     private static int across(GuiSpriteScaling.NineSlice.Border border) {
-        return border.left() + border.right() + Math.max(border.left(), border.right());
+        return dev.gathering.core.ui.SpriteFrames.smallestFor(border.left(), border.right());
     }
 
     /** And how tall, the same way. */
     private static int along(GuiSpriteScaling.NineSlice.Border border) {
-        return border.top() + border.bottom() + Math.max(border.top(), border.bottom());
+        return dev.gathering.core.ui.SpriteFrames.smallestFor(border.top(), border.bottom());
     }
 
     /**

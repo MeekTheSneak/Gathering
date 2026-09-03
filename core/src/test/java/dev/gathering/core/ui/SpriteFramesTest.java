@@ -54,60 +54,17 @@ class SpriteFramesTest {
         assertThat(SpriteFrames.smallestFor(8)).isGreaterThan(17);
     }
 
-    /**
-     * The bug itself, as a rule.
-     * <p>The strip along the top of the table is drawn on the panel sprite, and it used to be
-     * sixteen pixels tall against a panel border of eight - exactly its own two edges, with
-     * nothing in between. This fails at that number and passes at the one it is now.
-     */
-    @Property(tries = 3000)
-    @DisplayName("the strip along the top is never shorter than a panel border needs")
-    void theTopStripWearsItsFrame(
-            @ForAll @IntRange(min = 320, max = 3840) int width,
-            @ForAll @IntRange(min = 240, max = 2160) int height) {
-        for (Rect status : new Rect[] {
-                TableScreenLayout.of(width, height).status(),
-                TableScreenLayout.of(width, height, false).status(),
-                TableScreenLayout.watching(width, height).status()}) {
-            assertThat(status.height())
-                    .describedAs("the top strip at %sx%s has no middle to its panel border",
-                            width, height)
-                    .isGreaterThanOrEqualTo(SpriteFrames.smallestFor(8));
-        }
+    @Test
+    @DisplayName("a border need not be square, and each axis is asked separately")
+    void eachAxisIsAskedSeparately() {
+        assertThat(SpriteFrames.smallestFor(4, 8)).isEqualTo(20);
+        assertThat(SpriteFrames.smallestFor(8, 4)).isEqualTo(20);
+        assertThat(SpriteFrames.smallestFor(0, 0)).isZero();
     }
 
-    /**
-     * And the same for a look whose border is heavier than the default assumes.
-     * <p>Four of the fourteen shipped looks draw a panel at sixteen pixels rather than eight,
-     * which needs thirty-three and not seventeen. The client reads the real number off the
-     * sprite and hands it over; the strip has to actually grow for it.
-     */
-    @Property(tries = 3000)
-    @DisplayName("a heavier border gets the room it asks for")
-    void aHeavierBorderIsMadeRoomFor(
-            @ForAll @IntRange(min = 320, max = 3840) int width,
-            @ForAll @IntRange(min = 240, max = 2160) int height,
-            @ForAll @IntRange(min = 1, max = 16) int border) {
-        int needs = SpriteFrames.smallestFor(border);
-        for (Rect status : new Rect[] {
-                TableScreenLayout.of(width, height, true, needs).status(),
-                TableScreenLayout.of(width, height, false, needs).status(),
-                TableScreenLayout.watching(width, height, needs).status()}) {
-            assertThat(status.height())
-                    .describedAs("a %s-pixel border at %sx%s", border, width, height)
-                    .isGreaterThanOrEqualTo(needs);
-            assertThat(status.bottom()).isLessThanOrEqualTo(height);
-        }
-    }
-
-    @Property(tries = 2000)
-    @DisplayName("asking for nothing extra changes nothing")
-    void nothingExtraAskedForChangesNothing(
-            @ForAll @IntRange(min = 320, max = 3840) int width,
-            @ForAll @IntRange(min = 240, max = 2160) int height) {
-        assertThat(TableScreenLayout.of(width, height, true, 0))
-                .isEqualTo(TableScreenLayout.of(width, height, true));
-        assertThat(TableScreenLayout.watching(width, height, 0))
-                .isEqualTo(TableScreenLayout.watching(width, height));
+    @Property(tries = 500)
+    void twoEdgesTheSameIsTheSimpleRule(@ForAll @IntRange(min = 1, max = 64) int frame) {
+        assertThat(SpriteFrames.smallestFor(frame))
+                .isEqualTo(SpriteFrames.smallestFor(frame, frame));
     }
 }

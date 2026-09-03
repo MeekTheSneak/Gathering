@@ -59,7 +59,9 @@ class TableScreenLayoutTest {
         TableScreenLayout layout = TableScreenLayout.of(width, height);
 
         assertThat(layout.isOnFelt(width / 2, layout.hand().y() + 1)).isFalse();
-        assertThat(layout.isOnFelt(width / 2, layout.status().y() + 1)).isFalse();
+        // The strip along the top is table now: it is writing on the felt rather than a
+        // panel over it, so a card panned up under the names is still a card you can pick up.
+        assertThat(layout.isOnFelt(width / 2, layout.status().y() + 1)).isTrue();
         assertThat(layout.isOnFelt(width / 2, layout.status().bottom() + 1)).isTrue();
     }
 

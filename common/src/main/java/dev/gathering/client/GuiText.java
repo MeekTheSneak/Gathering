@@ -75,13 +75,33 @@ public final class GuiText {
     /** Draws left-aligned at {@code x}, shrinking or trimming to sit inside {@code maxWidth}. */
     public static void draw(
             GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int color) {
-        drawFitted(graphics, font, text, x, y, maxWidth, color);
+        drawFitted(graphics, font, text, x, y, maxWidth, color, NO_SHADOW);
     }
+
+    /**
+     * The same, for writing that sits on the board rather than on a panel.
+     * <p>With a shadow behind it, which is the whole difference. Text on a panel has a flat
+     * painted surface under it and needs nothing; text over the felt has whatever is on the
+     * table under it - a card's art, a mat's edge, another player's cards - and a shadow is
+     * what keeps a letter's shape when the thing behind it happens to be the same brightness.
+     * It is what the game itself does for every word it draws over the world.
+     * <p>Reported from a real session: the strip along the top of the table was a panel, and
+     * the panel was in the way. Taking it off means the writing has to hold up on its own.
+     */
+    public static void drawOverTheBoard(
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int color) {
+        drawFitted(graphics, font, text, x, y, maxWidth, color, SHADOWED);
+    }
+
+    /** Whether a line is drawn with a shadow under it. Read at the two call sites above. */
+    private static final boolean SHADOWED = true;
+    private static final boolean NO_SHADOW = false;
 
     /** Draws centered on {@code centerX}, shrinking or trimming to sit inside {@code maxWidth}. */
     public static void drawCentered(
             GuiGraphics graphics, Font font, Component text, int centerX, int y, int maxWidth, int color) {
-        drawFitted(graphics, font, text, centerX - width(font, text, maxWidth) / 2, y, maxWidth, color);
+        drawFitted(graphics, font, text,
+                centerX - width(font, text, maxWidth) / 2, y, maxWidth, color, NO_SHADOW);
     }
 
     /** How wide this text will actually be drawn, once fitted. */
@@ -252,7 +272,8 @@ public final class GuiText {
      * a string here would quietly drop the styling a caller went to the trouble of adding.
      */
     private static void drawFitted(
-            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int color) {
+            GuiGraphics graphics, Font font, Component text, int x, int y, int maxWidth, int color,
+            boolean shadow) {
         if (maxWidth <= 0) {
             return;
         }
@@ -261,7 +282,7 @@ public final class GuiText {
             return;
         }
         if (width <= maxWidth) {
-            graphics.drawString(font, text, x, y, color, false);
+            graphics.drawString(font, text, x, y, color, shadow);
             return;
         }
 
@@ -281,7 +302,7 @@ public final class GuiText {
         // so a shrunk row does not sit visibly higher than its neighbors.
         graphics.pose().translate(x, y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
         graphics.pose().scale(scale, scale, 1f);
-        graphics.drawString(font, sequence, 0, 0, color, false);
+        graphics.drawString(font, sequence, 0, 0, color, shadow);
         graphics.pose().popPose();
     }
 }

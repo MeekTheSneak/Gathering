@@ -183,17 +183,6 @@ LOOKS = {
         paper=(0xF6, 0xE6, 0xF0), rule=(0xC6, 0x98, 0xB6),
         cloth=(0x34, 0x1A, 0x2E), wash=(0x24, 0x0E, 0x1E)),
 
-    # Future Sight: bone and pale silver, thin warm-grey lines, a cool blue in the corner of
-    # it. High-key art on a dark body, which is as close as a readable panel gets to that frame.
-    "future": Look(
-        "Future Sight", 50,
-        ink=(0x22, 0x20, 0x1C), bevel=(0xF0, 0xEA, 0xD8), shade=(0x44, 0x43, 0x40),
-        body=(0x56, 0x56, 0x56), sunk=(0x33, 0x33, 0x34),
-        accent=(0xA8, 0xC4, 0xD8), glow=(0xE8, 0xF2, 0xF8),
-        warn=(0xD8, 0xB8, 0x88), good=(0x9C, 0xB8, 0xA0),
-        paper=(0xF4, 0xEF, 0xE2), rule=(0xC0, 0xB6, 0xA0),
-        cloth=(0x3E, 0x3C, 0x36), wash=(0x26, 0x25, 0x22), style="future"),
-
     # Bubble: rounded and sweet. Its bevel is wider and brighter than anything else here,
     # which is what makes a flat rectangle read as blown rather than cut.
     "bubble": Look(
@@ -320,12 +309,8 @@ def stencil(image, kind, size, border):
 # of it, which is exactly the nine-slice border at all three sizes the mod uses (32/8, 16/4,
 # 8/2): round further than the border and the curve spills into the stretched edge strips,
 # which then repeat down a long panel as a row of scallops.
-ROUNDING = {"flat": 0, "retro": 0, "future": 8, "bubble": 8, "arcade": 3}
+ROUNDING = {"flat": 0, "retro": 0, "bubble": 8, "arcade": 3}
 
-#: Future Sight rounds two opposite corners hard and leaves the other two nearly square. That
-#: asymmetry is the frame: a sweep entering at one corner and leaving at the other, rather than
-#: a box with its edges filed off. As (top-left, top-right, bottom-right, bottom-left).
-SWEEP = (1.0, 0.18, 1.0, 0.18)
 
 #: The noise repeats on this, so a nine-slice's tiled middle joins itself without a seam.
 PERIOD = 16
@@ -452,8 +437,8 @@ def flatPlate(size, tones, sunken, alpha, band=None):
 def thicken(image, ink, alpha=255):
     """A second pixel of outline, following whatever shape this already is.
 
-    For the four looks that build their own edges - Future Sight's sweep, Retro's inset
-    border, Bubble's rounding, Arcade's rail - which cannot simply be given flatPlate's ramp
+    For the three looks that build their own edges - Retro's inset border, Bubble's
+    rounding, Arcade's rail - which cannot simply be given flatPlate's ramp
     without becoming it. This finds the ring of pixels one step inside the existing outline
     and inks those too, so the frame gets its weight and the construction keeps everything it
     does further in.
@@ -475,63 +460,6 @@ def thicken(image, ink, alpha=255):
              and any((x + dx, y + dy) in rim for dx, dy in near)]
     for x, y in inner:
         pixels[x, y] = rgba(ink, alpha)
-    return image
-
-
-def futurePlate(size, tones, sunken, alpha, glow, band=None):
-    """The Future Sight frame.
-
-    Four things make that frame what it is and all four are here. Two opposite corners open
-    into a wide sweep while the other two stay nearly square, so the border reads as something
-    entering and leaving rather than as a box. The band itself is chrome - four steps from
-    near-white at the outer edge down into shadow, not one bevel line - and it closes on a dark
-    inner edge. Inside that the field is left plain for a pixel and then a single hairline is
-    struck, which is the doubled line that frame draws everywhere. And a boss is set into each
-    long edge, the row of little discs running down the sweep; the edges of a nine-slice tile,
-    so one boss in the art is a row of them down the panel.
-    """
-    ink, lit, low, body = tones
-    band = band or bandOf(size)
-    radius = min(ROUNDING["future"], band)
-    steps = max(1, band - 3)
-    chrome = ramp((lit, mix(low, body, 0.4)), steps)
-    if sunken:
-        chrome = list(reversed(chrome))
-    image = Image.new("RGBA", (size, size))
-    pixels = image.load()
-    middle = size / 2.0
-    for y in range(size):
-        for x in range(size):
-            depth = depthAt(x, y, size, radius, SWEEP)
-            if depth is None:
-                continue
-            if depth >= band:
-                tone = body
-            elif depth == 0:
-                tone = mix(ink, body, 0.35)
-            elif depth <= steps:
-                tone = chrome[depth - 1]
-            elif depth == steps + 1:
-                tone = mix(ink, body, 0.55)
-            elif depth == band - 1 and band >= 7:
-                tone = mix(lit, body, 0.45)
-            else:
-                tone = body
-            pixels[x, y] = rgba(tone, alpha)
-
-    # The bosses: a small disc set into the middle of each long edge, ringed like the ones
-    # running down that frame's sweep. Only where the band is wide enough to hold one.
-    if size >= 32:
-        for at in ((3.0, middle), (size - 3.0, middle), (middle, 3.0), (middle, size - 3.0)):
-            for y in range(size):
-                for x in range(size):
-                    if pixels[x, y][3] == 0:
-                        continue
-                    away = ((x + 0.5 - at[0]) ** 2 + (y + 0.5 - at[1]) ** 2) ** 0.5
-                    if away < 1.4:
-                        pixels[x, y] = rgba(glow, alpha)
-                    elif away < 2.4:
-                        pixels[x, y] = rgba(mix(ink, body, 0.5), alpha)
     return image
 
 
@@ -689,9 +617,7 @@ def plate(size, look, sunken=False, body=None, alpha=255, ink=None, lit=None, lo
              lit if lit is not None else look.bevel,
              low if low is not None else look.shade,
              body if body is not None else (look.sunk if sunken else look.body))
-    if look.style == "future":
-        art = futurePlate(size, tones, sunken, alpha, look.glow, band)
-    elif look.style == "retro":
+    if look.style == "retro":
         art = retroPlate(size, tones, sunken, alpha, look.accent, band)
     elif look.style == "bubble":
         art = bubblePlate(size, tones, sunken, alpha, look.glow, band)
@@ -1017,17 +943,15 @@ def ring(size, color, alpha=255, thickness=1, fill=None, fill_alpha=0, inner=Non
 def stock(size, look, dark=False):
     """Blank paper - and in the looks that are a card frame, a small card frame.
 
-    Retro gets the pressed border and the board it is printed on; Future Sight a rounded sheet
-    with its hairline and its corner pips; Bubble a rounded slab with the light on it. Which is
-    the point: a blank card in a look should look like a card in that look.
+    Retro gets the pressed border and the board it is printed on; Bubble a rounded slab with
+    the light on it. Which is the point: a blank card in a look should look like a card in
+    that look.
     """
     face = darker(look.paper, 0.90) if dark else look.paper
     rule = look.accent if dark else look.rule
     tones = (look.ink, lighter(rule, 0.45), rule, face)
     if look.style == "retro":
         return retroPlate(size, tones, False, 255, rule)
-    if look.style == "future":
-        return futurePlate(size, tones, False, 255, mix(face, rule, 0.5))
     if look.style == "bubble":
         return bubblePlate(size, tones, False, 255, lighter(face, 0.5))
     if look.style == "arcade":
@@ -1045,16 +969,14 @@ def stock(size, look, dark=False):
 
 
 def cloth(size, look):
-    """The table. Never a slab of one color: a weave for the flat looks, mottled board for
-    Retro, and for Future Sight a faint rule, because that frame's ground is smooth."""
+    """The table. Never a slab of one color: a weave for the flat looks, and mottled board
+    for Retro."""
     image = Image.new("RGBA", (size, size), rgba(look.cloth))
     pixels = image.load()
     for y in range(size):
         for x in range(size):
             if look.style == "retro":
                 pixels[x, y] = rgba(weathered(look.cloth, x, y, 0.13, 5))
-            elif look.style == "future":
-                pixels[x, y] = rgba(mix(look.cloth, look.bevel, 0.04 if (x + y) % 8 == 0 else 0))
             elif look.style == "bubble":
                 near = ((x - 8) ** 2 + (y - 8) ** 2) ** 0.5
                 pixels[x, y] = rgba(mix(look.cloth, look.bevel, 0.05 if near < 3 else 0))
@@ -1069,21 +991,13 @@ def cloth(size, look):
 #: Where the deck list panel's right edge sits, top and bottom, as a fraction of its width.
 TAPER_TOP, TAPER_BOTTOM = 0.90, 0.74
 
-#: Future Sight's rail: a doubled hairline down the panel's left margin, with a boss set into
-#: it every so often. In the margin on purpose - the panel is a list of card names, and the
-#: one thing that must not happen to a list is something drawn across it.
-RAIL = 10
-BOSS_FIRST, BOSS_EVERY = 40, 96
-
-
 def deck_panel(look, width=256, height=512):
     """The deck list: flush left, tapering right.
 
     Stretched rather than nine-sliced, which means it is one picture rather than nine tiles -
     so this is the one element that can carry something spanning the whole panel. Each of the
-    three built looks uses that for the thing a nine-slice cannot do: Future Sight for the
-    rail and bosses running the panel's whole length, Retro for a mottled stone border with a
-    gold rule inside it, Bubble for the light running down the whole of it.
+    built looks uses that for the thing a nine-slice cannot do: Retro for a mottled stone
+    border with a gold rule inside it, Bubble for the light running down the whole of it.
     """
     style = look.style
     image = Image.new("RGBA", (width, height))
@@ -1108,34 +1022,6 @@ def deck_panel(look, width=256, height=512):
                     tone = look.accent
                 else:
                     tone = weathered(field, x, y, 0.14, 11)
-            elif style == "future":
-                # A rail down the length of it, with that frame's little bosses set into it.
-                # There used to be one enormous arc struck across the whole panel here, on
-                # the reasoning that this frame is laid out around a circle - and it is, but
-                # at the size of a corner, not at the size of the panel. Blown up to span a
-                # deck list it stopped reading as a frame and started reading as a circle
-                # drawn behind the words, which is the one thing a list must not have.
-                #
-                # The rail says the same thing quietly: a doubled hairline is what that frame
-                # draws everywhere, and the bosses are the row of discs running down its
-                # sweep. Both live in the margin, so nothing crosses the names.
-                tone = field
-                if x in (RAIL, RAIL + 2):
-                    tone = mix(field, look.bevel, 0.45)
-                elif RAIL < x < RAIL + 2:
-                    tone = mix(field, look.bevel, 0.10)
-                near = (y - BOSS_FIRST) % BOSS_EVERY
-                if near > BOSS_EVERY / 2:
-                    near -= BOSS_EVERY
-                away = ((x - (RAIL + 1)) ** 2 + near ** 2) ** 0.5
-                if away < 2.0:
-                    tone = look.glow
-                elif away < 3.4:
-                    tone = mix(look.ink, field, 0.45)
-                if depth < 2:
-                    tone = mix(look.ink, look.body, 0.3)
-                elif depth in (4, 5):
-                    tone = look.bevel
             elif style == "bubble":
                 run = 1.0 - abs((x / max(edge, 1)) - 0.22) * 2.2
                 tone = mix(field, look.glow, max(0.0, run) * 0.24)
@@ -1194,9 +1080,9 @@ ELEMENTS = [
     ("scroll_track", NINE_8, lambda k: capsule(8, k, sunken=True)),
     ("scroll_thumb", NINE_8, lambda k: capsule(8, k, face=darker(k.accent, 0.45))),
     # The mod's own button, kept. His is a fine capsule and it was tried here; this is the
-    # one the project prefers, and each look already builds its own edges - Future Sight's
-    # sweep, Retro's inset border, Bubble's rounding - which one silhouette off a sheet would
-    # have flattened into a single shape fourteen times over.
+    # one the project prefers, and each look already builds its own edges - Retro's inset
+    # border, Bubble's rounding - which one silhouette off a sheet would have flattened into
+    # a single shape thirteen times over.
     ("button", NINE_16, lambda k: plate(16, k, body=mix(k.body, k.bevel, 0.10), heavy=True)),
     # Through the readability floor, because mixing a third of the accent into a body that
     # was already exactly readable makes it lighter again - and the hover face is the one a

@@ -2662,11 +2662,11 @@ public final class DevScene {
             }
             case 247 -> {
                 shoot(client, "75-the-retro-look");
-                wearTheLook(client, "gathering:future");
+                wearTheLook(client, "gathering:arcane");
                 advance(SETTLE / 2);
             }
             case 248 -> {
-                shoot(client, "76-the-future-sight-look");
+                shoot(client, "76-the-arcane-look");
                 wearTheLook(client, "gathering:basic");
                 advance(SETTLE / 2);
             }
@@ -7740,12 +7740,24 @@ public final class DevScene {
             }
             for (int way : new int[] {-1, 1}) {
                 Rect end = board.lifeEndFor(seat.seat(), way);
-                Rect box = board.board().lifeRect(seat.seat());
+                Rect box = board.lifeBoxOf(seat.seat());
                 if (end.isEmpty() || box.isEmpty()
                         || !box.contains(end.x(), end.y())
                         || !box.contains(end.right() - 1, end.bottom() - 1)) {
                     fail("seat " + seat.seat().index() + " has no " + way
                             + " end on its counter: " + end + " in " + box);
+                    return;
+                }
+                // And the whole counter is somewhere a player can see and press. Its place on
+                // the surface is just past the far edge of its own board, which for the seat
+                // across the table is off the top of the screen's - so the far player's life
+                // total was drawn under the strip along the top and, while that strip was an
+                // opaque panel, was simply never seen.
+                int writing = TableScreenLayout.of(client.getWindow().getGuiScaledWidth(),
+                        client.getWindow().getGuiScaledHeight()).status().bottom();
+                if (box.y() < writing) {
+                    fail("seat " + seat.seat().index() + " has its life counter under the"
+                            + " writing along the top: " + box + ", which ends at " + writing);
                     return;
                 }
                 checked++;

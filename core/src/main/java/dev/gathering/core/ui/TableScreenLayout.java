@@ -17,15 +17,14 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
 
     /**
      * The strip along the top carrying names, life, and whose turn it is.
-     * <p>It was sixteen, which is exactly twice the panel border most looks draw - so the
-     * panel's top edge met its bottom edge with no middle between them, and on the looks
-     * whose border is a heavy band that came out as a squashed strip rather than a bar.
-     * Reported as "the top bar on in the table when using the future sight theme".
-     * <p>How thick that border really is belongs to the art rather than to this file, and it
-     * differs between looks, so the caller passes in what the look somebody is wearing needs
-     * and this is the floor under it: room for the writing, whatever the frame wants.
+     * <p>Not a bar any more. It was a panel, and a bar across the top of the table is a bar
+     * across the top of the table: it took a band of the felt on every frame of every game to
+     * hold four short lines, and because it wore each look's heaviest frame it also had to be
+     * tall enough for that frame to be a frame. The writing sits on the board now, with a
+     * shadow under it, and this is only how much room it is given and how far down the board
+     * begins - which is the writing's own height and a little air, and nothing else's.
      */
-    private static final int STATUS_HEIGHT = SpriteFrames.ROOMY_ENOUGH;
+    private static final int STATUS_HEIGHT = 16;
 
     /**
      * How much of the screen the hand gets.
@@ -39,22 +38,6 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
     /** The layout for somebody with a hand to hold, which is anybody in a chair. */
     public static TableScreenLayout of(int screenWidth, int screenHeight) {
         return of(screenWidth, screenHeight, true);
-    }
-
-    /**
-     * The same, with the strip along the top made tall enough for the frame it is drawn in.
-     * <p>The frame is a picture in a resource pack and its border is whatever the artist drew
-     * it at. A box shorter than a border's two edges has no middle for the middle of the
-     * picture to tile into, so the game runs the corners together and what comes out is not
-     * the bar anybody painted. The client reads the number off the sprite it is about to draw
-     * and passes it here; nothing else has to know a number at all.
-     *
-     * @param needsForItsFrame the shortest the strip may be for this look's panel, or zero
-     */
-    public static TableScreenLayout of(
-            int screenWidth, int screenHeight, boolean holdingAHand, int needsForItsFrame) {
-        TableScreenLayout fitted = of(screenWidth, screenHeight, holdingAHand);
-        return fitted.withStatusAtLeast(needsForItsFrame, screenHeight);
     }
 
     /**
@@ -95,29 +78,6 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
                 Math.min(SCRUBBER_HEIGHT, Math.max(1, screenHeight) / 2));
     }
 
-    /** The same, for a look whose panel needs more room than the default. */
-    public static TableScreenLayout watching(
-            int screenWidth, int screenHeight, int needsForItsFrame) {
-        return watching(screenWidth, screenHeight)
-                .withStatusAtLeast(needsForItsFrame, screenHeight);
-    }
-
-    /**
-     * This layout with the top strip grown to fit a frame, if it can be grown.
-     * <p>Never past a quarter of the window: a look with a heavy border on a very short
-     * window would otherwise spend a third of the table on a name bar, and a squashed frame
-     * is the lesser of those two. The cap is the same one the strip is fitted under to begin
-     * with, so on any window somebody would really play at nothing is capped at all.
-     */
-    private TableScreenLayout withStatusAtLeast(int needsForItsFrame, int screenHeight) {
-        int room = Math.max(1, screenHeight) / 4;
-        int wanted = Math.min(Math.max(status.height(), needsForItsFrame), room);
-        return wanted == status.height()
-                ? this
-                : new TableScreenLayout(felt, hand, new Rect(status.x(), status.y(),
-                        status.width(), wanted));
-    }
-
     private static TableScreenLayout withStrip(int screenWidth, int screenHeight, int stripHeight) {
         int width = Math.max(1, screenWidth);
         int height = Math.max(1, screenHeight);
@@ -131,9 +91,18 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
                 new Rect(0, 0, width, Math.min(STATUS_HEIGHT, height / 4)));
     }
 
-    /** Whether a point is on the table rather than on the hand or the strip above it. */
+    /**
+     * Whether a point is on the table rather than on the hand.
+     * <p>The strip along the top counts as table. It did not while it was a panel, because a
+     * panel is something in the way and a click on it is a click on it - but there is no
+     * panel there now, only writing with the felt behind it, and a band of the window that
+     * looks like table and does not answer the mouse is worse than a bar was: at least a bar
+     * said why. The board is laid out to start below the writing, so in the ordinary case
+     * there is nothing up there to click; it is where a card panned or dragged that far up
+     * ends, and that card is now reachable.
+     */
     public boolean isOnFelt(int x, int y) {
-        return felt.contains(x, y) && !hand.contains(x, y) && !status.contains(x, y);
+        return felt.contains(x, y) && !hand.contains(x, y);
     }
 
     private static int clamp(int value, int minimum, int maximum) {
