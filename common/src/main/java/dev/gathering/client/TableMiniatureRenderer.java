@@ -149,6 +149,25 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     /** Just under the card, so the halo shows around the edges and not through the art. */
     private static final float RING_DROP = 0.0003f;
 
+    /**
+     * One step between two things lying flat on each other.
+     * <p>Small enough that nothing looks lifted off the felt and large enough that the depth
+     * buffer never has to choose. Every flat marking names the layer it is on in these.
+     */
+    private static final float LAYER = 0.0001f;
+
+    /** The felt of a mat, clear of the block's own top face. */
+    private static final float MAT_FELT = LAYER;
+
+    /** The wash over the side of the table a card is coming down on. */
+    private static final float MAT_WASH = LAYER * 2;
+
+    /** The mat's border, over both. */
+    private static final float MAT_BORDER = LAYER * 3;
+
+    /** And anything printed on the felt over that, like the line marking off the land row. */
+    private static final float MAT_MARKING = LAYER * 4;
+
     /** A taken seat's mat, and the darker line around it. Read from above, in a lit room. */
     private static final int MAT_COLOR = 0x30000000;
 
@@ -237,7 +256,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                     flat(buffers.getBuffer(RenderType.debugQuads()), poseStack.last().pose(),
                             onSurface(divider.x(), span), onSurface(divider.y(), span),
                             onSurface(divider.right(), span), onSurface(divider.bottom(), span),
-                            GROUP_EDGE_COLOR);
+                            GROUP_EDGE_COLOR, MAT_MARKING);
                 }
             }
         }
@@ -348,19 +367,22 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
         Matrix4f pose = poseStack.last().pose();
 
+        // Off the block's own top face first of all, then a layer each. The felt, the wash
+        // over the side a card is coming down on, and the border are three things lying on
+        // one another, and on one plane the depth buffer chose between them per frame.
         if (filled) {
-            flat(consumer, pose, left, top, right, bottom, MAT_COLOR);
+            flat(consumer, pose, left, top, right, bottom, MAT_COLOR, MAT_FELT);
         }
         if (landing) {
             // The side of the table a card in the air would come down on. Lit across the
             // whole mat rather than only where a zone is, because most of a mat is felt and
             // dropping a card on felt is most of what anybody does with one.
-            flat(consumer, pose, left, top, right, bottom, MAT_LANDING);
+            flat(consumer, pose, left, top, right, bottom, MAT_LANDING, MAT_WASH);
         }
-        flat(consumer, pose, left, top, right, top + edge, border);
-        flat(consumer, pose, left, bottom - edge, right, bottom, border);
-        flat(consumer, pose, left, top, left + edge, bottom, border);
-        flat(consumer, pose, right - edge, top, right, bottom, border);
+        flat(consumer, pose, left, top, right, top + edge, border, MAT_BORDER);
+        flat(consumer, pose, left, bottom - edge, right, bottom, border, MAT_BORDER);
+        flat(consumer, pose, left, top, left + edge, bottom, border, MAT_BORDER);
+        flat(consumer, pose, right - edge, top, right, bottom, border, MAT_BORDER);
     }
 
     /**
@@ -617,13 +639,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         float right = onSurface(box.right(), span);
         float bottom = onSurface(box.bottom(), span);
         flat(buffers.getBuffer(RenderType.debugQuads()), poseStack.last().pose(),
-                left, top, right, bottom, LIFE_BACKING);
+                left, top, right, bottom, LIFE_BACKING, LIFE_LIFT);
         // In its own seat's color, the same way the mat is. Two boards facing each other
         // put their counters in the same strip of table between them, back to back; drawn in
         // the one gray every other marking uses, the pair read as a single control and
         // neither said which board it belonged to.
         drawGroup(poseStack, buffers, box, span,
-                dev.gathering.core.ui.SeatColor.at(seatIndex, 0xAA));
+                dev.gathering.core.ui.SeatColor.at(seatIndex, 0xAA), LIFE_LIFT + LAYER);
         // Turned to face its own player, like everything else printed for one seat, so both
         // players read their own total the right way up.
         int angle = surface.facingDegrees(seatIndex);
@@ -658,6 +680,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
                 lineHeight, onSurface(end.width(), span) * LIFE_END_WRITING, angle, 0);
     }
 
+    /** The life box's backing, clear of the cards' own plane and of its own border. */
+    private static final float LIFE_LIFT = LAYER;
+
     /** What a life total is written on, so it reads against the table rather than into it. */
     private static final int LIFE_BACKING = 0xC0101418;
 
@@ -674,11 +699,12 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private void drawGroup(
             PoseStack poseStack, MultiBufferSource buffers, Rect group, float span) {
-        drawGroup(poseStack, buffers, group, span, GROUP_EDGE_COLOR);
+        drawGroup(poseStack, buffers, group, span, GROUP_EDGE_COLOR, MAT_MARKING);
     }
 
     private void drawGroup(
-            PoseStack poseStack, MultiBufferSource buffers, Rect group, float span, int color) {
+            PoseStack poseStack, MultiBufferSource buffers, Rect group, float span, int color,
+            float lift) {
         if (group.isEmpty()) {
             return;
         }
@@ -690,10 +716,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
 
         VertexConsumer consumer = buffers.getBuffer(RenderType.debugQuads());
         Matrix4f pose = poseStack.last().pose();
-        flat(consumer, pose, left, top, right, top + edge, color);
-        flat(consumer, pose, left, bottom - edge, right, bottom, color);
-        flat(consumer, pose, left, top, left + edge, bottom, color);
-        flat(consumer, pose, right - edge, top, right, bottom, color);
+        flat(consumer, pose, left, top, right, top + edge, color, lift);
+        flat(consumer, pose, left, bottom - edge, right, bottom, color, lift);
+        flat(consumer, pose, left, top, left + edge, bottom, color, lift);
+        flat(consumer, pose, right - edge, top, right, bottom, color, lift);
     }
 
     /**
@@ -710,11 +736,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         Matrix4f pose = poseStack.last().pose();
         int border = aimed ? RING_COLOR : SLOT_EDGE_COLOR;
 
-        flat(consumer, pose, x, z, x + width, z + depth, aimed ? SLOT_AIMED : SLOT_COLOR);
-        flat(consumer, pose, x, z, x + width, z + edge, border);
-        flat(consumer, pose, x, z + depth - edge, x + width, z + depth, border);
-        flat(consumer, pose, x, z, x + edge, z + depth, border);
-        flat(consumer, pose, x + width - edge, z, x + width, z + depth, border);
+        // The recess under its own border, for the reason the mat's felt is under the mat's.
+        flat(consumer, pose, x, z, x + width, z + depth,
+                aimed ? SLOT_AIMED : SLOT_COLOR, MAT_FELT);
+        flat(consumer, pose, x, z, x + width, z + edge, border, MAT_WASH);
+        flat(consumer, pose, x, z + depth - edge, x + width, z + depth, border, MAT_WASH);
+        flat(consumer, pose, x, z, x + edge, z + depth, border, MAT_WASH);
+        flat(consumer, pose, x + width - edge, z, x + width, z + depth, border, MAT_WASH);
     }
 
     /**
@@ -1055,10 +1083,24 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
     private static void flat(
             VertexConsumer consumer, Matrix4f pose,
             float left, float top, float right, float bottom, int argb) {
-        consumer.addVertex(pose, left, 0f, top).setColor(argb);
-        consumer.addVertex(pose, left, 0f, bottom).setColor(argb);
-        consumer.addVertex(pose, right, 0f, bottom).setColor(argb);
-        consumer.addVertex(pose, right, 0f, top).setColor(argb);
+        flat(consumer, pose, left, top, right, bottom, argb, 0f);
+    }
+
+    /**
+     * The same, this far above the plane the pose is on.
+     * <p>Two quads on one plane z-fight, and the depth buffer picks a different winner from
+     * one frame to the next as the camera moves - which is what "the border of a playmat
+     * flickers like it's inside the table" is, and what the life box did against its own
+     * backing. Everything drawn flat says which layer it is on instead. The steps are a
+     * hair each: they have to separate the quads and must not lift a marking off the felt.
+     */
+    private static void flat(
+            VertexConsumer consumer, Matrix4f pose,
+            float left, float top, float right, float bottom, int argb, float lift) {
+        consumer.addVertex(pose, left, lift, top).setColor(argb);
+        consumer.addVertex(pose, left, lift, bottom).setColor(argb);
+        consumer.addVertex(pose, right, lift, bottom).setColor(argb);
+        consumer.addVertex(pose, right, lift, top).setColor(argb);
     }
 
     /**
