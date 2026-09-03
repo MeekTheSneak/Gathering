@@ -7,9 +7,10 @@ import java.util.Objects;
 /**
  * The manners every outbound request in this mod is made with.
  * <p>One request at a time behind a {@link RateLimiter}, a bounded number of attempts, a
- * backoff that grows between them, and one rule about which failures are worth trying again:
- * a 429 or a 5xx is the far end having a moment, while a 404 is an answer and a 400 is this
- * mod's mistake. Interruption is honored rather than swallowed, because these calls sit on a
+ * backoff that doubles between them, and one rule about which failures are worth trying
+ * again: a 429 or a 5xx is the far end having a moment, while a 404 is an answer and a 400 is
+ * this mod's mistake. A 429 also holds the limiter itself back, so the other threads asking
+ * the same place slow down rather than earning one of their own. Interruption is honored rather than swallowed, because these calls sit on a
  * pool that gets shut down when a world closes.
  * <p>Here rather than inside one API's client because the mod talks to three different places
  * - card data, deck sites, collation - and being a good citizen at all of them should not be
@@ -19,8 +20,14 @@ import java.util.Objects;
  */
 public final class HttpFetcher {
 
-    public static final int DEFAULT_MAX_ATTEMPTS = 3;
+    public static final int DEFAULT_MAX_ATTEMPTS = 4;
     public static final long DEFAULT_BACKOFF_MILLIS = 500L;
+
+    /** "You are asking too often." Not a failure of this request, but of the rate. */
+    private static final int TOO_MANY = 429;
+
+    /** As far as the pause doubles, so a long outage does not become a long sleep. */
+    private static final int DOUBLINGS = 4;
 
     private final HttpTransport transport;
     private final RateLimiter rateLimiter;
@@ -87,6 +94,11 @@ public final class HttpFetcher {
             }
             lastFailure = new FetchException(
                     description + " returned HTTP " + reply.status(), reply.status());
+            if (reply.status() == TOO_MANY) {
+                // Everything else waiting on this limiter waits too. Retrying this one page
+                // while the other nine carry on at full speed earns nine more of these.
+                rateLimiter.holdOff(pauseAfter(attempt));
+            }
             backoff(attempt, description);
         }
         throw lastFailure != null
@@ -94,12 +106,23 @@ public final class HttpFetcher {
                 : new FetchException(description + " failed after " + maxAttempts + " attempts", -1);
     }
 
+    /**
+     * How long to wait before the next attempt: doubling, rather than adding.
+     * <p>Three tries five hundred milliseconds apart is not long enough for a far end that
+     * has asked to be left alone - it is barely longer than the burst that annoyed it. The
+     * doubling stops after a few, because past that the mod is not being throttled, it is
+     * down, and a player waiting on a card list would rather hear so.
+     */
+    private long pauseAfter(int attempt) {
+        return backoffMillis << Math.min(DOUBLINGS, Math.max(0, attempt - 1));
+    }
+
     private void backoff(int attempt, String description) throws FetchException {
         if (attempt >= maxAttempts) {
             return;
         }
         try {
-            sleeper.sleep(backoffMillis * attempt);
+            sleeper.sleep(pauseAfter(attempt));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new FetchException(
