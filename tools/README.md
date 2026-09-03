@@ -7,6 +7,7 @@ it is needed to build the mod, and none of it ships in the jar.
 
 | | |
 |---|---|
+| `gate.sh` | Everything that has to pass before a change is called working: the build with its unit tests, then the eight checks, and the in-world game tests with `--game`. Reports by exit code and names the stage that broke, because reading a build's output for the wrong word is a real way to report a green gate that is not one - `gradlew build \| grep error:` says nothing when a test fails, since a failing test prints `FAILED`. |
 | `smoke.sh` | Boots every target the mod claims to run on and says whether it did. Also runs every check below. |
 | `../gradlew verify` | The gate: build, unit tests, data generation, and both loaders' in-world tests. |
 | `shots.sh` | Drives a real client through the scripted session in `DevScene` and leaves the pictures in `neoforge/run/screenshots`. |
