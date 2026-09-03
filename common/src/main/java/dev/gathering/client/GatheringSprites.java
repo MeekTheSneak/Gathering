@@ -376,17 +376,18 @@ public final class GatheringSprites {
         ResourceLocation sprite = of(element);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        if (hasRoomForItsBorder(sprite, width, height)) {
+        // Resolved once and passed along. Everything here wants the same stitched sprite, and
+        // this runs for every rectangle on every frame of a screen that may have two hundred
+        // of them.
+        TextureAtlasSprite drawn = drawn(sprite);
+        if (drawn == null || hasRoomForItsBorder(drawn, width, height)) {
             graphics.blitSprite(sprite, x, y, width, height);
             return;
         }
         if (element.whenCramped() == Element.WhenCramped.LEFT_OFF) {
             return;
         }
-        TextureAtlasSprite squashed = drawn(sprite);
-        if (squashed != null) {
-            graphics.blit(x, y, 0, width, height, squashed);
-        }
+        graphics.blit(x, y, 0, width, height, drawn);
     }
 
     /**
@@ -405,28 +406,30 @@ public final class GatheringSprites {
      * <p>Stricter than the game's own rule, which only refuses a nine-slice with no middle
      * at all. See {@link #across}.
      */
-    private static boolean hasRoomForItsBorder(ResourceLocation sprite, int width, int height) {
-        Minecraft client = Minecraft.getInstance();
-        if (client == null) {
-            return true;
-        }
-        TextureAtlasSprite drawn = drawn(sprite);
-        if (drawn == null) {
-            return true;
-        }
-        if (!(client.getGuiSprites().getSpriteScaling(drawn)
-                instanceof GuiSpriteScaling.NineSlice nine)) {
-            return true;
-        }
-        GuiSpriteScaling.NineSlice.Border border = nine.border();
-        return width >= across(border) && height >= along(border);
+    private static boolean hasRoomForItsBorder(TextureAtlasSprite drawn, int width, int height) {
+        GuiSpriteScaling.NineSlice nine = sliced(drawn);
+        // Null where it is stretched or tiled, or before the atlas is stitched: nothing to
+        // run out of room for, so it is drawn the way it always was.
+        return nine == null
+                || (width >= across(nine.border()) && height >= along(nine.border()));
     }
 
     /**
-     * The stitched sprite behind a name, or null before the atlas has one.
-     * <p>Null rather than an exception: this is asked once per drawn rectangle, and a frame
-     * that will not draw at all is worse than a frame drawn without one panel in it.
+     * The nine-slice this sprite is drawn as, or null where it is stretched or tiled.
+     * <p>Null rather than an exception all the way down: this is asked once per drawn
+     * rectangle, and a frame that will not draw at all is worse than a frame drawn with one
+     * panel sliced the wrong way.
      */
+    private static GuiSpriteScaling.NineSlice sliced(TextureAtlasSprite drawn) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || drawn == null) {
+            return null;
+        }
+        return client.getGuiSprites().getSpriteScaling(drawn)
+                instanceof GuiSpriteScaling.NineSlice nine ? nine : null;
+    }
+
+    /** The stitched sprite behind a name, or null before the atlas has one. */
     private static TextureAtlasSprite drawn(ResourceLocation sprite) {
         Minecraft client = Minecraft.getInstance();
         return client == null ? null : client.getGuiSprites().getSprite(sprite);
@@ -439,15 +442,8 @@ public final class GatheringSprites {
      * middle at all on any look.
      */
     public static int smallestFor(Element element) {
-        Minecraft client = Minecraft.getInstance();
-        TextureAtlasSprite drawn = drawn(of(element));
-        if (client == null || drawn == null
-                || !(client.getGuiSprites().getSpriteScaling(drawn)
-                        instanceof GuiSpriteScaling.NineSlice nine)) {
-            return 0;
-        }
-        GuiSpriteScaling.NineSlice.Border border = nine.border();
-        return Math.max(across(border), along(border));
+        GuiSpriteScaling.NineSlice nine = sliced(drawn(of(element)));
+        return nine == null ? 0 : Math.max(across(nine.border()), along(nine.border()));
     }
 
     /**
@@ -458,11 +454,8 @@ public final class GatheringSprites {
      * sat on the corner ornament.
      */
     public static int borderOf(Element element) {
-        Minecraft client = Minecraft.getInstance();
-        TextureAtlasSprite drawn = drawn(of(element));
-        if (client == null || drawn == null
-                || !(client.getGuiSprites().getSpriteScaling(drawn)
-                        instanceof GuiSpriteScaling.NineSlice nine)) {
+        GuiSpriteScaling.NineSlice nine = sliced(drawn(of(element)));
+        if (nine == null) {
             return 0;
         }
         GuiSpriteScaling.NineSlice.Border border = nine.border();

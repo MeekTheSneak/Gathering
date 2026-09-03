@@ -2231,6 +2231,9 @@ public final class TableScreen extends Screen {
         // draw a panel at sixteen pixels had the first letter of the first name sitting on
         // the corner ornament.
         int pad = Math.max(4, GatheringSprites.borderOf(Element.PANEL));
+        // And a gap between one seat's line and the next, so "library 1" and the next name
+        // do not read as one sentence on a narrow window.
+        int gap = 8;
         int inside = Math.max(1, area.width() - pad * 2);
         int turnWidth = Math.min(inside / 3, 190);
         int column = seats.isEmpty() ? inside : (inside - turnWidth) / seats.size();
@@ -2265,7 +2268,7 @@ public final class TableScreen extends Screen {
                 }
             }
             GuiText.draw(graphics, this.font, text,
-                    area.x() + pad + index * column, line, column - 4,
+                    area.x() + pad + index * column, line, column - gap,
                     SeatColor.at(seat.seat().index(), 0xFF));
         }
 
