@@ -24,7 +24,7 @@ subprojects {
     group = project.mod_group_id
     version = project.mod_version
 
-    // gathering-neoforge-0.1.0.jar rather than neoforge-0.1.0.jar. The module's own name is
+    // gathering-neoforge-<version>.jar rather than neoforge-<version>.jar. The module's own name is
     // the loader, which is the right name inside this build and exactly the wrong one in
     // somebody's mods folder: two mods built this way would both ship a "neoforge-1.0.0.jar"
     // and one of them would quietly overwrite the other.
