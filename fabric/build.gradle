@@ -134,6 +134,10 @@ processResources {
         minecraft_version: minecraft_version,
         java_version   : java_version,
         fabric_loader_version: fabric_loader_version,
+        // The API this was built against. "fabric-api": "*" accepted any version at all,
+        // including ones for a different Minecraft, which turns a dependency refusal into a
+        // crash somewhere in the middle of a game.
+        fabric_api_version: fabric_api_version,
     ]
     inputs.properties(expandProps)
     filesMatching('fabric.mod.json') { expand expandProps }

@@ -114,14 +114,15 @@ public final class CardInspectPanel {
      * because this panel is drawn over the vanilla tooltip and should sit where it sat.
      */
     public static void renderBeside(
-            GuiGraphics graphics, CardSummary summary, boolean foil, CardStory story,
-            String strength, int anchorX, int anchorY, int screenWidth, int screenHeight) {
+            GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
+            CardStory story, String strength, int anchorX, int anchorY,
+            int screenWidth, int screenHeight) {
         told = story == null ? CardStory.NONE : story;
         overwritten = strength;
         graphics.pose().pushPose();
         graphics.pose().translate(0f, 0f, OVER_ITEMS);
         try {
-            drawBeside(graphics, summary, foil, anchorX, anchorY, screenWidth, screenHeight);
+            drawBeside(graphics, summary, foil, flipped, anchorX, anchorY, screenWidth, screenHeight);
         } finally {
             graphics.pose().popPose();
             told = CardStory.NONE;
@@ -130,11 +131,12 @@ public final class CardInspectPanel {
     }
 
     private static void drawBeside(
-            GuiGraphics graphics, CardSummary summary, boolean foil,
+            GuiGraphics graphics, CardSummary summary, boolean foil, boolean flipped,
             int anchorX, int anchorY, int screenWidth, int screenHeight) {
         // Art per printed side, text per face: a split card is one picture and two rules
-        // boxes.
-        List<CardFaceSummary> faces = List.of(summary.sideShown(false));
+        // boxes. The side is the one the card is showing - a transformed permanent read from
+        // the table used to be described by its front, which is a different card.
+        List<CardFaceSummary> faces = List.of(summary.sideShown(flipped));
         Font font = Minecraft.getInstance().font;
 
         int artHeight = Mth.clamp(

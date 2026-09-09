@@ -351,17 +351,22 @@ public final class PackOpening {
      * <p>The same rule the ceremony's own glow and reveal order use - see
      * {@link dev.gathering.core.ui.PackGlow} - so the card that came out last, ringed in its
      * rarity's color, is the card that remembers coming out.
+     * <p>Public so the in-world tests can ask it directly, which is how the direction of the
+     * comparison came to be checked at all.
      */
-    private static CardIdentity bestOf(List<CardIdentity> giving, List<CardMetadata> about) {
+    public static CardIdentity bestOf(List<CardIdentity> giving, List<CardMetadata> about) {
         CardIdentity best = null;
-        int rank = Integer.MAX_VALUE;
+        // Higher is better, which is the direction PackGlow ranks in and the direction the
+        // reveal ceremony walks. This started at MAX_VALUE and kept whatever ranked below
+        // it, so the card that remembered being opened was the worst common in the pack.
+        int rank = Integer.MIN_VALUE;
         for (CardIdentity card : giving) {
             for (CardMetadata detail : about) {
                 if (!card.printing().filter(detail.scryfallId()::equals).isPresent()) {
                     continue;
                 }
                 int at = dev.gathering.core.ui.PackGlow.rankOf(detail.rarity());
-                if (at < rank) {
+                if (at > rank) {
                     rank = at;
                     best = card;
                 }

@@ -47,5 +47,7 @@ public final class PlayerGone {
         // And the throttle that decides how often they may ask about a set, which is counted
         // in this server's ticks and means nothing in the next one.
         CollectionSets.forget(player.getUUID());
+        // And what they had a card lookup out for, which is what bounds the shared worker.
+        CardMetadataRequests.forget(player.getUUID());
     }
 }

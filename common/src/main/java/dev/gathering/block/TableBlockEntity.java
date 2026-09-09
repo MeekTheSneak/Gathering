@@ -193,6 +193,57 @@ public class TableBlockEntity extends BlockEntity {
         return session != null || stored != null;
     }
 
+    /**
+     * Whether this table is holding a game it cannot open.
+     * <p>Told apart from "holding a game", because everything else treats the two the same:
+     * the table reads as occupied, right-clicking it finds no session and does nothing, and
+     * crouching says a game is already running. A player is left with a table that is neither
+     * playable nor clearable and nothing saying why.
+     */
+    public boolean sessionFailed() {
+        // Asked rather than read: opening it is attempted once, lazily, and until somebody
+        // has asked there is nothing to have failed.
+        return session().isEmpty() && stored != null;
+    }
+
+    /**
+     * Puts an unopenable game aside so the table can be used again.
+     * <p>The bytes are written out first, under the mod's own data directory, and only then
+     * dropped from the table. Nothing here overwrites a game with nothing: what could not be
+     * read this time may be readable by a later version, or by somebody with the key, and it
+     * is the only copy.
+     *
+     * @return where the game was put, or empty if it could not be written and so was kept
+     */
+    public Optional<java.nio.file.Path> setAsideTheBrokenGame() {
+        StoredSession broken = stored;
+        if (broken == null) {
+            return Optional.empty();
+        }
+        java.nio.file.Path where;
+        try {
+            java.nio.file.Path folder = dev.gathering.platform.Platform.get()
+                    .dataDirectory().resolve("unreadable-games");
+            java.nio.file.Files.createDirectories(folder);
+            where = folder.resolve(worldPosition.getX() + "_" + worldPosition.getY() + "_"
+                    + worldPosition.getZ() + "-" + System.currentTimeMillis() + ".dat");
+            CompoundTag holding = new CompoundTag();
+            holding.putByteArray(SESSION_OPEN_KEY, broken.openPart());
+            holding.putByteArray(SESSION_SEALED_KEY, broken.sealedPart());
+            try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(where)) {
+                net.minecraft.nbt.NbtIo.writeCompressed(holding, out);
+            }
+        } catch (java.io.IOException | RuntimeException couldNotWrite) {
+            LOGGER.error("Could not set aside the unreadable game at {}: {}",
+                    worldPosition, couldNotWrite.toString());
+            return Optional.empty();
+        }
+        this.stored = null;
+        this.restoreFailed = false;
+        setChanged();
+        return Optional.of(where);
+    }
+
     public Optional<MatchState> match() {
         return Optional.ofNullable(match);
     }

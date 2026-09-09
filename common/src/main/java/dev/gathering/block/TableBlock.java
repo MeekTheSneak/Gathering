@@ -135,6 +135,27 @@ public class TableBlock extends BaseEntityBlock {
         };
     }
 
+    /**
+     * Puts an unreadable game aside and hands back what the table was holding.
+     * <p>The decks and the pot go back to the people they belong to, exactly as they do when
+     * a game ends, because the table is about to stop holding them. The game itself is
+     * written out rather than deleted - it is the only copy, and a later version may read it.
+     */
+    private static void setAsideTheBrokenGame(
+            Level level, BlockPos tableOrigin, TableBlockEntity table,
+            net.minecraft.server.level.ServerPlayer asking) {
+        java.nio.file.Path where = table.setAsideTheBrokenGame().orElse(null);
+        if (where == null) {
+            asking.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.gathering.session_unreadable_kept"));
+            return;
+        }
+        TableSessions.returnDecks(level, tableOrigin, table);
+        TableSessions.settlePot(level, tableOrigin, table, null);
+        asking.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                "message.gathering.session_set_aside", where.getFileName().toString()));
+    }
+
     /** The corner that owns the table this block is part of. */
     public static BlockPos originOf(BlockState state, BlockPos pos) {
         return state.getValue(PART).originFrom(pos);
@@ -219,9 +240,29 @@ public class TableBlock extends BaseEntityBlock {
     private static void spillDecks(Level level, BlockPos pos, BlockState state) {
         BlockPos origin = originOf(state, pos);
         tearingDown(level, pos, state).ifPresent(table -> {
+            // A game still on it ends the way any game ends, rather than having its things
+            // handed back around it: the log is closed, the replay is kept, everybody
+            // watching is told, and only then are the decks and the pot returned. A table
+            // blown up mid-game used to spill the decks and leave the session to vanish with
+            // the block - no replay, and every client still holding a board that looked live.
+            if (table.hasSession() && TableSessions.end(
+                    level, origin, firstSeatOf(table), "table_removed") == TableSessions.Outcome.ENDED) {
+                return;
+            }
             TableSessions.returnDecks(level, origin, table);
             TableSessions.settlePot(level, origin, table, null);
         });
+    }
+
+    /**
+     * Whose name the log gets for an ending nobody asked for.
+     * <p>An explosion has no actor, and the event needs one. The first seat of the table is
+     * the one the command's own path uses when nobody won.
+     */
+    private static dev.gathering.core.game.SeatId firstSeatOf(TableBlockEntity table) {
+        return table.session()
+                .map(session -> session.state().seats().get(0))
+                .orElseGet(() -> new dev.gathering.core.game.SeatId(0));
     }
 
     /**
@@ -362,6 +403,23 @@ public class TableBlock extends BaseEntityBlock {
         // It asks rather than starts: which format and how many games is the difference
         // between a Commander pod and a best-of-three of Modern, and picking one for the
         // table picks a format to be the real one.
+        // A game this server cannot open is neither playable nor clearable, and every other
+        // path treats it as a game in progress: the board does not open, crouching says one
+        // is already running, and nothing says why. Crouching sets it aside instead, and an
+        // ordinary click says that is what crouching will do.
+        TableBlockEntity holding = entityAt(level, tableOrigin).orElse(null);
+        if (holding != null && holding.sessionFailed()) {
+            if (player instanceof net.minecraft.server.level.ServerPlayer told) {
+                if (player.isShiftKeyDown()) {
+                    setAsideTheBrokenGame(level, tableOrigin, holding, told);
+                } else {
+                    told.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                            "message.gathering.session_unreadable"));
+                }
+            }
+            return ItemInteractionResult.SUCCESS;
+        }
+
         if (player.isShiftKeyDown()) {
             startOrContinue(level, tableOrigin, player);
             return ItemInteractionResult.SUCCESS;

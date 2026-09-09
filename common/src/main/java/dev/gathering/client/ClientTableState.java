@@ -134,6 +134,23 @@ public final class ClientTableState {
         return Optional.ofNullable(seatedAt);
     }
 
+    /**
+     * One table's game has ended: forget that board, and close it if it is what is open.
+     * <p>That table and no other. This used to forget every board this client knew and close
+     * whatever table screen was up, so a game ending at one table of a pod blanked the board
+     * at the other - and a watcher standing between two tables lost both.
+     */
+    public static void closed(BlockPos table) {
+        if (table == null) {
+            return;
+        }
+        forget(table);
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+        if (client.screen instanceof TableScreen board && board.isAbout(table)) {
+            client.setScreen(null);
+        }
+    }
+
     /** Stops watching one table, without forgetting the rest of the room. */
     public static void forget(BlockPos table) {
         POTS.remove(table);

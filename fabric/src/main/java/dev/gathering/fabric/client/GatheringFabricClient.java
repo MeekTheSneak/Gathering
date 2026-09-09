@@ -168,12 +168,8 @@ public final class GatheringFabricClient implements ClientModInitializer {
 
         ClientPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.CloseTablePayload.TYPE, (payload, context) ->
-                        context.client().execute(() -> {
-                            dev.gathering.client.ClientTableState.clear();
-                            if (context.client().screen instanceof dev.gathering.client.TableScreen) {
-                                context.client().setScreen(null);
-                            }
-                        }));
+                        context.client().execute(() ->
+                                dev.gathering.client.ClientTableState.closed(payload.table())));
 
         ClientPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.OpenTableSetupPayload.TYPE, (payload, context) ->

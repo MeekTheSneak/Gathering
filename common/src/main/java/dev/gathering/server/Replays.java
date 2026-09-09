@@ -147,6 +147,19 @@ public final class Replays {
         }
     }
 
+    /**
+     * Headers already read, by file name.
+     * <p>A replay file is written once and never edited, so a header read from it is true for
+     * as long as the file exists. Bounded by the shelf's own cap.
+     */
+    private static final java.util.Map<String, Record> HEADERS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Forgets what has been read, for a server that is stopping. */
+    public static void clearHeaders() {
+        HEADERS.clear();
+    }
+
     /** What has been kept, newest first. */
     public static List<Record> kept() {
         List<Record> found = new ArrayList<>();
@@ -315,9 +328,20 @@ public final class Replays {
         }
     }
 
+    /**
+     * The few hundred bytes at the front of a replay, without reading the rest of it.
+     * <p>This used to read the whole file to answer "who played this and how long was it" -
+     * and every frame a watcher asks for checks the header first, so scrubbing through a long
+     * game re-read the entire game off disk several times a second, on the server thread.
+     * A stream stops at the header; the cache below stops even that happening twice.
+     */
     private static java.util.Optional<Record> headerOf(Path file) {
+        Record remembered = HEADERS.get(file.getFileName().toString());
+        if (remembered != null) {
+            return java.util.Optional.of(remembered);
+        }
         try (DataInputStream in = new DataInputStream(
-                new ByteArrayInputStream(Files.readAllBytes(file)))) {
+                new java.io.BufferedInputStream(Files.newInputStream(file)))) {
             if (in.readInt() != VERSION) {
                 return java.util.Optional.empty();
             }
@@ -334,8 +358,12 @@ public final class Replays {
                 String name = in.readUTF();
                 named.add(new Played(name, new java.util.UUID(in.readLong(), in.readLong())));
             }
-            return java.util.Optional.of(new Record(
-                    file.getFileName().toString(), when, named, turns, steps, seats));
+            Record header = new Record(
+                    file.getFileName().toString(), when, named, turns, steps, seats);
+            // Kept: a replay file never changes once written, so its header is the same
+            // answer every time somebody asks. The shelf is capped, so this is too.
+            HEADERS.put(header.id(), header);
+            return java.util.Optional.of(header);
         } catch (IOException | RuntimeException unreadable) {
             return java.util.Optional.empty();
         }
@@ -373,6 +401,7 @@ public final class Replays {
         List<Path> files = files();
         for (int index = KEPT; index < files.size(); index++) {
             try {
+                HEADERS.remove(files.get(index).getFileName().toString());
                 Files.deleteIfExists(files.get(index));
             } catch (IOException couldNotDelete) {
                 LOGGER.warn("Could not drop an old replay: {}", couldNotDelete.toString());

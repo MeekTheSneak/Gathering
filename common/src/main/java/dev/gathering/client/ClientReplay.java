@@ -104,7 +104,14 @@ public final class ClientReplay {
             waiting = 0;
         }
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
-        if (!(client.screen instanceof TableScreen table && table.isReplay())) {
+        if (client.screen instanceof TableScreen table && table.isReplay()) {
+            return;
+        }
+        // Only from the list this replay was picked in. A frame that arrives after the
+        // player has walked away used to open the replay over whatever they were doing -
+        // the world, a deck box, another table - because the first frame of a long game can
+        // take a moment to fold and nothing cancelled the watch.
+        if (client.screen instanceof ReplayListScreen) {
             client.setScreen(TableScreen.watching());
         }
     }
@@ -157,13 +164,17 @@ public final class ClientReplay {
         if (!playing) {
             return;
         }
-        if (step >= steps) {
-            playing = false;
-            return;
-        }
         if (asked >= 0) {
             // Still waiting. Playing faster than the server answers would queue up requests
-            // nobody is going to see.
+            // nobody is going to see - and asked before the end-of-replay check below,
+            // because pressing play at the end asks for frame zero and the step it is
+            // leaving is still the last one until that frame lands. Checked the other way
+            // round, the very next tick decided the replay was over and stopped it, so play
+            // rewound and did not play.
+            return;
+        }
+        if (step >= steps) {
+            playing = false;
             return;
         }
         if (++sinceStep < TICKS_PER_STEP) {

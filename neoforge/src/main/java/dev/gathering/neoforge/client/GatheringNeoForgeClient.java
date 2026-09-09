@@ -227,13 +227,8 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> dev.gathering.client.TradeScreen.accept(trade));
             return;
         }
-        if (payload instanceof dev.gathering.network.CloseTablePayload) {
-            context.enqueueWork(() -> {
-                dev.gathering.client.ClientTableState.clear();
-                if (Minecraft.getInstance().screen instanceof dev.gathering.client.TableScreen) {
-                    Minecraft.getInstance().setScreen(null);
-                }
-            });
+        if (payload instanceof dev.gathering.network.CloseTablePayload closing) {
+            context.enqueueWork(() -> dev.gathering.client.ClientTableState.closed(closing.table()));
             return;
         }
         if (payload instanceof ImportResultPayload result) {

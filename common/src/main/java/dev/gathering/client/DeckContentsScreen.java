@@ -512,9 +512,11 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         if (menu != null) {
             ContextMenu open = menu;
             menu = null;
-            if (open.mouseClicked((int) mouseX, (int) mouseY)) {
-                return true;
-            }
+            // The click is the menu's whether it landed on a row or beside it. It used to
+            // fall through on a miss and take a card out of the deck under the pointer,
+            // which is the opposite of what dismissing a menu means.
+            open.mouseClicked((int) mouseX, (int) mouseY);
+            return true;
         }
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;

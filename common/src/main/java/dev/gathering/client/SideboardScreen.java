@@ -110,6 +110,25 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
     private void regroup() {
         this.mainRows = groupedFor(DeckComponent.Section.MAINBOARD);
         this.sideRows = groupedFor(DeckComponent.Section.SIDEBOARD);
+        askForNames();
+    }
+
+    /**
+     * Asks for the names of everything listed here that this client cannot name.
+     * <p>Sideboarding is the one screen that shows a whole deck without any of it having been
+     * on a table, so nothing has pushed these names to this client. After a reconnect that
+     * meant a deck of "Loading" between games - the moment a player most needs to read their
+     * own list. The background scanner asks about loose cards and commanders, not about every
+     * sleeved card in a deck, so this screen asks for its own.
+     */
+    private void askForNames() {
+        if (deck == null) {
+            return;
+        }
+        java.util.List<java.util.UUID> printings = deck.distinctPrintings();
+        if (!printings.isEmpty()) {
+            ClientNetworking.send(new dev.gathering.network.RequestCardMetadataPayload(printings));
+        }
     }
 
     /** Whichever column that section is, already grouped. */

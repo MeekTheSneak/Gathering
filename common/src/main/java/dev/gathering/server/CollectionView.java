@@ -6,7 +6,6 @@ import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.collection.CardTally;
 import dev.gathering.core.collection.CollectionSearch;
-import dev.gathering.core.scryfall.CardQuery;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.CardItem;
 import dev.gathering.item.DeckComponent;
@@ -100,6 +99,17 @@ public final class CollectionView {
      */
     public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
             boolean descending, int page, int rowsThatFit, boolean pockets) {
+        search(player, where, query, descending, page, rowsThatFit, pockets, 0);
+    }
+
+    /**
+     * The same, saying which request is being answered.
+     * <p>A screen sends one of these per keystroke and the answers do not have to come back
+     * in the order they were asked. The number goes out with the page so a screen can tell an
+     * answer to what it is showing now from an answer to what it was showing two letters ago.
+     */
+    public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
+            boolean descending, int page, int rowsThatFit, boolean pockets, int revision) {
         CollectionBlockEntity collection = at(player, where);
         if (collection == null || tooSoon(player)) {
             return;
@@ -136,7 +146,7 @@ public final class CollectionView {
         Sending.to(player, new CollectionPagePayload(
                 where, showing, pages,
                 new CollectionPagePayload.Counts(pool.total(), pool.distinct(), found.size()),
-                sending));
+                sending, revision));
 
         // Whatever this page could not name is looked up now, so a second look at the same
         // page has it. Only this page: a collection of ten thousand cards nobody has ever
@@ -547,9 +557,10 @@ public final class CollectionView {
         if (service == null) {
             return null;
         }
-        return card.printing()
-                .flatMap(printing -> service.store().find(CardQuery.byId(printing)))
-                .orElse(null);
+        // Memory only. This is asked once per row of a page, so on a cold cache a page of a
+        // large collection was a hundred file reads and parses inside one tick. What is not
+        // in memory is fetched off the game thread by fetchLater and named on the next page.
+        return card.printing().flatMap(service::peek).orElse(null);
     }
 
     private static void fetchLater(List<UUID> printings) {

@@ -102,6 +102,21 @@ public final class ReplayListScreen extends Screen {
         ClientReplay.watch(game.id());
     }
 
+    /**
+     * Leaving the list gives up whatever was being waited for.
+     * <p>Unless what is opening is the replay itself: the frame arrives, opens the table
+     * screen, and this screen is removed as part of that. Without the guard, picking a game
+     * would cancel the very watch that opened it.
+     */
+    @Override
+    public void removed() {
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+        if (!(client.screen instanceof TableScreen board && board.isReplay())) {
+            ClientReplay.stop();
+        }
+        super.removed();
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         int showing = rowsThatFit();

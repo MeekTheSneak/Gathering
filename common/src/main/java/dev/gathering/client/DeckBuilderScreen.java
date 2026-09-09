@@ -209,7 +209,11 @@ public final class DeckBuilderScreen extends ChildScreen {
             this.searchBox.setHint(
                     Component.translatable("screen.gathering.collection.search_hint"));
             this.searchBox.setValue(searching);
-            this.searchBox.setResponder(text -> askFor(0));
+            // Typing marks the search dirty rather than sending one letter at a time. The
+            // server drops a second search inside the same tick, and the one it dropped was
+            // usually the last letter typed - so the grid sat there showing results for a
+            // search the player had already finished changing.
+            this.searchBox.setResponder(text -> typedAt = System.currentTimeMillis());
             addRenderableWidget(this.searchBox);
 
             addRenderableWidget(GatheringButtons.of(footer.fromList(),
@@ -352,7 +356,25 @@ public final class DeckBuilderScreen extends ChildScreen {
         }
         query = query.searchingFor(searchBox == null ? query.text() : searchBox.getValue());
         ClientNetworking.send(new CollectionSearchPayload(
-                where, query, false, Math.max(0, wanted), grid().cells(), true));
+                where, query, false, Math.max(0, wanted), grid().cells(), true, ++asked));
+    }
+
+    /** When the search box last changed, or zero when nothing is waiting to be sent. */
+    private long typedAt;
+
+    /** Which search this screen is on, so an older answer can be told from the newest. */
+    private int asked;
+
+    /** How long after the last keystroke the search goes, which is about four ticks. */
+    private static final long SETTLES_AFTER_MILLIS = 200;
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (typedAt != 0 && System.currentTimeMillis() - typedAt >= SETTLES_AFTER_MILLIS) {
+            typedAt = 0;
+            askFor(0);
+        }
     }
 
     /**
@@ -394,9 +416,17 @@ public final class DeckBuilderScreen extends ChildScreen {
         this.rows = List.copyOf(all.subList(from, Math.min(from + perPage, all.size())));
     }
 
-    /** A page came back. Kept whether or not it is the one asked for; the server decides. */
+    /**
+     * A page came back.
+     * <p>Only if it answers the search this screen is on. Pages for older searches still
+     * arrive - typing sends several and the server answers what it can - and drawing one of
+     * them puts the results of two letters ago under a box that says something else.
+     */
     public void accept(CollectionPagePayload payload) {
         if (where == null || !payload.where().equals(where)) {
+            return;
+        }
+        if (payload.revision() != 0 && payload.revision() != asked) {
             return;
         }
         this.rows = payload.rows();
@@ -619,7 +649,9 @@ public final class DeckBuilderScreen extends ChildScreen {
     private void drawDeck(GuiGraphics graphics, int mouseX, int mouseY) {
         Rect pane = deckPane();
         int curveHeight = CURVE_HEIGHT;
-        int listBottom = pane.bottom() - curveHeight;
+        // The same rectangle the scroll limit is worked out from, so what can be scrolled to
+        // and what is drawn are one answer.
+        int listBottom = listViewport().bottom();
 
         graphics.drawString(this.font,
                 fromPockets()
@@ -751,6 +783,20 @@ public final class DeckBuilderScreen extends ChildScreen {
     private final List<DeckRow> deckRows = new ArrayList<>();
     private int deckHeight;
 
+    /**
+     * The part of the deck pane the list is actually drawn in.
+     * <p>Worked out once and used by the drawing, the hit test and the scroll limit, because
+     * they disagreed: the list starts two rows down and the mana curve takes the bottom, and
+     * the scroll limit subtracted four rows for both of them - eighteen pixels short. In a
+     * long deck the last row could not be brought into view, and the one above it was drawn
+     * under the curve.
+     */
+    private Rect listViewport() {
+        Rect pane = deckPane();
+        int top = pane.y() + ROW_HEIGHT * 2;
+        return new Rect(pane.x(), top, pane.width(), Math.max(0, pane.bottom() - CURVE_HEIGHT - top));
+    }
+
     // ----------------------------------------------------------------- input
 
     @Override
@@ -810,7 +856,7 @@ public final class DeckBuilderScreen extends ChildScreen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amountX, double amountY) {
         if (deckPane().contains((int) mouseX, (int) mouseY)) {
-            int most = Math.max(0, deckHeight - (deckPane().height() - ROW_HEIGHT * 4));
+            int most = Math.max(0, deckHeight - listViewport().height());
             deckScroll = Math.clamp(deckScroll - (int) (amountY * ROW_HEIGHT * 2), 0, most);
             return true;
         }

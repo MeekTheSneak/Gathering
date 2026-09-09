@@ -50,11 +50,14 @@ public final class ReplayWatch {
     /** Between servers, and when somebody logs out with a replay open. */
     public static void forget(java.util.UUID who) {
         OPEN.remove(who);
+        LAST_FRAME.remove(who);
     }
 
     /** Between servers: one world's replays are not the next one's. */
     public static void clear() {
         OPEN.clear();
+        LAST_FRAME.clear();
+        Replays.clearHeaders();
     }
 
     /** Whether this server writes a finished game down at all. */
@@ -116,7 +119,35 @@ public final class ReplayWatch {
         Sending.to(player, new ReplayListPayload(List.copyOf(rows)));
     }
 
+    /**
+     * The shortest gap between two frames one watcher may ask for.
+     * <p>Dragging a scrubber sends one of these per pixel, and every one folds a game to a
+     * step on the server thread. Two ticks is faster than playback runs and slower than a
+     * mouse can drag, so scrubbing costs a bounded amount of work rather than however much
+     * somebody's hand can ask for.
+     */
+    private static final int TICKS_BETWEEN_FRAMES = 2;
+
+    /** Per watcher, the server tick their last frame was answered on. */
+    private static final java.util.Map<java.util.UUID, Integer> LAST_FRAME =
+            new java.util.HashMap<>();
+
+    /** Whether this watcher asked too recently to be answered again. */
+    private static boolean tooFast(ServerPlayer player) {
+        int now = player.server.getTickCount();
+        Integer last = LAST_FRAME.get(player.getUUID());
+        // A tick count that has gone backwards is a different server, so the wait is over.
+        if (last != null && now >= last && now - last < TICKS_BETWEEN_FRAMES) {
+            return true;
+        }
+        LAST_FRAME.put(player.getUUID(), now);
+        return false;
+    }
+
     private static void sendFrame(ServerPlayer player, String id, int step) {
+        if (tooFast(player)) {
+            return;
+        }
         // Checked here as well as when the list went out. The list is a courtesy; this is the
         // fence, because an id is a string on the wire and nothing stops a client sending one
         // it was never shown.

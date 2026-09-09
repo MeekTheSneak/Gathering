@@ -72,8 +72,24 @@ public final class ClientCardImages {
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
+    /**
+     * One texture that is on the card, and how much of the graphics card it is holding.
+     * <p>The size is kept because the budget is in bytes and the cache was counting textures:
+     * two hundred and fifty-six of them at the crisp tier is seven hundred and fifty
+     * megabytes, against a documented ceiling of three hundred and twenty-five. Reading a page
+     * of cards with the key held filled it with the large ones.
+     */
+    private record Held(ResourceLocation id, long bytes, boolean crisp) {
+    }
+
     /** Access-ordered, so iteration order is least-recently-used first. Client thread only. */
-    private final LinkedHashMap<String, ResourceLocation> resident = new LinkedHashMap<>(64, 0.75f, true);
+    private final LinkedHashMap<String, Held> resident = new LinkedHashMap<>(64, 0.75f, true);
+
+    /** What the resident textures add up to, kept as they come and go rather than summed. */
+    private long residentBytes;
+
+    /** How many of them are the large tier, which has a much smaller allowance of its own. */
+    private int residentCrisp;
 
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
 
@@ -149,9 +165,9 @@ public final class ClientCardImages {
         if (notBefore != null && System.currentTimeMillis() < notBefore) {
             return Optional.empty();
         }
-        ResourceLocation ready = resident.get(url);
+        Held ready = resident.get(url);
         if (ready != null) {
-            return Optional.of(ready);
+            return Optional.of(ready.id());
         }
         if (inFlight.add(url)) {
             fetchers.execute(() -> fetch(url));
@@ -171,6 +187,11 @@ public final class ClientCardImages {
 
     public int residentCount() {
         return resident.size();
+    }
+
+    /** What the resident textures come to, which is the budget the ceiling is written in. */
+    public long residentMebibytes() {
+        return residentBytes / (1024 * 1024);
     }
 
     public void shutdown() {
@@ -203,7 +224,7 @@ public final class ClientCardImages {
             // replaced the first texture in resident without releasing it: a leaked GL
             // texture per fetched card, plus the double decode.
             handedOff = true;
-            Minecraft.getInstance().execute(() -> upload(url, bytes));
+            prepare(url, bytes);
         } catch (RuntimeException e) {
             LOGGER.warn("Could not load card art from {}: {}", url, e.toString());
             markFailed(url);
@@ -214,27 +235,57 @@ public final class ClientCardImages {
         }
     }
 
-    private void upload(String url, byte[] bytes) {
+    /**
+     * Turns bytes into pixels, off the render thread.
+     * <p>Decoding a card scan, rounding its corners and copying it pixel by pixel is a real
+     * piece of work - at the crisp tier, three quarters of a million pixels - and it used to
+     * happen inside the job handed to the render thread. A screen full of cards arriving at
+     * once was that job several times over, between two frames. Only the upload has to be on
+     * the render thread, so only the upload is.
+     */
+    private void prepare(String url, byte[] bytes) {
         try {
             CardImageDecoder.DecodedImage decoded = CardImageDecoder.decode(bytes);
             // Card art arrives as a rectangle with the corners printed on it. A card is not a
             // rectangle.
             dev.gathering.core.image.RoundedCorners.apply(decoded);
             NativeImage image = toNativeImage(decoded);
+            long size = (long) decoded.width() * decoded.height() * 4L;
+            // Recognised by its size rather than by what was asked for: what comes back is
+            // what counts against the budget.
+            boolean crisp = decoded.height() >= dev.gathering.core.card.TextureBudget.Tier.CRISP.height();
+            Minecraft.getInstance().execute(() -> upload(url, image, size, crisp));
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warn("Could not decode card art from {}: {}", url, e.toString());
+            markFailed(url);
+            discardCached(url);
+            inFlight.remove(url);
+        }
+    }
+
+    private void upload(String url, NativeImage image, long size, boolean crisp) {
+        try {
             ResourceLocation id = Gathering.id("card_art/" + textureCounter.incrementAndGet());
             Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));
-            resident.put(url, id);
+            resident.put(url, new Held(id, size, crisp));
+            residentBytes += size;
+            if (crisp) {
+                residentCrisp++;
+            }
             evictDownToCap();
-        } catch (IOException | RuntimeException e) {
+        } catch (RuntimeException e) {
             // Loud rather than debug: a card that will not draw is the single most visible
             // way this mod can look broken, and each url is only ever attempted once, so
             // this is one line per card rather than a flood.
-            LOGGER.warn("Could not decode card art from {}: {}", url, e.toString());
+            // Loud rather than debug: a card that will not draw is the single most visible
+            // way this mod can look broken.
+            LOGGER.warn("Could not upload card art from {}: {}", url, e.toString());
             markFailed(url);
             // What would not decode is thrown out of the disk cache too. The failed set only
             // lasts the session, so a truncated file kept here came back every session and
             // broke this card's art for good; gone, the next session downloads it fresh.
             discardCached(url);
+            image.close();
         } finally {
             inFlight.remove(url);
         }
@@ -269,14 +320,30 @@ public final class ClientCardImages {
         return image;
     }
 
-    /** Client thread only, because releasing a texture touches GL. */
+    /**
+     * Client thread only, because releasing a texture touches GL.
+     * <p>Three limits, all of them oldest-first, because the map is in access order: the byte
+     * ceiling the budget is actually written in, a count so a wall of tiny textures cannot
+     * grow without end, and a much smaller allowance for the large tier - which is what a
+     * player reading card after card with the key held fills the cache with.
+     */
     private void evictDownToCap() {
-        Iterator<Map.Entry<String, ResourceLocation>> oldestFirst = resident.entrySet().iterator();
-        while (resident.size() > MAX_RESIDENT_TEXTURES && oldestFirst.hasNext()) {
-            Map.Entry<String, ResourceLocation> eldest = oldestFirst.next();
-            Minecraft.getInstance().getTextureManager().release(eldest.getValue());
+        Iterator<Map.Entry<String, Held>> oldestFirst = resident.entrySet().iterator();
+        while (oldestFirst.hasNext() && tooMuchIsResident()) {
+            Map.Entry<String, Held> eldest = oldestFirst.next();
+            Minecraft.getInstance().getTextureManager().release(eldest.getValue().id());
+            residentBytes -= eldest.getValue().bytes();
+            if (eldest.getValue().crisp()) {
+                residentCrisp--;
+            }
             oldestFirst.remove();
         }
+    }
+
+    private boolean tooMuchIsResident() {
+        return resident.size() > MAX_RESIDENT_TEXTURES
+                || residentBytes > dev.gathering.core.card.TextureBudget.CEILING_MEBIBYTES * 1024 * 1024
+                || residentCrisp > dev.gathering.core.card.TextureBudget.CRISP_AT_ONCE;
     }
 
     private Optional<byte[]> readCached(String url) {

@@ -17,8 +17,15 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  */
 public record CollectionPagePayload(
         BlockPos where, int page, int pages, CollectionPagePayload.Counts counts,
-        List<CollectionPagePayload.Row> rows)
+        List<CollectionPagePayload.Row> rows, int revision)
         implements CustomPacketPayload {
+
+    /** A page nobody asked for by number - a refresh the server sends of its own accord. */
+    public CollectionPagePayload(
+            BlockPos where, int page, int pages, CollectionPagePayload.Counts counts,
+            List<CollectionPagePayload.Row> rows) {
+        this(where, page, pages, counts, rows, 0);
+    }
 
     /** As many rows as a page may hold, however tall the window asking is. */
     public static final int ROWS_PER_PAGE = 160;
@@ -77,6 +84,7 @@ public record CollectionPagePayload(
                     Counts.STREAM_CODEC, CollectionPagePayload::counts,
                     Row.STREAM_CODEC.apply(ByteBufCodecs.list(ROWS_PER_PAGE)),
                     CollectionPagePayload::rows,
+                    ByteBufCodecs.VAR_INT, CollectionPagePayload::revision,
                     CollectionPagePayload::new);
 
     public CollectionPagePayload {

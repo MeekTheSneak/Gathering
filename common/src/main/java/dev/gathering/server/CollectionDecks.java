@@ -275,7 +275,17 @@ public final class CollectionDecks {
         return name == null ? "" : name.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
+    /**
+     * Tells the player, and finishes whatever asked.
+     * <p>Both, always. The import screen disables its own button and waits for a result, so
+     * an early return that only said something in chat left it waiting for ever - the player
+     * had to abandon the screen and reopen it to try again. Every way out of a build now
+     * answers the request that started it.
+     */
     private static void send(ServerPlayer player, String message) {
-        player.sendSystemMessage(Component.translatable(message));
+        Component said = Component.translatable(message);
+        player.sendSystemMessage(said);
+        dev.gathering.network.Sending.to(player,
+                new dev.gathering.network.ImportResultPayload("", 0, List.of(said.getString())));
     }
 }

@@ -189,11 +189,43 @@ public final class PackOpeningGameTest {
 
     // ------------------------------------------------------------------- bits
 
+    /**
+     * The card that remembers being opened is the best one in the pack.
+     * <p>The comparison ran the wrong way: it started at the largest possible rank and kept
+     * whatever came in below it, so the story went on the lowest-rarity card the pack
+     * produced - the opposite of the ceremony's own glow, which rings the rarest.
+     */
+    @GameTest(template = "empty")
+    public static void theStoryGoesToTheRarestCard(GameTestHelper helper) {
+        UUID common = UUID.randomUUID();
+        UUID rare = UUID.randomUUID();
+        UUID mythic = UUID.randomUUID();
+        List<CardIdentity> giving = List.of(
+                CardIdentity.ofPrinting(common, false),
+                CardIdentity.ofPrinting(mythic, false),
+                CardIdentity.ofPrinting(rare, false));
+
+        CardIdentity best = PackOpening.bestOf(giving, List.of(
+                metadata(common, Rarity.COMMON),
+                metadata(mythic, Rarity.MYTHIC),
+                metadata(rare, Rarity.RARE)));
+
+        if (best == null || !best.printing().filter(mythic::equals).isPresent()) {
+            helper.fail("The pack's story went to " + best + " rather than to its mythic");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static CardMetadata metadata(UUID id) {
+        return metadata(id, Rarity.COMMON);
+    }
+
+    private static CardMetadata metadata(UUID id, Rarity rarity) {
         return new CardMetadata(
                 id, id, "Something", "{1}", 1.0, "Artifact", "",
                 java.util.Set.of(), java.util.Set.of(), List.of(), "normal",
-                "tst", "Test Set", "1", Rarity.COMMON,
+                "tst", "Test Set", "1", rarity,
                 false, true, true, false, false, List.of("paper"),
                 Map.of(), Map.of(), "https://scryfall.com/card/tst/1");
     }

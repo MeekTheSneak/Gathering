@@ -148,8 +148,14 @@ public final class TableBroadcast {
 
     /** Tells everyone at this cluster that the game is over and to stop watching it. */
     public static void closeAtTable(ServerLevel level, BlockPos tableOrigin) {
+        // Everyone who can see it, not only the people sitting at it. A spectator was left
+        // holding the last board the table ever sent, which looks like a game still going.
+        CloseTablePayload closing = new CloseTablePayload(tableOrigin);
+        for (ServerPlayer nearby : watchingNearby(level, tableOrigin)) {
+            Sending.to(nearby, closing);
+        }
         for (Seated seated : seatedAt(level, tableOrigin)) {
-            Sending.to(seated.player(), CloseTablePayload.INSTANCE);
+            Sending.to(seated.player(), closing);
         }
     }
 

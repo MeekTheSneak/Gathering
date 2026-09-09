@@ -21,6 +21,7 @@ public final class ServerState {
         Antes.clear();
         Archive.clear();
         CardArtPush.clear();
+        CardMetadataRequests.clear();
         CardShop.clear();
         CollectionSets.clear();
         CurrentSet.clear();

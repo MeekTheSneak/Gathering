@@ -252,7 +252,7 @@ final class GatheringNetwork {
                         dev.gathering.server.CollectionView.search(
                                 context.player(), payload.where(), payload.query(),
                                 payload.descending(), payload.page(), payload.perPage(),
-                                payload.pockets()));
+                                payload.pockets(), payload.revision()));
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.CollectionTakePayload.TYPE, (payload, context) ->
