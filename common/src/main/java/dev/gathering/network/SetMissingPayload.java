@@ -29,7 +29,12 @@ public record SetMissingPayload(String code, String name, List<Row> cards, int m
      */
     public static final int MOST_CARDS = 1024;
 
-    public static final int LONGEST_NAME = 128;
+    /**
+     * Longer than the longest card name there is - which is a hundred and forty-one
+     * characters, printed as a joke and real all the same - so the row never refuses to
+     * encode and disconnect the player asking.
+     */
+    public static final int LONGEST_NAME = 256;
 
     /** One card still to find. */
     public record Row(int number, String name, Rarity rarity, UUID printing) {

@@ -12,6 +12,7 @@ import dev.gathering.item.DeckItem;
 import dev.gathering.network.CardMetadataPayload;
 import dev.gathering.network.CardSummary;
 import dev.gathering.network.ImportResultPayload;
+import dev.gathering.network.ImportDecklistPayload;
 import dev.gathering.service.CardDataService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -245,9 +246,14 @@ public final class DecklistImport {
     public static DeckComponent toComponent(
             ResolvedDeck deck, UUID owner, String deckName, String description) {
         // What the player typed wins; a list that named itself is the fallback.
-        String chosen = deckName == null || deckName.isBlank()
-                ? deck.deckName().orElse("Imported Deck")
-                : deckName.strip();
+        // The list's own "Name:" line is capped exactly as a typed name is. It arrives inside
+        // the decklist text, which has a bound of its own, and a name that came in through it
+        // at a thousand characters went onto the deck item - and into every packet that
+        // carries the item's name under the typed bound, which disconnected the importer.
+        String typed = dev.gathering.core.game.PlayerText.oneLine(deckName, ImportDecklistPayload.MAX_NAME_LENGTH);
+        String named = dev.gathering.core.game.PlayerText.oneLine(
+                deck.deckName().orElse(null), ImportDecklistPayload.MAX_NAME_LENGTH);
+        String chosen = typed != null ? typed : named != null ? named : "Imported Deck";
         return new DeckComponent(
                 chosen,
                 description == null ? "" : description.strip(),

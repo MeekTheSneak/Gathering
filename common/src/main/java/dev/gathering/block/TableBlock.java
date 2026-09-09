@@ -279,7 +279,9 @@ public class TableBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
 
-        BlockPos tableOrigin = originOf(state, pos);
+        // The cluster's anchor, so that every payload about this game - the board, the
+        // pot, the open - is keyed the same whichever of a pod's tables was clicked.
+        BlockPos tableOrigin = TableSessions.anchorOf(level, originOf(state, pos)).orElse(originOf(state, pos));
 
         // Dye in hand means you came to change the felt, not to sit down.
         if (stack.getItem() instanceof DyeItem dye) {

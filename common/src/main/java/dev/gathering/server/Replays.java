@@ -182,6 +182,9 @@ public final class Replays {
      */
     public static final class Watching {
 
+        /** How much of the log a frame carries: what a live board sends, for the same reason. */
+        static final int LOG_LINES_IN_A_FRAME = 40;
+
         private final String id;
         private final List<SessionRecord> records;
         private final List<SeatId> seats;
@@ -224,7 +227,10 @@ public final class Replays {
                 session.extendWith(records.subList(at, wanted));
             }
             at = wanted;
-            return VisibilityRules.viewFor(session.state(), Viewer.HISTORIAN, session.log());
+            // The tail, as a live board sends: a frame that carried the whole log grew with
+            // every step until a long game's last frames were bigger than a payload may be,
+            // and the watcher was disconnected at the end of the game they were watching.
+            return VisibilityRules.viewFor(session.state(), Viewer.HISTORIAN, session.recentLog(LOG_LINES_IN_A_FRAME));
         }
     }
 

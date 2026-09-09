@@ -98,6 +98,45 @@ public final class PayloadGameTest {
         helper.succeed();
     }
 
+    /**
+     * A problem quoting a line longer than a problem may be is cut, not refused.
+     * <p>A decklist line can be far longer than the bound on a problem string, and a problem
+     * that quoted one used to refuse to encode - which disconnected the very player the
+     * problem was being sent to help.
+     */
+    @GameTest(template = "empty")
+    public static void aProblemAboutAVeryLongLineStillFitsTheWire(GameTestHelper helper) {
+        String line = "line 2: no card named " + "x".repeat(2_000);
+        ImportResultPayload payload = new ImportResultPayload("Deck", 1, List.of(line));
+
+        ImportResultPayload restored = roundTrip(helper, payload, ImportResultPayload.STREAM_CODEC);
+
+        if (restored.problems().size() != 1 || !restored.problems().get(0).startsWith("line 2: no card named")) {
+            helper.fail("The problem did not survive the wire: " + restored.problems());
+        }
+        helper.succeed();
+    }
+
+    /** The longest card name there is - a hundred and forty-one characters - fits a missing-cards row. */
+    @GameTest(template = "empty")
+    public static void theLongestCardNameFitsAMissingRow(GameTestHelper helper) {
+        String longest = "Our Market Research Shows That Players Like Really Long Card Names So We Made"
+                + " this Card to Have the Absolute Longest Card Name Ever Elemental";
+        dev.gathering.network.SetMissingPayload payload = new dev.gathering.network.SetMissingPayload(
+                "unh", "Unhinged",
+                List.of(new dev.gathering.network.SetMissingPayload.Row(
+                        1, longest, dev.gathering.core.card.Rarity.RARE, UUID.randomUUID())),
+                1);
+
+        dev.gathering.network.SetMissingPayload restored =
+                roundTrip(helper, payload, dev.gathering.network.SetMissingPayload.STREAM_CODEC);
+
+        if (!restored.cards().get(0).name().equals(longest)) {
+            helper.fail("The longest card name was cut on the wire: " + restored.cards().get(0).name());
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void importResultRoundTripsIncludingProblems(GameTestHelper helper) {
         ImportResultPayload payload = new ImportResultPayload(

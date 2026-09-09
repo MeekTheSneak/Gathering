@@ -755,7 +755,7 @@ public final class CountersScreen extends ChildScreen {
         if (known == null) {
             GameView board = ClientTableState.viewOf(table).orElse(null);
             if (board == null) {
-                return Component.empty();
+                return Component.translatable("screen.gathering.counters.somewhere_hidden");
             }
             for (CardView held : board.allCardViews()) {
                 if (held instanceof CardView.Visible visible && visible.id().equals(card)) {
@@ -765,7 +765,7 @@ public final class CountersScreen extends ChildScreen {
                 }
             }
             if (known == null) {
-                return Component.empty();
+                return Component.translatable("screen.gathering.counters.somewhere_hidden");
             }
         }
         return ClientCardCache.get().summary(known)

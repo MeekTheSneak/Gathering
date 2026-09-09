@@ -172,7 +172,13 @@ public final class ClientSetSymbols {
                 return null;
             }
             String body = response.body();
-            if (body != null && body.length() > MOST_BYTES) {
+            if (body == null || body.isBlank()) {
+                // Not written to the cache: an empty file there was read back as the symbol
+                // on every later launch, and the set stayed blank for good.
+                LOGGER.warn("The symbol for {} came back empty", code);
+                return null;
+            }
+            if (body.length() > MOST_BYTES) {
                 LOGGER.warn("The symbol for {} came back far too large to be one", code);
                 return null;
             }

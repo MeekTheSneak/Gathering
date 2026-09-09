@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.gathering.Gathering;
 import dev.gathering.core.image.CardImageDecoder;
 import java.io.IOException;
+import dev.gathering.core.net.ArtHosts;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -132,6 +133,16 @@ public final class ClientCardImages {
      */
     public Optional<ResourceLocation> texture(String url) {
         if (url == null || url.isBlank() || failed.contains(url)) {
+            return Optional.empty();
+        }
+        // Scryfall's, or not fetched. The URL is a string the server put in a card's summary,
+        // and this used to fetch whatever it said - which made every client at a table a way
+        // for the host to read addresses inside that client's own network. Refused once, and
+        // then drawn as a card whose art is missing, the same as a picture that is not there.
+        if (!ArtHosts.isAllowed(url)) {
+            if (failed.add(url)) {
+                LOGGER.warn("Card art is only fetched from Scryfall; not fetching {}", url);
+            }
             return Optional.empty();
         }
         Long notBefore = waiting.get(url);
@@ -300,7 +311,8 @@ public final class ClientCardImages {
                     .header("Accept", "image/*")
                     .GET()
                     .build();
-            HttpResponse<byte[]> response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            HttpResponse<java.io.InputStream> response =
+                    http.send(request, HttpResponse.BodyHandlers.ofInputStream());
             int status = response.statusCode();
             if (status != 200) {
                 LOGGER.warn("Card art fetch returned HTTP {} for {}", status, url);
@@ -308,8 +320,18 @@ public final class ClientCardImages {
                 // gateway, a proxy having a moment - is worth asking again about.
                 return status == 404 || status == 410 ? Fetched.GONE : Fetched.LATER;
             }
-            writeCache(url, response.body());
-            return new Fetched(response.body(), false);
+            // Read up to a picture's worth and not a byte more. A body with no end to it used
+            // to be read whole into one array; now it is a picture that is not there.
+            byte[] body;
+            try (java.io.InputStream in = response.body()) {
+                body = in.readNBytes(ArtHosts.MOST_BYTES + 1);
+            }
+            if (body.length > ArtHosts.MOST_BYTES) {
+                LOGGER.warn("Card art at {} is larger than any picture; not keeping it", url);
+                return Fetched.GONE;
+            }
+            writeCache(url, body);
+            return new Fetched(body, false);
         } catch (IOException e) {
             // A timeout or a dropped connection. This is the one that made whole cards look
             // permanently broken: dozens of images are asked for at once when a collection

@@ -280,6 +280,40 @@ public final class MatchGameTest {
 
     // ------------------------------------------------------------- fixtures
 
+    /**
+     * A game that ends by concession is kept as a replay.
+     * <p>Conceding is the way a game normally ends, and the settle step it goes through never
+     * wrote the game down - so the shelf held only games ended by the command, and the
+     * "game recorded" line was one nobody at a real table ever read.
+     */
+    @GameTest(template = "tables")
+    public static void aConcededGameIsKeptAsAReplay(GameTestHelper helper) {
+        var before = dev.gathering.service.ServerSettings.get().modes().replays();
+        boolean switchOn = before != dev.gathering.core.config.GatheringConfig.Replays.PUBLIC;
+        try {
+            if (switchOn) {
+                dev.gathering.server.Settings.set("modes.replays", "public");
+            }
+            int shelved = dev.gathering.server.Replays.kept().size();
+            BlockPos origin = seatedTable(helper);
+            startMatch(helper, origin, 1);
+            var session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+            session.submit(new GameEvent.Conceded(new SeatId(1)));
+
+            TableMatch.settleIfFinished(helper.getLevel(), origin, session.state());
+
+            if (dev.gathering.server.Replays.kept().size() != shelved + 1) {
+                helper.fail("A game that ended by concession was not put on the replay shelf");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            if (switchOn) {
+                dev.gathering.server.Settings.set("modes.replays", before.toString());
+            }
+        }
+    }
+
     private static void startMatch(GameTestHelper helper, BlockPos origin, int bestOf) {
         TableSessions.start(helper.getLevel(), origin,
                 new MatchRules(FormatPresets.COMMANDER, bestOf));

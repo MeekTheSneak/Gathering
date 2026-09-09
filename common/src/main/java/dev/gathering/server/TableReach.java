@@ -62,7 +62,13 @@ public final class TableReach {
         if (!(state.getBlock() instanceof TableBlock)) {
             return Optional.empty();
         }
-        return Optional.of(TableBlock.originOf(state, clicked));
+        // The cluster's anchor, not the table clicked. A pod is two or more tables and one
+        // game, and the board goes out keyed by this position: keyed by whichever table the
+        // acting player happened to click, the players who had opened theirs from the other
+        // table were sent boards under a key their screen was not watching, and saw the
+        // game as it was when they sat down.
+        BlockPos origin = TableBlock.originOf(state, clicked);
+        return Optional.of(TableSessions.anchorOf(level, origin).orElse(origin));
     }
 
     /**

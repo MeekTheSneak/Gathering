@@ -38,8 +38,12 @@ public final class GameFold {
             case GameEvent.SeatTaken taken ->
                     state.withSeatState(state.seatState(taken.actor()).occupiedBy(taken.player()));
 
+            // And whatever they had open goes with them: a search left open by a player who
+            // stood up mid-look was a library still drawn open to that seat with no screen
+            // to close it from.
             case GameEvent.SeatReleased released ->
-                    state.withSeatState(state.seatState(released.actor()).released());
+                    state.withSeatState(state.seatState(released.actor()).released())
+                            .withoutPeekBy(released.actor());
 
             case GameEvent.DeckLoaded loaded -> loadDeck(state, loaded);
 

@@ -36,7 +36,17 @@ public record ImportResultPayload(String deckName, int cardCount, List<String> p
 
     public ImportResultPayload {
         deckName = deckName == null ? "" : deckName;
-        problems = problems == null ? List.of() : List.copyOf(problems);
+        // Each line cut to what the codec writes. A problem quotes the line it is about, and
+        // a decklist line can be longer than any problem may be; one over the bound refused
+        // to encode and disconnected the player it was meant to help.
+        List<String> fitted = new java.util.ArrayList<>(problems == null ? 0 : problems.size());
+        if (problems != null) {
+            for (String problem : problems) {
+                String line = problem == null ? "" : problem;
+                fitted.add(line.length() > MAX_PROBLEM_LENGTH ? line.substring(0, MAX_PROBLEM_LENGTH - 3) + "..." : line);
+            }
+        }
+        problems = List.copyOf(fitted);
     }
 
     public boolean isClean() {

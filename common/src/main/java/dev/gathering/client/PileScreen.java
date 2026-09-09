@@ -775,7 +775,10 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         // The slot it belongs in rather than always the first, now that there are two of
         // them: sending a partner home to a slot the other commander is already in puts two
         // cards in one box and leaves the other empty.
-        if (!zone.isCommandSlot() && view().isPresent()) {
+        // Only on a table that draws a command zone - the same rule the card menu on the
+        // felt follows. Offered everywhere, this row sent a card to a pile that a three-pile
+        // table has no rectangle for, where nothing drew it and no click could reach it.
+        if (!zone.isCommandSlot() && view().isPresent() && tableHasACommandZone()) {
             entries.add(move(me, card,
                     CommandSlots.homeFor(view().get().seat(card.owner())),
                     Placement.TOP, "to_command"));
@@ -803,6 +806,14 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     private int hiddenBelow() {
         int rows = (cards().size() + columns - 1) / columns;
         return Math.max(0, rows * (CARD_HEIGHT + GAP) - GAP - grid.height());
+    }
+
+    /** Whether the table this pile belongs to has a command zone to send a card to. */
+    private boolean tableHasACommandZone() {
+        return net.minecraft.client.Minecraft.getInstance().level != null
+                && net.minecraft.client.Minecraft.getInstance().level
+                        .getBlockEntity(table) instanceof dev.gathering.block.TableBlockEntity entity
+                && entity.hasCommandZone();
     }
 
     private Optional<CardSummary> summaryOf(CardView card) {

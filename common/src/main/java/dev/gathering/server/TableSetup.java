@@ -57,6 +57,13 @@ public final class TableSetup {
             return;
         }
 
+        // Nothing to ask when a game is already on: asking first put the ante question to
+        // every seat of a table mid-game, for a start that was always going to be refused.
+        if (TableSessions.hasSession(level, origin)) {
+            player.sendSystemMessage(Component.translatable(TableSessions.Outcome.ALREADY_RUNNING.messageKey()));
+            return;
+        }
+
         // A table playing for keeps asks everybody first, and the game starts when the last
         // seat answers rather than now. Nothing is staked until they have all said yes; this
         // is only the question.

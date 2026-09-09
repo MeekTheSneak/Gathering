@@ -66,6 +66,17 @@ public final class TableMatch {
         // Built once, up here, so there is no longer an order to get wrong.
         Component line = lineFor(level, tableOrigin, next, winner);
 
+        // Kept before the table forgets it. Conceding is the way a game normally ends, and
+        // the only way that came through here - and this path never wrote the game down,
+        // so the replay shelf held only games ended by the command.
+        TableSessions.sessionAt(level, tableOrigin).ifPresent(session -> {
+            // Ended in the log first, as the command's path does: a replay is a game that
+            // ended, and the shelf refuses one whose last line is not the end.
+            session.submit(new dev.gathering.core.game.event.GameEvent.SessionEnded(
+                    winner.orElse(session.state().seats().get(0)), "conceded"));
+            TableSessions.rememberTheGame(level, tableOrigin, session);
+        });
+
         if (next.hasGameToPlay()) {
             // The board goes away but the decks and the score do not: a set is still running,
             // and the next game starts when somebody crouches on the table.

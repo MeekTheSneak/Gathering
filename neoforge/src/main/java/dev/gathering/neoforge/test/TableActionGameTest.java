@@ -145,6 +145,45 @@ public final class TableActionGameTest {
         helper.succeed();
     }
 
+    /**
+     * Putting more cards under a library at random than one pick may take moves all of them.
+     * <p>The pick is bounded for the effects that ask for a few; a whole hand sent under is
+     * more than that bound, and the first twenty used to go while the rest stayed in the
+     * hand with nothing said.
+     */
+    @GameTest(template = "tables")
+    public static void everyCardSentUnderAtRandomGoesUnder(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setPos(origin.getCenter());
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, player.getUUID());
+        TableSessions.start(helper.getLevel(), origin, TableSessions.defaultRules());
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        java.util.List<dev.gathering.core.card.CardIdentity> deck = new java.util.ArrayList<>();
+        for (int index = 0; index < 30; index++) {
+            deck.add(dev.gathering.core.card.CardIdentity.ofPrinting(
+                    java.util.UUID.fromString(String.format("00000000-0000-4000-8000-%012d", index))));
+        }
+        session.submit(new GameEvent.DeckLoaded(new SeatId(0), deck, java.util.List.of()));
+        session.submit(new GameEvent.CardsDrawn(new SeatId(0), new SeatId(0), 25));
+        java.util.List<dev.gathering.core.game.CardInstanceId> inHand =
+                java.util.List.copyOf(session.state().contents(new SeatId(0), dev.gathering.core.game.Zone.HAND));
+        if (inHand.size() != 25) {
+            helper.fail("Expected twenty-five cards in hand, found " + inHand.size());
+            return;
+        }
+
+        dev.gathering.server.RandomReturns.handle(player,
+                new dev.gathering.network.ToBottomAtRandomPayload(origin, inHand));
+
+        int left = session.state().contents(new SeatId(0), dev.gathering.core.game.Zone.HAND).size();
+        if (left != 0) {
+            helper.fail("Twenty-five cards were sent under the library and " + left + " stayed in the hand");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** A table with a game on it and Alice in seat zero. */
     private static BlockPos seatedGame(GameTestHelper helper, int x, int y, int z) {
         BlockPos origin = place(helper, x, y, z);

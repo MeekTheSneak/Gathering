@@ -210,13 +210,15 @@ public final class TableSessions {
      * a replay that could not be written is a replay nobody watches, and it must never be the
      * reason a game cannot end.
      */
-    private static void rememberTheGame(Level level, BlockPos tableOrigin, GameSession session) {
+    public static void rememberTheGame(Level level, BlockPos tableOrigin, GameSession session) {
         List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
+        // Whoever played each seat, from the game itself rather than from who is in the
+        // chair this moment: a player who stood up or logged out before the end played the
+        // game all the same, and a replay only they could not watch was the wrong replay.
         List<dev.gathering.server.Replays.Played> played = new ArrayList<>();
-        for (int index = 0; index < anchors.size(); index++) {
-            occupantOf(level, tableOrigin, anchors.get(index))
-                    .map(player -> new dev.gathering.server.Replays.Played(
-                            player.getGameProfile().getName(), player.getUUID()))
+        for (SeatId seat : session.state().seats()) {
+            session.state().seatState(seat).whoseBoard()
+                    .map(who -> new dev.gathering.server.Replays.Played(who.name(), who.id()))
                     .ifPresent(played::add);
         }
         if (!dev.gathering.server.Replays.keep(session, session.startingLife(), played)) {

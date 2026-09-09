@@ -141,6 +141,17 @@ class LibraryPeekTest {
         }
 
         @Test
+        @DisplayName("standing up closes it, because there is no screen left to close it from")
+        void standingUpCloses() {
+            GameSession session = GameFixtures.twoPlayerTable(20);
+            session.submit(new GameEvent.LibrarySearched(GameFixtures.ALICE, GameFixtures.ALICE));
+
+            session.submit(new GameEvent.SeatReleased(GameFixtures.ALICE));
+
+            assertThat(openTo(session, GameFixtures.ALICE, GameFixtures.ALICE)).isZero();
+        }
+
+        @Test
         @DisplayName("shuffling closes it, because what was in front of you is not there any more")
         void shufflingCloses() {
             GameSession session = GameFixtures.twoPlayerTable(20);

@@ -561,6 +561,14 @@ public final class TableScreen extends Screen {
     @Override
     protected void init() {
         layout = freshLayout();
+        // Nothing half-done survives a re-init. A screen opened over this one mid-gesture
+        // - a prompt, a pile - came back to a card still held, a box still being drawn or an
+        // attach still waiting, and the next unrelated release dropped or consumed it.
+        held = null;
+        boxFrom = null;
+        panFrom = null;
+        attaching = List.of();
+        swallowingTheChatKey = false;
         if (geometry == null) {
             geometry = new BoardGeometry(anchors(), this.width, this.height,
                     layout.status().height(), layout.hand().height());
@@ -2039,7 +2047,9 @@ public final class TableScreen extends Screen {
     private static List<TablePosition> spotsIn(List<CardView> cards) {
         List<TablePosition> spots = new ArrayList<>(cards.size());
         for (CardView card : cards) {
-            spots.add(card.placedAt().orElse(null));
+            // An attached card is drawn beside its host, wherever its own spot says it is;
+            // counted at that spot it made a pile of one card read "x2".
+            spots.add(card.host().isPresent() ? null : card.placedAt().orElse(null));
         }
         return spots;
     }
@@ -2232,6 +2242,9 @@ public final class TableScreen extends Screen {
      * game state you were talking about.
      */
     private StringBuilder saying;
+
+    /** Whether the next typed character is the echo of the key that opened the line. */
+    private boolean swallowingTheChatKey;
 
     /** Which card of the hand the cursor is on, or -1. The risen card's top half counts. */
     private int handIndexAt(GameView board, int x, int y) {
@@ -2798,7 +2811,7 @@ public final class TableScreen extends Screen {
         graphics.pose().translate(0f, 0f, LIFT);
         if (held.whole() && held.fromPile() != null) {
             drawHeldPile(graphics, board, card, airborne);
-        } else {
+        } else if (card != null) {
             drawCard(graphics, card, CardSleeves.of(board, held.from()), airborne,
                     tappedInAir ? TablePosition.QUARTER_TURN : 0, false, false);
         }
@@ -2867,9 +2880,11 @@ public final class TableScreen extends Screen {
         if (menu != null) {
             ContextMenu open = menu;
             menu = null;
-            if (open.mouseClicked(x, y)) {
-                return true;
-            }
+            // Eaten whether it landed on a row or off the menu: the miss used to fall
+            // through and do whatever was under it, which was never what a click meant to
+            // put a menu away was for.
+            open.mouseClicked(x, y);
+            return true;
         }
         GameView board = view().orElse(null);
         if (board == null) {
@@ -3117,6 +3132,11 @@ public final class TableScreen extends Screen {
         }
         if (held == null) {
             return super.mouseReleased(mouseX, mouseY, button);
+        }
+        // The button that picked it up is the one that puts it down. A right button released
+        // mid-drag used to drop the card wherever that happened.
+        if (button != 0) {
+            return true;
         }
         Held dropped = held;
         held = null;
@@ -3687,6 +3707,16 @@ public final class TableScreen extends Screen {
         // Anybody may open anybody's graveyard - it is public - but the verbs that only make
         // sense on your own library are offered only there, because the mod refuses a search
         // of somebody else's anyway and a menu full of refusals is worse than a short one.
+        // Cards turned face up off the top of a library are there for the room to read, and
+        // the slot only ever draws the first of them - so a cascade's hit, always the last
+        // card revealed, was on every client's wire and on nobody's screen. Anybody who is
+        // not the owner opens the revealed cards with a click; the owner has a menu row.
+        if (button == 0 && pile == Zone.LIBRARY && !owner.equals(me)
+                && !board.seat(owner).zone(Zone.LIBRARY).cards().isEmpty()) {
+            GatheringButtons.clickSound();
+            openPile(owner, Zone.LIBRARY, false);
+            return true;
+        }
         if (button == 1 && owner.equals(me)) {
             GatheringButtons.clickSound();
             openPileMenu(me, pile, x, y);
@@ -3816,6 +3846,10 @@ public final class TableScreen extends Screen {
                     ? entry("stop_revealing", () -> send(new GameEvent.LibraryRevealed(me, me, 0)))
                     : entry("reveal", () -> ask("reveal", 1,
                             count -> send(new GameEvent.LibraryRevealed(me, me, count)))));
+            if (revealedFromMyLibrary() > 1) {
+                // The slot draws the top card; the rest of a reveal is read here.
+                entries.add(entry("see_revealed", () -> openPile(me, Zone.LIBRARY, false)));
+            }
             // Turn cards over until one of them is the one. Both of these ask the server how
             // far down it is, because nobody may know their own library's order - see
             // RevealUntilPayload. What comes back is an ordinary reveal.
@@ -4358,6 +4392,9 @@ public final class TableScreen extends Screen {
             // The player's own chat key, whatever they have bound it to. Talking to the table
             // is the same act as talking to the server, so it is the same press.
             saying = new StringBuilder();
+            // The press that opened the line arrives once more as a typed character a
+            // moment later, and the line used to start with the letter of the chat key.
+            swallowingTheChatKey = true;
             return true;
         }
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_F1) {
@@ -4733,14 +4770,30 @@ public final class TableScreen extends Screen {
         if (onto == null) {
             return false;
         }
+        // The mat the first card is on, which is where the stack is made. Stacking used to
+        // send every card to the presser's own battlefield, so grouping a selection on an
+        // opponent's mat quietly stole it.
+        SeatId mat = matHolding(board, cards.get(0)).orElse(me);
         for (CardView card : cards) {
             if (card instanceof CardView.Visible visible) {
                 send(new GameEvent.CardMoved(me, visible.id(),
-                        ZoneRef.of(me, Zone.BATTLEFIELD), Placement.at(onto)));
+                        ZoneRef.of(mat, Zone.BATTLEFIELD), Placement.at(onto)));
             }
         }
         selected.clear();
         return true;
+    }
+
+    /** Whose battlefield a card is lying on, which is not always whose card it is. */
+    private static Optional<SeatId> matHolding(GameView board, CardView card) {
+        for (SeatView seat : board.seats()) {
+            for (CardView on : seat.zone(Zone.BATTLEFIELD).cards()) {
+                if (on == card) {
+                    return Optional.of(seat.seat());
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     /**
@@ -5399,6 +5452,10 @@ public final class TableScreen extends Screen {
     public boolean charTyped(char letter, int modifiers) {
         if (saying == null) {
             return super.charTyped(letter, modifiers);
+        }
+        if (swallowingTheChatKey) {
+            swallowingTheChatKey = false;
+            return true;
         }
         append(String.valueOf(letter));
         return true;

@@ -56,7 +56,16 @@ public final class RandomReturns {
             return;
         }
 
-        List<CardInstanceId> order = RandomPick.some(real, real.size(), level.getRandom()::nextInt);
+        // In batches of what one pick may take: the pick is bounded for the effects that
+        // ask for a few, and a whole hand or graveyard sent under is more than that bound.
+        // It used to move the first twenty and leave the rest where they were, silently.
+        List<CardInstanceId> order = new ArrayList<>(real.size());
+        List<CardInstanceId> left = new ArrayList<>(real);
+        while (!left.isEmpty()) {
+            List<CardInstanceId> batch = RandomPick.some(left, left.size(), level.getRandom()::nextInt);
+            order.addAll(batch);
+            left.removeAll(batch);
+        }
         int moved = 0;
         for (CardInstanceId card : order) {
             CardInstance instance = session.state().card(card).orElse(null);

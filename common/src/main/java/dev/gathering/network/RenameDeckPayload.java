@@ -33,10 +33,11 @@ public record RenameDeckPayload(boolean offHand, String name) implements CustomP
                     RenameDeckPayload::new);
 
     public RenameDeckPayload {
-        name = name == null ? "" : name.strip();
-        if (name.length() > MOST_CHARACTERS) {
-            name = name.substring(0, MOST_CHARACTERS);
-        }
+        // Cleaned like every other line a player types: a name with formatting codes in it
+        // colored every screen that printed it, and one with control characters in it was a
+        // deck that could not be found by name.
+        String cleaned = dev.gathering.core.game.PlayerText.oneLine(name, MOST_CHARACTERS);
+        name = cleaned == null ? "" : cleaned;
     }
 
     public static RenameDeckPayload of(InteractionHand hand, String name) {
