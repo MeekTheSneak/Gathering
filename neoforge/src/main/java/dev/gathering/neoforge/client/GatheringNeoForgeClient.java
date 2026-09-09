@@ -237,7 +237,10 @@ public final class GatheringNeoForgeClient {
         }
         if (payload instanceof ImportResultPayload result) {
             context.enqueueWork(() -> {
-                if (Minecraft.getInstance().screen instanceof DecklistImportScreen screen) {
+                if (Minecraft.getInstance().screen
+                        instanceof dev.gathering.client.DeckBuilderScreen builder) {
+                    builder.onResult(result);
+                } else if (Minecraft.getInstance().screen instanceof DecklistImportScreen screen) {
                     screen.onResult(result);
                 }
             });

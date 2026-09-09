@@ -49,6 +49,14 @@ public record StoryComponent(CardStory story) {
                     .apply(instance, (chapters, forgotten) ->
                             new StoryComponent(new CardStory(chapters, forgotten))));
 
+    /**
+     * The story itself, without the component around it.
+     * <p>A deck keeps the histories of the cards sleeved into it, and what it keeps is the
+     * story rather than an item's component - see {@code DeckComponent.Kept}.
+     */
+    public static final Codec<CardStory> STORY_CODEC =
+            CODEC.xmap(StoryComponent::story, StoryComponent::new);
+
     private static final StreamCodec<io.netty.buffer.ByteBuf, HowItCame> HOW_STREAM =
             ByteBufCodecs.idMapper(
                     id -> id >= 0 && id < HowItCame.all().length
@@ -72,6 +80,10 @@ public record StoryComponent(CardStory story) {
                     ByteBufCodecs.VAR_INT, component -> component.story().forgotten(),
                     (chapters, forgotten) ->
                             new StoryComponent(new CardStory(chapters, forgotten)));
+
+    /** The same, as a bare story, for a deck carrying the histories of what is in it. */
+    public static final StreamCodec<RegistryFriendlyByteBuf, CardStory> STORY_STREAM_CODEC =
+            STREAM_CODEC.map(StoryComponent::story, StoryComponent::new);
 
     public StoryComponent {
         story = story == null ? CardStory.NONE : story;

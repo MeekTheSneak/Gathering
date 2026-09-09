@@ -205,6 +205,11 @@ public class DeckItem extends Item {
             return;
         }
         DeckComponent updated = held.get();
+        // Where the card has been goes in with it. A story lives on the item, and sleeving a
+        // card used to leave the item behind - so the pack it came out of, the trade it came
+        // through and the game it was won in were lost the first time it was played with.
+        // The deck keeps them and hands one back to whichever copy is taken out again.
+        StoryComponent story = cards.get(GatheringComponents.STORY.get());
         for (int copy = 0; copy < cards.getCount(); copy++) {
             Optional<DeckComponent> next =
                     updated.withAdded(DeckComponent.Section.MAINBOARD, card.get().faceUp());
@@ -212,6 +217,9 @@ public class DeckItem extends Item {
                 break;
             }
             updated = next.get();
+            if (story != null) {
+                updated = updated.keeping(card.get(), story.story());
+            }
         }
         deck.set(GatheringComponents.DECK.get(), updated);
     }

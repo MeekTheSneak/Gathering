@@ -545,7 +545,37 @@ public final class DeckBuilderScreen extends ChildScreen {
                         dev.gathering.core.card.CardIdentity.ofPrinting(
                                 card.printing(), card.foil()))),
                 sleeve));
-        this.onClose();
+        // Not closed on the press. The server decides whether a deck was built - the box may
+        // have gone, or the player stepped out of reach - and closing here threw the whole
+        // selection away on a request that was refused. See onResult.
+        this.waiting = true;
+    }
+
+    /** Whether Finish has been pressed and the server has not answered yet. */
+    private boolean waiting;
+
+    /** What the server said the last thing this screen asked for came to. */
+    private net.minecraft.network.chat.Component saidBack;
+
+    /**
+     * The server has finished with the deck this screen asked it to build.
+     * <p>Clean means the deck is in the player's hands, so the screen has done its job and
+     * closes. Anything else leaves it open with the reason on it and the selection intact, so
+     * the press can be made again once whatever went wrong is fixed.
+     */
+    public void onResult(dev.gathering.network.ImportResultPayload result) {
+        if (!waiting) {
+            return;
+        }
+        waiting = false;
+        if (result.cardCount() > 0) {
+            this.onClose();
+            return;
+        }
+        this.saidBack = result.problems().isEmpty()
+                ? net.minecraft.network.chat.Component.translatable(
+                        "screen.gathering.builder.not_built")
+                : net.minecraft.network.chat.Component.literal(result.problems().get(0));
     }
 
     // --------------------------------------------------------------- drawing
@@ -574,6 +604,13 @@ public final class DeckBuilderScreen extends ChildScreen {
         drawBox(graphics, mouseX, mouseY);
         drawDeck(graphics, mouseX, mouseY);
         drawFooter(graphics);
+
+        // What the server said about the last Finish, if it said no. Drawn where the title
+        // is, because that is the line the eye is already on when a press does nothing.
+        if (saidBack != null) {
+            GuiText.draw(graphics, this.font, saidBack,
+                    MARGIN, MARGIN + ROW_HEIGHT, this.width - MARGIN * 2, WARN);
+        }
 
         // Last, so it goes over everything, and after drawDeck because that is what says
         // where the columns ended up this frame.

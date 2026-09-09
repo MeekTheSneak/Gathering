@@ -421,6 +421,7 @@
   "screen.gathering.builder.name": "Deck name",
   "screen.gathering.builder.name_hint": "Name this deck",
   "screen.gathering.builder.off_color": "%s outside your commander's colors",
+  "screen.gathering.builder.not_built": "The deck was not built. Nothing has been taken.",
   "screen.gathering.builder.picked": "%s picked · %s in the deck",
   "screen.gathering.builder.pockets": "Cards you are carrying",
   "screen.gathering.builder.pockets_hint": "Click to add · shift-click to add every copy · click a row to remove",

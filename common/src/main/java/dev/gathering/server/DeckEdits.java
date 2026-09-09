@@ -113,8 +113,16 @@ public final class DeckEdits {
             return Optional.empty();
         }
         ItemStack drawn = CardItem.of(card);
+        // And its history comes out with it, if the deck was keeping one for this printing.
+        DeckComponent left = without.get();
+        var story = left.storyOf(card).orElse(null);
+        if (story != null) {
+            drawn.set(dev.gathering.registry.GatheringComponents.STORY.get(),
+                    new dev.gathering.item.StoryComponent(story));
+            left = left.withoutStoryOf(card);
+        }
         dev.gathering.server.Handing.give(player, drawn);
-        return without;
+        return Optional.of(left);
     }
 
 }

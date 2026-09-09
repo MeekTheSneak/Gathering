@@ -40,7 +40,29 @@ public record DeckComponent(
         List<CardComponent> commanders,
         List<CardComponent> sideboard,
         Optional<Integer> color,
-        dev.gathering.core.card.Sleeve sleeve) {
+        dev.gathering.core.card.Sleeve sleeve,
+        List<DeckComponent.Kept> stories) {
+
+    /**
+     * Where a card in this deck has been, kept beside the deck rather than on the card.
+     * <p>A card's history lives on the item, and sleeving one into a deck used to leave the
+     * item behind - so the pack it came out of, the person who traded it and the game it was
+     * won in were all lost the first time it was played with. Kept here instead, and handed
+     * back to whichever copy of that printing is taken out again.
+     * <p>Not part of what a card <em>is</em>: two copies of one printing are two copies of one
+     * printing however different their histories, which is what the collection counts on.
+     */
+    public record Kept(CardComponent card, dev.gathering.core.story.CardStory story) {
+    }
+
+    /** A deck built without any histories to carry, which is most of the ways one is made. */
+    public DeckComponent(
+            String name, String description, Optional<UUID> owner,
+            List<CardComponent> entries, List<CardComponent> commanders,
+            List<CardComponent> sideboard, Optional<Integer> color,
+            dev.gathering.core.card.Sleeve sleeve) {
+        this(name, description, owner, entries, commanders, sideboard, color, sleeve, List.of());
+    }
 
     /** The same deck in the sleeves a deck arrives in when nobody has picked any. */
     public DeckComponent(
@@ -73,6 +95,12 @@ public record DeckComponent(
      */
     public static final int MAX_CARDS = 1024;
 
+    /** One card's history, as it is written into the deck it is sleeved in. */
+    private static final Codec<Kept> KEPT = RecordCodecBuilder.create(instance -> instance.group(
+            CardComponent.CODEC.fieldOf("card").forGetter(Kept::card),
+            StoryComponent.STORY_CODEC.fieldOf("story").forGetter(Kept::story))
+            .apply(instance, Kept::new));
+
     public static final Codec<DeckComponent> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.fieldOf("name").forGetter(DeckComponent::name),
             Codec.STRING.optionalFieldOf("description", "").forGetter(DeckComponent::description),
@@ -83,8 +111,10 @@ public record DeckComponent(
             Codec.INT.optionalFieldOf("color").forGetter(DeckComponent::color),
             Codec.STRING.optionalFieldOf("sleeve", dev.gathering.core.card.Sleeve.DEFAULT.name())
                     .xmap(dev.gathering.core.card.Sleeve::named, dev.gathering.core.card.Sleeve::name)
-                    .forGetter(DeckComponent::sleeve))
+                    .forGetter(DeckComponent::sleeve),
+            KEPT.listOf().optionalFieldOf("stories", List.of()).forGetter(DeckComponent::stories))
             .apply(instance, DeckComponent::new));
+
 
     /** One section of a deck on the wire, bounded so a bad packet cannot allocate the world. */
     private static final StreamCodec<RegistryFriendlyByteBuf, List<CardComponent>> SECTION =
@@ -125,7 +155,16 @@ public record DeckComponent(
         SECTION.encode(out, deck.sideboard());
         COLOR.encode(out, deck.color());
         SLEEVE.encode(out, deck.sleeve());
+        KEPT_STREAM.encode(out, deck.stories());
     }
+
+    /** The histories a deck is keeping, bounded like every other list that crosses. */
+    private static final StreamCodec<RegistryFriendlyByteBuf, List<Kept>> KEPT_STREAM =
+            StreamCodec.<RegistryFriendlyByteBuf, Kept, CardComponent, dev.gathering.core.story.CardStory>composite(
+                            CardComponent.STREAM_CODEC, Kept::card,
+                            StoryComponent.STORY_STREAM_CODEC, Kept::story,
+                            Kept::new)
+                    .apply(ByteBufCodecs.list(MAX_CARDS));
 
     private static DeckComponent fromNetwork(RegistryFriendlyByteBuf in) {
         return new DeckComponent(
@@ -136,7 +175,8 @@ public record DeckComponent(
                 SECTION.decode(in),
                 SECTION.decode(in),
                 COLOR.decode(in),
-                SLEEVE.decode(in));
+                SLEEVE.decode(in),
+                KEPT_STREAM.decode(in));
     }
 
     /**
@@ -199,6 +239,45 @@ public record DeckComponent(
         entries = List.copyOf(entries);
         commanders = List.copyOf(commanders);
         sideboard = List.copyOf(sideboard);
+        stories = stories == null ? List.of() : List.copyOf(stories);
+    }
+
+    /**
+     * The deck, keeping this card's history for as long as the card is in it.
+     * <p>Bounded by the deck's own card limit: one history per card at most, and a deck
+     * cannot hold more cards than that.
+     */
+    public DeckComponent keeping(CardComponent card, dev.gathering.core.story.CardStory story) {
+        if (card == null || story == null || story.isEmpty() || stories.size() >= MAX_CARDS) {
+            return this;
+        }
+        List<Kept> kept = new ArrayList<>(stories);
+        kept.add(new Kept(card.faceUp(), story));
+        return new DeckComponent(
+                name, description, owner, entries, commanders, sideboard, color, sleeve, kept);
+    }
+
+    /** Whatever history this deck was keeping for a copy of that card, if it was keeping one. */
+    public Optional<dev.gathering.core.story.CardStory> storyOf(CardComponent card) {
+        CardComponent wanted = card == null ? null : card.faceUp();
+        return stories.stream()
+                .filter(kept -> kept.card().equals(wanted))
+                .map(Kept::story)
+                .findFirst();
+    }
+
+    /** The deck no longer keeping one history for that card, because the card has gone. */
+    public DeckComponent withoutStoryOf(CardComponent card) {
+        CardComponent wanted = card == null ? null : card.faceUp();
+        List<Kept> kept = new ArrayList<>(stories);
+        for (int at = 0; at < kept.size(); at++) {
+            if (kept.get(at).card().equals(wanted)) {
+                kept.remove(at);
+                return new DeckComponent(
+                        name, description, owner, entries, commanders, sideboard, color, sleeve, kept);
+            }
+        }
+        return this;
     }
 
     /**

@@ -328,6 +328,18 @@ A pod system layered on the same card pipeline and visibility framework. Draftin
 
 The draft engine itself (pod state, pack passing, pick resolution) is a pure-core state machine with exhaustive unit tests, and the cube/import path can ship ahead of collection mode because it depends on nothing in it.
 
+### Booster fidelity, stated
+
+An external audit asked what a pack in this mod claims to be, so it is written down here rather than left to be inferred from the code.
+
+A pack is opened from the published collation for its set where one can be read: MTGJSON's sheets, their weights and their arrangements. Three things about that are approximations, and each is disclosed rather than hidden:
+
+- **Colour balancing is not implemented.** A real draft booster balances the colours of its commons; this one draws them by weight. The reader records that per sheet, and the fixture run prints it.
+- **Cards printed in another set are left off a sheet** when the companion file has not been read, which makes a sheet slightly smaller than the printed one.
+- **A set with no published arrangement gets a pack cut from the set itself**, every common as likely as every other. The player is told this every time such a pack is opened, because it is a different object from a real booster.
+
+What the mod does not claim is that opening a thousand of these reproduces the distribution of a thousand real ones. Getting there means resolving companion sets before an official arrangement is used and implementing colour balancing, and until both are done the honest position is the one above: published where published, cut where not, and said out loud either way.
+
 ## 11. Events and gyms (phase 4)
 
 The Pixelmon-shaped layer, designed around its honest constraint: MTG battles do not automate, so a gym is a social structure, not an NPC. That constraint was always the reason this phase was thin, and following it to the end closes the phase rather than building it: **the mod ships no gym features. A server runs its own gym night on what the table already does.**

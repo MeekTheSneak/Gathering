@@ -190,7 +190,10 @@ public final class GatheringFabricClient implements ClientModInitializer {
 
         ClientPlayNetworking.registerGlobalReceiver(ImportResultPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> {
-                    if (context.client().screen instanceof DecklistImportScreen screen) {
+                    if (context.client().screen
+                            instanceof dev.gathering.client.DeckBuilderScreen builder) {
+                        builder.onResult(payload);
+                    } else if (context.client().screen instanceof DecklistImportScreen screen) {
                         screen.onResult(payload);
                     }
                 }));

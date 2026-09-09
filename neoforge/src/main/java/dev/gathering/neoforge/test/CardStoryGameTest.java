@@ -40,6 +40,47 @@ public final class CardStoryGameTest {
         return new CardStory.Chapter(HowItCame.WON, "Winner", "Loser", "", "2026-03-14");
     }
 
+    /**
+     * A card's history survives being sleeved into a deck and taken out again.
+     * <p>The story lives on the item, and going into a deck used to leave the item behind: the
+     * pack it came out of, the trade it came through and the game it was won in were gone the
+     * first time the card was played with. The deck keeps them instead.
+     */
+    @GameTest(template = "empty")
+    public static void ahistorySurvivesBeingSleeved(GameTestHelper helper) {
+        dev.gathering.item.CardComponent card = new dev.gathering.item.CardComponent(
+                java.util.Optional.of(java.util.UUID.randomUUID()), false,
+                java.util.Optional.empty(), false);
+        dev.gathering.core.story.CardStory story = dev.gathering.core.story.CardStory.begunWith(
+                new dev.gathering.core.story.CardStory.Chapter(
+                        dev.gathering.core.story.HowItCame.PULLED, "Ana", "", "DMU", "2026-09-09"));
+
+        dev.gathering.item.DeckComponent deck = new dev.gathering.item.DeckComponent(
+                "Deck", "", java.util.Optional.empty(), java.util.List.of(card),
+                java.util.List.of(), java.util.List.of(), java.util.Optional.empty(),
+                dev.gathering.core.card.Sleeve.DEFAULT).keeping(card, story);
+
+        if (deck.storyOf(card).isEmpty()) {
+            helper.fail("A deck did not keep the history of a card sleeved into it");
+            return;
+        }
+        if (!deck.storyOf(card).get().equals(story)) {
+            helper.fail("The history a deck kept is not the one that went in");
+            return;
+        }
+        dev.gathering.item.DeckComponent after = deck.withoutStoryOf(card);
+        if (after.storyOf(card).isPresent()) {
+            helper.fail("The history stayed in the deck after the card came out");
+            return;
+        }
+        // And a second copy of the same printing with no history of its own gets none.
+        if (after.stories().size() != 0) {
+            helper.fail("The deck is still keeping " + after.stories().size() + " histories");
+            return;
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "tables")
     public static void aStoryGoesOntoACard(GameTestHelper helper) {
         ItemStack card = CardItem.of(CardComponent.of(CARD));

@@ -73,7 +73,7 @@ public final class DeckCheck {
         }
         ValidatableDeck checkable =
                 new ValidatableDeck(deck.name(), mainboard, commanders, sideboard);
-        ValidationResult result = DeckValidator.validate(checkable, format);
+        ValidationResult result = withFreshness(cards, deck, DeckValidator.validate(checkable, format));
         if (pool == null || pool.isEmpty()) {
             return Optional.of(result);
         }
@@ -87,6 +87,48 @@ public final class DeckCheck {
                 new ArrayList<>(result.issues());
         issues.addAll(dev.gathering.core.format.PoolCheck.against(checkable, drafted));
         return Optional.of(new ValidationResult(format, issues));
+    }
+
+    /**
+     * How old a cached card may be before what it says about legality is worth a word.
+     * <p>Bans and rotations are announced on a Monday and take effect on a Friday, so a
+     * fortnight is comfortably longer than "the list has just changed" and far shorter than
+     * "this was cached last season".
+     */
+    private static final java.time.Duration LEGALITY_GOES_OFF = java.time.Duration.ofDays(14);
+
+    /**
+     * Says so when the verdict rests on card data that has been sitting here a while.
+     * <p>A printing does not change; what is legal in a format does. The cache answers for
+     * both, so a deck imported last season is judged against last season's ban list without
+     * anything saying that is what happened. The stale printings are asked for again in the
+     * background, so the next check is current - and the check itself still stands, because
+     * offline play is the reason the cache is there at all.
+     */
+    private static ValidationResult withFreshness(
+            CardDataService cards, DeckComponent deck, ValidationResult result) {
+        if (!(cards.store() instanceof dev.gathering.core.scryfall.DiskCardMetadataStore disk)) {
+            return result;
+        }
+        java.time.Instant tooOld = java.time.Instant.now().minus(LEGALITY_GOES_OFF);
+        List<UUID> stale = new ArrayList<>();
+        for (UUID printing : deck.distinctPrintings()) {
+            if (disk.cachedAt(printing).filter(when -> when.isBefore(tooOld)).isPresent()) {
+                stale.add(printing);
+            }
+        }
+        if (stale.isEmpty()) {
+            return result;
+        }
+        // Asked for again off the game thread, so the next time anybody checks this deck the
+        // answer is current. Nothing waits on it.
+        cards.findAll(List.copyOf(stale));
+        List<dev.gathering.core.format.ValidationIssue> issues = new ArrayList<>(result.issues());
+        issues.add(dev.gathering.core.format.ValidationIssue.warning("legality_stale",
+                stale.size() + " card(s) were last looked up more than "
+                        + LEGALITY_GOES_OFF.toDays() + " days ago, so this reads them against"
+                        + " the ban list as it was then. They are being looked up again."));
+        return new ValidationResult(result.preset(), issues);
     }
 
     /** Every card in a section, or null if the cache cannot answer for one of them. */

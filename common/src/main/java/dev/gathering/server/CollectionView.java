@@ -316,6 +316,12 @@ public final class CollectionView {
     public static void build(ServerPlayer player, BuildDeckPayload asked) {
         CollectionBlockEntity collection = at(player, asked.where());
         if (collection == null) {
+            // Walked out of reach, or the box has gone. The builder is waiting to hear, and
+            // used to close on the press and lose the whole selection to silence.
+            Component gone = Component.translatable("message.gathering.collection_gone");
+            player.sendSystemMessage(gone);
+            Sending.to(player, new dev.gathering.network.ImportResultPayload(
+                    asked.name(), 0, List.of(gone.getString())));
             return;
         }
         // Somebody who may not take from this box may still build out of their own pockets.
@@ -359,10 +365,16 @@ public final class CollectionView {
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.deck_built", deck.totalCards()));
         Achievements.award(player, Achievements.FIRST_DECK);
+        List<String> problems = new ArrayList<>();
         if (missed > 0) {
-            player.sendSystemMessage(
-                    Component.translatable("message.gathering.deck_built_short", missed));
+            Component shortBy = Component.translatable("message.gathering.deck_built_short", missed);
+            player.sendSystemMessage(shortBy);
+            problems.add(shortBy.getString());
         }
+        // And the screen that pressed Finish is told it happened, so it can close on the
+        // answer rather than on the press.
+        Sending.to(player, new dev.gathering.network.ImportResultPayload(
+                deck.name(), deck.totalCards(), problems));
     }
 
     /**

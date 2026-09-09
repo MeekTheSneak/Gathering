@@ -45,6 +45,27 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
         return Optional.empty();
     }
 
+    /**
+     * When this printing was last read from upstream, if it is on this disk at all.
+     * <p>A cached card is returned for ever, which is right for what a printing is - a name,
+     * a picture, a mana cost - and wrong for the one part of the same record that changes
+     * under it: what is legal where. Bans and rotations happen to cards nobody has looked up
+     * since. The file's own age is the answer, so nothing has to be written to ask it.
+     */
+    public Optional<java.time.Instant> cachedAt(java.util.UUID printing) {
+        if (printing == null) {
+            return Optional.empty();
+        }
+        Path file = fileFor(printing);
+        try {
+            return Files.isRegularFile(file)
+                    ? Optional.of(Files.getLastModifiedTime(file).toInstant())
+                    : Optional.empty();
+        } catch (IOException cannotTell) {
+            return Optional.empty();
+        }
+    }
+
     @Override
     public void store(CardMetadata card, JsonObject raw) {
         super.store(card, raw);
