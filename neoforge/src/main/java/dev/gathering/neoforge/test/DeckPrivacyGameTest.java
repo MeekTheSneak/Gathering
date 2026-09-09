@@ -3,6 +3,7 @@ package dev.gathering.neoforge.test;
 import dev.gathering.Gathering;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
+import dev.gathering.item.DeckItem;
 import dev.gathering.item.DraftedPool;
 import io.netty.buffer.Unpooled;
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.world.InteractionHand;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -111,6 +113,79 @@ public final class DeckPrivacyGameTest {
                 helper.fail("A drafted card crossed the wire by name");
                 return;
             }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A deck in the off hand is pushed to its owner, whichever hotbar slot they have in hand.
+     * <p>The push used to read the {@code selected} flag {@code inventoryTick} is handed and
+     * take it to mean "this is the main hand". NeoForge patches that flag to be true only for
+     * the selected hotbar slot, but vanilla - so Fabric - compares the selected hotbar index
+     * against the index within whichever compartment is being ticked, and the off hand is a
+     * compartment of one. So a Fabric player with hotbar slot one in hand was told nothing
+     * about the deck in their other hand, and every screen opened on it fell back to the
+     * public copy: a deck box with no list in it.
+     * <p>Ticked here the way vanilla ticks it - global slot forty, selected true - because
+     * that is the call this got wrong, and on NeoForge alone it never arrives.
+     */
+    @GameTest(template = "empty")
+    public static void anoffHandDeckStillReachesItsOwner(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        DeckItem.forget(player.getUUID());
+
+        DeckComponent deck = new DeckComponent(
+                "the one in my other hand", "", Optional.empty(),
+                cards(7), List.of(), List.of(),
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT);
+        net.minecraft.world.item.ItemStack stack = DeckItem.of(deck);
+        player.setItemInHand(InteractionHand.OFF_HAND, stack);
+
+        if (DeckItem.handHolding(player, stack).orElse(null) != InteractionHand.OFF_HAND) {
+            helper.fail("a deck in the off hand is not read as being in the off hand");
+            return;
+        }
+        stack.getItem().inventoryTick(stack, helper.getLevel(), player, 40, true);
+
+        DeckComponent told = DeckItem.toldTheOwner(player.getUUID(), InteractionHand.OFF_HAND)
+                .orElse(null);
+        if (told == null) {
+            helper.fail("the owner was told nothing about the deck in their off hand");
+            return;
+        }
+        if (told.entries().size() != 7) {
+            helper.fail("the owner was told a deck of " + told.entries().size()
+                    + " cards, not the seven that are in it");
+            return;
+        }
+        if (DeckItem.toldTheOwner(player.getUUID(), InteractionHand.MAIN_HAND).isPresent()) {
+            helper.fail("an off-hand deck was pushed as the main hand's");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A deck in a pocket is nobody's hand, so nothing is pushed about it. */
+    @GameTest(template = "empty")
+    public static void adeckInAPocketIsInNoHand(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        DeckItem.forget(player.getUUID());
+
+        net.minecraft.world.item.ItemStack stack = DeckItem.of(new DeckComponent(
+                "in the bag", "", Optional.empty(), cards(3), List.of(), List.of(),
+                Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT));
+        player.getInventory().add(stack);
+
+        if (DeckItem.handHolding(player, stack).isPresent()) {
+            helper.fail("a deck in a pocket is being read as held");
+            return;
+        }
+        stack.getItem().inventoryTick(stack, helper.getLevel(), player, 9, false);
+
+        if (DeckItem.toldTheOwner(player.getUUID(), InteractionHand.MAIN_HAND).isPresent()
+                || DeckItem.toldTheOwner(player.getUUID(), InteractionHand.OFF_HAND).isPresent()) {
+            helper.fail("the list of a deck sat in a pocket was pushed to its owner");
+            return;
         }
         helper.succeed();
     }

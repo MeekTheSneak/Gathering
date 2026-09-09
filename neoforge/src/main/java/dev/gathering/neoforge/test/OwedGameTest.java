@@ -87,6 +87,45 @@ public final class OwedGameTest {
         helper.succeed();
     }
 
+    /**
+     * A line this version cannot read stays owed rather than being swept away with the rest.
+     * <p>Delivery used to clear the whole file the moment it had handed over what it
+     * understood, so one line written by a different version of this mod - a kind of thing
+     * that did not exist yet, or no longer does - took everything else on the list with it.
+     * That is somebody's property being deleted for being unfamiliar.
+     */
+    @GameTest(template = "empty")
+    public static void alineThisVersionCannotReadIsNotThrownAway(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Owed.forget(player.getUUID());
+
+        Owed.aPack(player.getUUID(), "DMU", "draft");
+        java.nio.file.Path list = dev.gathering.platform.Platform.get().dataDirectory()
+                .resolve("owed").resolve(player.getUUID() + ".txt");
+        try {
+            java.nio.file.Files.writeString(list,
+                    java.nio.file.Files.readString(list) + System.lineSeparator()
+                            + "relic 9d2f from-a-later-version");
+        } catch (java.io.IOException couldNotWrite) {
+            helper.fail("Could not write the owed list to test it: " + couldNotWrite.getMessage());
+            return;
+        }
+
+        Owed.deliver(player);
+
+        if (countOf(player, PackItem.class) != 1) {
+            helper.fail("The pack on a list with an unreadable line beside it was not handed over");
+            return;
+        }
+        if (Owed.waitingFor(player.getUUID()) != 1) {
+            helper.fail("The line this version cannot read was left owed "
+                    + Owed.waitingFor(player.getUUID()) + " times, not once");
+            return;
+        }
+        Owed.forget(player.getUUID());
+        helper.succeed();
+    }
+
     private static int countOf(ServerPlayer player, Class<?> kind) {
         int found = 0;
         for (ItemStack stack : player.getInventory().items) {

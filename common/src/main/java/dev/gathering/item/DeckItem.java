@@ -243,8 +243,34 @@ public class DeckItem extends Item {
             return;
         }
         if (entity instanceof net.minecraft.server.level.ServerPlayer holder) {
-            tellTheOwner(holder, stack, selected);
+            tellTheOwner(holder, stack);
         }
+    }
+
+    /**
+     * Which of a player's two hands is holding this exact stack, if either is.
+     * <p>Asked of the hands rather than worked out from the {@code selected} flag
+     * {@code inventoryTick} is handed, because that flag does not mean the same thing on both
+     * loaders. NeoForge patches it to be true only for the selected hotbar slot; vanilla - so
+     * Fabric - compares the selected hotbar index against the index within whichever
+     * compartment is being ticked, and the off-hand is a compartment of one. So on Fabric an
+     * off-hand deck is reported as selected whenever the player happens to have hotbar slot
+     * one in hand, and reading the flag as "this is the main hand" quietly stopped sending
+     * that player their own decklist.
+     * <p>Identity rather than equality: two identical decks in two hands are two stacks, and
+     * the question being asked is which of them this one is.
+     */
+    public static java.util.Optional<net.minecraft.world.InteractionHand> handHolding(
+            net.minecraft.world.entity.player.Player holder, ItemStack stack) {
+        if (holder == null || stack == null) {
+            return java.util.Optional.empty();
+        }
+        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+            if (holder.getItemInHand(hand) == stack) {
+                return java.util.Optional.of(hand);
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     /**
@@ -255,21 +281,20 @@ public class DeckItem extends Item {
      * every way a deck can be edited without any of them having to remember to say so.
      */
     private static void tellTheOwner(
-            net.minecraft.server.level.ServerPlayer holder, ItemStack stack, boolean selected) {
-        net.minecraft.world.InteractionHand hand = selected
-                ? net.minecraft.world.InteractionHand.MAIN_HAND
-                : net.minecraft.world.InteractionHand.OFF_HAND;
-        if (holder.getItemInHand(hand) != stack) {
-            // In a pocket rather than in a hand. Nothing has a screen open on it, and its
-            // tooltip is drawn from the public copy like everybody else's.
+            net.minecraft.server.level.ServerPlayer holder, ItemStack stack) {
+        // In a pocket rather than in a hand: nothing has a screen open on it, and its tooltip
+        // is drawn from the public copy like everybody else's.
+        net.minecraft.world.InteractionHand hand = handHolding(holder, stack).orElse(null);
+        if (hand == null) {
             return;
         }
         DeckComponent deck = deckOf(stack).orElse(null);
         if (deck == null) {
             return;
         }
-        Object[] last = LAST_TOLD.computeIfAbsent(holder.getUUID(), who -> new Object[2]);
-        int at = hand == net.minecraft.world.InteractionHand.MAIN_HAND ? 0 : 1;
+        DeckComponent[] last = LAST_TOLD.computeIfAbsent(
+                holder.getUUID(), who -> new DeckComponent[2]);
+        int at = hand.ordinal();
         if (deck.equals(last[at])) {
             return;
         }
@@ -277,8 +302,22 @@ public class DeckItem extends Item {
         dev.gathering.network.Sending.to(holder, dev.gathering.network.MyDeckPayload.of(hand, deck));
     }
 
+    /**
+     * What was last pushed to this player about the deck in that hand.
+     * <p>Written before the send rather than after it, so this is what the server decided to
+     * tell them and not what the wire managed to carry. That is what a test wants to read: a
+     * stand-in player has no channel to take a payload on, and the decision is the part with
+     * the rule in it.
+     */
+    public static java.util.Optional<DeckComponent> toldTheOwner(
+            java.util.UUID player, net.minecraft.world.InteractionHand hand) {
+        DeckComponent[] last = LAST_TOLD.get(player);
+        return last == null ? java.util.Optional.empty()
+                : java.util.Optional.ofNullable(last[hand.ordinal()]);
+    }
+
     /** Per player, the deck last sent for each hand, so an unchanged deck is not re-sent. */
-    private static final java.util.Map<java.util.UUID, Object[]> LAST_TOLD =
+    private static final java.util.Map<java.util.UUID, DeckComponent[]> LAST_TOLD =
             new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Forgets a player, so the deck in their hand is sent again when they come back. */

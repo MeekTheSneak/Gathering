@@ -44,6 +44,24 @@ LOADERS = ["neoforge/src/main/java", "fabric/src/main/java"]
 
 CLEARS = re.compile(r"\bpublic static void clear\(\)")
 
+#: Where a per-player cleanup could be written, and the one list that has to name it.
+PER_PLAYER_HOLDERS = [
+    "common/src/main/java/dev/gathering/server",
+    "common/src/main/java/dev/gathering/service",
+    "common/src/main/java/dev/gathering/item",
+]
+
+PER_PLAYER_LIST = "common/src/main/java/dev/gathering/server/PlayerGone.java"
+
+#: A static that takes one player and drops what is held about them. Named by what it does
+#: rather than by a marker, because a marker is one more thing to remember.
+FORGETS = re.compile(
+    r"\bpublic static \w+ (?:forget|leave|left|joined|deliver)\("
+    r"[^)]*\b(?:UUID|ServerPlayer)\b")
+
+#: Both hooks, so a loader cannot wire up one end of the list and not the other.
+PER_PLAYER_CALLS = ["PlayerGone.arrived(", "PlayerGone.left("]
+
 
 def holders(side):
     """Classes on one side that offer a static clear()."""
@@ -92,6 +110,36 @@ def main():
                     f"{folder} never calls {call}, so nothing drops its {side} state"
                 )
 
+    # And the same rule one level down: what the server holds about one player has to be
+    # dropped when that player leaves. This is the drift that actually happened - a trade
+    # cleanup that existed, was correct, and was called by neither loader - so it is worth a
+    # rule of its own rather than trusting the next person to remember two files.
+    gone = ROOT / PER_PLAYER_LIST
+    if not gone.exists():
+        problems.append(f"{PER_PLAYER_LIST} is missing")
+    else:
+        listed = gone.read_text(encoding="utf-8")
+        for folder in PER_PLAYER_HOLDERS:
+            for path in sorted((ROOT / folder).glob("*.java")):
+                if path.stem == "PlayerGone" or not FORGETS.search(
+                        path.read_text(encoding="utf-8")):
+                    continue
+                if not re.search(rf"\b{path.stem}\b", listed):
+                    problems.append(
+                        f"{path.stem} holds something per player and PlayerGone never names "
+                        f"it; it would outlive the player it is about"
+                    )
+
+    for folder in LOADERS:
+        text = "".join(path.read_text(encoding="utf-8")
+                       for path in (ROOT / folder).rglob("*.java"))
+        for call in PER_PLAYER_CALLS:
+            if call not in text:
+                problems.append(
+                    f"{folder} never calls {call}), so its half of the per-player list "
+                    f"never runs"
+                )
+
     if problems:
         for problem in problems:
             print(problem)
@@ -99,7 +147,14 @@ def main():
         return 1
 
     counted = sum(len(holders(side)) for side in SIDES)
-    print(f"{counted} clearable holders checked, all named in one teardown list")
+    per_player = sum(
+        1
+        for folder in PER_PLAYER_HOLDERS
+        for path in (ROOT / folder).glob("*.java")
+        if path.stem != "PlayerGone" and FORGETS.search(path.read_text(encoding="utf-8"))
+    )
+    print(f"{counted} clearable holders and {per_player} per-player ones checked, "
+          f"all named in one teardown list")
     return 0
 
 

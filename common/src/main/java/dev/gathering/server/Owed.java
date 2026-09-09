@@ -89,6 +89,9 @@ public final class Owed {
      * Hands over everything owed, if anything is.
      * <p>Called when a player joins. The file goes only once its contents are in the player's
      * hands: if handing over throws, the list is still on disk and they get it next time.
+     * <p>A line this version cannot make an item out of stays on the list rather than being
+     * swept up with the delivered ones. An older save read by a newer mod, or the reverse, is
+     * not allowed to be a way to lose a card.
      */
     public static void deliver(ServerPlayer player) {
         if (player == null) {
@@ -99,14 +102,26 @@ public final class Owed {
             return;
         }
         int handed = 0;
+        List<String> couldNotRead = new ArrayList<>();
         for (String line : lines) {
             ItemStack stack = itemFor(line);
             if (stack != null && !stack.isEmpty()) {
                 Handing.give(player, stack);
                 handed++;
+            } else {
+                // A line this version cannot make an item out of is still somebody's
+                // property. Kept rather than swept up with the delivered ones: an older save
+                // read by a newer mod, or the reverse, must not be a way to lose a card.
+                couldNotRead.add(line);
             }
         }
-        forget(player.getUUID());
+        if (couldNotRead.isEmpty()) {
+            forget(player.getUUID());
+        } else {
+            write(player.getUUID(), couldNotRead);
+            LOGGER.warn("Kept {} owed line(s) this version cannot read, for {}",
+                    couldNotRead.size(), player.getUUID());
+        }
         if (handed > 0) {
             player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
                     "message.gathering.owed_delivered", handed));

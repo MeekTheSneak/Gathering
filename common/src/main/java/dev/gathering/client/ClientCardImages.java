@@ -15,9 +15,10 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HexFormat;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -322,28 +323,32 @@ public final class ClientCardImages {
 
     /**
      * Client thread only, because releasing a texture touches GL.
-     * <p>Three limits, all of them oldest-first, because the map is in access order: the byte
-     * ceiling the budget is actually written in, a count so a wall of tiny textures cannot
-     * grow without end, and a much smaller allowance for the large tier - which is what a
-     * player reading card after card with the key held fills the cache with.
+     * <p>What goes is decided by {@link dev.gathering.core.card.ResidentTextures}, which is
+     * pure and therefore checkable: this walks the map in access order, hands over the
+     * running totals, and releases whatever comes back.
      */
     private void evictDownToCap() {
-        Iterator<Map.Entry<String, Held>> oldestFirst = resident.entrySet().iterator();
-        while (oldestFirst.hasNext() && tooMuchIsResident()) {
-            Map.Entry<String, Held> eldest = oldestFirst.next();
-            Minecraft.getInstance().getTextureManager().release(eldest.getValue().id());
-            residentBytes -= eldest.getValue().bytes();
-            if (eldest.getValue().crisp()) {
+        List<dev.gathering.core.card.ResidentTextures.Held> oldestFirst =
+                new ArrayList<>(resident.size());
+        for (Map.Entry<String, Held> entry : resident.entrySet()) {
+            oldestFirst.add(new dev.gathering.core.card.ResidentTextures.Held(
+                    entry.getKey(), entry.getValue().bytes(), entry.getValue().crisp()));
+        }
+        for (String key : dev.gathering.core.card.ResidentTextures.toRelease(
+                oldestFirst,
+                MAX_RESIDENT_TEXTURES,
+                dev.gathering.core.card.TextureBudget.CEILING_MEBIBYTES * 1024 * 1024,
+                dev.gathering.core.card.TextureBudget.CRISP_AT_ONCE)) {
+            Held held = resident.remove(key);
+            if (held == null) {
+                continue;
+            }
+            Minecraft.getInstance().getTextureManager().release(held.id());
+            residentBytes -= held.bytes();
+            if (held.crisp()) {
                 residentCrisp--;
             }
-            oldestFirst.remove();
         }
-    }
-
-    private boolean tooMuchIsResident() {
-        return resident.size() > MAX_RESIDENT_TEXTURES
-                || residentBytes > dev.gathering.core.card.TextureBudget.CEILING_MEBIBYTES * 1024 * 1024
-                || residentCrisp > dev.gathering.core.card.TextureBudget.CRISP_AT_ONCE;
     }
 
     private Optional<byte[]> readCached(String url) {
