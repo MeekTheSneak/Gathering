@@ -115,8 +115,16 @@ public final class PackOpening {
                 }, collation.worker())
                 .whenComplete((opened, failure) -> player.server.execute(() -> {
                     if (player.hasDisconnected()) {
-                        // Nobody to hand cards to and nobody to hand a pack back to. The
-                        // stack went with them; nothing here can help that.
+                        // The pack left their hand before any of this started, so there is
+                        // nothing of theirs still in the world to fall back on: what they are
+                        // owed is written down and handed over the next time they join. It
+                        // used to be dropped here, and the comment said the stack had gone
+                        // with the player - it had not, it had been consumed a moment before.
+                        if (failure == null && opened != null && opened.pack() != null) {
+                            Owed.cards(player.getUUID(), opened.pack().cards());
+                        } else {
+                            Owed.aPack(player.getUUID(), set, kind);
+                        }
                         return;
                     }
                     if (failure != null) {
@@ -288,11 +296,23 @@ public final class PackOpening {
         return reading.packs().values().iterator().next();
     }
 
-    /** What of a pack can actually be handed over, and how much of it could not. */
-    public record Delivery(List<CardIdentity> giving, int unnameable) {
+    /**
+     * What a pack hands over now, and what it still owes.
+     *
+     * @param unnamed cards the pack really drew that the pipeline could not name yet. Kept
+     *                rather than counted, because a card the player opened is theirs whether
+     *                or not this server can draw it today - see {@link Owed}.
+     */
+    public record Delivery(List<CardIdentity> giving, List<CardIdentity> unnamed) {
 
         public Delivery {
             giving = giving == null ? List.of() : List.copyOf(giving);
+            unnamed = unnamed == null ? List.of() : List.copyOf(unnamed);
+        }
+
+        /** How many the pipeline could not name, which is what the player is told. */
+        public int unnameable() {
+            return unnamed.size();
         }
     }
 
@@ -314,16 +334,16 @@ public final class PackOpening {
             }
         }
         List<CardIdentity> giving = new ArrayList<>();
-        int unnameable = 0;
+        List<CardIdentity> unnamed = new ArrayList<>();
         for (CardIdentity card : pack.cards()) {
             UUID printing = card.printing().orElse(null);
             if (printing == null || !byPrinting.containsKey(printing)) {
-                unnameable++;
+                unnamed.add(card);
                 continue;
             }
             giving.add(card);
         }
-        return new Delivery(giving, unnameable);
+        return new Delivery(giving, unnamed);
     }
 
     /**
@@ -382,6 +402,12 @@ public final class PackOpening {
         String kind = opened.config().kind();
         Delivery delivery = whatToGive(opened.pack(), opened.cards());
         handOver(player, delivery.giving(), opened.cards(), set, kind, ceremony);
+        // A card the pipeline could not name yet is still a card this pack produced. It is
+        // kept rather than dropped from the delivery: metadata comes back, and when it does
+        // the player is handed the card they opened rather than a pack one short for good.
+        if (!delivery.unnamed().isEmpty()) {
+            Owed.cards(player.getUUID(), delivery.unnamed());
+        }
         if (opened.madeUp()) {
             // Said every time rather than once a session. A pack cut this way is a different
             // object from a real one - every common in it is exactly as likely as every other
@@ -389,6 +415,7 @@ public final class PackOpening {
             player.sendSystemMessage(
                     Component.translatable("message.gathering.pack_made_up", set));
         }
+        // Worded as owed rather than lost, because that is now what it is.
         if (delivery.unnameable() == 1) {
             player.sendSystemMessage(
                     Component.translatable("message.gathering.pack_unresolved_one"));

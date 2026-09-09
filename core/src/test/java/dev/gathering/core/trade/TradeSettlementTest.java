@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Whether a struck trade can be honored")
 class TradeSettlementTest {
 
+
     private static final UUID ANA = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private static final UUID BEN = UUID.fromString("22222222-2222-4222-8222-222222222222");
 
@@ -19,12 +20,16 @@ class TradeSettlementTest {
     private static final CardIdentity RING = CardIdentity.ofPrinting(
             UUID.fromString("bbbbbbbb-2222-4222-8222-222222222222"), false);
 
+    /** Agrees to the table as it stands, which is what somebody looking at it does. */
+    private static TradeTable agreeing(TradeTable table, UUID who) {
+        return table.agree(who, table.revision());
+    }
+
     private static TradeTable struck() {
-        return TradeTable.between(ANA, BEN)
+        TradeTable offered = TradeTable.between(ANA, BEN)
                 .putUp(ANA, BOLT, 2)
-                .putUp(BEN, RING, 1)
-                .agree(ANA)
-                .agree(BEN);
+                .putUp(BEN, RING, 1);
+        return agreeing(agreeing(offered, ANA), BEN);
     }
 
     @Test
@@ -68,7 +73,7 @@ class TradeSettlementTest {
     @Test
     @DisplayName("a trade nobody struck does not settle, however well covered")
     void onlyAStruckTableSettles() {
-        TradeTable open = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1).agree(ANA);
+        TradeTable open = agreeing(TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1), ANA);
 
         assertThat(TradeSettlement.of(open,
                 CardTally.builder().add(BOLT, 4).build(), CardTally.EMPTY)).isEmpty();
@@ -79,8 +84,8 @@ class TradeSettlementTest {
     @Test
     @DisplayName("a trade where one side gives nothing is still a trade")
     void aGiftIsATrade() {
-        TradeTable gift = TradeTable.between(ANA, BEN)
-                .putUp(ANA, BOLT, 1).agree(ANA).agree(BEN);
+        TradeTable offered = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1);
+        TradeTable gift = agreeing(agreeing(offered, ANA), BEN);
 
         var settled = TradeSettlement.of(gift,
                 CardTally.builder().add(BOLT, 1).build(), CardTally.EMPTY).orElseThrow();

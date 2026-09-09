@@ -29,7 +29,8 @@ public record TradeViewPayload(
         List<Pile> theirs,
         boolean iAgreed,
         boolean theyAgreed,
-        boolean closed) implements CustomPacketPayload {
+        boolean closed,
+        int revision) implements CustomPacketPayload {
 
     /** As many distinct cards as one side of a trade may hold. Matches the rule in :core. */
     public static final int MOST_PILES = dev.gathering.core.trade.TradeTable.MOST_DISTINCT;
@@ -50,15 +51,40 @@ public record TradeViewPayload(
     public static final CustomPacketPayload.Type<TradeViewPayload> TYPE =
             GatheringPayloads.type("trade_view");
 
+    /** One side of the table on the wire, bounded so a bad packet cannot allocate the world. */
+    private static final StreamCodec<RegistryFriendlyByteBuf, List<Pile>> SIDE =
+            Pile.STREAM_CODEC.apply(ByteBufCodecs.list(MOST_PILES));
+
+    /**
+     * Written out by hand rather than composed.
+     * <p>{@code StreamCodec.composite} stops at six parts in this version and a trade view has
+     * seven, the seventh being the revision - which is the one that makes an agreement mean
+     * the terms its sender read. The only thing to keep right is that the two halves stay in
+     * step.
+     */
     public static final StreamCodec<RegistryFriendlyByteBuf, TradeViewPayload> STREAM_CODEC =
-            StreamCodec.composite(
-                    ByteBufCodecs.stringUtf8(MOST_NAME_CHARACTERS), TradeViewPayload::other,
-                    Pile.STREAM_CODEC.apply(ByteBufCodecs.list(MOST_PILES)), TradeViewPayload::mine,
-                    Pile.STREAM_CODEC.apply(ByteBufCodecs.list(MOST_PILES)), TradeViewPayload::theirs,
-                    ByteBufCodecs.BOOL, TradeViewPayload::iAgreed,
-                    ByteBufCodecs.BOOL, TradeViewPayload::theyAgreed,
-                    ByteBufCodecs.BOOL, TradeViewPayload::closed,
-                    TradeViewPayload::new);
+            StreamCodec.of(TradeViewPayload::toNetwork, TradeViewPayload::fromNetwork);
+
+    private static void toNetwork(RegistryFriendlyByteBuf out, TradeViewPayload view) {
+        ByteBufCodecs.stringUtf8(MOST_NAME_CHARACTERS).encode(out, view.other());
+        SIDE.encode(out, view.mine());
+        SIDE.encode(out, view.theirs());
+        out.writeBoolean(view.iAgreed());
+        out.writeBoolean(view.theyAgreed());
+        out.writeBoolean(view.closed());
+        ByteBufCodecs.VAR_INT.encode(out, view.revision());
+    }
+
+    private static TradeViewPayload fromNetwork(RegistryFriendlyByteBuf in) {
+        String other = ByteBufCodecs.stringUtf8(MOST_NAME_CHARACTERS).decode(in);
+        List<Pile> mine = SIDE.decode(in);
+        List<Pile> theirs = SIDE.decode(in);
+        boolean iAgreed = in.readBoolean();
+        boolean theyAgreed = in.readBoolean();
+        boolean closed = in.readBoolean();
+        return new TradeViewPayload(
+                other, mine, theirs, iAgreed, theyAgreed, closed, ByteBufCodecs.VAR_INT.decode(in));
+    }
 
     public TradeViewPayload {
         other = other == null ? "" : other;
@@ -73,6 +99,6 @@ public record TradeViewPayload(
 
     /** Nothing on the table, for the moment a trade ends. */
     public static TradeViewPayload over(String other) {
-        return new TradeViewPayload(other, List.of(), List.of(), false, false, true);
+        return new TradeViewPayload(other, List.of(), List.of(), false, false, true, 0);
     }
 }

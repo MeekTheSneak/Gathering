@@ -75,6 +75,21 @@ public final class TableCameraView {
     /** The table being played at, or nothing at all, which is the usual answer. */
     private static BlockPos table;
 
+    /**
+     * The surface of the whole cluster this camera is looking at.
+     * <p>How many tables it is comes from the board this client has been sent, the same way
+     * the seating does. Without it the camera framed and clamped to one table's worth of
+     * blocks, which on a pod leaves half the game off the edge of the view.
+     */
+    private static TableTop surfaceOf(BlockPos corner) {
+        int seats = dev.gathering.client.ClientTableState.viewOf(corner)
+                .map(board -> board.seats().size())
+                .orElse(dev.gathering.core.table.TableCluster.SEATS_PER_TABLE);
+        int tables = Math.max(1, (seats + dev.gathering.core.table.TableCluster.SEATS_PER_TABLE - 1)
+                / dev.gathering.core.table.TableCluster.SEATS_PER_TABLE);
+        return TableTop.forCluster(corner.getX(), corner.getY(), corner.getZ(), tables, 1);
+    }
+
     /** Which way round to draw it, so the player's own mat is the near one. */
     private static float facing = FACING_FROM_NORTH;
 
@@ -307,13 +322,15 @@ public final class TableCameraView {
             return;
         }
         double ratio = height / was;
-        TableTop top = TableTop.forCorner(corner.getX(), corner.getY(), corner.getZ());
-        double baseX = top.worldX(TableSurface.SPAN / 2.0);
-        double baseZ = top.worldZ(TableSurface.SPAN / 2.0);
+        TableTop top = surfaceOf(corner);
+        double baseX = top.worldX(top.surfaceWidth() / 2.0);
+        double baseZ = top.worldZ(top.surfaceDepth() / 2.0);
         double wantedX = anchorWorldX - (anchorWorldX - (baseX + offsetX)) * ratio;
         double wantedZ = anchorWorldZ
                 - (anchorWorldZ - (baseZ + offsetZ + lift(was))) * ratio;
-        double reach = TableTop.SPAN_BLOCKS / 2;
+        // Panning reaches half the cluster, not half a table: on a four-seat pod the far
+        // mats sit outside one table's worth of blocks and could not be brought into view.
+        double reach = top.widthInBlocks() / 2;
         offsetX = Math.max(-reach, Math.min(reach, wantedX - baseX));
         offsetZ = Math.max(-reach, Math.min(reach, wantedZ - baseZ - lift(height)));
     }
@@ -408,12 +425,12 @@ public final class TableCameraView {
         if (corner == null) {
             return Optional.empty();
         }
-        TableTop top = TableTop.forCorner(corner.getX(), corner.getY(), corner.getZ());
+        TableTop top = surfaceOf(corner);
         double lift = lift(height);
         return Optional.of(new Placement(
-                top.worldX(TableSurface.SPAN / 2.0) + offsetX,
+                top.worldX(top.surfaceWidth() / 2.0) + offsetX,
                 top.topY() + height,
-                top.worldZ(TableSurface.SPAN / 2.0) + offsetZ + lift,
+                top.worldZ(top.surfaceDepth() / 2.0) + offsetZ + lift,
                 facing,
                 LOOKING_DOWN));
     }

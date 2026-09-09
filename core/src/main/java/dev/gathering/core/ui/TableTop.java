@@ -17,9 +17,13 @@ import java.util.Optional;
  * @param westX  the world x of the surface's (0, 0) corner
  * @param topY   the world y the surface sits at
  * @param northZ the world z of the surface's (0, 0) corner
- * @param span   how many blocks across the surface is
+ * @param span   how many blocks across one table is
+ * @param tablesAcross how many tables the cluster is wide, west to east
+ * @param tablesDown   how many tables the cluster is deep, north to south
  */
-public record TableTop(double westX, double topY, double northZ, double span) {
+public record TableTop(
+        double westX, double topY, double northZ, double span,
+        int tablesAcross, int tablesDown) {
 
     /**
      * How far in from the block's edge the playing surface starts.
@@ -43,14 +47,52 @@ public record TableTop(double westX, double topY, double northZ, double span) {
      * from different corners.
      */
     public static TableTop forCorner(double cornerX, double cornerY, double cornerZ) {
-        return new TableTop(
-                cornerX + MARGIN, cornerY + SURFACE_HEIGHT, cornerZ + MARGIN, SPAN_BLOCKS);
+        return forCluster(cornerX, cornerY, cornerZ, 1, 1);
+    }
+
+    /**
+     * The surface of a whole cluster, whose owning corner is this block.
+     * <p>A cluster is several tables and one game, and the shared surface grows by a table's
+     * worth for each of them - so the mats at the far end sit past the first table's edge.
+     * Hit testing did not: it was written for one table, checked a point against one table's
+     * blocks, and clamped anything beyond into it. An audit reproduced the result, which is
+     * that on a four-seat pod the second table's mat is drawn where nothing can be clicked.
+     *
+     * @param tablesAcross how many tables wide the cluster is, at least one
+     * @param tablesDown   how many tables deep the cluster is, at least one
+     */
+    public static TableTop forCluster(
+            double cornerX, double cornerY, double cornerZ, int tablesAcross, int tablesDown) {
+        return new TableTop(cornerX + MARGIN, cornerY + SURFACE_HEIGHT, cornerZ + MARGIN,
+                SPAN_BLOCKS, tablesAcross, tablesDown);
     }
 
     public TableTop {
         if (span <= 0) {
             throw new IllegalArgumentException("a table with no surface: span " + span);
         }
+        tablesAcross = Math.max(1, tablesAcross);
+        tablesDown = Math.max(1, tablesDown);
+    }
+
+    /** How many blocks the whole cluster is, west to east. */
+    public double widthInBlocks() {
+        return span * tablesAcross;
+    }
+
+    /** How many blocks the whole cluster is, north to south. */
+    public double depthInBlocks() {
+        return span * tablesDown;
+    }
+
+    /** How many surface units wide the shared surface is - a table's worth per table. */
+    public double surfaceWidth() {
+        return (double) TableSurface.SPAN * tablesAcross;
+    }
+
+    /** How many surface units deep the shared surface is. */
+    public double surfaceDepth() {
+        return (double) TableSurface.SPAN * tablesDown;
     }
 
     /** A point on the shared surface, in {@link TableSurface} units. */
@@ -87,16 +129,17 @@ public record TableTop(double westX, double topY, double northZ, double span) {
      * table read as off it, and a card let go there quietly went nowhere.
      */
     public Optional<Spot> at(double worldX, double worldZ) {
-        if (worldX < westX || worldX > westX + span || worldZ < northZ || worldZ > northZ + span) {
+        if (worldX < westX || worldX > westX + widthInBlocks()
+                || worldZ < northZ || worldZ > northZ + depthInBlocks()) {
             return Optional.empty();
         }
         return Optional.of(new Spot(
-                clamped((worldX - westX) / span * TableSurface.SPAN),
-                clamped((worldZ - northZ) / span * TableSurface.SPAN)));
+                clamped((worldX - westX) / span * TableSurface.SPAN, surfaceWidth()),
+                clamped((worldZ - northZ) / span * TableSurface.SPAN, surfaceDepth())));
     }
 
-    private static double clamped(double surfaceUnits) {
-        return Math.max(0, Math.min(TableSurface.SPAN, surfaceUnits));
+    private static double clamped(double surfaceUnits, double most) {
+        return Math.max(0, Math.min(most, surfaceUnits));
     }
 
     /** The world x of a point on the surface. */

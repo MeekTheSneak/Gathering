@@ -23,8 +23,13 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 public record AntePotPayload(BlockPos table, List<CardComponent> cards)
         implements CustomPacketPayload {
 
-    /** More cards than any table will stake, and a bound so a bad packet is refused. */
-    public static final int MOST_CARDS = 64;
+    /**
+     * Every card a full table can stake, and not one fewer.
+     * <p>Taken from the pot's own maximum rather than picked: this was sixty-four while an
+     * eight-seat cluster staking the configured maximum made eighty, so a game that the
+     * config permitted built a pot this packet could not carry.
+     */
+    public static final int MOST_CARDS = dev.gathering.core.ante.AntePot.MOST_IN_A_POT;
 
     public static final CustomPacketPayload.Type<AntePotPayload> TYPE =
             GatheringPayloads.type("ante_pot");

@@ -647,9 +647,20 @@ public final class TableScreen extends Screen {
                 + " || " + geometry.report();
     }
 
-    /** The table's surface in the world, for turning a cursor into a place on the felt. */
+    /**
+     * The table's surface in the world, for turning a cursor into a place on the felt.
+     * <p>The whole cluster's surface, not one table's. A pod is a row of tables sharing one
+     * board, and a hit test measured against the first of them answered "not on the table"
+     * for every point past its edge - which is where the second table's mats are drawn.
+     */
     private TableTop tableTop() {
-        return TableTop.forCorner(table.getX(), table.getY(), table.getZ());
+        return TableTop.forCluster(table.getX(), table.getY(), table.getZ(), tablesInTheRow(), 1);
+    }
+
+    /** How many tables this cluster is, worked out the way the seating is. */
+    private int tablesInTheRow() {
+        return Math.max(1, (anchors().size() + TableCluster.SEATS_PER_TABLE - 1)
+                / TableCluster.SEATS_PER_TABLE);
     }
 
     /**

@@ -20,7 +20,9 @@ public final class ServerState {
         dev.gathering.service.ServerSettings.clear();
         Antes.clear();
         Archive.clear();
+        CardArtPush.clear();
         CardShop.clear();
+        CollectionSets.clear();
         CurrentSet.clear();
         LoanerDecks.clear();
         ReplayWatch.clear();

@@ -323,6 +323,86 @@ class DeckValidatorTest {
                 assertThat(preset.legalitiesKey()).isNotBlank());
     }
 
+    // ---------------------------------------------------- the sideboard too
+
+    /**
+     * A sideboard is part of the registered deck.
+     * <p>Bans and copy limits were checked against the deck proper only, so a Modern deck
+     * with a banned card in the sideboard passed, and a Vintage deck with a restricted card
+     * in each half passed as well. The tournament rules count both halves as one document.
+     */
+    @Test
+    @DisplayName("a card banned in the format is banned in the sideboard too")
+    void aBanReachesTheSideboard() {
+        ValidatableDeck deck = new ValidatableDeck(
+                "Modern", pad(60), List.of(), List.of(SOL_RING));
+
+        ValidationResult result = DeckValidator.validate(deck, FormatPresets.MODERN);
+
+        assertThat(codes(result)).contains("card_not_legal");
+        assertThat(result.isLegal()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a restricted card is one card across the deck and the sideboard")
+    void restrictionCountsBothHalves() {
+        List<CardMetadata> main = new ArrayList<>(pad(59));
+        main.add(SOL_RING);
+        ValidatableDeck deck = new ValidatableDeck("Vintage", main, List.of(), List.of(SOL_RING));
+
+        ValidationResult result = DeckValidator.validate(deck, FormatPresets.VINTAGE);
+
+        assertThat(codes(result)).contains("too_many_copies");
+        assertThat(result.isLegal()).isFalse();
+    }
+
+    @Test
+    @DisplayName("one restricted card, in the deck alone, is still legal")
+    void oneRestrictedCardIsFine() {
+        List<CardMetadata> main = new ArrayList<>(pad(59));
+        main.add(SOL_RING);
+
+        ValidationResult result = DeckValidator.validate(
+                new ValidatableDeck("Vintage", main, List.of(), List.of()), FormatPresets.VINTAGE);
+
+        assertThat(codes(result)).doesNotContain("too_many_copies");
+    }
+
+    // ------------------------------------------------------- the oathbreaker
+
+    /**
+     * The oathbreaker decides the colors; the signature spell has to fit inside them.
+     * <p>Both command-zone cards used to contribute, so a green signature spell widened a
+     * blue walker's identity, legitimised itself, and legitimised fifty-eight Forests behind
+     * it. Oathbreaker's own rules say the planeswalker sets the identity.
+     */
+    @Test
+    @DisplayName("a signature spell outside the oathbreaker's colors is refused")
+    void theSignatureSpellFitsTheWalker() {
+        CardMetadata walker = colored("Legendary Planeswalker — Test", "U");
+        CardMetadata offColor = colored("Instant", "G");
+
+        ValidationResult result = DeckValidator.validate(
+                new ValidatableDeck("Oathbreaker", pad(58), List.of(walker, offColor), List.of()),
+                FormatPresets.OATHBREAKER);
+
+        assertThat(codes(result)).contains("color_identity");
+        assertThat(result.isLegal()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a signature spell inside them is fine, and so is the deck behind it")
+    void amatchingSignatureIsFine() {
+        CardMetadata walker = colored("Legendary Planeswalker — Test", "G");
+        CardMetadata inColor = colored("Instant", "G");
+
+        ValidationResult result = DeckValidator.validate(
+                new ValidatableDeck("Oathbreaker", pad(58), List.of(walker, inColor), List.of()),
+                FormatPresets.OATHBREAKER);
+
+        assertThat(codes(result)).doesNotContain("color_identity");
+    }
+
     // ------------------------------------------------------------- fixtures
 
     private static ValidatableDeck commanderDeck(List<CardMetadata> commanders, List<CardMetadata> mainboard) {
@@ -347,6 +427,20 @@ class DeckValidatorTest {
         JsonObject json = Fixtures.json("forest");
         json.addProperty("id", "00000000-0000-4000-8000-0000000000aa");
         json.add("color_identity", new com.google.gson.JsonArray());
+        return ScryfallCardCodec.parse(json).orElseThrow();
+    }
+
+    /** A card of one color and one type, built off a fixture so the codec stays honest. */
+    private static CardMetadata colored(String typeLine, String color) {
+        JsonObject json = Fixtures.json("sol_ring");
+        // A fresh, valid id per card: the codec parses one, and "…cu" is not hexadecimal.
+        json.addProperty("id", java.util.UUID.randomUUID().toString());
+        json.addProperty("name", typeLine + " " + color);
+        json.addProperty("type_line", typeLine);
+        com.google.gson.JsonArray colors = new com.google.gson.JsonArray();
+        colors.add(color);
+        json.add("color_identity", colors);
+        json.add("colors", colors.deepCopy());
         return ScryfallCardCodec.parse(json).orElseThrow();
     }
 

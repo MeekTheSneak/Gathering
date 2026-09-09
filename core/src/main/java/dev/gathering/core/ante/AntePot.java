@@ -21,6 +21,19 @@ public record AntePot(Map<SeatId, List<CardIdentity>> stakes) {
 
     public static final AntePot EMPTY = new AntePot(Map.of());
 
+    /**
+     * The most cards a pot can ever hold, which is every seat staking the most it may.
+     * <p>Worked out from the two numbers that decide it rather than guessed at, because the
+     * guess was wrong: the payload that carries a pot to the room was bounded at sixty-four,
+     * and a full eight-seat cluster staking ten cards each makes eighty. A configured,
+     * entirely ordinary game therefore reached a pot its own broadcast could not encode.
+     * Anything that carries a pot is bounded by this, so the two cannot drift apart again.
+     */
+    public static final int MOST_IN_A_POT =
+            dev.gathering.core.table.TableCluster.MAX_TABLES
+                    * dev.gathering.core.table.TableCluster.SEATS_PER_TABLE
+                    * dev.gathering.core.config.GatheringConfig.Ante.MOST_PER_PLAYER;
+
     /** Where a pot's cards end up: each seat and what it receives. */
     public record Payout(Map<SeatId, List<CardIdentity>> to) {
 

@@ -24,13 +24,19 @@ class TradeTableTest {
     private static final CardIdentity RING = CardIdentity.ofPrinting(
             UUID.fromString("bbbbbbbb-2222-4222-8222-222222222222"), false);
 
+
+    /** Agrees to the table as it stands, which is what somebody looking at it does. */
+    private static TradeTable agreeing(TradeTable table, UUID who) {
+        return table.agree(who, table.revision());
+    }
+
     @Test
     @DisplayName("nothing is struck until both sides have agreed")
     void bothSidesOrNothing() {
         TradeTable table = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1);
 
-        assertThat(table.agree(ANA).isStruck()).isFalse();
-        assertThat(table.agree(ANA).agree(BEN).isStruck()).isTrue();
+        assertThat(agreeing(table, ANA).isStruck()).isFalse();
+        assertThat(agreeing(agreeing(table, ANA), BEN).isStruck()).isTrue();
     }
 
     @Test
@@ -38,10 +44,9 @@ class TradeTableTest {
     void aChangedOfferUnAgreesEverybody() {
         // The scam every trading system that skipped this has in it: agree, wait for the
         // other side, swap the good card for a worse one, and take theirs.
-        TradeTable agreed = TradeTable.between(ANA, BEN)
+        TradeTable agreed = agreeing(TradeTable.between(ANA, BEN)
                 .putUp(ANA, BOLT, 1)
-                .putUp(BEN, RING, 1)
-                .agree(BEN);
+                .putUp(BEN, RING, 1), BEN);
         assertThat(agreed.hasAgreed(BEN)).isTrue();
 
         TradeTable swapped = agreed.putUp(ANA, BOLT, 0);
@@ -58,21 +63,21 @@ class TradeTableTest {
     void generosityIsStillAChange() {
         // It does not matter whether a change is in the other person's favor. They agreed to
         // a table, and anything that is not that table needs agreeing to again.
-        TradeTable agreed = TradeTable.between(ANA, BEN)
-                .putUp(ANA, BOLT, 1).agree(ANA).agree(BEN);
+        TradeTable offered = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1);
+        TradeTable agreed = agreeing(agreeing(offered, ANA), BEN);
         assertThat(agreed.isStruck()).isTrue();
 
         // Struck is struck: nothing changes it, which is the other half of the same rule.
         assertThat(agreed.putUp(ANA, RING, 1)).isEqualTo(agreed);
 
-        TradeTable open = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1).agree(BEN);
+        TradeTable open = agreeing(TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1), BEN);
         assertThat(open.putUp(ANA, RING, 1).hasAgreed(BEN)).isFalse();
     }
 
     @Test
     @DisplayName("putting up what is already there changes nothing, and un-agrees nobody")
     void anEmptyChangeIsNoChange() {
-        TradeTable agreed = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 2).agree(BEN);
+        TradeTable agreed = agreeing(TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 2), BEN);
 
         assertThat(agreed.putUp(ANA, BOLT, 2)).isEqualTo(agreed);
         assertThat(agreed.clearOffer(BEN))
@@ -83,11 +88,11 @@ class TradeTableTest {
     @Test
     @DisplayName("an agreement can be taken back until the other side gives theirs")
     void thinkingAgainWorksUntilItIsStruck() {
-        TradeTable one = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1).agree(ANA);
+        TradeTable one = agreeing(TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1), ANA);
 
         assertThat(one.thinkAgain(ANA).hasAgreed(ANA)).isFalse();
         // And once both have agreed there is no window to reach into.
-        TradeTable struck = one.agree(BEN);
+        TradeTable struck = agreeing(one, BEN);
         assertThat(struck.thinkAgain(ANA)).isEqualTo(struck);
     }
 
@@ -97,7 +102,7 @@ class TradeTableTest {
         TradeTable table = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1);
 
         assertThat(table.putUp(NOBODY, RING, 4)).isEqualTo(table);
-        assertThat(table.agree(NOBODY)).isEqualTo(table);
+        assertThat(agreeing(table, NOBODY)).isEqualTo(table);
         assertThat(table.clearOffer(NOBODY)).isEqualTo(table);
         assertThat(table.seats(NOBODY)).isFalse();
         assertThat(table.offerFrom(NOBODY).isEmpty()).isTrue();
@@ -107,14 +112,14 @@ class TradeTableTest {
     @Test
     @DisplayName("walking away ends it from anywhere")
     void anybodyMayWalkAway() {
-        TradeTable struck = TradeTable.between(ANA, BEN)
-                .putUp(ANA, BOLT, 1).agree(ANA).agree(BEN);
+        TradeTable offered = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1);
+        TradeTable struck = agreeing(agreeing(offered, ANA), BEN);
 
         TradeTable closed = struck.close();
         assertThat(closed.isStruck()).isFalse();
         assertThat(closed.stage()).isEqualTo(TradeTable.Stage.CLOSED);
         assertThat(closed.putUp(ANA, RING, 1)).isEqualTo(closed);
-        assertThat(closed.agree(ANA)).isEqualTo(closed);
+        assertThat(agreeing(closed, ANA)).isEqualTo(closed);
         assertThat(closed.close()).isEqualTo(closed);
     }
 
@@ -129,6 +134,49 @@ class TradeTableTest {
         }
 
         assertThat(table.offerFrom(ANA).distinct()).isEqualTo(TradeTable.MOST_DISTINCT);
+    }
+
+    /**
+     * An agreement is about the terms its sender was looking at.
+     * <p>An audit reproduced this end to end: Ben clicks agree on Ana's card; his packet is
+     * slow; Ana takes her card back and agrees herself; Ben's packet lands and strikes a
+     * trade in which Ana gives nothing and Ben gives his card. Clearing an offer resets both
+     * agreement flags, which is why this looked covered - but a flag cannot reach a packet
+     * already in flight, and the packet said nothing about which table it had been sent from.
+     */
+    @Test
+    @DisplayName("an agreement sent before the terms changed does not strike the new ones")
+    void aSlowAgreementDoesNotStrikeChangedTerms() {
+        TradeTable shown = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1).putUp(BEN, RING, 1);
+        int benWasLookingAt = shown.revision();
+
+        // Ana takes her card back and agrees to the table that leaves.
+        TradeTable now = shown.clearOffer(ANA);
+        now = now.agree(ANA, now.revision());
+
+        // Ben's agreement, sent before any of that, arrives.
+        TradeTable after = now.agree(BEN, benWasLookingAt);
+
+        assertThat(after.isStruck())
+                .describedAs("Ben agreed to a table with Ana's card on it")
+                .isFalse();
+        assertThat(after.hasAgreed(BEN)).isFalse();
+        assertThat(after).isEqualTo(now);
+
+        // Sent again against the terms actually on the table, it goes through.
+        assertThat(after.agree(BEN, after.revision()).isStruck()).isTrue();
+    }
+
+    @Test
+    @DisplayName("agreeing does not move the revision on, or nobody could ever agree second")
+    void agreeingIsNotAChangeOfTerms() {
+        TradeTable shown = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1);
+        int terms = shown.revision();
+
+        TradeTable one = shown.agree(ANA, terms);
+
+        assertThat(one.revision()).isEqualTo(terms);
+        assertThat(one.agree(BEN, terms).isStruck()).isTrue();
     }
 
     @Test
@@ -152,7 +200,7 @@ class TradeTableTest {
             table = switch (move.what()) {
                 case PUT -> table.putUp(move.who(), move.card(), move.howMany());
                 case CLEAR -> table.clearOffer(move.who());
-                case AGREE -> table.agree(move.who());
+                case AGREE -> table.agree(move.who(), table.revision());
                 case UNDO -> table.thinkAgain(move.who());
             };
             if (table.isStruck() && !before.isStruck()) {

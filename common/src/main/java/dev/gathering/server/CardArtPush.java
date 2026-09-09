@@ -49,6 +49,15 @@ public final class CardArtPush {
     private static final Map<UUID, Set<UUID>> ALREADY_SENT = new ConcurrentHashMap<>();
 
     /**
+     * Per player, the printings a lookup is out for right now.
+     * <p>Kept apart from what has been sent, because the two answer different questions.
+     * Marking a printing sent before the lookup came back meant a lookup that failed - the
+     * service still starting, a read that threw, a network that was not there yet - was never
+     * tried again for the rest of that session, and the cards it was for stayed nameless.
+     */
+    private static final Map<UUID, Set<UUID>> BEING_LOOKED_UP = new ConcurrentHashMap<>();
+
+    /**
      * When a player's list is thrown away and started again.
      * <p>Bounded by the distinct printings at one table, so in practice it never gets here.
      * The cap is for the session that goes on for a week: forgetting costs one repeat send.
@@ -56,6 +65,18 @@ public final class CardArtPush {
     private static final int MOST_WORTH_REMEMBERING = 2000;
 
     private CardArtPush() {
+    }
+
+    /** Forgets a player, so a client that reconnects is told about the table again. */
+    public static void forget(UUID player) {
+        ALREADY_SENT.remove(player);
+        BEING_LOOKED_UP.remove(player);
+    }
+
+    /** Forgets everybody, for a server that is stopping. */
+    public static void clear() {
+        ALREADY_SENT.clear();
+        BEING_LOOKED_UP.clear();
     }
 
     /**
@@ -102,17 +123,22 @@ public final class CardArtPush {
             return;
         }
         Set<UUID> sent = alreadySentTo(player);
+        Set<UUID> asking = BEING_LOOKED_UP.computeIfAbsent(
+                player.getUUID(), ignored -> ConcurrentHashMap.newKeySet());
         wanted = new LinkedHashSet<>(wanted);
         wanted.removeAll(sent);
+        wanted.removeAll(asking);
         if (wanted.isEmpty()) {
             return;
         }
-        // Marked before the lookup rather than after it. A printing this server has never
-        // heard of would otherwise be asked for again on every action anybody takes at the
-        // table, for the rest of the session - a trickle of lookups aimed at somebody else's
-        // Scryfall quota, one per tap. Asked once; if the answer was not there yet, the
-        // picture arrives when that client next connects.
-        sent.addAll(wanted);
+        // Marked as being asked about, not as sent. A printing this server has never heard of
+        // must not be asked for again on every action anybody takes at the table - a trickle
+        // of lookups aimed at somebody else's Scryfall quota, one per tap - so the answer,
+        // whatever it is, decides: a printing that came back is remembered as sent, one the
+        // service says it does not have is remembered too, and a lookup that failed outright
+        // is forgotten so the next board can try it again.
+        asking.addAll(wanted);
+        Set<UUID> outstanding = Set.copyOf(wanted);
 
         // Off the server thread. A printing that is not in the index yet is a file read, and
         // a board update that reads a hundred files is a board update that stutters the
@@ -120,8 +146,19 @@ public final class CardArtPush {
         // back to the server thread only to send.
         service.findAll(List.copyOf(wanted)).whenComplete((cards, failure) ->
                 player.server.execute(() -> {
-                    if (player.hasDisconnected() || failure != null || cards == null
-                            || cards.isEmpty()) {
+                    asking.removeAll(outstanding);
+                    if (player.hasDisconnected()) {
+                        return;
+                    }
+                    if (failure != null || cards == null) {
+                        // Nothing was learned, so nothing is remembered: the next board this
+                        // player is sent asks again.
+                        return;
+                    }
+                    // Everything asked about has now been answered for, including the
+                    // printings the service does not have - those are asked once and no more.
+                    sent.addAll(outstanding);
+                    if (cards.isEmpty()) {
                         return;
                     }
                     List<CardSummary> summaries = new ArrayList<>(cards.size());

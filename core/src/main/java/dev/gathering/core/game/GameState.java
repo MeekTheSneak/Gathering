@@ -141,6 +141,24 @@ public record GameState(
         return seatStates.containsKey(seat);
     }
 
+    /**
+     * Whether this card is a commander some seat at this table put down.
+     * <p>Asked before commander tax or commander damage is charged against it. The maps are
+     * keyed by the card, so an instance that was never a commander made an entry keyed by a
+     * number that means nothing and that nothing at the table could clear again.
+     */
+    public boolean isACommander(CardInstanceId card) {
+        if (card == null) {
+            return false;
+        }
+        for (SeatState seat : seatStates.values()) {
+            if (seat.commanders().contains(card)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** The top of a library, or empty when it is empty. Nothing here decides what that means. */
     public Optional<CardInstanceId> topOf(ZoneRef ref) {
         List<CardInstanceId> contents = contents(ref);

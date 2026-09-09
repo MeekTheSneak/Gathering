@@ -54,13 +54,106 @@ public enum CommanderRules {
         };
     }
 
-    /** Two commanders are only allowed when both of them say so. */
+    /**
+     * Whether these two cards may lead a deck together.
+     * <p>Four printed mechanics put two cards in a command zone and each pairs differently.
+     * Reading them all as "has the word Partner somewhere" accepted pairs no rules enforcement
+     * would: two cards whose Partner-with clauses name different people, a Background beside
+     * another Background, a Doctor's companion with no Doctor. An audit reproduced the first.
+     * <ul>
+     *   <li><b>Partner</b> - the bare keyword pairs with any other bare Partner.</li>
+     *   <li><b>Partner with N</b> - pairs only with the card it names, and that card names it
+     *       back. It does not pair with an ordinary Partner.</li>
+     *   <li><b>Friends forever</b> - pairs with another Friends forever, and nothing else.</li>
+     *   <li><b>Choose a Background</b> - pairs with a Background, which is an enchantment type
+     *       rather than a keyword.</li>
+     *   <li><b>Doctor's companion</b> - pairs with a Time Lord Doctor.</li>
+     * </ul>
+     */
     public boolean allowsPairing(List<CardMetadata> commanders) {
         return switch (this) {
             case NONE -> commanders.isEmpty();
-            case COMMANDER -> commanders.size() <= 1 || commanders.stream().allMatch(CommanderRules::hasPartner);
+            case COMMANDER -> commanders.size() <= 1
+                    || (commanders.size() == 2 && pairs(commanders.get(0), commanders.get(1)));
             case OATHBREAKER -> commanders.size() == 2;
         };
+    }
+
+    /** Whether these two, in either order, are a printed pairing. */
+    private static boolean pairs(CardMetadata one, CardMetadata two) {
+        return pairsOneWay(one, two) || pairsOneWay(two, one);
+    }
+
+    private static boolean pairsOneWay(CardMetadata card, CardMetadata with) {
+        // Named partners: the name has to match, both ways round. "Partner with Tevesh Szat"
+        // beside "Partner with Thrasios" is two cards each waiting for somebody else.
+        String named = partnerNamedBy(card);
+        if (named != null) {
+            String back = partnerNamedBy(with);
+            return named.equalsIgnoreCase(nameOf(with))
+                    && (back == null || back.equalsIgnoreCase(nameOf(card)));
+        }
+        if (hasKeyword(card, "Friends forever")) {
+            return hasKeyword(with, "Friends forever");
+        }
+        if (saysChooseABackground(card)) {
+            return with.isOfType("Background");
+        }
+        if (hasKeyword(card, "Doctor's companion")) {
+            // Asked a word at a time, because that is how a type line is read here: the
+            // creature type is "Time Lord Doctor" and no single word of it is enough.
+            return with.isOfType("Time") && with.isOfType("Lord") && with.isOfType("Doctor");
+        }
+        // The bare keyword, which pairs with another bare keyword and with nothing fussier.
+        return hasBarePartner(card) && hasBarePartner(with);
+    }
+
+    /** The name a "Partner with" clause names, or null when the card has no such clause. */
+    private static String partnerNamedBy(CardMetadata card) {
+        for (String line : oracleTextOf(card).lines().toList()) {
+            String said = line.strip();
+            int at = said.indexOf("Partner with ");
+            if (at < 0) {
+                continue;
+            }
+            String rest = said.substring(at + "Partner with ".length()).strip();
+            // The clause is followed by its reminder text in brackets, and otherwise runs to
+            // the end of the line. Only the bracket ends it: card names have commas and full
+            // stops in them - "Hanna, Ship's Navigator" - and cutting at those turned a named
+            // partner into a card nobody is called.
+            int bracket = rest.indexOf(" (");
+            String name = (bracket >= 0 ? rest.substring(0, bracket) : rest).strip();
+            if (name.endsWith(".")) {
+                name = name.substring(0, name.length() - 1).strip();
+            }
+            if (!name.isEmpty()) {
+                return name;
+            }
+        }
+        return null;
+    }
+
+    private static boolean hasBarePartner(CardMetadata card) {
+        if (partnerNamedBy(card) != null) {
+            return false;
+        }
+        String text = oracleTextOf(card);
+        return text.contains("Partner (")
+                || text.lines().anyMatch(line -> line.strip().equals("Partner"));
+    }
+
+    private static boolean saysChooseABackground(CardMetadata card) {
+        return oracleTextOf(card).contains("Choose a Background");
+    }
+
+    private static boolean hasKeyword(CardMetadata card, String keyword) {
+        return oracleTextOf(card).lines()
+                .anyMatch(line -> line.strip().equals(keyword)
+                        || line.strip().startsWith(keyword + " ("));
+    }
+
+    private static String nameOf(CardMetadata card) {
+        return card.name() == null ? "" : card.name();
     }
 
     public String describeEligibility(int position) {
@@ -92,14 +185,6 @@ public enum CommanderRules {
 
     private static boolean saysCanBeYourCommander(CardMetadata card) {
         return oracleTextOf(card).contains("can be your commander");
-    }
-
-    private static boolean hasPartner(CardMetadata card) {
-        String text = oracleTextOf(card);
-        // "Partner" and "Partner with <name>" both pair; "Partner" appearing inside another
-        // word would be a false positive, so the check is on the keyword as written.
-        return text.contains("Partner with") || text.contains("Partner (")
-                || text.lines().anyMatch(line -> line.strip().equals("Partner"));
     }
 
     /** Card-level text plus every face's, since a double-faced commander says it on one side. */

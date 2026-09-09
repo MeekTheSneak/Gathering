@@ -110,6 +110,14 @@ public record GatheringConfig(
     public record Ante(
             boolean enabled, int cardsPerPlayer, List<String> exclusions,
             boolean allowPerTableOptOut) {
+
+        /**
+         * The most any one player may be asked to stake.
+         * <p>Named here because it is the number the pot's own bound is worked out from -
+         * see {@link dev.gathering.core.ante.AntePot#MOST_IN_A_POT} - rather than a figure
+         * repeated at the clamp below and forgotten by everything downstream of it.
+         */
+        public static final int MOST_PER_PLAYER = 10;
     }
 
     public GatheringConfig {
@@ -271,7 +279,7 @@ public record GatheringConfig(
         Ante ante = new Ante(
                 noted("ante.enabled", anteWanted, false, notes),
                 noted("ante.cards_per_player",
-                        clamped(toml.number("ante.cards_per_player", 1), 1, 10,
+                        clamped(toml.number("ante.cards_per_player", 1), 1, Ante.MOST_PER_PLAYER,
                                 "ante.cards_per_player", notes), 1, notes),
                 noted("ante.exclusions",
                         exclusions(toml.strings("ante.exclusions", List.of("basic lands")), notes),

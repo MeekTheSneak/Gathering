@@ -68,9 +68,14 @@ public class SealedItem extends Item {
 
         List<ItemStack> inside = CardShop.openingOf(box);
         if (inside.isEmpty()) {
-            // A box this server cannot look up: bought here and brought to another world, or
-            // written by hand. Nothing is destroyed and nothing is invented.
-            buyer.sendSystemMessage(Component.translatable("message.gathering.sealed_unknown",
+            // Not on the shelf is not the same as not a box. A set the shop has not stocked
+            // this rotation has simply not been read yet, so it is read now and the player is
+            // asked to try again - which is what a box bought a fortnight ago needs. Only a
+            // box whose set really cannot be looked up says so. Nothing is destroyed and
+            // nothing is invented either way.
+            boolean reading = CardShop.learn(box.setCode());
+            buyer.sendSystemMessage(Component.translatable(
+                    reading ? "message.gathering.sealed_looking_up" : "message.gathering.sealed_unknown",
                     box.setCode().toUpperCase(java.util.Locale.ROOT)));
             return InteractionResultHolder.fail(stack);
         }

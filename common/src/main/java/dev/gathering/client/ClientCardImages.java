@@ -313,25 +313,27 @@ public final class ClientCardImages {
                     .build();
             HttpResponse<java.io.InputStream> response =
                     http.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            int status = response.statusCode();
-            if (status != 200) {
-                LOGGER.warn("Card art fetch returned HTTP {} for {}", status, url);
-                // Only "it is not there" is final. Everything else - a rate limit, a bad
-                // gateway, a proxy having a moment - is worth asking again about.
-                return status == 404 || status == 410 ? Fetched.GONE : Fetched.LATER;
-            }
-            // Read up to a picture's worth and not a byte more. A body with no end to it used
-            // to be read whole into one array; now it is a picture that is not there.
-            byte[] body;
+            // The body is closed on every way out of here, not only the one that reads it. A
+            // missing or rate-limited picture used to return with its stream still open, and
+            // a wall of packs whose art is all 404 is a wall of connections nobody closed.
             try (java.io.InputStream in = response.body()) {
-                body = in.readNBytes(ArtHosts.MOST_BYTES + 1);
+                int status = response.statusCode();
+                if (status != 200) {
+                    LOGGER.warn("Card art fetch returned HTTP {} for {}", status, url);
+                    // Only "it is not there" is final. Everything else - a rate limit, a bad
+                    // gateway, a proxy having a moment - is worth asking again about.
+                    return status == 404 || status == 410 ? Fetched.GONE : Fetched.LATER;
+                }
+                // Read up to a picture's worth and not a byte more. A body with no end to it
+                // used to be read whole into one array; now it is a picture that is not there.
+                byte[] body = in.readNBytes(ArtHosts.MOST_BYTES + 1);
+                if (body.length > ArtHosts.MOST_BYTES) {
+                    LOGGER.warn("Card art at {} is larger than any picture; not keeping it", url);
+                    return Fetched.GONE;
+                }
+                writeCache(url, body);
+                return new Fetched(body, false);
             }
-            if (body.length > ArtHosts.MOST_BYTES) {
-                LOGGER.warn("Card art at {} is larger than any picture; not keeping it", url);
-                return Fetched.GONE;
-            }
-            writeCache(url, body);
-            return new Fetched(body, false);
         } catch (IOException e) {
             // A timeout or a dropped connection. This is the one that made whole cards look
             // permanently broken: dozens of images are asked for at once when a collection

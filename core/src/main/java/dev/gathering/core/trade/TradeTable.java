@@ -28,7 +28,8 @@ public record TradeTable(
         CardTally fromRight,
         boolean leftAgreed,
         boolean rightAgreed,
-        Stage stage) {
+        Stage stage,
+        int revision) {
 
     /** As many distinct cards as one side may put up. A trade is not a house move. */
     public static final int MOST_DISTINCT = 64;
@@ -49,12 +50,13 @@ public record TradeTable(
         fromLeft = fromLeft == null ? CardTally.EMPTY : fromLeft;
         fromRight = fromRight == null ? CardTally.EMPTY : fromRight;
         stage = stage == null ? Stage.OPEN : stage;
+        revision = Math.max(0, revision);
     }
 
     /** A fresh table between two people, with nothing on it. */
     public static TradeTable between(UUID left, UUID right) {
         return new TradeTable(
-                left, right, CardTally.EMPTY, CardTally.EMPTY, false, false, Stage.OPEN);
+                left, right, CardTally.EMPTY, CardTally.EMPTY, false, false, Stage.OPEN, 0);
     }
 
     /** Whether this person is at this table at all. */
@@ -112,18 +114,32 @@ public record TradeTable(
     }
 
     /**
-     * Says this side is happy with the table as it stands.
-     * <p>Once both are, the trade is struck and nothing can change - which is the whole point:
+     * Says this side is happy with the table as it stands - the table they were looking at.
+     * <p>Once both are, the trade is struck and nothing can change, which is the whole point:
      * there is no window between the second agreement and the swap for anybody to reach into.
+     * <p>{@code seenRevision} is which table that was. Every change to an offer moves the
+     * revision on, so an agreement is a statement about a particular set of terms rather than
+     * about whatever is on the table by the time the packet lands. An audit reproduced the
+     * difference: one side clicked agree, the packet was slow, the other side took their card
+     * back and agreed, and the slow packet struck a trade whose terms its sender had never
+     * seen - one card for nothing. Clearing the offers reset both agreements, which is why it
+     * looked safe; what it could not do is reach the agreement already in flight.
+     *
+     * @param seenRevision the revision the agreeing player was shown, from the view they read
      */
-    public TradeTable agree(UUID who) {
-        if (stage != Stage.OPEN || !seats(who) || hasAgreed(who)) {
+    public TradeTable agree(UUID who, int seenRevision) {
+        if (stage != Stage.OPEN || !seats(who) || hasAgreed(who) || seenRevision != revision) {
             return this;
         }
         boolean nowLeft = left.equals(who) || leftAgreed;
         boolean nowRight = right.equals(who) || rightAgreed;
         return new TradeTable(left, right, fromLeft, fromRight, nowLeft, nowRight,
-                nowLeft && nowRight ? Stage.STRUCK : Stage.OPEN);
+                nowLeft && nowRight ? Stage.STRUCK : Stage.OPEN, revision);
+    }
+
+    /** Whether this is the table somebody agreeing was actually looking at. */
+    public boolean isStillShowing(int seenRevision) {
+        return seenRevision == revision;
     }
 
     /** Takes an agreement back, which anybody may do until the other side gives theirs. */
@@ -132,14 +148,16 @@ public record TradeTable(
             return this;
         }
         return new TradeTable(left, right, fromLeft, fromRight,
-                leftAgreed && !left.equals(who), rightAgreed && !right.equals(who), Stage.OPEN);
+                leftAgreed && !left.equals(who), rightAgreed && !right.equals(who), Stage.OPEN,
+                revision);
     }
 
     /** Walks away. Anybody may, at any point before the swap. */
     public TradeTable close() {
         return stage == Stage.CLOSED
                 ? this
-                : new TradeTable(left, right, fromLeft, fromRight, false, false, Stage.CLOSED);
+                : new TradeTable(left, right, fromLeft, fromRight, false, false, Stage.CLOSED,
+                        revision);
     }
 
     /** Whether the swap should happen now. */
@@ -160,8 +178,11 @@ public record TradeTable(
     private TradeTable withOffer(UUID who, CardTally offer) {
         // Both agreements, not just the other side's. Somebody who changes their own offer
         // and stays agreed has agreed to a table nobody has seen.
+        //
+        // And the revision moves on, which is what an agreement already in flight is checked
+        // against: resetting the flags cannot reach a packet that has already been sent.
         return left.equals(who)
-                ? new TradeTable(left, right, offer, fromRight, false, false, Stage.OPEN)
-                : new TradeTable(left, right, fromLeft, offer, false, false, Stage.OPEN);
+                ? new TradeTable(left, right, offer, fromRight, false, false, Stage.OPEN, revision + 1)
+                : new TradeTable(left, right, fromLeft, offer, false, false, Stage.OPEN, revision + 1);
     }
 }

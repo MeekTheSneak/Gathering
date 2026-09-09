@@ -93,8 +93,12 @@ public final class DeckValidator {
     // ----------------------------------------------------------- copy limits
 
     private static void checkCopyLimits(ValidatableDeck deck, FormatPreset preset, List<ValidationIssue> issues) {
+        // Across the whole registered deck, sideboard included. The tournament rules count
+        // copies over deck and sideboard together, and a restricted card is one card between
+        // them - so a sixty-Forest Modern deck with a Sol Ring in the sideboard was accepted,
+        // and so was a Vintage deck with one restricted card in each half.
         Map<String, List<CardMetadata>> byCard = new LinkedHashMap<>();
-        for (CardMetadata card : deck.deckProper()) {
+        for (CardMetadata card : deck.registered()) {
             byCard.computeIfAbsent(copyKey(card), key -> new ArrayList<>()).add(card);
         }
 
@@ -147,7 +151,9 @@ public final class DeckValidator {
         Set<String> reportedBans = new LinkedHashSet<>();
         Set<String> reportedUnknowns = new LinkedHashSet<>();
 
-        for (CardMetadata card : deck.deckProper()) {
+        // The sideboard too: a card banned in a format is banned in the whole deck, and
+        // sideboarding it in on game two is exactly what a ban is about.
+        for (CardMetadata card : deck.registered()) {
             Legality legality = card.legalityIn(preset.legalitiesKey());
             if (legality == Legality.UNKNOWN) {
                 if (reportedUnknowns.add(card.name())) {
@@ -172,10 +178,32 @@ public final class DeckValidator {
             return;
         }
 
+        // Whose identity it is. In Commander every commander contributes; in Oathbreaker the
+        // planeswalker decides and the signature spell has to fit inside it. Unioning the two
+        // let a green spell widen a blue walker's identity and then legitimise itself and a
+        // deck full of Forests - which the official rules do not allow and a probe reproduced.
+        List<CardMetadata> deciding = preset.commanderRules() == CommanderRules.OATHBREAKER
+                ? deck.commanders().stream().limit(1).toList()
+                : deck.commanders();
         Set<String> allowed = new LinkedHashSet<>();
-        deck.commanders().forEach(commander -> allowed.addAll(commander.colorIdentity()));
+        deciding.forEach(commander -> allowed.addAll(commander.colorIdentity()));
 
         Set<String> reported = new LinkedHashSet<>();
+        // The signature spell is checked against its oathbreaker rather than treated as part
+        // of the command zone that sets the identity.
+        for (CardMetadata spell : deck.commanders()) {
+            if (deciding.contains(spell)) {
+                continue;
+            }
+            Set<String> outside = new LinkedHashSet<>(spell.colorIdentity());
+            outside.removeAll(allowed);
+            if (!outside.isEmpty() && reported.add(spell.name())) {
+                issues.add(ValidationIssue.error("color_identity",
+                        spell.name() + " is outside the oathbreaker's color identity ("
+                                + String.join("", outside) + " not in "
+                                + (allowed.isEmpty() ? "colorless" : String.join("", allowed)) + ")."));
+            }
+        }
         for (CardMetadata card : deck.mainboard()) {
             Set<String> outside = new LinkedHashSet<>(card.colorIdentity());
             outside.removeAll(allowed);

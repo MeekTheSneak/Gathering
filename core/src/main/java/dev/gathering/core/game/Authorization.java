@@ -41,6 +41,18 @@ public final class Authorization {
             return Optional.of("Only seated players can act at this table.");
         }
 
+        // Nobody touches a card sitting in somebody else's hand or library. Read off the
+        // event's own components rather than case by case, because the rule is about every
+        // event that names a card - the ones written and the ones not written yet. An audit
+        // reproduced the cost of asking case by case: an opponent wrote a note on a card
+        // guessed by number inside another player's library, and the note came back out on
+        // that card's anonymous face-down view, turning a guess into a marker that followed
+        // the card around the table.
+        Optional<String> unreadable = touchingSomebodyElsesHiddenCard(state, event);
+        if (unreadable.isPresent()) {
+            return unreadable;
+        }
+
         return switch (event) {
             // Looking is the whole of the restriction, and these five are looking.
             case GameEvent.LibrarySearched searched -> ownerOnly(event.actor(), searched.seat(), "search a library");
@@ -77,6 +89,18 @@ public final class Authorization {
                     : ownerOnly(event.actor(), moved.seat(), "empty their "
                             + moved.from().name().toLowerCase(java.util.Locale.ROOT));
 
+            // Sorting a hand is arranging it, and a hand is its owner's to arrange. The log
+            // says "sorted their hand", so a client that could sort somebody else's wrote a
+            // line about an act that never happened to the player it names.
+            case GameEvent.HandSorted sorted -> ownerOnly(event.actor(), sorted.seat(), "sort that hand");
+
+            // A commander tax or a commander's damage is charged against a commander, and a
+            // commander is a card some seat put in its command zone when the deck went down.
+            // An instance nobody ever played is not one: charging it made a map entry keyed
+            // by a number that means nothing, which nothing at the table could ever clear.
+            case GameEvent.CommanderTaxChanged taxed -> aCommanderOfThisTable(state, taxed.commander());
+            case GameEvent.CommanderDamageChanged hit -> aCommanderOfThisTable(state, hit.commander());
+
             // Your own hand and nobody else's. "Target player reveals their hand" is
             // resolved by that player turning it round, exactly as it is on a real table -
             // and an event that let one client open another player's hand would be the whole
@@ -92,6 +116,32 @@ public final class Authorization {
             // Everything else is open to any seated player, on purpose.
             default -> Optional.empty();
         };
+    }
+
+    /**
+     * Whether every card this event names is one the actor is allowed to lay a hand on.
+     * <p>The same question the visibility rules ask, asked once for every event: a card in
+     * another seat's hand or library is that seat's, and naming one is something only its
+     * owner can honestly do. A card the session does not have is left alone here - a click
+     * that raced a card being scooped should do nothing rather than end the session, and the
+     * fold already treats a stale id that way.
+     */
+    private static Optional<String> touchingSomebodyElsesHiddenCard(GameState state, GameEvent event) {
+        for (CardInstanceId named : EventTargets.cardsNamedBy(event)) {
+            ZoneRef where = state.locationOf(named).orElse(null);
+            if (where != null && where.isHidden() && !where.seat().equals(event.actor())) {
+                return Optional.of("Only the owner can touch a card in their "
+                        + where.zone().name().toLowerCase(java.util.Locale.ROOT) + ".");
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Whether this card is a commander somebody at this table actually put down. */
+    private static Optional<String> aCommanderOfThisTable(GameState state, CardInstanceId commander) {
+        return state.isACommander(commander)
+                ? Optional.empty()
+                : Optional.of("That card is not a commander at this table.");
     }
 
     private static Optional<String> ownerOnly(SeatId actor, SeatId owner, String what) {

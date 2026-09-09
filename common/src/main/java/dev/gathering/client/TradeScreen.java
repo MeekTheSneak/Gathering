@@ -147,9 +147,12 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
     }
 
     private void flipAgreement() {
-        ClientNetworking.send(TradeActionPayload.of(view.iAgreed()
-                ? TradeActionPayload.Action.THINK_AGAIN
-                : TradeActionPayload.Action.AGREE));
+        // Naming the table this screen is showing. If the other side has changed something
+        // since it was drawn, the server refuses this and says so rather than striking a
+        // trade whose terms nobody here has read.
+        ClientNetworking.send(view.iAgreed()
+                ? TradeActionPayload.of(TradeActionPayload.Action.THINK_AGAIN)
+                : TradeActionPayload.agreeTo(view.revision()));
     }
 
     @Override

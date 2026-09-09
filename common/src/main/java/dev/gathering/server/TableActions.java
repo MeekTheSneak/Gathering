@@ -107,14 +107,13 @@ public final class TableActions {
             return Optional.empty();
         }
 
-        // Some events are the server's to write and nobody else's. A seat being taken, a deck
-        // being loaded into it, and the session ending are things the table does when a player
-        // sits, crouches, or concedes - every honest constructor of them is on this side of
-        // the wire. Authorization cannot refuse them, because it runs for the server's own
-        // submits too; here is the one place that knows which side a packet came from. A
-        // client that could send SessionEnded ended the game for the whole table with none of
-        // the match, the decks, or the pot put away; one that could send DeckLoaded swapped
-        // its library for any cards it liked mid-game.
+        // Some events are the server's to write and nobody else's: the table's own lifecycle,
+        // and the results of the dice. Authorization cannot refuse them, because it runs for
+        // the server's own submits too; here is the one place that knows which side a packet
+        // came from. A client that could send SessionEnded ended the game for the whole table
+        // with nothing put away; one that could send DeckLoaded swapped its library mid-game;
+        // one that could send DiceRolled rolled a twenty whenever it liked, and the log - the
+        // only evidence a table has - said so.
         if (isTheServersToWrite(event)) {
             return Optional.empty();
         }
@@ -125,11 +124,15 @@ public final class TableActions {
         return event.actor().equals(seat) ? Optional.of(event) : Optional.empty();
     }
 
-    /** The events no client is ever the author of. Kept beside the gate that refuses them. */
+    /**
+     * The events no client is ever the author of.
+     * <p>The list itself lives in {@link dev.gathering.core.game.ServerAuthored}, where the
+     * test suite can walk the sealed event hierarchy and fail on an event nobody has
+     * classified - so a verb added next month is refused here until somebody decides it is a
+     * client's to send.
+     */
     static boolean isTheServersToWrite(GameEvent event) {
-        return event instanceof GameEvent.SessionEnded
-                || event instanceof GameEvent.DeckLoaded
-                || event instanceof GameEvent.SeatTaken;
+        return dev.gathering.core.game.ServerAuthored.isTheServersToWrite(event);
     }
 
     /**

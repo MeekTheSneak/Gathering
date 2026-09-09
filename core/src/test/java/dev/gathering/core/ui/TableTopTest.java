@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 class TableTopTest {
 
     /** A table at the origin, two blocks across, at about waist height. */
-    private static final TableTop TABLE = new TableTop(10.0, 15.94, 20.0, 1.76);
+    private static final TableTop TABLE = new TableTop(10.0, 15.94, 20.0, 1.76, 1, 1);
 
     @Nested
     @DisplayName("hitting the surface")
@@ -142,7 +142,7 @@ class TableTopTest {
     @Test
     @DisplayName("a table with no surface is refused rather than dividing by nothing")
     void aTableNeedsASurface() {
-        assertThatThrownBy(() -> new TableTop(0, 0, 0, 0))
+        assertThatThrownBy(() -> new TableTop(0, 0, 0, 0, 1, 1))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

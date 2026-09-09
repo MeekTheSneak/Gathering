@@ -4561,8 +4561,11 @@ public final class DevScene {
             theirs.add(new dev.gathering.network.TradeViewPayload.Pile(
                     cards.get(index), index + 1));
         }
+        // Revision one, which is what a table with something on it is at. The screen sends
+        // it back when the player agrees, and the server refuses an agreement about terms
+        // that have moved on since.
         TradeScreen.accept(new dev.gathering.network.TradeViewPayload(
-                "Steve", mine, theirs, agreed, agreed, false));
+                "Steve", mine, theirs, agreed, agreed, false, 1));
     }
 
     /** With nothing of mine up there is nothing to take back, and the button says so. */

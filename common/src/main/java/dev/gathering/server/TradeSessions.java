@@ -119,10 +119,21 @@ public final class TradeSessions {
         TradeTable next = switch (asked.action()) {
             case PUT -> put(player, table, asked);
             case CLEAR -> table.clearOffer(player.getUUID());
-            case AGREE -> table.agree(player.getUUID());
+            case AGREE -> table.agree(player.getUUID(), asked.revision());
             case THINK_AGAIN -> table.thinkAgain(player.getUUID());
             case CLOSE -> table;
         };
+        // An agreement about terms that are no longer on the table is not an agreement. The
+        // player is told rather than left looking at a button that did nothing, and both
+        // sides are re-shown the table as it now stands so the next press means something.
+        if (asked.action() == TradeActionPayload.Action.AGREE
+                && !table.isStillShowing(asked.revision())) {
+            say(player, "message.gathering.trade_terms_changed");
+            show(player, table);
+            show(other, table);
+            return;
+        }
+
         if (next.isStruck()) {
             settle(next, player, other);
             return;
@@ -316,7 +327,8 @@ public final class TradeSessions {
                 piles(table.offerFrom(them)),
                 table.hasAgreed(player.getUUID()),
                 them != null && table.hasAgreed(them),
-                table.stage() == TradeTable.Stage.CLOSED));
+                table.stage() == TradeTable.Stage.CLOSED,
+                table.revision()));
     }
 
     /** The printings in an offer, for telling somebody what they are being shown. */

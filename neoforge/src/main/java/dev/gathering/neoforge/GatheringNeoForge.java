@@ -75,15 +75,16 @@ public final class GatheringNeoForge {
     private static void onPlayerJoined(
             net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
-            dev.gathering.server.Wants.joined(player);
+            dev.gathering.server.PlayerGone.arrived(player);
         }
     }
 
     private static void onPlayerLeft(
             net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
-            dev.gathering.server.Wants.left(player);
-            dev.gathering.server.ReplayWatch.forget(player.getUUID());
+            // One list, shared with Fabric. Kept as calls here once, and the trade cleanup
+            // was written, correct, and wired into neither loader.
+            dev.gathering.server.PlayerGone.left(player);
         }
     }
 

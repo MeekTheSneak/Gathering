@@ -46,6 +46,19 @@ public final class CardShop {
     private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
 
     /**
+     * Every product this server has ever read, whatever is on the shelf today.
+     * <p>A box is opened from its own product definition, and that definition used to be
+     * looked up in the current stock - so a box bought in one rotation and opened in the next
+     * found nothing and would not open. What is for sale is a shop's business; what a box
+     * contains is the box's, and it does not change when the counter does.
+     */
+    private static volatile SealedCatalog known = SealedCatalog.EMPTY;
+
+    /** Sets a look-up has been asked for already, so one unknown box is one read. */
+    private static final java.util.Set<String> LOOKED_UP =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
      * The shelf and the catalog it was built from, in one object.
      * <p>Two fields would be two halves of one answer: a sale that read the new shelf and the
      * old catalog would find a product it could not look up and hand over nothing.
@@ -163,8 +176,14 @@ public final class CardShop {
      * somebody walks up to says which turnover it is, and {@link #stockFor} does the reading.
      */
     public static void clear() {
+        known = SealedCatalog.EMPTY;
+        LOOKED_UP.clear();
         stock = Stock.NOTHING;
         stockedFor = NOTHING_STOCKED;
+        // And the latch that says a reading is in flight. A world that stopped while one was
+        // running left this set for the life of the process, so every later world had a shop
+        // that would never restock - and the counter stayed empty for the rest of the session.
+        RESTOCKING.set(false);
     }
 
 
@@ -209,12 +228,13 @@ public final class CardShop {
         if (box == null || !box.isReal()) {
             return List.of();
         }
-        Stock now = stock;
-        SealedProduct product = now.catalog().byId(box.productId());
+        // What has ever been read, not what is for sale now.
+        SealedCatalog catalog = known;
+        SealedProduct product = catalog.byId(box.productId());
         if (product == null) {
             return List.of();
         }
-        SealedContents.Layer layer = SealedContents.opening(product, now.catalog());
+        SealedContents.Layer layer = SealedContents.opening(product, catalog);
         if (layer.isEmpty()) {
             return List.of();
         }
@@ -293,6 +313,39 @@ public final class CardShop {
     }
 
     /**
+     * Reads one set's products because somebody is holding a box from it.
+     * <p>For the box bought two rotations ago: its set is not on the counter, so nothing has
+     * read it this session. Asked once per set - a second unknown box of the same set waits
+     * for the same read rather than starting another.
+     *
+     * @return whether a read was started, which is what tells the player to try again
+     */
+    public static boolean learn(String setCode) {
+        String code = setCode == null ? "" : setCode.trim().toLowerCase(java.util.Locale.ROOT);
+        CollationService collation = CollationService.active().orElse(null);
+        if (code.isEmpty() || collation == null || !LOOKED_UP.add(code)) {
+            return false;
+        }
+        collation.catalogFor(code).whenComplete((found, failure) -> {
+            if (failure != null || found == null) {
+                // Forgotten, so a later attempt tries again rather than waiting for ever on
+                // a read that failed.
+                LOOKED_UP.remove(code);
+                return;
+            }
+            remember(found.lookup());
+        });
+        return true;
+    }
+
+    /** Folds a freshly read catalog into what this server knows. */
+    private static synchronized void remember(SealedCatalog fresh) {
+        if (fresh != null) {
+            known = SealedCatalog.of(List.of(known, fresh));
+        }
+    }
+
+    /**
      * One shelf out of every set that was read.
      * <p>The catalog spans all of them before any shelf is built, because a product can name
      * something published beside it: a Commander box holds a booster from the set it came out
@@ -308,6 +361,8 @@ public final class CardShop {
             lookups.add(one.lookup());
         }
         SealedCatalog catalog = SealedCatalog.of(lookups);
+        // Kept beyond this shelf: a box outlives the rotation that sold it.
+        remember(catalog);
 
         List<SealedShelf> shelves = new ArrayList<>();
         for (CollationService.Catalog one : read.values()) {

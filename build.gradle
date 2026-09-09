@@ -73,5 +73,26 @@ subprojects {
 tasks.register('verify') {
     group = 'verification'
     description = 'Compile, test, fences, data generation, and both loaders\' game tests.'
-    dependsOn ':build', ':neoforge:runData', ':neoforge:runGameTestServer', ':fabric:runGametest'
+
+    // Every module by name. This said ':build' once, which is the *root* project's build -
+    // an empty project whose build task builds nothing. The gate therefore ran both loaders'
+    // in-world tests and skipped :core:test, both architecture fences and both jars, and
+    // reported green. An audit read the task graph and found the hole; the doLast below is
+    // what stops it reopening.
+    dependsOn ':core:build', ':common:build', ':neoforge:build', ':fabric:build',
+            ':neoforge:runData', ':neoforge:runGameTestServer', ':fabric:runGametest'
+
+    // The gate checks its own coverage. A dependency dropped, renamed or wired to the wrong
+    // project fails here rather than passing quietly for months.
+    def wanted = [':core:test', ':core:checkCorePure', ':common:checkNoLoaderImports',
+                  ':core:jar', ':neoforge:jar', ':fabric:jar',
+                  ':neoforge:runData', ':neoforge:runGameTestServer', ':fabric:runGametest']
+    def ran = project.provider { gradle.taskGraph.allTasks*.path as Set }
+    doLast {
+        def missing = wanted.findAll { !ran.get().contains(it) }
+        if (!missing.isEmpty()) {
+            throw new GradleException(
+                    "verify no longer covers " + missing + "; the gate has quietly shrunk")
+        }
+    }
 }

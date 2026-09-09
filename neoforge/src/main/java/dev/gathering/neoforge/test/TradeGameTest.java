@@ -27,6 +27,16 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class TradeGameTest {
 
+    /**
+     * Agrees to the table as it stands, which is what pressing the button does.
+     * <p>An agreement names the terms its sender was shown. The screen reads that number off
+     * the view it drew; here it is read off the table itself, which is the same number.
+     */
+    private static void agree(ServerPlayer who) {
+        dev.gathering.core.trade.TradeTable table = TradeSessions.at(who.getUUID());
+        TradeSessions.handle(who, TradeActionPayload.agreeTo(table == null ? 0 : table.revision()));
+    }
+
     private static final UUID BOLT = UUID.fromString("aaaaaaaa-1111-4111-8111-111111111111");
     private static final UUID RING = UUID.fromString("bbbbbbbb-2222-4222-8222-222222222222");
 
@@ -44,8 +54,8 @@ public final class TradeGameTest {
         }
         TradeSessions.handle(ana, TradeActionPayload.put(card(BOLT), 2));
         TradeSessions.handle(ben, TradeActionPayload.put(card(RING), 1));
-        TradeSessions.handle(ana, TradeActionPayload.of(TradeActionPayload.Action.AGREE));
-        TradeSessions.handle(ben, TradeActionPayload.of(TradeActionPayload.Action.AGREE));
+        agree(ana);
+        agree(ben);
 
         if (count(ana, BOLT) != 2 || count(ana, RING) != 1) {
             helper.fail("Ana has " + count(ana, BOLT) + " bolts and " + count(ana, RING)
@@ -59,6 +69,50 @@ public final class TradeGameTest {
         }
         if (TradeSessions.at(ana.getUUID()) != null) {
             helper.fail("The trade is still open after it went through");
+            return;
+        }
+        done(helper, ana, ben);
+    }
+
+    /**
+     * An agreement in flight does not strike the terms that replaced it.
+     * <p>The scam the flags could not stop, because a flag cannot reach a packet that has
+     * already been sent. Ben presses agree; his packet is slow; Ana takes her cards back and
+     * agrees; Ben's packet lands. It used to strike a trade in which Ben gave a card and Ana
+     * gave nothing - and Ben had never seen that table.
+     */
+    @GameTest(template = "empty")
+    public static void anAgreementInFlightDoesNotStrikeNewTerms(GameTestHelper helper) {
+        ServerPlayer ana = standing(helper);
+        ServerPlayer ben = standing(helper);
+        give(ana, BOLT, 4);
+        give(ben, RING, 2);
+        TradeSessions.open(ana, ben);
+
+        TradeSessions.handle(ana, TradeActionPayload.put(card(BOLT), 2));
+        TradeSessions.handle(ben, TradeActionPayload.put(card(RING), 1));
+        // What Ben is looking at when he presses the button.
+        int benIsLookingAt = TradeSessions.at(ben.getUUID()).revision();
+
+        // Ana takes her cards back and agrees, all while Ben's press is on its way.
+        TradeSessions.handle(ana, TradeActionPayload.of(TradeActionPayload.Action.CLEAR));
+        agree(ana);
+        // And Ben's press arrives, naming a table that is no longer there.
+        TradeSessions.handle(ben, TradeActionPayload.agreeTo(benIsLookingAt));
+
+        if (count(ben, RING) != 2 || count(ana, RING) != 0) {
+            helper.fail("A trade settled on an agreement given to terms that had changed:"
+                    + " Ben has " + count(ben, RING) + " rings and Ana has " + count(ana, RING));
+            return;
+        }
+        if (TradeSessions.at(ana.getUUID()) == null) {
+            helper.fail("The trade ended rather than waiting for an agreement to the new terms");
+            return;
+        }
+        // Pressed again against what is actually on the table, it goes through.
+        agree(ben);
+        if (count(ana, RING) != 1) {
+            helper.fail("Agreeing to the terms on the table did not settle the trade");
             return;
         }
         done(helper, ana, ben);
@@ -79,10 +133,10 @@ public final class TradeGameTest {
 
         TradeSessions.handle(ana, TradeActionPayload.put(card(BOLT), 4));
         TradeSessions.handle(ben, TradeActionPayload.put(card(RING), 2));
-        TradeSessions.handle(ben, TradeActionPayload.of(TradeActionPayload.Action.AGREE));
+        agree(ben);
         TradeSessions.handle(ana, TradeActionPayload.put(card(BOLT), 1));
         // If Ben's agreement survived that, this next line takes his rings for one bolt.
-        TradeSessions.handle(ana, TradeActionPayload.of(TradeActionPayload.Action.AGREE));
+        agree(ana);
 
         if (count(ben, RING) != 2 || count(ana, BOLT) != 4) {
             helper.fail("A trade went through on an agreement given to a different table");
@@ -106,10 +160,10 @@ public final class TradeGameTest {
 
         TradeSessions.handle(ana, TradeActionPayload.put(card(BOLT), 2));
         TradeSessions.handle(ben, TradeActionPayload.put(card(RING), 1));
-        TradeSessions.handle(ana, TradeActionPayload.of(TradeActionPayload.Action.AGREE));
+        agree(ana);
         // Ana's bolts leave her inventory between the two agreements.
         ana.getInventory().clearContent();
-        TradeSessions.handle(ben, TradeActionPayload.of(TradeActionPayload.Action.AGREE));
+        agree(ben);
 
         if (count(ben, RING) != 1) {
             helper.fail("Ben's ring left for cards that were no longer there");
@@ -151,7 +205,7 @@ public final class TradeGameTest {
         TradeSessions.handle(ana, TradeActionPayload.put(card(BOLT), 1));
 
         ben.setPos(ben.getX() + 64.0, ben.getY(), ben.getZ());
-        TradeSessions.handle(ana, TradeActionPayload.of(TradeActionPayload.Action.AGREE));
+        agree(ana);
 
         if (TradeSessions.at(ana.getUUID()) != null) {
             helper.fail("A trade carried on with one of them across the room");

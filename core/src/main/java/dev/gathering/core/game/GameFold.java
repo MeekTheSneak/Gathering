@@ -5,6 +5,7 @@ import dev.gathering.core.game.event.GameEvent;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -34,6 +35,11 @@ public final class GameFold {
     }
 
     public static GameState apply(GameState state, GameEvent event, SessionSeed seed) {
+        everySeatIsAtThisTable(state, event);
+        return closeLooksAtDisturbedLibraries(state, applied(state, event, seed));
+    }
+
+    private static GameState applied(GameState state, GameEvent event, SessionSeed seed) {
         return switch (event) {
             case GameEvent.SeatTaken taken ->
                     state.withSeatState(state.seatState(taken.actor()).occupiedBy(taken.player()));
@@ -308,6 +314,46 @@ public final class GameFold {
             throw new IllegalArgumentException("No such seat at this table: " + seat);
         }
         return seat;
+    }
+
+    /**
+     * Every seat an event names is a seat at this table.
+     * <p>Asked of the event's own components, so it holds for events nobody has written yet.
+     * A token made for seat ninety-nine of a two-player game used to be accepted: it existed
+     * in the state, in a zone no view is built for, drawn by nobody and reachable by nothing.
+     */
+    private static void everySeatIsAtThisTable(GameState state, GameEvent event) {
+        for (SeatId named : EventTargets.seatsNamedBy(event)) {
+            requireSeat(state, named);
+        }
+    }
+
+    /**
+     * Closes any look at a library whose cards have moved.
+     * <p>A look is recorded as a depth - "the top three of that library are open to this
+     * seat" - and depth follows position rather than the cards that were looked at. So
+     * looking at one card and then drawing it slid the window down onto the card behind it,
+     * and a scry of one became knowledge of two without a second look. Shuffling and
+     * deciding already closed their own looks; this is the same rule for every other way the
+     * top of a library can change, including the ways nobody has written yet.
+     * <p>A search is left alone, and that is not an exception to the rule but the rule
+     * reaching its edge: a search is the whole library, so there is no card behind the ones
+     * being looked at for a window to slide onto. Taking a card out of a deck you are holding
+     * and going on looking through it is what searching is.
+     */
+    private static GameState closeLooksAtDisturbedLibraries(GameState before, GameState after) {
+        GameState updated = after;
+        for (Map.Entry<SeatId, Peek> looking : after.peeks().entrySet()) {
+            Peek peek = looking.getValue();
+            if (peek.isWholeLibrary()) {
+                continue;
+            }
+            ZoneRef library = ZoneRef.of(peek.at(), Zone.LIBRARY);
+            if (!before.contents(library).equals(after.contents(library))) {
+                updated = updated.withoutPeekBy(looking.getKey());
+            }
+        }
+        return updated;
     }
 
     /** A counter's name, or the refusal that there is nothing to name it. */

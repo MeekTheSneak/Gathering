@@ -41,6 +41,21 @@ public record ValidatableDeck(
         return all;
     }
 
+    /**
+     * Everything registered: the deck proper and the sideboard.
+     * <p>What the copy limit and the banned list are about. A tournament's deck registration
+     * is one document, and "four copies" and "not legal" apply across the whole of it - so a
+     * sixty-card Modern deck with a fifth copy, or a banned card, in the sideboard is an
+     * illegal deck. Checking only the deck proper accepted both.
+     */
+    public List<CardMetadata> registered() {
+        List<CardMetadata> all = new ArrayList<>(mainboard.size() + commanders.size() + sideboard.size());
+        all.addAll(mainboard);
+        all.addAll(commanders);
+        all.addAll(sideboard);
+        return all;
+    }
+
     public int size() {
         return mainboard.size() + commanders.size();
     }

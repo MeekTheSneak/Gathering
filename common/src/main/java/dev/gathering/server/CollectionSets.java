@@ -49,6 +49,16 @@ public final class CollectionSets {
 
     private static final Map<UUID, Integer> LAST_ASKED = new java.util.HashMap<>();
 
+    /** Forgets one player's wait, for a disconnect. */
+    public static void forget(UUID player) {
+        LAST_ASKED.remove(player);
+    }
+
+    /** Forgets everybody's, for a server that is stopping. */
+    public static void clear() {
+        LAST_ASKED.clear();
+    }
+
     private CollectionSets() {
     }
 
@@ -203,7 +213,12 @@ public final class CollectionSets {
     private static boolean tooSoon(ServerPlayer player) {
         int now = player.server.getTickCount();
         Integer last = LAST_ASKED.get(player.getUUID());
-        if (last != null && now - last < TICKS_BETWEEN) {
+        // A tick count belongs to the server that is counting. Leaving a world after an hour
+        // and opening a fresh one puts the count back near zero, and "now minus last" is then
+        // a large negative number - which read as "asked a moment ago" and refused every
+        // request until the new world had run as long as the old one. A clock that has gone
+        // backwards is a different clock, so the wait is over.
+        if (last != null && now >= last && now - last < TICKS_BETWEEN) {
             return true;
         }
         if (LAST_ASKED.size() > MOST_REMEMBERED) {

@@ -294,16 +294,24 @@ public final class MatchGameTest {
             if (switchOn) {
                 dev.gathering.server.Settings.set("modes.replays", "public");
             }
-            int shelved = dev.gathering.server.Replays.kept().size();
+            long beforehand = System.currentTimeMillis();
             BlockPos origin = seatedTable(helper);
             startMatch(helper, origin, 1);
             var session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
             session.submit(new GameEvent.Conceded(new SeatId(1)));
+            int steps = session.records().size() + 1;
 
             TableMatch.settleIfFinished(helper.getLevel(), origin, session.state());
 
-            if (dev.gathering.server.Replays.kept().size() != shelved + 1) {
-                helper.fail("A game that ended by concession was not put on the replay shelf");
+            // The newest thing on the shelf is this game. Counted by identity rather than by
+            // how many files there are: the shelf has a cap, so once it is full a game that
+            // was kept perfectly well leaves the count exactly where it was.
+            var newest = dev.gathering.server.Replays.kept().stream().findFirst().orElse(null);
+            if (newest == null || newest.when() < beforehand || newest.steps() != steps) {
+                helper.fail("A game that ended by concession was not put on the replay shelf"
+                        + " (newest=" + (newest == null ? "none"
+                        : newest.steps() + " steps at " + newest.when())
+                        + ", this game had " + steps + " steps after " + beforehand + ")");
                 return;
             }
             helper.succeed();
