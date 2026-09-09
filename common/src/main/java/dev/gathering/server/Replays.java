@@ -1,6 +1,5 @@
 package dev.gathering.server;
 
-import dev.gathering.platform.Platform;
 import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.SessionRecord;
@@ -384,7 +383,7 @@ public final class Replays {
         } catch (RuntimeException noPlatform) {
             return List.of();
         }
-        if (!Files.isDirectory(folder)) {
+        if (folder == null || !Files.isDirectory(folder)) {
             return List.of();
         }
         try (var listing = Files.list(folder)) {
@@ -409,7 +408,16 @@ public final class Replays {
         }
     }
 
+    /**
+     * Where this save keeps its replays.
+     * <p>Inside the save, because a replay is a record of a game played in one world and has
+     * no business showing up in the list of another. Under the game directory it did: two
+     * single-player worlds in one installation shared one shelf.
+     * <p>Throws when no server is running, which every caller already treats as "there is no
+     * shelf to read": writing a replay warns and carries on, listing them returns nothing.
+     */
     private static Path folder() {
-        return Platform.get().dataDirectory().resolve(FOLDER);
+        return ServerRun.inSave(FOLDER)
+                .orElseThrow(() -> new IllegalStateException("No server is running"));
     }
 }

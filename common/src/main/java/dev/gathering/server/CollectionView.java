@@ -110,8 +110,26 @@ public final class CollectionView {
      */
     public static void search(ServerPlayer player, BlockPos where, CollectionQuery query,
             boolean descending, int page, int rowsThatFit, boolean pockets, int revision) {
+        if (tooSoon(player)) {
+            // Kept rather than dropped. A search arriving inside the throttle is almost
+            // always the last letter somebody typed, and throwing it away left the screen
+            // showing the results for the word without its final letter until the player
+            // touched something else. The newest one waits its turn and replaces any older
+            // one still waiting, so a burst of keystrokes costs one search and it is the one
+            // the player meant.
+            WAITING.put(player.getUUID(), () ->
+                    searchNow(player, where, query, descending, page, rowsThatFit, pockets, revision));
+            drainWhenAllowed(player);
+            return;
+        }
+        searchNow(player, where, query, descending, page, rowsThatFit, pockets, revision);
+    }
+
+    /** The search itself, once the throttle has let it through. Server thread only. */
+    private static void searchNow(ServerPlayer player, BlockPos where, CollectionQuery query,
+            boolean descending, int page, int rowsThatFit, boolean pockets, int revision) {
         CollectionBlockEntity collection = at(player, where);
-        if (collection == null || tooSoon(player)) {
+        if (collection == null) {
             return;
         }
         CardTally carried = pockets ? PocketCards.loose(player) : CardTally.EMPTY;
@@ -321,7 +339,7 @@ public final class CollectionView {
             Component gone = Component.translatable("message.gathering.collection_gone");
             player.sendSystemMessage(gone);
             Sending.to(player, new dev.gathering.network.ImportResultPayload(
-                    asked.name(), 0, List.of(gone.getString())));
+                    asked.name(), 0, List.of(gone.getString()), asked.request()));
             return;
         }
         // Somebody who may not take from this box may still build out of their own pockets.
@@ -372,9 +390,10 @@ public final class CollectionView {
             problems.add(shortBy.getString());
         }
         // And the screen that pressed Finish is told it happened, so it can close on the
-        // answer rather than on the press.
+        // answer rather than on the press. Naming the press, so a builder that was closed
+        // and reopened while this was in flight does not act on somebody else's answer.
         Sending.to(player, new dev.gathering.network.ImportResultPayload(
-                deck.name(), deck.totalCards(), problems));
+                deck.name(), deck.totalCards(), problems, asked.request()));
     }
 
     /**
@@ -501,6 +520,58 @@ public final class CollectionView {
     }
 
     // ------------------------------------------------------------------ bits
+
+    /**
+     * The newest search each player has waiting on the throttle, if any.
+     * <p>One per player, replaced rather than queued: three keystrokes while the throttle is
+     * closed are three searches nobody wants two of.
+     */
+    private static final Map<UUID, Runnable> WAITING = new java.util.HashMap<>();
+
+    /** Whether a drain is already scheduled for this player, so one is not queued per press. */
+    private static final java.util.Set<UUID> DRAINING = new java.util.HashSet<>();
+
+    /**
+     * Runs a player's waiting search as soon as the throttle allows it.
+     * <p>Through the server's own task queue rather than a tick hook, which would be a new
+     * seam in both loaders for one gap of a tick or two. A pass that is still too soon puts
+     * itself back on the queue; there is at most one of these per player, and it stops the
+     * moment there is nothing waiting.
+     */
+    private static void drainWhenAllowed(ServerPlayer player) {
+        UUID who = player.getUUID();
+        if (!DRAINING.add(who)) {
+            return;
+        }
+        player.server.execute(() -> {
+            DRAINING.remove(who);
+            Runnable waiting = WAITING.get(who);
+            if (waiting == null || player.hasDisconnected()) {
+                WAITING.remove(who);
+                return;
+            }
+            if (tooSoon(player)) {
+                drainWhenAllowed(player);
+                return;
+            }
+            WAITING.remove(who);
+            waiting.run();
+        });
+    }
+
+    /** Forgets a player's waiting search, for a disconnect or a server stop. */
+    public static void forget(UUID player) {
+        WAITING.remove(player);
+        DRAINING.remove(player);
+        LAST_SEARCH.remove(player);
+    }
+
+    /** Forgets everybody's, for a server that is stopping. */
+    public static void clear() {
+        WAITING.clear();
+        DRAINING.clear();
+        LAST_SEARCH.clear();
+    }
 
     /**
      * Whether this player has searched too recently to search again.

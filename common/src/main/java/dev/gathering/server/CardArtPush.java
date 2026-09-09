@@ -64,6 +64,23 @@ public final class CardArtPush {
      */
     private static final int MOST_WORTH_REMEMBERING = 2000;
 
+    /**
+     * How long a printing the service could not name stays written off.
+     * <p>Long enough that a board nobody can name does not become a lookup per tap, short
+     * enough that a set finishing its download while somebody is sitting at a table fixes
+     * itself without a relog. A miss is a fact about this moment, not about the printing.
+     */
+    private static final java.time.Duration MISS_GOES_STALE = java.time.Duration.ofMinutes(5);
+
+    /**
+     * Per player, the printings the service could not answer for, and when.
+     * <p>Separate from what was sent, because they are different facts. "You have been told
+     * about this card" is permanent for the life of a connection; "this card could not be
+     * looked up just now" is not, and treating the second as the first is how a card that
+     * arrived in the cache a minute later stayed a grey rectangle until the player relogged.
+     */
+    private static final Map<UUID, Map<UUID, Long>> MISSED = new ConcurrentHashMap<>();
+
     private CardArtPush() {
     }
 
@@ -71,12 +88,45 @@ public final class CardArtPush {
     public static void forget(UUID player) {
         ALREADY_SENT.remove(player);
         BEING_LOOKED_UP.remove(player);
+        MISSED.remove(player);
     }
 
     /** Forgets everybody, for a server that is stopping. */
     public static void clear() {
         ALREADY_SENT.clear();
         BEING_LOOKED_UP.clear();
+        MISSED.clear();
+    }
+
+    /** This player's written-off printings, made if this is the first. */
+    private static Map<UUID, Long> missesFor(ServerPlayer player) {
+        return MISSED.computeIfAbsent(player.getUUID(), who -> new ConcurrentHashMap<>());
+    }
+
+    /** Whether this printing was written off recently enough not to ask again yet. */
+    private static boolean recentlyMissed(Map<UUID, Long> misses, UUID printing, long now) {
+        Long when = misses.get(printing);
+        if (when == null) {
+            return false;
+        }
+        if (now - when > MISS_GOES_STALE.toMillis()) {
+            misses.remove(printing);
+            return false;
+        }
+        return true;
+    }
+
+    /** Keeps a written-off list from growing without end on a session that runs for a week. */
+    private static void forgetTheOldest(Map<UUID, Long> misses, int keep) {
+        if (misses.size() <= keep) {
+            return;
+        }
+        misses.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .limit(misses.size() - keep)
+                .map(Map.Entry::getKey)
+                .toList()
+                .forEach(misses::remove);
     }
 
     /**
@@ -125,18 +175,23 @@ public final class CardArtPush {
         Set<UUID> sent = alreadySentTo(player);
         Set<UUID> asking = BEING_LOOKED_UP.computeIfAbsent(
                 player.getUUID(), ignored -> ConcurrentHashMap.newKeySet());
+        Map<UUID, Long> misses = missesFor(player);
+        long now = System.currentTimeMillis();
         wanted = new LinkedHashSet<>(wanted);
         wanted.removeAll(sent);
         wanted.removeAll(asking);
+        // And whatever could not be looked up a moment ago, which is asked again once that
+        // has gone stale rather than never or on every tap.
+        wanted.removeIf(printing -> recentlyMissed(misses, printing, now));
         if (wanted.isEmpty()) {
             return;
         }
         // Marked as being asked about, not as sent. A printing this server has never heard of
         // must not be asked for again on every action anybody takes at the table - a trickle
-        // of lookups aimed at somebody else's Scryfall quota, one per tap - so the answer,
-        // whatever it is, decides: a printing that came back is remembered as sent, one the
-        // service says it does not have is remembered too, and a lookup that failed outright
-        // is forgotten so the next board can try it again.
+        // of lookups aimed at somebody else's Scryfall quota, one per tap - so the answer
+        // decides: what comes back is remembered as sent for good, what does not is written
+        // off for a few minutes, and a lookup that failed outright is forgotten at once so
+        // the next board can try it again.
         asking.addAll(wanted);
         Set<UUID> outstanding = Set.copyOf(wanted);
 
@@ -155,15 +210,30 @@ public final class CardArtPush {
                         // player is sent asks again.
                         return;
                     }
-                    // Everything asked about has now been answered for, including the
-                    // printings the service does not have - those are asked once and no more.
-                    sent.addAll(outstanding);
-                    if (cards.isEmpty()) {
-                        return;
-                    }
+                    // Only what actually came back is remembered as sent. It used to be
+                    // everything asked about, which reads as the same thing and is not: an
+                    // empty or partial answer - the service still warming, a set half read,
+                    // one printing missing out of a hundred - marked cards as delivered that
+                    // this client had never been told a thing about, and they stayed nameless
+                    // for the rest of the connection.
                     List<CardSummary> summaries = new ArrayList<>(cards.size());
                     for (CardMetadata card : cards) {
                         summaries.add(CardSummary.of(card));
+                        sent.add(card.scryfallId());
+                    }
+                    // What did not come back is not forgotten either, or every board update
+                    // would ask for it again - a trickle of lookups aimed at somebody else's
+                    // Scryfall quota, one per tap. It is written down as missing, with the
+                    // time, and asked again once that has gone stale. See MISSED.
+                    long answeredAt = System.currentTimeMillis();
+                    for (UUID printing : outstanding) {
+                        if (!sent.contains(printing)) {
+                            misses.put(printing, answeredAt);
+                        }
+                    }
+                    forgetTheOldest(misses, MOST_WORTH_REMEMBERING);
+                    if (summaries.isEmpty()) {
+                        return;
                     }
                     // Split rather than sent whole. Every other sender of these is bounded by
                     // one deck; a table is several at once, and all of them can be public at

@@ -228,11 +228,12 @@ public final class DeckBuilderScreen extends ChildScreen {
         }
         addRenderableWidget(GatheringButtons.of(footer.cancel(),
                 Component.translatable("gui.cancel"), this::onClose));
-        addRenderableWidget(GatheringButtons.of(footer.finish(),
+        this.finishButton = addRenderableWidget(GatheringButtons.of(footer.finish(),
                 Component.translatable(fromPockets()
                         ? "screen.gathering.builder.add_them"
                         : "screen.gathering.builder.finish"),
                 this::finish));
+        this.finishButton.active = !waiting;
 
         askFor(page);
     }
@@ -524,6 +525,12 @@ public final class DeckBuilderScreen extends ChildScreen {
     }
 
     private void finish() {
+        // One press at a time. Nothing checked this, so two clicks while the first was in
+        // flight submitted two builds - and the box, having handed the first deck over, made
+        // the second out of whatever was left.
+        if (waiting) {
+            return;
+        }
         List<CardComponent> cards = new ArrayList<>();
         for (BuildCard card : build.cards()) {
             cards.add(CardComponent.of(
@@ -536,6 +543,7 @@ public final class DeckBuilderScreen extends ChildScreen {
             this.onClose();
             return;
         }
+        this.pressed = java.util.UUID.randomUUID();
         ClientNetworking.send(new BuildDeckPayload(
                 where,
                 nameBox == null ? "" : nameBox.getValue(),
@@ -544,15 +552,25 @@ public final class DeckBuilderScreen extends ChildScreen {
                 build.commander().map(card -> CardComponent.of(
                         dev.gathering.core.card.CardIdentity.ofPrinting(
                                 card.printing(), card.foil()))),
-                sleeve));
+                sleeve,
+                java.util.Optional.of(pressed)));
         // Not closed on the press. The server decides whether a deck was built - the box may
         // have gone, or the player stepped out of reach - and closing here threw the whole
         // selection away on a request that was refused. See onResult.
         this.waiting = true;
+        if (finishButton != null) {
+            finishButton.active = false;
+        }
     }
 
     /** Whether Finish has been pressed and the server has not answered yet. */
     private boolean waiting;
+
+    /** Which press is outstanding, so an answer to an older one is not acted on. */
+    private java.util.UUID pressed;
+
+    /** Kept so it can be greyed out while a press is outstanding. */
+    private net.minecraft.client.gui.components.AbstractWidget finishButton;
 
     /** What the server said the last thing this screen asked for came to. */
     private net.minecraft.network.chat.Component saidBack;
@@ -567,7 +585,16 @@ public final class DeckBuilderScreen extends ChildScreen {
         if (!waiting) {
             return;
         }
+        // An answer that names a press names this one, or it is meant for a screen that has
+        // since been closed and reopened. An older answer closing this builder would throw a
+        // selection away that nobody asked it to.
+        if (result.forRequest().isPresent() && !result.forRequest().get().equals(pressed)) {
+            return;
+        }
         waiting = false;
+        if (finishButton != null) {
+            finishButton.active = true;
+        }
         if (result.cardCount() > 0) {
             this.onClose();
             return;

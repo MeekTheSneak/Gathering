@@ -104,6 +104,10 @@ public final class GatheringFabric implements ModInitializer {
                 (handler, server) -> dev.gathering.server.PlayerGone.left(handler.getPlayer()));
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+            // First, before anything is warmed or any work is queued: this stamps the run
+            // that everything started here belongs to, and says where the save is that owns
+            // whatever gets written down. See dev.gathering.server.ServerRun.
+            dev.gathering.server.ServerRun.started(server);
             ServerSettings.load(Platform.get());
             try {
                 cardData = CardDataService.start(Platform.get());
@@ -139,7 +143,11 @@ public final class GatheringFabric implements ModInitializer {
                 });
 
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
-            dev.gathering.server.ServerState.forgetTheWorld();
+            // The generation moves on first, so anything still in flight is already out of
+            // date when it lands rather than publishing into whatever world opens next. Then
+            // the executors are closed, and only then is the state cleared - clearing while a
+            // worker could still write into it is the race this order exists to close.
+            dev.gathering.server.ServerRun.stopped();
             if (cardData != null) {
                 cardData.close();
                 cardData = null;
@@ -148,6 +156,7 @@ public final class GatheringFabric implements ModInitializer {
                 collation.close();
                 collation = null;
             }
+            dev.gathering.server.ServerState.forgetTheWorld();
         });
 
         LOGGER.info("{} loaded. {}", Gathering.MOD_NAME, Gathering.FAN_CONTENT_DISCLAIMER);

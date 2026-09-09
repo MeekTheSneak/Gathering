@@ -75,9 +75,12 @@ public final class DeckValidator {
             return;
         }
 
+        // Asked of the whole command zone rather than one card at a time, because one of the
+        // five pairing mechanics works by one card admitting another: a Background is a
+        // legendary enchantment and leads nothing on its own.
         for (int position = 0; position < commanders.size(); position++) {
             CardMetadata commander = commanders.get(position);
-            if (!rules.isEligible(commander, position)) {
+            if (!rules.isEligible(commanders, position)) {
                 issues.add(ValidationIssue.error("commander_ineligible",
                         commander.name() + " cannot lead a " + preset.displayName()
                                 + " deck; that slot needs " + rules.describeEligibility(position) + "."));
@@ -85,8 +88,7 @@ public final class DeckValidator {
         }
 
         if (!rules.allowsPairing(commanders)) {
-            issues.add(ValidationIssue.error("commander_pairing",
-                    "Two commanders are only allowed when both have Partner."));
+            issues.add(ValidationIssue.error("commander_pairing", rules.describePairing(commanders)));
         }
     }
 

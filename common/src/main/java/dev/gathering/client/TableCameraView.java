@@ -137,13 +137,16 @@ public final class TableCameraView {
         // Surface units run north to south whichever way the viewer is facing, and so does
         // world z, so the same offset finds the same mat for both players; the camera's own
         // facing is what turns the picture round afterwards.
-        offsetX = (ownMat.centerX() - TableSurface.SPAN / 2.0) / TableSurface.SPAN
-                * TableTop.SPAN_BLOCKS;
-        offsetZ = (ownMat.centerY() - TableSurface.SPAN / 2.0) / TableSurface.SPAN
-                * TableTop.SPAN_BLOCKS;
-        height = heightThatFrames(
-                ownMat.width() / (double) TableSurface.SPAN * TableTop.SPAN_BLOCKS,
-                ownMat.height() / (double) TableSurface.SPAN * TableTop.SPAN_BLOCKS);
+        //
+        // From the middle of the whole cluster, because that is where wanted() puts the eye.
+        // This used to measure from the middle of one table and the two disagreed by half a
+        // table per table past the first: at four tables the "focused" mat sat three blocks
+        // to the side of the middle of the screen, and the further along the row somebody sat
+        // the worse it was. One geometry, asked once, and the two cannot drift again.
+        TableTop top = surfaceOf(corner);
+        offsetX = dev.gathering.core.ui.TableFraming.focusAcross(top, ownMat.centerX());
+        offsetZ = dev.gathering.core.ui.TableFraming.focusDown(top, ownMat.centerY());
+        height = heightThatFrames(top.blocks(ownMat.width()), top.blocks(ownMat.height()));
     }
 
     /**
@@ -351,12 +354,21 @@ public final class TableCameraView {
      * screen is a way to lose the game you are playing.
      */
     public static void pan(double acrossBlocks, double downBlocks) {
+        BlockPos corner = table;
+        if (corner == null) {
+            return;
+        }
         // Turned with the view. Dragging right has to move the table right on the screen, and
         // for the player sitting opposite, screen-right is world-west.
         double sense = facing == FACING_FROM_SOUTH ? -1 : 1;
-        double reach = TableTop.SPAN_BLOCKS / 2;
-        offsetX = Math.max(-reach, Math.min(reach, offsetX + acrossBlocks * sense));
-        offsetZ = Math.max(-reach, Math.min(reach, offsetZ + downBlocks * sense));
+        // The whole cluster's reach, and each axis its own. One table's span in both
+        // directions meant a four-table row could not be panned to either end of itself:
+        // the felt was there, the camera refused to go and look at it.
+        TableTop top = surfaceOf(corner);
+        double acrossReach = dev.gathering.core.ui.TableFraming.panReachAcross(top);
+        double downReach = dev.gathering.core.ui.TableFraming.panReachDown(top);
+        offsetX = Math.max(-acrossReach, Math.min(acrossReach, offsetX + acrossBlocks * sense));
+        offsetZ = Math.max(-downReach, Math.min(downReach, offsetZ + downBlocks * sense));
     }
 
     /**
@@ -389,9 +401,19 @@ public final class TableCameraView {
         return window / Math.max(1e-6, height * spread());
     }
 
-    /** Back to the whole table, centered, and still clear of the hand. */
+    /**
+     * Back to the whole table, centered, and still clear of the hand.
+     * <p>The whole cluster, which is what "everything" means at a table people have pushed
+     * more tables against. Framed for one table's span, a four-table row was cut off at both
+     * ends by the key whose entire job is to stop that happening.
+     */
     public static void showEverything() {
-        height = heightThatFrames(TableTop.SPAN_BLOCKS, TableTop.SPAN_BLOCKS);
+        BlockPos corner = table;
+        TableTop top = corner == null ? null : surfaceOf(corner);
+        height = top == null
+                ? heightThatFrames(TableTop.SPAN_BLOCKS, TableTop.SPAN_BLOCKS)
+                : heightThatFrames(dev.gathering.core.ui.TableFraming.everythingAcross(top),
+                        dev.gathering.core.ui.TableFraming.everythingDown(top));
         offsetX = 0;
         offsetZ = 0;
     }

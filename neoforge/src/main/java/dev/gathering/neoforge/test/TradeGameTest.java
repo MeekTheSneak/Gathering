@@ -29,12 +29,15 @@ public final class TradeGameTest {
 
     /**
      * Agrees to the table as it stands, which is what pressing the button does.
-     * <p>An agreement names the terms its sender was shown. The screen reads that number off
-     * the view it drew; here it is read off the table itself, which is the same number.
+     * <p>An agreement names the trade its sender was looking at and the terms within it. The
+     * screen reads both off the view it drew; here they are read off the table itself, which
+     * is the same answer.
      */
     private static void agree(ServerPlayer who) {
         dev.gathering.core.trade.TradeTable table = TradeSessions.at(who.getUUID());
-        TradeSessions.handle(who, TradeActionPayload.agreeTo(table == null ? 0 : table.revision()));
+        TradeSessions.handle(who, table == null
+                ? TradeActionPayload.agreeTo(null, 0)
+                : TradeActionPayload.agreeTo(table.id(), table.revision()));
     }
 
     private static final UUID BOLT = UUID.fromString("aaaaaaaa-1111-4111-8111-111111111111");
@@ -92,13 +95,14 @@ public final class TradeGameTest {
         TradeSessions.handle(ana, TradeActionPayload.put(card(BOLT), 2));
         TradeSessions.handle(ben, TradeActionPayload.put(card(RING), 1));
         // What Ben is looking at when he presses the button.
+        UUID benIsAtTable = TradeSessions.at(ben.getUUID()).id();
         int benIsLookingAt = TradeSessions.at(ben.getUUID()).revision();
 
         // Ana takes her cards back and agrees, all while Ben's press is on its way.
         TradeSessions.handle(ana, TradeActionPayload.of(TradeActionPayload.Action.CLEAR));
         agree(ana);
         // And Ben's press arrives, naming a table that is no longer there.
-        TradeSessions.handle(ben, TradeActionPayload.agreeTo(benIsLookingAt));
+        TradeSessions.handle(ben, TradeActionPayload.agreeTo(benIsAtTable, benIsLookingAt));
 
         if (count(ben, RING) != 2 || count(ana, RING) != 0) {
             helper.fail("A trade settled on an agreement given to terms that had changed:"
@@ -234,6 +238,56 @@ public final class TradeGameTest {
     }
 
     // ------------------------------------------------------------------ bits
+
+    /**
+     * An agreement left over from a trade that has closed does not strike the next one.
+     * <p>The other half of the same race, and the half the revision alone could not reach.
+     * Every table starts at revision zero, so a packet sent about one trade names a number
+     * the next trade between the same two people also has. Ben presses agree, the trade is
+     * closed and reopened on different terms - Ana offering nothing at all - and Ben's packet
+     * lands naming a revision that is once again current. It struck.
+     */
+    @GameTest(template = "empty")
+    public static void anAgreementDoesNotOutliveItsOwnTrade(GameTestHelper helper) {
+        ServerPlayer ana = standing(helper);
+        ServerPlayer ben = standing(helper);
+        give(ana, BOLT, 4);
+        give(ben, RING, 2);
+        TradeSessions.open(ana, ben);
+
+        TradeSessions.handle(ana, TradeActionPayload.put(card(BOLT), 2));
+        TradeSessions.handle(ben, TradeActionPayload.put(card(RING), 1));
+        UUID benIsAtTable = TradeSessions.at(ben.getUUID()).id();
+        int benIsLookingAt = TradeSessions.at(ben.getUUID()).revision();
+
+        // The trade closes and another opens, reaching the same revision by two changes -
+        // this time with nothing at all coming back to Ben.
+        TradeSessions.handle(ana, TradeActionPayload.of(TradeActionPayload.Action.CLOSE));
+        TradeSessions.open(ana, ben);
+        TradeSessions.handle(ben, TradeActionPayload.put(card(RING), 1));
+        TradeSessions.handle(ben, TradeActionPayload.put(card(RING), 2));
+        if (TradeSessions.at(ben.getUUID()).revision() != benIsLookingAt) {
+            helper.fail("The fixture only means something if the revisions collide: "
+                    + TradeSessions.at(ben.getUUID()).revision() + " and " + benIsLookingAt);
+            return;
+        }
+        TradeSessions.handle(ana, TradeActionPayload.agreeTo(
+                TradeSessions.at(ana.getUUID()).id(), benIsLookingAt));
+
+        // And Ben's press from the trade before arrives.
+        TradeSessions.handle(ben, TradeActionPayload.agreeTo(benIsAtTable, benIsLookingAt));
+
+        if (count(ben, RING) != 2 || count(ana, RING) != 0) {
+            helper.fail("An agreement from a closed trade settled the next one: Ben has "
+                    + count(ben, RING) + " rings and Ana has " + count(ana, RING));
+            return;
+        }
+        if (TradeSessions.at(ben.getUUID()) == null) {
+            helper.fail("The new trade ended rather than waiting for an agreement to its terms");
+            return;
+        }
+        done(helper, ana, ben);
+    }
 
     private static void done(GameTestHelper helper, ServerPlayer... players) {
         for (ServerPlayer player : players) {

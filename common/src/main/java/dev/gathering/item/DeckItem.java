@@ -299,7 +299,11 @@ public class DeckItem extends Item {
             return;
         }
         last[at] = deck;
-        dev.gathering.network.Sending.to(holder, dev.gathering.network.MyDeckPayload.of(hand, deck));
+        // Numbered, so a client can drop a push that arrives after a newer one. Per player
+        // rather than per hand, which is fine: what matters is only that it goes up.
+        int revision = TOLD_SO_FAR.merge(holder.getUUID(), 1, Integer::sum);
+        dev.gathering.network.Sending.to(holder,
+                dev.gathering.network.MyDeckPayload.of(hand, revision, deck));
     }
 
     /**
@@ -320,9 +324,14 @@ public class DeckItem extends Item {
     private static final java.util.Map<java.util.UUID, DeckComponent[]> LAST_TOLD =
             new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** Per player, how many pushes have gone out. Numbers a push so an older one is dropped. */
+    private static final java.util.Map<java.util.UUID, Integer> TOLD_SO_FAR =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     /** Forgets a player, so the deck in their hand is sent again when they come back. */
     public static void forget(java.util.UUID player) {
         LAST_TOLD.remove(player);
+        TOLD_SO_FAR.remove(player);
     }
 
     @Override

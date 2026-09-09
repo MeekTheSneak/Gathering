@@ -100,8 +100,8 @@ public final class OwedGameTest {
         Owed.forget(player.getUUID());
 
         Owed.aPack(player.getUUID(), "DMU", "draft");
-        java.nio.file.Path list = dev.gathering.platform.Platform.get().dataDirectory()
-                .resolve("owed").resolve(player.getUUID() + ".txt");
+        java.nio.file.Path list = dev.gathering.server.ServerRun.inSave("owed")
+                .orElseThrow().resolve(player.getUUID() + ".txt");
         try {
             java.nio.file.Files.writeString(list,
                     java.nio.file.Files.readString(list) + System.lineSeparator()
@@ -124,6 +124,190 @@ public final class OwedGameTest {
         }
         Owed.forget(player.getUUID());
         helper.succeed();
+    }
+
+    /**
+     * A safety ceiling must not be a way to delete cards somebody already earned.
+     * <p>The list used to keep the newest two thousand and forty-eight entries and drop
+     * whatever was older. An audit recorded two thousand and forty-nine owed cards and found
+     * two thousand and forty-eight waiting: the guard against a runaway file was itself
+     * deleting property. A list this long is a fault somewhere else, and the answer to a
+     * fault is to say so, not to start throwing cards away.
+     */
+    @GameTest(template = "empty")
+    public static void theceilingDoesNotDeleteWhatIsAlreadyOwed(GameTestHelper helper) {
+        java.util.UUID who = java.util.UUID.randomUUID();
+        try {
+            Owed.cards(who, java.util.Collections.nCopies(2049,
+                    CardIdentity.ofPrinting(java.util.UUID.randomUUID(), false)));
+
+            int waiting = Owed.waitingFor(who);
+            if (waiting != 2049) {
+                helper.fail("2049 cards were owed and " + waiting + " were kept");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            Owed.forget(who);
+        }
+    }
+
+    /**
+     * What is owed is written inside the save, not beside the game.
+     * <p>Two single-player worlds in one installation share a game directory. While this list
+     * lived there they shared it too, so a booster interrupted in one world could be claimed
+     * on joining the other - and was then gone from the world that owed it.
+     */
+    @GameTest(template = "empty")
+    public static void whatIsOwedBelongsToTheSave(GameTestHelper helper) {
+        java.util.UUID who = java.util.UUID.randomUUID();
+        try {
+            Owed.aPack(who, "DMU", "draft");
+
+            java.nio.file.Path list = dev.gathering.server.ServerRun.inSave("owed")
+                    .orElseThrow().resolve(who + ".txt");
+            if (!java.nio.file.Files.isRegularFile(list)) {
+                helper.fail("What is owed was not written inside the save: " + list);
+                return;
+            }
+            java.nio.file.Path save = helper.getLevel().getServer()
+                    .getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+                    .toAbsolutePath().normalize();
+            if (!list.toAbsolutePath().normalize().startsWith(save)) {
+                helper.fail("What is owed was written at " + list + ", outside the save at " + save);
+                return;
+            }
+            helper.succeed();
+        } finally {
+            Owed.forget(who);
+        }
+    }
+
+    /**
+     * A write that could not happen is reported as one, not logged and forgotten.
+     * <p>The caller is about to have consumed somebody's booster. If the receipt for it did
+     * not reach the disk, it must not be told that the property was safeguarded - that is the
+     * difference between a recoverable interruption and a card that simply stops existing.
+     * <p>Blocked by putting a directory where the half-written file has to go, which is a
+     * spot belonging to this one player and to nothing else. Blocking the whole owed folder
+     * would work too and would depend on this test running before every other one that owes
+     * anybody anything, which is not a thing a test may rely on.
+     */
+    @GameTest(template = "empty")
+    public static void awriteThatCannotHappenIsSaidSo(GameTestHelper helper) {
+        java.util.UUID who = java.util.UUID.randomUUID();
+        java.nio.file.Path inTheWay;
+        try {
+            java.nio.file.Path folder = dev.gathering.server.ServerRun.inSave("owed").orElseThrow();
+            java.nio.file.Files.createDirectories(folder);
+            inTheWay = folder.resolve(who + ".txt.writing");
+            java.nio.file.Files.createDirectory(inTheWay);
+        } catch (java.io.IOException couldNotSetUp) {
+            helper.fail("Could not set the fixture up: " + couldNotSetUp.getMessage());
+            return;
+        }
+        try {
+            if (Owed.aPack(who, "DMU", "draft")) {
+                helper.fail("A pack that could not be written down was reported as safeguarded");
+                return;
+            }
+            if (Owed.waitingFor(who) != 0) {
+                helper.fail("A pack that could not be written down is somehow on the list");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            try {
+                java.nio.file.Files.deleteIfExists(inTheWay);
+                Owed.forget(who);
+            } catch (java.io.IOException leaveIt) {
+                helper.fail("Could not clear the fixture: " + leaveIt.getMessage());
+            }
+        }
+    }
+
+    /**
+     * A pack consumed by a server that never finished opening it comes back, exactly once.
+     * <p>The window this exists for. A booster leaves the hand before the opening starts,
+     * because a pack still in the hand when the cards arrive is a pack that can be opened
+     * twice. Everything after that is a round trip, and the debt used to be written from the
+     * far end of it - which covers a player logging out and covers nothing else. A server
+     * stopped in the middle cancels the queued work, the completion never runs, and there is
+     * no record anywhere that a booster ever existed.
+     */
+    @GameTest(template = "empty")
+    public static void apackTakenAndNeverOpenedComesBack(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.getInventory().clearContent();
+        Owed.forget(player.getUUID());
+
+        // The receipt, written before the pack is consumed. Then nothing else happens,
+        // which is what a server stopped mid-opening looks like from the disk's side.
+        String receipt = Owed.opening(player.getUUID(), "DMU", "draft").orElse(null);
+        if (receipt == null) {
+            helper.fail("A pack about to be opened could not be written down at all");
+            return;
+        }
+
+        Owed.deliver(player);
+
+        if (countOf(player, PackItem.class) != 1) {
+            helper.fail("A pack taken and never opened came back as "
+                    + countOf(player, PackItem.class) + " packs");
+            return;
+        }
+        // And only once: joining again does not hand out a second one.
+        Owed.deliver(player);
+        if (countOf(player, PackItem.class) != 1) {
+            helper.fail("Joining twice handed out the same pack "
+                    + countOf(player, PackItem.class) + " times");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * An opening that finished owes nothing, whichever way it finished.
+     * <p>Settling replaces the receipt rather than adding to it, so a player who has their
+     * cards is not also owed the pack they came out of - and a player who was handed the pack
+     * back is not owed it twice.
+     */
+    @GameTest(template = "empty")
+    public static void asettledOpeningOwesNothingMore(GameTestHelper helper) {
+        java.util.UUID who = java.util.UUID.randomUUID();
+        try {
+            String receipt = Owed.opening(who, "DMU", "draft").orElseThrow();
+            if (Owed.waitingFor(who) != 1) {
+                helper.fail("A receipt was written and the list holds " + Owed.waitingFor(who));
+                return;
+            }
+
+            // The player was there, so they have the cards: the receipt simply goes.
+            Owed.settled(who, receipt, java.util.List.of());
+            if (Owed.waitingFor(who) != 0) {
+                helper.fail("A settled opening still owes " + Owed.waitingFor(who) + " thing(s)");
+                return;
+            }
+            // Settling again is not a way to be owed anything.
+            Owed.settled(who, receipt, java.util.List.of(CardIdentity.ofPrinting(BOLT, false)));
+            if (Owed.waitingFor(who) != 0) {
+                helper.fail("Settling a receipt twice owed " + Owed.waitingFor(who) + " card(s)");
+                return;
+            }
+
+            // And the other ending: the player had gone, so the cards take the receipt's place.
+            String second = Owed.opening(who, "DMU", "draft").orElseThrow();
+            Owed.settled(who, second, java.util.List.of(
+                    CardIdentity.ofPrinting(BOLT, false), CardIdentity.ofPrinting(BOLT, true)));
+            if (Owed.waitingFor(who) != 2) {
+                helper.fail("Two cards replaced a receipt and the list holds "
+                        + Owed.waitingFor(who));
+                return;
+            }
+            helper.succeed();
+        } finally {
+            Owed.forget(who);
+        }
     }
 
     private static int countOf(ServerPlayer player, Class<?> kind) {

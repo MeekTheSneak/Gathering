@@ -37,6 +37,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class CardDataService implements AutoCloseable {
 
+    private static final org.slf4j.Logger LOGGER =
+            org.slf4j.LoggerFactory.getLogger("Gathering");
+
     private static final String CACHE_DIRECTORY = "card-cache";
 
     /**
@@ -141,6 +144,59 @@ public final class CardDataService implements AutoCloseable {
             List<CardQuery> queries = scryfallIds.stream().map(CardQuery::byId).toList();
             return List.copyOf(source.resolve(queries).found().values());
         });
+    }
+
+    /**
+     * How many stale printings this server will re-fetch at once.
+     * <p>A refresh is a real network request, so a table where six people all sit down with
+     * decks nobody has looked up since last season must not become six hundred of them at
+     * once. Comfortably a deck's worth, which is the unit this is asked in.
+     */
+    private static final int MOST_REFRESHED_AT_ONCE = 128;
+
+    /** Printings a refresh is already out for, so two decks sharing a card ask once. */
+    private final java.util.Set<UUID> refreshing =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * Fetches these printings again, past the cache, and stores what comes back.
+     * <p>The one thing {@link #findAll} cannot do. A cached card is answered from the cache
+     * for ever, which is the whole point of the cache and exactly wrong for legality: bans
+     * and rotations change what a card already on this disk is allowed to do. A deck check
+     * that finds stale entries asks for this, and until it lands the check keeps saying the
+     * verdict rests on old data.
+     * <p>Coalesced, so the same printing is not fetched twice while one request is out, and
+     * bounded by {@link #MOST_REFRESHED_AT_ONCE}. Nothing waits on the result: the point is
+     * that the <em>next</em> check is current.
+     *
+     * @return how many printings this call actually asked for
+     */
+    public int refresh(List<UUID> scryfallIds) {
+        if (scryfallIds == null || scryfallIds.isEmpty()) {
+            return 0;
+        }
+        List<UUID> asking = new java.util.ArrayList<>();
+        for (UUID printing : scryfallIds) {
+            if (printing == null || asking.size() >= MOST_REFRESHED_AT_ONCE) {
+                continue;
+            }
+            if (refreshing.add(printing)) {
+                asking.add(printing);
+            }
+        }
+        if (asking.isEmpty()) {
+            return 0;
+        }
+        List<UUID> wanted = List.copyOf(asking);
+        supply(() -> source.refresh(wanted.stream().map(CardQuery::byId).toList()))
+                .whenComplete((result, failure) -> {
+                    refreshing.removeAll(wanted);
+                    if (failure != null) {
+                        LOGGER.warn("Could not refresh {} stale printing(s): {}",
+                                wanted.size(), failure.toString());
+                    }
+                });
+        return wanted.size();
     }
 
     /** Every printing of a card, cheapest first - what the import screen's chooser offers. */

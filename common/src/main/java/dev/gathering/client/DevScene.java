@@ -4561,12 +4561,18 @@ public final class DevScene {
             theirs.add(new dev.gathering.network.TradeViewPayload.Pile(
                     cards.get(index), index + 1));
         }
-        // Revision one, which is what a table with something on it is at. The screen sends
-        // it back when the player agrees, and the server refuses an agreement about terms
-        // that have moved on since.
+        // Revision one, which is what a table with something on it is at, and one table's
+        // own identity. The screen sends both back when the player agrees, and the server
+        // refuses an agreement about terms that have moved on or about a trade that has been
+        // replaced since.
         TradeScreen.accept(new dev.gathering.network.TradeViewPayload(
-                "Steve", mine, theirs, agreed, agreed, false, 1));
+                "Steve", mine, theirs, agreed, agreed, false,
+                java.util.Optional.of(DEV_TRADE), 1));
     }
+
+    /** The one trade this scene runs, so an agreement it sends names a table that exists. */
+    private static final java.util.UUID DEV_TRADE =
+            java.util.UUID.fromString("7ade7ab1-0000-4000-8000-000000000001");
 
     /** With nothing of mine up there is nothing to take back, and the button says so. */
     private static void takingItBackIsSpentWhenThereIsNothingUp(Minecraft client) {

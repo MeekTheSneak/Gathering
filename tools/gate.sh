@@ -28,7 +28,7 @@ stage() {
 }
 
 stage "gradle build (all unit tests)" ./gradlew build
-for check in langcheck doccheck scenecheck plotcheck gesturecheck spritecheck statecheck texturecheck; do
+for check in langcheck doccheck scenecheck plotcheck gesturecheck spritecheck statecheck savecheck runcheck texturecheck; do
     stage "$check" python3 "tools/$check.py"
 done
 if [ "${1:-}" = "--game" ]; then

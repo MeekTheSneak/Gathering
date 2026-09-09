@@ -33,8 +33,35 @@ public final class CardMetadataRequests {
      */
     private static final int OUTSTANDING_PER_PLAYER = 128;
 
-    /** Per player, how many printings a lookup is out for. Server thread only. */
-    private static final Map<UUID, Integer> BUSY = new HashMap<>();
+    /**
+     * A ceiling across everybody, so a full table cannot make the budget meaningless.
+     * <p>The per-player limit bounds one client. Eight of them each spending their whole
+     * allowance is still eight hundred pieces of work in front of the imports and pack
+     * openings sharing the one worker thread, which is the queue this was supposed to bound.
+     */
+    private static final int OUTSTANDING_ALTOGETHER = 512;
+
+    /**
+     * What one player has a lookup out for, and which connection asked.
+     * <p>The count alone was not enough. It is keyed by player id, which survives a
+     * disconnect - so a completion from before a relog subtracted from the allowance the
+     * reconnected client had just been given, and a client could reconnect to get a second
+     * allowance while the first one's work was still queued. The stamp is taken when a
+     * player's accounting starts and thrown away when they leave, so a completion carrying an
+     * old one belongs to a connection that has gone and changes nothing.
+     */
+    private record Outstanding(long connection, int count) {
+    }
+
+    /** Per player, what is out and for which connection. Server thread only. */
+    private static final Map<UUID, Outstanding> BUSY = new HashMap<>();
+
+    /** A number no two connections share, for the life of this process. */
+    private static final java.util.concurrent.atomic.AtomicLong CONNECTIONS =
+            new java.util.concurrent.atomic.AtomicLong();
+
+    /** What everybody together has out, kept as it goes rather than summed. */
+    private static int outstandingAltogether;
 
     public static void handle(ServerPlayer player, CardDataService service, RequestCardMetadataPayload request) {
         List<UUID> wanted = request.printings().stream()
@@ -70,32 +97,56 @@ public final class CardMetadataRequests {
         // budget the request is simply not made: the client asks again when it draws the
         // cards it still cannot name, which is a screen refreshing rather than a queue
         // growing.
-        int busy = BUSY.getOrDefault(player.getUUID(), 0);
-        int room = OUTSTANDING_PER_PLAYER - busy;
+        Outstanding busy = BUSY.get(player.getUUID());
+        long connection = busy == null ? CONNECTIONS.incrementAndGet() : busy.connection();
+        int room = Math.min(
+                OUTSTANDING_PER_PLAYER - (busy == null ? 0 : busy.count()),
+                OUTSTANDING_ALTOGETHER - outstandingAltogether);
         if (room <= 0) {
             return;
         }
         List<UUID> asking = unknown.size() > room ? unknown.subList(0, room) : unknown;
-        BUSY.merge(player.getUUID(), asking.size(), Integer::sum);
-        send(player, service, List.copyOf(asking));
+        BUSY.put(player.getUUID(),
+                new Outstanding(connection, (busy == null ? 0 : busy.count()) + asking.size()));
+        outstandingAltogether += asking.size();
+        send(player, service, connection, List.copyOf(asking));
     }
 
-    /** Forgets a player's outstanding work, for a disconnect or a server stop. */
+    /**
+     * Forgets a player's outstanding work, for a disconnect or a server stop.
+     * <p>The work itself cannot be recalled - it is on a shared queue - so what this does is
+     * make sure it changes nothing when it lands. The global count comes down here, because
+     * that work is no longer anybody's allowance to spend.
+     */
     public static void forget(UUID player) {
-        BUSY.remove(player);
+        Outstanding gone = BUSY.remove(player);
+        if (gone != null) {
+            outstandingAltogether = Math.max(0, outstandingAltogether - gone.count());
+        }
     }
 
     /** Forgets everybody's, for a server that is stopping. */
     public static void clear() {
         BUSY.clear();
+        outstandingAltogether = 0;
     }
 
-    private static void send(ServerPlayer player, CardDataService service, List<UUID> wanted) {
+    private static void send(ServerPlayer player, CardDataService service, long connection,
+            List<UUID> wanted) {
         service.findAll(wanted).whenComplete((cards, failure) -> player.server.execute(() -> {
-            BUSY.computeIfPresent(player.getUUID(), (who, out) -> {
-                int left = out - wanted.size();
-                return left <= 0 ? null : left;
-            });
+            // Only against the connection that asked. A completion carrying a stamp from
+            // before a relog belongs to a client that has gone, and taking it off the new
+            // client's allowance would hand out a second one for the same work.
+            Outstanding busy = BUSY.get(player.getUUID());
+            if (busy != null && busy.connection() == connection) {
+                int left = busy.count() - wanted.size();
+                outstandingAltogether = Math.max(0, outstandingAltogether - wanted.size());
+                if (left <= 0) {
+                    BUSY.remove(player.getUUID());
+                } else {
+                    BUSY.put(player.getUUID(), new Outstanding(connection, left));
+                }
+            }
             if (player.hasDisconnected() || failure != null || cards == null || cards.isEmpty()) {
                 return;
             }

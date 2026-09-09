@@ -23,6 +23,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param commander the card in the command zone, or empty for a deck with no commander. Kept
  *                  apart from the rest rather than flagged inside it, because it goes to a
  *                  different pile of the deck it becomes
+ * @param request   which press this is, echoed back in the result. The builder waits for the
+ *                  server before it closes, so it has to be able to tell its own answer from
+ *                  one meant for a screen that has since been closed and reopened
  */
 public record BuildDeckPayload(
         BlockPos where,
@@ -30,8 +33,16 @@ public record BuildDeckPayload(
         String description,
         List<CardComponent> cards,
         Optional<CardComponent> commander,
-        dev.gathering.core.card.Sleeve sleeve)
+        dev.gathering.core.card.Sleeve sleeve,
+        Optional<java.util.UUID> request)
         implements CustomPacketPayload {
+
+    /** A press nobody needs to hear the answer to by name - a command, or a test. */
+    public BuildDeckPayload(
+            BlockPos where, String name, String description, List<CardComponent> cards,
+            Optional<CardComponent> commander, dev.gathering.core.card.Sleeve sleeve) {
+        this(where, name, description, cards, commander, sleeve, Optional.empty());
+    }
 
     /** As many as a deck holds. Past this is a clipboard, not a deck. */
     public static final int MOST_CARDS = dev.gathering.item.DeckComponent.MAX_CARDS;
@@ -44,20 +55,42 @@ public record BuildDeckPayload(
     public static final CustomPacketPayload.Type<BuildDeckPayload> TYPE =
             GatheringPayloads.type("build_deck");
 
+    /**
+     * Written out by hand rather than composed.
+     * <p>{@code StreamCodec.composite} takes six parts in this version and this has seven,
+     * the seventh being which press the result belongs to. The only thing to keep right is
+     * that the two halves stay in step.
+     */
     public static final StreamCodec<RegistryFriendlyByteBuf, BuildDeckPayload> STREAM_CODEC =
-            StreamCodec.composite(
-                    BlockPos.STREAM_CODEC, BuildDeckPayload::where,
-                    ByteBufCodecs.stringUtf8(LONGEST_NAME), BuildDeckPayload::name,
-                    ByteBufCodecs.stringUtf8(LONGEST_DESCRIPTION), BuildDeckPayload::description,
-                    CardComponent.STREAM_CODEC.apply(ByteBufCodecs.list(MOST_CARDS)),
-                    BuildDeckPayload::cards,
-                    ByteBufCodecs.optional(CardComponent.STREAM_CODEC), BuildDeckPayload::commander,
-                    // Six is what composite() takes in this version, and this is the sixth.
-                    ByteBufCodecs.idMapper(
-                            dev.gathering.core.card.Sleeve::byOrdinal,
-                            dev.gathering.core.card.Sleeve::ordinal),
-                    BuildDeckPayload::sleeve,
-                    BuildDeckPayload::new);
+            StreamCodec.of(BuildDeckPayload::toNetwork, BuildDeckPayload::fromNetwork);
+
+    private static final StreamCodec<ByteBuf, dev.gathering.core.card.Sleeve> SLEEVE =
+            ByteBufCodecs.idMapper(
+                    dev.gathering.core.card.Sleeve::byOrdinal,
+                    dev.gathering.core.card.Sleeve::ordinal);
+
+    private static void toNetwork(RegistryFriendlyByteBuf out, BuildDeckPayload asked) {
+        BlockPos.STREAM_CODEC.encode(out, asked.where());
+        ByteBufCodecs.stringUtf8(LONGEST_NAME).encode(out, asked.name());
+        ByteBufCodecs.stringUtf8(LONGEST_DESCRIPTION).encode(out, asked.description());
+        CardComponent.STREAM_CODEC.apply(ByteBufCodecs.list(MOST_CARDS)).encode(out, asked.cards());
+        ByteBufCodecs.optional(CardComponent.STREAM_CODEC).encode(out, asked.commander());
+        SLEEVE.encode(out, asked.sleeve());
+        ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC).encode(out, asked.request());
+    }
+
+    private static BuildDeckPayload fromNetwork(RegistryFriendlyByteBuf in) {
+        BlockPos where = BlockPos.STREAM_CODEC.decode(in);
+        String name = ByteBufCodecs.stringUtf8(LONGEST_NAME).decode(in);
+        String description = ByteBufCodecs.stringUtf8(LONGEST_DESCRIPTION).decode(in);
+        List<CardComponent> cards =
+                CardComponent.STREAM_CODEC.apply(ByteBufCodecs.list(MOST_CARDS)).decode(in);
+        Optional<CardComponent> commander =
+                ByteBufCodecs.optional(CardComponent.STREAM_CODEC).decode(in);
+        dev.gathering.core.card.Sleeve sleeve = SLEEVE.decode(in);
+        return new BuildDeckPayload(where, name, description, cards, commander, sleeve,
+                ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC).decode(in));
+    }
 
     public BuildDeckPayload {
         // Bounded on the record as well as in the codec. The codec guards the socket; this
@@ -68,6 +101,7 @@ public record BuildDeckPayload(
         cards = cards == null ? List.of() : List.copyOf(cards.subList(0, Math.min(cards.size(), MOST_CARDS)));
         commander = commander == null ? Optional.empty() : commander;
         sleeve = sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;
+        request = request == null ? Optional.empty() : request;
     }
 
     private static String trimmed(String value, int longest) {

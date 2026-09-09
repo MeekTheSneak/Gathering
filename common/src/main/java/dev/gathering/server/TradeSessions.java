@@ -119,15 +119,18 @@ public final class TradeSessions {
         TradeTable next = switch (asked.action()) {
             case PUT -> put(player, table, asked);
             case CLEAR -> table.clearOffer(player.getUUID());
-            case AGREE -> table.agree(player.getUUID(), asked.revision());
+            case AGREE -> table.agree(
+                    player.getUUID(), asked.table().orElse(null), asked.revision());
             case THINK_AGAIN -> table.thinkAgain(player.getUUID());
             case CLOSE -> table;
         };
-        // An agreement about terms that are no longer on the table is not an agreement. The
-        // player is told rather than left looking at a button that did nothing, and both
-        // sides are re-shown the table as it now stands so the next press means something.
+        // An agreement about a table that is no longer there is not an agreement - neither
+        // terms that have changed nor, since every table starts at revision zero, a trade
+        // that closed and was replaced by another between the same two people. The player is
+        // told rather than left looking at a button that did nothing, and both sides are
+        // re-shown the table as it now stands so the next press means something.
         if (asked.action() == TradeActionPayload.Action.AGREE
-                && !table.isStillShowing(asked.revision())) {
+                && !table.isStillShowing(asked.table().orElse(null), asked.revision())) {
             say(player, "message.gathering.trade_terms_changed");
             show(player, table);
             show(other, table);
@@ -328,6 +331,7 @@ public final class TradeSessions {
                 table.hasAgreed(player.getUUID()),
                 them != null && table.hasAgreed(them),
                 table.stage() == TradeTable.Stage.CLOSED,
+                java.util.Optional.of(table.id()),
                 table.revision()));
     }
 

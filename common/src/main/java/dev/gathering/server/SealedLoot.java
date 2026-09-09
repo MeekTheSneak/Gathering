@@ -100,7 +100,7 @@ public final class SealedLoot {
         }
         SetsInPlay.wanted(settings)
                 .thenCombine(collation.everySetsProducts(), SealedLoot::boostersOf)
-                .whenComplete((found, failure) -> {
+                .whenComplete(ServerRun.stillThisRun((found, failure) -> {
                     if (failure != null) {
                         LOGGER.warn("Could not read what this server's sets were sold as, so "
                                 + "nothing drops", failure);
@@ -109,7 +109,7 @@ public final class SealedLoot {
                     pool = Pool.of(found);
                     LOGGER.info("Sealed product can be found in the world: {} set(s), {}",
                             found.size(), describe(found));
-                });
+                }));
     }
 
     /** Between servers, so one world's sets do not drop in the next. */

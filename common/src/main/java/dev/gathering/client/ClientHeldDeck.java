@@ -18,17 +18,36 @@ import net.minecraft.world.InteractionHand;
  */
 public final class ClientHeldDeck {
 
-    private static final Map<InteractionHand, DeckComponent> HELD = new EnumMap<>(InteractionHand.class);
+    /** What the server last said about one hand, and which push said it. */
+    private record Told(int revision, DeckComponent deck) {
+    }
+
+    private static final Map<InteractionHand, Told> HELD = new EnumMap<>(InteractionHand.class);
 
     private ClientHeldDeck() {
     }
 
-    /** Takes what the server says is in the deck in this hand. */
+    /**
+     * Takes what the server says is in the deck in this hand.
+     * <p>Older pushes are dropped rather than applied. Two pushes about one hand can arrive
+     * out of order after an edit, and applying the older one leaves the screen showing a deck
+     * the server has already changed.
+     */
     public static void accept(MyDeckPayload said) {
         if (said == null || said.deck() == null) {
             return;
         }
-        HELD.put(said.hand(), said.deck());
+        Told have = HELD.get(said.hand());
+        if (have != null && said.revision() < have.revision()) {
+            return;
+        }
+        HELD.put(said.hand(), new Told(said.revision(), said.deck()));
+    }
+
+    /** Which push this client last took for that hand, or -1 if none. */
+    public static int revisionOf(InteractionHand hand) {
+        Told told = HELD.get(hand);
+        return told == null ? -1 : told.revision();
     }
 
     /**
@@ -37,7 +56,7 @@ public final class ClientHeldDeck {
      * screen reading this falls back to the public copy and shows the count without the list.
      */
     public static Optional<DeckComponent> of(InteractionHand hand) {
-        return Optional.ofNullable(HELD.get(hand));
+        return Optional.ofNullable(HELD.get(hand)).map(Told::deck);
     }
 
     /** Between worlds: one server's decks are not the next one's. */

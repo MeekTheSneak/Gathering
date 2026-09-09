@@ -157,12 +157,33 @@ public final class TableSessions {
         return Outcome.STARTED;
     }
 
+    /**
+     * Ends the game on the table at this origin, found through the world.
+     * <p>The ordinary path: somebody conceded, or a command ended it, and the table is still
+     * standing there to be looked up.
+     */
     public static Outcome end(Level level, BlockPos tableOrigin, SeatId actor, String reason) {
         BlockPos anchor = anchorOf(level, tableOrigin).orElse(null);
         if (anchor == null) {
             return Outcome.NO_TABLE;
         }
-        TableBlockEntity table = TableBlock.entityAt(level, anchor).orElse(null);
+        return end(level, tableOrigin, TableBlock.entityAt(level, anchor).orElse(null), actor, reason);
+    }
+
+    /**
+     * Ends the game on a table already in hand, without asking the world where it is.
+     * <p>This exists because the world is the one thing that cannot be asked during a forced
+     * removal. {@code onRemove} runs after the cell has become whatever replaced it, so a
+     * lookup through the cluster finds the replacement - or air - and answers NO_TABLE. The
+     * hook then fell through to handing the decks and the pot back around a game that was
+     * never ended: no {@code SessionEnded} event, no replay kept, and every client still
+     * holding a board that looked live.
+     * <p>So the caller that already holds the block entity passes it in. Idempotent: a table
+     * with no session left on it is NOT_RUNNING rather than an error, which is what a second
+     * call during the same teardown looks like.
+     */
+    public static Outcome end(Level level, BlockPos tableOrigin, TableBlockEntity table,
+            SeatId actor, String reason) {
         if (table == null || !table.hasSession()) {
             return Outcome.NOT_RUNNING;
         }

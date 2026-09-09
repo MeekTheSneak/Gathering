@@ -288,7 +288,7 @@ public record DeckComponent(
     public DeckComponent named(String newName) {
         return new DeckComponent(
                 newName == null ? "" : newName.strip(),
-                description, owner, entries, commanders, sideboard, color, sleeve);
+                description, owner, entries, commanders, sideboard, color, sleeve, stories);
     }
 
     /**
@@ -300,7 +300,7 @@ public record DeckComponent(
     public DeckComponent colored(int argb) {
         return new DeckComponent(
                 name, description, owner, entries, commanders, sideboard,
-                Optional.of(0xFF000000 | argb), sleeve);
+                Optional.of(0xFF000000 | argb), sleeve, stories);
     }
 
     /**
@@ -311,7 +311,7 @@ public record DeckComponent(
     public DeckComponent sleeved(dev.gathering.core.card.Sleeve chosen) {
         return new DeckComponent(
                 name, description, owner, entries, commanders, sideboard, color,
-                chosen == null ? dev.gathering.core.card.Sleeve.DEFAULT : chosen);
+                chosen == null ? dev.gathering.core.card.Sleeve.DEFAULT : chosen, stories);
     }
 
     /** Physical cards in the deck proper - mainboard plus command zone, never the sideboard. */
@@ -402,14 +402,25 @@ public record DeckComponent(
         };
     }
 
+    /**
+     * The same deck with one section replaced, and everything else kept - the histories
+     * included.
+     * <p>They were not, and that was the whole of why sleeving a storied card did not work:
+     * every functional copy on this record went through the eight-argument convenience
+     * constructor, which starts the histories empty. Adding a second card to a deck, moving
+     * one between sections, renaming it, painting the box or changing the sleeves each wiped
+     * the provenance of every card already in it. The one-line fix is to stop taking that
+     * shortcut here; the rule is that nothing in this class may build a deck from another
+     * deck without carrying its histories across.
+     */
     private DeckComponent withSection(Section section, List<CardComponent> cards) {
         return switch (section) {
-            case COMMANDERS ->
-                    new DeckComponent(name, description, owner, entries, cards, sideboard, color, sleeve);
-            case MAINBOARD ->
-                    new DeckComponent(name, description, owner, cards, commanders, sideboard, color, sleeve);
-            case SIDEBOARD ->
-                    new DeckComponent(name, description, owner, entries, commanders, cards, color, sleeve);
+            case COMMANDERS -> new DeckComponent(
+                    name, description, owner, entries, cards, sideboard, color, sleeve, stories);
+            case MAINBOARD -> new DeckComponent(
+                    name, description, owner, cards, commanders, sideboard, color, sleeve, stories);
+            case SIDEBOARD -> new DeckComponent(
+                    name, description, owner, entries, commanders, cards, color, sleeve, stories);
         };
     }
 

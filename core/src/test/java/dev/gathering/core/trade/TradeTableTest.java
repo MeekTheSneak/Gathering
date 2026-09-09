@@ -27,7 +27,7 @@ class TradeTableTest {
 
     /** Agrees to the table as it stands, which is what somebody looking at it does. */
     private static TradeTable agreeing(TradeTable table, UUID who) {
-        return table.agree(who, table.revision());
+        return table.agree(who, table.id(), table.revision());
     }
 
     @Test
@@ -152,10 +152,10 @@ class TradeTableTest {
 
         // Ana takes her card back and agrees to the table that leaves.
         TradeTable now = shown.clearOffer(ANA);
-        now = now.agree(ANA, now.revision());
+        now = now.agree(ANA, now.id(), now.revision());
 
         // Ben's agreement, sent before any of that, arrives.
-        TradeTable after = now.agree(BEN, benWasLookingAt);
+        TradeTable after = now.agree(BEN, now.id(), benWasLookingAt);
 
         assertThat(after.isStruck())
                 .describedAs("Ben agreed to a table with Ana's card on it")
@@ -164,7 +164,7 @@ class TradeTableTest {
         assertThat(after).isEqualTo(now);
 
         // Sent again against the terms actually on the table, it goes through.
-        assertThat(after.agree(BEN, after.revision()).isStruck()).isTrue();
+        assertThat(after.agree(BEN, after.id(), after.revision()).isStruck()).isTrue();
     }
 
     @Test
@@ -173,10 +173,71 @@ class TradeTableTest {
         TradeTable shown = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1);
         int terms = shown.revision();
 
-        TradeTable one = shown.agree(ANA, terms);
+        TradeTable one = shown.agree(ANA, shown.id(), terms);
 
         assertThat(one.revision()).isEqualTo(terms);
-        assertThat(one.agree(BEN, terms).isStruck()).isTrue();
+        assertThat(one.agree(BEN, one.id(), terms).isStruck()).isTrue();
+    }
+
+    @Test
+    @DisplayName("an agreement left over from a closed trade cannot strike the next one")
+    void anagreementDoesNotOutliveItsOwnTrade() {
+        // The revision alone is not enough, and this is why: every table starts at zero, so a
+        // packet sent about one trade names a number the next trade between the same two
+        // people also has. An audit closed a trade while an agreement was in flight, opened
+        // another on different terms - one side offering nothing at all - and struck it with
+        // the old packet. Clearing the offers reset both flags, which is exactly why it
+        // looked safe; what resetting a flag cannot do is reach a packet already sent.
+        TradeTable first = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1).putUp(BEN, RING, 1);
+        UUID benWasLookingAtTable = first.id();
+        int benWasLookingAtTerms = first.revision();
+        first.close();
+
+        // Two changes, so it lands on the same revision, and terms nobody agreed to: Ana
+        // gives nothing and Ben gives three.
+        TradeTable second = TradeTable.between(ANA, BEN).putUp(BEN, RING, 1).putUp(BEN, RING, 3);
+        assertThat(second.revision())
+                .describedAs("the fixture only means something if the revisions collide")
+                .isEqualTo(benWasLookingAtTerms);
+        assertThat(second.id()).isNotEqualTo(benWasLookingAtTable);
+
+        TradeTable after = second
+                .agree(ANA, second.id(), second.revision())
+                .agree(BEN, benWasLookingAtTable, benWasLookingAtTerms);
+
+        assertThat(after.isStruck())
+                .describedAs("Ben agreed to a trade that no longer exists")
+                .isFalse();
+        assertThat(after.hasAgreed(BEN)).isFalse();
+        assertThat(after.fromLeft().isEmpty())
+                .describedAs("the terms Ben never saw: he gives three and gets nothing")
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("every trade has its own identity, and keeps it through every change")
+    void atableKeepsItsIdentity() {
+        TradeTable table = TradeTable.between(ANA, BEN);
+        UUID identity = table.id();
+
+        assertThat(TradeTable.between(ANA, BEN).id()).isNotEqualTo(identity);
+        assertThat(table.putUp(ANA, BOLT, 2).id()).isEqualTo(identity);
+        assertThat(table.putUp(ANA, BOLT, 2).clearOffer(ANA).id()).isEqualTo(identity);
+        assertThat(table.agree(ANA, identity, table.revision()).id()).isEqualTo(identity);
+        assertThat(table.agree(ANA, identity, table.revision()).thinkAgain(ANA).id())
+                .isEqualTo(identity);
+        assertThat(table.close().id()).isEqualTo(identity);
+    }
+
+    @Test
+    @DisplayName("an agreement naming no table at all is refused")
+    void anagreementMustNameATable() {
+        TradeTable table = TradeTable.between(ANA, BEN).putUp(ANA, BOLT, 1);
+
+        assertThat(table.agree(ANA, null, table.revision()).hasAgreed(ANA)).isFalse();
+        assertThat(table.isStillShowing(null, table.revision())).isFalse();
+        assertThat(table.isStillShowing(table.id(), table.revision())).isTrue();
+        assertThat(table.isStillShowing(table.id(), table.revision() + 1)).isFalse();
     }
 
     @Test
@@ -200,7 +261,7 @@ class TradeTableTest {
             table = switch (move.what()) {
                 case PUT -> table.putUp(move.who(), move.card(), move.howMany());
                 case CLEAR -> table.clearOffer(move.who());
-                case AGREE -> table.agree(move.who(), table.revision());
+                case AGREE -> table.agree(move.who(), table.id(), table.revision());
                 case UNDO -> table.thinkAgain(move.who());
             };
             if (table.isStruck() && !before.isStruck()) {

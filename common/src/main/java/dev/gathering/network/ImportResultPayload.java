@@ -15,9 +15,19 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param deckName    the name the list carried, or empty
  * @param cardCount   physical cards resolved into the deck
  * @param problems    parse problems and unresolved lines, already formatted for display
+ * @param forRequest  which press this answers, when the asking screen named one. A builder
+ *                    waits for the server before it closes, so it has to be able to tell its
+ *                    own answer from one meant for a screen since closed and reopened
  */
-public record ImportResultPayload(String deckName, int cardCount, List<String> problems)
+public record ImportResultPayload(
+        String deckName, int cardCount, List<String> problems,
+        java.util.Optional<java.util.UUID> forRequest)
         implements CustomPacketPayload {
+
+    /** An answer to nobody in particular, which is what the import screen sends and reads. */
+    public ImportResultPayload(String deckName, int cardCount, List<String> problems) {
+        this(deckName, cardCount, problems, java.util.Optional.empty());
+    }
 
     /** Enough to name every line of a decklist that went entirely wrong, and no more. */
     public static final int MAX_PROBLEMS = 256;
@@ -32,6 +42,8 @@ public record ImportResultPayload(String deckName, int cardCount, List<String> p
                     ByteBufCodecs.VAR_INT, ImportResultPayload::cardCount,
                     ByteBufCodecs.stringUtf8(MAX_PROBLEM_LENGTH).apply(ByteBufCodecs.list(MAX_PROBLEMS)),
                             ImportResultPayload::problems,
+                    ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC),
+                            ImportResultPayload::forRequest,
                     ImportResultPayload::new);
 
     public ImportResultPayload {
@@ -47,6 +59,7 @@ public record ImportResultPayload(String deckName, int cardCount, List<String> p
             }
         }
         problems = List.copyOf(fitted);
+        forRequest = forRequest == null ? java.util.Optional.empty() : forRequest;
     }
 
     public boolean isClean() {

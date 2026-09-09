@@ -22,7 +22,7 @@ class TradeSettlementTest {
 
     /** Agrees to the table as it stands, which is what somebody looking at it does. */
     private static TradeTable agreeing(TradeTable table, UUID who) {
-        return table.agree(who, table.revision());
+        return table.agree(who, table.id(), table.revision());
     }
 
     private static TradeTable struck() {

@@ -22,6 +22,7 @@ import java.util.UUID;
  * <p>Pure.
  */
 public record TradeTable(
+        UUID id,
         UUID left,
         UUID right,
         CardTally fromLeft,
@@ -45,6 +46,7 @@ public record TradeTable(
     }
 
     public TradeTable {
+        Objects.requireNonNull(id, "id");
         Objects.requireNonNull(left, "left");
         Objects.requireNonNull(right, "right");
         fromLeft = fromLeft == null ? CardTally.EMPTY : fromLeft;
@@ -53,9 +55,22 @@ public record TradeTable(
         revision = Math.max(0, revision);
     }
 
-    /** A fresh table between two people, with nothing on it. */
+    /**
+     * A fresh table between two people, with nothing on it and an identity of its own.
+     * <p>The identity is the other half of what an agreement has to name. The revision alone
+     * says which <em>terms</em> were agreed to, and that closes the race inside one trade -
+     * but every table starts at revision zero, so an agreement in flight when a trade closes
+     * arrives at the next trade between the same two people naming a revision that exists
+     * there too. An audit struck a second trade, on different terms including an empty offer
+     * from one side, with an agreement sent about the first.
+     * <p>Random rather than counted, because a counter is guessable and a guessable one lets
+     * a client name a trade it was never shown. This is the one place in the mod that wants
+     * an unguessable value rather than a reproducible one, so it is {@link UUID#randomUUID()}
+     * and not the level's own generator - a shuffle has to replay from a seed and this must
+     * never be predictable.
+     */
     public static TradeTable between(UUID left, UUID right) {
-        return new TradeTable(
+        return new TradeTable(UUID.randomUUID(),
                 left, right, CardTally.EMPTY, CardTally.EMPTY, false, false, Stage.OPEN, 0);
     }
 
@@ -125,21 +140,33 @@ public record TradeTable(
      * seen - one card for nothing. Clearing the offers reset both agreements, which is why it
      * looked safe; what it could not do is reach the agreement already in flight.
      *
+     * <p>{@code seenTable} is which trade. A revision on its own is not enough: every table
+     * starts at zero, so an agreement left over from a trade that has closed names a revision
+     * the next trade between the same two people also has. An audit struck a second trade -
+     * different terms, one side offering nothing - with an agreement sent about the first.
+     *
+     * @param seenTable the identity of the trade the agreeing player was looking at
      * @param seenRevision the revision the agreeing player was shown, from the view they read
      */
-    public TradeTable agree(UUID who, int seenRevision) {
-        if (stage != Stage.OPEN || !seats(who) || hasAgreed(who) || seenRevision != revision) {
+    public TradeTable agree(UUID who, UUID seenTable, int seenRevision) {
+        if (stage != Stage.OPEN || !seats(who) || hasAgreed(who)
+                || !isStillShowing(seenTable, seenRevision)) {
             return this;
         }
         boolean nowLeft = left.equals(who) || leftAgreed;
         boolean nowRight = right.equals(who) || rightAgreed;
-        return new TradeTable(left, right, fromLeft, fromRight, nowLeft, nowRight,
+        return new TradeTable(id, left, right, fromLeft, fromRight, nowLeft, nowRight,
                 nowLeft && nowRight ? Stage.STRUCK : Stage.OPEN, revision);
     }
 
-    /** Whether this is the table somebody agreeing was actually looking at. */
-    public boolean isStillShowing(int seenRevision) {
-        return seenRevision == revision;
+    /**
+     * Whether this is the table somebody agreeing was actually looking at.
+     * <p>Both halves: the same trade, and the same terms within it. Either alone is not
+     * enough - the revision without the identity lets an agreement from a closed trade strike
+     * the next one, and the identity without the revision is the race this started as.
+     */
+    public boolean isStillShowing(UUID seenTable, int seenRevision) {
+        return id.equals(seenTable) && seenRevision == revision;
     }
 
     /** Takes an agreement back, which anybody may do until the other side gives theirs. */
@@ -147,7 +174,7 @@ public record TradeTable(
         if (stage != Stage.OPEN || !seats(who) || !hasAgreed(who)) {
             return this;
         }
-        return new TradeTable(left, right, fromLeft, fromRight,
+        return new TradeTable(id, left, right, fromLeft, fromRight,
                 leftAgreed && !left.equals(who), rightAgreed && !right.equals(who), Stage.OPEN,
                 revision);
     }
@@ -156,7 +183,7 @@ public record TradeTable(
     public TradeTable close() {
         return stage == Stage.CLOSED
                 ? this
-                : new TradeTable(left, right, fromLeft, fromRight, false, false, Stage.CLOSED,
+                : new TradeTable(id, left, right, fromLeft, fromRight, false, false, Stage.CLOSED,
                         revision);
     }
 
@@ -182,7 +209,7 @@ public record TradeTable(
         // And the revision moves on, which is what an agreement already in flight is checked
         // against: resetting the flags cannot reach a packet that has already been sent.
         return left.equals(who)
-                ? new TradeTable(left, right, offer, fromRight, false, false, Stage.OPEN, revision + 1)
-                : new TradeTable(left, right, fromLeft, offer, false, false, Stage.OPEN, revision + 1);
+                ? new TradeTable(id, left, right, offer, fromRight, false, false, Stage.OPEN, revision + 1)
+                : new TradeTable(id, left, right, fromLeft, offer, false, false, Stage.OPEN, revision + 1);
     }
 }

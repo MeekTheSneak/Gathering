@@ -222,8 +222,10 @@ public class TableBlockEntity extends BlockEntity {
         }
         java.nio.file.Path where;
         try {
-            java.nio.file.Path folder = dev.gathering.platform.Platform.get()
-                    .dataDirectory().resolve("unreadable-games");
+            // Inside the save, because a game that broke in one world is that world's to
+            // keep. See dev.gathering.server.ServerRun.
+            java.nio.file.Path folder = dev.gathering.server.ServerRun.inSave("unreadable-games")
+                    .orElseThrow(() -> new java.io.IOException("No server is running"));
             java.nio.file.Files.createDirectories(folder);
             where = folder.resolve(worldPosition.getX() + "_" + worldPosition.getY() + "_"
                     + worldPosition.getZ() + "-" + System.currentTimeMillis() + ".dat");

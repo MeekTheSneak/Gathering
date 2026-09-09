@@ -145,6 +145,32 @@ else
     FAILED=1
 fi
 
+# And no result from one world's card pipeline lands in the next one. Leaving to the menu and
+# opening another world happens in one process, so a read started by world A can finish while
+# world B is running - and publish A's answer into B's shop or B's loot table. See
+# tools/runcheck.py.
+printf '%-24s ' "async ownership"
+if RUN_OUT=$(python3 tools/runcheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$RUN_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
+# And nothing that belongs to one world is written outside it. The mod wrote everything under
+# the game directory, which two single-player worlds share - so they shared one list of owed
+# rewards, and a booster interrupted in world A could be claimed in world B and was then gone
+# from A. See tools/savecheck.py.
+printf '%-24s ' "per-world data"
+if SAVE_OUT=$(python3 tools/savecheck.py 2>&1); then
+    echo "ok"
+else
+    echo "FAILED"
+    echo "$SAVE_OUT" | sed 's/^/    /'
+    FAILED=1
+fi
+
 # And no game test writes blocks into the plot next door. The server packs test structures
 # side by side, so a test that reaches past its own template decides another test's result -
 # which is how a row of four tables in a three-block template failed two runs in three, at a

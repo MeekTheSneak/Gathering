@@ -26,6 +26,17 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
 
     private final Path root;
 
+    /**
+     * When each printing this process has seen was last written, so asking is a map lookup.
+     * <p>The age of a cached card is asked once per deck check, which happens on the game
+     * thread - and asking the filesystem a hundred times there is a hundred stat calls in a
+     * tick for a question that has the same answer every time. Filled as cards are stored and
+     * as they are read off disk; the disk is only consulted for a printing this process has
+     * not touched.
+     */
+    private final java.util.Map<UUID, java.time.Instant> cachedWhen =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     public DiskCardMetadataStore(Path root) throws IOException {
         this.root = root;
         Files.createDirectories(root.resolve(CARDS_DIR));
@@ -56,14 +67,30 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
         if (printing == null) {
             return Optional.empty();
         }
+        Optional<java.time.Instant> known = cachedAtInMemory(printing);
+        if (known.isPresent()) {
+            return known;
+        }
         Path file = fileFor(printing);
         try {
-            return Files.isRegularFile(file)
-                    ? Optional.of(Files.getLastModifiedTime(file).toInstant())
-                    : Optional.empty();
+            if (!Files.isRegularFile(file)) {
+                return Optional.empty();
+            }
+            java.time.Instant when = Files.getLastModifiedTime(file).toInstant();
+            cachedWhen.put(printing, when);
+            return Optional.of(when);
         } catch (IOException cannotTell) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * The same answer, but only for a printing this process has already touched.
+     * <p>What a caller on the game thread asks. {@link #cachedAt} will go to the disk for a
+     * printing it has not seen, which is right on the card executor and wrong in a tick.
+     */
+    public Optional<java.time.Instant> cachedAtInMemory(java.util.UUID printing) {
+        return printing == null ? Optional.empty() : Optional.ofNullable(cachedWhen.get(printing));
     }
 
     @Override
@@ -76,6 +103,9 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
             Path file = fileFor(card.scryfallId());
             Files.createDirectories(file.getParent());
             Files.writeString(file, raw.toString(), StandardCharsets.UTF_8);
+            // Remembered as of now rather than read back off the file, so a refresh that
+            // actually happened is visible to the next freshness check without a stat.
+            cachedWhen.put(card.scryfallId(), java.time.Instant.now());
         } catch (IOException e) {
             throw new UncheckedIOException("Could not write card cache entry for " + card.scryfallId(), e);
         }
@@ -124,7 +154,17 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
             JsonObject json = element.getAsJsonObject();
             Optional<CardMetadata> card = ScryfallCardCodec.parse(json);
             // Indexing here is what makes a second lookup - by name or printing - a hit.
-            card.ifPresent(value -> super.store(value, json));
+            // super.store rather than this.store, so reading a file back does not rewrite it
+            // and does not make an old entry look freshly fetched. The age comes off the file.
+            card.ifPresent(value -> {
+                super.store(value, json);
+                try {
+                    cachedWhen.put(value.scryfallId(), Files.getLastModifiedTime(file).toInstant());
+                } catch (IOException cannotTell) {
+                    // Then it is asked of the disk next time, which is what used to happen
+                    // every time.
+                }
+            });
             return card;
         } catch (IOException | RuntimeException e) {
             // A corrupt cache entry is a cache miss, never a failed import. It will be

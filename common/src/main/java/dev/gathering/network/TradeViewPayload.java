@@ -22,6 +22,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param iAgreed    whether this person has said yes to the table as it stands
  * @param theyAgreed the same for the other
  * @param closed     whether it is over - struck and settled, or walked away from
+ * @param table      this trade's own identity, sent back with an agreement so one left over
+ *                   from a closed trade cannot strike the next one
+ * @param revision   which terms these are, sent back with an agreement so one in flight while
+ *                   the terms changed cannot strike them
  */
 public record TradeViewPayload(
         String other,
@@ -30,6 +34,7 @@ public record TradeViewPayload(
         boolean iAgreed,
         boolean theyAgreed,
         boolean closed,
+        java.util.Optional<java.util.UUID> table,
         int revision) implements CustomPacketPayload {
 
     /** As many distinct cards as one side of a trade may hold. Matches the rule in :core. */
@@ -58,9 +63,8 @@ public record TradeViewPayload(
     /**
      * Written out by hand rather than composed.
      * <p>{@code StreamCodec.composite} stops at six parts in this version and a trade view has
-     * seven, the seventh being the revision - which is the one that makes an agreement mean
-     * the terms its sender read. The only thing to keep right is that the two halves stay in
-     * step.
+     * eight; the last two are what makes an agreement mean the table and the terms its sender
+     * actually read. The only thing to keep right is that the two halves stay in step.
      */
     public static final StreamCodec<RegistryFriendlyByteBuf, TradeViewPayload> STREAM_CODEC =
             StreamCodec.of(TradeViewPayload::toNetwork, TradeViewPayload::fromNetwork);
@@ -72,6 +76,7 @@ public record TradeViewPayload(
         out.writeBoolean(view.iAgreed());
         out.writeBoolean(view.theyAgreed());
         out.writeBoolean(view.closed());
+        ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC).encode(out, view.table());
         ByteBufCodecs.VAR_INT.encode(out, view.revision());
     }
 
@@ -82,14 +87,17 @@ public record TradeViewPayload(
         boolean iAgreed = in.readBoolean();
         boolean theyAgreed = in.readBoolean();
         boolean closed = in.readBoolean();
-        return new TradeViewPayload(
-                other, mine, theirs, iAgreed, theyAgreed, closed, ByteBufCodecs.VAR_INT.decode(in));
+        java.util.Optional<java.util.UUID> table =
+                ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC).decode(in);
+        return new TradeViewPayload(other, mine, theirs, iAgreed, theyAgreed, closed,
+                table, ByteBufCodecs.VAR_INT.decode(in));
     }
 
     public TradeViewPayload {
         other = other == null ? "" : other;
         mine = mine == null ? List.of() : List.copyOf(mine);
         theirs = theirs == null ? List.of() : List.copyOf(theirs);
+        table = table == null ? java.util.Optional.empty() : table;
     }
 
     @Override
@@ -99,6 +107,7 @@ public record TradeViewPayload(
 
     /** Nothing on the table, for the moment a trade ends. */
     public static TradeViewPayload over(String other) {
-        return new TradeViewPayload(other, List.of(), List.of(), false, false, true, 0);
+        return new TradeViewPayload(other, List.of(), List.of(), false, false, true,
+                java.util.Optional.empty(), 0);
     }
 }

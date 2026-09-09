@@ -36,8 +36,18 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 @EventBusSubscriber(modid = Gathering.MOD_ID)
 public final class GatheringNetwork {
 
-    /** Bumped when a payload's shape changes in a way an older client cannot read. */
-    private static final String PROTOCOL_VERSION = "1";
+    /**
+     * Bumped when a payload's shape changes in a way an older client cannot read.
+     * <p>Two, because several did at once and version one stayed put through all of them: the
+     * deck component was split into a public copy and an owner's copy, the owner's push grew
+     * a number, a trade action and a trade view grew the trade's own identity, a build request
+     * and its result grew the press they belong to, and closing a table grew the table it is
+     * about. A mixed old-and-new pair does not fail gracefully on any of those - it fails
+     * while decoding a payload, which disconnects whoever is on the wrong side of it with a
+     * message about a byte count. Refusing to connect at all is the honest answer, and it is
+     * what a different number here buys.
+     */
+    private static final String PROTOCOL_VERSION = "2";
 
     private GatheringNetwork() {
     }

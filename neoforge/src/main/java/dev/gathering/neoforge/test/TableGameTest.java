@@ -577,6 +577,46 @@ public final class TableGameTest {
         helper.succeed();
     }
 
+    /**
+     * A table whose anchor is replaced outright still ends the game that was on it.
+     * <p>Not broken - replaced, which is what a command, a piston-shaped mod or anything
+     * calling {@code setBlock} does. The removal hook ended the session by looking the table
+     * up again through the cluster, and by the time it runs the cell already holds whatever
+     * replaced it: the lookup answered "no table" and the code fell through to handing the
+     * decks and the pot back around a game it never ended. No {@code SessionEnded}, no
+     * replay kept, and everybody watching left holding a board that still looked live.
+     */
+    @GameTest(template = "tables")
+    public static void replacingTheAnchorStillEndsTheGame(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableCluster cluster = TableClusters.at(helper.getLevel(), origin);
+        for (int seat = 0; seat < 2; seat++) {
+            SeatAnchor anchor = cluster.seats().get(seat);
+            TableSeats.take(helper.getLevel(), origin, anchor.cell(), anchor.side(), UUID.randomUUID());
+        }
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(
+                        dev.gathering.core.format.FormatPresets.COMMANDER));
+        GameSession game = TableSessions.sessionAt(helper.getLevel(), origin).orElse(null);
+        if (game == null) {
+            helper.fail("No game started, so there is nothing to fail to end");
+            return;
+        }
+        if (game.state().ended()) {
+            helper.fail("The game was over before the table was touched");
+            return;
+        }
+
+        helper.getLevel().setBlock(origin,
+                net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+
+        if (!game.state().ended()) {
+            helper.fail("The anchor was replaced and the game on it was never ended");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
         return placeOf(helper, GatheringContent.TABLE.get(), x, y, z);
     }

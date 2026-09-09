@@ -125,9 +125,41 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         if (deck == null) {
             return;
         }
-        java.util.List<java.util.UUID> printings = deck.distinctPrintings();
-        if (!printings.isEmpty()) {
-            ClientNetworking.send(new dev.gathering.network.RequestCardMetadataPayload(printings));
+        // Only what is still nameless, so a re-ask is the short list rather than the whole
+        // deck again.
+        java.util.List<java.util.UUID> printings = deck.distinctPrintings().stream()
+                .filter(printing -> ClientCardCache.get().summary(printing).isEmpty())
+                .toList();
+        if (printings.isEmpty()) {
+            this.askedAt = 0;
+            return;
+        }
+        this.askedAt = System.currentTimeMillis();
+        ClientNetworking.send(new dev.gathering.network.RequestCardMetadataPayload(printings));
+    }
+
+    /** When the last ask went out, or zero when there is nothing left to ask about. */
+    private long askedAt;
+
+    /**
+     * How long to wait before asking again for names that never arrived.
+     * <p>A request can be dropped: the server bounds how much lookup work one player may have
+     * out, and a large deck opened while a table is busy can be over that budget. One
+     * fire-and-forget send meant the answer was "Loading" until the screen was closed and
+     * reopened - on the one screen where a player is reading their own list against the clock.
+     */
+    private static final long ASK_AGAIN_AFTER_MILLIS = 3000;
+
+    /**
+     * Asks again for whatever is still nameless.
+     * <p>Not a poll: the ask stops the moment every card on the screen has a name, and the
+     * gap is long enough that a busy server is not asked twice for work it is already doing.
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        if (askedAt != 0 && System.currentTimeMillis() - askedAt > ASK_AGAIN_AFTER_MILLIS) {
+            askForNames();
         }
     }
 

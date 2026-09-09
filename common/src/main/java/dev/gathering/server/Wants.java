@@ -3,7 +3,6 @@ package dev.gathering.server;
 import dev.gathering.core.collection.WantsList;
 import dev.gathering.network.Sending;
 import dev.gathering.network.WantsPayload;
-import dev.gathering.platform.Platform;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -116,8 +115,15 @@ public final class Wants {
         Sending.to(player, WantsPayload.of(after));
     }
 
+    /**
+     * Where this save keeps one player's want list.
+     * <p>Inside the save: a want list is about the cards in this world's collections, and a
+     * list built while playing one world meant nothing in another. Throws when no server is
+     * running, which the callers already handle as "there is nowhere to read from".
+     */
     private static Path fileFor(UUID player) {
-        return Platform.get().dataDirectory().resolve(FOLDER)
+        return ServerRun.inSave(FOLDER)
+                .orElseThrow(() -> new IllegalStateException("No server is running"))
                 .resolve(player.toString() + SUFFIX);
     }
 

@@ -46,6 +46,10 @@ public final class GatheringNeoForge {
     }
 
     private void onServerStarting(ServerStartingEvent event) {
+        // First, before anything is warmed or any work is queued: this stamps the run that
+        // everything started here belongs to, and says where the save is that owns whatever
+        // gets written down. See dev.gathering.server.ServerRun.
+        dev.gathering.server.ServerRun.started(event.getServer());
         ServerSettings.load(Platform.get());
         try {
             cardData = CardDataService.start(Platform.get());
@@ -111,7 +115,11 @@ public final class GatheringNeoForge {
     }
 
     private void onServerStopped(ServerStoppedEvent event) {
-        dev.gathering.server.ServerState.forgetTheWorld();
+        // The generation moves on first, so anything still in flight is already out of date
+        // when it lands rather than publishing into whatever world opens next. Then the
+        // executors are closed, and only then is the state cleared - clearing while a worker
+        // could still write into it is the race this order exists to close.
+        dev.gathering.server.ServerRun.stopped();
         if (cardData != null) {
             cardData.close();
             cardData = null;
@@ -120,5 +128,6 @@ public final class GatheringNeoForge {
             collation.close();
             collation = null;
         }
+        dev.gathering.server.ServerState.forgetTheWorld();
     }
 }

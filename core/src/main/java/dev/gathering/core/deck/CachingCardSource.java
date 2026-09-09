@@ -58,4 +58,27 @@ public final class CachingCardSource implements CardSource {
         found.putAll(fetched.found());
         return new CollectionResult(found, fetched.notFound(), fetched.raw());
     }
+
+    /**
+     * The same cards, fetched again whether or not the cache already has them.
+     * <p>{@link #resolve} exists to avoid the network, which is right for what a printing
+     * mostly is - a name, a picture, a mana cost, none of which change. One part of the same
+     * record does change underneath it: what is legal where. Bans and rotations happen to
+     * cards nobody has looked up since, so a deck imported last season is judged against last
+     * season's ban list and nothing about a cache hit can tell you that.
+     * <p>So this is the other door. It never reads the store; it writes to it. Nothing calls
+     * it on the ordinary path - a deck check that has found stale entries calls it, and only
+     * for those entries.
+     */
+    public CollectionResult refresh(List<CardQuery> queries) throws IOException {
+        if (queries == null || queries.isEmpty()) {
+            return CollectionResult.empty();
+        }
+        CollectionResult fetched = client.resolve(List.copyOf(queries));
+        for (CardMetadata card : fetched.found().values()) {
+            store.store(card, fetched.rawFor(card).orElse(null));
+        }
+        store.flush();
+        return fetched;
+    }
 }

@@ -245,8 +245,11 @@ public class TableBlock extends BaseEntityBlock {
             // watching is told, and only then are the decks and the pot returned. A table
             // blown up mid-game used to spill the decks and leave the session to vanish with
             // the block - no replay, and every client still holding a board that looked live.
-            if (table.hasSession() && TableSessions.end(
-                    level, origin, firstSeatOf(table), "table_removed") == TableSessions.Outcome.ENDED) {
+            // Ended through the block entity already in hand rather than by looking the
+            // table up again: by the time this runs the cell holds whatever replaced it, so
+            // a lookup answers NO_TABLE and the game is never ended at all.
+            if (TableSessions.end(level, origin, table, firstSeatOf(table), "table_removed")
+                    == TableSessions.Outcome.ENDED) {
                 return;
             }
             TableSessions.returnDecks(level, origin, table);

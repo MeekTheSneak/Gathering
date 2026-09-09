@@ -40,45 +40,174 @@ public final class CardStoryGameTest {
         return new CardStory.Chapter(HowItCame.WON, "Winner", "Loser", "", "2026-03-14");
     }
 
+    /** A card, distinct from every other card, so two copies can be told apart in a fixture. */
+    private static CardComponent aCard() {
+        return new CardComponent(java.util.Optional.of(UUID.randomUUID()), false,
+                java.util.Optional.empty(), false);
+    }
+
+    /** A history with one chapter naming who pulled it, so two of them are not equal. */
+    private static CardStory pulledBy(String who) {
+        return CardStory.begunWith(new CardStory.Chapter(HowItCame.PULLED, who, "", "DMU", "2026-09-09"));
+    }
+
     /**
-     * A card's history survives being sleeved into a deck and taken out again.
+     * A card's history survives everything an ordinary deck has done to it.
      * <p>The story lives on the item, and going into a deck used to leave the item behind: the
      * pack it came out of, the trade it came through and the game it was won in were gone the
      * first time the card was played with. The deck keeps them instead.
+     * <p>Kept, but only if every functional copy of the deck carries them. They did not: each
+     * one went through the convenience constructor that starts the histories empty, so adding
+     * a second card, moving one between sections, renaming the deck, painting its box or
+     * changing its sleeves each wiped the provenance of everything already in it. This walks
+     * a deck through all of that and then through the wire, rather than asking the three
+     * methods that keep histories whether they keep histories.
      */
     @GameTest(template = "empty")
-    public static void ahistorySurvivesBeingSleeved(GameTestHelper helper) {
-        dev.gathering.item.CardComponent card = new dev.gathering.item.CardComponent(
-                java.util.Optional.of(java.util.UUID.randomUUID()), false,
-                java.util.Optional.empty(), false);
-        dev.gathering.core.story.CardStory story = dev.gathering.core.story.CardStory.begunWith(
-                new dev.gathering.core.story.CardStory.Chapter(
-                        dev.gathering.core.story.HowItCame.PULLED, "Ana", "", "DMU", "2026-09-09"));
+    public static void ahistorySurvivesEverythingADeckHasDoneToIt(GameTestHelper helper) {
+        CardComponent first = aCard();
+        CardStory theirs = pulledBy("Ana");
 
         dev.gathering.item.DeckComponent deck = new dev.gathering.item.DeckComponent(
-                "Deck", "", java.util.Optional.empty(), java.util.List.of(card),
+                "Deck", "", java.util.Optional.empty(), java.util.List.of(first),
                 java.util.List.of(), java.util.List.of(), java.util.Optional.empty(),
-                dev.gathering.core.card.Sleeve.DEFAULT).keeping(card, story);
+                dev.gathering.core.card.Sleeve.DEFAULT).keeping(first, theirs);
 
-        if (deck.storyOf(card).isEmpty()) {
-            helper.fail("A deck did not keep the history of a card sleeved into it");
+        // Every ordinary edit, one after another, the way an evening with a deck goes.
+        deck = deck.withAdded(dev.gathering.item.DeckComponent.Section.MAINBOARD, aCard()).orElseThrow();
+        deck = deck.named("Renamed");
+        deck = deck.colored(0x884422);
+        deck = deck.sleeved(dev.gathering.core.card.Sleeve.values()[1]);
+        deck = deck.withAdded(dev.gathering.item.DeckComponent.Section.SIDEBOARD, aCard()).orElseThrow();
+        deck = deck.moved(dev.gathering.item.DeckComponent.Section.SIDEBOARD,
+                dev.gathering.item.DeckComponent.Section.MAINBOARD,
+                deck.sideboard().get(0)).orElseThrow();
+
+        for (String step : java.util.List.of("after all of that")) {
+            if (!deck.storyOf(first).filter(theirs::equals).isPresent()) {
+                helper.fail("The history was lost " + step + ": " + deck.stories());
+                return;
+            }
+        }
+
+        // And through the wire, which is how a deck reaches the client that draws it.
+        dev.gathering.item.DeckComponent back = roundTrip(helper, deck);
+        if (back == null) {
             return;
         }
-        if (!deck.storyOf(card).get().equals(story)) {
-            helper.fail("The history a deck kept is not the one that went in");
-            return;
-        }
-        dev.gathering.item.DeckComponent after = deck.withoutStoryOf(card);
-        if (after.storyOf(card).isPresent()) {
-            helper.fail("The history stayed in the deck after the card came out");
-            return;
-        }
-        // And a second copy of the same printing with no history of its own gets none.
-        if (after.stories().size() != 0) {
-            helper.fail("The deck is still keeping " + after.stories().size() + " histories");
+        if (!back.storyOf(first).filter(theirs::equals).isPresent()) {
+            helper.fail("The history did not survive being written down and read back");
             return;
         }
         helper.succeed();
+    }
+
+    /**
+     * Two copies of one printing keep two histories, and taking one out takes one of them.
+     * <p>The case the whole shape exists for: histories are kept beside the deck rather than
+     * on the card, because two copies of a printing are the same card to a collection however
+     * different their pasts. So the deck has to hand back one history per copy, and never the
+     * same one twice.
+     */
+    @GameTest(template = "empty")
+    public static void twoCopiesKeepTwoHistories(GameTestHelper helper) {
+        CardComponent card = aCard();
+        CardStory hers = pulledBy("Ana");
+        CardStory his = pulledBy("Ben");
+
+        dev.gathering.item.DeckComponent deck = new dev.gathering.item.DeckComponent(
+                "Deck", "", java.util.Optional.empty(), java.util.List.of(card, card),
+                java.util.List.of(), java.util.List.of(), java.util.Optional.empty(),
+                dev.gathering.core.card.Sleeve.DEFAULT)
+                .keeping(card, hers)
+                .keeping(card, his);
+
+        deck = deck.named("Still ours");
+        if (deck.stories().size() != 2) {
+            helper.fail("Two histories went in and " + deck.stories().size() + " came out");
+            return;
+        }
+        CardStory firstOut = deck.storyOf(card).orElse(null);
+        dev.gathering.item.DeckComponent after = deck.withoutStoryOf(card);
+        CardStory secondOut = after.storyOf(card).orElse(null);
+        if (firstOut == null || secondOut == null || firstOut.equals(secondOut)) {
+            helper.fail("Two copies handed back the same history: " + firstOut + " and " + secondOut);
+            return;
+        }
+        if (after.withoutStoryOf(card).storyOf(card).isPresent()) {
+            helper.fail("A third history came out of a deck that was keeping two");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * The card handed back by the real TAKE handler carries its history on it.
+     * <p>Not the pieces: the actual payload the client sends, through the actual handler, to
+     * the actual item in the player's inventory. The pieces all passed while this did not,
+     * because the deck the handler read the history off had already had it stripped.
+     */
+    @GameTest(template = "empty")
+    public static void thetakeHandlerHandsBackTheHistoryToo(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.getInventory().clearContent();
+        CardComponent card = aCard();
+        CardStory theirs = pulledBy("Ana");
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, dev.gathering.item.DeckItem.of(
+                new dev.gathering.item.DeckComponent(
+                        "Deck", "", java.util.Optional.empty(),
+                        java.util.List.of(card, aCard()), java.util.List.of(), java.util.List.of(),
+                        java.util.Optional.empty(), dev.gathering.core.card.Sleeve.DEFAULT)
+                        .keeping(card, theirs)));
+
+        dev.gathering.server.DeckEdits.handle(player, dev.gathering.network.DeckEditPayload.take(
+                InteractionHand.MAIN_HAND, dev.gathering.item.DeckComponent.Section.MAINBOARD, card));
+
+        ItemStack drawn = null;
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack maybe = player.getInventory().getItem(slot);
+            if (CardItem.cardOf(maybe).filter(card::equals).isPresent()) {
+                drawn = maybe;
+                break;
+            }
+        }
+        if (drawn == null) {
+            helper.fail("The TAKE handler did not hand the card over at all");
+            return;
+        }
+        if (StoryComponent.on(drawn).isEmpty()) {
+            helper.fail("The TAKE handler handed back the card without its history");
+            return;
+        }
+        if (!StoryComponent.on(drawn).equals(theirs)) {
+            helper.fail("The TAKE handler handed back a different history");
+            return;
+        }
+        // And the deck stopped keeping it, so the next copy out does not inherit it.
+        dev.gathering.item.DeckComponent left = dev.gathering.item.DeckItem.deckOf(
+                player.getItemInHand(InteractionHand.MAIN_HAND)).orElse(null);
+        if (left == null || !left.stories().isEmpty()) {
+            helper.fail("The deck is still keeping a history for a card that has left it");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A deck written down and read back the way one crosses to a client. */
+    private static dev.gathering.item.DeckComponent roundTrip(
+            GameTestHelper helper, dev.gathering.item.DeckComponent deck) {
+        var registries = helper.getLevel().registryAccess();
+        var buffer = new net.minecraft.network.RegistryFriendlyByteBuf(
+                io.netty.buffer.Unpooled.buffer(), registries);
+        dev.gathering.item.DeckComponent.STREAM_CODEC.encode(buffer, deck);
+        dev.gathering.item.DeckComponent back =
+                dev.gathering.item.DeckComponent.STREAM_CODEC.decode(buffer);
+        if (buffer.readableBytes() != 0) {
+            helper.fail("A deck left " + buffer.readableBytes() + " bytes unread");
+            return null;
+        }
+        return back;
     }
 
     @GameTest(template = "tables")

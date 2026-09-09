@@ -112,9 +112,31 @@ public final class ClientReplay {
         // the world, a deck box, another table - because the first frame of a long game can
         // take a moment to fold and nothing cancelled the watch.
         if (client.screen instanceof ReplayListScreen) {
-            client.setScreen(TableScreen.watching());
+            opening = true;
+            try {
+                client.setScreen(TableScreen.watching());
+            } finally {
+                opening = false;
+            }
         }
     }
+
+    /**
+     * Whether this controller is in the middle of putting the replay screen up.
+     * <p>The list screen has to know, and could not find out by looking. It asked
+     * {@code Minecraft.screen} whether a replay was already open, and
+     * {@code Minecraft.setScreen} calls the outgoing screen's {@code removed()} <em>before</em>
+     * it assigns the new one - so during the one transition that matters the field still held
+     * the list, the guard read "no replay is opening", and picking a game cancelled the very
+     * watch that was opening it. The frame that had just arrived was thrown away with it.
+     * <p>So the controller says so itself, because the controller is the thing that knows.
+     */
+    public static boolean isOpeningTheReplay() {
+        return opening;
+    }
+
+    /** True only while {@link #accept} is handing the replay screen to the client. */
+    private static boolean opening;
 
     public static Optional<GameView> frame() {
         return Optional.ofNullable(frame);

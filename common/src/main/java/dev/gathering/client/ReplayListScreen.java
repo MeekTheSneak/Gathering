@@ -107,11 +107,15 @@ public final class ReplayListScreen extends Screen {
      * <p>Unless what is opening is the replay itself: the frame arrives, opens the table
      * screen, and this screen is removed as part of that. Without the guard, picking a game
      * would cancel the very watch that opened it.
+     * <p>Asked of the replay controller rather than of {@code Minecraft.screen}, which was
+     * the first attempt and cannot work: {@code setScreen} calls this method before it
+     * assigns the new screen, so the field still held this list every time, the guard never
+     * fired, and every normal opening cancelled itself. The controller knows whether it is
+     * the one doing the removing; the screen field only knows what has already happened.
      */
     @Override
     public void removed() {
-        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
-        if (!(client.screen instanceof TableScreen board && board.isReplay())) {
+        if (!ClientReplay.isOpeningTheReplay()) {
             ClientReplay.stop();
         }
         super.removed();

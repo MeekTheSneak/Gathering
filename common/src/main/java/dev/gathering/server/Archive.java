@@ -95,7 +95,7 @@ public final class Archive {
         SetsInPlay.wanted(settings)
                 .thenComposeAsync(codes -> remainderOf(collation, cards, audited(codes)),
                         collation.worker())
-                .whenComplete((remainder, failure) -> {
+                .whenComplete(ServerRun.stillThisRun((remainder, failure) -> {
                     if (failure != null) {
                         LOGGER.warn("Could not work out what this server's faucets miss, so no "
                                 + "archive packs are found", failure);
@@ -110,7 +110,7 @@ public final class Archive {
                         LOGGER.info("Archive packs can be found: {} card(s) nothing else reaches",
                                 sheet.size());
                     }
-                });
+                }));
     }
 
     /** Between servers, so one world's remainder is not the next one's. */

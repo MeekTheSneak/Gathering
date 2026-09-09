@@ -133,6 +133,10 @@ public final class CardShop {
             return;
         }
         int perBooster = ServerSettings.get().collecting().sealedPriceBooster();
+        // Which server asked. In single-player, leaving to the menu and opening another world
+        // happens in one process, and this read outlives the world that started it - so its
+        // result used to be published into whatever world was running when it finished.
+        long asking = ServerRun.generation();
         SetsInPlay.wanted()
                 .thenComposeAsync(codes -> readAll(collation,
                                 ShopCounter.behindTheCounter(codes, rotation, MOST_SETS_STOCKED)),
@@ -140,6 +144,10 @@ public final class CardShop {
                 .thenApply(read -> build(read, perBooster))
                 .whenComplete((built, failure) -> {
                     try {
+                        if (!ServerRun.isStill(asking)) {
+                            // The world that asked has gone. Its answer is not this world's.
+                            return;
+                        }
                         if (failure != null) {
                             LOGGER.warn("Could not read what this server's sets were sold as, so "
                                     + "the shop has nothing to sell", failure);
@@ -326,11 +334,17 @@ public final class CardShop {
         if (code.isEmpty() || collation == null || !LOOKED_UP.add(code)) {
             return false;
         }
+        long asking = ServerRun.generation();
         collation.catalogFor(code).whenComplete((found, failure) -> {
             if (failure != null || found == null) {
                 // Forgotten, so a later attempt tries again rather than waiting for ever on
                 // a read that failed.
                 LOOKED_UP.remove(code);
+                return;
+            }
+            if (!ServerRun.isStill(asking)) {
+                // Read for a world that has since closed. Publishing it into the next one
+                // would put a set on that world's shelf which nobody there asked about.
                 return;
             }
             remember(found.lookup());

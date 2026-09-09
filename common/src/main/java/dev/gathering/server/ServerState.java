@@ -24,6 +24,7 @@ public final class ServerState {
         CardMetadataRequests.clear();
         CardShop.clear();
         CollectionSets.clear();
+        CollectionView.clear();
         CurrentSet.clear();
         LoanerDecks.clear();
         ReplayWatch.clear();

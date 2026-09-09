@@ -113,16 +113,23 @@ public final class DeckCheck {
         java.time.Instant tooOld = java.time.Instant.now().minus(LEGALITY_GOES_OFF);
         List<UUID> stale = new ArrayList<>();
         for (UUID printing : deck.distinctPrintings()) {
-            if (disk.cachedAt(printing).filter(when -> when.isBefore(tooOld)).isPresent()) {
+            // Asked of memory, not of the disk. This runs on the game thread, and a hundred
+            // stat calls in one tick is a hundred stat calls in one tick for a question whose
+            // answer the store already has: every one of these printings was just resolved.
+            if (disk.cachedAtInMemory(printing).filter(when -> when.isBefore(tooOld)).isPresent()) {
                 stale.add(printing);
             }
         }
         if (stale.isEmpty()) {
             return result;
         }
-        // Asked for again off the game thread, so the next time anybody checks this deck the
-        // answer is current. Nothing waits on it.
-        cards.findAll(List.copyOf(stale));
+        // Fetched again, past the cache. findAll was the first attempt at this and it does
+        // nothing at all: it is the cache-first path, so a stale entry answers it instantly
+        // and no request is ever made. The warning said the cards were being looked up again
+        // while nothing was looking anything up, which is worse than not saying it - the next
+        // check read exactly the same stale legality. Nothing waits on the result; the point
+        // is that the next check is current.
+        cards.refresh(List.copyOf(stale));
         List<dev.gathering.core.format.ValidationIssue> issues = new ArrayList<>(result.issues());
         issues.add(dev.gathering.core.format.ValidationIssue.warning("legality_stale",
                 stale.size() + " card(s) were last looked up more than "

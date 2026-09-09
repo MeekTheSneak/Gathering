@@ -64,7 +64,8 @@ public final class PackOpening {
      * @param kind which product of that set, or blank for whatever this server calls a booster
      */
     public static void openFor(ServerPlayer player, String setCode, String kind) {
-        openFor(player, setCode, kind, () -> { }, false);
+        // No receipt: nothing was taken off anybody, so there is nothing to give back.
+        openFor(player, setCode, kind, null, () -> { }, false);
     }
 
     /**
@@ -73,28 +74,43 @@ public final class PackOpening {
      * @param giveBack run on the server thread if no pack comes out, however far along it
      *                 got. A booster that vanished from somebody's hand because a set turned
      *                 out to have no packs is worse than one that would not open.
+     * @param receipt  what {@link Owed#opening} wrote down before the pack was consumed, or
+     *                 null when nothing was taken. Settled on every path out of here: the
+     *                 cards replace it if the player has gone, and it is simply removed once
+     *                 they are holding either the cards or the pack again. A path that
+     *                 forgets to settle leaves the player owed a booster they already had.
      * @param ceremony whether to tell the client what came out so it can be opened by hand.
      *                 The cards are already given either way; this only decides whether there
      *                 is a wrapper to tear.
      */
     public static void openFor(
-            ServerPlayer player, String setCode, String kind, Runnable giveBack,
+            ServerPlayer player, String setCode, String kind, String receipt, Runnable giveBack,
             boolean ceremony) {
+        // Wrapped once, here, rather than at each of the seven ways out of this method:
+        // handing the pack back and settling the receipt are one act, and a path that did
+        // one without the other would leave the player owed a booster they were holding.
+        Runnable handedBack = receipt == null ? giveBack : () -> {
+            giveBack.run();
+            Owed.settled(player.getUUID(), receipt, List.of());
+        };
+        Runnable handedOver = receipt == null
+                ? () -> { }
+                : () -> Owed.settled(player.getUUID(), receipt, List.of());
         if (Archive.SET.equals(setCode)) {
-            openTheArchive(player, giveBack, ceremony);
+            openTheArchive(player, handedBack, handedOver, ceremony);
             return;
         }
         String refusal = whyNot();
         if (refusal != null) {
             player.sendSystemMessage(Component.translatable(refusal));
-            giveBack.run();
+            handedBack.run();
             return;
         }
         CollationService collation = CollationService.active().orElse(null);
         CardDataService cards = CardDataService.active().orElse(null);
         if (collation == null || cards == null) {
             player.sendSystemMessage(Component.translatable("message.gathering.pipeline_unavailable"));
-            giveBack.run();
+            handedBack.run();
             return;
         }
 
@@ -120,9 +136,17 @@ public final class PackOpening {
                         // owed is written down and handed over the next time they join. It
                         // used to be dropped here, and the comment said the stack had gone
                         // with the player - it had not, it had been consumed a moment before.
+                        //
+                        // The cards replace the receipt in one write. A failure leaves the
+                        // receipt exactly as it is, which is already a promise of one pack:
+                        // writing another would owe them two for one.
                         if (failure == null && opened != null && opened.pack() != null) {
-                            Owed.cards(player.getUUID(), opened.pack().cards());
-                        } else {
+                            if (receipt == null) {
+                                Owed.cards(player.getUUID(), opened.pack().cards());
+                            } else {
+                                Owed.settled(player.getUUID(), receipt, opened.pack().cards());
+                            }
+                        } else if (receipt == null) {
                             Owed.aPack(player.getUUID(), set, kind);
                         }
                         return;
@@ -131,15 +155,16 @@ public final class PackOpening {
                         LOGGER.warn("Opening a {} pack failed", set, failure);
                         player.sendSystemMessage(Component.translatable(
                                 "message.gathering.pack_failed", Failures.rootMessage(failure)));
-                        giveBack.run();
+                        handedBack.run();
                         return;
                     }
                     if (opened.pack() == null) {
                         player.sendSystemMessage(nothingToOpen(opened.reading(), set, kind));
-                        giveBack.run();
+                        handedBack.run();
                         return;
                     }
                     deliver(player, opened, ceremony);
+                    handedOver.run();
                 }));
     }
 
@@ -498,7 +523,8 @@ public final class PackOpening {
      * and there is a wrapper to tear if the player did not sneak.
      * <p>Server thread only, past the lookup it starts.
      */
-    private static void openTheArchive(ServerPlayer player, Runnable giveBack, boolean ceremony) {
+    private static void openTheArchive(ServerPlayer player, Runnable giveBack,
+            Runnable handedOver, boolean ceremony) {
         String refusal = whyNot();
         if (refusal != null) {
             player.sendSystemMessage(Component.translatable(refusal));
@@ -533,6 +559,7 @@ public final class PackOpening {
             // a cache already - refusing to hand it over would refuse it most of the time.
             handOver(player, giving, failure == null && named != null ? named : List.of(),
                     Archive.SET, "", ceremony);
+            handedOver.run();
         }));
     }
 

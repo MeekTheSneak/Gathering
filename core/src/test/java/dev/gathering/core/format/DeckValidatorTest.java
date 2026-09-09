@@ -403,6 +403,136 @@ class DeckValidatorTest {
         assertThat(codes(result)).doesNotContain("color_identity");
     }
 
+    /**
+     * A whole deck for each pairing mechanic, rather than the helper that answers about two
+     * cards.
+     * <p>{@code allowsPairing} accepted Choose a Background plus a Background, and the deck it
+     * described was rejected anyway: eligibility is asked of each command slot separately, and
+     * a Background is a legendary enchantment, which leads nothing on its own. Every test that
+     * existed asked the helper, so the helper being right and the validator being wrong looked
+     * exactly like the feature working.
+     */
+    @Nested
+    @DisplayName("a whole deck built on each pairing mechanic")
+    class WholeDecks {
+
+        @Test
+        @DisplayName("Choose a Background plus a Background is a legal deck")
+        void abackgroundDeckIsLegal() {
+            ValidationResult result = DeckValidator.validate(
+                    commanderDeck(List.of(chooser(), background()), pad(98)),
+                    FormatPresets.COMMANDER);
+
+            assertThat(codes(result)).doesNotContain("commander_ineligible", "commander_pairing");
+            assertThat(result.isLegal()).isTrue();
+        }
+
+        @Test
+        @DisplayName("a Background on its own leads nothing")
+        void abackgroundAloneIsNotACommander() {
+            assertThat(codes(DeckValidator.validate(
+                    commanderDeck(List.of(background()), pad(99)), FormatPresets.COMMANDER)))
+                    .contains("commander_ineligible");
+        }
+
+        @Test
+        @DisplayName("two Backgrounds are two cards that each need somebody else")
+        void twoBackgroundsAreNotAPair() {
+            List<String> found = codes(DeckValidator.validate(
+                    commanderDeck(List.of(background(), background()), pad(98)),
+                    FormatPresets.COMMANDER));
+
+            assertThat(found).contains("commander_ineligible", "commander_pairing");
+        }
+
+        @Test
+        @DisplayName("a Background beside a leader that does not choose one is not a pair")
+        void abackgroundNeedsSomebodyWhoChoseIt() {
+            List<String> found = codes(DeckValidator.validate(
+                    commanderDeck(List.of(HALANA_AND_ALENA, background()), pad(98)),
+                    FormatPresets.COMMANDER));
+
+            assertThat(found).contains("commander_ineligible", "commander_pairing");
+        }
+
+        @Test
+        @DisplayName("Friends forever and the Doctor build legal decks too")
+        void theotherMechanicsBuildLegalDecks() {
+            assertThat(DeckValidator.validate(
+                    commanderDeck(List.of(
+                            legend("Amy Pond", "Friends forever"),
+                            legend("Rory Williams", "Friends forever")), pad(98)),
+                    FormatPresets.COMMANDER).isLegal()).isTrue();
+
+            assertThat(DeckValidator.validate(
+                    commanderDeck(List.of(
+                            legend("Rose Tyler", "Doctor's companion"),
+                            typed("The Tenth Doctor", "Legendary Creature — Time Lord Doctor", null)),
+                            pad(98)),
+                    FormatPresets.COMMANDER).isLegal()).isTrue();
+        }
+
+        @Test
+        @DisplayName("a refused pair is told which rule it missed, not always Partner")
+        void arefusedPairNamesItsOwnMechanic() {
+            ValidationResult result = DeckValidator.validate(
+                    commanderDeck(List.of(chooser(), THRASIOS), pad(98)), FormatPresets.COMMANDER);
+
+            String said = result.issues().stream()
+                    .filter(issue -> issue.code().equals("commander_pairing"))
+                    .map(ValidationIssue::message)
+                    .findFirst()
+                    .orElse("");
+            assertThat(said).contains("Background");
+
+            // Two named partners each waiting for somebody who is not the other one.
+            ValidationResult named = DeckValidator.validate(
+                    commanderDeck(List.of(
+                            legend("Hanna, Ship's Navigator", "Partner with Someone Else"),
+                            legend("Someone Third", "Partner with Nobody Here")), pad(98)),
+                    FormatPresets.COMMANDER);
+            assertThat(named.issues().stream()
+                    .filter(issue -> issue.code().equals("commander_pairing"))
+                    .map(ValidationIssue::message)
+                    .findFirst()
+                    .orElse(""))
+                    .contains("Partner with");
+        }
+    }
+
+    /** A green legendary creature that says "Choose a Background". */
+    private static CardMetadata chooser() {
+        return legend("Wilson, Refined Grizzly", "Choose a Background");
+    }
+
+    /** A green Background, which is a legendary enchantment and leads nothing on its own. */
+    private static CardMetadata background() {
+        return typed("Criminal Past", "Legendary Enchantment — Background",
+                "Commander creatures you own have deathtouch.");
+    }
+
+    private static CardMetadata legend(String name, String oracleText) {
+        return typed(name, "Legendary Creature — Human", oracleText);
+    }
+
+    /**
+     * A card off the Forest fixture with its name, type line and text replaced, so it is green
+     * like the filler and legal in Commander like the fixture is.
+     */
+    private static CardMetadata typed(String name, String typeLine, String oracleText) {
+        JsonObject json = Fixtures.json("forest");
+        json.addProperty("id", java.util.UUID.randomUUID().toString());
+        json.addProperty("oracle_id", java.util.UUID.randomUUID().toString());
+        json.addProperty("name", name);
+        json.addProperty("type_line", typeLine);
+        if (oracleText == null) {
+            json.remove("oracle_text");
+        } else {
+            json.addProperty("oracle_text", oracleText);
+        }
+        return ScryfallCardCodec.parse(json).orElseThrow();
+    }
+
     // ------------------------------------------------------------- fixtures
 
     private static ValidatableDeck commanderDeck(List<CardMetadata> commanders, List<CardMetadata> mainboard) {

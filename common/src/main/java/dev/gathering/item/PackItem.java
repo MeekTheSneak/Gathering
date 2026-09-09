@@ -43,15 +43,29 @@ public class PackItem extends Item {
             return InteractionResultHolder.pass(stack);
         }
         if (!level.isClientSide() && player instanceof ServerPlayer opener) {
-            // The stack goes first. Opening reaches a network and comes back later, and a
-            // pack still in the hand when it does is a pack that can be opened twice - so it
-            // is taken now and handed back if nothing comes out of it.
+            // Written down before it is taken. Opening reaches a network and comes back
+            // later, and a pack still in the hand when it does is a pack that can be opened
+            // twice - so it has to be taken now. What that costs is a window: a server
+            // stopped between the taking and the return cancels the queued work, so the
+            // completion that used to write the debt never runs and the booster simply
+            // stops existing. The receipt goes on disk first and is settled at the end, so
+            // the window holds a record rather than nothing.
+            String receipt = dev.gathering.server.Owed
+                    .opening(opener.getUUID(), pack.setCode(), pack.kind())
+                    .orElse(null);
+            if (receipt == null) {
+                // Nowhere to write it down, so the pack is not taken. A booster that cannot
+                // be recovered if this goes wrong must not be opened at all.
+                opener.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                        "message.gathering.pack_not_recorded"));
+                return InteractionResultHolder.fail(stack);
+            }
             stack.shrink(1);
             // Sneaking opens it where it stands; an ordinary right-click opens it by hand.
             // The server decides, because the server is what knows a pack came out at all -
             // and it already knows whether this player is sneaking, because that is synced.
             boolean ceremony = !opener.isShiftKeyDown();
-            PackOpening.openFor(opener, pack.setCode(), pack.kind(),
+            PackOpening.openFor(opener, pack.setCode(), pack.kind(), receipt,
                     () -> giveBack(opener, pack), ceremony);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());

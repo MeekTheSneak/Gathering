@@ -55,6 +55,64 @@ public enum CommanderRules {
     }
 
     /**
+     * Whether this card may lead the deck <em>given the card beside it</em>.
+     * <p>The question a whole deck asks, and a different question from the one above. A
+     * Background is a legendary enchantment: it leads nothing by itself and answers no to
+     * every test a lone commander is put through. What puts it in the command zone is the
+     * other card saying "Choose a Background" - so a deck built exactly as the rules describe
+     * one was rejected with {@code commander_ineligible}, while {@link #allowsPairing} was
+     * quite happy with the same two cards. Asking each slot in isolation cannot see a
+     * mechanic whose whole point is that one card admits another.
+     * <p>So: eligible on its own, or admitted by a partner that is itself eligible. The
+     * partner has to be eligible or two ineligible cards would let each other in.
+     */
+    public boolean isEligible(List<CardMetadata> commanders, int position) {
+        CardMetadata card = commanders.get(position);
+        if (isEligible(card, position)) {
+            return true;
+        }
+        if (this != COMMANDER || commanders.size() != 2) {
+            return false;
+        }
+        CardMetadata other = commanders.get(1 - position);
+        return isEligible(other, 1 - position) && pairsOneWay(other, card);
+    }
+
+    /**
+     * Why two particular cards are not a legal pair, in the words of the mechanic they were
+     * reaching for.
+     * <p>"Two commanders are only allowed when both have Partner" was the whole message, and
+     * it is wrong for four of the five mechanics that put two cards in a command zone. What a
+     * player wants to know is which rule they missed.
+     */
+    public String describePairing(List<CardMetadata> commanders) {
+        if (this == OATHBREAKER) {
+            return "An Oathbreaker deck needs exactly one planeswalker and one signature spell.";
+        }
+        if (commanders.size() != 2) {
+            return "Only one card may lead this deck.";
+        }
+        CardMetadata one = commanders.get(0);
+        CardMetadata two = commanders.get(1);
+        String named = partnerNamedBy(one) != null ? partnerNamedBy(one) : partnerNamedBy(two);
+        if (named != null) {
+            return "That pairing is a \"Partner with\" clause, which only pairs with "
+                    + named + ".";
+        }
+        if (saysChooseABackground(one) || saysChooseABackground(two)) {
+            return "Choose a Background pairs with a Background, and nothing else.";
+        }
+        if (hasKeyword(one, "Friends forever") || hasKeyword(two, "Friends forever")) {
+            return "Friends forever pairs with another Friends forever, and nothing else.";
+        }
+        if (hasKeyword(one, "Doctor's companion") || hasKeyword(two, "Doctor's companion")) {
+            return "Doctor's companion pairs with a Time Lord Doctor, and nothing else.";
+        }
+        return "Two commanders need a printed pairing: Partner, Partner with, Friends forever,"
+                + " Choose a Background or Doctor's companion.";
+    }
+
+    /**
      * Whether these two cards may lead a deck together.
      * <p>Four printed mechanics put two cards in a command zone and each pairs differently.
      * Reading them all as "has the word Partner somewhere" accepted pairs no rules enforcement
