@@ -139,6 +139,60 @@ public record DeckComponent(
                 SLEEVE.decode(in));
     }
 
+    /**
+     * The deck as everybody else may see it, which is not what is in it.
+     * <p>An item component is synchronized to every client that can see the item, and a deck
+     * is a held item: carrying yours to a table handed your whole list to everybody in the
+     * room, tooltip or no tooltip. What crosses here is what a deck is from across a table -
+     * its name, the note on the box, its colour, its sleeves, its commanders, and how thick
+     * each part of it is. The cards themselves cross as {@link CardComponent#HIDDEN}, so the
+     * counts stay honest and the identities do not travel.
+     * <p>Commanders are the exception on purpose: a commander sits face up in the command
+     * zone all game and the deck box is coloured from it.
+     * <p>The owner still gets the real thing - see {@code MyDeckPayload}, which is sent to
+     * one player about a deck they are holding.
+     */
+    public static final StreamCodec<RegistryFriendlyByteBuf, DeckComponent> PUBLIC_STREAM_CODEC =
+            StreamCodec.of(DeckComponent::publicToNetwork, DeckComponent::publicFromNetwork);
+
+    private static void publicToNetwork(RegistryFriendlyByteBuf out, DeckComponent deck) {
+        ByteBufCodecs.STRING_UTF8.encode(out, deck.name());
+        ByteBufCodecs.STRING_UTF8.encode(out, deck.description());
+        OWNER.encode(out, deck.owner());
+        ByteBufCodecs.VAR_INT.encode(out, Math.min(MAX_CARDS, deck.entries().size()));
+        SECTION.encode(out, deck.commanders());
+        ByteBufCodecs.VAR_INT.encode(out, Math.min(MAX_CARDS, deck.sideboard().size()));
+        COLOR.encode(out, deck.color());
+        SLEEVE.encode(out, deck.sleeve());
+    }
+
+    private static DeckComponent publicFromNetwork(RegistryFriendlyByteBuf in) {
+        String name = ByteBufCodecs.STRING_UTF8.decode(in);
+        String description = ByteBufCodecs.STRING_UTF8.decode(in);
+        Optional<UUID> owner = OWNER.decode(in);
+        List<CardComponent> entries = hidden(ByteBufCodecs.VAR_INT.decode(in));
+        List<CardComponent> commanders = SECTION.decode(in);
+        List<CardComponent> sideboard = hidden(ByteBufCodecs.VAR_INT.decode(in));
+        return new DeckComponent(
+                name, description, owner, entries, commanders, sideboard,
+                COLOR.decode(in), SLEEVE.decode(in));
+    }
+
+    /** That many cards, each of them a card this client is not being told the name of. */
+    private static List<CardComponent> hidden(int howMany) {
+        return java.util.Collections.nCopies(Math.clamp(howMany, 0, MAX_CARDS), CardComponent.HIDDEN);
+    }
+
+    /**
+     * Whether this copy is the one everybody sees rather than the one the owner gets.
+     * <p>A screen that means to list the cards asks the server for the real deck when this is
+     * true; a screen that only wants the name, the count or the sleeves does not care.
+     */
+    public boolean isRedacted() {
+        return entries.stream().anyMatch(CardComponent::isHidden)
+                || sideboard.stream().anyMatch(CardComponent::isHidden);
+    }
+
     public DeckComponent {
         description = description == null ? "" : description;
         sleeve = sleeve == null ? dev.gathering.core.card.Sleeve.DEFAULT : sleeve;

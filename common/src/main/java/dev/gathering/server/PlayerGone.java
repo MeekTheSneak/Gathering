@@ -49,5 +49,8 @@ public final class PlayerGone {
         CollectionSets.forget(player.getUUID());
         // And what they had a card lookup out for, which is what bounds the shared worker.
         CardMetadataRequests.forget(player.getUUID());
+        // And which deck they were last told about, so the one in their hand is sent again
+        // the moment they are back holding it.
+        dev.gathering.item.DeckItem.forget(player.getUUID());
     }
 }

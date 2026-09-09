@@ -167,6 +167,11 @@ public final class GatheringFabricClient implements ClientModInitializer {
                                 dev.gathering.client.TradeScreen.accept(payload)));
 
         ClientPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.MyDeckPayload.TYPE, (payload, context) ->
+                        context.client().execute(() ->
+                                dev.gathering.client.ClientHeldDeck.accept(payload)));
+
+        ClientPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.CloseTablePayload.TYPE, (payload, context) ->
                         context.client().execute(() ->
                                 dev.gathering.client.ClientTableState.closed(payload.table())));

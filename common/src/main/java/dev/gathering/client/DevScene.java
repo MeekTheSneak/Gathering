@@ -6086,7 +6086,9 @@ public final class DevScene {
             return java.util.Optional.empty();
         }
         for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
-            var found = dev.gathering.item.DeckItem.deckOf(client.player.getItemInHand(hand));
+            // The owner's own copy, which is the one with the cards in it: the component on
+            // the item says how thick the deck is and nothing about what is in it.
+            var found = dev.gathering.item.DeckItem.contentsOf(client.player, hand);
             if (found.isPresent()) {
                 return found;
             }

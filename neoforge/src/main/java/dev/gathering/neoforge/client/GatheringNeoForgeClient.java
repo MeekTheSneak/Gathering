@@ -227,6 +227,10 @@ public final class GatheringNeoForgeClient {
             context.enqueueWork(() -> dev.gathering.client.TradeScreen.accept(trade));
             return;
         }
+        if (payload instanceof dev.gathering.network.MyDeckPayload mine) {
+            context.enqueueWork(() -> dev.gathering.client.ClientHeldDeck.accept(mine));
+            return;
+        }
         if (payload instanceof dev.gathering.network.CloseTablePayload closing) {
             context.enqueueWork(() -> dev.gathering.client.ClientTableState.closed(closing.table()));
             return;

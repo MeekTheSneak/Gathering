@@ -39,6 +39,29 @@ public class DeckItem extends Item {
         return stack;
     }
 
+    /**
+     * The deck in this hand as its owner sees it: the real list where the server has sent it.
+     * <p>What is on the item is the public copy - a name, a colour, sleeves, commanders and a
+     * thickness - so anything that lists the cards asks for this instead. Falls back to the
+     * item's own copy, which is right for the frame or two before the first push lands and
+     * for anybody who is not the owner.
+     * <p>Client side. On the server the stack itself is the whole deck.
+     */
+    public static Optional<DeckComponent> contentsOf(
+            net.minecraft.world.entity.player.Player player, net.minecraft.world.InteractionHand hand) {
+        if (player == null || hand == null) {
+            return Optional.empty();
+        }
+        Optional<DeckComponent> onTheItem = deckOf(player.getItemInHand(hand));
+        if (onTheItem.isEmpty() || !player.level().isClientSide()) {
+            return onTheItem;
+        }
+        return dev.gathering.client.ClientHeldDeck.of(hand)
+                .filter(mine -> mine.name().equals(onTheItem.get().name())
+                        && mine.totalCards() == onTheItem.get().totalCards())
+                .or(() -> onTheItem);
+    }
+
     public static Optional<DeckComponent> deckOf(ItemStack stack) {
         return Optional.ofNullable(stack.get(GatheringComponents.DECK.get()));
     }
@@ -204,9 +227,55 @@ public class DeckItem extends Item {
      */
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
-        if (!level.isClientSide() && deckOf(stack).filter(DeckComponent::isEmpty).isPresent()) {
-            stack.setCount(0);
+        if (level.isClientSide()) {
+            return;
         }
+        if (deckOf(stack).filter(DeckComponent::isEmpty).isPresent()) {
+            stack.setCount(0);
+            return;
+        }
+        if (entity instanceof net.minecraft.server.level.ServerPlayer holder) {
+            tellTheOwner(holder, stack, selected);
+        }
+    }
+
+    /**
+     * Sends the owner what is really in the deck they are holding.
+     * <p>The component on the item says how thick the deck is and nothing about what is in
+     * it, because every client that can see the item is sent it. So the list goes to one
+     * player, about a deck in their own hand, and only when it has changed - which catches
+     * every way a deck can be edited without any of them having to remember to say so.
+     */
+    private static void tellTheOwner(
+            net.minecraft.server.level.ServerPlayer holder, ItemStack stack, boolean selected) {
+        net.minecraft.world.InteractionHand hand = selected
+                ? net.minecraft.world.InteractionHand.MAIN_HAND
+                : net.minecraft.world.InteractionHand.OFF_HAND;
+        if (holder.getItemInHand(hand) != stack) {
+            // In a pocket rather than in a hand. Nothing has a screen open on it, and its
+            // tooltip is drawn from the public copy like everybody else's.
+            return;
+        }
+        DeckComponent deck = deckOf(stack).orElse(null);
+        if (deck == null) {
+            return;
+        }
+        Object[] last = LAST_TOLD.computeIfAbsent(holder.getUUID(), who -> new Object[2]);
+        int at = hand == net.minecraft.world.InteractionHand.MAIN_HAND ? 0 : 1;
+        if (deck.equals(last[at])) {
+            return;
+        }
+        last[at] = deck;
+        dev.gathering.network.Sending.to(holder, dev.gathering.network.MyDeckPayload.of(hand, deck));
+    }
+
+    /** Per player, the deck last sent for each hand, so an unchanged deck is not re-sent. */
+    private static final java.util.Map<java.util.UUID, Object[]> LAST_TOLD =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Forgets a player, so the deck in their hand is sent again when they come back. */
+    public static void forget(java.util.UUID player) {
+        LAST_TOLD.remove(player);
     }
 
     @Override

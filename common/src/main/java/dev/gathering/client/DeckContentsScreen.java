@@ -230,7 +230,8 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
 
     /** The deck the player is holding right now, which is the only one this screen shows. */
     private Optional<DeckComponent> deck() {
-        return heldStack().flatMap(DeckItem::deckOf);
+        Player player = this.minecraft == null ? null : this.minecraft.player;
+        return player == null ? Optional.empty() : DeckItem.contentsOf(player, hand);
     }
 
     private Optional<ItemStack> heldStack() {

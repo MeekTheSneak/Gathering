@@ -45,6 +45,21 @@ public record CardComponent(
         }
     }
 
+    /**
+     * A card that is there and is nobody else's business.
+     * <p>What a private list looks like on the wire. A deck is synchronized to every client
+     * that can see the item - that is how held items work - so the cards in it cross the room
+     * whether or not any screen draws them. Sending this instead keeps the count honest, which
+     * is what a thickness of cards is, and says nothing about what they are.
+     */
+    public static final CardComponent HIDDEN =
+            new CardComponent(Optional.empty(), false, Optional.of("hidden"), false);
+
+    /** Whether this is the stand-in above rather than a card this client may name. */
+    public boolean isHidden() {
+        return customId.filter("hidden"::equals).isPresent();
+    }
+
     public static CardComponent of(CardIdentity identity) {
         return new CardComponent(identity.printing(), identity.foil(), identity.custom(), false);
     }

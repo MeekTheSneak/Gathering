@@ -21,6 +21,7 @@ public final class ClientState {
         ClientCardCache.get().clear();
         ClientCardFlights.clear();
         ClientCardRequests.clear();
+        ClientHeldDeck.clear();
         ClientHoverState.clear();
         ClientTableChat.clear();
         ClientTableHighlight.clear();

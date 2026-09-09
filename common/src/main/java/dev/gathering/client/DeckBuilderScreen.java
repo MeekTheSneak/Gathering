@@ -181,7 +181,7 @@ public final class DeckBuilderScreen extends ChildScreen {
         var player = net.minecraft.client.Minecraft.getInstance().player;
         return player == null
                 ? 0
-                : dev.gathering.item.DeckItem.deckOf(player.getItemInHand(hand))
+                : dev.gathering.item.DeckItem.contentsOf(player, hand)
                         .map(dev.gathering.item.DeckComponent::totalCards)
                         .orElse(0);
     }

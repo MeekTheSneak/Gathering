@@ -56,10 +56,19 @@ public final class GatheringComponents {
                 .build();
     }
 
+    /**
+     * A deck, and what everybody else is told about it.
+     * <p>The saved form is the whole deck; the synchronized form is not. An item component
+     * goes to every client that can see the item, so carrying a deck used to hand the list to
+     * the room - and hiding the tooltip protects nothing from a client that reads what it was
+     * sent. What crosses is the box: a name, a note, a colour, sleeves, the commanders, and
+     * how thick each part is. See {@link DeckComponent#PUBLIC_STREAM_CODEC}, and
+     * {@link dev.gathering.network.MyDeckPayload} for how the owner gets the real thing.
+     */
     public static DataComponentType<DeckComponent> createDeckType() {
         return DataComponentType.<DeckComponent>builder()
                 .persistent(DeckComponent.CODEC)
-                .networkSynchronized(DeckComponent.STREAM_CODEC)
+                .networkSynchronized(DeckComponent.PUBLIC_STREAM_CODEC)
                 .build();
     }
 
@@ -79,10 +88,15 @@ public final class GatheringComponents {
                 .build();
     }
 
+    /**
+     * What somebody drafted, which is theirs until they build out of it.
+     * <p>Synchronized as a count for the same reason a deck is: the pool is the whole of what
+     * a drafter knows that their opponents do not, and it travelled on a held item.
+     */
     public static DataComponentType<DraftedPool> createPoolType() {
         return DataComponentType.<DraftedPool>builder()
                 .persistent(DraftedPool.CODEC)
-                .networkSynchronized(DraftedPool.STREAM_CODEC)
+                .networkSynchronized(DraftedPool.PUBLIC_STREAM_CODEC)
                 .build();
     }
 }

@@ -44,6 +44,27 @@ public record DraftedPool(List<CardComponent> cards, String fromPod) {
                     ByteBufCodecs.stringUtf8(64), DraftedPool::fromPod,
                     DraftedPool::new);
 
+    /**
+     * The pool as everybody else may see it: how many cards, and which pod they came from.
+     * <p>A component travels with the item to every client that can see it, and a drafted
+     * pool is the one thing a drafter knows that the rest of the table does not. The count is
+     * public - everybody watched the packs go round - and the cards are not.
+     */
+    public static final StreamCodec<RegistryFriendlyByteBuf, DraftedPool> PUBLIC_STREAM_CODEC =
+            StreamCodec.of(DraftedPool::publicToNetwork, DraftedPool::publicFromNetwork);
+
+    private static void publicToNetwork(RegistryFriendlyByteBuf out, DraftedPool pool) {
+        ByteBufCodecs.VAR_INT.encode(out, Math.min(DeckComponent.MAX_CARDS, pool.cards().size()));
+        ByteBufCodecs.stringUtf8(64).encode(out, pool.fromPod());
+    }
+
+    private static DraftedPool publicFromNetwork(RegistryFriendlyByteBuf in) {
+        int howMany = Math.clamp(ByteBufCodecs.VAR_INT.decode(in), 0, DeckComponent.MAX_CARDS);
+        return new DraftedPool(
+                java.util.Collections.nCopies(howMany, CardComponent.HIDDEN),
+                ByteBufCodecs.stringUtf8(64).decode(in));
+    }
+
     public int size() {
         return cards.size();
     }
