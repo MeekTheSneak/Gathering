@@ -3,6 +3,7 @@ package dev.gathering.client;
 import dev.gathering.core.ui.CounterText;
 import dev.gathering.core.game.CardInstance;
 import dev.gathering.core.game.CardInstanceId;
+import dev.gathering.core.game.CounterName;
 import dev.gathering.core.game.CommandSlots;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.SeatState;
@@ -334,8 +335,12 @@ public final class CountersScreen extends ChildScreen {
     }
 
     private void addCustom() {
-        String name = customName.getValue().trim().toLowerCase(Locale.ROOT);
-        if (name.isEmpty()) {
+        // Cleaned the way the event cleans it, so a name that would come out as nothing - a
+        // box full of the wide spaces an IME types - is nothing here too. It used to pass a
+        // trim() that only knows ASCII, reach the event as null, and crash the client trying
+        // to write a null name onto the wire.
+        String name = CounterName.kept(customName.getValue().toLowerCase(Locale.ROOT));
+        if (name == null) {
             return;
         }
         change(name, 1);

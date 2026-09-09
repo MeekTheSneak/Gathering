@@ -202,7 +202,38 @@ public record GameState(
 
         GameState moved = new GameState(
                 seats, cards, updated, seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
-        return moved.settlePosition(id, into, placement);
+        return moved.settlePosition(id, into, placement).withAttachmentsFollowing(id, into);
+    }
+
+    /**
+     * Brings what is on a card along to wherever the card went.
+     * <p>Stealing a creature takes its equipment with it - and the equipment used to stay in
+     * the zone it was in, attached to a host on another player's mat, where the board drew
+     * it nowhere and no click could reach it again. An attachment is drawn beside its host,
+     * so the zone it belongs in is its host's, whatever zone that is.
+     */
+    private GameState withAttachmentsFollowing(CardInstanceId host, ZoneRef into) {
+        if (!into.zone().isSurface()) {
+            return this;
+        }
+        GameState updated = this;
+        for (CardInstanceId attached : everythingOn(host)) {
+            if (!into.equals(updated.locationOf(attached).orElse(null))) {
+                updated = updated.place(attached, into, Placement.BOTTOM);
+            }
+        }
+        return updated;
+    }
+
+    /** Every card sitting on this one, wherever the two of them are. */
+    private List<CardInstanceId> everythingOn(CardInstanceId host) {
+        List<CardInstanceId> found = new ArrayList<>();
+        for (CardInstance card : cards.values()) {
+            if (host.equals(card.attachedTo())) {
+                found.add(card.id());
+            }
+        }
+        return found;
     }
 
     /**
@@ -221,6 +252,12 @@ public record GameState(
             return withCard(card.withPosition(null).attachedToCard(null)).withNothingAttachedTo(id);
         }
         TablePosition where = placement.chosenPosition().orElseGet(() -> unaimedSpot(into, id));
+        // An attachment dragged onto a different mat from its host has come off it: the
+        // alternative was a card attached to something on another player's side, drawn beside
+        // its host by nobody and beside itself by nobody either.
+        if (card.attachedTo() != null && !into.equals(locationOf(card.attachedTo()).orElse(null))) {
+            return withCard(card.withPosition(where).attachedToCard(null));
+        }
         return withCard(card.withPosition(where));
     }
 

@@ -139,7 +139,10 @@ public record CardInstance(
         // card cannot collect more kinds of counter than anybody would put on it; changing a
         // counter it already has is never refused.
         if (!updated.containsKey(name) && updated.size() >= CounterName.MOST_PER_CARD) {
-            return this;
+            // Refused out loud rather than quietly: a change the fold swallowed was still
+            // written to the log as done, and a log that says a counter went on that is not
+            // on the card is the one thing the log is for preventing.
+            throw new IllegalArgumentException("No room for another kind of counter on that card.");
         }
         int now = updated.getOrDefault(name, 0) + delta;
         if (now == 0) {

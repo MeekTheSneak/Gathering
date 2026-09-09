@@ -107,10 +107,29 @@ public final class TableActions {
             return Optional.empty();
         }
 
+        // Some events are the server's to write and nobody else's. A seat being taken, a deck
+        // being loaded into it, and the session ending are things the table does when a player
+        // sits, crouches, or concedes - every honest constructor of them is on this side of
+        // the wire. Authorization cannot refuse them, because it runs for the server's own
+        // submits too; here is the one place that knows which side a packet came from. A
+        // client that could send SessionEnded ended the game for the whole table with none of
+        // the match, the decks, or the pot put away; one that could send DeckLoaded swapped
+        // its library for any cards it liked mid-game.
+        if (isTheServersToWrite(event)) {
+            return Optional.empty();
+        }
+
         // The one check that cannot be left out. Attribution is what makes "any seated player
         // may move any public card" safe: the log says who did it. A client that could sign a
         // move with somebody else's name would take that away and leave the permissiveness.
         return event.actor().equals(seat) ? Optional.of(event) : Optional.empty();
+    }
+
+    /** The events no client is ever the author of. Kept beside the gate that refuses them. */
+    static boolean isTheServersToWrite(GameEvent event) {
+        return event instanceof GameEvent.SessionEnded
+                || event instanceof GameEvent.DeckLoaded
+                || event instanceof GameEvent.SeatTaken;
     }
 
     /**

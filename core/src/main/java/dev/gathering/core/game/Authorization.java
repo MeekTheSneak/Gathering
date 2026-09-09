@@ -42,12 +42,18 @@ public final class Authorization {
         }
 
         return switch (event) {
-            // Looking is the whole of the restriction, and these four are looking.
+            // Looking is the whole of the restriction, and these five are looking.
             case GameEvent.LibrarySearched searched -> ownerOnly(event.actor(), searched.seat(), "search a library");
             case GameEvent.LibraryLooked looked -> ownerOnly(event.actor(), looked.seat(), "look at a library");
             case GameEvent.LibraryReordered reordered ->
                     ownerOnly(event.actor(), reordered.seat(), "reorder a library");
             case GameEvent.Surveiled surveiled -> ownerOnly(event.actor(), surveiled.seat(), "surveil");
+            // And a fifth. Revealing turns the top of a library face up to the whole room,
+            // the actor included - so a client that could reveal an opponent's library would
+            // read it by another name, five cards at a time, and every spectator with it. The
+            // honest client only ever names its own seat; this is for the one that does not.
+            case GameEvent.LibraryRevealed revealed ->
+                    ownerOnly(event.actor(), revealed.seat(), "reveal a library");
 
             // Naming a specific card inside a hidden zone means having seen it.
             case GameEvent.CardMoved moved -> movingOutOfHiddenZone(state, moved);

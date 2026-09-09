@@ -331,6 +331,40 @@ class VisibilityInvariantTest {
         }
 
         /**
+         * Revealing is looking, done out loud.
+         * <p>Four events were owner-locked because performing them shows the actor hidden
+         * cards. Revealing the top of a library is a fifth: it turns cards face up to the
+         * whole room, the actor included, and the event names the library it opens rather
+         * than the actor's own. The honest client always names itself. A modified one that
+         * named an opponent read five cards off the top of their library and showed them to
+         * every spectator too - and nothing refused it, because the case was not written.
+         */
+        @Test
+        @DisplayName("only a library's owner can turn its top face up for the table")
+        void nobodyElseCanRevealALibrary() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+
+            assertThat(session.submit(new GameEvent.LibraryRevealed(
+                    GameFixtures.ALICE, GameFixtures.BOB, 3)))
+                    .describedAs("Alice revealed the top of Bob's library")
+                    .isInstanceOf(GameSession.Result.Rejected.class);
+            for (Viewer viewer : new Viewer[] {
+                    Viewer.seat(GameFixtures.ALICE), Viewer.seat(GameFixtures.BOB), Viewer.SPECTATOR}) {
+                assertThat(VisibilityRules.viewFor(session.state(), viewer)
+                        .seat(GameFixtures.BOB).zone(Zone.LIBRARY).isCountOnly())
+                        .describedAs("Bob's library stayed face down to %s", viewer)
+                        .isTrue();
+            }
+
+            // Bob revealing his own is what the verb is for, and the room sees it.
+            assertThat(session.submit(new GameEvent.LibraryRevealed(
+                    GameFixtures.BOB, GameFixtures.BOB, 3)))
+                    .isNotInstanceOf(GameSession.Result.Rejected.class);
+            assertThat(VisibilityRules.viewFor(session.state(), Viewer.SPECTATOR)
+                    .seat(GameFixtures.BOB).zone(Zone.LIBRARY).cards()).hasSize(3);
+        }
+
+        /**
          * A token copy cannot be used to read a card the copier may not see.
          * <p>A copy carries the original's identity, and it lands face up on the copier's own
          * battlefield where they can simply look at it. Card instance ids are consecutive

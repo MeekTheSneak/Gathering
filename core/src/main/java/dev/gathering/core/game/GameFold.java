@@ -117,7 +117,7 @@ public final class GameFold {
             case GameEvent.Surveiled surveiled -> surveil(state, surveiled);
 
             case GameEvent.CounterChanged counter -> state.withCard(
-                    state.requireCard(counter.card()).withCounter(counter.counter(), counter.delta()));
+                    state.requireCard(counter.card()).withCounter(named(counter.counter()), counter.delta()));
 
             case GameEvent.TokenCreated token -> createTokens(state, token);
 
@@ -127,10 +127,10 @@ public final class GameFold {
 
             case GameEvent.TokenCopyCreated copy -> createCopy(state, copy);
 
-            case GameEvent.TokenRemoved removed -> state.removeCard(removed.card());
+            case GameEvent.TokenRemoved removed -> removeToken(state, removed);
 
             case GameEvent.SeatCounterChanged counter -> state.withSeatState(
-                    state.seatState(counter.seat()).withCounter(counter.counter(), counter.delta()));
+                    state.seatState(counter.seat()).withCounter(named(counter.counter()), counter.delta()));
 
             case GameEvent.LifeChanged life ->
                     state.withSeatState(state.seatState(life.seat()).withLife(life.delta()));
@@ -145,7 +145,8 @@ public final class GameFold {
                     state.withSeatState(state.seatState(conceded.actor()).withConcede());
 
 
-            case GameEvent.TurnPassed passed -> state.withTurn(state.turn().passTo(passed.toSeat()));
+            case GameEvent.TurnPassed passed ->
+                    state.withTurn(state.turn().passTo(requireSeat(state, passed.toSeat())));
         };
     }
 
@@ -205,10 +206,12 @@ public final class GameFold {
 
     /**
      * Puts a card onto another one, or takes it off.
-     * <p>Three arrangements are refused rather than drawn: a card on itself, a card on
-     * something in a pile, and a card on something that is itself on a third card. The first
-     * two cannot be drawn at all; the third is a chain nobody plays and the only remaining way
-     * to make a loop out of this.
+     * <p>Four arrangements are refused rather than drawn: a card on itself, a card on
+     * something in a pile, a card on something that is itself on a third card, and a card
+     * that has things on it going onto anything. The first two cannot be drawn at all; the
+     * last two are the same chain seen from either end - nobody plays one, and a chain checked
+     * from only one end still let a creature carrying two auras be put onto another creature,
+     * where the auras were drawn beside nothing.
      * <p>Refusing here means leaving the board alone, not throwing. A stale click - the host
      * went to the graveyard a moment ago - should do nothing rather than end the session.
      */
@@ -218,7 +221,8 @@ public final class GameFold {
             return state.withCard(card.attachedToCard(null));
         }
         CardInstance host = state.card(event.host()).orElse(null);
-        if (host == null || host.id().equals(card.id()) || host.isAttached() || host.position() == null) {
+        if (host == null || host.id().equals(card.id()) || host.isAttached() || host.position() == null
+                || !state.attachmentsOf(card.id()).isEmpty()) {
             return state;
         }
         return state.withCard(card.attachedToCard(host.id()));
@@ -265,12 +269,61 @@ public final class GameFold {
      * cleared it; this is the same rule at the move everybody actually performs.
      */
     private static GameState movedCard(GameState state, GameEvent.CardMoved moved) {
+        requireSeat(state, moved.to().seat());
         ZoneRef from = state.locationOf(moved.card()).orElse(null);
         GameState updated = state.place(moved.card(), moved.to(), moved.placement());
         if (from != null && from.zone() == Zone.LIBRARY && !from.equals(moved.to())) {
             updated = updated.withRevealed(from.seat(), 0);
         }
-        return updated;
+        return arrivingOnTop(updated, moved.to(), moved.placement());
+    }
+
+    /**
+     * A card put on top of a library closes the revealed window there, the same as one
+     * leaving it opens nothing.
+     * <p>The window is positional - "the first N are face up" - so a card from a hand put
+     * on top of a revealed library slid into the window and every client was handed its
+     * identity, though nobody had revealed it. The bottom is outside the window and leaves
+     * it alone: tucking a card under a Courser's revealed top is what the verb is for.
+     */
+    private static GameState arrivingOnTop(GameState state, ZoneRef into, Placement placement) {
+        return into.zone() == Zone.LIBRARY && placement.isTop() && state.revealedIn(into.seat()) > 0
+                ? state.withRevealed(into.seat(), 0)
+                : state;
+    }
+
+    /**
+     * The seat an event names, or the refusal that it is not at this table.
+     * <p>A move to a seat the session never had put the card in a zone no view is built for,
+     * where it was drawn by nobody and could not be got back; a turn passed there left the
+     * status line of every client asking for a seat that does not exist. Both arrive only
+     * from a crafted or badly lagged packet, and both are an answer now rather than a hole.
+     */
+    private static SeatId requireSeat(GameState state, SeatId seat) {
+        if (seat == null || !state.hasSeat(seat)) {
+            throw new IllegalArgumentException("No such seat at this table: " + seat);
+        }
+        return seat;
+    }
+
+    /** A counter's name, or the refusal that there is nothing to name it. */
+    private static String named(String counter) {
+        if (counter == null) {
+            throw new IllegalArgumentException("A counter needs a name.");
+        }
+        return counter;
+    }
+
+    /**
+     * A token ceasing to exist. Only a token: a real card removed from the session this way
+     * would never go home to its deck at the end, and no player means that by any click.
+     */
+    private static GameState removeToken(GameState state, GameEvent.TokenRemoved removed) {
+        CardInstance card = state.requireCard(removed.card());
+        if (!card.token()) {
+            throw new IllegalArgumentException("Only a token can be removed from the table.");
+        }
+        return state.removeCard(card.id());
     }
 
     private static GameState draw(GameState state, SeatId seat, int count) {
@@ -321,6 +374,7 @@ public final class GameFold {
      * for - would otherwise never run out of cards to move.
      */
     private static GameState moveZone(GameState state, GameEvent.ZoneMoved moved) {
+        requireSeat(state, moved.to().seat());
         List<CardInstanceId> contents = state.contents(moved.seat(), moved.from());
         if (contents.isEmpty() || moved.fromRef().equals(moved.to())) {
             return state;
@@ -336,7 +390,10 @@ public final class GameFold {
             updated = updated.place(card, moved.to(), moved.placement());
         }
         // Whatever was face up off the top of a library has left it.
-        return moved.from() == Zone.LIBRARY ? updated.withRevealed(moved.seat(), 0) : updated;
+        if (moved.from() == Zone.LIBRARY) {
+            updated = updated.withRevealed(moved.seat(), 0);
+        }
+        return arrivingOnTop(updated, moved.to(), moved.placement());
     }
 
     private static GameState mulligan(GameState state, GameEvent.Mulliganed event, SessionSeed seed) {
@@ -376,7 +433,11 @@ public final class GameFold {
         // library NEVER held: a card in two zones at once from an ordinary race, or, from a
         // crafted event, somebody else's card quietly written into this library.
         List<CardInstanceId> onTop = keptOf(state.contents(library), event.onTop());
-        List<CardInstanceId> toBottom = keptOf(state.contents(library), event.toBottom());
+        // A card named for the top and the bottom both cannot be in two places; it was, once,
+        // written into the library twice, and a library with a card in it twice is a session
+        // that cannot be saved. The first decision - top - stands.
+        List<CardInstanceId> toBottom = new ArrayList<>(keptOf(state.contents(library), event.toBottom()));
+        toBottom.removeAll(onTop);
         List<CardInstanceId> rest = remaining(state.contents(library), onTop, toBottom);
 
         List<CardInstanceId> updated = new ArrayList<>(onTop);

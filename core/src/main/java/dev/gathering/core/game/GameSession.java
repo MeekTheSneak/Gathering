@@ -182,6 +182,12 @@ public final class GameSession {
         if (!state.hasSeat(requester)) {
             return UndoDecision.denied("Only seated players can rewind.");
         }
+        // The end is the one line that is not rewound. The match has been scored, the decks
+        // handed back and the pot paid by the time this could arrive; a rewind past it would
+        // put a board back on a table whose game is over and whose cards have gone home.
+        if (state.ended()) {
+            return UndoDecision.denied("The game is over; nothing rewinds now.");
+        }
 
         List<SessionRecord.EventRecord> target = standingTail(actionCount);
         if (target.size() < actionCount) {

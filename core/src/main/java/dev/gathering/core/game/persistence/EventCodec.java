@@ -173,7 +173,7 @@ public final class EventCodec {
             case GameEvent.CounterChanged e -> {
                 seat(out, e.actor());
                 card(out, e.card());
-                out.writeUTF(e.counter());
+                out.writeUTF(e.counter() == null ? "" : e.counter());
                 out.writeInt(e.delta());
             }
             case GameEvent.TokenCreated e -> {
@@ -210,7 +210,7 @@ public final class EventCodec {
             case GameEvent.SeatCounterChanged e -> {
                 seat(out, e.actor());
                 seat(out, e.seat());
-                out.writeUTF(e.counter());
+                out.writeUTF(e.counter() == null ? "" : e.counter());
                 out.writeInt(e.delta());
             }
             case GameEvent.LifeChanged e -> {

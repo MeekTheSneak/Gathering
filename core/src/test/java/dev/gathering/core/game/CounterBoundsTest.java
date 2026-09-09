@@ -50,18 +50,28 @@ class CounterBoundsTest {
         CardInstance card = CardInstance.faceUp(
                 CardInstanceId.of(1), GameFixtures.card(1), GameFixtures.ALICE);
         CardInstance loaded = card;
-        for (int kind = 0; kind < 5_000; kind++) {
-            loaded = loaded.withCounter("kind" + kind, 1);
+        int kinds = 0;
+        try {
+            for (; kinds < 5_000; kinds++) {
+                loaded = loaded.withCounter("kind" + kinds, 1);
+            }
+        } catch (IllegalArgumentException full) {
+            // The cap is a refusal with a reason, so the fold turns it into a rejected event
+            // rather than a log line about a counter that never went on.
         }
-        assertThat(loaded.counters()).hasSizeLessThanOrEqualTo(SENSIBLE_KINDS);
+        assertThat(kinds).isEqualTo(loaded.counters().size()).isLessThanOrEqualTo(SENSIBLE_KINDS);
 
         // And one it already carries is never refused, however full it is.
         assertThat(loaded.withCounter("kind0", 4).counter("kind0")).isEqualTo(5);
 
         SeatState seat = SeatState.startingAt(GameFixtures.ALICE, 40);
         SeatState piled = seat;
-        for (int kind = 0; kind < 5_000; kind++) {
-            piled = piled.withCounter("kind" + kind, 1);
+        try {
+            for (int kind = 0; kind < 5_000; kind++) {
+                piled = piled.withCounter("kind" + kind, 1);
+            }
+        } catch (IllegalArgumentException full) {
+            // As above.
         }
         assertThat(piled.counters()).hasSizeLessThanOrEqualTo(SENSIBLE_KINDS);
     }

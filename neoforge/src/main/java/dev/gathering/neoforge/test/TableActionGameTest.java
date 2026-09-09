@@ -5,6 +5,7 @@ import dev.gathering.block.TableBlock;
 import dev.gathering.block.TablePart;
 import dev.gathering.block.TableSeats;
 import dev.gathering.block.TableSessions;
+import dev.gathering.core.game.GameSession;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.core.game.persistence.EventCodec;
@@ -62,6 +63,45 @@ public final class TableActionGameTest {
 
         if (accepted) {
             helper.fail("A move signed with another seat was accepted");
+        }
+        helper.succeed();
+    }
+
+    /**
+     * The events the table writes about itself are not a client's to send.
+     * <p>Signed correctly - the forged event names the player's own seat, so the attribution
+     * check above is satisfied - and still refused, because a seat being taken, a deck being
+     * loaded and the session ending are things the server does when a player sits, crouches
+     * or concedes. Authorization allows anything it does not name, which is right for a mod
+     * with no rules enforcement and left these three open: a client could end the game for
+     * everybody with nothing put away, or swap its own library for any cards mid-game.
+     */
+    @GameTest(template = "tables")
+    public static void theTablesOwnEventsAreNotAClientsToSend(GameTestHelper helper) {
+        BlockPos origin = seatedGame(helper, 1, 2, 1);
+        GameSession session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        boolean endedBefore = session.state().ended();
+
+        boolean ended = TableActions.accept(helper.getLevel(), origin, ALICE,
+                encoded(new GameEvent.SessionEnded(new SeatId(0), "forged"))).isPresent();
+        boolean loaded = TableActions.accept(helper.getLevel(), origin, ALICE,
+                encoded(new GameEvent.DeckLoaded(new SeatId(0), java.util.List.of(),
+                        java.util.List.of(), dev.gathering.core.card.Sleeve.DEFAULT))).isPresent();
+        boolean sat = TableActions.accept(helper.getLevel(), origin, ALICE,
+                encoded(new GameEvent.SeatTaken(new SeatId(1),
+                        new dev.gathering.core.game.PlayerRef(ALICE, "Alice")))).isPresent();
+
+        if (ended || loaded || sat) {
+            helper.fail("A client's forged lifecycle event was accepted: ended=" + ended
+                    + " loaded=" + loaded + " sat=" + sat);
+        }
+        if (session.state().ended() != endedBefore) {
+            helper.fail("A refused SessionEnded still ended the game");
+        }
+        // And the honest one beside them still goes through, so this refused the right thing.
+        if (TableActions.accept(helper.getLevel(), origin, ALICE,
+                encoded(new GameEvent.Conceded(new SeatId(0)))).isEmpty()) {
+            helper.fail("A player's own concession was refused along with the forgeries");
         }
         helper.succeed();
     }

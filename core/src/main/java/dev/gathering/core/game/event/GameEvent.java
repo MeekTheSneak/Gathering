@@ -3,6 +3,7 @@ package dev.gathering.core.game.event;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.PaperStock;
 import dev.gathering.core.game.CardNote;
+import dev.gathering.core.game.CardInstance;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
 import dev.gathering.core.game.GameState;
@@ -339,7 +340,10 @@ public sealed interface GameEvent {
     record CardRotated(SeatId actor, CardInstanceId card, int rotation) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
-            return LogLine.of("log.gathering.card_rotated", actor, CardRef.publicRefFor(before, card), rotation);
+            // The angle the card was left at, which is what the table sees; the number the
+            // client sent may have been any number of turns round.
+            return LogLine.of("log.gathering.card_rotated", actor, CardRef.publicRefFor(before, card),
+                    Math.floorMod(rotation, 360));
         }
     }
 
@@ -628,6 +632,17 @@ public sealed interface GameEvent {
         @Override
         public LogLine describe(GameState before) {
             return LogLine.of("log.gathering.token_copied", actor, CardRef.publicRefFor(before, source), seat);
+        }
+
+        /**
+         * A copy of a face-down card lands face up, and so says what the original is.
+         * <p>Only the owner may copy their own face-down card, and doing it tells the table
+         * what the morph was - which is a reveal, and a rewind across one needs everybody,
+         * because a seen card cannot be un-seen.
+         */
+        @Override
+        public boolean revealsInformation(GameState before) {
+            return before.card(source).map(CardInstance::isFaceDown).orElse(false);
         }
     }
 

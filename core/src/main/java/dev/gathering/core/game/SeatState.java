@@ -188,7 +188,10 @@ public record SeatState(
         // The same bound a card has, for the same reason: a new name is a new key, and the
         // board these end up on goes out as one payload with a bound that throws.
         if (!updated.containsKey(name) && updated.size() >= CounterName.MOST_PER_CARD) {
-            return this;
+            // Refused out loud rather than quietly: a change the fold swallowed was still
+            // written to the log as done, and a log that says a counter went on that is not
+            // on the seat is the one thing the log is for preventing.
+            throw new IllegalArgumentException("No room for another kind of counter on that seat.");
         }
         int now = updated.getOrDefault(name, 0) + delta;
         if (now == 0) {

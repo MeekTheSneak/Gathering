@@ -79,6 +79,49 @@ class RevealedTopTest {
     }
 
     @Test
+    @DisplayName("a card put on top of a revealed library closes the window")
+    void arrivingOnTopClosesTheWindow() {
+        GameSession session = GameFixtures.twoPlayerTable(10);
+        session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 1));
+        CardInstanceId inHand = GameFixtures.firstInHand(session, GameFixtures.ALICE);
+        session.submit(new GameEvent.LibraryRevealed(GameFixtures.ALICE, GameFixtures.ALICE, 2));
+
+        // From the hand, where nobody had seen it, onto the top - where the window would have
+        // handed its identity to the room.
+        session.submit(new GameEvent.CardMoved(
+                GameFixtures.ALICE, inHand, ZoneRef.of(GameFixtures.ALICE, Zone.LIBRARY), Placement.TOP));
+
+        assertThat(session.state().revealedIn(GameFixtures.ALICE)).isZero();
+    }
+
+    @Test
+    @DisplayName("a card tucked under a revealed library leaves the window where it was")
+    void arrivingAtTheBottomLeavesTheWindow() {
+        GameSession session = GameFixtures.twoPlayerTable(10);
+        session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 1));
+        CardInstanceId inHand = GameFixtures.firstInHand(session, GameFixtures.ALICE);
+        session.submit(new GameEvent.LibraryRevealed(GameFixtures.ALICE, GameFixtures.ALICE, 2));
+
+        session.submit(new GameEvent.CardMoved(
+                GameFixtures.ALICE, inHand, ZoneRef.of(GameFixtures.ALICE, Zone.LIBRARY), Placement.BOTTOM));
+
+        assertThat(session.state().revealedIn(GameFixtures.ALICE)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("a whole pile put on top of a revealed library closes the window too")
+    void aPileArrivingOnTopClosesTheWindow() {
+        GameSession session = GameFixtures.twoPlayerTable(10);
+        session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 2));
+        session.submit(new GameEvent.LibraryRevealed(GameFixtures.ALICE, GameFixtures.ALICE, 2));
+
+        session.submit(new GameEvent.ZoneMoved(GameFixtures.ALICE, GameFixtures.ALICE, Zone.HAND,
+                ZoneRef.of(GameFixtures.ALICE, Zone.LIBRARY), Placement.TOP));
+
+        assertThat(session.state().revealedIn(GameFixtures.ALICE)).isZero();
+    }
+
+    @Test
     @DisplayName("moving a battlefield card around does not touch someone's revealed top")
     void anUnrelatedMoveLeavesTheWindowAlone() {
         GameSession session = GameFixtures.twoPlayerTable(10);

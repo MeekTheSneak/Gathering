@@ -372,6 +372,23 @@ class GameSessionTest {
         }
 
         @Test
+        @DisplayName("copying your own face-down card shows the table what it was, so that is a boundary too")
+        void copyingAFaceDownCardIsAReveal() {
+            GameSession session = GameFixtures.twoPlayerTable(40);
+            session.submit(new GameEvent.CardsDrawn(GameFixtures.ALICE, GameFixtures.ALICE, 1));
+            CardInstanceId morph = GameFixtures.firstInHand(session, GameFixtures.ALICE);
+            session.submit(new GameEvent.CardFacingSet(GameFixtures.ALICE, morph, Facing.FACE_DOWN));
+            session.submit(new GameEvent.CardMoved(GameFixtures.ALICE, morph,
+                    ZoneRef.of(GameFixtures.ALICE, Zone.BATTLEFIELD), Placement.BOTTOM));
+
+            session.submit(new GameEvent.TokenCopyCreated(GameFixtures.ALICE, morph, GameFixtures.ALICE));
+
+            assertThat(session.evaluateUndo(GameFixtures.ALICE, 1))
+                    .isInstanceOfSatisfying(UndoDecision.NeedsUnanimousConsent.class, needed ->
+                            assertThat(needed.reason()).contains("revealed information"));
+        }
+
+        @Test
         @DisplayName("with everyone's consent a rewind may cross an information boundary")
         void unanimousConsentCrossesTheBoundary() {
             GameSession session = GameFixtures.twoPlayerTable(40);

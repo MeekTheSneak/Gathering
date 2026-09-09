@@ -199,6 +199,40 @@ class AttachmentTest {
                     ZoneRef.of(GameFixtures.BOB, Zone.BATTLEFIELD), Placement.BOTTOM));
 
             assertThat(session.state().requireCard(cards.get(1)).host()).contains(cards.get(0));
+            // With it: in the same zone, where the board draws it beside its host. Attached
+            // to a host on another mat, it was in a zone whose drawing skips attached cards
+            // and beside a host whose zone did not have it - drawn by nobody.
+            assertThat(session.state().locationOf(cards.get(1)))
+                    .contains(ZoneRef.of(GameFixtures.BOB, Zone.BATTLEFIELD));
+            assertThat(session.state().attachmentsOf(cards.get(0))).containsExactly(cards.get(1));
+        }
+
+        @Test
+        @DisplayName("an attachment dragged onto another mat has come off its host")
+        void anAttachmentLeavingItsHostsMatComesOff() {
+            GameSession session = GameFixtures.twoPlayerTable(20);
+            List<CardInstanceId> cards = onTheBattlefield(session, GameFixtures.ALICE, 2);
+            session.submit(new GameEvent.CardAttached(GameFixtures.ALICE, cards.get(1), cards.get(0)));
+
+            session.submit(new GameEvent.CardMoved(GameFixtures.BOB, cards.get(1),
+                    ZoneRef.of(GameFixtures.BOB, Zone.BATTLEFIELD), Placement.at(3000, 3000)));
+
+            assertThat(session.state().requireCard(cards.get(1)).host()).isEmpty();
+            assertThat(session.state().requireCard(cards.get(1)).placedAt()).isPresent();
+            assertThat(session.state().attachmentsOf(cards.get(0))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("a card with things on it cannot be put onto a third card")
+        void aCarrierCannotSitOnSomething() {
+            GameSession session = GameFixtures.twoPlayerTable(20);
+            List<CardInstanceId> cards = onTheBattlefield(session, GameFixtures.ALICE, 3);
+            session.submit(new GameEvent.CardAttached(GameFixtures.ALICE, cards.get(1), cards.get(0)));
+
+            session.submit(new GameEvent.CardAttached(GameFixtures.ALICE, cards.get(0), cards.get(2)));
+
+            assertThat(session.state().requireCard(cards.get(0)).host()).isEmpty();
+            assertThat(session.state().requireCard(cards.get(1)).host()).contains(cards.get(0));
         }
     }
 
