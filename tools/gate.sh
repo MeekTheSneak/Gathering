@@ -6,7 +6,7 @@
 # tests fail, because a failing test prints "FAILED". This looks at exit codes, which cannot
 # be misread, and says plainly which stage went wrong.
 #
-#   tools/gate.sh            build, the unit tests, and the eight checks
+#   tools/gate.sh            build, the unit tests, and the static checks
 #   tools/gate.sh --game     and the in-world game tests, which want neoforge/run to itself
 #
 # Never runs the scripted client: that holds neoforge/run for a quarter of an hour and the
@@ -28,7 +28,7 @@ stage() {
 }
 
 stage "gradle build (all unit tests)" ./gradlew build
-for check in langcheck doccheck scenecheck plotcheck gesturecheck spritecheck statecheck savecheck runcheck texturecheck; do
+for check in langcheck doccheck scenecheck plotcheck gesturecheck spritecheck statecheck savecheck runcheck texturecheck artcheck; do
     stage "$check" python3 "tools/$check.py"
 done
 if [ "${1:-}" = "--game" ]; then
