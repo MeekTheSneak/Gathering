@@ -127,6 +127,8 @@ public final class GatheringNeoForgeClient {
             CardNameLookup.Binding.bind(ClientCardCache.get());
             DeckScreenHook.Binding.bind(hand -> Minecraft.getInstance().setScreen(new DeckContentsScreen(hand)));
             CardZoomOverlay.bindKeyState(ZoomKeyState.of(ZOOM_KEY, ZOOM_KEY::getKey));
+            CardZoomOverlay.bindKeyName(ZOOM_KEY::getTranslatedKeyMessage);
+            dev.gathering.client.TableShortcuts.bindKeyLookup(KeyMapping::getKey);
             ClientNetworking.bindSender(payload -> {
                 var connection = Minecraft.getInstance().getConnection();
                 if (connection != null) {

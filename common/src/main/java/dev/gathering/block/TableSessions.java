@@ -134,9 +134,11 @@ public final class TableSessions {
             if (occupant.isEmpty()) {
                 continue;
             }
-            Player player = level.getPlayerByUUID(occupant.get());
-            String name = player == null ? "Player" : player.getGameProfile().getName();
-            session.submit(new GameEvent.SeatTaken(new SeatId(index), new PlayerRef(occupant.get(), name)));
+            // Named through one place, because there are three answers and this used to give
+            // one: somebody here, somebody who has gone home, and the practice table's
+            // demonstration - which is not a player and must not be labelled as one.
+            session.submit(new GameEvent.SeatTaken(new SeatId(index),
+                    dev.gathering.server.SeatOccupants.of(level, occupant.get())));
         }
 
         table.beginSession(session, rules.format().startingLife(),
@@ -261,7 +263,9 @@ public final class TableSessions {
      * explanation attached.
      */
     public static void returnDecks(Level level, BlockPos tableOrigin, TableBlockEntity table) {
-        table.releaseDecks().forEach((seat, held) -> giveBack(level, tableOrigin, seat, held));
+        boolean practice = table.isPractice();
+        table.releaseDecks().forEach((seat, held) ->
+                giveBack(level, tableOrigin, seat, held, practice));
     }
 
     /**
@@ -273,10 +277,15 @@ public final class TableSessions {
      * is the ordinary case.
      */
     public static void returnDeckTo(Level level, BlockPos tableOrigin, SeatId seat) {
-        anchorOf(level, tableOrigin)
+        TableBlockEntity table = anchorOf(level, tableOrigin)
                 .flatMap(anchor -> TableBlock.entityAt(level, anchor))
-                .flatMap(table -> table.releaseDeck(seat))
-                .ifPresent(held -> giveBack(level, tableOrigin, seat, held));
+                .orElse(null);
+        if (table == null) {
+            return;
+        }
+        boolean practice = table.isPractice();
+        table.releaseDeck(seat)
+                .ifPresent(held -> giveBack(level, tableOrigin, seat, held, practice));
     }
 
     /**
@@ -292,7 +301,15 @@ public final class TableSessions {
      * trade-off, it is a bug with an explanation attached.
      */
     private static void giveBack(
-            Level level, BlockPos tableOrigin, SeatId seat, TableBlockEntity.HeldDeck held) {
+            Level level, BlockPos tableOrigin, SeatId seat, TableBlockEntity.HeldDeck held,
+            boolean practice) {
+        // A practice deck is not property and never becomes an item. The server made it up so
+        // that somebody could learn which key draws a card; handing it back at the end would
+        // be minting a deck, which is the one thing the guided first game must not be a way
+        // to do. Nothing is dropped, nothing is given, and nothing is left on the table.
+        if (practice) {
+            return;
+        }
         ItemStack stack = DeckItem.of(held.deck());
         // The pool goes back with the deck. A drafted deck that came back without one would
         // still look like a drafted deck and no longer be held to what was opened.

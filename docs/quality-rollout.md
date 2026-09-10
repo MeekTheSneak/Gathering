@@ -118,7 +118,72 @@ the Controls screen, whether the defaults suit a left-handed player.
 
 ## Phase 2 — guided first game (Q06-Q08)
 
-Not started.
+**Done**, apart from the human walkthrough, which needs a person.
+
+### Q06 — a practice game that cannot give anybody anything
+
+`common/.../server/PracticeTable.java`. A real session at a real table: the same events, the
+same authorization, the same view filtering. One thing is different, the table records it, and
+everything that hands cards to a person checks it.
+
+- The deck is **blank stock the server invents on the spot** — cards in the custom namespace
+  with nothing printed on them. No shop sells them, no pack contains them, and **no cache has
+  to be asked about them**, which is what makes the guided first game work on a fresh install
+  with no network. A player's first minute should not depend on Scryfall answering.
+- The table is never asked to hold the deck, so there is nothing to hand back. And if a later
+  change made it hold one anyway, `TableSessions.giveBack` refuses to hand a practice deck to
+  anybody — checked by a test that fails when that refusal is removed.
+- `playForKeeps` is refused outright on a practice table, so nothing can be staked.
+- Practice refuses a table with a game on it, and a table anybody else is sitting at. It never
+  takes somebody's evening over.
+- The second seat is a **demonstration, not an opponent**: nobody is in it, nothing plays from
+  it, and it holds one face-up card so "read a card somebody else played" can be done alone.
+  There is no AI here.
+
+Eight in-world guards. `SeatOccupants` also fixed a wart found on the way: the seat-naming line
+was `player == null ? "Player" : name`, which called an offline player "Player".
+
+### Q07 — the six steps
+
+`core/.../tutorial/TutorialProgress.java` is pure and has eighteen tests. `Tutorial` is the thin
+client half.
+
+**Nothing advances on a press.** Five steps watch the board the server sent back — one more card
+in hand than before, one more permanent, one more tapped, more counters, a different turn. Every
+one is a fact about the authorized view, so a refused press advances nothing and a delayed one
+advances when it lands. The sixth is reading a card, which reaches no server at all, and is
+satisfied by this client's inspect panel actually being open on a card the view already
+contained.
+
+Back reviews; it does not undo. The cards really moved and this mod does not have a rules
+engine to move them back. Skipping is recorded as skipping and **never** written down as
+finishing.
+
+Every prompt names a key, and the key it names is the one that verb is bound to *now*.
+
+### Q08 — walked in a real client
+
+The scripted run stands up a second table with no game on it, presses **Learn the controls** on
+the setup screen, and walks all six steps **by pressing the keys the bindings actually name**.
+299 of 299 steps, 0 failures.
+
+It found two things the headless gate was green through:
+
+- **The offer was in a place it could never be seen.** It was on the board screen, and
+  `TableScreen.tick` closes itself the moment its view goes away — so at a table with no game,
+  which is precisely when somebody wants to learn, there is no board screen. Moved to the setup
+  screen, which is the screen a player actually gets there.
+- **The panel's buttons were drawn over its own last sentence.** The height counted one line for
+  a note that wraps to three. The photograph read "take Back away", two strings on top of each
+  other.
+
+### Verification
+
+Gate green: build, **1,466** core tests, **368** in-world tests, twelve static checks. Scripted
+client clean. Artwork unchanged.
+
+**Not verified:** an actual first-time player getting through it without help, and the five
+minutes the guide proposes as a target. Both need a person.
 
 ## Phase 3 — frequent actions and discovery (Q09-Q12)
 

@@ -66,6 +66,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String DECK_OWNER_KEY = "owner";
     private static final String ANTE_KEY = "ante";
     private static final String FOR_KEEPS_KEY = "for_keeps";
+    private static final String PRACTICE_KEY = "practice";
     private static final String ANTE_SEAT_KEY = "seat";
     private static final String ANTE_CARDS_KEY = "cards";
     private static final String ANTE_STAKER_KEY = "staker";
@@ -87,6 +88,13 @@ public class TableBlockEntity extends BlockEntity {
      * the reason a world fails to load.
      */
     private GameSession session;
+
+    /**
+     * Whether this game is somebody learning the controls rather than a game for keeps.
+     * <p>See {@link #isPractice()}. False for every ordinary game, which is what makes this
+     * safe to add to a world that has never seen one.
+     */
+    private boolean practice;
 
     private StoredSession stored;
     private int startingLife;
@@ -321,6 +329,34 @@ public class TableBlockEntity extends BlockEntity {
         this.match = newMatch;
         this.stored = null;
         this.restoreFailed = false;
+        this.practice = false;
+        setChanged();
+        tellClients();
+    }
+
+    /**
+     * Whether the game on this table is somebody learning the controls.
+     * <p>The one flag that makes cards stop being property. A practice game is dealt a deck
+     * the server made up on the spot, and that deck must never come back as an item: not to
+     * the learner, not onto the floor, not into a trade and not into a pot. Everything that
+     * hands cards to a person asks this first.
+     * <p>Saved, so a world reopened halfway through a practice game is still a practice game
+     * rather than becoming a real one with a free deck in it.
+     */
+    public boolean isPractice() {
+        return practice;
+    }
+
+    /**
+     * Marks the game on this table as practice, which cannot be undone while it lasts.
+     * <p>One direction only, and deliberately: a practice game that could be turned into a
+     * real one would be a way to mint a deck. It clears when the session ends, because the
+     * next game on this table is a different game.
+     */
+    public void markAsPractice() {
+        this.practice = true;
+        // Practice and playing for keeps are the two things a table must never be at once.
+        this.forKeeps = false;
         setChanged();
         tellClients();
     }
@@ -365,8 +401,17 @@ public class TableBlockEntity extends BlockEntity {
         return forKeeps;
     }
 
-    /** Said once, when the table has agreed and the game is about to start. */
+    /**
+     * Said once, when the table has agreed and the game is about to start.
+     * <p>Refused on a practice table, which is the one place a stake could turn a card the
+     * server invented into a card somebody keeps. Nothing about learning the controls is
+     * played for keeps.
+     */
     public void playForKeeps(boolean keeps) {
+        if (keeps && practice) {
+            LOGGER.warn("Refusing to play for keeps at {}: it is a practice game", worldPosition);
+            return;
+        }
         this.forKeeps = keeps;
         setChanged();
     }
@@ -526,6 +571,7 @@ public class TableBlockEntity extends BlockEntity {
         this.restoreFailed = false;
         this.formatChosen = false;
         this.forKeeps = false;
+        this.practice = false;
         this.decks.clear();
         setChanged();
         tellClients();
@@ -728,6 +774,7 @@ public class TableBlockEntity extends BlockEntity {
         }
 
         forKeeps = tag.getBoolean(FOR_KEEPS_KEY);
+        practice = tag.getBoolean(PRACTICE_KEY);
         pot = dev.gathering.core.ante.AntePot.EMPTY;
         stakers.clear();
         ListTag staked = tag.getList(ANTE_KEY, Tag.TAG_COMPOUND);
@@ -776,6 +823,12 @@ public class TableBlockEntity extends BlockEntity {
         writePot(tag);
         if (forKeeps) {
             tag.putBoolean(FOR_KEEPS_KEY, true);
+        }
+        // Written only when true, so a world that has never seen a practice game has nothing
+        // about one in it. Read back below; a save from before this existed reads false,
+        // which is correct for every game in it.
+        if (practice) {
+            tag.putBoolean(PRACTICE_KEY, true);
         }
         // In the open. A pod holds every pack in the ring, so it is exactly as secret as a
         // library - but it never leaves the server: what a drafter is sent is a view, built

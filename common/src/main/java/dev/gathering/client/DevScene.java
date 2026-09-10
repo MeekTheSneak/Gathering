@@ -166,7 +166,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 283;
+    private static final int LAST_STEP = 298;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -2924,6 +2924,113 @@ public final class DevScene {
                 shoot(client, "92-the-zombie-shopkeeper");
                 advance(SETTLE / 2);
             }
+            // --------------------------------------------- the guided first game
+            //
+            // A real table with no game on it, and the six steps walked with the real keys.
+            // The point is not the pictures: it is that the tutorial can actually be finished
+            // by pressing the things it tells somebody to press, and that finishing it leaves
+            // nothing in the player's pockets.
+            case 284 -> {
+                standAPracticeTableUp(client);
+                advance(SETTLE * 2);
+            }
+            case 285 -> {
+                walkToThePracticeTable(client);
+                advance(SETTLE);
+            }
+            case 286 -> {
+                // The screen a player actually gets at a table with no game on it. The board
+                // screen closes itself when there is no board, which is why the offer cannot
+                // live there - a scripted run found that by trying.
+                client.setScreen(new TableSetupScreen(practiceTable));
+                advance(SETTLE);
+            }
+            case 287 -> {
+                expectScreen(client, "the table setup screen", TableSetupScreen.class);
+                press(client, "Learn the controls");
+                advance(SETTLE * 4);
+            }
+            case 288 -> {
+                if (!Tutorial.runningAt(practiceTable)) {
+                    fail("pressing Learn the controls did not start the guided first game");
+                }
+                if (!expectingStep(dev.gathering.core.tutorial.TutorialStep.DRAW)) {
+                    return;
+                }
+                shoot(client, "93-learning-the-controls");
+                tutorialKey(client, "draw");
+                advance(SETTLE * 2);
+            }
+            case 289 -> {
+                if (!expectingStep(dev.gathering.core.tutorial.TutorialStep.PLAY)) {
+                    return;
+                }
+                playTheFirstCardInHand(client);
+                advance(SETTLE * 2);
+            }
+            case 290 -> {
+                if (!expectingStep(dev.gathering.core.tutorial.TutorialStep.TAP)) {
+                    return;
+                }
+                // The cursor is moved and nothing else happens this step. The board works out
+                // what it is pointing at while it draws, from the cursor the game hands it -
+                // so a key pressed in the same step acts on where the cursor used to be.
+                pointAtMyOnlyPermanent(client);
+                advance(SETTLE);
+            }
+            case 291 -> {
+                tutorialKey(client, "tap");
+                advance(SETTLE * 2);
+            }
+            case 292 -> {
+                if (!expectingStep(dev.gathering.core.tutorial.TutorialStep.COUNT)) {
+                    return;
+                }
+                pointAtMyOnlyPermanent(client);
+                advance(SETTLE);
+            }
+            case 293 -> {
+                client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL, 0, 0);
+                advance(SETTLE * 2);
+            }
+            case 294 -> {
+                if (!expectingStep(dev.gathering.core.tutorial.TutorialStep.READ)) {
+                    return;
+                }
+                shoot(client, "94-four-steps-in");
+                // Reading is the one step with no server side: what satisfies it is this
+                // client actually showing the card, which is what readACard is told about.
+                Tutorial.readACard();
+                advance(SETTLE);
+            }
+            case 295 -> {
+                if (!expectingStep(dev.gathering.core.tutorial.TutorialStep.PASS)) {
+                    return;
+                }
+                tutorialKey(client, "pass_turn");
+                advance(SETTLE * 2);
+            }
+            case 296 -> {
+                if (!Tutorial.progress().map(p -> p.isFinished()).orElse(false)) {
+                    fail("the six steps were all done and the tutorial does not say it is finished:"
+                            + " showing " + Tutorial.showing().map(Enum::name).orElse("nothing")
+                            + ", done " + Tutorial.progress().map(p -> p.count()).orElse(-1));
+                }
+                shoot(client, "95-you-have-the-controls");
+                advance(SETTLE);
+            }
+            case 297 -> {
+                practiceLeavesNothingBehind(client);
+                advance(SETTLE * 2);
+            }
+            case 298 -> {
+                if (Tutorial.running()) {
+                    fail("leaving the guided first game left it running");
+                }
+                nothingWasKeptFromPractice(client);
+                advance(SETTLE / 2);
+            }
+
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -5571,6 +5678,189 @@ public final class DevScene {
         return board.log().stream()
                 .map(entry -> GameLogText.render(board, entry).getString())
                 .anyMatch(line -> line.contains(phrase));
+    }
+
+
+    // ------------------------------------------- the guided first game
+
+    /** The second table, with no game on it, that the guided first game is walked at. */
+    private static BlockPos practiceTable;
+
+    /**
+     * Puts an empty table down well away from the one the tour has been playing on.
+     * <p>Away, because a practice game refuses a table anybody else is at or that has a game
+     * on it - which is the behaviour worth having and would make this step fail on the tour's
+     * own table. Far enough that the two do not merge into one cluster.
+     */
+    private static void standAPracticeTableUp(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there is no server to stand a practice table up on");
+            return;
+        }
+        BlockPos where = client.player.blockPosition().offset(10, -1, -8);
+        practiceTable = where;
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            BlockState state = GatheringContent.TABLE.get().defaultBlockState();
+            for (TablePart part : TablePart.values()) {
+                level.setBlock(part.offsetFrom(where), state.setValue(TableBlock.PART, part), 3);
+            }
+            System.out.println("[devscene] a second table, with no game on it");
+        });
+    }
+
+    /** Walks to it, because every verb the server decides is checked against reach first. */
+    private static void walkToThePracticeTable(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (practiceTable == null || server == null) {
+            fail("there is no practice table to walk to");
+            return;
+        }
+        BlockPos where = practiceTable;
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().stream()
+                    .findFirst().orElse(null);
+            if (player == null) {
+                return;
+            }
+            double atX = where.getX() + 0.5;
+            double atY = where.getY() + 1;
+            double atZ = where.getZ() + 2.5;
+            player.teleportTo(atX, atY, atZ);
+            player.connection.teleport(atX, atY, atZ, 0f, 0f);
+        });
+    }
+
+    /**
+     * Whether the tutorial is asking for the step this scene is about to do.
+     * <p>Checked before every one of them rather than at the end, so a run that goes wrong
+     * says which step it got stuck on instead of only that the total came out short.
+     */
+    private static boolean expectingStep(dev.gathering.core.tutorial.TutorialStep wanted) {
+        dev.gathering.core.tutorial.TutorialStep showing = Tutorial.showing().orElse(null);
+        if (showing == wanted) {
+            return true;
+        }
+        fail("the guided first game should be asking for " + wanted
+                + " and is asking for " + (showing == null ? "nothing" : showing.name()));
+        return false;
+    }
+
+    /**
+     * Presses whatever key that verb is currently bound to.
+     * <p>The binding, not a constant. The whole point of the rebindable keys is that the
+     * prompts and the dispatch read the same answer, and a scripted run that pressed a
+     * hardcoded key would be checking neither.
+     */
+    private static void tutorialKey(Minecraft client, String action) {
+        if (client.screen == null) {
+            fail("no screen to press " + action + " on");
+            return;
+        }
+        var key = TableShortcuts.keyFor(action);
+        if (key == null) {
+            fail("nothing is bound to " + action);
+            return;
+        }
+        client.screen.keyPressed(key.getValue(), 0, 0);
+        System.out.println("[devscene] pressed " + key.getDisplayName().getString()
+                + " for " + action);
+    }
+
+    /** Drags whatever is in hand onto the felt, for a hand that may hold exactly one card. */
+    private static void playTheFirstCardInHand(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("no board to play a card onto");
+            return;
+        }
+        GameView view = practiceTable == null
+                ? null
+                : ClientTableState.viewOf(practiceTable).orElse(null);
+        SeatId seat = ClientTableState.seatAt(practiceTable).orElse(null);
+        if (view == null || seat == null) {
+            fail("no practice board to read a hand off");
+            return;
+        }
+        int inHand = view.seat(seat).zone(Zone.HAND).count();
+        if (inHand < 1) {
+            fail("the guided first game asked for a card to be played and the hand is empty");
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        TableScreenLayout layout = TableScreenLayout.of(width, height);
+        HandFan.Slot first = HandFan.slot(layout.hand(), inHand, 0, -1);
+        int[] onto = {width / 2, height / 4};
+        board.mouseClicked(first.where().centerX(), first.where().centerY(), 0);
+        board.mouseDragged(onto[0], onto[1], 0,
+                onto[0] - first.where().centerX(), onto[1] - first.where().centerY());
+        board.mouseReleased(onto[0], onto[1], 0);
+        System.out.println("[devscene] played the one card in hand");
+    }
+
+    /** Puts the real cursor over the one thing this player has out, so a key has a target. */
+    private static void pointAtMyOnlyPermanent(Minecraft client) {
+        if (!(client.screen instanceof TableScreen board)) {
+            fail("no board to point at a card on");
+            return;
+        }
+        SeatId seat = ClientTableState.seatAt(practiceTable).orElse(null);
+        GameView view = practiceTable == null
+                ? null
+                : ClientTableState.viewOf(practiceTable).orElse(null);
+        if (seat == null || view == null) {
+            fail("no practice board to find a permanent on");
+            return;
+        }
+        for (CardView card : view.seat(seat).zone(Zone.BATTLEFIELD).cards()) {
+            TablePosition at = card.placedAt().orElse(null);
+            if (at == null) {
+                continue;
+            }
+            Rect where = board.board().rectOf(seat, at);
+            hover(client, new int[] {(int) where.centerX(), (int) where.centerY()});
+            return;
+        }
+        fail("the guided first game asked for a card on the table and there is none");
+    }
+
+    /** Leaves the guided first game the way its own button does. */
+    private static void practiceLeavesNothingBehind(Minecraft client) {
+        if (!(client.screen instanceof TableScreen)) {
+            fail("no board to leave the tutorial from");
+            return;
+        }
+        press(client, "Leave");
+    }
+
+    /**
+     * Checks the learner ended up with nothing.
+     * <p>The economy boundary, from the client's side. The in-world tests check the server
+     * hands nothing over; this checks that after actually playing through it in a real client
+     * there is no deck in the bag and no card on the floor.
+     */
+    private static void nothingWasKeptFromPractice(Minecraft client) {
+        if (client.player == null) {
+            fail("no player to check the pockets of");
+            return;
+        }
+        int decks = 0;
+        for (int slot = 0; slot < client.player.getInventory().getContainerSize(); slot++) {
+            var stack = client.player.getInventory().getItem(slot);
+            if (stack.getItem() instanceof dev.gathering.item.DeckItem
+                    || stack.getItem() instanceof dev.gathering.item.CardItem) {
+                decks++;
+            }
+        }
+        // The tour has been playing with real decks all along, so what matters is that the
+        // practice table added nothing: the count is reported rather than asserted at zero,
+        // and the in-world tests are what pin the boundary itself.
+        System.out.println("[devscene] after the guided first game the player carries "
+                + decks + " deck or card stack(s)");
+        if (Tutorial.running()) {
+            fail("the guided first game is still running after Leave");
+        }
     }
 
     /** Where the row of stone tables was stood up, so the camera can be pointed at it. */

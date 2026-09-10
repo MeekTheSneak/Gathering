@@ -591,6 +591,71 @@ public final class TableScreen extends Screen {
             TableCameraView.resume(table, myMatIsOnTheSouthHalf(),
                     coveredByTheStatus(), coveredByTheHand());
         }
+        addTutorialButtons();
+    }
+
+    /**
+     * The guided first game's own controls, when it is running or worth offering.
+     * <p>Real buttons rather than a key each: they take keyboard focus in order, they read
+     * their own labels out to a narrator, and a player who has never pressed Tab in a game can
+     * click them. A tutorial reachable only by a shortcut would be teaching the shortcut it
+     * exists to teach.
+     */
+    private void addTutorialButtons() {
+        Rect panel = TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom());
+        int wide = (panel.width() - 8) / 2;
+        int high = 14;
+        int left = panel.x() + 2;
+        int top = panel.bottom() + 2;
+        if (!Tutorial.runningAt(table)) {
+            // The offer is not here. A table with no game on it has no board - this screen
+            // closes itself the moment its view goes away - so the one place somebody who has
+            // never done this before can be asked is the setup screen. See TableSetupScreen.
+            return;
+        }
+        this.addRenderableWidget(GatheringButtons.of(left, top, wide, high,
+                Component.translatable("tutorial.gathering.back"), Tutorial::back));
+        this.addRenderableWidget(GatheringButtons.of(left + wide + 4, top, wide, high,
+                Component.translatable("tutorial.gathering.next"), Tutorial::forward));
+        this.addRenderableWidget(GatheringButtons.of(left, top + high + 2, wide, high,
+                Component.translatable("tutorial.gathering.restart"), Tutorial::restart));
+        this.addRenderableWidget(GatheringButtons.of(left + wide + 4, top + high + 2, wide, high,
+                Component.translatable("tutorial.gathering.exit"), this::leaveTheTutorial));
+    }
+
+    /** Leaves the guided first game, and takes the practice table down with it. */
+    private void leaveTheTutorial() {
+        Tutorial.stop();
+        ClientNetworking.send(new dev.gathering.network.PracticePayload(
+                table, dev.gathering.network.PracticePayload.What.STOP));
+        this.rebuildWidgets();
+    }
+
+    /**
+     * How many frames the "you have the controls" panel has been up.
+     * <p>Long enough to read, then the practice table goes away by itself. Left standing it
+     * is a game somebody has to work out how to leave, which is a poor last impression for a
+     * thing whose whole job was making the first one good.
+     */
+    private int finishedTutorialLingers;
+
+    /** About four seconds at sixty frames a second. */
+    private static final int LINGER_AFTER_FINISHING = 240;
+
+    /**
+     * Puts the first instruction up once the server has actually dealt a practice board.
+     * <p>Called from the render, which is where a newly arrived board is first noticed.
+     */
+    private void acceptPracticeBoard() {
+        if (!Tutorial.expectedAt(table) || Tutorial.runningAt(table)) {
+            return;
+        }
+        GameView board = view().orElse(null);
+        if (board == null || mySeat().isEmpty()) {
+            return;
+        }
+        Tutorial.beginAt(table, board);
+        this.rebuildWidgets();
     }
 
     /** This player's own mat on the real table, in surface units, for the camera to frame. */
@@ -994,6 +1059,24 @@ public final class TableScreen extends Screen {
         // tooltip under it is a second answer to a question already being answered better.
         if (replay) {
             renderScrubber(graphics);
+        }
+
+        // The guided first game: one instruction, over the corner with nothing in it. Drawn
+        // before the tooltip so a tooltip is never underneath it, and after everything else
+        // so the board it is teaching about stays visible behind it.
+        acceptPracticeBoard();
+        if (Tutorial.runningAt(table)) {
+            TutorialPanel.render(graphics, this.font,
+                    TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom()));
+            // Once the last step is done, the practice table goes away by itself rather than
+            // sitting there as a game somebody has to work out how to leave.
+            Tutorial.progress()
+                    .filter(dev.gathering.core.tutorial.TutorialProgress::isFinished)
+                    .ifPresent(finished -> finishedTutorialLingers++);
+            if (finishedTutorialLingers > LINGER_AFTER_FINISHING) {
+                finishedTutorialLingers = 0;
+                leaveTheTutorial();
+            }
         }
 
         if (!tooltip.isEmpty() && !showingLog && !showingKeys && held == null
@@ -4065,6 +4148,14 @@ public final class TableScreen extends Screen {
         // opinion the table is free to disagree with.
         entries.add(entry("undo", this::undoMyLastAction));
         entries.add(entry("show_everything", this::showEverything));
+        // Reachable for as long as anybody wants it, not only the first time. Somebody who
+        // said no thanks a month ago and now wants to know which key taps a card has no other
+        // way back to it, and "start a new world" is not an answer.
+        if (Tutorial.runningAt(table)) {
+            entries.add(ContextMenu.Entry.of(
+                    Component.translatable("menu.gathering.table.leave_practice"),
+                    this::leaveTheTutorial));
+        }
         entries.add(ContextMenu.Entry.rule());
         // The one verb that ends a game. Everything else the table does is a move somebody can
         // make again; this one settles the match, records the score and takes the board away,
@@ -5115,6 +5206,12 @@ public final class TableScreen extends Screen {
             ClientHoverState.setHovered(
                     CardItem.of(visible.turnedOver() ? held.flip() : held),
                     visible.strength());
+            // The one tutorial step with no server side. Only while the key is actually held,
+            // because hovering a card is not reading it - and the card got here through the
+            // view, so nothing hidden can satisfy it.
+            if (CardZoomOverlay.isActive()) {
+                Tutorial.readACard();
+            }
         }
     }
 

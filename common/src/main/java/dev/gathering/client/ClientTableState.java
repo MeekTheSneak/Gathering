@@ -88,6 +88,9 @@ public final class ClientTableState {
         if (seated) {
             seatedAt = table.immutable();
         }
+        // The guided first game watches confirmed boards rather than presses. This is where a
+        // confirmed board arrives, so it is the only place that could tell it.
+        Tutorial.sawBoard(table, board);
     }
 
     /** The pot at this table, which is empty at almost every table there will ever be. */

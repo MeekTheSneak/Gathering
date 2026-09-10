@@ -63,6 +63,38 @@ public final class TableShortcuts {
         // question Minecraft has already asked them.
     }
 
+    /**
+     * How to ask this loader which key a mapping currently sits on.
+     * <p>The one thing vanilla will not answer: {@code KeyMapping#getKey} is a NeoForge
+     * addition and Fabric has a helper of its own, so the loader supplies the lookup exactly
+     * as it does for the read key - see {@link ZoomKeyState}. Until one does, the default key
+     * is the honest answer: it is what the mapping was built with.
+     */
+    private static volatile java.util.function.Function<KeyMapping, InputConstants.Key> boundKey =
+            KeyMapping::getDefaultKey;
+
+    /** Bound at client init to whichever lookup this loader offers. */
+    public static void bindKeyLookup(
+            java.util.function.Function<KeyMapping, InputConstants.Key> lookup) {
+        if (lookup != null) {
+            boundKey = lookup;
+        }
+    }
+
+    /**
+     * Which key that verb is on right now, or null for one with no key.
+     * <p>For anything that has to press it rather than print it - which is the scripted run,
+     * and is the only way that run can check that the prompts and the dispatch agree.
+     */
+    public static InputConstants.Key keyFor(String actionId) {
+        KeyMapping mapping = MAPPINGS.get(actionId);
+        if (mapping == null || mapping.isUnbound()) {
+            return null;
+        }
+        InputConstants.Key key = boundKey.apply(mapping);
+        return key == null || key.getValue() == GLFW.GLFW_KEY_UNKNOWN ? null : key;
+    }
+
     private static final Map<String, KeyMapping> MAPPINGS = build();
 
     private static Map<String, KeyMapping> build() {

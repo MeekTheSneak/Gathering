@@ -52,9 +52,13 @@ public final class TableSetupScreen extends Screen {
     @Override
     protected void init() {
         List<FormatPreset> formats = FormatPresets.all();
+        // The last term is the guided first game's row and the line above it saying what it
+        // is. Counted here rather than left to overflow: a button drawn past the bottom of
+        // the panel is a button on the felt.
         int height = MARGIN * 2 + ROW_HEIGHT * 3 + GAP * 3
                 + rowsFor(formats.size() + 1) * (ROW_HEIGHT + GAP)
-                + (ROW_HEIGHT + GAP) * 2;
+                + (ROW_HEIGHT + GAP) * 2
+                + ROW_HEIGHT + GAP * 3;
         panel = new Rect(
                 (this.width - PANEL_WIDTH) / 2,
                 Math.max(MARGIN, (this.height - height) / 2),
@@ -113,6 +117,33 @@ public final class TableSetupScreen extends Screen {
         addRenderableWidget(GatheringButtons.of(
                 panel.right() - MARGIN - half, decideTop, half, ROW_HEIGHT,
                 Component.translatable("screen.gathering.setup.start"), this::start));
+
+        // The guided first game lives here because this is the screen somebody who has never
+        // done this before is actually looking at. A table with no game on it has no board,
+        // so there is no board screen to offer it on - which is exactly the moment it is
+        // wanted. Always offered, not only the first time: somebody who said no a month ago
+        // and now wants to know which key taps a card has nowhere else to go.
+        learnTop = decideTop + ROW_HEIGHT + GAP * 2;
+        addRenderableWidget(GatheringButtons.of(
+                panel.x() + MARGIN, learnTop, panel.width() - MARGIN * 2, ROW_HEIGHT,
+                Component.translatable("tutorial.gathering.offer.yes"), this::learn));
+    }
+
+    /** Where the "learn the controls" row sits, so its explanation can be drawn above it. */
+    private int learnTop;
+
+    /**
+     * Asks for a practice game and gets out of the way.
+     * <p>The screen closes on the press rather than waiting: what comes back is a board, and
+     * the board opens itself. If the server refuses - somebody else sat down in the meantime -
+     * the refusal is a line of chat and this screen is gone, which is the right outcome for a
+     * table that is no longer free.
+     */
+    private void learn() {
+        ClientNetworking.send(new dev.gathering.network.PracticePayload(
+                table, dev.gathering.network.PracticePayload.What.START));
+        Tutorial.expectAt(table);
+        onClose();
     }
 
     private static int rowsFor(int formats) {
@@ -174,6 +205,13 @@ public final class TableSetupScreen extends Screen {
                         format.displayName(), bestOf, format.startingLife());
         GuiText.drawCentered(graphics, this.font, chosen,
                 panel.x() + panel.width() / 2, panel.bottom() - 12, panel.width() - MARGIN * 2, DIM);
+
+        // Said above the button rather than inside it, because it is the sentence that makes
+        // the button worth pressing and it does not fit on one.
+        GuiText.drawCentered(graphics, this.font,
+                Component.translatable("tutorial.gathering.offer"),
+                panel.x() + panel.width() / 2, learnTop - this.font.lineHeight - 1,
+                panel.width() - MARGIN * 2, DIM);
         chosenSaid = chosen.getString();
     }
 

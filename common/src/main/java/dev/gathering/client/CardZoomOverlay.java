@@ -27,12 +27,36 @@ public final class CardZoomOverlay {
 
     private static volatile BooleanSupplier keyHeld = () -> false;
 
+    /**
+     * What the read key is called, asked of the loader that registered it.
+     * <p>Bound the same way {@link #keyHeld} is, and for the same reason: which key a mapping
+     * currently sits on is the one thing this cannot answer on its own. Anything that tells a
+     * player how to read a card asks here rather than writing "Alt", which stops being true
+     * the moment they rebind it.
+     */
+    private static volatile java.util.function.Supplier<net.minecraft.network.chat.Component>
+            keyName = () -> net.minecraft.network.chat.Component.translatable(
+                    "screen.gathering.table.key_unbound");
+
     private CardZoomOverlay() {
     }
 
     /** Bound at client init to whichever key mapping the loader registered. */
     public static void bindKeyState(BooleanSupplier held) {
         keyHeld = held;
+    }
+
+    /** Bound at client init to the same mapping's current name. */
+    public static void bindKeyName(
+            java.util.function.Supplier<net.minecraft.network.chat.Component> named) {
+        if (named != null) {
+            keyName = named;
+        }
+    }
+
+    /** What to call the read key when telling somebody how to read a card. */
+    public static net.minecraft.network.chat.Component keyName() {
+        return keyName.get();
     }
 
     public static boolean isActive() {
