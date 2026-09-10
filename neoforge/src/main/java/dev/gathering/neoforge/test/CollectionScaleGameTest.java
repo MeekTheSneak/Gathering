@@ -52,6 +52,36 @@ public final class CollectionScaleGameTest {
      */
     private static final long SEARCH_BUDGET_MILLIS = 1_500L;
 
+    /**
+     * How much dearer the big box may be than the small one for the same hundred gestures.
+     * <p>Ten. A map lookup does not care how large the map is, so the honest answer is about
+     * one; ten leaves room for cache behaviour and a garbage collection landing in the middle
+     * of one of the two measurements. A pass per row would be three thousand.
+     */
+    private static final int A_HONEST_DIFFERENCE = 10;
+
+    /** Added so two measurements that are both essentially nothing do not divide badly. */
+    private static final long A_MILLISECOND_OF_NOISE = 1_000_000L;
+
+    /** A hundred puts and takes of one card, in nanoseconds. */
+    private static long putAndTake(CollectionBlockEntity box, CardIdentity card) {
+        long began = System.nanoTime();
+        for (int again = 0; again < 100; again++) {
+            box.put(card, 1);
+            box.take(card, 1);
+        }
+        return System.nanoTime() - began;
+    }
+
+    /** A box the size every other test in this repository uses. */
+    private static CardTally aFewCards() {
+        CardTally.Builder few = CardTally.builder();
+        for (int index = 0; index < 8; index++) {
+            few.add(CardIdentity.ofPrinting(printingNumber(index), false), COPIES);
+        }
+        return few.build();
+    }
+
     @GameTest(template = "empty")
     public static void aRealSizedCollectionStillSearches(GameTestHelper helper) {
         BlockPos where = collection(helper);
@@ -140,19 +170,33 @@ public final class CollectionScaleGameTest {
         box.putAll(manyCards());
         CardIdentity wanted = CardIdentity.ofPrinting(printingNumber(DISTINCT / 2), false);
 
-        long began = System.nanoTime();
-        for (int again = 0; again < 100; again++) {
-            box.put(wanted, 1);
-            box.take(wanted, 1);
-        }
-        long took = (System.nanoTime() - began) / 1_000_000L;
+        // Against a small box rather than against a clock. What this is for is the shape of
+        // the cost - a click that is instant at fifty cards and takes a second at ten thousand
+        // - and that is a ratio. Written as an absolute it measured the machine instead: this
+        // sat just under its budget and started failing whenever anything else in the run
+        // allocated, which is a test reporting on its neighbours.
+        BlockPos small = collection(helper, 3, 2, 1);
+        CollectionBlockEntity tiny = boxAt(helper, small);
+        tiny.putAll(aFewCards());
+        CardIdentity oneOfTheFew = CardIdentity.ofPrinting(printingNumber(0), false);
+
+        long smallNanos = putAndTake(tiny, oneOfTheFew);
+        long largeNanos = putAndTake(box, wanted);
 
         if (box.cards().of(wanted) != COPIES) {
             helper.fail("a hundred puts and takes left " + box.cards().of(wanted) + " copies");
             return;
         }
-        if (took > SEARCH_BUDGET_MILLIS) {
-            helper.fail("a hundred puts and takes on a large box took " + took + "ms");
+        System.out.println("[collection] a hundred puts and takes: " + (smallNanos / 1000)
+                + "us at " + tiny.cards().distinct() + " rows, " + (largeNanos / 1000)
+                + "us at " + box.cards().distinct() + " rows");
+        // A pass that became a pass per row would be three thousand times dearer here. Ten is
+        // far past any honest difference in cache behaviour and far short of that.
+        if (largeNanos > smallNanos * A_HONEST_DIFFERENCE + A_MILLISECOND_OF_NOISE) {
+            helper.fail("a hundred puts and takes cost " + (largeNanos / 1000) + "us on a box of "
+                    + box.cards().distinct() + " against " + (smallNanos / 1000)
+                    + "us on a box of " + tiny.cards().distinct()
+                    + ", so the cost is following the size of the box");
             return;
         }
         helper.succeed();
@@ -176,7 +220,12 @@ public final class CollectionScaleGameTest {
     }
 
     private static BlockPos collection(GameTestHelper helper) {
-        BlockPos where = helper.absolutePos(new BlockPos(1, 2, 1));
+        return collection(helper, 1, 2, 1);
+    }
+
+    /** A second box, for a test that compares one size against another. */
+    private static BlockPos collection(GameTestHelper helper, int x, int y, int z) {
+        BlockPos where = helper.absolutePos(new BlockPos(x, y, z));
         helper.getLevel().setBlock(
                 where, GatheringContent.COLLECTION.get().defaultBlockState(), 3);
         return where;

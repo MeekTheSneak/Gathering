@@ -107,13 +107,19 @@ public final class MtgjsonFeed {
         }
 
         Map<String, UUID> bridge = new LinkedHashMap<>();
+        // The colors of every card the sheets can reach, gathered the same way and from the
+        // same files as the identity bridge. A balanced sheet is cut so the strip a pack
+        // comes off crosses all five colors, and reproducing that needs to know which color
+        // each card is - which the sheets themselves do not say and the set files do.
+        Map<UUID, String> colors = new LinkedHashMap<>();
         Set<String> asked = new LinkedHashSet<>();
         asked.add(code);
         List<String> troubles = new ArrayList<>();
         MtgjsonCollation.Reading reading;
         try {
             bridge.putAll(MtgjsonCollation.printings(file));
-            reading = MtgjsonCollation.read(file, bridge);
+            colors.putAll(MtgjsonCollation.colors(file));
+            reading = MtgjsonCollation.read(file, bridge, colors);
         } catch (BoosterCodecException notCollation) {
             // A file that arrived and is not what this thinks a set file is. Reported as a
             // set with no collation rather than as a failure, because that is what it means
@@ -156,6 +162,7 @@ public final class MtgjsonFeed {
                         continue;
                     }
                     bridge.putAll(MtgjsonCollation.printings(fetched.get()));
+                    colors.putAll(MtgjsonCollation.colors(fetched.get()));
                     anythingNew = true;
                 } catch (IOException couldNotFetch) {
                     troubles.add(companion + " could not be fetched: "
@@ -168,7 +175,7 @@ public final class MtgjsonFeed {
                 break;
             }
             try {
-                reading = MtgjsonCollation.read(file, bridge);
+                reading = MtgjsonCollation.read(file, bridge, colors);
             } catch (BoosterCodecException notCollation) {
                 // It read once already, so this cannot happen for the file itself - only for
                 // something a companion brought with it. Kept rather than thrown away: what

@@ -85,6 +85,19 @@ public final class DiskCardMetadataStore extends InMemoryCardMetadataStore {
     }
 
     /**
+     * Whether this printing is in the cache at all, without reading or parsing it.
+     * <p>One stat call. The difference between this and {@link #find} is the difference
+     * between asking whether a file exists and reading a few kilobytes of JSON and building
+     * an object out of it - about a microsecond against about a millisecond - and that
+     * difference is what lets a caller on the game thread tell "not indexed yet" from "this
+     * server has never heard of it". The first is worth waiting for off the thread; the second
+     * is never going to arrive and waiting for it is a player standing at a table for nothing.
+     */
+    public boolean isOnDisk(java.util.UUID printing) {
+        return printing != null && Files.isRegularFile(fileFor(printing));
+    }
+
+    /**
      * The same answer, but only for a printing this process has already touched.
      * <p>What a caller on the game thread asks. {@link #cachedAt} will go to the disk for a
      * printing it has not seen, which is right on the card executor and wrong in a tick.

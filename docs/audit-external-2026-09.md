@@ -49,19 +49,59 @@ rounded up.
 | Protocol and release hygiene | The NeoForge protocol is `2` and the mod is `0.2.0`. Several payload shapes changed incompatibly; a mixed pair now refuses to connect instead of failing inside a decoder. |
 | Documentation claims | This file. |
 
+## The three that were open, and are not any more
+
+- **G-39 — booster collation fidelity. Done.** Colours are balanced. A slot of five or more
+  off a sheet the published data calls balanced takes one card of each of white, blue, black,
+  red and green first, each drawn from that colour's own share of the sheet at that share's own
+  weights, and the rest of the slot drawn from the whole sheet as before; the slot is then
+  shuffled so a pack does not arrive in WUBRG order. That is the shape of the physical cut
+  rather than a rejection loop, so it costs one draw per card and a seed still opens exactly
+  one pack. Companion sets were already resolved before an arrangement is used, and their
+  colours are joined the same way. Verified against the real Dominaria United file fetched from
+  MTGJSON: both of its balanced sheets balance, and forty packs of each arrangement hold all
+  five colours. Disabling the rule fails that test. What is still approximate is stated in the
+  design brief: a sheet the data calls balanced that cannot be balanced here — an empty colour
+  column, or no colours read for its cards — is drawn by weight and says so in the notes.
+- **G-24 — the deck check off the game thread. Done.** It answers from the in-memory index or
+  says it cannot yet; the caller shows "Checking your deck…", the cache files are read on the
+  card thread, and the deck goes down when the answer arrives. Never the network: waiting on
+  Scryfall would hold a player at the table for somebody else's timeout, so an unwarmed
+  printing is read from disk and a printing that is not on the disk stays unknown, which the
+  check reads as no opinion. The retry happens once, so a card nothing has ever heard of
+  cannot loop.
+- **G-25 — the replay's first load and its re-folds. Done, and measured.** A step forward is
+  one record applied to a board that is already there, and stays on the server thread. Opening
+  a replay reads a whole file, and a scrub backwards folds the game again from the front; both
+  moved to a replay thread, with one job per watcher so two folds cannot race on one held
+  game. The numbers, printed by the game test on a 605-step game: **open 3–10 ms, one step
+  forward 1.5–2 ms, rewind into the middle 25–27 ms.** Twenty-five milliseconds is half a tick,
+  per frame, per watcher, on a scrubber somebody is dragging — which is what the split is for.
+  The test asserts the *rule* and prints the numbers: a rewind has to stay multiples dearer
+  than a step forward, or the split is ceremony and should go. It does not assert a microsecond
+  budget — two drafts did, and the same code printed 1.4 ms, 2.3 ms and 11.7 ms across three
+  runs of a shared test server. A wall-clock budget inside a run of three hundred tests
+  measures the machine and its neighbours.
+
+## And one the profiling found on the way past
+
+Rewriting the collection's own scale test the same way — a ratio against a small box rather
+than an absolute budget — turned up something the absolute version had been passing over for
+its whole life. `CardTally` is a value: every `plus` and `take` copies the whole map. A
+collection block held one, so **a hundred puts and takes cost 2 ms on a box of eight and 251 ms
+on a box of ten thousand** — and sleeving a hundred-card deck out of a large box is a hundred
+of those, in one tick. The box now keeps its counts in a plain map that a put touches one entry
+of, and builds the value form when somebody asks for it. The same measurement afterwards: **686
+µs at eight rows, 436 µs at ten thousand.** The old test passed throughout, because 251 ms is
+under a 1.5-second budget; what it was really measuring was whether the machine was busy, and
+it had started failing whenever anything else in the run allocated.
+
 ## What is still open, stated plainly
 
-- **G-39 — booster collation fidelity.** Colour balancing and complete companion-set handling
-  are not implemented. The contract is written down in the design brief and a made-up pack
-  says so in the chat line that hands it over. This stays open until it is built and exercised
-  against complete real product data.
-- **G-24 / G-25 — the remaining blocking work.** `DeckCheck` still reads the store on the game
-  thread once per deck check, and the first load of a long replay and its re-folds are still
-  synchronous. Both are bounded, both are once-per-action rather than per-frame, and neither
-  has been profiled. They are smaller than they were and they are not finished.
-- **Anything only a graphical client can answer.** The scripted client run (`tools/shots.sh`)
-  drives real screens and asserts as it goes, but it is not proof about frame times, and no
-  third-party modpack has been tested against this.
+- **Anything only a graphical client can answer beyond what the scripted run covers.** The
+  scripted client run (`tools/shots.sh`) drives real screens and asserts as it goes, and it
+  found things nothing headless could — but it is not a frame-time measurement, and no
+  third-party modpack has been tested against this. Both need somebody's own machine.
 
 ## What the scripted client found that nothing else could
 

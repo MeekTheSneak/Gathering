@@ -229,6 +229,107 @@ public final class ReplayGameTest {
     // ------------------------------------------------------------------ setup
 
     /**
+     * A long game is opened and scrubbed without any of that happening in a tick.
+     * <p>The reviewer's point, and it was fair: replay headers were streamed and cached, and
+     * the two costs that actually matter were left where they were. Opening a replay reads a
+     * whole file and deserializes every record; a scrub backwards folds the game again from
+     * the front, which measured at two thirds of a tick on a four-thousand-event game - per
+     * frame, per watcher, several times a second while a bar is being dragged.
+     * <p>So this builds a game long enough to be worth measuring, folds it both ways, and
+     * prints what each costs. It asserts on the one thing that is a rule rather than a number:
+     * a step <em>forward</em> stays cheap, because that is the only case the server thread
+     * still does itself. The rest is printed so a change that makes it worse is visible in a
+     * run rather than discovered by a player dragging a scrubber.
+     */
+    @GameTest(template = "empty")
+    public static void alongReplayIsFoldedOffTheTick(GameTestHelper helper) {
+        withReplaysOn(helper, () -> {
+            GameSession session = aLongGame(LONG_ENOUGH_TO_MEASURE);
+            Replays.keep(session, 40, twoPlayers());
+            Replays.Record kept = newest().orElse(null);
+            if (kept == null) {
+                helper.fail("nothing was kept");
+                return;
+            }
+
+            long openedAt = System.nanoTime();
+            Replays.Watching watching = Replays.hold(kept.id()).orElse(null);
+            long openMicros = (System.nanoTime() - openedAt) / 1000;
+            if (watching == null) {
+                helper.fail("a long replay would not open");
+                return;
+            }
+
+            // Forward, one step at a time: what playback does, and the only thing the server
+            // thread still does for itself.
+            watching.frameAt(0);
+            long steppedAt = System.nanoTime();
+            for (int step = 1; step <= 20; step++) {
+                watching.frameAt(step);
+            }
+            long stepMicros = (System.nanoTime() - steppedAt) / 1000 / 20;
+
+            // Backwards into the middle, which restores the session and folds half the game
+            // again. Not to the front: a fold to step zero restores from no records at all,
+            // which is the one rewind that costs nothing and would have measured this as
+            // cheap while a dragged scrubber was costing two thirds of a tick a frame.
+            watching.frameAt(watching.steps());
+            long rewoundAt = System.nanoTime();
+            watching.frameAt(watching.steps() / 2);
+            long rewindMicros = (System.nanoTime() - rewoundAt) / 1000;
+
+            System.out.println("[replay] " + watching.steps() + " steps: open " + openMicros
+                    + "us, one step forward " + stepMicros + "us, rewind into the middle "
+                    + rewindMicros + "us");
+
+            // The rule rather than the number, and only the rule. A microsecond budget taken
+            // inside a shared game-test run measures the machine and its neighbours: two
+            // drafts of this asserted an absolute ceiling on a step forward and the same code
+            // printed 1.4 ms, 2.3 ms and 11.7 ms across three runs, failing two of them. What
+            // does hold across all of that is the shape - a rewind stays multiples dearer than
+            // a step forward, which is the whole reason one of them is on another thread. The
+            // numbers are printed for a person to read; this is what fails a build.
+            if (rewindMicros < stepMicros * WORTH_A_THREAD) {
+                helper.fail("rewinding costs " + rewindMicros + "us against a step forward's "
+                        + stepMicros + "us, so there is nothing here worth a worker thread");
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * How many moves the game to be measured has.
+     * <p>Long enough that folding it is a real cost and short enough that building it does not
+     * leave a heap's worth of garbage for the wall-clock tests sharing this run - two thousand
+     * did, and the collection scale test next door started failing its own budget.
+     */
+    private static final int LONG_ENOUGH_TO_MEASURE = 600;
+
+    /**
+     * How much dearer a rewind has to be than a step forward before moving it is worth it.
+     * <p>It measures around seventeen times. Three is the point at which the split stops
+     * paying for itself, and if this ever fails the split should go rather than the number.
+     */
+    private static final int WORTH_A_THREAD = 3;
+
+    /** A game with a lot in it, so folding it is worth measuring. */
+    private static GameSession aLongGame(int moves) {
+        GameSession session = GameSession.create(
+                List.of(ALICE, BOB), 40, seed(), UndoMode.shippedDefault());
+        session.submit(new GameEvent.SeatTaken(ALICE, new PlayerRef(UUID.randomUUID(), "Alice")));
+        session.submit(new GameEvent.SeatTaken(BOB, new PlayerRef(UUID.randomUUID(), "Bob")));
+        session.submit(new GameEvent.DeckLoaded(ALICE, deck(200), List.of()));
+        session.submit(new GameEvent.DeckLoaded(BOB, deck(200), List.of()));
+        for (int move = 0; move < moves; move++) {
+            SeatId who = move % 2 == 0 ? ALICE : BOB;
+            session.submit(new GameEvent.LifeChanged(who, who, move % 2 == 0 ? -1 : 1));
+        }
+        session.submit(new GameEvent.SessionEnded(ALICE, "test"));
+        return session;
+    }
+
+    /**
      * Two seats, two decks, three cards drawn, and a game that is over.
      * <p>Deliberately a game with something hidden in it. A replay of a board where every card
      * was already face up would pass every check here while proving nothing.

@@ -332,13 +332,18 @@ The draft engine itself (pod state, pack passing, pick resolution) is a pure-cor
 
 An external audit asked what a pack in this mod claims to be, so it is written down here rather than left to be inferred from the code.
 
-A pack is opened from the published collation for its set where one can be read: MTGJSON's sheets, their weights and their arrangements. Three things about that are approximations, and each is disclosed rather than hidden:
+A pack is opened from the published collation for its set where one can be read: MTGJSON's sheets, their weights and their arrangements.
 
-- **Colour balancing is not implemented.** A real draft booster balances the colours of its commons; this one draws them by weight. The reader records that per sheet, and the fixture run prints it.
-- **Cards printed in another set are left off a sheet** when the companion file has not been read, which makes a sheet slightly smaller than the printed one.
+**Colours are balanced.** A print sheet is a physical grid, and the commons sheet of nearly every set is laid out so the strip a pack is cut from crosses all five colours - which is why a real booster is never five commons of one colour. MTGJSON publishes which sheets that is true of, and the mod reproduces it: a slot of five or more off a balanced sheet takes one card of each of white, blue, black, red and green first, each drawn from that colour's own share of the sheet at that share's own weights, and the rest of the slot drawn from the whole sheet as before. Only mono-coloured cards count toward a column, because a gold card is not what makes a pack's blue slot blue. The slot is then shuffled, so a pack does not arrive in WUBRG order. This is the shape of the physical cut rather than a rejection loop, so it costs one draw per card, cannot fail to terminate, and a seed still opens exactly one pack. Verified against the real Dominaria United file: both of its balanced sheets balance, and forty packs of each of its arrangements hold all five colours.
+
+**Companion sets are resolved before an arrangement is used.** A sheet may name cards printed in another set - the List slot in a modern set booster is nothing else - and the reader follows every set a file names, joining their cards and their colours, until nothing new arrives. A companion that will not come is a note against that pack rather than a failure of the whole set, and the note says which file to fetch.
+
+Two things remain approximations, and each is disclosed rather than hidden:
+
+- **A sheet the data calls balanced that cannot be balanced here** - because a colour column is empty, or because no colours were read for its cards - is drawn by weight and says so in the reading's notes, so an admin looking at a set that opens oddly has somewhere to look.
 - **A set with no published arrangement gets a pack cut from the set itself**, every common as likely as every other. The player is told this every time such a pack is opened, because it is a different object from a real booster.
 
-What the mod does not claim is that opening a thousand of these reproduces the distribution of a thousand real ones. Getting there means resolving companion sets before an official arrangement is used and implementing colour balancing, and until both are done the honest position is the one above: published where published, cut where not, and said out loud either way.
+What the mod still does not claim is that opening a thousand of these reproduces the distribution of a thousand real ones down to the card - Wizards does not publish a sheet's exact layout, and nobody can. What it does claim is that every property the published data states is reproduced, and every one it does not is said out loud.
 
 ## 11. Events and gyms (phase 4)
 

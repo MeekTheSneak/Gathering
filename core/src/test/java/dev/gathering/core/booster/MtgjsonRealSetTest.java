@@ -197,6 +197,84 @@ class MtgjsonRealSetTest {
         return new java.util.LinkedHashSet<>(data.getAsJsonObject("booster").keySet());
     }
 
+    /**
+     * Every sheet a real set says is color balanced actually is, and its packs prove it.
+     * <p>The one part of collation that is not just weights, and the one this mod used to
+     * write a note about and then not do. Dominaria United's draft and arena boosters both
+     * declare a balanced common sheet of a hundred and one cards; a pack off one of those has
+     * to hold all five colors, every time, or the balancing is not happening.
+     */
+    @Test
+    @DisplayName("every balanced sheet a real set declares opens packs with all five colors")
+    void realBalancedSheetsBalance() throws Exception {
+        List<Path> files = setFiles();
+        Assumptions.assumeTrue(!files.isEmpty(),
+                "set GATHERING_MTGJSON_DIR to a directory of MTGJSON set files to run this");
+
+        int sheetsChecked = 0;
+        for (Path file : files) {
+            JsonObject json = read(file);
+            MtgjsonCollation.Reading reading = MtgjsonCollation.read(json);
+            for (BoosterConfig config : reading.packs().values()) {
+                for (BoosterSheet sheet : config.sheets().values()) {
+                    if (!sheet.balanced()) {
+                        continue;
+                    }
+                    assertThat(ColorBalance.applies(sheet, ColorBalance.NEEDS_AT_LEAST))
+                            .describedAs("%s says %s is balanced and it cannot be",
+                                    config.id(), sheet.name())
+                            .isTrue();
+                    sheetsChecked++;
+                }
+                if (!opensABalancedSlot(config)) {
+                    continue;
+                }
+                for (int pack = 0; pack < 40; pack++) {
+                    OpenedPack opened = BoosterOpener.open(config, seed(), config.id() + pack);
+                    assertThat(colorsIn(opened, config))
+                            .describedAs("%s pack %s", config.id(), pack)
+                            .contains('W', 'U', 'B', 'R', 'G');
+                }
+            }
+        }
+        Assumptions.assumeTrue(sheetsChecked > 0,
+                "none of the set files here declares a color balanced sheet");
+        System.out.println(sheetsChecked + " balanced sheet(s) checked across "
+                + files.size() + " set file(s)");
+    }
+
+    /** Whether any arrangement of this config takes five or more off a balanced sheet. */
+    private static boolean opensABalancedSlot(BoosterConfig config) {
+        for (BoosterVariant variant : config.variants()) {
+            for (java.util.Map.Entry<String, Integer> slot : variant.slots().entrySet()) {
+                BoosterSheet sheet = config.sheets().get(slot.getKey());
+                if (ColorBalance.applies(sheet, slot.getValue())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** The mono colors in a pack, read off whichever sheet knows about each card. */
+    private static List<Character> colorsIn(OpenedPack pack, BoosterConfig config) {
+        List<Character> found = new ArrayList<>();
+        for (dev.gathering.core.card.CardIdentity card : pack.cards()) {
+            java.util.UUID printing = card.printing().orElse(null);
+            if (printing == null) {
+                continue;
+            }
+            for (BoosterSheet sheet : config.sheets().values()) {
+                String letters = sheet.colorOf(printing);
+                if (letters.length() == 1) {
+                    found.add(letters.charAt(0));
+                    break;
+                }
+            }
+        }
+        return found;
+    }
+
     /** The set files to read, or an empty list where there are none to read. */
     private static List<Path> setFiles() throws IOException {
         String where = System.getenv("GATHERING_MTGJSON_DIR");

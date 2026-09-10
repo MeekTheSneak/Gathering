@@ -50,6 +50,7 @@ public final class ReplayWatch {
     /** Between servers, and when somebody logs out with a replay open. */
     public static void forget(java.util.UUID who) {
         OPEN.remove(who);
+        WORKING.remove(who);
         LAST_FRAME.remove(who);
         WAITING.remove(who);
         WAITING_ON.remove(who);
@@ -59,6 +60,8 @@ public final class ReplayWatch {
     /** Between servers: one world's replays are not the next one's. */
     public static void clear() {
         OPEN.clear();
+        WORKING.clear();
+        Replays.stopWorking();
         LAST_FRAME.clear();
         WAITING.clear();
         WAITING_ON.clear();
@@ -209,6 +212,24 @@ public final class ReplayWatch {
         answerFrame(player, id, step);
     }
 
+    /**
+     * Watchers whose replay is being read or folded on the worker right now.
+     * <p>A held replay is a folded game that {@code frameAt} walks forward and rebuilds
+     * backward, so two jobs on one watcher's replay would be two halves of two boards. While
+     * a watcher is in here the server thread does not touch their {@code Watching} at all -
+     * a frame asked for meanwhile waits on the throttle like any other.
+     */
+    private static final java.util.Set<java.util.UUID> WORKING = new java.util.HashSet<>();
+
+    /**
+     * How many records a step forward may apply before it is worth leaving the tick.
+     * <p>Playback asks for the next step several times a second and each of those is a single
+     * record applied to a board that is already there - a handful of microseconds, and moving
+     * it to another thread would cost more in hops than it saved. A scrub of a hundred steps
+     * is a different thing.
+     */
+    private static final int CHEAP_ENOUGH_TO_DO_HERE = 8;
+
     /** The frame itself, once the throttle has let it through. Server thread only. */
     private static void answerFrame(ServerPlayer player, String id, int step) {
         // Checked here as well as when the list went out. The list is a courtesy; this is the
@@ -223,15 +244,88 @@ public final class ReplayWatch {
             player.sendSystemMessage(Component.translatable("message.gathering.replay_unreadable"));
             return;
         }
-        Replays.Watching watching = heldFor(player, id);
-        if (watching == null) {
-            player.sendSystemMessage(Component.translatable("message.gathering.replay_unreadable"));
+        if (WORKING.contains(player.getUUID())) {
+            // Their last frame is still being folded. Kept rather than dropped, and answered
+            // when that finishes - the drain runs again on the tick after.
+            WAITING.put(player.getUUID(), new int[] {step});
+            WAITING_ON.put(player.getUUID(), id);
+            drainWhenAllowed(player);
             return;
+        }
+
+        Replays.Watching open = OPEN.get(player.getUUID());
+        boolean alreadyOpen = sameReplay(open, id);
+        int wanted = alreadyOpen ? Math.clamp(step, 0, open.steps()) : Math.max(0, step);
+        boolean cheap = alreadyOpen
+                && wanted >= open.stepNow()
+                && wanted - open.stepNow() <= CHEAP_ENOUGH_TO_DO_HERE;
+        if (cheap) {
+            sendTheFrame(player, id, open, wanted);
+            return;
+        }
+
+        // Opening a replay reads a whole file; a scrub backwards folds the game again from
+        // the front. Neither belongs in a tick, and both used to happen in one.
+        WORKING.add(player.getUUID());
+        long thisRun = ServerRun.generation();
+        Replays.worker().execute(() -> {
+            Folded folded;
+            try {
+                folded = foldOnTheWorker(player, id, step);
+            } catch (RuntimeException couldNotFold) {
+                folded = null;
+            }
+            Folded ready = folded;
+            player.server.execute(() -> {
+                WORKING.remove(player.getUUID());
+                if (!ServerRun.isStill(thisRun) || player.hasDisconnected()) {
+                    return;
+                }
+                if (ready == null) {
+                    OPEN.remove(player.getUUID());
+                    player.sendSystemMessage(
+                            Component.translatable("message.gathering.replay_unreadable"));
+                    return;
+                }
+                OPEN.put(player.getUUID(), ready.watching());
+                Sending.to(player, new ReplayFramePayload(
+                        id, ready.step(), ready.steps(), ready.view()));
+            });
+        });
+    }
+
+    /** What the worker produced: the replay it holds open now, and the frame it folded. */
+    private record Folded(Replays.Watching watching, int step, int steps, byte[] view) {
+    }
+
+    /**
+     * Opens or rewinds a replay and encodes one frame, on the worker.
+     * <p>The watcher is in {@link #WORKING} for the whole of this, so nothing on the server
+     * thread is looking at the replay it takes out of {@code OPEN} and puts back.
+     */
+    private static Folded foldOnTheWorker(ServerPlayer player, String id, int step) {
+        Replays.Watching open = OPEN.get(player.getUUID());
+        Replays.Watching watching = open != null && sameReplay(open, id)
+                ? open
+                : Replays.hold(id).orElse(null);
+        if (watching == null) {
+            return null;
         }
         int steps = watching.steps();
         int wanted = Math.clamp(step, 0, steps);
         try {
-            Sending.to(player, new ReplayFramePayload(id, wanted, steps,
+            return new Folded(watching, wanted, steps,
+                    dev.gathering.core.game.persistence.ViewCodec.write(watching.frameAt(wanted)));
+        } catch (IOException tooBigToSend) {
+            return null;
+        }
+    }
+
+    /** Sends a frame from a replay already folded to within a step or two of it. */
+    private static void sendTheFrame(
+            ServerPlayer player, String id, Replays.Watching watching, int wanted) {
+        try {
+            Sending.to(player, new ReplayFramePayload(id, wanted, watching.steps(),
                     dev.gathering.core.game.persistence.ViewCodec.write(watching.frameAt(wanted))));
         } catch (IOException tooBigToSend) {
             // A board that will not encode is a board nobody can be shown, and saying so is
@@ -240,22 +334,15 @@ public final class ReplayWatch {
         }
     }
 
+    /** Whether the replay somebody has open is the one they are asking about. */
+    private static boolean sameReplay(Replays.Watching open, String id) {
+        return open != null && open.id().equals(id);
+    }
+
     /**
      * The replay this player has open, opening it if this is a different one.
      * <p>One at a time per watcher: two open replays is two folded games held for somebody
      * who is looking at one of them.
      */
-    private static Replays.Watching heldFor(ServerPlayer player, String id) {
-        Replays.Watching open = OPEN.get(player.getUUID());
-        if (open != null && open.id().equals(id)) {
-            return open;
-        }
-        Replays.Watching fresh = Replays.hold(id).orElse(null);
-        if (fresh != null) {
-            OPEN.put(player.getUUID(), fresh);
-        } else {
-            OPEN.remove(player.getUUID());
-        }
-        return fresh;
-    }
+
 }

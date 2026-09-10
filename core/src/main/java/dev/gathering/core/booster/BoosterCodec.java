@@ -92,6 +92,15 @@ public final class BoosterCodec {
             written.addProperty("foil", sheet.foil());
             written.addProperty("duplicates", sheet.duplicates());
             written.addProperty("fixed", sheet.fixed());
+            if (sheet.balanced()) {
+                // Only when it is true, and with the colors beside it - a balanced sheet
+                // without them is a sheet that cannot be balanced, so the two travel together.
+                written.addProperty("balanced", true);
+                JsonObject colors = new JsonObject();
+                sheet.colors().forEach((printing, letters) ->
+                        colors.addProperty(printing.toString(), letters));
+                written.add("colors", colors);
+            }
             JsonObject cards = new JsonObject();
             sheet.weights().forEach((printing, weight) ->
                     cards.addProperty(printing.toString(), weight));
@@ -122,6 +131,7 @@ public final class BoosterCodec {
         }
         JsonObject json = element.getAsJsonObject();
         boolean foil = flag(json, "foil", name);
+        boolean balanced = flag(json, "balanced", name);
         boolean duplicates = flag(json, "duplicates", name);
         boolean fixed = flag(json, "fixed", name);
 
@@ -135,7 +145,22 @@ public final class BoosterCodec {
         if (weights.isEmpty()) {
             throw new BoosterCodecException("sheet '" + name + "': no cards on it");
         }
-        return new BoosterSheet(name, foil, duplicates, fixed, weights);
+        Map<UUID, String> colors = new LinkedHashMap<>();
+        JsonElement written = json.get("colors");
+        if (written != null && !written.isJsonNull()) {
+            if (!written.isJsonObject()) {
+                throw new BoosterCodecException("sheet '" + name + "': 'colors' is not an object");
+            }
+            for (Map.Entry<String, JsonElement> card : written.getAsJsonObject().entrySet()) {
+                UUID printing = printing(card.getKey(), "sheet '" + name + "', color");
+                if (!card.getValue().isJsonPrimitive()) {
+                    throw new BoosterCodecException("sheet '" + name + "', color for "
+                            + card.getKey() + ": not a string");
+                }
+                colors.put(printing, card.getValue().getAsString());
+            }
+        }
+        return new BoosterSheet(name, foil, duplicates, fixed, weights, balanced, colors);
     }
 
     // ---------------------------------------------------------------- variants

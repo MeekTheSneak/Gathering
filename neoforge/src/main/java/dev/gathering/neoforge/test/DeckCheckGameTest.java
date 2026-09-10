@@ -168,6 +168,63 @@ public final class DeckCheckGameTest {
         return legalities;
     }
 
+    /**
+     * A card the server has never heard of is settled here and now, not waited for.
+     * <p>Two different unknowns, and telling them apart is the whole of this. A printing in
+     * the cache that has not been indexed yet arrives if somebody waits, and reading it on the
+     * game thread is the hundred small file reads this moved off. A printing that is nowhere
+     * never arrives, the check's answer for it is "no opinion", and waiting would be a player
+     * standing at a table for a verdict that was already in. The difference costs one stat
+     * call per card.
+     */
+    @GameTest(template = "empty")
+    public static void acardNothingHasHeardOfIsNotWaitedFor(GameTestHelper helper) {
+        DeckComponent deck = new DeckComponent("Unknown", "", Optional.empty(),
+                copies(java.util.UUID.randomUUID(), 60), List.of(), List.of());
+
+        var answer = DeckCheck.nowOrSoon(deck, FormatPresets.MODERN, null);
+
+        if (!(answer instanceof DeckCheck.Answer.Known known)) {
+            helper.fail("A deck of cards nothing has ever heard of is being waited for: "
+                    + answer);
+            return;
+        }
+        if (known.result().isPresent()) {
+            helper.fail("A deck this server cannot name a single card of was given a verdict");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A deck whose cards are all in memory is judged there and then, with no waiting.
+     * <p>The common case by a long way, and the one that must not have grown a round trip:
+     * every card in a deck built through this mod is in the cache already.
+     */
+    @GameTest(template = "empty")
+    public static void adeckThisServerKnowsIsJudgedAtOnce(GameTestHelper helper) {
+        CardDataService cards = CardDataService.active().orElse(null);
+        if (cards == null) {
+            helper.fail("No card service running, so the deck check cannot be exercised");
+            return;
+        }
+        CardMetadata forest = cache(cards, "Forest", "Basic Land - Forest");
+        DeckComponent deck = new DeckComponent("Known", "", Optional.empty(),
+                copies(forest.scryfallId(), 60), List.of(), List.of());
+
+        var answer = DeckCheck.nowOrSoon(deck, FormatPresets.MODERN, null);
+
+        if (!(answer instanceof DeckCheck.Answer.Known known)) {
+            helper.fail("A deck this server knows every card of was not judged at once");
+            return;
+        }
+        if (known.result().isEmpty()) {
+            helper.fail("A deck this server knows every card of got no opinion");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static List<CardComponent> copies(UUID printing, int howMany) {
         List<CardComponent> cards = new ArrayList<>(howMany);
         for (int index = 0; index < howMany; index++) {

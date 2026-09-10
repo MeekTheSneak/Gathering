@@ -28,9 +28,24 @@ import java.util.UUID;
  *                   themed pack is - a fixed list of cards printed as a unit - and it is a
  *                   property of the sheet rather than a second kind of slot, because the data
  *                   published for those products says so on the sheet.
+ * @param balanced   whether the real sheet is cut so that a slot taken off it is not five
+ *                   cards of one color. Published per sheet, and true of nearly every common
+ *                   sheet there is. See {@link ColorBalance} for what is done about it.
+ * @param colors     the color of each card on this sheet, as the letters WUBRG, empty for a
+ *                   colorless card and several letters for a multicolored one. Carried only
+ *                   on a balanced sheet, because nothing else needs it; a sheet that arrives
+ *                   balanced with no colors cannot be balanced and says so rather than
+ *                   pretending.
  */
 public record BoosterSheet(
-        String name, boolean foil, boolean duplicates, boolean fixed, Map<UUID, Long> weights) {
+        String name, boolean foil, boolean duplicates, boolean fixed, Map<UUID, Long> weights,
+        boolean balanced, Map<UUID, String> colors) {
+
+    /** A sheet with nothing to say about color, which is most of them. */
+    public BoosterSheet(
+            String name, boolean foil, boolean duplicates, boolean fixed, Map<UUID, Long> weights) {
+        this(name, foil, duplicates, fixed, weights, false, Map.of());
+    }
 
     public BoosterSheet {
         name = name == null ? "" : name;
@@ -48,6 +63,15 @@ public record BoosterSheet(
         // nobody can audit. The order data was written in is the order it is walked in.
         weights = java.util.Collections.unmodifiableMap(kept);
 
+        Map<UUID, String> known = new LinkedHashMap<>();
+        if (colors != null) {
+            colors.forEach((printing, letters) -> {
+                if (printing != null && kept.containsKey(printing)) {
+                    known.put(printing, letters == null ? "" : letters);
+                }
+            });
+        }
+        colors = java.util.Collections.unmodifiableMap(known);
     }
 
     /** A sheet with nothing on it, for a server whose faucets already reach everything. */
@@ -111,12 +135,22 @@ public record BoosterSheet(
         }
         return left.size() == weights.size()
                 ? this
-                : new BoosterSheet(name, foil, duplicates, fixed, left);
+                : new BoosterSheet(name, foil, duplicates, fixed, left, balanced, colors);
     }
 
     /** What a card off this sheet is: a printing, and foil if the sheet is a foil sheet. */
     public CardIdentity identityOf(UUID printing) {
         return CardIdentity.ofPrinting(printing, foil);
+    }
+
+    /**
+     * The color letters of one card on this sheet, or empty if it has none or is not known.
+     * <p>Empty means two different things - a colorless card, and a card on a sheet that
+     * carries no colors at all - and the difference does not matter to anything that asks:
+     * neither can be sorted into one of the five columns.
+     */
+    public String colorOf(UUID printing) {
+        return colors.getOrDefault(printing, "");
     }
 
     /** Every printing on it, for the coverage auditor's benefit. */

@@ -228,7 +228,18 @@ public final class Replays {
             return records.size();
         }
 
-        /** The board at one step, as somebody entitled to all of it would have seen it. */
+        /** Which step this replay is folded to right now, so a caller can tell cheap from dear. */
+        public int stepNow() {
+            return at;
+        }
+
+        /**
+         * The board at one step, as somebody entitled to all of it would have seen it.
+         * <p>Not for a tick when the step is behind where this already is: nothing can be
+         * taken off a fold, so a scrub backwards restores the session from the front. See
+         * {@link Replays#worker()}, and {@code ReplayWatch}, which decides which side of that
+         * line a given request falls on.
+         */
         public GameView frameAt(int step) {
             int wanted = Math.clamp(step, 0, records.size());
             if (wanted < at) {
@@ -247,11 +258,46 @@ public final class Replays {
     }
 
     /**
+     * The thread a replay is read and folded on.
+     * <p>Neither of those belongs in a tick. Opening one reads the whole file and
+     * deserializes every record; a backwards scrub folds the game again from the front, which
+     * measured at thirty-three milliseconds on a four-thousand-event game - two thirds of a
+     * tick, and a dragged scrubber asks several times a second. A step forward is one record
+     * applied and stays where it is.
+     * <p>One thread, because a fold is a fold of one game and two of them racing on the same
+     * held replay would be two halves of two different boards. Whoever hands work to this has
+     * to make sure a watcher has only one job out at a time; see {@code ReplayWatch}.
+     */
+    private static volatile java.util.concurrent.ExecutorService worker;
+
+    /** That thread, made on the first replay anybody opens. */
+    public static synchronized java.util.concurrent.Executor worker() {
+        if (worker == null || worker.isShutdown()) {
+            worker = java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "gathering-replays");
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+        return worker;
+    }
+
+    /** Stops the replay thread, for a server that is going away. */
+    public static synchronized void stopWorking() {
+        if (worker != null) {
+            worker.shutdownNow();
+            worker = null;
+        }
+    }
+
+    /**
      * Opens a replay and holds it, ready to be scrubbed.
      * <p>The id is matched against the names of the files that are really there rather than
      * resolved as a path, so a client cannot name a file the server never offered it.
      */
     public static java.util.Optional<Watching> hold(String id) {
+        // Reads a whole file and deserializes every record in it. Not for a tick: see
+        // worker(), and ReplayWatch, which is the only thing that calls this.
         for (Path file : files()) {
             if (file.getFileName().toString().equals(id)) {
                 return read(file).map(game -> new Watching(id, game.records(), game.seats(),

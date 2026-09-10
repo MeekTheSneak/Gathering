@@ -697,6 +697,12 @@ public class TableBlock extends BaseEntityBlock {
      * the table is entitled to see happen.
      */
     private static void commitDeck(Level level, BlockPos tableOrigin, Player player, ItemStack stack) {
+        commitDeck(level, tableOrigin, player, stack, true);
+    }
+
+    /** The same, saying whether the deck check may wait for cards the server is fetching. */
+    private static void commitDeck(Level level, BlockPos tableOrigin, Player player,
+            ItemStack stack, boolean mayWait) {
         GameSession session = TableSessions.sessionAt(level, tableOrigin).orElse(null);
         if (session == null) {
             player.sendSystemMessage(Component.translatable("message.gathering.session_not_running"));
@@ -719,7 +725,7 @@ public class TableBlock extends BaseEntityBlock {
         // looked up, because it is a fact about this deck rather than about the table - a
         // pool goes wherever the deck goes, including into somebody else's hands.
         if (!deckMayGoDown(level, tableOrigin, deck, player,
-                stack.get(dev.gathering.registry.GatheringComponents.POOL.get()))) {
+                stack.get(dev.gathering.registry.GatheringComponents.POOL.get()), mayWait, stack)) {
             return;
         }
         List<CardIdentity> library = deck.entries().stream().map(CardComponent::toIdentity).toList();
@@ -814,14 +820,39 @@ public class TableBlock extends BaseEntityBlock {
     public static boolean deckMayGoDown(
             Level level, BlockPos tableOrigin, DeckComponent deck, Player player,
             dev.gathering.item.DraftedPool pool) {
+        return deckMayGoDown(level, tableOrigin, deck, player, pool, true, ItemStack.EMPTY);
+    }
+
+    /**
+     * The same, saying whether it may wait for cards the server has not learned yet.
+     * <p>False on the second pass, and that is what stops this being a loop. A printing
+     * nothing has ever heard of does not arrive however long anybody waits - it is a card in
+     * a deck built on another server, or an id somebody typed - and asking again would be one
+     * more fetch per attempt for ever. The check's own answer for a card it cannot name is
+     * "no opinion", which lets the game start, so the second pass simply takes that.
+     */
+    private static boolean deckMayGoDown(
+            Level level, BlockPos tableOrigin, DeckComponent deck, Player player,
+            dev.gathering.item.DraftedPool pool, boolean mayWait, ItemStack waitingOn) {
         TableBlockEntity table = TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
                 .orElse(null);
         FormatPreset format = table == null ? null : table.match()
                 .map(match -> match.rules().format())
                 .orElse(null);
-        ValidationResult result =
-                dev.gathering.server.DeckCheck.of(deck, format, pool).orElse(null);
+        var answer = dev.gathering.server.DeckCheck.nowOrSoon(deck, format, pool);
+        if (mayWait && answer instanceof dev.gathering.server.DeckCheck.Answer.NotYet notYet) {
+            // The server has not finished learning what these cards are. Reading them here
+            // would be a hundred small file reads inside one tick, so the wait happens on the
+            // card executor and the deck goes down when the answer arrives. Told, because a
+            // click that does nothing for half a second is a click somebody presses again.
+            player.sendSystemMessage(Component.translatable("message.gathering.deck_checking"));
+            waitAndTryAgain(level, tableOrigin, player, waitingOn, notYet.fetched());
+            return false;
+        }
+        ValidationResult result = answer instanceof dev.gathering.server.DeckCheck.Answer.Known known
+                ? known.result().orElse(null)
+                : null;
         if (result == null || result.isLegal()) {
             return true;
         }
@@ -841,6 +872,53 @@ public class TableBlock extends BaseEntityBlock {
             player.sendSystemMessage(Component.translatable("message.gathering.deck_illegal_hint"));
         }
         return !refusing;
+    }
+
+    /**
+     * Puts the deck down again once the server knows what is in it.
+     * <p>Once. The lookup either answers or does not, and a second wait would be a loop: a
+     * printing nothing has ever heard of is never going to arrive, and the check's own answer
+     * for that is "no opinion", which lets the game start. So the retry goes through the
+     * ordinary path with the cards now in memory, and whatever that decides is the decision.
+     * <p>The stack is read again rather than remembered, because half a second is long enough
+     * to put the deck in a chest.
+     */
+    private static void waitAndTryAgain(Level level, BlockPos tableOrigin, Player player,
+            ItemStack waitingOn, java.util.concurrent.CompletableFuture<?> fetched) {
+        if (!(player instanceof net.minecraft.server.level.ServerPlayer waiting)
+                || waitingOn == null || waitingOn.isEmpty()) {
+            return;
+        }
+        long thisRun = dev.gathering.server.ServerRun.generation();
+        fetched.whenComplete((found, failure) -> waiting.server.execute(() -> {
+            if (!dev.gathering.server.ServerRun.isStill(thisRun) || waiting.hasDisconnected()) {
+                return;
+            }
+            if (DeckItem.deckOf(waitingOn).isEmpty() || !stillTheirs(waiting, waitingOn)) {
+                // Half a second is long enough to put a deck in a chest, hand it to somebody
+                // or take it apart. A deck that has left is a deck nobody is putting down.
+                return;
+            }
+            commitDeck(level, tableOrigin, waiting, waitingOn, false);
+        }));
+    }
+
+    /**
+     * Whether this exact stack is still the player's to put down.
+     * <p>Two shapes, because there are two ways to reach the deck check. A deck somebody
+     * right-clicked the table with is in one of their hands and has to still be there. A
+     * loaner is a stack the table itself made and handed straight down - it was never in an
+     * inventory, so there is nothing for it to have left, and it is nobody else's to take.
+     */
+    private static boolean stillTheirs(net.minecraft.server.level.ServerPlayer player,
+            ItemStack stack) {
+        for (net.minecraft.world.InteractionHand hand
+                : net.minecraft.world.InteractionHand.values()) {
+            if (player.getItemInHand(hand) == stack) {
+                return true;
+            }
+        }
+        return !player.getInventory().contains(stack);
     }
 
     /**

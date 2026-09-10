@@ -63,6 +63,11 @@ public final class LoanerGameTest {
 
         Lending.handle(player, new TakeLoanerPayload(origin, NAME));
 
+        // This tick. The table has a format on it, so the deck check runs - and these are
+        // sixty printings no server has ever heard of, which the check settles without leaving
+        // the thread: it asks the disk whether each file is there at all, which is a stat and
+        // not a read, and a card that is nowhere is a card it has no opinion about. Only a
+        // card that is in the cache and not yet indexed is worth waiting for.
         int inLibrary = libraryOf(helper, origin, player);
         if (inLibrary != 60) {
             helper.fail("Borrowing at the table left " + inLibrary

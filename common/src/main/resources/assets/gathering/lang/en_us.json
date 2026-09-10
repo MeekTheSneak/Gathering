@@ -274,6 +274,7 @@
   "message.gathering.deck_already_down": "Your deck is already on the table.",
   "message.gathering.deck_built": "Deck built - %s cards",
   "message.gathering.deck_built_short": "%s of them were not in the box; the deck is that many short",
+  "message.gathering.deck_checking": "Checking your deck against the format…",
   "message.gathering.deck_committed": "Your deck is on the table: %s cards, shuffled.",
   "message.gathering.deck_illegal": "This deck is not legal for %s:",
   "message.gathering.deck_illegal_hint": "Put the deck away, then crouch and right-click the table to choose another format.",

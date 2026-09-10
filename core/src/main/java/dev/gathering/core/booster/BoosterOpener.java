@@ -74,8 +74,32 @@ public final class BoosterOpener {
             }
             return;
         }
+        List<CardIdentity> slot = new ArrayList<>(howMany);
         BoosterSheet left = sheet;
-        for (int card = 0; card < howMany; card++) {
+        int wanted = howMany;
+
+        // One of each color first, where the sheet says it is cut that way. See ColorBalance:
+        // a real commons sheet is laid out so the strip a pack comes off crosses all five,
+        // and drawing the whole slot by weight gave mono-color packs at a rate no real box
+        // does. The five columns are drawn in a fixed order so a seed opens one pack.
+        if (ColorBalance.applies(sheet, howMany)) {
+            for (char color : ColorBalance.columnsToFill()) {
+                BoosterSheet column = ColorBalance.columnOf(left, color);
+                if (column.isEmpty()) {
+                    // Taken out from under this column by an earlier draw on a sheet that
+                    // refuses duplicates. Rare, and the rest of the slot covers it.
+                    continue;
+                }
+                UUID printing = column.at(roll(rolls, column.total()));
+                slot.add(sheet.identityOf(printing));
+                wanted--;
+                if (!sheet.duplicates()) {
+                    left = left.without(List.of(printing));
+                }
+            }
+        }
+
+        for (int card = 0; card < wanted; card++) {
             if (left.isEmpty()) {
                 // A sheet too small to fill its own slot. Real data does not do this, but a
                 // truncated feed does, and a short pack beats a pack that throws while
@@ -83,10 +107,31 @@ public final class BoosterOpener {
                 break;
             }
             UUID printing = left.at(roll(rolls, left.total()));
-            into.add(sheet.identityOf(printing));
+            slot.add(sheet.identityOf(printing));
             if (!sheet.duplicates()) {
                 left = left.without(List.of(printing));
             }
+        }
+
+        // Shuffled, so a balanced slot does not arrive in the order the columns were drawn.
+        // A pack that reads white, blue, black, red, green down the left is a pack nobody has
+        // ever opened, and the ceremony draws them in the order they are in.
+        shuffle(slot, rolls);
+        into.addAll(slot);
+    }
+
+    /**
+     * Deterministic Fisher-Yates, out of the same stream everything else here draws from.
+     * <p>Its own method because it is taken whether or not the slot was balanced: a shuffle
+     * that only happened sometimes would make the number of rolls a pack costs depend on the
+     * data, and two seeds that should open the same pack would not.
+     */
+    private static void shuffle(List<CardIdentity> cards, DeterministicRandom rolls) {
+        for (int at = cards.size() - 1; at > 0; at--) {
+            int with = (int) rolls.nextLong(at + 1);
+            CardIdentity held = cards.get(at);
+            cards.set(at, cards.get(with));
+            cards.set(with, held);
         }
     }
 

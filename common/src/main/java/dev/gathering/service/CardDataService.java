@@ -199,6 +199,28 @@ public final class CardDataService implements AutoCloseable {
         return wanted.size();
     }
 
+    /**
+     * Reads these printings out of the cache and into the index, off the game thread.
+     * <p>Not {@link #findAll}: this never touches the network. It is for a caller that must
+     * not block a tick on a file read and must not wait on Scryfall either - the deck check,
+     * which promises both. A printing that is not on this disk stays unknown, and the caller's
+     * answer for an unknown card is "no opinion", which is the honest one.
+     *
+     * @return completes on the card executor once every one of them has been looked for
+     */
+    public CompletableFuture<Void> warm(List<UUID> scryfallIds) {
+        if (scryfallIds == null || scryfallIds.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        List<UUID> wanted = List.copyOf(scryfallIds);
+        return CompletableFuture.runAsync(() -> {
+            for (UUID printing : wanted) {
+                // The store indexes what it reads, so asking is what warms it.
+                store.find(CardQuery.byId(printing));
+            }
+        }, executor);
+    }
+
     /** Every printing of a card, cheapest first - what the import screen's chooser offers. */
     public CompletableFuture<List<CardMetadata>> printingsOf(String cardName) {
         return supply(() -> client.printingsOf(cardName));

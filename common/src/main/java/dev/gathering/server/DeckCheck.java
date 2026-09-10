@@ -1,7 +1,6 @@
 package dev.gathering.server;
 
 import dev.gathering.core.card.CardMetadata;
-import dev.gathering.core.scryfall.CardQuery;
 import dev.gathering.core.format.DeckValidator;
 import dev.gathering.core.format.FormatPreset;
 import dev.gathering.core.format.ValidatableDeck;
@@ -21,13 +20,18 @@ import java.util.UUID;
  * validator was written, tested and then never wired to anything, so a thirty-two card deck
  * started a game of Modern without a word. It runs here, once, when a deck is committed to a
  * table with a format on it - and then it is over. Nothing in it is consulted during play.
- * <p><b>Out of the cache and never off the network.</b> This is on the server thread with a
+ * <p><b>Out of memory, or not on this thread at all.</b> This is on the server thread with a
  * player waiting, and a deck check that fetched a hundred cards from Scryfall would hang the
  * server for as long as that took. Every card in a deck somebody built through this mod is in
  * the cache already, because that is where it came from, and the cache's index is warmed on
- * server start - so in practice this is a hundred map lookups. A deck committed in the first
- * seconds of a server, before the warm finishes, falls through to the cache files instead;
- * that is a hundred small reads and it happens once.
+ * server start - so in practice this is a hundred map lookups.
+ * <p>It used to fall through to the cache <em>files</em> when a card was not indexed yet: a
+ * deck committed in the first seconds of a server, before the warm finished, was a hundred
+ * small reads inside one tick. That is the case {@link #nowOrSoon} exists for. It answers from
+ * memory or says it cannot yet, and the caller waits for those files to be read on the card
+ * thread instead of reading them here. The only thing this asks a disk is whether a file is
+ * there at all - a stat, not a read - because "not indexed yet" is worth waiting for and
+ * "never heard of it" is not. Nothing in this class ever touches a network.
  * <p>A card that is <em>not</em> cached is a card this check cannot judge, and an unjudgeable
  * card makes the whole answer unjudgeable rather than making the deck illegal. Refusing a deck
  * because a server had forgotten what one of its cards was would be the mod inventing a rules
@@ -58,13 +62,91 @@ public final class DeckCheck {
      */
     public static Optional<ValidationResult> of(
             DeckComponent deck, FormatPreset format, DraftedPool pool) {
+        Answer answer = nowOrSoon(deck, format, pool);
+        return answer instanceof Answer.Known known ? known.result() : Optional.empty();
+    }
+
+    /**
+     * What the check can say without leaving the game thread, and what to wait on if it
+     * cannot say anything yet.
+     * <p>Two answers rather than one, because "I do not know" and "I do not know <em>yet</em>"
+     * are different things to a player putting a deck down. The first is a free-play table or
+     * a card nobody has ever looked up, and the right response is to let the game start. The
+     * second is a server whose index has not finished warming, and the right response is to
+     * wait a moment and ask again - off this thread, because the answer is on a disk.
+     */
+    public sealed interface Answer {
+
+        /** The check ran. Empty inside means it ran and had no opinion. */
+        record Known(Optional<ValidationResult> result) implements Answer {
+        }
+
+        /**
+         * The cards are being fetched. Ask again when this completes.
+         *
+         * @param fetched completes on the card executor once the missing printings have been
+         *                looked up, whether or not they were found
+         */
+        record NotYet(java.util.concurrent.CompletableFuture<?> fetched) implements Answer {
+        }
+    }
+
+    /** The check, from memory only, or what to wait on. Server thread safe. */
+    public static Answer nowOrSoon(DeckComponent deck, FormatPreset format, DraftedPool pool) {
         if (deck == null || format == null) {
-            return Optional.empty();
+            return new Answer.Known(Optional.empty());
         }
         CardDataService cards = CardDataService.active().orElse(null);
         if (cards == null) {
-            return Optional.empty();
+            return new Answer.Known(Optional.empty());
         }
+        List<UUID> missing = whatIsNotInMemory(cards, deck, pool);
+        if (!missing.isEmpty()) {
+            // Warmed, not fetched. This class promises never to go to the network - a deck
+            // check that waited on Scryfall would hold a player at the table for as long as
+            // somebody else's service took to answer, and a card nothing has ever heard of
+            // would hold them for the timeout. So the wait is for the disk, and a printing
+            // that is not on it stays unknown, which the check reads as no opinion.
+            return new Answer.NotYet(cards.warm(missing));
+        }
+        return new Answer.Known(checked(cards, deck, format, pool));
+    }
+
+    /**
+     * The printings this deck names that memory cannot answer for.
+     * <p>Asked of {@code peek}, which is the in-memory index and nothing else. A printing that
+     * is on this disk but not indexed comes back here as missing, which is right: reading it
+     * is what must not happen on this thread.
+     */
+    private static List<UUID> whatIsNotInMemory(
+            CardDataService cards, DeckComponent deck, DraftedPool pool) {
+        List<UUID> missing = new ArrayList<>();
+        List<CardComponent> everything = new ArrayList<>(deck.entries());
+        everything.addAll(deck.commanders());
+        everything.addAll(deck.sideboard());
+        if (pool != null) {
+            everything.addAll(pool.cards());
+        }
+        for (CardComponent card : everything) {
+            UUID printing = card.scryfallId().orElse(null);
+            if (printing == null || missing.contains(printing) || cards.peek(printing).isPresent()) {
+                continue;
+            }
+            // On this disk but not indexed yet is worth waiting for. Not on it at all never
+            // arrives however long anybody waits, and the check's answer for a card it cannot
+            // name is "no opinion" - so waiting would be a player standing at a table for a
+            // verdict that was already in. A stat call each, which is a microsecond; reading
+            // them is what must not happen here.
+            if (cards.store().isOnDisk(printing)) {
+                missing.add(printing);
+            }
+        }
+        return missing;
+    }
+
+    /** The check itself, once everything it needs is in memory. */
+    private static Optional<ValidationResult> checked(
+            CardDataService cards, DeckComponent deck, FormatPreset format, DraftedPool pool) {
         List<CardMetadata> mainboard = lookUp(cards, deck.entries());
         List<CardMetadata> commanders = lookUp(cards, deck.commanders());
         List<CardMetadata> sideboard = lookUp(cards, deck.sideboard());
@@ -148,7 +230,9 @@ public final class DeckCheck {
                 // to check it against, so there is nothing to say about the deck it is in.
                 return null;
             }
-            CardMetadata metadata = cards.store().find(CardQuery.byId(printing)).orElse(null);
+            // From memory. The disk is not this thread's to read, and by the time this runs
+            // everything here has been asked for and answered - see nowOrSoon.
+            CardMetadata metadata = cards.peek(printing).orElse(null);
             if (metadata == null) {
                 return null;
             }

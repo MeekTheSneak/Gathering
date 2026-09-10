@@ -100,9 +100,26 @@ public final class MtgjsonCollation {
         return bridge;
     }
 
+    /**
+     * The color of every card one set file carries, keyed by Scryfall printing id.
+     * <p>The other half of what a balanced sheet needs. MTGJSON's sheets are uuid and weight
+     * and nothing else, but the same file lists every card with its colors, so a set file is
+     * its own color table exactly as it is its own identity bridge. Join several of these for
+     * a set whose sheets reach into others.
+     * <p>Written as the letters WUBRG in that order, so a card is one string rather than a
+     * set, and colorless is the empty string.
+     */
+    public static Map<UUID, String> colors(JsonObject file) throws BoosterCodecException {
+        JsonObject data = BoosterCodec.object(file, "data");
+        Map<UUID, String> table = new LinkedHashMap<>();
+        gatherColors(table, data, "cards");
+        gatherColors(table, data, "tokens");
+        return table;
+    }
+
     /** Reads a set file using only the printings that same file carries. */
     public static Reading read(JsonObject file) throws BoosterCodecException {
-        return read(file, printings(file));
+        return read(file, printings(file), colors(file));
     }
 
     /**
@@ -112,6 +129,19 @@ public final class MtgjsonCollation {
      *                  any other set file whose cards its sheets reach into
      */
     public static Reading read(JsonObject file, Map<String, UUID> printings)
+            throws BoosterCodecException {
+        return read(file, printings, colors(file));
+    }
+
+    /**
+     * The same, with a color table for the sheets that are cut to balance them.
+     *
+     * @param colors Scryfall printing id to its color letters, from {@link #colors} over this
+     *               file and any other whose cards its sheets reach into. A sheet whose cards
+     *               are not in here cannot be balanced, and the reading says so.
+     */
+    public static Reading read(
+            JsonObject file, Map<String, UUID> printings, Map<UUID, String> colors)
             throws BoosterCodecException {
         JsonObject data = BoosterCodec.object(file, "data");
         String setCode = BoosterCodec.string(data, "code").trim().toLowerCase(Locale.ROOT);
@@ -139,7 +169,8 @@ public final class MtgjsonCollation {
             JsonObject published = entry.getValue().getAsJsonObject();
 
             int before = notes.size();
-            Map<String, BoosterSheet> sheets = sheets(published, where, bridge, notes);
+            Map<String, BoosterSheet> sheets =
+                    sheets(published, where, bridge, colors == null ? Map.of() : colors, notes);
             List<BoosterVariant> variants = variants(published, where);
             BoosterConfig config = new BoosterConfig(setCode, kind, sheets, variants);
 
@@ -168,7 +199,8 @@ public final class MtgjsonCollation {
     // ------------------------------------------------------------------ sheets
 
     private static Map<String, BoosterSheet> sheets(
-            JsonObject published, String where, Map<String, UUID> bridge, List<String> notes)
+            JsonObject published, String where, Map<String, UUID> bridge,
+            Map<UUID, String> colors, List<String> notes)
             throws BoosterCodecException {
         Map<String, BoosterSheet> sheets = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> entry
@@ -219,16 +251,34 @@ public final class MtgjsonCollation {
                 notes.add(here + ": " + unbridged + " of " + cards
                         + " cards are printed in another set and were left off");
             }
-            if (flag(json, "balanceColors")) {
-                notes.add(here + ": colors are balanced in the real sheet, and are not here");
-            }
             if (weights.isEmpty()) {
                 notes.add(here + ": dropped, because none of its cards could be identified");
                 continue;
             }
-            sheets.put(name, new BoosterSheet(
+            boolean balanced = flag(json, "balanceColors");
+            Map<UUID, String> onThisSheet = new LinkedHashMap<>();
+            if (balanced) {
+                for (UUID printing : weights.keySet()) {
+                    String letters = colors.get(printing);
+                    if (letters != null) {
+                        onThisSheet.put(printing, letters);
+                    }
+                }
+            }
+            BoosterSheet sheet = new BoosterSheet(
                     name, flag(json, "foil"), flag(json, "allowDuplicates"),
-                    flag(json, "fixed"), weights));
+                    flag(json, "fixed"), weights, balanced, onThisSheet);
+            // Said only when it is true. A balanced sheet this can balance needs no note; one
+            // it cannot - because a column of the five is empty, or because no colors were
+            // read for its cards - is a sheet that opens differently from the printed one,
+            // and an admin looking at a set that opens oddly has to be able to find that out.
+            if (balanced && !ColorBalance.applies(sheet, ColorBalance.NEEDS_AT_LEAST)) {
+                notes.add(here + ": colors are balanced in the real sheet and cannot be here,"
+                        + " because " + (onThisSheet.isEmpty()
+                        ? "no colors were read for its cards"
+                        : "it has no cards of every color"));
+            }
+            sheets.put(name, sheet);
         }
         return sheets;
     }
@@ -269,6 +319,58 @@ public final class MtgjsonCollation {
     }
 
     // ------------------------------------------------------------------- bits
+
+    /** Every card's colors in one list of a set file, keyed by its Scryfall printing id. */
+    private static void gatherColors(Map<UUID, String> into, JsonObject data, String field)
+            throws BoosterCodecException {
+        JsonElement element = data.get(field);
+        if (element == null || element.isJsonNull()) {
+            return;
+        }
+        if (!element.isJsonArray()) {
+            throw new BoosterCodecException("'" + field + "' is not a list");
+        }
+        for (JsonElement each : element.getAsJsonArray()) {
+            if (!each.isJsonObject()) {
+                continue;
+            }
+            JsonObject card = each.getAsJsonObject();
+            JsonElement identifiers = card.get("identifiers");
+            if (identifiers == null || !identifiers.isJsonObject()) {
+                continue;
+            }
+            JsonElement scryfall = identifiers.getAsJsonObject().get("scryfallId");
+            if (scryfall == null || !scryfall.isJsonPrimitive()) {
+                continue;
+            }
+            UUID printing;
+            try {
+                printing = UUID.fromString(scryfall.getAsString().trim());
+            } catch (IllegalArgumentException notAUuid) {
+                continue;
+            }
+            // Absent means colorless, and a land has the field absent rather than empty.
+            // Written in WUBRG order whatever order the file used, so two cards of the same
+            // colors are the same string.
+            StringBuilder letters = new StringBuilder(ColorBalance.COLORS.length());
+            JsonElement written = card.get("colors");
+            if (written != null && written.isJsonArray()) {
+                Set<String> said = new LinkedHashSet<>();
+                for (JsonElement letter : written.getAsJsonArray()) {
+                    if (letter.isJsonPrimitive()) {
+                        said.add(letter.getAsString().trim().toUpperCase(Locale.ROOT));
+                    }
+                }
+                for (int index = 0; index < ColorBalance.COLORS.length(); index++) {
+                    String color = String.valueOf(ColorBalance.COLORS.charAt(index));
+                    if (said.contains(color)) {
+                        letters.append(color);
+                    }
+                }
+            }
+            into.put(printing, letters.toString());
+        }
+    }
 
     private static void gather(Map<String, UUID> into, JsonObject data, String field)
             throws BoosterCodecException {
