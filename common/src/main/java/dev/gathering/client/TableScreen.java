@@ -478,7 +478,7 @@ public final class TableScreen extends Screen {
      * straight at it.
      */
     static String keyShownFor(String verb) {
-        Component key = SHORTCUTS.get(verb);
+        Component key = TableShortcuts.label(verb);
         return key == null ? null : key.getString();
     }
 
@@ -880,7 +880,7 @@ public final class TableScreen extends Screen {
             int verb = hovered == null ? verbSlotAt(mine, mouseX, mouseY) : -1;
             ClientTableHighlight.pointAtVerb(mine, verb);
             if (verb >= 0) {
-                tooltip = tipFor(VERB_NAMES[verb], VERB_KEY_NAMES[verb]);
+                tooltip = tipFor(VERB_NAMES[verb], verbKeyName(verb));
             } else if (hovered == null) {
                 List<Component> life = tipForLife(board, mouseX, mouseY);
                 if (life != null) {
@@ -1460,7 +1460,7 @@ public final class TableScreen extends Screen {
                         where.x(), where.y(), where.width(), where.height());
             }
             if (hovered) {
-                tooltip = tipFor(VERB_NAMES[index], VERB_KEY_NAMES[index]);
+                tooltip = tipFor(VERB_NAMES[index], verbKeyName(index));
             }
             if (everyVerbNameFits(where.width() - 2)) {
                 GuiText.drawCenteredAt(graphics, this.font, VERB_NAMES[index],
@@ -1919,42 +1919,26 @@ public final class TableScreen extends Screen {
             Zone.PILES.stream().map(ZoneText::name).toArray(Component[]::new);
 
     /**
-     * The key that runs each mat button, in the order of the buttons.
-     * <p>-1 where there is no key. Mulligan has none on purpose: wanted once a game, it would
-     * cost a number a verb wanted every turn could have had.
-     * <p>One table read three ways - the key press dispatches through it, the tooltip names
-     * the key from it, and the labels come off it - so the button and the key cannot come to
-     * mean different things.
+     * Which catalogue verb each mat button is, in the order of the buttons.
+     * <p>The button, the key and the menu row are one verb with one name, and the key it sits
+     * on is whatever the player has bound - asked of {@link TableShortcuts} when the tooltip
+     * is drawn rather than written down here. This used to be an array of GLFW constants, and
+     * the tooltip beside a button was the second place the key was written.
      */
-    private static final int[] VERB_KEYS = {
-        org.lwjgl.glfw.GLFW.GLFW_KEY_1,
-        org.lwjgl.glfw.GLFW.GLFW_KEY_2,
-        org.lwjgl.glfw.GLFW.GLFW_KEY_R,
-        -1,
+    private static final String[] VERB_ACTIONS = {
+        "untap_all", "draw", "shuffle", "mulligan",
     };
 
-    /** What each of those keys is called, in the player's own language and keyboard layout. */
-    private static final Component[] VERB_KEY_NAMES = keyNames();
-
-    private static Component[] keyNames() {
-        Component[] named = new Component[VERB_KEYS.length];
-        for (int index = 0; index < VERB_KEYS.length; index++) {
-            named[index] = VERB_KEYS[index] < 0
-                    ? null
-                    : com.mojang.blaze3d.platform.InputConstants
-                            .getKey(VERB_KEYS[index], -1).getDisplayName();
-        }
-        return named;
-    }
-
-    /** The mat button this key press is, or null. */
-    private static TableVerb verbForKey(int key) {
-        for (int index = 0; index < VERB_KEYS.length; index++) {
-            if (VERB_KEYS[index] == key) {
-                return TableVerb.values()[index];
-            }
-        }
-        return null;
+    /**
+     * What key each mat button is on right now, or null for a button with none.
+     * <p>Read fresh rather than cached: the whole point of a binding is that it changes, and
+     * a tooltip built once at class-load would go on naming the old key for the rest of the
+     * session.
+     */
+    private static Component verbKeyName(int index) {
+        return index < 0 || index >= VERB_ACTIONS.length
+                ? null
+                : TableShortcuts.label(VERB_ACTIONS[index]);
     }
 
     /**
@@ -2642,27 +2626,23 @@ public final class TableScreen extends Screen {
      * drawing one. Everything else is prose that names no key of its own.
      */
     private static Component keyLine(String name) {
-        Component key = KEY_LIST_KEYS.get(name);
-        return key == null
+        String verb = KEY_LIST_ACTIONS.get(name);
+        return verb == null
                 ? Component.translatable(name)
-                : Component.translatable(name, key);
+                : Component.translatable(name, TableShortcuts.labelOrUnbound(verb));
     }
 
-    /** Which key-list lines name a mat button's key, and which key that is. */
-    private static final java.util.Map<String, Component> KEY_LIST_KEYS = keyListKeys();
-
-    private static java.util.Map<String, Component> keyListKeys() {
-        java.util.Map<String, Component> named = new java.util.HashMap<>();
-        for (int index = 0; index < VERB_KEYS.length; index++) {
-            if (VERB_KEYS[index] >= 0) {
-                named.put("screen.gathering.table.key_"
-                                + TableVerb.values()[index].name()
-                                        .toLowerCase(java.util.Locale.ROOT),
-                        VERB_KEY_NAMES[index]);
-            }
-        }
-        return java.util.Collections.unmodifiableMap(named);
-    }
+    /**
+     * Which key-list lines have a key in them, and which verb's key that is.
+     * <p>The line is a sentence with a hole in it - "%s - draw a card" - and the hole is
+     * filled with what the verb is bound to when the list is drawn. A player who has moved
+     * draw onto Z reads "Z - draw a card", which is the only version of that sentence worth
+     * printing.
+     */
+    private static final java.util.Map<String, String> KEY_LIST_ACTIONS = java.util.Map.of(
+            "screen.gathering.table.key_untap", "untap_all",
+            "screen.gathering.table.key_draw", "draw",
+            "screen.gathering.table.key_shuffle", "shuffle");
 
     /** Whichever list this screen is teaching: the game's keys, or a watcher's. */
     private List<String[]> keyHelp() {
@@ -4329,54 +4309,16 @@ public final class TableScreen extends Screen {
     }
 
     private static ContextMenu.Entry entry(String key, Runnable action) {
-        Component shortcut = SHORTCUTS.get(key);
+        // What that verb is bound to now, not what it shipped bound to. A menu is the one
+        // place a player is looking straight at a verb, so it is the one place worth telling
+        // them there is a faster way - and the one place they can be told the wrong one.
+        Component shortcut = TableShortcuts.label(key);
         Component label = Component.translatable("menu.gathering.table." + key);
         return shortcut == null
                 ? ContextMenu.Entry.of(label, action)
                 : ContextMenu.Entry.of(label, shortcut, action);
     }
 
-    /**
-     * The number row, once.
-     * <p>Written twice - as the switch acting on a press and as the labels the menu prints -
-     * the two drift, and a menu saying "To graveyard 7" while 7 exiles teaches the wrong key.
-     * So the numbers live here and nowhere else: {@link #verbKey} looks the verb up rather
-     * than switching on the number, and the labels are built from the same map.
-     */
-    private static final java.util.Map<Integer, String> NUMBER_ROW = java.util.Map.ofEntries(
-            java.util.Map.entry(0, "pass_turn"),
-            java.util.Map.entry(1, "untap_all"),
-            java.util.Map.entry(2, "draw"),
-            java.util.Map.entry(3, "scry"),
-            java.util.Map.entry(4, "mill"),
-            java.util.Map.entry(5, "reveal"),
-            java.util.Map.entry(6, "surveil"),
-            java.util.Map.entry(7, "to_exile"),
-            java.util.Map.entry(8, "to_graveyard"),
-            java.util.Map.entry(9, "to_library_bottom_random"));
-
-    /**
-     * The key that does the same thing as each menu entry, for the menu to say so.
-     * <p>Keyed off the same name the entry is, so an entry and its key cannot drift apart, and
-     * an entry with no key simply has none here. This is the only place a player is looking
-     * straight at a verb, so it is the only place worth telling them there is a faster way -
-     * and the only place they can be told the wrong one, which is why the numbers come out of
-     * {@link #NUMBER_ROW} rather than being written again here.
-     */
-    private static java.util.Map<String, Component> shortcuts() {
-        java.util.Map<String, Component> keys = new java.util.LinkedHashMap<>();
-        NUMBER_ROW.forEach((number, verb) -> keys.put(verb, Component.literal(number.toString())));
-        keys.put("shuffle", Component.literal("R"));
-        keys.put("turn_face_down", Component.literal("F"));
-        keys.put("turn_face_up", Component.literal("F"));
-        keys.put("untap", Component.literal("Q"));
-        keys.put("tap", Component.literal("E"));
-        keys.put("show_log", Component.literal("L"));
-        keys.put("hide_log", Component.literal("L"));
-        return java.util.Map.copyOf(keys);
-    }
-
-    private static final java.util.Map<String, Component> SHORTCUTS = shortcuts();
 
     // ------------------------------------------------------------ hit-testing
 
@@ -4436,29 +4378,16 @@ public final class TableScreen extends Screen {
             return super.keyPressed(key, scanCode, modifiers);
         }
 
-        // The mat buttons first, so a key and the button printed with it on stay the same
-        // verb whichever of the two the player reaches for.
-        TableVerb byKey = verbForKey(key);
-        if (byKey != null) {
-            doVerb(me, byKey);
+        // Whatever the player has this key bound to, which is the only place that question is
+        // asked. The mat buttons, the number row and the TTS letters were three separate
+        // switches on hardcoded constants; they are one table now, and it is the table the
+        // menus, the key list and the palette all read their labels out of.
+        String bound = TableShortcuts.actionFor(key, scanCode);
+        if (bound != null && doAction(me, bound)) {
             return true;
         }
 
-        if (key >= org.lwjgl.glfw.GLFW.GLFW_KEY_0 && key <= org.lwjgl.glfw.GLFW.GLFW_KEY_9) {
-            return verbKey(me, key - org.lwjgl.glfw.GLFW.GLFW_KEY_0);
-        }
-
         switch (key) {
-            // --- TTS object keys, applied to whatever is under the cursor or selected ---
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_F -> {
-                return flipUnderCursor(me);
-            }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_Q -> {
-                return setTapUnderCursor(me, false);
-            }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_E -> {
-                return setTapUnderCursor(me, true);
-            }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_G -> {
                 // TTS groups the selection into a stack; the nearest thing here is putting the
                 // selected cards onto one another, which is what a stack of cards is.
@@ -4487,11 +4416,6 @@ public final class TableScreen extends Screen {
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_D, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT -> {
                 pan(-PAN_STEP, 0);
-                return true;
-            }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> {
-                // The way back when you have zoomed into a corner and lost the table.
-                showEverything();
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_V -> {
@@ -4590,20 +4514,48 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * The number row: one press does one thing to the game, or to the card being pointed at.
-     * <p>Matched to the reference table key for key, because a row that is nearly the same is
-     * worse than one that is different: 0 passes, 1 untaps, 2 draws, 3 scries, 4 mills, 5
-     * reveals, 7 exiles, 8 bins, 9 puts cards under the library in a random order.
-     * <p>Six is the one deliberate difference. That table spends it on a second reveal layout;
-     * this one spends it on surveil, which is a verb rather than a display and comes up far
-     * more often. Drawing a named number is still on the library's menu.
+     * Does one verb, named by its catalogue id.
+     * <p>The number row's defaults are matched to the reference table key for key, because a
+     * row that is nearly the same is worse than one that is different: 0 passes, 1 untaps, 2
+     * draws, 3 scries, 4 mills, 5 reveals, 7 exiles, 8 bins, 9 puts cards under the library in
+     * a random order. Six is the one deliberate difference - that table spends it on a second
+     * reveal layout and this one spends it on surveil, which is a verb rather than a display.
+     * Which key each of those verbs is on now is the player's answer, not this list's; see
+     * {@link TableShortcuts}.
+     * <p>The one body for each verb, and the one place a verb is turned into an event. A key
+     * press, a mat button, a menu row, the palette and a tutorial step all arrive here with
+     * the same string, which is what makes "an action performed through a menu counts just as
+     * one performed through a shortcut" true rather than nearly true.
+     * <p>Says whether it did anything. False for a verb this board does not offer from here -
+     * which is not an error: the catalogue is what is <em>searchable and bindable</em>, and a
+     * verb whose only sensible entry point is a menu row that already knows which card it is
+     * about is answered there. A caller that gets false has not acted and may go on looking.
+     * <p>Package-visible so the scripted run can press a verb by name, the way a player does.
      */
-    private boolean verbKey(SeatId me, int number) {
-        String verb = NUMBER_ROW.get(number);
-        if (verb == null) {
+    boolean doAction(SeatId me, String action) {
+        if (me == null || action == null) {
             return false;
         }
-        return switch (verb) {
+        return switch (action) {
+            // The mat's own four. A button and its key are one body here, which is why the
+            // button presses this rather than having a copy of the send beside it.
+            case "untap_all" -> {
+                doVerb(me, TableVerb.UNTAP);
+                yield true;
+            }
+            case "draw" -> {
+                doVerb(me, TableVerb.DRAW);
+                yield true;
+            }
+            case "shuffle" -> {
+                doVerb(me, TableVerb.SHUFFLE);
+                yield true;
+            }
+            case "mulligan" -> {
+                doVerb(me, TableVerb.MULLIGAN);
+                yield true;
+            }
+
             case "pass_turn" -> {
                 view().ifPresent(board -> passTurn(board, me));
                 yield true;
@@ -4629,9 +4581,25 @@ public final class TableScreen extends Screen {
             case "to_exile" -> sendUnderCursorTo(me, Zone.EXILE, Placement.TOP);
             case "to_graveyard" -> sendUnderCursorTo(me, Zone.GRAVEYARD, Placement.TOP);
             case "to_library_bottom_random" -> bottomOfLibraryAtRandom(me);
-            // Untap and draw are the mat's own buttons. Their keys are answered further up,
-            // by verbForKey, so that a button and its key are one body and cannot come to
-            // mean different things - they are named here only so the menu can label them.
+
+            // The TTS letters, applied to whatever is under the cursor or selected.
+            case "tap" -> setTapUnderCursor(me, true);
+            case "untap" -> setTapUnderCursor(me, false);
+            case "turn_over" -> flipUnderCursor(me);
+
+            // Nothing anybody else can see.
+            case "show_log", "hide_log" -> {
+                showingLog = !showingLog;
+                yield true;
+            }
+            case "show_everything" -> {
+                showEverything();
+                yield true;
+            }
+            case "sort_hand" -> {
+                sortMyHand(me);
+                yield true;
+            }
             default -> false;
         };
     }

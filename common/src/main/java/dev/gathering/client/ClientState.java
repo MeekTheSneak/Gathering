@@ -28,6 +28,7 @@ public final class ClientState {
         ClientTableNews.clear();
         ClientTableState.clear();
         ClientWants.clear();
+        PendingWork.clear();
         // Not a clear, because a replay is something this client is doing rather than
         // something it was told: stopping it is what closes the watch as well as dropping the
         // frame. A frame is a board with hands in it, so it is the one piece of this that

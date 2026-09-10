@@ -108,6 +108,28 @@ def strayShortcuts(entries):
             if MENU_PREFIX + key not in entries}
 
 
+#: Where the shared action catalogue lives, and the shape of a line in it.
+CATALOGUE = ROOT / "core/src/main/java/dev/gathering/core/ui/TableActions.java"
+CATALOGUE_ID = re.compile(r'of\("([a-z_]+)",')
+
+
+def catalogueLabels(entries):
+    """Verbs in the shared catalogue with no menu string to be called by.
+
+    The catalogue deliberately reuses the menu's own translation key rather than inventing a
+    second name, which is what stops the palette calling something by a word the menu does not
+    use. That only holds while the key is really there: an id with no entry would show up in
+    the palette, in the key list and in Minecraft's own Controls screen as the raw key, in
+    three places at once.
+    """
+    if not CATALOGUE.is_file():
+        return {}
+    text = CATALOGUE.read_text(encoding="utf-8")
+    return {MENU_PREFIX + found: "the action catalogue"
+            for found in CATALOGUE_ID.findall(text)
+            if MENU_PREFIX + found not in entries}
+
+
 def subtitles():
     """
     The subtitle keys the sound definitions ask for.
@@ -199,10 +221,13 @@ def main() -> int:
     stray = strayShortcuts(entries)
     for key, where in sorted(stray.items()):
         print(f"stray shortcut: {key} is not a menu entry  (promised in {where})")
+    nameless = catalogueLabels(entries)
+    for key, where in sorted(nameless.items()):
+        print(f"nameless action: {key} has no menu string  (asked for by {where})")
     print(f"\n{len(whole)} keys written out, {len(prefixes)} prefixes, "
           f"{len(entries)} entries in en_us.json, {len(missing)} missing, {len(unused)} unused, "
-          f"{len(stray)} stray shortcuts")
-    return 1 if missing or stray else 0
+          f"{len(stray)} stray shortcuts, {len(nameless)} nameless actions")
+    return 1 if missing or stray or nameless else 0
 
 
 if __name__ == "__main__":

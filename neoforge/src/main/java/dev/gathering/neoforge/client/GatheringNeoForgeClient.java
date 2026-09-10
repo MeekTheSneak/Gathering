@@ -8,8 +8,6 @@ import dev.gathering.client.CardZoomOverlay;
 import dev.gathering.client.ClientCardCache;
 import dev.gathering.client.ClientFetching;
 import dev.gathering.client.ClientHoverState;
-import dev.gathering.client.ClientCardRequests;
-import dev.gathering.client.DevScene;
 import dev.gathering.client.ClientNetworking;
 import dev.gathering.client.TableColors;
 import dev.gathering.client.DeckContentsScreen;
@@ -61,6 +59,12 @@ public final class GatheringNeoForgeClient {
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(ZOOM_KEY);
+        // The table's verbs, from the shared list rather than one written here. A verb added
+        // to dev.gathering.client.TableShortcuts turns up in this loader's Controls screen and
+        // in the other one's without anybody remembering to add it in two places.
+        for (KeyMapping mapping : dev.gathering.client.TableShortcuts.all()) {
+            event.register(mapping);
+        }
     }
 
     /** The miniature on the table top, which is what makes a table worth more than a menu. */
@@ -290,12 +294,7 @@ public final class GatheringNeoForgeClient {
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {
-        // No screen means no slots, so nothing is hovered.
-        if (Minecraft.getInstance().screen == null) {
-            ClientHoverState.clear();
-        }
-        ClientCardRequests.tick();
-        DevScene.tick(Minecraft.getInstance());
+        dev.gathering.client.ClientTicks.tick(Minecraft.getInstance());
     }
 
     /**

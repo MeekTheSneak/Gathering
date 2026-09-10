@@ -7,7 +7,6 @@ import dev.gathering.client.CardZoomOverlay;
 import dev.gathering.client.ClientCardCache;
 import dev.gathering.client.ClientFetching;
 import dev.gathering.client.ClientHoverState;
-import dev.gathering.client.ClientCardRequests;
 import dev.gathering.client.ClientNetworking;
 import dev.gathering.client.GuiThemeOption;
 import dev.gathering.client.TableColors;
@@ -57,6 +56,10 @@ public final class GatheringFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         KeyBindingHelper.registerKeyBinding(ZOOM_KEY);
+        // The table's verbs, from the shared list. See the note in the NeoForge client.
+        for (KeyMapping mapping : dev.gathering.client.TableShortcuts.all()) {
+            KeyBindingHelper.registerKeyBinding(mapping);
+        }
 
         CardNameLookup.Binding.bind(ClientCardCache.get());
         DeckScreenHook.Binding.bind(hand -> Minecraft.getInstance().setScreen(new DeckContentsScreen(hand)));
@@ -222,17 +225,7 @@ public final class GatheringFabricClient implements ClientModInitializer {
         ScreenEvents.AFTER_INIT.register(
                 (client, screen, width, height) -> GuiThemeOption.addTo(screen));
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // No screen means no slots, so nothing is hovered.
-            if (client.screen == null) {
-                ClientHoverState.clear();
-            }
-            ClientCardRequests.tick();
-            // The scripted run, on this loader too. It does nothing at all unless the
-            // property is set, and it is the only thing that tells us whether Fabric plays
-            // the game rather than merely starting it.
-            dev.gathering.client.DevScene.tick(client);
-        });
+        ClientTickEvents.END_CLIENT_TICK.register(dev.gathering.client.ClientTicks::tick);
 
         HudRenderCallback.EVENT.register((graphics, tickDelta) -> {
             // With a screen open the screen hook draws it. The HUD still renders under an
