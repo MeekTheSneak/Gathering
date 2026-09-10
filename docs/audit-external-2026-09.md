@@ -63,6 +63,30 @@ rounded up.
   drives real screens and asserts as it goes, but it is not proof about frame times, and no
   third-party modpack has been tested against this.
 
+## What the scripted client found that nothing else could
+
+Neither audit pass launched a graphical client, and neither had this repository since the
+fixes went in. Running `tools/shots.sh` against the closed-out code found two things the whole
+gate was green through:
+
+- **Watching a game back did not work at all.** The throttle added for G-25 - two ticks between
+  frames for one watcher, to bound a dragged scrubber - dropped what it refused instead of
+  deferring it. Picking a game within two ticks of any other frame request meant the opening
+  frame was thrown away, the client sat on the list screen, and after five seconds it gave up
+  silently. That is a fix for one finding breaking a feature, shipped, with three hundred and
+  twenty-three in-world tests and eleven static checks all green. The throttle now keeps the
+  newest request and answers it when the gap is up, and the client asks once more for a frame
+  that never came.
+- **The scene was not reproducing its own input.** Talking at the table opens a line on the
+  chat key and swallows the character that key echoes, because a window sends a key event and
+  then a character event for one press. The scripted run skipped the echo, so its first letter
+  was eaten and it asserted the table had not heard a line the table was never given.
+
+Both are fixed and the run is clean: no failures, a hundred and forty-four pictures. The
+lesson is the one the review already made about helpers and paths, one level further out - a
+gate that only runs headless proves what happens without a window, and a table game is a thing
+somebody looks at.
+
 ## The first pass, for the record
 
 All forty-one original findings and their fixes are listed in the review's own status table;

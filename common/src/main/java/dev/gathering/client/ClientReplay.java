@@ -50,6 +50,13 @@ public final class ClientReplay {
 
     private static int waiting;
 
+    /**
+     * Whether the opening frame has already been asked for a second time.
+     * <p>Once, not for ever: a replay that cannot be opened has to stop asking, or a client
+     * that has lost the server sends one of these every five seconds until somebody notices.
+     */
+    private static boolean givenUp;
+
     private ClientReplay() {
     }
 
@@ -62,6 +69,7 @@ public final class ClientReplay {
         ClientReplay.playing = false;
         ClientReplay.sinceStep = 0;
         ClientReplay.waiting = 0;
+        ClientReplay.givenUp = false;
         // Cleared before asking, not after. What is outstanding is a step of the game that
         // was being watched a moment ago, and ask() refuses to send a request for the step it
         // is already waiting on - so picking a second game from the list before the first
@@ -179,9 +187,19 @@ public final class ClientReplay {
         // ever - and refusing it silently, since it is the same step the player is dragging
         // back to.
         if (asked >= 0 && ++waiting >= WAITED_TOO_LONG) {
+            int wanted = asked;
             asked = -1;
             waiting = 0;
             playing = false;
+            // And asked again, once. Giving up was the whole of what happened here, which
+            // left a player who had picked a game looking at the list with no way to tell
+            // that anything had gone wrong - and no way to make it go right except to pick
+            // the same game again. A frame can be lost: the server bounds how often one
+            // watcher may be answered, and a request inside that gap used to be dropped.
+            if (frame == null && !givenUp) {
+                givenUp = true;
+                ask(wanted);
+            }
         }
         if (!playing) {
             return;
@@ -227,6 +245,7 @@ public final class ClientReplay {
         playing = false;
         asked = -1;
         waiting = 0;
+        givenUp = false;
     }
 
     private static void ask(int which) {

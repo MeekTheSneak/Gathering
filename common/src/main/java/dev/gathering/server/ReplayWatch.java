@@ -51,12 +51,18 @@ public final class ReplayWatch {
     public static void forget(java.util.UUID who) {
         OPEN.remove(who);
         LAST_FRAME.remove(who);
+        WAITING.remove(who);
+        WAITING_ON.remove(who);
+        DRAINING.remove(who);
     }
 
     /** Between servers: one world's replays are not the next one's. */
     public static void clear() {
         OPEN.clear();
         LAST_FRAME.clear();
+        WAITING.clear();
+        WAITING_ON.clear();
+        DRAINING.clear();
         Replays.clearHeaders();
     }
 
@@ -144,10 +150,67 @@ public final class ReplayWatch {
         return false;
     }
 
-    private static void sendFrame(ServerPlayer player, String id, int step) {
-        if (tooFast(player)) {
+    /**
+     * The newest frame each watcher has waiting on the throttle.
+     * <p>Kept rather than dropped, and this is the second time that distinction has cost
+     * something here. The throttle went in to bound a dragged scrubber, and it dropped what it
+     * refused - which is right for a drag, where another request is a pixel away, and wrong
+     * for the request that opens the replay in the first place. Picking a game within two
+     * ticks of any other frame request meant the opening frame was thrown away, the client sat
+     * on the list screen, and after five seconds it gave up quietly. A scripted client run
+     * found it; nothing else could, because every other check here is about what the server
+     * answers rather than about whether it answers at all.
+     */
+    private static final java.util.Map<java.util.UUID, int[]> WAITING = new java.util.HashMap<>();
+
+    /** Which watchers already have a drain queued, so one is not queued per request. */
+    private static final java.util.Set<java.util.UUID> DRAINING = new java.util.HashSet<>();
+
+    /** Per watcher, which replay the waiting frame is of. */
+    private static final java.util.Map<java.util.UUID, String> WAITING_ON =
+            new java.util.HashMap<>();
+
+    /**
+     * Answers a waiting frame as soon as the throttle allows.
+     * <p>Through the server's own task queue rather than a tick hook: the gap is two ticks
+     * and a hook in both loaders would be a new seam for it. One drain per watcher at a time.
+     */
+    private static void drainWhenAllowed(ServerPlayer player) {
+        java.util.UUID who = player.getUUID();
+        if (!DRAINING.add(who)) {
             return;
         }
+        player.server.execute(() -> {
+            DRAINING.remove(who);
+            int[] step = WAITING.get(who);
+            String id = WAITING_ON.get(who);
+            if (step == null || id == null || player.hasDisconnected()) {
+                WAITING.remove(who);
+                WAITING_ON.remove(who);
+                return;
+            }
+            if (tooFast(player)) {
+                drainWhenAllowed(player);
+                return;
+            }
+            WAITING.remove(who);
+            WAITING_ON.remove(who);
+            answerFrame(player, id, step[0]);
+        });
+    }
+
+    private static void sendFrame(ServerPlayer player, String id, int step) {
+        if (tooFast(player)) {
+            WAITING.put(player.getUUID(), new int[] {step});
+            WAITING_ON.put(player.getUUID(), id);
+            drainWhenAllowed(player);
+            return;
+        }
+        answerFrame(player, id, step);
+    }
+
+    /** The frame itself, once the throttle has let it through. Server thread only. */
+    private static void answerFrame(ServerPlayer player, String id, int step) {
         // Checked here as well as when the list went out. The list is a courtesy; this is the
         // fence, because an id is a string on the wire and nothing stops a client sending one
         // it was never shown.

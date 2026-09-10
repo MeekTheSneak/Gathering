@@ -5235,6 +5235,12 @@ public final class DevScene {
             return;
         }
         board.keyPressed(chat, 0, 0);
+        // And the echo of that same key as a typed character, which is what the window
+        // actually delivers: GLFW sends a key event and then a character event for the same
+        // press. The board swallows the first character after the line opens for exactly that
+        // reason, so a scene that skipped the echo had its own first letter eaten - and then
+        // asserted that the table had not heard a line the table had never been given.
+        board.charTyped('t', 0);
         for (char letter : words.toCharArray()) {
             board.charTyped(letter, 0);
         }
