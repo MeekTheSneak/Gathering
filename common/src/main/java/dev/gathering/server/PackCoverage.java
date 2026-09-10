@@ -55,7 +55,7 @@ public final class PackCoverage {
 
         collation.collationFor(set)
                 .thenCombineAsync(cards.everyPrintingIn(set), Audited::new, collation.worker())
-                .whenComplete((audited, failure) -> player.server.execute(() -> {
+                .whenComplete(ServerRun.onServerThread(player, (audited, failure) -> {
                     if (player.hasDisconnected()) {
                         return;
                     }

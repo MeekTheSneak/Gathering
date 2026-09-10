@@ -88,6 +88,69 @@ public final class ServerRun {
     }
 
     /**
+     * Runs this on the asking server's thread, or not at all.
+     * <p>The fence, and it has to be a real one because {@code server.execute} is not.
+     * {@code MinecraftServer.scheduleExecutables()} is {@code super && !isStopped()}: once a
+     * server has stopped, {@code execute} does not queue the task and does not drop it - it
+     * runs it <em>inline, on the calling thread</em>, which for a completion off the card
+     * worker means a worker thread reaching into whatever world is running now. Half this
+     * mod's asynchronous work relied on the opposite belief, and a static check said so out
+     * loud.
+     * <p>So: the generation is checked before scheduling and again inside, and the task is
+     * only ever handed to the server it was started on. A late completion whose world has
+     * gone does nothing, on any thread.
+     *
+     * @param asking     the server the work was started on, captured then rather than looked
+     *                   up now - "the running server" is the next world by the time this runs
+     * @param generation what {@link #generation()} said when the work was started
+     */
+    public static void onTheServerThread(MinecraftServer asking, long generation, Runnable what) {
+        if (asking == null || what == null || !isStill(generation) || asking != running) {
+            return;
+        }
+        asking.execute(() -> {
+            // Again, inside. Between the check above and this line the server can stop, and
+            // when it has, execute ran this on the caller's thread rather than the server's.
+            if (isStill(generation) && asking == running && asking.isSameThread()) {
+                what.run();
+            }
+        });
+    }
+
+    /**
+     * A completion that lands back on the server thread of the world that asked for it.
+     * <p>What every {@code whenComplete} in this mod is wrapped in. The server and the run are
+     * read <em>here</em>, when the work is being started - a completion that reads
+     * {@code player.server} after outliving its world reads the wrong server, and this is the
+     * one line where that can be got right for every call site at once.
+     */
+    public static <T> java.util.function.BiConsumer<T, Throwable> onServerThread(
+            net.minecraft.server.level.ServerPlayer player,
+            java.util.function.BiConsumer<T, Throwable> then) {
+        if (player == null || then == null) {
+            return (value, failure) -> { };
+        }
+        MinecraftServer asking = player.server;
+        long generation = generation();
+        return (value, failure) ->
+                onTheServerThread(asking, generation, () -> then.accept(value, failure));
+    }
+
+    /**
+     * The same for work with nothing to hand back, started on behalf of one player.
+     * <p>Read at the moment it is called, for the same reason.
+     */
+    public static Runnable laterOnTheServerThread(
+            net.minecraft.server.level.ServerPlayer player, Runnable what) {
+        if (player == null || what == null) {
+            return () -> { };
+        }
+        MinecraftServer asking = player.server;
+        long generation = generation();
+        return () -> onTheServerThread(asking, generation, what);
+    }
+
+    /**
      * Wraps a completion so it does nothing once the world that asked for it has gone.
      * <p>The generation is taken when this is called, which is when the work is started, and
      * checked when the result lands. Anything reading a shared static on the way back has to

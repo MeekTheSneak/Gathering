@@ -60,8 +60,17 @@ public final class CardMetadataRequests {
     private static final java.util.concurrent.atomic.AtomicLong CONNECTIONS =
             new java.util.concurrent.atomic.AtomicLong();
 
-    /** What everybody together has out, kept as it goes rather than summed. */
-    private static int outstandingAltogether;
+    /**
+     * What is actually queued on the shared worker, across everybody, whoever asked for it.
+     * <p>Not per player, and not released by a disconnect. Releasing it on disconnect was the
+     * bug: the work is on a shared executor and a logout cannot recall it, so freeing its
+     * budget handed the next connection an allowance the worker had not actually finished with.
+     * An audit ran six request-and-disconnect cycles for one player and admitted seven hundred
+     * and sixty-eight lookups against a ceiling of five hundred and twelve.
+     * <p>It comes down when a job completes, and only then - by whichever completion owned it,
+     * whether or not the player who asked is still connected.
+     */
+    private static int queuedAltogether;
 
     public static void handle(ServerPlayer player, CardDataService service, RequestCardMetadataPayload request) {
         List<UUID> wanted = request.printings().stream()
@@ -101,46 +110,61 @@ public final class CardMetadataRequests {
         long connection = busy == null ? CONNECTIONS.incrementAndGet() : busy.connection();
         int room = Math.min(
                 OUTSTANDING_PER_PLAYER - (busy == null ? 0 : busy.count()),
-                OUTSTANDING_ALTOGETHER - outstandingAltogether);
+                OUTSTANDING_ALTOGETHER - queuedAltogether);
         if (room <= 0) {
             return;
         }
         List<UUID> asking = unknown.size() > room ? unknown.subList(0, room) : unknown;
         BUSY.put(player.getUUID(),
                 new Outstanding(connection, (busy == null ? 0 : busy.count()) + asking.size()));
-        outstandingAltogether += asking.size();
+        queuedAltogether += asking.size();
         send(player, service, connection, List.copyOf(asking));
     }
 
     /**
-     * Forgets a player's outstanding work, for a disconnect or a server stop.
-     * <p>The work itself cannot be recalled - it is on a shared queue - so what this does is
-     * make sure it changes nothing when it lands. The global count comes down here, because
-     * that work is no longer anybody's allowance to spend.
+     * Forgets a player's own allowance, for a disconnect.
+     * <p>Their allowance only. The work itself cannot be recalled - it is on a shared queue -
+     * so the shared count stays exactly where it is until that work completes and its own
+     * completion takes it off. Bringing it down here was a way to get a fresh allowance by
+     * reconnecting: six cycles bought seven hundred and sixty-eight lookups against a ceiling
+     * of five hundred and twelve, none of them finished.
+     * <p>A completion belonging to the connection that has just gone still finds its stamp
+     * missing and leaves the new connection's personal allowance alone; what it does do is
+     * pay back the shared one, which is the part that was really spent.
      */
     public static void forget(UUID player) {
-        Outstanding gone = BUSY.remove(player);
-        if (gone != null) {
-            outstandingAltogether = Math.max(0, outstandingAltogether - gone.count());
-        }
+        BUSY.remove(player);
     }
 
-    /** Forgets everybody's, for a server that is stopping. */
+    /**
+     * Forgets everybody's, for a server that is stopping.
+     * <p>The shared count goes here and only here, because a stopping server is the one moment
+     * the queue itself is going away with it.
+     */
     public static void clear() {
         BUSY.clear();
-        outstandingAltogether = 0;
+        queuedAltogether = 0;
+    }
+
+    /** What is queued on the shared worker right now, which is what a test asks. */
+    public static int queued() {
+        return queuedAltogether;
     }
 
     private static void send(ServerPlayer player, CardDataService service, long connection,
             List<UUID> wanted) {
-        service.findAll(wanted).whenComplete((cards, failure) -> player.server.execute(() -> {
-            // Only against the connection that asked. A completion carrying a stamp from
-            // before a relog belongs to a client that has gone, and taking it off the new
-            // client's allowance would hand out a second one for the same work.
+        service.findAll(wanted).whenComplete(ServerRun.onServerThread(player, (cards, failure) -> {
+            // The shared count comes down whatever else is true: this job is off the worker
+            // now, and that is a fact about the queue rather than about whoever asked. It is
+            // the only place it comes down outside a server stopping.
+            queuedAltogether = Math.max(0, queuedAltogether - wanted.size());
+            // The personal allowance, only against the connection that asked. A completion
+            // carrying a stamp from before a relog belongs to a client that has gone, and
+            // taking it off the new client's allowance would hand out a second one for the
+            // same work.
             Outstanding busy = BUSY.get(player.getUUID());
             if (busy != null && busy.connection() == connection) {
                 int left = busy.count() - wanted.size();
-                outstandingAltogether = Math.max(0, outstandingAltogether - wanted.size());
                 if (left <= 0) {
                     BUSY.remove(player.getUUID());
                 } else {

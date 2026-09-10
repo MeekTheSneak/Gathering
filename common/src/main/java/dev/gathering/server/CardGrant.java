@@ -35,7 +35,7 @@ public final class CardGrant {
      */
     public static void byName(ServerPlayer player, CardDataService service, String cardName, boolean foil) {
         service.findByName(cardName)
-                .whenComplete((found, failure) -> player.server.execute(() -> {
+                .whenComplete(ServerRun.onServerThread(player, (found, failure) -> {
                     if (player.hasDisconnected()) {
                         return;
                     }

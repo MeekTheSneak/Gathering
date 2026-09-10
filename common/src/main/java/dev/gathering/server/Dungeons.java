@@ -33,7 +33,7 @@ public final class Dungeons {
         }
         Dungeon dungeon = payload.dungeon();
         service.findByName(dungeon.cardName())
-                .whenComplete((found, failure) -> player.server.execute(() -> {
+                .whenComplete(ServerRun.onServerThread(player, (found, failure) -> {
                     if (player.hasDisconnected()) {
                         return;
                     }

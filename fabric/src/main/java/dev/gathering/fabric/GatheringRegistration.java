@@ -122,6 +122,10 @@ final class GatheringRegistration {
                 BuiltInRegistries.DATA_COMPONENT_TYPE,
                 Gathering.id(GatheringComponents.STORY_ID),
                 GatheringComponents.createStoryType()));
+        GatheringComponents.DECK_HANDLE.bindValue(Registry.register(
+                BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Gathering.id(GatheringComponents.DECK_HANDLE_ID),
+                GatheringComponents.createDeckHandleType()));
 
         net.minecraft.world.level.block.Block collection = Registry.register(
                 BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.COLLECTION_ID),

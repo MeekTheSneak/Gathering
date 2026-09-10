@@ -199,8 +199,8 @@ public final class CardArtPush {
         // a board update that reads a hundred files is a board update that stutters the
         // server - so this goes through the card pipeline like every other lookup, and comes
         // back to the server thread only to send.
-        service.findAll(List.copyOf(wanted)).whenComplete((cards, failure) ->
-                player.server.execute(() -> {
+        service.findAll(List.copyOf(wanted)).whenComplete(
+                ServerRun.onServerThread(player, (cards, failure) -> {
                     asking.removeAll(outstanding);
                     if (player.hasDisconnected()) {
                         return;

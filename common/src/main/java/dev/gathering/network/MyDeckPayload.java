@@ -16,13 +16,16 @@ import net.minecraft.world.InteractionHand;
  * <p>This is the other half: the real list, sent to one player about a deck in their own hand.
  * Sent when it changes rather than asked for, so a screen that opens onto a deck has it
  * already, and so an edit made on the server is on the screen the moment it lands.
- * <p>The revision says which push this is. The client used to keep one entry per hand and
- * decide whether it was the right deck by comparing the name and the card count against the
- * public copy on the item - which two different decks can match exactly, so a player carrying
- * two sixty-card decks called "Deck" could be shown one list while holding the other for the
- * frame or two before the next push landed. Identity is not a thing to infer from appearance.
+ * <p>The handle says which deck, and the revision says which push. Both are needed and each
+ * fixes a different thing: without the handle the client kept one entry per hand and decided
+ * whether it was the right deck by comparing the name and the card count against the public
+ * copy on the item, which two different decks can match exactly - so a player carrying two
+ * sixty-card decks called "Deck" could be shown one list while holding the other. Identity is
+ * not a thing to infer from appearance. Without the revision, two pushes about one deck can
+ * land out of order and the older one wins.
  */
-public record MyDeckPayload(boolean offHand, int revision, DeckComponent deck)
+public record MyDeckPayload(
+        boolean offHand, java.util.UUID deckHandle, int revision, DeckComponent deck)
         implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<MyDeckPayload> TYPE =
@@ -31,12 +34,14 @@ public record MyDeckPayload(boolean offHand, int revision, DeckComponent deck)
     public static final StreamCodec<RegistryFriendlyByteBuf, MyDeckPayload> STREAM_CODEC =
             StreamCodec.composite(
                     ByteBufCodecs.BOOL, MyDeckPayload::offHand,
+                    net.minecraft.core.UUIDUtil.STREAM_CODEC, MyDeckPayload::deckHandle,
                     ByteBufCodecs.VAR_INT, MyDeckPayload::revision,
                     DeckComponent.STREAM_CODEC, MyDeckPayload::deck,
                     MyDeckPayload::new);
 
-    public static MyDeckPayload of(InteractionHand hand, int revision, DeckComponent deck) {
-        return new MyDeckPayload(hand == InteractionHand.OFF_HAND, revision, deck);
+    public static MyDeckPayload of(
+            InteractionHand hand, java.util.UUID deckHandle, int revision, DeckComponent deck) {
+        return new MyDeckPayload(hand == InteractionHand.OFF_HAND, deckHandle, revision, deck);
     }
 
     public InteractionHand hand() {

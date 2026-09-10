@@ -34,6 +34,12 @@ public final class GatheringNeoForge {
         // Game bus: these are things happening in the game, not mod setup.
         NeoForge.EVENT_BUS.addListener(this::onServerStarting);
         NeoForge.EVENT_BUS.addListener(this::onServerStopped);
+        // One real tick, for work that has to happen on a later one. server.execute is not
+        // that: called on the server thread it runs the task inline, so a throttle that waited
+        // by re-queueing re-entered itself instead. See dev.gathering.server.ServerTicks.
+        NeoForge.EVENT_BUS.addListener(
+                (net.neoforged.neoforge.event.tick.ServerTickEvent.Post tick) ->
+                        dev.gathering.server.ServerTicks.tick(tick.getServer()));
         NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onVillagerTrades);
         NeoForge.EVENT_BUS.addListener(GatheringNeoForge::onEntityInteract);
         // A player's wants list, read when they arrive and let go when they leave. Both are

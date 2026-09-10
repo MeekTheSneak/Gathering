@@ -585,10 +585,13 @@ public final class DeckBuilderScreen extends ChildScreen {
         if (!waiting) {
             return;
         }
-        // An answer that names a press names this one, or it is meant for a screen that has
-        // since been closed and reopened. An older answer closing this builder would throw a
-        // selection away that nobody asked it to.
-        if (result.forRequest().isPresent() && !result.forRequest().get().equals(pressed)) {
+        // An answer this builder acts on is an answer to this builder's own press. Not "an
+        // answer that does not contradict it": an ordinary decklist import is sent without a
+        // press on it at all, and both loaders hand the import result to whichever builder is
+        // open - so somebody who started an import, walked away, opened a builder and pressed
+        // Finish had the earlier import's answer close their builder as though it were theirs.
+        // An absent id is not a match; it is somebody else's.
+        if (pressed == null || !result.forRequest().filter(pressed::equals).isPresent()) {
             return;
         }
         waiting = false;

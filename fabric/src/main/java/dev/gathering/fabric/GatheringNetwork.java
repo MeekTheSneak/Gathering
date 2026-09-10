@@ -190,7 +190,8 @@ final class GatheringNetwork {
             // pipeline's own executor and returns, so the server thread is not held while
             // Scryfall is asked about a hundred and forty cards.
             DecklistImport.importFor(context.player(), service, payload.decklist(),
-                    payload.deckName(), payload.description(), payload.from().orElse(null));
+                    payload.deckName(), payload.description(), payload.from().orElse(null),
+                    java.util.Optional.of(payload.forRequest()));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(RequestCardMetadataPayload.TYPE, (payload, context) ->

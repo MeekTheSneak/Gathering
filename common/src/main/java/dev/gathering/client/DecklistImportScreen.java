@@ -160,12 +160,28 @@ public final class DecklistImportScreen extends Screen {
         this.status = Component.translatable("screen.gathering.import.working");
         this.importButton.active = false;
 
+        this.pressed = java.util.UUID.randomUUID();
         ClientNetworking.send(new ImportDecklistPayload(
-                decklist, this.nameField.getValue(), this.descriptionField.getValue(), this.from));
+                decklist, this.nameField.getValue(), this.descriptionField.getValue(), this.from,
+                this.pressed));
     }
 
-    /** Called from the payload handler when the server reports back. */
+    /** Which press this screen is waiting on, or null if it is not waiting on one. */
+    private java.util.UUID pressed;
+
+    /**
+     * Called from the payload handler when the server reports back.
+     * <p>Only for this screen's own press. Both loaders hand an import result to whichever
+     * import screen is open, and a result can arrive for a press made on a screen since
+     * closed and reopened - so "an answer arrived and I am waiting" is not enough to act on.
+     * An answer with no press named is somebody else's too: a command or the scripted run
+     * imports without a screen, and nobody is waiting for that.
+     */
     public void onResult(ImportResultPayload result) {
+        if (this.pressed == null || result.forRequest().filter(this.pressed::equals).isEmpty()) {
+            return;
+        }
+        this.pressed = null;
         this.waiting = false;
         this.importButton.active = true;
 

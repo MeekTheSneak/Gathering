@@ -33,10 +33,30 @@ public class DeckItem extends Item {
         super(properties);
     }
 
+    /**
+     * A deck item, with a handle minted for it.
+     * <p>Every deck in this mod becomes an item here, which is why the handle is minted here:
+     * one place, and a deck that exists has one. See {@link GatheringComponents#DECK_HANDLE}
+     * for what it is for - in short, the owner's real decklist travels separately from the
+     * item and the client has to be able to say which item a list is about.
+     */
     public static ItemStack of(DeckComponent deck) {
         ItemStack stack = new ItemStack(GatheringContent.DECK.get());
         stack.set(GatheringComponents.DECK.get(), deck);
+        stack.set(GatheringComponents.DECK_HANDLE.get(), java.util.UUID.randomUUID());
         return stack;
+    }
+
+    /**
+     * Which deck this stack is, if it says.
+     * <p>Empty for a deck made before handles existed, or one built by something that set the
+     * component directly. Both are answered the same way by everything that asks: fall back to
+     * what is on the item, which is the counts without the list.
+     */
+    public static Optional<java.util.UUID> handleOf(ItemStack stack) {
+        return stack == null
+                ? Optional.empty()
+                : Optional.ofNullable(stack.get(GatheringComponents.DECK_HANDLE.get()));
     }
 
     /**
@@ -52,13 +72,17 @@ public class DeckItem extends Item {
         if (player == null || hand == null) {
             return Optional.empty();
         }
-        Optional<DeckComponent> onTheItem = deckOf(player.getItemInHand(hand));
+        ItemStack stack = player.getItemInHand(hand);
+        Optional<DeckComponent> onTheItem = deckOf(stack);
         if (onTheItem.isEmpty() || !player.level().isClientSide()) {
             return onTheItem;
         }
-        return dev.gathering.client.ClientHeldDeck.of(hand)
-                .filter(mine -> mine.name().equals(onTheItem.get().name())
-                        && mine.totalCards() == onTheItem.get().totalCards())
+        // By which deck it is, not by what it looks like. This used to accept the cached list
+        // when its name and card count matched the item's, and two sixty-card decks both
+        // called "Deck" match each other exactly - so somebody carrying two of those could be
+        // shown one list while holding the other until the next push landed.
+        return handleOf(stack)
+                .flatMap(dev.gathering.client.ClientHeldDeck::of)
                 .or(() -> onTheItem);
     }
 
@@ -292,18 +316,32 @@ public class DeckItem extends Item {
         if (deck == null) {
             return;
         }
-        DeckComponent[] last = LAST_TOLD.computeIfAbsent(
-                holder.getUUID(), who -> new DeckComponent[2]);
+        // Which deck this is, so the client can tell the push apart from one about the other
+        // deck it is carrying. A deck built before handles existed has none, so it is given
+        // one here: this is the server holding the real stack, and minting it once is what
+        // makes the deck addressable from then on. Random because a handle nobody guessed is
+        // one nobody can ask about - see GatheringComponents.DECK_HANDLE.
+        java.util.UUID handle = handleOf(stack).orElse(null);
+        if (handle == null) {
+            handle = java.util.UUID.randomUUID();
+            stack.set(GatheringComponents.DECK_HANDLE.get(), handle);
+        }
+        Told[] last = LAST_TOLD.computeIfAbsent(holder.getUUID(), who -> new Told[2]);
         int at = hand.ordinal();
-        if (deck.equals(last[at])) {
+        Told before = last[at];
+        // The handle is part of what "unchanged" means. Swap one deck for another with the
+        // same cards in it and the contents compare equal, but it is a different deck and the
+        // client has nothing cached under the new handle - so without this the push is
+        // skipped and the screen falls back to the counts without the list.
+        if (before != null && handle.equals(before.handle()) && deck.equals(before.deck())) {
             return;
         }
-        last[at] = deck;
+        last[at] = new Told(handle, deck);
         // Numbered, so a client can drop a push that arrives after a newer one. Per player
-        // rather than per hand, which is fine: what matters is only that it goes up.
+        // rather than per deck, which is fine: what matters is only that it goes up.
         int revision = TOLD_SO_FAR.merge(holder.getUUID(), 1, Integer::sum);
         dev.gathering.network.Sending.to(holder,
-                dev.gathering.network.MyDeckPayload.of(hand, revision, deck));
+                dev.gathering.network.MyDeckPayload.of(hand, handle, revision, deck));
     }
 
     /**
@@ -315,13 +353,17 @@ public class DeckItem extends Item {
      */
     public static java.util.Optional<DeckComponent> toldTheOwner(
             java.util.UUID player, net.minecraft.world.InteractionHand hand) {
-        DeckComponent[] last = LAST_TOLD.get(player);
-        return last == null ? java.util.Optional.empty()
-                : java.util.Optional.ofNullable(last[hand.ordinal()]);
+        Told[] last = LAST_TOLD.get(player);
+        Told told = last == null ? null : last[hand.ordinal()];
+        return told == null ? java.util.Optional.empty() : java.util.Optional.of(told.deck());
+    }
+
+    /** Which deck was last sent for a hand, and which deck it was. */
+    private record Told(java.util.UUID handle, DeckComponent deck) {
     }
 
     /** Per player, the deck last sent for each hand, so an unchanged deck is not re-sent. */
-    private static final java.util.Map<java.util.UUID, DeckComponent[]> LAST_TOLD =
+    private static final java.util.Map<java.util.UUID, Told[]> LAST_TOLD =
             new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Per player, how many pushes have gone out. Numbers a push so an older one is dropped. */

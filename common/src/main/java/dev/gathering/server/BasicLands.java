@@ -47,8 +47,8 @@ public final class BasicLands {
         // Off the server thread, like every other card lookup: a basic this server has not
         // seen before is a file read at best and a Scryfall round trip at worst, and neither
         // belongs on the thread the game ticks on.
-        cards.findByName(asked.land().printedName()).whenComplete((found, failure) ->
-                player.server.execute(() -> give(player, asked, found, failure)));
+        cards.findByName(asked.land().printedName()).whenComplete(ServerRun.onServerThread(
+                player, (found, failure) -> give(player, asked, found, failure)));
     }
 
     private static void give(

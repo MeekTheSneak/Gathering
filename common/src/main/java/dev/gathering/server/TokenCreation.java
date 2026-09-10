@@ -48,7 +48,7 @@ public final class TokenCreation {
         }
 
         service.tokensNamed(payload.name())
-                .whenComplete((found, failure) -> player.server.execute(() -> {
+                .whenComplete(ServerRun.onServerThread(player, (found, failure) -> {
                     if (player.hasDisconnected()) {
                         return;
                     }

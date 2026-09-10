@@ -103,6 +103,12 @@ public final class GatheringFabric implements ModInitializer {
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> dev.gathering.server.PlayerGone.left(handler.getPlayer()));
 
+        // One real tick, for work that has to happen on a later one. server.execute is not
+        // that: called on the server thread it runs the task inline, so a throttle that waited
+        // by re-queueing re-entered itself instead. See dev.gathering.server.ServerTicks.
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(
+                dev.gathering.server.ServerTicks::tick);
+
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             // First, before anything is warmed or any work is queued: this stamps the run
             // that everything started here belongs to, and says where the save is that owns
@@ -148,7 +154,7 @@ public final class GatheringFabric implements ModInitializer {
             // the executors are closed, and only then is the state cleared - clearing while a
             // worker could still write into it is the race this order exists to close.
             dev.gathering.server.ServerRun.stopped();
-            if (cardData != null) {
+                if (cardData != null) {
                 cardData.close();
                 cardData = null;
             }

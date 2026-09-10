@@ -29,6 +29,7 @@ public final class ServerState {
         LoanerDecks.clear();
         ReplayWatch.clear();
         SealedLoot.clear();
+        ServerTicks.clear();
         TradeSessions.clear();
     }
 }

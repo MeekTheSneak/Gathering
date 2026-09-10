@@ -127,6 +127,105 @@ lesson is the one the review already made about helpers and paths, one level fur
 gate that only runs headless proves what happens without a window, and a table game is a thing
 somebody looks at.
 
+## The second review, and the eight it raised
+
+A second external pass reviewed the fix commits and raised eight findings, V-01 to V-08. Three
+of them were regressions the fixes themselves introduced, and one was a correction to a static
+check this repository wrote and had been trusting. All eight are closed.
+
+The single most useful thing in the bundle was not a finding at all. It was four lines of
+mapped 1.21.1 source:
+
+```
+BlockableEventLoop.scheduleExecutables()  ->  !isSameThread()
+MinecraftServer.scheduleExecutables()     ->  super.scheduleExecutables() && !isStopped()
+BlockableEventLoop.execute(Runnable)      ->  scheduleExecutables() ? submit(r) : r.run()
+```
+
+`server.execute` is therefore **neither a next-tick scheduler nor a shutdown fence**. Called on
+the server thread it runs the task inline, immediately. Called after the server has stopped it
+runs the task inline on the calling thread. This repository had built two things on the
+opposite belief, and had written a static check that asserted it:
+
+- **V-03, a regression.** The G-28 search throttle and the G-25 replay throttle both "waited for
+  the next tick" by re-queueing through `server.execute` and comparing tick numbers. On the
+  server thread that is a plain recursive call, and the tick cannot advance inside it. Two
+  searches in one tick recursed to `StackOverflowError`. Both throttles now go through
+  `ServerTicks`, a real tick hook that holds a deadline per key and drains it from the server's
+  own tick, removing everything due before running any of it so a task that re-queues lands on
+  a later tick.
+- **V-06.** `tools/runcheck.py` accepted `player.server.execute(...)` as proof that a completion
+  could not run after its server stopped, and said so in a comment. That was false. The check
+  now rejects a bare `server.execute` outright and accepts only the generation-checked fences
+  in `ServerRun` — or a written `// runcheck:` exemption saying why. `ServerRun.onServerThread`
+  reads the server and the run generation **at submission time**, which is the whole point: a
+  completion built inside the callback reads whichever server is running when it lands.
+
+The other six:
+
+- **V-01 (P1), a regression.** The delayed deck check treated "this stack is not in the player's
+  inventory" as "this must be a table-issued loaner", so a deck moved into a chest while the
+  check was running was taken back out and put on the table. Placement now carries an explicit
+  origin — out of a hand, or made by the table — and a hand-held deck must still be the same
+  stack in the same hand, with the session and the seat revalidated at completion.
+- **V-04.** Disconnecting released a player's share of the global metadata budget while their
+  lookups were still queued, so six reconnects admitted 768 lookups against a cap of 512. The
+  global count now falls only when a job actually completes; forgetting a connection clears
+  only that connection's personal entry.
+- **V-05, a regression.** The replay worker read `OPEN`, an access-ordered map documented as
+  server-thread-only, from the worker thread — where a `get` mutates the link order. The replay
+  is now taken off the map on the server thread and handed to the worker, which returns an
+  immutable result. Each job carries a number, and a completion installs nothing unless that
+  exact job still owns the slot.
+- **V-07.** The client kept one decklist per *hand* and decided whether it was the right one by
+  comparing the name and card count against the item — which two sixty-card decks both called
+  "Deck" match exactly. A deck item now carries an opaque handle, minted once, and both the
+  push and the cache are keyed by it. Appearance is not identity.
+- **V-08.** A screen waiting for an answer accepted an untagged one. Every import request now
+  names itself and every answer carries that name back, on both the builder and the import
+  screen; an absent name is somebody else's answer, not a wildcard. Three collection-build
+  refusals that had only ever written to chat now answer the waiting screen too, which was a
+  dead end in its own right.
+
+## V-02, where this repository and the review disagree
+
+V-02 is closed, but not the way the review's test asserted, and the reasoning is worth writing
+down rather than burying.
+
+Half of it was real and is fixed: `PackOpening` handed the cards over and settled the receipt
+afterwards. A settle that failed left a receipt on disk promising a pack for cards the player
+was already holding, and the next join made good on it. Settling now comes first on every path,
+including the archive, and nothing is handed over if it fails.
+
+The other half is a genuine difference of opinion. `Owed.deliver` strikes a debt off the ledger
+before paying it, so a rewrite that fails hands over nothing and the whole debt waits for the
+next join. The review's test blocks the ledger's write path and asserts that exactly one pack
+is delivered. That is not reachable. An acknowledgment that cannot be written down cannot be
+made durable by any ordering, so under an unwritable ledger there are exactly two available
+behaviors: pay now and pay again after a restart, or hold the debt and pay it when the write
+works. The review's own body says "simply deleting first exchanges duplication for loss" — but
+it is not loss. The ledger is untouched; the debt is intact and paid in full on the next join
+that can write.
+
+Between owing somebody a booster for another minute and printing one, the minute is the cheap
+one. A lost card is a complaint somebody can answer. A printed one is an economy nobody can
+trust.
+
+So the acceptance test in `ReviewRoundTwoGameTest` asserts the invariant the review was
+actually reaching for, and asserts it harder than the original did: delivery is called twice
+against a blocked ledger and must hand over nothing, the block is then lifted and delivery
+called twice more, and exactly one pack must have arrived in total. Never twice, and never
+lost.
+
+## The audit's own tests, kept
+
+`ReviewRegressionGameTest` and `ReviewRoundTwoGameTest` are in the repository's game tests
+rather than in a bundle beside it, so a future change that reopens one of these findings fails
+the gate. Two adaptations were needed and both are written down where they are made: the V-01
+test looks its target method up by name rather than by signature, because the fix added the two
+arguments that say where the deck came from; and the V-02 test asserts the invariant above.
+Nothing else was changed, and no assertion was inverted.
+
 ## The first pass, for the record
 
 All forty-one original findings and their fixes are listed in the review's own status table;

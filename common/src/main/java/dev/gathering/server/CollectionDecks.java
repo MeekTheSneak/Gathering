@@ -66,15 +66,28 @@ public final class CollectionDecks {
      */
     public static void build(ServerPlayer player, BlockPos where, ResolvedDeck list,
             String deckName, String description) {
+        build(player, where, list, deckName, description, java.util.Optional.empty());
+    }
+
+    /**
+     * The same, answering a press a screen is waiting on.
+     *
+     * @param forRequest which press this answers, carried back so a screen acts on its own
+     *                   answer and not on one meant for a screen it is not
+     */
+    public static void build(ServerPlayer player, BlockPos where, ResolvedDeck list,
+            String deckName, String description, java.util.Optional<java.util.UUID> forRequest) {
         CollectionBlockEntity collection = CollectionView.at(player, where);
         if (collection == null) {
             // Walked away, or a position nobody is standing at. Reading a collection is
             // public; being in front of one is not.
-            send(player, "message.gathering.collection_gone");
+            refuse(player, forRequest, "message.gathering.collection_gone",
+                    "That collection is not there any more.");
             return;
         }
         if (!collection.rights().mayTake(player.getUUID())) {
-            send(player, "message.gathering.collection_may_not_take");
+            refuse(player, forRequest, "message.gathering.collection_may_not_take",
+                    "You may not take cards out of that collection.");
             return;
         }
 
@@ -84,27 +97,42 @@ public final class CollectionDecks {
         if (unnamed.isEmpty() || service == null) {
             // Nothing to go and ask about, which is the ordinary case: a deck poured back
             // into the box and rebuilt from the same list needs no lookup at all.
-            finish(player, where, list, named, deckName, description);
+            finish(player, where, list, named, deckName, description, forRequest);
             return;
         }
-        service.findAll(unnamed).whenComplete((found, failure) -> player.server.execute(() -> {
+        service.findAll(unnamed).whenComplete(ServerRun.onServerThread(player, (found, failure) -> {
             if (player.hasDisconnected()) {
                 return;
             }
             // A lookup that failed is not a reason to refuse: what the cache already knew is
             // still true, and the answer comes back short rather than not at all.
-            finish(player, where, list, named, deckName, description);
+            finish(player, where, list, named, deckName, description, forRequest);
         }));
+    }
+
+    /**
+     * Says no, to the player and to the screen that is waiting.
+     * <p>Both, not one: the chat line is what a player standing at a box reads, and the
+     * result is what unsticks a screen that has its button greyed out waiting for an answer.
+     * A refusal that only wrote to chat left the import screen saying "working" for as long
+     * as it stayed open, which is the dead end this whole path exists to avoid.
+     */
+    private static void refuse(ServerPlayer player, java.util.Optional<java.util.UUID> forRequest,
+            String messageKey, String forTheScreen) {
+        send(player, messageKey);
+        Sending.to(player, new ImportResultPayload("", 0, List.of(forTheScreen), forRequest));
     }
 
     // ------------------------------------------------------------------ bits
 
     /** Server thread. The collection is looked up again because the fetch took a moment. */
     private static void finish(ServerPlayer player, BlockPos where, ResolvedDeck list,
-            Map<UUID, String> named, String deckName, String description) {
+            Map<UUID, String> named, String deckName, String description,
+            java.util.Optional<java.util.UUID> forRequest) {
         CollectionBlockEntity collection = CollectionView.at(player, where);
         if (collection == null || !collection.rights().mayTake(player.getUUID())) {
-            send(player, "message.gathering.collection_gone");
+            refuse(player, forRequest, "message.gathering.collection_gone",
+                    "That collection is not there any more.");
             return;
         }
         CardDataService service = CardDataService.active().orElse(null);
@@ -126,7 +154,8 @@ public final class CollectionDecks {
         DeckFromCollection.Building built = DeckFromCollection.from(
                 wanted, holding, card -> nameOf(named, service, card));
         if (built.size() == 0) {
-            send(player, "message.gathering.collection_deck_nothing");
+            refuse(player, forRequest, "message.gathering.collection_deck_nothing",
+                    "That collection holds none of the cards on this list.");
             return;
         }
 
@@ -143,7 +172,7 @@ public final class CollectionDecks {
         }
         int shortBy = built.shortBy() + assembled.leftBehind();
         Sending.to(player, new ImportResultPayload(
-                deck.name(), deck.totalCards(), shortOf(built, assembled.leftBehind())));
+                deck.name(), deck.totalCards(), shortOf(built, assembled.leftBehind()), forRequest));
         player.sendSystemMessage(shortBy == 0
                 ? Component.translatable("message.gathering.collection_deck_built",
                         deck.name(), deck.totalCards())

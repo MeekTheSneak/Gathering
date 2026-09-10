@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -52,9 +53,7 @@ public final class ReplayWatch {
         OPEN.remove(who);
         WORKING.remove(who);
         LAST_FRAME.remove(who);
-        WAITING.remove(who);
-        WAITING_ON.remove(who);
-        DRAINING.remove(who);
+        ServerTicks.forget("replay-frame:" + who);
     }
 
     /** Between servers: one world's replays are not the next one's. */
@@ -63,9 +62,6 @@ public final class ReplayWatch {
         WORKING.clear();
         Replays.stopWorking();
         LAST_FRAME.clear();
-        WAITING.clear();
-        WAITING_ON.clear();
-        DRAINING.clear();
         Replays.clearHeaders();
     }
 
@@ -154,72 +150,51 @@ public final class ReplayWatch {
     }
 
     /**
-     * The newest frame each watcher has waiting on the throttle.
-     * <p>Kept rather than dropped, and this is the second time that distinction has cost
-     * something here. The throttle went in to bound a dragged scrubber, and it dropped what it
-     * refused - which is right for a drag, where another request is a pixel away, and wrong
-     * for the request that opens the replay in the first place. Picking a game within two
-     * ticks of any other frame request meant the opening frame was thrown away, the client sat
-     * on the list screen, and after five seconds it gave up quietly. A scripted client run
-     * found it; nothing else could, because every other check here is about what the server
-     * answers rather than about whether it answers at all.
+     * One watcher's frame, throttled.
+     * <p>A frame asked for inside the gap is kept and answered on a later tick rather than
+     * dropped. Dropping it is what broke opening a replay at all: picking a game within two
+     * ticks of any other frame request threw away the opening frame, and the client sat on
+     * the list screen and quietly gave up.
+     * <p>Through {@link ServerTicks} rather than {@code server.execute}, which runs a task
+     * inline when it is called on the server thread - the first shape of this waited by
+     * re-entering itself, which cannot terminate.
      */
-    private static final java.util.Map<java.util.UUID, int[]> WAITING = new java.util.HashMap<>();
-
-    /** Which watchers already have a drain queued, so one is not queued per request. */
-    private static final java.util.Set<java.util.UUID> DRAINING = new java.util.HashSet<>();
-
-    /** Per watcher, which replay the waiting frame is of. */
-    private static final java.util.Map<java.util.UUID, String> WAITING_ON =
-            new java.util.HashMap<>();
-
-    /**
-     * Answers a waiting frame as soon as the throttle allows.
-     * <p>Through the server's own task queue rather than a tick hook: the gap is two ticks
-     * and a hook in both loaders would be a new seam for it. One drain per watcher at a time.
-     */
-    private static void drainWhenAllowed(ServerPlayer player) {
-        java.util.UUID who = player.getUUID();
-        if (!DRAINING.add(who)) {
-            return;
-        }
-        player.server.execute(() -> {
-            DRAINING.remove(who);
-            int[] step = WAITING.get(who);
-            String id = WAITING_ON.get(who);
-            if (step == null || id == null || player.hasDisconnected()) {
-                WAITING.remove(who);
-                WAITING_ON.remove(who);
-                return;
-            }
-            if (tooFast(player)) {
-                drainWhenAllowed(player);
-                return;
-            }
-            WAITING.remove(who);
-            WAITING_ON.remove(who);
-            answerFrame(player, id, step[0]);
-        });
-    }
-
     private static void sendFrame(ServerPlayer player, String id, int step) {
         if (tooFast(player)) {
-            WAITING.put(player.getUUID(), new int[] {step});
-            WAITING_ON.put(player.getUUID(), id);
-            drainWhenAllowed(player);
+            ServerTicks.on(waitingKey(player), lastFrameTick(player) + TICKS_BETWEEN_FRAMES,
+                    () -> answerFrame(player, id, step));
             return;
         }
         answerFrame(player, id, step);
     }
 
+    /** What a watcher's pending frame is filed under, so a newer one replaces it. */
+    private static Object waitingKey(ServerPlayer player) {
+        return "replay-frame:" + player.getUUID();
+    }
+
+    /** Which tick this watcher was last answered on, or a long time ago. */
+    private static int lastFrameTick(ServerPlayer player) {
+        return LAST_FRAME.getOrDefault(player.getUUID(), Integer.MIN_VALUE / 2);
+    }
+
     /**
-     * Watchers whose replay is being read or folded on the worker right now.
+     * Which job each watcher has out on the worker, by a number no two jobs share.
      * <p>A held replay is a folded game that {@code frameAt} walks forward and rebuilds
      * backward, so two jobs on one watcher's replay would be two halves of two boards. While
      * a watcher is in here the server thread does not touch their {@code Watching} at all -
-     * a frame asked for meanwhile waits on the throttle like any other.
+     * a frame asked for meanwhile waits a tick.
+     * <p>A number rather than a flag, because a flag is not owned by anybody. A watcher who
+     * disconnects and returns while a fold is out gets a new job; the old completion, landing
+     * afterwards, would have cleared the new job's guard and let a second fold start on the
+     * replay the first one is still holding. Now it finds a number that is not its own and
+     * does nothing at all.
      */
-    private static final java.util.Set<java.util.UUID> WORKING = new java.util.HashSet<>();
+    private static final java.util.Map<java.util.UUID, Long> WORKING = new java.util.HashMap<>();
+
+    /** A number no two folds share, for the life of this process. */
+    private static final java.util.concurrent.atomic.AtomicLong JOBS =
+            new java.util.concurrent.atomic.AtomicLong();
 
     /**
      * How many records a step forward may apply before it is worth leaving the tick.
@@ -244,12 +219,11 @@ public final class ReplayWatch {
             player.sendSystemMessage(Component.translatable("message.gathering.replay_unreadable"));
             return;
         }
-        if (WORKING.contains(player.getUUID())) {
-            // Their last frame is still being folded. Kept rather than dropped, and answered
-            // when that finishes - the drain runs again on the tick after.
-            WAITING.put(player.getUUID(), new int[] {step});
-            WAITING_ON.put(player.getUUID(), id);
-            drainWhenAllowed(player);
+        if (WORKING.containsKey(player.getUUID())) {
+            // Their last frame is still being folded. Kept rather than dropped, and asked
+            // again a tick later, by which time the fold has usually landed.
+            ServerTicks.on(waitingKey(player), player.server.getTickCount() + 1,
+                    () -> answerFrame(player, id, step));
             return;
         }
 
@@ -266,28 +240,41 @@ public final class ReplayWatch {
 
         // Opening a replay reads a whole file; a scrub backwards folds the game again from
         // the front. Neither belongs in a tick, and both used to happen in one.
-        WORKING.add(player.getUUID());
+        //
+        // The replay is taken out of OPEN here, on the server thread, and handed to the
+        // worker as a plain reference - the worker never touches the map. OPEN is an
+        // access-ordered LinkedHashMap, so even a get from another thread rewrites its links
+        // while the server thread is inserting and evicting in it.
+        java.util.UUID who = player.getUUID();
+        Replays.Watching held = alreadyOpen ? OPEN.remove(who) : null;
+        long job = JOBS.incrementAndGet();
+        WORKING.put(who, job);
         long thisRun = ServerRun.generation();
+        MinecraftServer asking = player.server;
         Replays.worker().execute(() -> {
             Folded folded;
             try {
-                folded = foldOnTheWorker(player, id, step);
+                folded = fold(held, id, step);
             } catch (RuntimeException couldNotFold) {
                 folded = null;
             }
             Folded ready = folded;
-            player.server.execute(() -> {
-                WORKING.remove(player.getUUID());
-                if (!ServerRun.isStill(thisRun) || player.hasDisconnected()) {
+            ServerRun.onTheServerThread(asking, thisRun, () -> {
+                if (!Long.valueOf(job).equals(WORKING.get(who))) {
+                    // Somebody else's job owns this watcher now - they left and came back
+                    // while this was folding. Nothing here is theirs to put away.
+                    return;
+                }
+                WORKING.remove(who);
+                if (player.hasDisconnected()) {
                     return;
                 }
                 if (ready == null) {
-                    OPEN.remove(player.getUUID());
                     player.sendSystemMessage(
                             Component.translatable("message.gathering.replay_unreadable"));
                     return;
                 }
-                OPEN.put(player.getUUID(), ready.watching());
+                OPEN.put(who, ready.watching());
                 Sending.to(player, new ReplayFramePayload(
                         id, ready.step(), ready.steps(), ready.view()));
             });
@@ -300,14 +287,15 @@ public final class ReplayWatch {
 
     /**
      * Opens or rewinds a replay and encodes one frame, on the worker.
-     * <p>The watcher is in {@link #WORKING} for the whole of this, so nothing on the server
-     * thread is looking at the replay it takes out of {@code OPEN} and puts back.
+     * <p>Everything it needs was handed to it. It reads no shared state and writes none: the
+     * replay it works on was taken out of the server's map before this was submitted, and the
+     * result goes back through the server thread. The first draft called {@code OPEN.get}
+     * from here, which is a read of an access-ordered map that another thread is writing.
+     *
+     * @param held the replay this watcher already had open, or null to read it fresh
      */
-    private static Folded foldOnTheWorker(ServerPlayer player, String id, int step) {
-        Replays.Watching open = OPEN.get(player.getUUID());
-        Replays.Watching watching = open != null && sameReplay(open, id)
-                ? open
-                : Replays.hold(id).orElse(null);
+    private static Folded fold(Replays.Watching held, String id, int step) {
+        Replays.Watching watching = held != null ? held : Replays.hold(id).orElse(null);
         if (watching == null) {
             return null;
         }

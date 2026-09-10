@@ -169,8 +169,18 @@ public final class Owed {
 
     /**
      * Hands over everything owed, if anything is.
-     * <p>Called when a player joins. The file goes only once its contents are in the player's
-     * hands: if handing over throws, the list is still on disk and they get it next time.
+     * <p><b>The list is shortened first, and only then are the items handed over.</b> That
+     * order is the whole of this method and it is the opposite of what it used to be.
+     * <p>Handing over first and clearing after reads as the safe way round - if the giving
+     * fails, the debt is still written down - and it is not, because clearing can fail too.
+     * An audit blocked the ledger's temporary-write path and called delivery twice: one debt
+     * came out as two packs, because the give succeeded, the rewrite silently did not, and the
+     * next join read the same line again. Between losing a card and printing one, printing one
+     * is worse: a lost card is a complaint somebody can answer, and a printed one is an
+     * economy nobody can trust.
+     * <p>So a line that cannot be struck off is a line that is not paid out. If the write
+     * fails nothing is handed over at all and the whole list waits for the next join, which is
+     * the same debt it was.
      * <p>A line this version cannot make an item out of stays on the list rather than being
      * swept up with the delivered ones. An older save read by a newer mod, or the reverse, is
      * not allowed to be a way to lose a card.
@@ -183,31 +193,49 @@ public final class Owed {
         if (lines.isEmpty()) {
             return;
         }
-        int handed = 0;
-        List<String> couldNotRead = new ArrayList<>();
+
+        // What can be handed over, and what this version cannot read and must keep.
+        List<ItemStack> giving = new ArrayList<>();
+        List<String> keeping = new ArrayList<>();
         for (String line : lines) {
             ItemStack stack = itemFor(line);
             if (stack != null && !stack.isEmpty()) {
-                Handing.give(player, stack);
-                handed++;
+                giving.add(stack);
             } else {
-                // A line this version cannot make an item out of is still somebody's
-                // property. Kept rather than swept up with the delivered ones: an older save
-                // read by a newer mod, or the reverse, must not be a way to lose a card.
-                couldNotRead.add(line);
+                keeping.add(line);
             }
         }
-        if (couldNotRead.isEmpty()) {
-            forget(player.getUUID());
-        } else {
-            write(player.getUUID(), couldNotRead);
-            LOGGER.warn("Kept {} owed line(s) this version cannot read, for {}",
-                    couldNotRead.size(), player.getUUID());
+        if (giving.isEmpty()) {
+            if (!keeping.isEmpty()) {
+                LOGGER.warn("Keeping {} owed line(s) this version cannot read, for {}",
+                        keeping.size(), player.getUUID());
+            }
+            return;
         }
-        if (handed > 0) {
+
+        // Struck off first. A write that fails hands over nothing: the debt is still exactly
+        // what it was, and the next join tries again.
+        boolean struckOff = keeping.isEmpty()
+                ? forget(player.getUUID())
+                : write(player.getUUID(), keeping);
+        if (!struckOff) {
+            LOGGER.error("Could not shorten what is owed to {}, so nothing was handed over."
+                    + " They keep the debt and it will be tried again next time they join.",
+                    player.getUUID());
             player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                    "message.gathering.owed_delivered", handed));
+                    "message.gathering.owed_could_not_be_paid"));
+            return;
         }
+
+        for (ItemStack stack : giving) {
+            Handing.give(player, stack);
+        }
+        if (!keeping.isEmpty()) {
+            LOGGER.warn("Kept {} owed line(s) this version cannot read, for {}",
+                    keeping.size(), player.getUUID());
+        }
+        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                "message.gathering.owed_delivered", giving.size()));
     }
 
     /** What a line means, or null for one this version cannot read. */
@@ -323,16 +351,25 @@ public final class Owed {
         }
     }
 
-    /** Forgets a delivered list. Public so a test can start from nothing. */
-    public static void forget(UUID player) {
+    /**
+     * Forgets a delivered list, and says whether it really is gone.
+     * <p>The answer matters: {@link #deliver} strikes a debt off before paying it, so a delete
+     * that quietly failed and reported success would be a debt paid twice.
+     *
+     * @return whether there is now no list on disk for this player
+     */
+    public static boolean forget(UUID player) {
         Path where = fileFor(player);
         if (where == null) {
-            return;
+            // Nowhere to write means nowhere to read either, so there is no debt to strike.
+            return true;
         }
         try {
             Files.deleteIfExists(where);
+            return !Files.exists(where);
         } catch (IOException couldNotDelete) {
             LOGGER.warn("Could not clear what was owed at {}: {}", where, couldNotDelete.getMessage());
+            return false;
         }
     }
 

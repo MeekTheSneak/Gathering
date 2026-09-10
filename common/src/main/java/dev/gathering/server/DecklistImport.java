@@ -132,7 +132,8 @@ public final class DecklistImport {
     public static void importFor(
             ServerPlayer player, CardDataService service, String decklist, String deckName,
             String description) {
-        importFor(player, service, decklist, deckName, description, null);
+        importFor(player, service, decklist, deckName, description, null,
+                java.util.Optional.empty());
     }
 
     /**
@@ -140,23 +141,29 @@ public final class DecklistImport {
      *             nothing. Naming one is the same request with the cards having to come from
      *             somewhere: everything up to the resolved list is identical, and only the
      *             last step differs.
+     * @param forRequest which press this answers, when a screen is waiting for it. Every
+     *                   answer sent from here carries it back, so a screen can tell its own
+     *                   answer from one meant for a screen it is not. Empty for an import
+     *                   nobody pressed a button for - a command, or the scripted run - which
+     *                   no screen then acts on, which is right: nobody is waiting.
      */
     public static void importFor(
             ServerPlayer player, CardDataService service, String decklist, String deckName,
-            String description, net.minecraft.core.BlockPos from) {
+            String description, net.minecraft.core.BlockPos from,
+            java.util.Optional<UUID> forRequest) {
         UUID id = player.getUUID();
 
         // The server's own answer, not the screen's. A client that never saw the screen - or
         // one written to skip it - arrives here, and this is the only place that decides.
         String refusal = from == null ? whyNot(player) : whyNotFromCollection();
         if (refusal != null) {
-            send(player, new ImportResultPayload("", 0, List.of(refusal)));
+            send(player, new ImportResultPayload("", 0, List.of(refusal), forRequest));
             return;
         }
 
         if (!inFlight.add(id)) {
             send(player, new ImportResultPayload("", 0,
-                    List.of("An import is already running; wait for it to finish.")));
+                    List.of("An import is already running; wait for it to finish."), forRequest));
             return;
         }
 
@@ -165,7 +172,7 @@ public final class DecklistImport {
         if (previous != null && now - previous < COOLDOWN_NANOS) {
             inFlight.remove(id);
             send(player, new ImportResultPayload("", 0,
-                    List.of("Importing again so soon; give it a few seconds.")));
+                    List.of("Importing again so soon; give it a few seconds."), forRequest));
             return;
         }
         // Forgotten wholesale past a bound, the way CollectionView remembers its takes: one
@@ -176,32 +183,48 @@ public final class DecklistImport {
         }
         lastImportNanos.put(id, now);
 
+        // Back on the server thread of the world that asked, or not at all. Built here rather
+        // than inside the completion because that is where the server and the run have to be
+        // read from: a completion that outlives its world reads the wrong server.
+        java.util.function.BiConsumer<ResolvedDeck, Throwable> handOver =
+                ServerRun.onServerThread(player, (deck, failure) -> {
+                    if (player.hasDisconnected()) {
+                        // Nobody to hand a deck to. The cache kept everything it fetched,
+                        // so re-importing after logging back in costs no requests.
+                        return;
+                    }
+                    if (failure != null) {
+                        LOGGER.warn("Decklist import failed for {}",
+                                player.getGameProfile().getName(), failure);
+                        send(player, new ImportResultPayload("", 0,
+                                List.of("The import could not reach Scryfall: "
+                                        + rootMessage(failure)), forRequest));
+                        return;
+                    }
+                    if (from == null) {
+                        deliver(player, deck, deckName, description, forRequest);
+                    } else {
+                        CollectionDecks.build(player, from, deck, deckName, description, forRequest);
+                    }
+                });
+
         service.importDecklist(decklist)
                 .whenComplete((deck, failure) -> {
-                    // Back to the server thread before touching a player or an inventory.
+                    // runcheck: the fence is handOver, built above where the server and the
+                    // run can still be read. What is outside it is one line of this process's
+                    // own bookkeeping, which touches no world state.
+                    //
+                    // Off the fence on purpose: this marker is this process's own bookkeeping
+                    // about who has an import out, and it has to come off however the import
+                    // ended and whichever world is running by then. Leaving it on would refuse
+                    // that player's next import for the rest of the session.
                     inFlight.remove(id);
-                    player.server.execute(() -> {
-                        if (player.hasDisconnected()) {
-                            // Nobody to hand a deck to. The cache kept everything it fetched,
-                            // so re-importing after logging back in costs no requests.
-                            return;
-                        }
-                        if (failure != null) {
-                            LOGGER.warn("Decklist import failed for {}", player.getGameProfile().getName(), failure);
-                            send(player, new ImportResultPayload("", 0,
-                                    List.of("The import could not reach Scryfall: " + rootMessage(failure))));
-                            return;
-                        }
-                        if (from == null) {
-                            deliver(player, deck, deckName, description);
-                        } else {
-                            CollectionDecks.build(player, from, deck, deckName, description);
-                        }
-                    });
+                    handOver.accept(deck, failure);
                 });
     }
 
-    private static void deliver(ServerPlayer player, ResolvedDeck deck, String deckName, String description) {
+    private static void deliver(ServerPlayer player, ResolvedDeck deck, String deckName,
+            String description, java.util.Optional<UUID> forRequest) {
         DeckComponent component = toComponent(deck, player.getUUID(), deckName, description)
                 .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()));
         if (!component.fitsInAnItem()) {
@@ -211,7 +234,7 @@ public final class DecklistImport {
             // A list that big is a mistake or a probe either way; saying so costs nothing.
             send(player, new ImportResultPayload("", 0, List.of(
                     "That list is " + component.totalCards() + " cards. A deck holds "
-                            + DeckComponent.MAX_CARDS + ".")));
+                            + DeckComponent.MAX_CARDS + "."), forRequest));
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.import_too_big",
                     component.totalCards(), DeckComponent.MAX_CARDS));
@@ -227,7 +250,8 @@ public final class DecklistImport {
         for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summariesFor(deck))) {
             send(player, packet);
         }
-        send(player, new ImportResultPayload(component.name(), component.totalCards(), problemsOf(deck)));
+        send(player, new ImportResultPayload(
+                component.name(), component.totalCards(), problemsOf(deck), forRequest));
 
         player.sendSystemMessage(Component.translatable(
                 "message.gathering.import_complete", component.name(), component.totalCards()));

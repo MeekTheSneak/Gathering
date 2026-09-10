@@ -89,15 +89,9 @@ public final class PackOpening {
         // Wrapped once, here, rather than at each of the seven ways out of this method:
         // handing the pack back and settling the receipt are one act, and a path that did
         // one without the other would leave the player owed a booster they were holding.
-        Runnable handedBack = receipt == null ? giveBack : () -> {
-            giveBack.run();
-            Owed.settled(player.getUUID(), receipt, List.of());
-        };
-        Runnable handedOver = receipt == null
-                ? () -> { }
-                : () -> Owed.settled(player.getUUID(), receipt, List.of());
+        Runnable handedBack = () -> settleThenHandOver(player, receipt, giveBack);
         if (Archive.SET.equals(setCode)) {
-            openTheArchive(player, handedBack, handedOver, ceremony);
+            openTheArchive(player, handedBack, receipt, ceremony);
             return;
         }
         String refusal = whyNot();
@@ -129,7 +123,7 @@ public final class PackOpening {
                     }
                     return openAndName(cards, reading, config, false);
                 }, collation.worker())
-                .whenComplete((opened, failure) -> player.server.execute(() -> {
+                .whenComplete(ServerRun.onServerThread(player, (opened, failure) -> {
                     if (player.hasDisconnected()) {
                         // The pack left their hand before any of this started, so there is
                         // nothing of theirs still in the world to fall back on: what they are
@@ -163,9 +157,34 @@ public final class PackOpening {
                         handedBack.run();
                         return;
                     }
-                    deliver(player, opened, ceremony);
-                    handedOver.run();
+                    settleThenHandOver(player, receipt, () -> deliver(player, opened, ceremony));
                 }));
+    }
+
+    /**
+     * Strikes the receipt off first, and hands the property over only if that worked.
+     * <p>The receipt is a promise of one pack. Handing the cards over and then settling reads
+     * as the safe order - if the settling fails the player still got their cards - and it is
+     * not, because what is left on disk then promises them a pack as well, and the next join
+     * makes good on it. One booster becomes cards plus a booster.
+     * <p>So the write comes first, exactly as it does in {@link Owed#deliver}, and for the
+     * same reason: between owing somebody a booster for another minute and printing one, the
+     * minute is the cheap one. A settle that fails hands nothing over and says so, and the
+     * receipt that is still on disk is handed back as a pack the next time they join.
+     *
+     * @param receipt what {@link Owed#opening} wrote down, or null when nothing was taken -
+     *                in which case there is nothing to settle and the handing over is
+     *                unconditional
+     */
+    private static void settleThenHandOver(ServerPlayer player, String receipt, Runnable giving) {
+        if (receipt != null && !Owed.settled(player.getUUID(), receipt, List.of())) {
+            LOGGER.error("Could not settle opening receipt {} for {}, so nothing was handed"
+                    + " over. The receipt stands and the pack comes back when they next join.",
+                    receipt, player.getUUID());
+            player.sendSystemMessage(Component.translatable("message.gathering.pack_not_settled"));
+            return;
+        }
+        giving.run();
     }
 
     /**
@@ -524,7 +543,7 @@ public final class PackOpening {
      * <p>Server thread only, past the lookup it starts.
      */
     private static void openTheArchive(ServerPlayer player, Runnable giveBack,
-            Runnable handedOver, boolean ceremony) {
+            String receipt, boolean ceremony) {
         String refusal = whyNot();
         if (refusal != null) {
             player.sendSystemMessage(Component.translatable(refusal));
@@ -550,16 +569,16 @@ public final class PackOpening {
         for (CardIdentity card : giving) {
             card.printing().ifPresent(printings::add);
         }
-        cards.findAll(printings).whenComplete((named, failure) -> player.server.execute(() -> {
+        cards.findAll(printings).whenComplete(ServerRun.onServerThread(player, (named, failure) -> {
             if (player.hasDisconnected()) {
                 return;
             }
             // A card the server could not name is still a card. The archive's whole point is
             // the long tail, which is exactly the part of a collection least likely to be in
             // a cache already - refusing to hand it over would refuse it most of the time.
-            handOver(player, giving, failure == null && named != null ? named : List.of(),
-                    Archive.SET, "", ceremony);
-            handedOver.run();
+            settleThenHandOver(player, receipt, () ->
+                    handOver(player, giving, failure == null && named != null ? named : List.of(),
+                            Archive.SET, "", ceremony));
         }));
     }
 

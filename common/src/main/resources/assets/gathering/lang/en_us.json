@@ -313,6 +313,8 @@
   "message.gathering.no_basic_in_deck": "There is no %s left in your deck.",
   "message.gathering.no_loaners": "This server does not lend any decks.",
   "message.gathering.no_such_loaner": "That deck is not on the shelf any more.",
+  "message.gathering.owed_could_not_be_paid": "This server owes you something and could not write down that it had handed it over, so it has held on to it rather than risk giving it to you twice. Tell whoever runs the server that Gathering cannot write to the world folder.",
+  "message.gathering.pack_not_settled": "This server could not write down that your booster had been opened, so it has held on to the cards rather than risk giving you the pack as well. The pack comes back the next time you join. Tell whoever runs the server that Gathering cannot write to the world folder.",
   "message.gathering.owed_delivered": "%s card(s) this server owed you have been handed over.",
   "message.gathering.pack_collection_off": "Boosters are turned off on this server.",
   "message.gathering.pack_failed": "That pack could not be opened: %s",

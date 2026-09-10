@@ -78,7 +78,7 @@ public final class CollectionSets {
         // of holding the tick.
         Map<String, SetRelease> sets = service.allSets().getNow(null);
         if (sets == null) {
-            service.allSets().whenComplete((known, failure) -> player.server.execute(() -> {
+            service.allSets().whenComplete(ServerRun.onServerThread(player, (known, failure) -> {
                 if (!player.hasDisconnected() && failure == null && known != null && !known.isEmpty()) {
                     answer(player, where, collection, service, known);
                 }
@@ -165,7 +165,7 @@ public final class CollectionSets {
             return;
         }
         service.everyPrintingIn(wanted)
-                .whenComplete((printings, failure) -> player.server.execute(() -> {
+                .whenComplete(ServerRun.onServerThread(player, (printings, failure) -> {
                     if (player.hasDisconnected() || failure != null || printings == null) {
                         return;
                     }

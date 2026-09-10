@@ -703,6 +703,18 @@ public class TableBlock extends BaseEntityBlock {
     /** The same, saying whether the deck check may wait for cards the server is fetching. */
     private static void commitDeck(Level level, BlockPos tableOrigin, Player player,
             ItemStack stack, boolean mayWait) {
+        // Which hand holds this exact stack, if either does. A deck that is in neither came
+        // from the table itself - the loaner path hands one straight down without it ever
+        // being in an inventory - and that is the only thing "in no hand" is allowed to mean.
+        net.minecraft.world.InteractionHand inHand = null;
+        for (net.minecraft.world.InteractionHand which
+                : net.minecraft.world.InteractionHand.values()) {
+            if (player.getItemInHand(which) == stack) {
+                inHand = which;
+                break;
+            }
+        }
+        DeckCameFrom cameFrom = inHand == null ? DeckCameFrom.THE_TABLE : DeckCameFrom.THEIR_HAND;
         GameSession session = TableSessions.sessionAt(level, tableOrigin).orElse(null);
         if (session == null) {
             player.sendSystemMessage(Component.translatable("message.gathering.session_not_running"));
@@ -725,7 +737,8 @@ public class TableBlock extends BaseEntityBlock {
         // looked up, because it is a fact about this deck rather than about the table - a
         // pool goes wherever the deck goes, including into somebody else's hands.
         if (!deckMayGoDown(level, tableOrigin, deck, player,
-                stack.get(dev.gathering.registry.GatheringComponents.POOL.get()), mayWait, stack)) {
+                stack.get(dev.gathering.registry.GatheringComponents.POOL.get()), mayWait, stack,
+                cameFrom, inHand)) {
             return;
         }
         List<CardIdentity> library = deck.entries().stream().map(CardComponent::toIdentity).toList();
@@ -820,7 +833,8 @@ public class TableBlock extends BaseEntityBlock {
     public static boolean deckMayGoDown(
             Level level, BlockPos tableOrigin, DeckComponent deck, Player player,
             dev.gathering.item.DraftedPool pool) {
-        return deckMayGoDown(level, tableOrigin, deck, player, pool, true, ItemStack.EMPTY);
+        return deckMayGoDown(level, tableOrigin, deck, player, pool, true, ItemStack.EMPTY,
+                DeckCameFrom.THE_TABLE, null);
     }
 
     /**
@@ -833,7 +847,8 @@ public class TableBlock extends BaseEntityBlock {
      */
     private static boolean deckMayGoDown(
             Level level, BlockPos tableOrigin, DeckComponent deck, Player player,
-            dev.gathering.item.DraftedPool pool, boolean mayWait, ItemStack waitingOn) {
+            dev.gathering.item.DraftedPool pool, boolean mayWait, ItemStack waitingOn,
+            DeckCameFrom from, net.minecraft.world.InteractionHand hand) {
         TableBlockEntity table = TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
                 .orElse(null);
@@ -847,7 +862,7 @@ public class TableBlock extends BaseEntityBlock {
             // card executor and the deck goes down when the answer arrives. Told, because a
             // click that does nothing for half a second is a click somebody presses again.
             player.sendSystemMessage(Component.translatable("message.gathering.deck_checking"));
-            waitAndTryAgain(level, tableOrigin, player, waitingOn, notYet.fetched());
+            waitAndTryAgain(level, tableOrigin, player, waitingOn, from, hand, notYet.fetched());
             return false;
         }
         ValidationResult result = answer instanceof dev.gathering.server.DeckCheck.Answer.Known known
@@ -875,50 +890,75 @@ public class TableBlock extends BaseEntityBlock {
     }
 
     /**
+     * Where a deck being put down came from, which decides what has to still be true of it.
+     * <p>The deck check can take a moment, and in that moment a deck can move. Whether that
+     * matters depends entirely on whose the stack was to begin with, and inferring it from
+     * where the stack is <em>not</em> was the mistake: "absent from the inventory" was read as
+     * "must be a loaner", which is also true of a deck the player has just put in a chest,
+     * dropped on the floor or handed to somebody. An audit moved the exact stack into a
+     * container mid-check and the table took it out again.
+     */
+    private enum DeckCameFrom {
+
+        /** Out of a player's own hand. It has to still be in that hand, and be that stack. */
+        THEIR_HAND,
+
+        /**
+         * Made by the table and handed straight down - the loaner path. It was never in an
+         * inventory and nobody else can reach it, so there is nothing for it to have left.
+         */
+        THE_TABLE
+    }
+
+    /**
      * Puts the deck down again once the server knows what is in it.
      * <p>Once. The lookup either answers or does not, and a second wait would be a loop: a
      * printing nothing has ever heard of is never going to arrive, and the check's own answer
-     * for that is "no opinion", which lets the game start. So the retry goes through the
-     * ordinary path with the cards now in memory, and whatever that decides is the decision.
-     * <p>The stack is read again rather than remembered, because half a second is long enough
-     * to put the deck in a chest.
+     * for that is "no opinion", which lets the game start.
+     * <p>Everything is checked again on the way back in, because everything can change while
+     * this waits: the world can stop, the player can leave, the deck can move, and the table
+     * can end its game or be broken. None of those are exotic - the wait exists precisely
+     * because something slow is happening.
      */
     private static void waitAndTryAgain(Level level, BlockPos tableOrigin, Player player,
-            ItemStack waitingOn, java.util.concurrent.CompletableFuture<?> fetched) {
+            ItemStack waitingOn, DeckCameFrom from, net.minecraft.world.InteractionHand hand,
+            java.util.concurrent.CompletableFuture<?> fetched) {
         if (!(player instanceof net.minecraft.server.level.ServerPlayer waiting)
                 || waitingOn == null || waitingOn.isEmpty()) {
             return;
         }
-        long thisRun = dev.gathering.server.ServerRun.generation();
-        fetched.whenComplete((found, failure) -> waiting.server.execute(() -> {
-            if (!dev.gathering.server.ServerRun.isStill(thisRun) || waiting.hasDisconnected()) {
-                return;
-            }
-            if (DeckItem.deckOf(waitingOn).isEmpty() || !stillTheirs(waiting, waitingOn)) {
-                // Half a second is long enough to put a deck in a chest, hand it to somebody
-                // or take it apart. A deck that has left is a deck nobody is putting down.
-                return;
-            }
-            commitDeck(level, tableOrigin, waiting, waitingOn, false);
-        }));
+        fetched.whenComplete(dev.gathering.server.ServerRun.onServerThread(waiting,
+                (found, failure) -> {
+                    if (waiting.hasDisconnected()) {
+                        return;
+                    }
+                    if (DeckItem.deckOf(waitingOn).isEmpty()
+                            || !stillTheirs(waiting, waitingOn, from, hand)) {
+                        return;
+                    }
+                    // And the table is still a table with their game on it. It can be broken,
+                    // its session can end and somebody else can take the seat while this waits.
+                    if (TableSessions.sessionAt(level, tableOrigin).isEmpty()
+                            || TableSessions.seatIdOf(level, tableOrigin, waiting.getUUID()).isEmpty()) {
+                        return;
+                    }
+                    commitDeck(level, tableOrigin, waiting, waitingOn, false);
+                }));
     }
 
     /**
      * Whether this exact stack is still the player's to put down.
-     * <p>Two shapes, because there are two ways to reach the deck check. A deck somebody
-     * right-clicked the table with is in one of their hands and has to still be there. A
-     * loaner is a stack the table itself made and handed straight down - it was never in an
-     * inventory, so there is nothing for it to have left, and it is nobody else's to take.
+     * <p>Answered from where it came from rather than from where it is. A deck out of a hand
+     * has to still be that stack in that hand: not the other hand, not an equal stack, not a
+     * stack that has simply gone somewhere this cannot see. A loaner was made by the table and
+     * handed down in one act, so it has nowhere to have gone.
      */
     private static boolean stillTheirs(net.minecraft.server.level.ServerPlayer player,
-            ItemStack stack) {
-        for (net.minecraft.world.InteractionHand hand
-                : net.minecraft.world.InteractionHand.values()) {
-            if (player.getItemInHand(hand) == stack) {
-                return true;
-            }
-        }
-        return !player.getInventory().contains(stack);
+            ItemStack stack, DeckCameFrom from, net.minecraft.world.InteractionHand hand) {
+        return switch (from) {
+            case THEIR_HAND -> hand != null && player.getItemInHand(hand) == stack;
+            case THE_TABLE -> true;
+        };
     }
 
     /**

@@ -63,7 +63,7 @@ public final class PackGrant {
             return;
         }
 
-        collation.productsFor(set).whenComplete((reading, failure) -> player.server.execute(() -> {
+        collation.productsFor(set).whenComplete(ServerRun.onServerThread(player, (reading, failure) -> {
             if (player.hasDisconnected()) {
                 return;
             }
@@ -98,7 +98,7 @@ public final class PackGrant {
         String set = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
         player.sendSystemMessage(Component.translatable("message.gathering.sealed_reading", set));
 
-        collation.productsFor(set).whenComplete((reading, failure) -> player.server.execute(() -> {
+        collation.productsFor(set).whenComplete(ServerRun.onServerThread(player, (reading, failure) -> {
             if (player.hasDisconnected()) {
                 return;
             }
