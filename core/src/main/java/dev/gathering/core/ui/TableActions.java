@@ -123,6 +123,8 @@ public final class TableActions {
             // "Look: Walnut" and names the theme it will cycle to, so it is a label with the
             // answer inside it rather than a verb, and a palette row saying "Look: %s" would
             // be worse than the menu row it came from.
+            of("palette", Category.VIEW, Target.NONE, false,
+                    "search actions", "command", "what can i do"),
             of("show_log", Category.VIEW, Target.NONE, false, "history", "what happened"),
             of("hide_log", Category.VIEW, Target.NONE, false),
             of("show_everything", Category.VIEW, Target.NONE, false, "zoom out", "whole table"));

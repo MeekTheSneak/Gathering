@@ -198,6 +198,11 @@ public final class TableScreen extends Screen {
                 "screen.gathering.table.key_shuffle",
                 "screen.gathering.table.key_life",
                 "screen.gathering.table.key_log",
+                // The way to every verb that has no key of its own, which is most of them.
+                // On this list because this list is where somebody looks when they cannot
+                // find a thing, and "there is a box you can type the name into" is the one
+                // answer that covers whatever they were looking for.
+                "screen.gathering.table.key_palette",
                 // Last, because it is the one that takes you out. Escape closing a screen is
                 // the convention and this screen is the table, so escape leaves the table -
                 // which is only a surprise if nothing ever said so, and nothing did.
@@ -293,6 +298,15 @@ public final class TableScreen extends Screen {
     private List<CardInstanceId> attaching = List.of();
 
     private ContextMenu menu;
+
+    /**
+     * The search box for verbs, when it is open.
+     * <p>Built out of the menus at the moment it opens, so the rows in it are the rows a
+     * right-click would have offered - see {@link ActionPalette}. Held here rather than opened
+     * as a screen of its own because every verb on it is about what the cursor and the
+     * selection are on, and a screen over the board would hide both.
+     */
+    private ActionPalette palette;
 
     /** How many zones the column holds, refreshed each tick - see pileCount. */
     private int piles = Zone.PILES.size();
@@ -1046,6 +1060,12 @@ public final class TableScreen extends Screen {
         }
         if (showingKeys) {
             renderKeys(graphics);
+        }
+        if (palette != null) {
+            Rect where = palette.at(this.font, this.width, this.height, layout().status().bottom());
+            palette.mouseMoved(this.font, where, mouseX, mouseY);
+            palette.render(graphics, this.font, where);
+            return;
         }
         if (menu != null) {
             menu.render(graphics, this.font, mouseX, mouseY);
@@ -2735,7 +2755,8 @@ public final class TableScreen extends Screen {
     private static final java.util.Map<String, String> KEY_LIST_ACTIONS = java.util.Map.of(
             "screen.gathering.table.key_untap", "untap_all",
             "screen.gathering.table.key_draw", "draw",
-            "screen.gathering.table.key_shuffle", "shuffle");
+            "screen.gathering.table.key_shuffle", "shuffle",
+            "screen.gathering.table.key_palette", "palette");
 
     /** Whichever list this screen is teaching: the game's keys, or a watcher's. */
     private List<String[]> keyHelp() {
@@ -2959,6 +2980,17 @@ public final class TableScreen extends Screen {
             return watcherClicked(x, y, button);
         }
 
+        // The palette eats every click while it is up, for the same reason the menu does:
+        // clicking away from it would otherwise also move whatever was underneath.
+        if (palette != null) {
+            palette.mouseClicked(this.font,
+                    palette.at(this.font, this.width, this.height, layout().status().bottom()),
+                    mouseX, mouseY);
+            if (palette.finished()) {
+                palette = null;
+            }
+            return true;
+        }
         // An open menu eats every click, including the one that dismisses it - otherwise
         // clicking away from a menu also does whatever was underneath.
         if (menu != null) {
@@ -3576,6 +3608,17 @@ public final class TableScreen extends Screen {
     // ----------------------------------------------------------------- menus
 
     private void openCardMenu(GameView board, CardView.Visible card, boolean fromHand, int x, int y) {
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                layout().status().bottom() + 2, cardMenuEntries(board, card, fromHand));
+    }
+
+    /**
+     * Everything that card's menu would offer, without opening one.
+     * <p>Split out so the palette can search these rows rather than keep a second list of the
+     * same verbs beside them - see {@link #paletteRows}.
+     */
+    private List<ContextMenu.Entry> cardMenuEntries(
+            GameView board, CardView.Visible card, boolean fromHand) {
         SeatId me = mySeat().orElseThrow();
         CardInstanceId id = card.id();
         // Every verb below applies to the whole selection when this card is part of it, and to
@@ -3732,8 +3775,7 @@ public final class TableScreen extends Screen {
         entries.add(ContextMenu.Entry.rule());
         entries.add(entry("ping", () -> send(new GameEvent.CardPinged(me, id))));
 
-        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
-                layout().status().bottom() + 2, entries);
+        return entries;
     }
 
     /**
@@ -3903,6 +3945,15 @@ public final class TableScreen extends Screen {
     }
 
     private void openPileMenu(SeatId me, Zone pile, int x, int y) {
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                layout().status().bottom() + 2, pileMenuEntries(me, pile));
+    }
+
+    /**
+     * Everything that pile's menu would offer, without opening one.
+     * <p>Split out for the palette, as the card menu is.
+     */
+    private List<ContextMenu.Entry> pileMenuEntries(SeatId me, Zone pile) {
         List<ContextMenu.Entry> entries = ContextMenu.entries();
         if (pile == Zone.LIBRARY) {
             boolean showing = revealedFromMyLibrary() > 0;
@@ -3960,8 +4011,7 @@ public final class TableScreen extends Screen {
         } else {
             entries.add(entry("open_pile", () -> openPile(me, pile, false)));
         }
-        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
-                layout().status().bottom() + 2, entries);
+        return entries;
     }
 
     /**
@@ -4077,6 +4127,16 @@ public final class TableScreen extends Screen {
 
     /** The menu for the table itself, for the verbs that are about a seat rather than a card. */
     private void openTableMenu(int x, int y) {
+        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
+                layout().status().bottom() + 2, tableMenuEntries());
+    }
+
+    /**
+     * Everything the felt's own menu would offer, without opening one.
+     * <p>Split out for the palette, as the card and pile menus are. A watcher gets the short
+     * list, which is the same one the menu gives them.
+     */
+    private List<ContextMenu.Entry> tableMenuEntries() {
         SeatId me = mySeat().orElse(null);
         if (me == null) {
             // A watcher has no seat, so every verb below is a verb they cannot make - but the
@@ -4088,9 +4148,7 @@ public final class TableScreen extends Screen {
             watching.add(entry(showingLog ? "hide_log" : "show_log",
                     () -> showingLog = !showingLog));
             watching.add(themeEntry());
-            menu = ContextMenu.at(this.font, x, y, this.width, this.height,
-                    layout().status().bottom() + 2, watching);
-            return;
+            return watching;
         }
         // Not draw, not shuffle and not untap-all, though all three used to be here. Each of
         // them is a button on your own mat, in front of you, always visible, and each has a
@@ -4158,6 +4216,10 @@ public final class TableScreen extends Screen {
         // opinion the table is free to disagree with.
         entries.add(entry("undo", this::undoMyLastAction));
         entries.add(entry("show_everything", this::showEverything));
+        // The way to find every verb that is not on a menu you already know the name of.
+        // On the felt's menu because that is where somebody goes when they are looking for
+        // something and do not know where it lives - which is the same question.
+        entries.add(entry("palette", this::openThePalette));
         // Reachable for as long as anybody wants it, not only the first time. Somebody who
         // said no thanks a month ago and now wants to know which key taps a card has no other
         // way back to it, and "start a new world" is not an answer.
@@ -4181,8 +4243,7 @@ public final class TableScreen extends Screen {
             send(new GameEvent.SeatReleased(me));
             onClose();
         }));
-        menu = ContextMenu.at(this.font, x, y, this.width, this.height,
-                layout().status().bottom() + 2, entries);
+        return entries;
     }
 
     /**
@@ -4409,15 +4470,20 @@ public final class TableScreen extends Screen {
         ClientNetworking.send(new UndoPayload(table, 1));
     }
 
+    /**
+     * One menu row for one of the catalogue's verbs.
+     * <p>Named with the verb's own id, which is what lets {@link #paletteRows} search the
+     * menus instead of keeping a second list of verbs beside them.
+     */
     private static ContextMenu.Entry entry(String key, Runnable action) {
         // What that verb is bound to now, not what it shipped bound to. A menu is the one
         // place a player is looking straight at a verb, so it is the one place worth telling
         // them there is a faster way - and the one place they can be told the wrong one.
-        Component shortcut = TableShortcuts.label(key);
-        Component label = Component.translatable("menu.gathering.table." + key);
-        return shortcut == null
-                ? ContextMenu.Entry.of(label, action)
-                : ContextMenu.Entry.of(label, shortcut, action);
+        return ContextMenu.Entry.named(
+                key,
+                Component.translatable("menu.gathering.table." + key),
+                TableShortcuts.label(key),
+                action);
     }
 
 
@@ -4437,7 +4503,15 @@ public final class TableScreen extends Screen {
         }
         // Before everything, because while somebody is typing every other key is a letter.
         // A board where pressing D drew a card halfway through the word "dead" would be a
-        // board nobody could talk at.
+        // board nobody could talk at. The palette is the same problem with sharper teeth:
+        // every verb it can find is spelled with letters the board binds.
+        if (palette != null) {
+            palette.keyPressed(key, scanCode);
+            if (palette.finished()) {
+                palette = null;
+            }
+            return true;
+        }
         if (saying != null && typingKey(key, modifiers)) {
             return true;
         }
@@ -4697,12 +4771,109 @@ public final class TableScreen extends Screen {
                 showEverything();
                 yield true;
             }
+            case "palette" -> {
+                openThePalette();
+                yield true;
+            }
             case "sort_hand" -> {
                 sortMyHand(me);
                 yield true;
             }
             default -> false;
         };
+    }
+
+    /**
+     * Opens the search box for verbs.
+     * <p>Built here and now rather than kept: what is on it depends on what the cursor is on
+     * and what is selected, and a list built once at startup would offer verbs for a card that
+     * is no longer there.
+     */
+    private void openThePalette() {
+        List<ContextMenu.Entry> rows = paletteRows();
+        if (rows.isEmpty()) {
+            return;
+        }
+        palette = ActionPalette.over(rows, whatTheVerbsWouldActOn());
+    }
+
+    /**
+     * Every menu row a player could reach right now, gathered into one list.
+     * <p>The felt's menu, the library's, and the card menu for whatever the cursor or the
+     * selection is on. Those are the three menus that exist, so this is the whole of what
+     * right-clicking could offer - which is exactly what the palette is for searching.
+     * <p>Built from the same methods the menus are built from rather than from a list of ids,
+     * so a verb that a menu stops offering stops being findable here on the same day, and a
+     * verb added to a menu is searchable without anybody remembering to add it twice.
+     */
+    private List<ContextMenu.Entry> paletteRows() {
+        List<ContextMenu.Entry> rows = new ArrayList<>(tableMenuEntries());
+        SeatId me = mySeat().orElse(null);
+        GameView board = view().orElse(null);
+        if (me == null || board == null) {
+            // A watcher gets the felt menu's short list and nothing else, which is the same
+            // thing their right-click gets them.
+            return rows;
+        }
+        rows.addAll(pileMenuEntries(me, Zone.LIBRARY));
+        CardView.Visible card = theCardTheVerbsAreAbout(board);
+        if (card != null) {
+            rows.addAll(cardMenuEntries(board, card, inMyHand(board, me, card.id())));
+        }
+        return rows;
+    }
+
+    /**
+     * Which card the palette's card verbs are about: the first of what a key press would act
+     * on, which is the selection when there is one and the card under the cursor otherwise.
+     * <p>The first rather than a special case, because the card menu already applies every
+     * verb on it to the whole selection when the card it was opened on is part of one. So one
+     * card is enough to build the menu, and the menu does the rest.
+     */
+    private CardView.Visible theCardTheVerbsAreAbout(GameView board) {
+        for (CardInstanceId id : underCursorOrSelected()) {
+            for (CardView seen : everythingOnTheTable(board).stream().map(Placed::card).toList()) {
+                if (seen instanceof CardView.Visible visible && visible.id().equals(id)) {
+                    return visible;
+                }
+            }
+            for (CardView seen : board.seat(mySeat().orElseThrow()).zone(Zone.HAND).cards()) {
+                if (seen instanceof CardView.Visible visible && visible.id().equals(id)) {
+                    return visible;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Whether that card is one of mine in hand, which changes what its menu offers. */
+    private boolean inMyHand(GameView board, SeatId me, CardInstanceId id) {
+        for (CardView seen : board.seat(me).zone(Zone.HAND).cards()) {
+            if (seen instanceof CardView.Visible visible && visible.id().equals(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * What the palette's card verbs will act on, in words, or null when nothing is pointed at.
+     * <p>Counted, never named. A face-down card has a name this client is not allowed to
+     * print, and a summary that named its target would be the one place in the mod where a
+     * hidden card's identity reached a screen. Counting is also the more useful thing to say:
+     * what a player wants to know before pressing a bulk verb is how many cards it is about
+     * to happen to.
+     */
+    private Component whatTheVerbsWouldActOn() {
+        int many = underCursorOrSelected().size();
+        if (many == 0) {
+            return null;
+        }
+        // "On 1 cards" is what one string with a number in it gives you, and this line is on
+        // screen every time the cursor is over a card - which is most of the time.
+        return many == 1
+                ? Component.translatable("screen.gathering.palette.acting_on_one")
+                : Component.translatable("screen.gathering.palette.acting_on", many);
     }
 
     /**
@@ -5483,6 +5654,26 @@ public final class TableScreen extends Screen {
                 : TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
     }
 
+    /** What a key press or a palette row would act on right now, for the scripted run. */
+    List<CardInstanceId> whatTheKeysWouldActOn() {
+        return underCursorOrSelected();
+    }
+
+    /** Whether the verb search is open, for the scripted run. */
+    boolean thePaletteIsShowing() {
+        return palette != null;
+    }
+
+    /** Which verbs the verb search is offering right now, for the scripted run. */
+    List<String> paletteShowing() {
+        return palette == null ? List.of() : palette.showingForTesting();
+    }
+
+    /** What has been typed into the verb search, for the scripted run. */
+    String paletteQuery() {
+        return palette == null ? "" : palette.queryForTesting();
+    }
+
     /**
      * Whether anything is open on top of the felt.
      * <p>What Escape shuts, and the one list that decides it. Written out at the key it
@@ -5490,7 +5681,7 @@ public final class TableScreen extends Screen {
      * button, say - and those two lists parting company is a panel Escape will not close.
      */
     private boolean somethingIsOpen() {
-        return saying != null || menu != null || !attaching.isEmpty()
+        return saying != null || menu != null || palette != null || !attaching.isEmpty()
                 || showingKeys || showingLog || held != null;
     }
 
@@ -5498,6 +5689,7 @@ public final class TableScreen extends Screen {
     private void closeWhatIsOpen() {
         saying = null;
         menu = null;
+        palette = null;
         attaching = List.of();
         showingKeys = false;
         showingLog = false;
@@ -5536,6 +5728,9 @@ public final class TableScreen extends Screen {
 
     @Override
     public boolean charTyped(char letter, int modifiers) {
+        if (palette != null) {
+            return palette.charTyped(letter);
+        }
         if (saying == null) {
             return super.charTyped(letter, modifiers);
         }

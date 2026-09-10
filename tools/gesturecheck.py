@@ -36,11 +36,14 @@ SCREEN = os.path.join(
     ROOT, "common/src/main/java/dev/gathering/client/TableScreen.java")
 VERBS = os.path.join(ROOT, "core/src/main/java/dev/gathering/core/ui/TableVerb.java")
 
-#: Where each menu is built, in the order they appear, so one ends where the next begins.
+#: Where each menu's rows are built. The ``open*Menu`` methods used to hold these, and now
+#: place what these return - the split is what lets the palette search the very same rows
+#: instead of keeping a second list of verbs beside them, and this follows it rather than
+#: reporting nought rows across three menus, which is what it did for one commit.
 MENUS = [
-    ("the card menu", "private void openCardMenu"),
-    ("the pile menu", "private void openPileMenu"),
-    ("the table menu", "private void openTableMenu"),
+    ("the card menu", "private List<ContextMenu.Entry> cardMenuEntries"),
+    ("the pile menu", "private List<ContextMenu.Entry> pileMenuEntries"),
+    ("the table menu", "private List<ContextMenu.Entry> tableMenuEntries"),
 ]
 
 def bodies(source):
@@ -104,6 +107,17 @@ def main():
     menus = {name: rowsIn(text) for name, text in bodies(source).items()}
     mat = matButtons()
     problems = []
+
+    # A menu that comes back empty means this check stopped reading the board rather than
+    # that the board stopped offering anything, and an empty set collides with nothing - so
+    # every comparison below passes and the run reports "0 menu rows" and a clean exit. It
+    # did exactly that for one commit, when the menu builders were split in two and the
+    # signatures this looks for moved. Nought is now a failure.
+    for name, rows in menus.items():
+        if not rows:
+            problems.append(
+                f"{name} has no rows at all, so this check is reading the wrong method"
+                " rather than finding an empty menu")
 
     names = list(menus)
     for index, one in enumerate(names):

@@ -57,6 +57,10 @@ public final class TableShortcuts {
         DEFAULTS.put("turn_over", GLFW.GLFW_KEY_F);
         DEFAULTS.put("show_log", GLFW.GLFW_KEY_L);
         DEFAULTS.put("show_everything", GLFW.GLFW_KEY_HOME);
+        // The way in for everything that has no key. Slash, because it is what every search
+        // box in every game is opened with, and because it is not a letter - so it cannot be
+        // the first character of a verb somebody is about to type into the box it opens.
+        DEFAULTS.put("palette", GLFW.GLFW_KEY_SLASH);
         // Talking to the table is deliberately not here: it opens on the player's own chat
         // key, whatever they have bound it to, because talking to the table and talking to
         // the server are the same act and a second key for it would be a second answer to a

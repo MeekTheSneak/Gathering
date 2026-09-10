@@ -227,20 +227,35 @@ public final class ContextMenu {
      * menu is where a player finds out what a verb is called and it is the only moment they
      * are looking straight at it. A key nobody is shown is a key nobody presses.
      */
-    public record Entry(Component label, Component shortcut, boolean enabled, Runnable action) {
+    public record Entry(
+            String id, Component label, Component shortcut, boolean enabled, Runnable action) {
 
         public static Entry of(Component label, Runnable action) {
-            return new Entry(label, null, true, action);
+            return new Entry(null, label, null, true, action);
         }
 
         /** The same, plus the key that does it without opening a menu at all. */
         public static Entry of(Component label, Component shortcut, Runnable action) {
-            return new Entry(label, shortcut, true, action);
+            return new Entry(null, label, shortcut, true, action);
+        }
+
+        /**
+         * A row that is one of the catalogue's verbs, and says which.
+         * <p>The id is what lets the palette be a search over the menus themselves rather than
+         * a second list of verbs beside them: it finds the rows the player could reach by
+         * right-clicking right now and runs the very same {@link Runnable}. A row built any
+         * other way has no id and the palette does not carry it - which is not a limitation
+         * but the point. The rows without one are the rows whose label carries a card name, a
+         * token name or a player name, and none of those belongs in a search box.
+         */
+        public static Entry named(
+                String id, Component label, Component shortcut, Runnable action) {
+            return new Entry(id, label, shortcut, true, action);
         }
 
         /** Shown but not selectable, so the option's absence is visible rather than mysterious. */
         public static Entry disabled(Component label) {
-            return new Entry(label, null, false, () -> { });
+            return new Entry(null, label, null, false, () -> { });
         }
 
         /**
@@ -254,7 +269,7 @@ public final class ContextMenu {
          * still a click on the menu, which is what stops a rule from being a hole.
          */
         public static Entry rule() {
-            return new Entry(Component.empty(), null, false, () -> { });
+            return new Entry(null, Component.empty(), null, false, () -> { });
         }
 
         boolean isRule() {
