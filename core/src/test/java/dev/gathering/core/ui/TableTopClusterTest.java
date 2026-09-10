@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
  * hit test was written for one table: it checked a point against one table's blocks and
  * clamped anything past them back inside. On a four-seat pod that is the second table's mats
  * drawn where nothing can be clicked, and an audit reproduced it by converting the far mat's
- * own centre into world coordinates and finding it unhittable.
+ * own center into world coordinates and finding it unhittable.
  */
 class TableTopClusterTest {
 

@@ -95,19 +95,19 @@ def readable(color, least=LEAST_CONTRAST + HEADROOM):
     return tone
 
 
-#: How much colour a look's surfaces carry, above what was measured for them.
+#: How much color a look's surfaces carry, above what was measured for them.
 #:
 #: The palettes were mixed muted on purpose - card art should be the brightest thing on any
-#: screen - and muted came out closer to tinted grey than to a colour. This lifts each surface
+#: screen - and muted came out closer to tinted grey than to a color. This lifts each surface
 #: away from its own grey without moving how light or dark it is, which is the same trick the
-#: mana badges use: more colour, same shading. It is deliberately not applied to the ink, the
+#: mana badges use: more color, same shading. It is deliberately not applied to the ink, the
 #: felt, the card stock or the washes. The felt is the surface card art actually sits on, and
-#: a table that got 55% more colour would be competing with every card on it.
+#: a table that got 55% more color would be competing with every card on it.
 VIVIDNESS = 1.55
 
 
 def vivid(color, amount=VIVIDNESS):
-    """More colour, same brightness: every channel pushed away from the colour's own grey."""
+    """More color, same brightness: every channel pushed away from the color's own grey."""
     grey = sum(color) / 3.0
     return tuple(max(0, min(255, round(grey + (value - grey) * amount))) for value in color)
 
@@ -195,7 +195,7 @@ LOOKS = {
         cloth=(0x1E, 0x3A, 0x40), wash=(0x10, 0x26, 0x2C), style="bubble"),
 
     # Arcade: the cabinet. Black outline, a tube of light along the top of everything, and
-    # colours that would look wrong anywhere but on a screen in a dark room.
+    # colors that would look wrong anywhere but on a screen in a dark room.
     "arcade": Look(
         "Arcade", 65,
         ink=(0x08, 0x08, 0x0C), bevel=(0x4E, 0x7E, 0xE8), shade=(0x14, 0x18, 0x38),
@@ -216,9 +216,9 @@ LOOKS = {
         cloth=(0x3A, 0x2A, 0x1A), wash=(0x26, 0x1A, 0x0E), style="retro"),
 }
 
-# Four more, each built around one of BDragon1727's coloured frames rather than around a
+# Four more, each built around one of BDragon1727's colored frames rather than around a
 # construction of ours. The frame is the whole point of them, so the panel is the frame - cut
-# from his sheet, colours and all - and the rest of the set is drawn flat in colours taken off
+# from his sheet, colors and all - and the rest of the set is drawn flat in colors taken off
 # it, which is what keeps a screen looking like one thing. The looks above are untouched.
 LOOKS.update({
     "ember": Look(
@@ -644,7 +644,7 @@ def framed(look):
 
     For most looks that is a plate drawn the way that look draws things. For the four built
     around one of BDragon1727's frames it is the frame itself, cut off his sheet with its own
-    colours - the frame is what those looks are, and repainting it would leave nothing.
+    colors - the frame is what those looks are, and repainting it would leave nothing.
 
     Returns its own nine-slice along with the art, because it is sixty-four across where
     everything else is thirty-two: an ornament needs room to be an ornament rather than three
@@ -765,10 +765,10 @@ def arrow(size, look, which):
     sheet's own arrows are drawn on. Blitted at its own size in the middle of whatever button
     it sits on, never scaled.
     """
-    # The colour of a label, not of a button. An arrow is what is written on the button, and
-    # painting it in the look's body would be painting it the same colour as the face behind
+    # The color of a label, not of a button. An arrow is what is written on the button, and
+    # painting it in the look's body would be painting it the same color as the face behind
     # it - which is exactly what the first attempt did, in fourteen themes at once. TEXT is
-    # already guaranteed readable on every look's button, because that is the colour every
+    # already guaranteed readable on every look's button, because that is the color every
     # button's words are set in.
     ink = darker(look.ink, 0.2)
     face = TEXT
@@ -826,7 +826,7 @@ def pipTones(look):
 
 
 def arrowTones(look):
-    """An arrow is a label, so it is set in the colour a label is set in."""
+    """An arrow is a label, so it is set in the color a label is set in."""
     return (mix(TEXT, look.ink, 0.45), TEXT)
 
 
@@ -846,18 +846,18 @@ def part(name):
 
 
 def recut(name, look, tones=None, family=None, label=False):
-    """One of his sprites, in this look's colours.
+    """One of his sprites, in this look's colors.
 
     His pixels, his shapes, his outline, his dithering and his highlights - only the hue
-    moves. The sheets ship each element in three colourways, which is three answers for
+    moves. The sheets ship each element in three colorways, which is three answers for
     fourteen looks; picking whichever is nearest would give half the themes somebody else's
     blue. So instead his tones are sorted by how light they are and laid onto a ramp built
     out of this look's own, darkest to lightest. A pixel two steps up his ramp comes out two
     steps up ours, which is what keeps a bevel a bevel.
 
     The outline is held out of that and taken straight from the look's ink. It is nearly
-    black in every colourway he drew and it is the one tone that must not drift toward an
-    accent, or a button gets a coloured halo instead of an edge.
+    black in every colorway he drew and it is the one tone that must not drift toward an
+    accent, or a button gets a colored halo instead of an edge.
 
     A family is a set of sprites whose ramp has to be worked out across all of them at once.
     The spinner is five frames of the same ring lit at different points, and read one at a
@@ -870,7 +870,7 @@ def recut(name, look, tones=None, family=None, label=False):
     dark, light = tones if tones else (darker(look.ink, 0.1), lighter(look.bevel, 0.35))
     # A face has words written on it, so its light end is darkened until they can be read.
     # His buttons are drawn to carry an icon rather than a label and their faces run bright:
-    # laid on our ramp unchecked they came out between 2.2 and 3.5 against the label colour
+    # laid on our ramp unchecked they came out between 2.2 and 3.5 against the label color
     # in every theme, which is a button you can see and a word you cannot. Anything drawn on
     # top of a face - an arrow is one - is exempt, or the fix would darken the label too.
     if not label:

@@ -380,8 +380,28 @@ public final class ClientSettings {
         }
     }
 
+    /**
+     * Where the file is, or a temporary one a test has pointed this at.
+     * <p>Null in the game, always. It exists because the in-world tests for this file run in a
+     * real world, and Minecraft's game tests run several at once in a grid - so tests that all
+     * wrote the one real settings file were racing each other, and which of them failed
+     * depended on how many other tests happened to be in the run.
+     */
+    private static Path insteadForTesting;
+
     private static Path file() {
-        return Platform.get().configDirectory().resolve(FILE_NAME);
+        Path chosen = insteadForTesting;
+        return chosen != null ? chosen : Platform.get().configDirectory().resolve(FILE_NAME);
+    }
+
+    /**
+     * Points this at another file, for a test that wants one of its own.
+     * <p>Null puts it back. Nothing in the game calls it; a player has one settings file and
+     * it is the one in their config folder.
+     */
+    public static void fileForTesting(Path where) {
+        insteadForTesting = where;
+        forgetForTesting();
     }
 
     private static void load() {

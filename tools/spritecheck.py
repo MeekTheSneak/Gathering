@@ -233,7 +233,7 @@ def main():
 
     # And a button's face is dark enough for the words on it. The faces are cut off somebody
     # else's sheet and laid on each look's own ramp, and his are drawn to carry an icon: laid
-    # on unchecked they came out between 2.2 and 3.5 against the label colour in every theme,
+    # on unchecked they came out between 2.2 and 3.5 against the label color in every theme,
     # which is a button you can see and a word you cannot. tools/gui_art.py darkens them, and
     # this is what says it still does.
     faces = [name for name in java if name.startswith("button")]
@@ -249,7 +249,7 @@ def main():
                 worst = faintest(where)
                 if worst is not None and worst < LEAST_CONTRAST:
                     problems.append(
-                        f"{art}/{name}.png has a face at {worst:.2f} against the label colour,"
+                        f"{art}/{name}.png has a face at {worst:.2f} against the label color,"
                         f" under the {LEAST_CONTRAST} floor - the words on it cannot be read")
 
     # And the spinner really turns. Eight frames built in a loop is the shape of the oldest

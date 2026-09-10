@@ -87,9 +87,9 @@ public final class TableScreen extends Screen {
     /**
      * The same quiet grey as {@link #DIM}, lifted for writing that sits on the board.
      * <p>A mid grey reads as quiet on a painted panel and reads as barely there on felt with
-     * card art behind it. This is the off-turn label's colour now that the strip along the
+     * card art behind it. This is the off-turn label's color now that the strip along the
      * top has no panel: still plainly the quieter of the two, still not competing with the
-     * seat colours, and light enough that its shadow does the work.
+     * seat colors, and light enough that its shadow does the work.
      */
     private static final int QUIET = 0xFFC9C4B8;
 
@@ -1075,7 +1075,17 @@ public final class TableScreen extends Screen {
                     .ifPresent(finished -> finishedTutorialLingers++);
             if (finishedTutorialLingers > LINGER_AFTER_FINISHING) {
                 finishedTutorialLingers = 0;
+                boolean earned = Tutorial.progress()
+                        .map(dev.gathering.core.tutorial.TutorialProgress::isFinished)
+                        .orElse(false);
                 leaveTheTutorial();
+                // Finishing earns two boosters, and picking their colors is the first thing
+                // this player has been asked to decide. Only for finishing: leaving partway
+                // through takes the practice table down and nothing else, because a reward for
+                // pressing Leave is a reward for nothing.
+                if (earned) {
+                    this.minecraft.setScreen(new StarterColorsScreen());
+                }
             }
         }
 

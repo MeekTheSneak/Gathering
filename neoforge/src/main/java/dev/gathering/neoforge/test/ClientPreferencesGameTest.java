@@ -2,7 +2,6 @@ package dev.gathering.neoforge.test;
 
 import dev.gathering.Gathering;
 import dev.gathering.client.ClientSettings;
-import dev.gathering.platform.Platform;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,31 +23,48 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class ClientPreferencesGameTest {
 
-    private static Path file() {
-        return Platform.get().configDirectory().resolve("gathering-client.toml");
+    /**
+     * All of it, in one test, on purpose.
+     * <p>Minecraft runs game tests several at a time in a grid. {@code ClientSettings} is one
+     * static holder for one player's settings - which is right for a game, where there is one
+     * player and one file - so six tests poking at it at once were racing over the same
+     * fields, and which of them failed depended on how many other tests happened to be in the
+     * run. Giving each a file of its own fixed half of it; the other half is the holder, and
+     * the honest way to stop racing over a global is not to race over it.
+     * <p>Each check says what it is checking, so a failure still names the thing that broke.
+     */
+    @GameTest(template = "empty")
+    public static void theplayersownsettingsfile(GameTestHelper helper) throws Exception {
+        anOldFileKeepsWhatItSaid(helper);
+        abrokenfilefallsbackratherthanfailing(helper);
+        impossiblevaluesareclamped(helper);
+        writingbackkeepswhatthisversiondoesnotknow(helper);
+        asimilarlynamedlineisleftalone(helper);
+        thesamenameunderanotherheadingisleftalone(helper);
+        skippingisnotfinishing(helper);
+        helper.succeed();
     }
 
-    /** Runs a check with the settings file replaced, and puts the real one back afterwards. */
+    /**
+     * Runs a check against a settings file of this test's own.
+     * <p>Its own, not the real one. These all used to write the player's actual settings file
+     * and put it back afterwards, which worked until there were enough of them: Minecraft runs
+     * several game tests at once in a grid, so they were racing over one file and which of them
+     * failed depended on what else happened to be in the run. A file each removes the race
+     * rather than papering over it, and leaves the real settings alone.
+     */
     private static void withFile(String contents, GameTestHelper helper, Check check) throws Exception {
-        Path where = file();
-        String before = Files.isRegularFile(where)
-                ? Files.readString(where, StandardCharsets.UTF_8)
-                : null;
+        Path where = Files.createTempDirectory("gathering-settings-")
+                .resolve("gathering-client.toml");
         try {
-            Files.createDirectories(where.getParent());
             Files.writeString(where, contents, StandardCharsets.UTF_8);
-            ClientSettings.forgetForTesting();
+            ClientSettings.fileForTesting(where);
             check.run(where);
         } finally {
-            ClientSettings.forgetForTesting();
-            if (before == null) {
-                Files.deleteIfExists(where);
-            } else {
-                Files.writeString(where, before, StandardCharsets.UTF_8);
-            }
-            ClientSettings.forgetForTesting();
+            ClientSettings.fileForTesting(null);
+            Files.deleteIfExists(where);
+            Files.deleteIfExists(where.getParent());
         }
-        helper.succeed();
     }
 
     private interface Check {
@@ -60,8 +76,7 @@ public final class ClientPreferencesGameTest {
      * <p>The migration, and the thing a player would actually notice: somebody who picked
      * walnut a month ago must still be looking at walnut afterwards.
      */
-    @GameTest(template = "empty")
-    public static void anOldFileKeepsWhatItSaid(GameTestHelper helper) throws Exception {
+    private static void anOldFileKeepsWhatItSaid(GameTestHelper helper) throws Exception {
         withFile("""
                 # Gathering, as seen from this computer.
 
@@ -92,8 +107,7 @@ public final class ClientPreferencesGameTest {
     }
 
     /** A file that will not parse leaves the defaults standing rather than failing a game. */
-    @GameTest(template = "empty")
-    public static void abrokenfilefallsbackratherthanfailing(GameTestHelper helper) throws Exception {
+    private static void abrokenfilefallsbackratherthanfailing(GameTestHelper helper) throws Exception {
         withFile("[gui\ntheme = broken \"quotes\n= = =\n", helper, where -> {
             if (!"gathering:basic".equals(ClientSettings.themeId())) {
                 helper.fail("a broken settings file did not fall back to the default theme");
@@ -106,8 +120,7 @@ public final class ClientPreferencesGameTest {
     }
 
     /** Values outside the allowed range are pulled into it rather than used as written. */
-    @GameTest(template = "empty")
-    public static void impossiblevaluesareclamped(GameTestHelper helper) throws Exception {
+    private static void impossiblevaluesareclamped(GameTestHelper helper) throws Exception {
         withFile("""
                 [file]
                 schema = 2
@@ -144,8 +157,7 @@ public final class ClientPreferencesGameTest {
      * <p>The file is theirs. A comment they added, and a section this version has never heard
      * of, both have to survive a button press.
      */
-    @GameTest(template = "empty")
-    public static void writingbackkeepswhatthisversiondoesnotknow(GameTestHelper helper) throws Exception {
+    private static void writingbackkeepswhatthisversiondoesnotknow(GameTestHelper helper) throws Exception {
         withFile("""
                 [file]
                 schema = 2
@@ -185,8 +197,7 @@ public final class ClientPreferencesGameTest {
      * this fixture on purpose: with the real setting first, the replace stops at the right
      * line and the bug never shows.
      */
-    @GameTest(template = "empty")
-    public static void asimilarlynamedlineisleftalone(GameTestHelper helper) throws Exception {
+    private static void asimilarlynamedlineisleftalone(GameTestHelper helper) throws Exception {
         withFile("""
                 [file]
                 schema = 2
@@ -212,8 +223,7 @@ public final class ClientPreferencesGameTest {
      * The same name under two headings is two settings.
      * <p>Both sections could hold a {@code text_scale}; only the accessibility one is ours.
      */
-    @GameTest(template = "empty")
-    public static void thesamenameunderanotherheadingisleftalone(GameTestHelper helper) throws Exception {
+    private static void thesamenameunderanotherheadingisleftalone(GameTestHelper helper) throws Exception {
         withFile("""
                 [file]
                 schema = 2
@@ -238,8 +248,7 @@ public final class ClientPreferencesGameTest {
     }
 
     /** Skipping the tutorial is recorded as skipping it, never as finishing it. */
-    @GameTest(template = "empty")
-    public static void skippingisnotfinishing(GameTestHelper helper) throws Exception {
+    private static void skippingisnotfinishing(GameTestHelper helper) throws Exception {
         withFile("[file]\nschema = 2\n", helper, where -> {
             ClientSettings.tutorialOffered(true);
             ClientSettings.tutorialSkipped(true);

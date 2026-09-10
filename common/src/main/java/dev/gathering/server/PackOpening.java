@@ -65,7 +65,7 @@ public final class PackOpening {
      */
     public static void openFor(ServerPlayer player, String setCode, String kind) {
         // No receipt: nothing was taken off anybody, so there is nothing to give back.
-        openFor(player, setCode, kind, null, () -> { }, false);
+        openFor(player, setCode, kind, "", null, () -> { }, false);
     }
 
     /**
@@ -86,6 +86,21 @@ public final class PackOpening {
     public static void openFor(
             ServerPlayer player, String setCode, String kind, String receipt, Runnable giveBack,
             boolean ceremony) {
+        openFor(player, setCode, kind, "", receipt, giveBack, ceremony);
+    }
+
+    /**
+     * The same, for a pack sold as one color.
+     *
+     * @param color one letter of WUBRG, or blank. Narrows which of the set's arrangements the
+     *               seed chooses between, and nothing else: what comes out is still decided at
+     *               the moment of opening. A product sold one color at a time - Jumpstart -
+     *               has nine or ten arrangements per color, and a pack that named only the
+     *               product would open as any of the forty-six
+     */
+    public static void openFor(
+            ServerPlayer player, String setCode, String kind, String color, String receipt,
+            Runnable giveBack, boolean ceremony) {
         // Wrapped once, here, rather than at each of the seven ways out of this method:
         // handing the pack back and settling the receipt are one act, and a path that did
         // one without the other would leave the player owed a booster they were holding.
@@ -114,7 +129,7 @@ public final class PackOpening {
                 // an already-completed future, and a plain chain would draw the pack on
                 // whichever thread asked - which here is the server thread.
                 .thenComposeAsync(reading -> {
-                    BoosterConfig config = pick(reading, kind);
+                    BoosterConfig config = narrowed(pick(reading, kind), color);
                     if (config == null) {
                         // Nobody has published how this set was collated. Rather than hand
                         // the pack back - which is a real set the player cannot open, and was
@@ -338,6 +353,31 @@ public final class PackOpening {
             }
         }
         return reading.packs().values().iterator().next();
+    }
+
+    /**
+     * The same product with only one color's arrangements left in it.
+     * <p>A new config rather than a flag threaded through the opener, because the opener's
+     * job is to choose an arrangement and cut cards off sheets, and it should not have to
+     * know that some products are sold by color. Handed a config with nine arrangements
+     * instead of forty-six, it does the same thing it always did.
+     * <p>A color the product has nothing in leaves the config alone rather than emptying it.
+     * That is the honest answer to "open a red pack of a set with no red packs": open one of
+     * its packs. An empty config would be a pack that cannot be opened at all, which loses
+     * somebody a booster over a data question they had no part in.
+     */
+    private static BoosterConfig narrowed(BoosterConfig config, String color) {
+        if (config == null || color == null || color.isEmpty()) {
+            return config;
+        }
+        java.util.List<dev.gathering.core.booster.BoosterVariant> ofThatColor =
+                dev.gathering.core.booster.BoosterColors.inColor(config, color.charAt(0));
+        if (ofThatColor.isEmpty()) {
+            LOGGER.warn("{} has no {} arrangements of its {} product; opening any of them",
+                    config.setCode(), color, config.kind());
+            return config;
+        }
+        return new BoosterConfig(config.setCode(), config.kind(), config.sheets(), ofThatColor);
     }
 
     /**

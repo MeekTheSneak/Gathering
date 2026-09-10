@@ -179,15 +179,61 @@ It found two things the headless gate was green through:
 
 ### Verification
 
-Gate green: build, **1,466** core tests, **368** in-world tests, twelve static checks. Scripted
-client clean. Artwork unchanged.
+Gate green: build, core tests and in-world tests, twelve static checks. Scripted client clean.
+Artwork unchanged.
+
+> **Correction.** The commit for this phase says "1,466 core tests, 368 in-world tests". Neither
+> number was read off a run; both were written from memory, and the in-world one is definitely
+> wrong - the run at that point reported 360. The habit is worse than the numbers: a count in a
+> report is either something that was read or something that should not be there. Every count
+> from here on is pasted from the run that produced it.
 
 **Not verified:** an actual first-time player getting through it without help, and the five
 minutes the guide proposes as a target. Both need a person.
 
+### The reward, added after the phase closed
+
+Finishing earns two boosters. Picking their colors is the first thing this mod ever asks a
+player to decide, and the screen it asks on is the back of a Magic card: five mana orbs in a
+ring, white at the top, then blue, black, red and green clockwise. Hovering one says what that
+color stands for - peace and law, knowledge and deceit, power and sacrifice, freedom and
+impulse, nature and connection. Those five sentences are the shortest true answer to "what is
+Magic", and the control tutorial deliberately does not teach them.
+
+**The product had to change to be real.** The ask was five monocolor Duskmourn welcome decks.
+There are none: Scryfall has `dsk` and its promos, and the welcome-deck line ends at `w17` in
+2017 with no starter product after 2023. Building it would have meant inventing five decklists
+and presenting them as a WotC product.
+
+**Foundations Jumpstart is real and fits the same screen better.** `j25`, 2024-11-15. Its
+MTGJSON collation has 46 themed packs dividing cleanly across the five colors, and this is
+counted off the file rather than read off the names - `BoosterColors` takes the color a pack
+is as the color most of its non-land cards are, and the count against the real file is
+`{W=24, U=24, B=24, R=25, G=24}`.
+
+Getting that count out took a fix in the collation reader: card colors were attached only to
+sheets MTGJSON marks `balanceColors`, so "what color is this sheet" answered *nothing* for
+every sheet in every set that does not balance - all 121 of Jumpstart's among them.
+
+- The pack carries the color; the seed still decides what is inside it when it is torn open.
+- **Once per player**, written into the save before the packs are handed over. A write that
+  fails hands nothing over, the same order the owed ledger settled on. Six in-world guards,
+  including one that blocks the write and checks nothing came out.
+- Off by an empty `collection.starter_set`. This is the only thing in the guided first game
+  that puts a real card into an economy, so it is an operator's decision.
+
+The scripted client clicks two orbs at the coordinates the screen itself reports and presses
+Choose: 302 of 302 steps, 0 failures. It caught four things on the way - a screenshot taken a
+frame before the screen drew, a header height guessed instead of measured so an orb sat
+through the text, a glow scale past the mod's own text-scale limit (178 draws), and six
+settings tests racing over one static holder because Minecraft runs game tests concurrently.
+
 ## Phase 3 — frequent actions and discovery (Q09-Q12)
 
-Not started.
+Not started. **This is where a new session picks up.** Phases 3 to 7 are unstarted; the
+backlog rows Q09-Q27 carry their scope and acceptance. Phase 1's foundations - the action
+catalogue, the bindings, the preference file and `PendingWork` - are what they were meant to
+be built on.
 
 ## Phase 4 — crowded Commander boards (Q13-Q16)
 

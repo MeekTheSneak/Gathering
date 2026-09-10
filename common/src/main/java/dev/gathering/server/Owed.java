@@ -312,7 +312,7 @@ public final class Owed {
 
     /**
      * Writes a player's whole list, all at once or not at all.
-     * <p>Through a neighbouring temporary file and a move, because the alternative is a
+     * <p>Through a neighboring temporary file and a move, because the alternative is a
      * truncate-then-write: a crash between the two leaves an empty list where somebody's
      * cards were. The move is atomic where the filesystem offers it and a plain replace where
      * it does not, which is still strictly better than writing in place.

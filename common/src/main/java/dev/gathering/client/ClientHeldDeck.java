@@ -9,7 +9,7 @@ import java.util.UUID;
 
 /**
  * What is really in the decks this player is holding.
- * <p>The deck item's own component is the public one - a name, a colour, sleeves, commanders
+ * <p>The deck item's own component is the public one - a name, a color, sleeves, commanders
  * and a thickness - because it is synchronized to everybody who can see the item. The list
  * itself arrives here, addressed to this player about a deck of their own.
  * <p>Kept by which deck it is rather than by which hand it is in. A hand is a place, not an

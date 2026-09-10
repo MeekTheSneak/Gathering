@@ -3,14 +3,14 @@
 
 A symbol is a badge with a mark pressed into it, and the two are kept apart on purpose. The
 badges are a set and want to stay one; the mark is the part somebody will want to redraw. So a
-mark is a silhouette - shape and coverage, no colour - and the badge it lands on says what ink
+mark is a silhouette - shape and coverage, no color - and the badge it lands on says what ink
 it is drawn in. That is what lets one sun sit on six different badges, and lets you repaint the
 sun without touching any of them.
 
     art/mana/badges/<symbol>.png     one per symbol, hybrids already cut
     art/mana/symbols/<mark>.png      full size, for a plain badge
     art/mana/symbols/half-tl/<mark>.png, half-br/<mark>.png   for the two halves of a hybrid
-    art/mana/ink.json                what colour each badge draws its marks in
+    art/mana/ink.json                what color each badge draws its marks in
 
 This script does not draw the parts - it assembles them, so that what ships is always exactly
 what is on disk under art/mana.
@@ -37,10 +37,10 @@ INK = "art/mana/ink.json"
 
 #: The canvas every symbol is drawn on.
 #:
-#: Odd on purpose. A disc of an even width has no middle pixel - its centre is the corner
+#: Odd on purpose. A disc of an even width has no middle pixel - its center is the corner
 #: where four of them meet - so a mark drawn about its own middle can only ever land half a
 #: pixel off the badge it is pressed into. Thirty-three gives a thirty-one pixel disc whose
-#: middle is pixel sixteen, which is exactly where every mark's ink is centred.
+#: middle is pixel sixteen, which is exactly where every mark's ink is centerd.
 SIZE = 33
 
 #: Must match dev.gathering.core.text.ManaSymbols.NAMES, in order: the index is the glyph.
@@ -57,8 +57,8 @@ SYMBOL_NAMES = (
 FIRST_CODEPOINT = 0xE000
 
 # The badge: a thirty-pixel circle in a thirty-two pixel canvas, cut corner to corner when it
-# carries two colours, with the second colour on the bottom-right so that each half's mark
-# lands on its own colour rather than across the cut.
+# carries two colors, with the second color on the bottom-right so that each half's mark
+# lands on its own color rather than across the cut.
 #: The one pixel everything is lined up on: the middle of the canvas, the middle of the
 #: badge's disc, and the middle of every full-size mark. That there is a single pixel to name
 #: here is the whole reason the disc is an odd number across - see SIZE above.
@@ -66,7 +66,7 @@ MIDDLE = SIZE // 2
 
 
 def keyFor(name):
-    """The badge under a symbol, as (base, second) colour names rather than colours."""
+    """The badge under a symbol, as (base, second) color names rather than colors."""
     if name.isdigit() or name in ("x", "y", "z", "tap", "untap"):
         return "generic", None
     if name == "energy":
@@ -81,7 +81,7 @@ def keyFor(name):
 
 
 def regions(name):
-    """Which parts of a symbol take a mark, and which badge colour each of them wears."""
+    """Which parts of a symbol take a mark, and which badge color each of them wears."""
     base, second = keyFor(name)
     if not second:
         return [("full", base)]
@@ -218,7 +218,7 @@ def inkBox(mark):
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def centred(mark):
+def centerd(mark):
     """The mark moved so its middle sits on the badge's middle pixel.
 
     Where a symbol happens to sit in its own canvas is not something anybody should have to
@@ -273,9 +273,9 @@ def build(name, ink):
         path = markPath(region, markName(name, region))
         mark = read_png(path)
         # A full-size mark is stood on the badge's middle pixel. A half mark is not: it sits
-        # in one half of a hybrid, so the centre is not what it is lined up against.
+        # in one half of a hybrid, so the center is not what it is lined up against.
         if region == "full":
-            mark = centred(mark)
+            mark = centerd(mark)
         art = press(art, mark, ink[key])
     return art
 
@@ -315,7 +315,7 @@ def marks():
 #: A layer to draw a mark on top of, written by --guide.
 GUIDE = "art/mana/guide.png"
 
-#: The guide's own colours. Loud on purpose - this is never part of a symbol, and a guide
+#: The guide's own colors. Loud on purpose - this is never part of a symbol, and a guide
 #: that could be mistaken for art is a guide somebody ships by accident.
 GUIDE_FIELD = (255, 255, 255, 26)
 GUIDE_RIM = (255, 96, 96, 64)

@@ -1,14 +1,14 @@
 # Drawing a mana symbol
 
 A symbol is a **badge** with a **mark** pressed into it, kept apart on purpose. The badge is
-the lit sphere and its colour; the mark is the shape cut out of it. That split is what lets
+the lit sphere and its color; the mark is the shape cut out of it. That split is what lets
 one sun sit on six different badges, and lets you redraw the sun without touching any of them.
 
 ```
 art/mana/badges/<symbol>.png    the sphere. One per symbol, hybrids already cut.
 art/mana/symbols/<mark>.png     the shape. This is the part you draw.
 art/mana/guide.png              a template to draw it on top of.
-art/mana/ink.json               what colour each badge cuts its marks in.
+art/mana/ink.json               what color each badge cuts its marks in.
 ```
 
 ## The short version
@@ -34,7 +34,7 @@ is the badge's dark rim. A mark drawn over the rim loses its edge against it.
 
 ## Where your mark lands
 
-**Wherever you draw it in the canvas — it gets centred for you.** The assembler finds your
+**Wherever you draw it in the canvas — it gets centerd for you.** The assembler finds your
 mark's own middle and stands it on the badge's, so you do not have to line anything up by
 hand. Draw it in the corner if you like.
 
@@ -50,22 +50,22 @@ To see where every mark currently stands:
 python3 tools/mana_art.py --marks
 ```
 
-## Colour
+## Color
 
 **There isn't any.** A mark is a silhouette: only its alpha is read, and the badge decides
-what colour to cut it in (`ink.json`). Draw in whatever colour you can see against the guide —
+what color to cut it in (`ink.json`). Draw in whatever color you can see against the guide —
 black is easiest. A soft edge stays soft, because coverage carries through.
 
 ## Hybrids
 
-A two-colour symbol wears two half marks instead of one:
+A two-color symbol wears two half marks instead of one:
 
 ```
 art/mana/symbols/half-tl/<mark>.png    the top-left half
 art/mana/symbols/half-br/<mark>.png    the bottom-right half
 ```
 
-These are **not** centred — they sit in their own half of the badge, so the middle pixel is
+These are **not** centerd — they sit in their own half of the badge, so the middle pixel is
 not what they line up against. Draw them where they go.
 
 ## When you have drawn one

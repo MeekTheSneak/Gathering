@@ -158,7 +158,7 @@ public final class Authorization {
      * ids are consecutive integers, so a modified one only has to count. On a real table you
      * do not turn over somebody else's morph, and this is that.
      * <p>Face down is left alone. It reveals nothing, and refusing it would referee
-     * behaviour rather than protect information, which is not this mod's job.
+     * behavior rather than protect information, which is not this mod's job.
      */
     private static Optional<String> turningSomebodyElsesCardUp(
             GameState state, GameEvent.CardFacingSet event) {

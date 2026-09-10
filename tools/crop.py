@@ -19,12 +19,12 @@ def read_png(path):
     data = open(path, 'rb').read()
     if data[:8] != b'\x89PNG\r\n\x1a\n':
         raise SystemExit(f'{path} is not a PNG')
-    at, width, height, colour, idat = 8, None, None, None, b''
+    at, width, height, color, idat = 8, None, None, None, b''
     while at < len(data):
         length = struct.unpack('>I', data[at:at + 4])[0]
         kind, body = data[at + 4:at + 8], data[at + 8:at + 8 + length]
         if kind == b'IHDR':
-            width, height, depth, colour = struct.unpack('>IIBB', body[:10])
+            width, height, depth, color = struct.unpack('>IIBB', body[:10])
             if depth != 8:
                 raise SystemExit('only 8 bits a channel')
         elif kind == b'IDAT':
@@ -33,7 +33,7 @@ def read_png(path):
             break
         at += 8 + length + 4
 
-    channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[colour]
+    channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[color]
     raw, stride = zlib.decompress(idat), width * channels
     out, previous, at = bytearray(), bytearray(stride), 0
     for _ in range(height):

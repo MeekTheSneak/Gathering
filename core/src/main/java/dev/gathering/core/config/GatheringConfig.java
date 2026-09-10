@@ -101,7 +101,20 @@ public record GatheringConfig(
             int sealedRotationHours,
             int villageShopWeight,
             String currentSet,
-            String boosterModel) {
+            String boosterModel,
+            String starterSet,
+            String starterProduct) {
+
+        /**
+         * Whether this server hands somebody two boosters for finishing the guided first game.
+         * <p>Off by an empty set code rather than by a separate flag, because "which set" and
+         * "whether at all" are the same question: a server that names no set is a server that
+         * gives nothing, and one operator setting is easier to reason about than two that can
+         * disagree.
+         */
+        public boolean givesAStarter() {
+            return starterSet != null && !starterSet.isBlank();
+        }
     }
 
     public record Tables(int maxTablesLoaded, int maxClusterTables, int maxCardsPerSession) {
@@ -254,7 +267,14 @@ public record GatheringConfig(
                 noted("collection.current_set",
                         toml.string("collection.current_set", "auto").trim().toLowerCase(Locale.ROOT),
                         "auto", notes),
-                toml.string("collection.booster_model", "play").trim().toLowerCase(Locale.ROOT));
+                toml.string("collection.booster_model", "play").trim().toLowerCase(Locale.ROOT),
+                // Foundations Jumpstart, which is sold one color at a time and is therefore
+                // the one product a "pick two colors" screen can honestly hand out. Set to
+                // nothing to give no starter at all: this is the only thing in the guided
+                // first game that puts a real card into an economy, so it is an operator's
+                // decision rather than mine.
+                toml.string("collection.starter_set", "j25").trim().toLowerCase(Locale.ROOT),
+                toml.string("collection.starter_product", "jumpstart").trim().toLowerCase(Locale.ROOT));
 
         Tables tables = new Tables(
                 noted("table.max_tables_loaded",

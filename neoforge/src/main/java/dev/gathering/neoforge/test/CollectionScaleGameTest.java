@@ -55,7 +55,7 @@ public final class CollectionScaleGameTest {
     /**
      * How much dearer the big box may be than the small one for the same hundred gestures.
      * <p>Ten. A map lookup does not care how large the map is, so the honest answer is about
-     * one; ten leaves room for cache behaviour and a garbage collection landing in the middle
+     * one; ten leaves room for cache behavior and a garbage collection landing in the middle
      * of one of the two measurements. A pass per row would be three thousand.
      */
     private static final int A_HONEST_DIFFERENCE = 10;
@@ -191,7 +191,7 @@ public final class CollectionScaleGameTest {
                 + "us at " + tiny.cards().distinct() + " rows, " + (largeNanos / 1000)
                 + "us at " + box.cards().distinct() + " rows");
         // A pass that became a pass per row would be three thousand times dearer here. Ten is
-        // far past any honest difference in cache behaviour and far short of that.
+        // far past any honest difference in cache behavior and far short of that.
         if (largeNanos > smallNanos * A_HONEST_DIFFERENCE + A_MILLISECOND_OF_NOISE) {
             helper.fail("a hundred puts and takes cost " + (largeNanos / 1000) + "us on a box of "
                     + box.cards().distinct() + " against " + (smallNanos / 1000)

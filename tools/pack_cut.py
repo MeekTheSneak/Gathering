@@ -6,9 +6,9 @@ needs the packs and nobody has to find them again:
 
     python3 tools/pack_cut.py <folder holding 00.png, 03.png, 04.png>
 
-Each sheet draws the same element several times over in different colours. Only one of each
+Each sheet draws the same element several times over in different colors. Only one of each
 is taken - the grey one, because it is the one whose tones carry the most detail and the
-least hue, and every theme's version is made by moving that ramp onto its own colours rather
+least hue, and every theme's version is made by moving that ramp onto its own colors rather
 than by picking whichever of his three happens to be nearest. See recut() in gui_art.py.
 
 The cells are given by hand rather than found, because "find the islands" gets a different
@@ -34,7 +34,7 @@ CELLS = {
     },
     # The bar and the box it runs in. Both are sheared - the ends are cut on the diagonal -
     # which is most of what makes them read as pixel art rather than as two rectangles. The
-    # grey track and the yellow fill, because recut() sorts by lightness and the colour of
+    # grey track and the yellow fill, because recut() sorts by lightness and the color of
     # the one it is given never survives anyway.
     "04.png": {
         "bar_track": (0, 19, 48, 11),

@@ -31,7 +31,7 @@ rounded up.
 | R-03 | P1 | Fixed | Owed rewards are stored per installation, not per world | Owed rewards, replays, want lists and set-aside broken games now live under the running save. Only downloaded card and collation metadata stays global, which is the point of caching it. `tools/savecheck.py` fails the build if anything else reaches for the game directory. |
 | R-04 | P2 | Fixed | The recovery ledger can discard or replay owed rewards | The ceiling refuses new entries and shouts rather than deleting old ones, the list is written through a temporary file and an atomic move, and every write says whether it worked — a caller told "no" must not treat the property as safeguarded. |
 | R-05 | P2 | Fixed | Opening a replay immediately cancels its own playback | The list screen asked `Minecraft.screen` whether a replay was opening, and `setScreen` calls `removed()` before assigning the new screen — so the guard never fired and every normal opening cancelled itself. The replay controller says so itself now. |
-| R-06 | P2 | Fixed | Normal deck edits still erase the new card-history field | Every functional copy on `DeckComponent` carries the histories. The test that promised a sleeving round trip now performs one: insert, insert again, rename, recolour, resleeve, move between sections, cross the wire, and take the card back out through the real TAKE handler. |
+| R-06 | P2 | Fixed | Normal deck edits still erase the new card-history field | Every functional copy on `DeckComponent` carries the histories. The test that promised a sleeving round trip now performs one: insert, insert again, rename, recolor, resleeve, move between sections, cross the wire, and take the card back out through the real TAKE handler. |
 | R-07 | P2 | Fixed | Forced anchor removal still bypasses session completion | `TableSessions.end` gained an overload taking the block entity the removal hook already holds, instead of rediscovering a table the world has just replaced. |
 | R-08 | P2 | Fixed | Background pairing passes its helper but fails full deck validation | Eligibility is asked of the whole command zone, so a card admitted by its partner's mechanic is eligible. A refused pair is told which mechanic it missed rather than always "both have Partner". |
 | R-09 | P2 | Fixed | The legality refresh request only returns the same stale cache | `CachingCardSource.refresh` goes past the cache and stores what comes back; `CardDataService.refresh` coalesces and bounds it. The staleness scan reads timestamps from memory rather than stat-ing the disk on the game thread. |
@@ -51,18 +51,18 @@ rounded up.
 
 ## The three that were open, and are not any more
 
-- **G-39 — booster collation fidelity. Done.** Colours are balanced. A slot of five or more
+- **G-39 — booster collation fidelity. Done.** Colors are balanced. A slot of five or more
   off a sheet the published data calls balanced takes one card of each of white, blue, black,
-  red and green first, each drawn from that colour's own share of the sheet at that share's own
+  red and green first, each drawn from that color's own share of the sheet at that share's own
   weights, and the rest of the slot drawn from the whole sheet as before; the slot is then
   shuffled so a pack does not arrive in WUBRG order. That is the shape of the physical cut
   rather than a rejection loop, so it costs one draw per card and a seed still opens exactly
   one pack. Companion sets were already resolved before an arrangement is used, and their
-  colours are joined the same way. Verified against the real Dominaria United file fetched from
+  colors are joined the same way. Verified against the real Dominaria United file fetched from
   MTGJSON: both of its balanced sheets balance, and forty packs of each arrangement hold all
-  five colours. Disabling the rule fails that test. What is still approximate is stated in the
-  design brief: a sheet the data calls balanced that cannot be balanced here — an empty colour
-  column, or no colours read for its cards — is drawn by weight and says so in the notes.
+  five colors. Disabling the rule fails that test. What is still approximate is stated in the
+  design brief: a sheet the data calls balanced that cannot be balanced here — an empty color
+  column, or no colors read for its cards — is drawn by weight and says so in the notes.
 - **G-24 — the deck check off the game thread. Done.** It answers from the in-memory index or
   says it cannot yet; the caller shows "Checking your deck…", the cache files are read on the
   card thread, and the deck goes down when the answer arrives. Never the network: waiting on

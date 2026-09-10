@@ -60,6 +60,9 @@ final class GatheringNetwork {
                 dev.gathering.network.PracticePayload.TYPE,
                 dev.gathering.network.PracticePayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
+                dev.gathering.network.StarterPayload.TYPE,
+                dev.gathering.network.StarterPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(
                 dev.gathering.network.FetchBasicPayload.TYPE,
                 dev.gathering.network.FetchBasicPayload.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(
@@ -292,6 +295,10 @@ final class GatheringNetwork {
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.PracticePayload.TYPE, (payload, context) ->
                         dev.gathering.server.PracticeTable.handle(context.player(), payload));
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                dev.gathering.network.StarterPayload.TYPE, (payload, context) ->
+                        dev.gathering.server.StarterBoosters.handle(context.player(), payload));
 
         ServerPlayNetworking.registerGlobalReceiver(
                 dev.gathering.network.FetchBasicPayload.TYPE, (payload, context) ->

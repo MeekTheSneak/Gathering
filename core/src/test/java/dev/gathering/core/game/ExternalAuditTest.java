@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * The behaviours an outside audit reproduced against this code, each now refused.
+ * The behaviors an outside audit reproduced against this code, each now refused.
  * <p>Every test here was a probe that passed - that is, the defect happened - before the fix
  * beside it. They are kept together because they came from one reading of the mod by somebody
  * who did not write it, and because the shape of each is the same: an event no honest client

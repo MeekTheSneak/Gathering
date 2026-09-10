@@ -256,13 +256,18 @@ public final class MtgjsonCollation {
                 continue;
             }
             boolean balanced = flag(json, "balanceColors");
+            // Kept for every sheet, not only for the ones the set says to balance. Balancing
+            // was the first thing that wanted them and for a while the only one, so they were
+            // read only when it asked - which quietly meant that "what color is this sheet"
+            // answered "none" for every sheet in every set that does not balance. That is the
+            // question a product sold one color at a time is entirely made of: Jumpstart's
+            // hundred and twenty-one sheets are each one color and not one of them is
+            // balanced. See BoosterColors.
             Map<UUID, String> onThisSheet = new LinkedHashMap<>();
-            if (balanced) {
-                for (UUID printing : weights.keySet()) {
-                    String letters = colors.get(printing);
-                    if (letters != null) {
-                        onThisSheet.put(printing, letters);
-                    }
+            for (UUID printing : weights.keySet()) {
+                String letters = colors.get(printing);
+                if (letters != null) {
+                    onThisSheet.put(printing, letters);
                 }
             }
             BoosterSheet sheet = new BoosterSheet(

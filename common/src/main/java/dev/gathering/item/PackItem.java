@@ -65,7 +65,7 @@ public class PackItem extends Item {
             // The server decides, because the server is what knows a pack came out at all -
             // and it already knows whether this player is sneaking, because that is synced.
             boolean ceremony = !opener.isShiftKeyDown();
-            PackOpening.openFor(opener, pack.setCode(), pack.kind(), receipt,
+            PackOpening.openFor(opener, pack.setCode(), pack.kind(), pack.color(), receipt,
                     () -> giveBack(opener, pack), ceremony);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());

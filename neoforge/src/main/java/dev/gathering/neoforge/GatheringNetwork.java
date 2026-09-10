@@ -142,6 +142,15 @@ public final class GatheringNetwork {
                 GatheringNetwork::onCreateToken);
 
         registrar.playToServer(
+                dev.gathering.network.StarterPayload.TYPE,
+                dev.gathering.network.StarterPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        dev.gathering.server.StarterBoosters.handle(player, payload);
+                    }
+                });
+
+        registrar.playToServer(
                 dev.gathering.network.PracticePayload.TYPE,
                 dev.gathering.network.PracticePayload.STREAM_CODEC,
                 (payload, context) -> {

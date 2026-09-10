@@ -282,7 +282,7 @@ public final class GatheringButtons {
         /**
          * The arrow instead of the words, dimmed when the button will not do anything.
          * <p>Dimming matters more here than on a worded button: a label greys out on its own
-         * because the text is drawn in a second colour, and an arrow blitted at full strength
+         * because the text is drawn in a second color, and an arrow blitted at full strength
          * onto a dead button is the one part of it still claiming to work.
          */
         @Override

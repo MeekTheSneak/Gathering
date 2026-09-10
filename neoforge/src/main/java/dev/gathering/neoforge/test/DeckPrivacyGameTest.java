@@ -23,7 +23,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * <p>An item component is synchronized to every client that can see the item, so carrying a
  * deck to a table handed the whole list to everybody there - and hiding the tooltip protects
  * nothing at all from a client that reads what it was sent. What crosses now is the box: the
- * name, the note on it, the colour, the sleeves, the commanders, and how thick each part is.
+ * name, the note on it, the color, the sleeves, the commanders, and how thick each part is.
  */
 @GameTestHolder(Gathering.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -67,7 +67,7 @@ public final class DeckPrivacyGameTest {
             return;
         }
         if (!seen.color().equals(deck.color()) || !seen.owner().equals(deck.owner())) {
-            helper.fail("The deck box changed colour or owner on the wire");
+            helper.fail("The deck box changed color or owner on the wire");
             return;
         }
         if (!seen.isRedacted()) {

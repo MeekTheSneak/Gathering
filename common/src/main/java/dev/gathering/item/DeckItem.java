@@ -61,7 +61,7 @@ public class DeckItem extends Item {
 
     /**
      * The deck in this hand as its owner sees it: the real list where the server has sent it.
-     * <p>What is on the item is the public copy - a name, a colour, sleeves, commanders and a
+     * <p>What is on the item is the public copy - a name, a color, sleeves, commanders and a
      * thickness - so anything that lists the cards asks for this instead. Falls back to the
      * item's own copy, which is right for the frame or two before the first push lands and
      * for anybody who is not the owner.

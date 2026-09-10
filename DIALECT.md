@@ -101,6 +101,23 @@ milliseconds; everything outside it needs a game.
 | Card position | a `TablePosition` in state, settled by the fold | letting each client lay the board out |
 | Undo | mark entries undone and re-fold | inverse operations, or deleting log entries |
 | Authorization | owner-locked only where the act would reveal to the actor | blocking "illegal" plays |
+| Spelling | American: color, behavior, center, recognize | British forms anywhere in code, strings or docs |
+| Interface text | short and flat: "Choose", "Draw a card", "Two boosters." | conversational copy that explains, reassures or chats |
+
+## Interface text
+
+Buttons are verbs. Labels are nouns. Neither is a sentence.
+
+The mod is a table, not a host. A button that says "Take these two" is a person talking; one
+that says "Choose" is a control. A line that explains what the player might do with what they
+have just been given is a line nobody reads twice and everybody reads once, resenting it.
+
+- Say what a control does, in as few words as it takes. "Choose", not "Take these two".
+- Say what a thing is, not what it means to you. "Practice cards. They cannot be kept." is one
+  sentence too long already.
+- No second sentence offering a suggestion, an encouragement, or an alternative use.
+- Where a screen genuinely has to teach - the guided first game - one instruction at a time,
+  and the instruction is the imperative, not the story around it.
 
 ## Banned
 

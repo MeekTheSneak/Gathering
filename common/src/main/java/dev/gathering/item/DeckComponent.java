@@ -184,11 +184,11 @@ public record DeckComponent(
      * <p>An item component is synchronized to every client that can see the item, and a deck
      * is a held item: carrying yours to a table handed your whole list to everybody in the
      * room, tooltip or no tooltip. What crosses here is what a deck is from across a table -
-     * its name, the note on the box, its colour, its sleeves, its commanders, and how thick
+     * its name, the note on the box, its color, its sleeves, its commanders, and how thick
      * each part of it is. The cards themselves cross as {@link CardComponent#HIDDEN}, so the
      * counts stay honest and the identities do not travel.
      * <p>Commanders are the exception on purpose: a commander sits face up in the command
-     * zone all game and the deck box is coloured from it.
+     * zone all game and the deck box is colored from it.
      * <p>The owner still gets the real thing - see {@code MyDeckPayload}, which is sent to
      * one player about a deck they are holding.
      */

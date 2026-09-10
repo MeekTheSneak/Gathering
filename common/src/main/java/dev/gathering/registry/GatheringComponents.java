@@ -89,7 +89,7 @@ public final class GatheringComponents {
      * <p>The saved form is the whole deck; the synchronized form is not. An item component
      * goes to every client that can see the item, so carrying a deck used to hand the list to
      * the room - and hiding the tooltip protects nothing from a client that reads what it was
-     * sent. What crosses is the box: a name, a note, a colour, sleeves, the commanders, and
+     * sent. What crosses is the box: a name, a note, a color, sleeves, the commanders, and
      * how thick each part is. See {@link DeckComponent#PUBLIC_STREAM_CODEC}, and
      * {@link dev.gathering.network.MyDeckPayload} for how the owner gets the real thing.
      */

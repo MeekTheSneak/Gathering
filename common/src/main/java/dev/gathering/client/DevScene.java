@@ -166,7 +166,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 298;
+    private static final int LAST_STEP = 301;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -3020,10 +3020,37 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 297 -> {
+                // Leaving first, which is the order the real flow goes in: the board takes the
+                // practice table down and only then opens the wheel, because the wheel is not
+                // a table screen and the practice game must not still be running behind it.
                 practiceLeavesNothingBehind(client);
                 advance(SETTLE * 2);
             }
             case 298 -> {
+                // Finishing earns two boosters, and picking their colors is the first thing
+                // this player has been asked to decide. The wheel is the back of a Magic card:
+                // white at the top, then blue, black, red and green clockwise.
+                //
+                // Opened here and photographed next step, not both here: a screen set this
+                // frame has not drawn yet, and shooting immediately photographs whatever was
+                // on screen before it - which is how a picture of a field ends up filed as a
+                // picture of the color wheel.
+                client.setScreen(new StarterColorsScreen());
+                advance(SETTLE);
+            }
+            case 299 -> {
+                pickTwoColors(client);
+                advance(SETTLE);
+            }
+            case 300 -> {
+                // With two chosen, so the marks that say which are on the picture. A screen
+                // only ever photographed empty is a screen whose selected state nothing has
+                // ever looked at.
+                shoot(client, "97-two-colors-picked");
+                takeTheTwoColors(client);
+                advance(SETTLE * 2);
+            }
+            case 301 -> {
                 if (Tutorial.running()) {
                     fail("leaving the guided first game left it running");
                 }
@@ -5689,7 +5716,7 @@ public final class DevScene {
     /**
      * Puts an empty table down well away from the one the tour has been playing on.
      * <p>Away, because a practice game refuses a table anybody else is at or that has a game
-     * on it - which is the behaviour worth having and would make this step fail on the tour's
+     * on it - which is the behavior worth having and would make this step fail on the tour's
      * own table. Far enough that the two do not merge into one cluster.
      */
     private static void standAPracticeTableUp(Minecraft client) {
@@ -5823,6 +5850,60 @@ public final class DevScene {
             return;
         }
         fail("the guided first game asked for a card on the table and there is none");
+    }
+
+
+    /**
+     * Picks two colors off the wheel and takes the boosters.
+     * <p>Through the screen's own clicks, at the points the wheel says the orbs are, so what is
+     * exercised is the geometry a player's cursor meets rather than a method called by name.
+     */
+    private static void pickTwoColors(Minecraft client) {
+        if (!(client.screen instanceof StarterColorsScreen wheel)) {
+            fail("the color wheel did not open after finishing the guided first game");
+            return;
+        }
+        shoot(client, "96-pick-two-colors");
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        // Where the screen itself says the orbs are. Reading them off the same geometry the
+        // render uses is the point: a wheel drawn in one place and clicked in another is the
+        // exact fault this arrangement exists to make impossible.
+        int[] middle = wheel.wheelMiddleForTesting();
+        int radius = wheel.wheelRadiusForTesting();
+        for (int which : new int[] {3, 4}) {
+            var spoke = dev.gathering.core.ui.ColorWheel.spoke(which, middle[0], middle[1], radius);
+            wheel.mouseClicked(spoke.x(), spoke.y(), 0);
+        }
+        if (wheel.chosen() != 2) {
+            fail("clicking two orbs on the color wheel chose " + wheel.chosen());
+            return;
+        }
+        if (!wheel.canTake()) {
+            fail("two colors are picked and the wheel will not take them");
+            return;
+        }
+        System.out.println("[devscene] picked two colors off the wheel at "
+                + width + "x" + height);
+    }
+
+    /**
+     * Takes the two that are picked.
+     * <p>A step after the clicks, so a frame has been drawn with them chosen - and so the
+     * photograph in between shows the marks that say which. Shooting in the same step as a
+     * click photographs the frame before it, which is how a picture of an empty wheel ends up
+     * filed as a picture of two colors picked.
+     */
+    private static void takeTheTwoColors(Minecraft client) {
+        if (!(client.screen instanceof StarterColorsScreen wheel)) {
+            fail("the color wheel closed before the two colors could be taken");
+            return;
+        }
+        if (wheel.chosen() != 2) {
+            fail("the wheel has " + wheel.chosen() + " colors picked a frame later");
+            return;
+        }
+        press(client, "Choose");
     }
 
     /** Leaves the guided first game the way its own button does. */
@@ -6436,7 +6517,7 @@ public final class DevScene {
      * The gallery: every look wearing the same three screens.
      * <p>Three because they are the three that show most of what a look is - a grid of cards
      * in a recessed box, a panel with a list down it, and the full-screen read, which is the
-     * one thing drawn over the world rather than over a backdrop. A five-colour card for the
+     * one thing drawn over the world rather than over a backdrop. A five-color card for the
      * read, so every mana orb is on screen at once.
      * <p>Driven by arithmetic rather than by a case each: there are as many looks as the
      * resource packs installed happen to declare, which is not a number this file can know.

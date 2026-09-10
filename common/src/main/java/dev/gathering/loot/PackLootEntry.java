@@ -125,7 +125,7 @@ public final class PackLootEntry extends LootPoolSingletonContainer {
         // is an archive table - so an entry built for one has no LootSource and still has to
         // reach the archive. Asked the other way round, it never did.
         if (archiveTable != null) {
-            // The same call NeoForge's loot modifier makes, rather than the same behaviour
+            // The same call NeoForge's loot modifier makes, rather than the same behavior
             // written out again: it asks the archive first and skips the ordinary pack when
             // the archive answers, and that ordering is the sort of thing that is copied
             // once and then only fixed in one place. One function, both loaders.

@@ -73,6 +73,8 @@ public final class Settings {
                     String.valueOf(now.collecting().villageShopWeight());
             case "collection.current_set" -> now.collecting().currentSet();
             case "collection.booster_model" -> now.collecting().boosterModel();
+            case "collection.starter_set" -> now.collecting().starterSet();
+            case "collection.starter_product" -> now.collecting().starterProduct();
             case "table.max_tables_loaded" -> String.valueOf(now.tables().maxTablesLoaded());
             case "table.max_cluster_tables" -> String.valueOf(now.tables().maxClusterTables());
             case "table.max_cards_per_session" ->

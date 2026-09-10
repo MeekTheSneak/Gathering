@@ -55,5 +55,11 @@ public final class PlayerGone {
         // And which deck they were last told about, so the one in their hand is sent again
         // the moment they are back holding it.
         dev.gathering.item.DeckItem.forget(player.getUUID());
+
+        // StarterBoosters is deliberately NOT forgotten here, and this comment is what says
+        // so - the check next door looks for the name rather than the call. Everything else
+        // on this list is a cache about a player who has gone; that one is a record that they
+        // have already been given something, and forgetting it on disconnect would make
+        // logging out and back in a way to be given it again.
     }
 }

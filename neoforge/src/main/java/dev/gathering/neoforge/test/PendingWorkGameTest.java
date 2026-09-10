@@ -72,8 +72,10 @@ public final class PendingWorkGameTest {
         PendingWork.clear();
         try {
             UUID id = PendingWork.sent();
-            // The threshold is the player's setting, and its floor is a tenth of a second.
-            Thread.sleep(dev.gathering.client.ClientSettings.waitingAfterMillis() + 60L);
+            // Past the largest threshold the setting allows, rather than past whatever it
+            // happens to be. Reading the live setting made this test depend on a global
+            // another test in the same run is allowed to change.
+            Thread.sleep(dev.gathering.client.ClientSettings.LATEST_WAITING_NOTICE + 60L);
             PendingWork.Work work = PendingWork.of(id).orElseThrow();
             if (work.state() == PendingWork.State.REFUSED) {
                 helper.fail("a request nobody answered was reported as refused");
@@ -103,7 +105,7 @@ public final class PendingWorkGameTest {
         PendingWork.clear();
         try {
             UUID id = PendingWork.sent();
-            Thread.sleep(dev.gathering.client.ClientSettings.waitingAfterMillis() + 60L);
+            Thread.sleep(dev.gathering.client.ClientSettings.LATEST_WAITING_NOTICE + 60L);
             if (PendingWork.of(id).orElseThrow().state() != PendingWork.State.UNKNOWN) {
                 helper.fail("the fixture did not reach the unknown state");
                 return;
