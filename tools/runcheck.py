@@ -23,9 +23,9 @@ that checks:
 
   * `ServerRun.stillThisRun(...)` and `ServerRun.isStill(...)`, which stamp the generation when
     the work starts and drop the result if that world has since gone; and
-  * `ServerRun.onServerThread(...)` / `onTheServerThread(...)` / `laterOnTheServerThread(...)`,
-    which do the same and then hand the task to the server it was started on, checking again
-    inside in case it stopped in between.
+  * `ServerRun.onServerThread(...)` and `ServerRun.onTheServerThread(...)`, which do the same
+    and then hand the task to the server it was started on, checking again inside in case it
+    stopped in between.
 
 A bare `server.execute` is no longer accepted. Not because it is wrong everywhere, but because
 whoever writes the next one will not think about any of the above, and the failure is invisible
@@ -57,7 +57,6 @@ BOUND = (
     "ServerRun.isStill(",
     "ServerRun.onServerThread(",
     "ServerRun.onTheServerThread(",
-    "ServerRun.laterOnTheServerThread(",
 )
 
 #: Named so the message can say why, rather than only that something is missing.

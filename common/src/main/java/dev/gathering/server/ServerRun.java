@@ -137,20 +137,6 @@ public final class ServerRun {
     }
 
     /**
-     * The same for work with nothing to hand back, started on behalf of one player.
-     * <p>Read at the moment it is called, for the same reason.
-     */
-    public static Runnable laterOnTheServerThread(
-            net.minecraft.server.level.ServerPlayer player, Runnable what) {
-        if (player == null || what == null) {
-            return () -> { };
-        }
-        MinecraftServer asking = player.server;
-        long generation = generation();
-        return () -> onTheServerThread(asking, generation, what);
-    }
-
-    /**
      * Wraps a completion so it does nothing once the world that asked for it has gone.
      * <p>The generation is taken when this is called, which is when the work is started, and
      * checked when the result lands. Anything reading a shared static on the way back has to

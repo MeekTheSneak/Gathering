@@ -526,7 +526,12 @@ public final class CollectionView {
 
     /** What a player's pending search is filed under, so a newer one replaces it. */
     private static Object waitingKey(ServerPlayer player) {
-        return "collection-search:" + player.getUUID();
+        return waitingKey(player.getUUID());
+    }
+
+    /** The one place this key is spelled, so a forget and a wait cannot drift apart. */
+    private static Object waitingKey(UUID player) {
+        return "collection-search:" + player;
     }
 
     /** Which tick this player last searched on, or a long time ago. */
@@ -536,7 +541,7 @@ public final class CollectionView {
 
     /** Forgets a player's waiting search, for a disconnect or a server stop. */
     public static void forget(UUID player) {
-        ServerTicks.forget("collection-search:" + player);
+        ServerTicks.forget(waitingKey(player));
         LAST_SEARCH.remove(player);
     }
 

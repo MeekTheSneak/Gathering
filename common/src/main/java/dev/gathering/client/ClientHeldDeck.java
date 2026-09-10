@@ -61,12 +61,6 @@ public final class ClientHeldDeck {
         HELD.put(said.deckHandle(), new Told(said.revision(), said.deck()));
     }
 
-    /** Which push this client last took for that deck, or -1 if none. */
-    public static int revisionOf(UUID deckHandle) {
-        Told told = deckHandle == null ? null : HELD.get(deckHandle);
-        return told == null ? -1 : told.revision();
-    }
-
     /**
      * The real contents of that deck, if the server has said.
      * <p>Empty before the first push, which is a frame or two after picking a deck up: a

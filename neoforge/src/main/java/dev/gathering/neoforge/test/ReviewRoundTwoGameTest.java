@@ -181,6 +181,13 @@ public final class ReviewRoundTwoGameTest {
             }
             int admitted=executor.queued.size()*128;
             if(admitted>512) h.fail("ROUND2: "+admitted+" printing lookups admitted with zero completed against a claimed global cap of 512");
+            // And the mod's own count agrees with what actually went to the worker. The
+            // defect was the two disagreeing: forgetting a connection took the shared count
+            // down while the work it paid for was still queued, so the count said there was
+            // room when there was not.
+            else if(CardMetadataRequests.queued()!=admitted)
+                h.fail("ROUND2: the shared count says "+CardMetadataRequests.queued()
+                        +" lookups are out with "+admitted+" actually queued");
             else h.succeed();
         } finally {CardMetadataRequests.forget(player.getUUID());service.close();}
     }

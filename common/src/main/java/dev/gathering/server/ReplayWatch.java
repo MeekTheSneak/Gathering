@@ -53,7 +53,7 @@ public final class ReplayWatch {
         OPEN.remove(who);
         WORKING.remove(who);
         LAST_FRAME.remove(who);
-        ServerTicks.forget("replay-frame:" + who);
+        ServerTicks.forget(waitingKey(who));
     }
 
     /** Between servers: one world's replays are not the next one's. */
@@ -170,7 +170,12 @@ public final class ReplayWatch {
 
     /** What a watcher's pending frame is filed under, so a newer one replaces it. */
     private static Object waitingKey(ServerPlayer player) {
-        return "replay-frame:" + player.getUUID();
+        return waitingKey(player.getUUID());
+    }
+
+    /** The one place this key is spelled, so a forget and a wait cannot drift apart. */
+    private static Object waitingKey(java.util.UUID player) {
+        return "replay-frame:" + player;
     }
 
     /** Which tick this watcher was last answered on, or a long time ago. */
