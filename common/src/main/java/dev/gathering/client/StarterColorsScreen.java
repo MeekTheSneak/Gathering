@@ -38,29 +38,50 @@ public final class StarterColorsScreen extends Screen {
     private static final int ROW_HEIGHT = 18;
     private static final int GAP = 6;
 
-    /** How big an orb is drawn, and how far from its middle still counts as pointing at it. */
-    private static final int ORB = 26;
+    /**
+     * How big an orb is drawn.
+     * <p>The largest the mod draws any text at, named rather than written as a number so it
+     * cannot drift past the limit everything else keeps to.
+     */
+    private static final float ORB_SCALE = dev.gathering.core.ui.TextScale.LARGEST;
+
+    /** How far an orb reaches from its own middle, asked of the font rather than guessed. */
+    private static final int ORB_HALF = ManaText.halfHeight(ORB_SCALE);
 
     /**
-     * How much wider the glow behind an orb is than the orb.
-     * <p>Small. A halo twice the size is a second orb; this is a rim of light around the edge
-     * of the one that is there.
+     * Where the glow starts and where it has faded to nothing.
+     * <p>It starts just inside the orb and reaches a little past it, so it reads as the orb
+     * being lit rather than as a disc behind it. Everything on a spoke - the glow, the symbol,
+     * the word, what counts as pointing at it - is placed from the same middle, which is the
+     * whole of why it lines up. The first version drew the symbol again at a larger scale and
+     * hoped; a glyph's advance width and the ink inside it are different measurements, so the
+     * two copies were centered on two different points, and the orb itself was six pixels
+     * above the circle you had to click.
      */
-    private static final float GLOW_SPREAD = 1.18f;
+    private static final int GLOW_INNER = ORB_HALF - 1;
+    private static final int GLOW_OUTER = ORB_HALF + 7;
 
     /**
-     * How big the glow is, and how big the orb is under it.
-     * <p>The glow takes the mod's own largest text scale and the orb is worked back from it,
-     * rather than the other way round. Written the other way round first, the glow came out at
-     * 2.36 - past a limit everything else in the mod keeps to - and the scripted run counted a
-     * hundred and seventy-eight draws at a scale nothing else uses. Derived, it cannot.
+     * How far from a spoke's middle still counts as pointing at that orb.
+     * <p>The orb and a little, not the whole glow: the outer half of the glow is a few units
+     * of alpha, and a click landing there is a click on nothing anybody can see.
      */
-    private static final float GLOW_SCALE = dev.gathering.core.ui.TextScale.LARGEST;
-    private static final float ORB_SCALE = GLOW_SCALE / GLOW_SPREAD;
+    private static final int REACH = ORB_HALF + 4;
+
+    /**
+     * How far below a spoke's middle that color's name is drawn.
+     * <p>Where the glow has run out. Named once because three things need it: the label
+     * itself, the room the panel keeps under the ring, and where the sentence under the wheel
+     * starts.
+     */
+    private static final int LABEL_DROP = GLOW_OUTER - 1;
+
+    /** How much room a spoke needs, so five of them can be spaced without touching. */
+    private static final int ORB = REACH * 2;
 
     /** The glow behind a chosen orb, and the fainter one behind the orb under the cursor. */
-    private static final int CHOSEN_GLOW = 0xFFFFF4C8;
-    private static final int HOVER_GLOW = 0x80FFF4C8;
+    private static final int CHOSEN_GLOW = 0xC0FFF0C0;
+    private static final int HOVER_GLOW = 0x50FFF0C0;
 
     /** Two, which is what the product is: two halves shuffle into one deck. */
     private static final int HOW_MANY = 2;
@@ -121,7 +142,7 @@ public final class StarterColorsScreen extends Screen {
         // bottom two words have to sit inside the panel rather than on its edge.
         int wheel = Math.min(room, Math.max(110, this.height / 3));
         // The bottom two names hang below the ring, so the panel keeps a line for them.
-        int belowTheRing = this.font.lineHeight + ORB / 2;
+        int belowTheRing = this.font.lineHeight + LABEL_DROP;
         int high = MARGIN * 2 + headerHigh + GAP + wheel + belowTheRing
                 + GAP + footerHigh + GAP + ROW_HEIGHT;
         panel = new Rect(
@@ -160,7 +181,7 @@ public final class StarterColorsScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
             int on = ColorWheel.at((int) mouseX, (int) mouseY,
-                    wheelCenterX, wheelCenterY, wheelRadius, ORB / 2 + 2);
+                    wheelCenterX, wheelCenterY, wheelRadius, REACH);
             if (on >= 0) {
                 choose(MagicColor.values()[on]);
                 GatheringButtons.clickSound();
@@ -221,7 +242,7 @@ public final class StarterColorsScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         hovered = ColorWheel.at(mouseX, mouseY,
-                wheelCenterX, wheelCenterY, wheelRadius, ORB / 2 + 2);
+                wheelCenterX, wheelCenterY, wheelRadius, REACH);
         super.render(graphics, mouseX, mouseY, partialTick);
 
         int room = panel.width() - MARGIN * 2;
@@ -245,24 +266,23 @@ public final class StarterColorsScreen extends Screen {
             MagicColor color = MagicColor.values()[spoke.index()];
             Component symbol = ManaText.of("{" + color.code() + "}");
 
-            // The glow is the orb's own symbol, drawn larger and behind it. A round mark for a
-            // round thing, without a new texture: a square ring around a circle reads as a
-            // selection box rather than as the orb being lit. Chosen glows brightest; hovered
-            // glows faintly, so the two states are told apart by how much rather than only by
-            // hue - which is the same thing said twice for somebody who cannot see the
+            // A round glow for a round thing, drawn from the orb's own middle. Chosen glows
+            // brightest; hovered glows faintly, so the two are told apart by how much rather
+            // than only by hue - the same thing said twice for somebody who cannot see the
             // difference in color.
             int glow = picked.contains(color) ? CHOSEN_GLOW
                     : spoke.index() == hovered ? HOVER_GLOW : 0;
             if (glow != 0) {
-                GuiText.drawCenteredAt(graphics, this.font, symbol,
-                        spoke.x(), spoke.y() - (int) (this.font.lineHeight * GLOW_SCALE / 2),
-                        GLOW_SCALE, glow);
+                GuiGlow.render(graphics, ManaText.inkCenterX(spoke.x(), ORB_SCALE), spoke.y(),
+                        GLOW_INNER, GLOW_OUTER, glow);
             }
 
             // The mod's own mana font, drawn large. A mana symbol at this size is a mana orb,
             // and it is already on every card in the game - so there is no new artwork here.
+            // Placed by its middle rather than by the top of its line, so it lands on the
+            // spoke the glow and the hit test are already using.
             GuiText.drawCenteredAt(graphics, this.font, symbol,
-                    spoke.x(), spoke.y() - (int) (this.font.lineHeight * ORB_SCALE / 2),
+                    spoke.x(), ManaText.drawYForMiddle(this.font, spoke.y(), ORB_SCALE),
                     ORB_SCALE, 0xFFFFFFFF);
             // The name under each orb, always. A newcomer who does not yet read a mana symbol
             // needs the word, and a name is also what makes the ring say something in a
@@ -270,8 +290,7 @@ public final class StarterColorsScreen extends Screen {
             // with the row below instead, which the scripted run photographed.
             GuiText.drawCentered(graphics, this.font,
                     Component.translatable(color.key()),
-                    // Clear of the glow, which reaches a little past the orb.
-                    spoke.x(), spoke.y() + ORB / 2 + 3, ORB * 3,
+                    spoke.x(), spoke.y() + LABEL_DROP, ORB * 3,
                     picked.contains(color) ? LABEL : DIM);
         }
     }
@@ -285,7 +304,7 @@ public final class StarterColorsScreen extends Screen {
     private void renderWhatIsChosen(GuiGraphics graphics) {
         int room = panel.width() - MARGIN * 2;
         int middle = panel.x() + panel.width() / 2;
-        int y = wheelCenterY + wheelRadius + ORB / 2 + this.font.lineHeight + GAP;
+        int y = wheelCenterY + wheelRadius + LABEL_DROP + this.font.lineHeight + GAP;
 
         if (hovered >= 0) {
             // The philosophy alone: the name is already under the orb the cursor is on, and

@@ -27,6 +27,11 @@ SPRITES = os.path.join(
     ROOT, "common", "src", "main", "resources", "assets", "gathering",
     "textures", "gui", "sprites")
 
+#: The generated symbol font, and the class that positions symbols by their ink.
+MANA_FONT = os.path.join(
+    ROOT, "common", "src", "main", "resources", "assets", "gathering", "font", "mana.json")
+MANA_TEXT = os.path.join(JAVA, "ManaText.java")
+
 
 def elements_in_java():
     return [name for name, _ in elements_and_policies()]
@@ -172,8 +177,61 @@ def contrast(one, two):
     return (high + 0.05) / (low + 0.05)
 
 
+def manaMetrics():
+    """The ascent and height every provider in the symbol font declares.
+
+    Returns a set of ``(ascent, height)`` pairs - more than one means the font is no longer
+    uniform, which the geometry in ``ManaText`` assumes it is.
+    """
+    with open(MANA_FONT) as handle:
+        font = json.load(handle)
+    return {
+        (provider.get("ascent"), provider.get("height"))
+        for provider in font.get("providers", [])
+    }
+
+
+def manaConstants():
+    """What ``ManaText`` believes those two numbers are."""
+    source = open(MANA_TEXT).read()
+    found = {}
+    for name in ("ASCENT", "HEIGHT"):
+        match = re.search(r"int " + name + r" = (-?\d+);", source)
+        if match:
+            found[name] = int(match.group(1))
+    return found
+
+
 def main():
     problems = []
+
+    # A mana symbol is drawn from its middle: the orb on the color-picker sits on the same
+    # point as the glow behind it and the circle that counts as a click on it, and the middle
+    # is worked out from the font's own ascent and height. Nothing at runtime reports those -
+    # Font gives a line height, not a glyph box - so ManaText holds them as numbers, and this
+    # is what stops the numbers and the font drifting apart. They already disagreed once, by
+    # one: an ascent of 8 puts a glyph's ink a pixel above the line it was drawn on, times
+    # the scale, and the orb ended up six pixels off the glow.
+    try:
+        metrics = manaMetrics()
+    except (OSError, ValueError) as broken:
+        problems.append(f"the symbol font could not be read: {broken}")
+        metrics = set()
+    if len(metrics) > 1:
+        problems.append(
+            "the symbol font is no longer one size: " + repr(sorted(metrics))
+            + " - ManaText's geometry assumes every glyph declares the same box")
+    elif metrics:
+        ascent, height = metrics.pop()
+        said = manaConstants()
+        if said.get("ASCENT") != ascent:
+            problems.append(
+                f"the symbol font declares ascent {ascent} and ManaText says "
+                f"{said.get('ASCENT')}")
+        if said.get("HEIGHT") != height:
+            problems.append(
+                f"the symbol font declares height {height} and ManaText says "
+                f"{said.get('HEIGHT')}")
     notes = []
 
     java = elements_in_java()
