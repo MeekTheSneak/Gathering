@@ -72,7 +72,14 @@ it cannot prove they look right.
 |---|---|---|
 | — | Client clips a gesture to 128 targets, but the server broadcasts the whole board per event, so a 100-card gesture is 100 broadcasts. Unmeasured | `TableActions.java` |
 | — | A retry after "no answer yet" is only offered where it cannot cost anything - a decklist becomes a deck out of nothing, so the button comes back; a build from a collection takes real cards, so it does not. Whether that is the right split for the builder is a judgment, not a proof | `DecklistImportScreen.java`, `DeckBuilderScreen.java` |
-| — | Scripted tour's board stops accepting moves in its late steps. Assertions were moved earlier rather than the transition being understood | `DevScene.java` |
+
+**One entry was withdrawn rather than fixed.** The record listed "the scripted tour's board
+stops accepting moves in its late steps, assertions moved earlier rather than the transition
+being understood" as an open defect. It is not one: step 104 stands the player up on purpose
+to look at the table as a watcher, and step 105 asserts the seat is gone. Every step after
+that has no seat by design, so the palette check sitting before it is correct placement rather
+than a workaround. `DevScene` now names the step, so the next person reading it does not have
+to rediscover this.
 
 Everything the September review raised is now closed. What is left above is a measurement
 nobody has taken, a judgment call worth revisiting, and a scripted-run mystery that was worked

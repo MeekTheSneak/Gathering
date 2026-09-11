@@ -43,7 +43,7 @@ public final class SettingsLayout {
      */
     public static SettingsLayout of(int width, int height, int rows, int controlScale) {
         int wanted = Math.max(SMALLEST_ROW,
-                Math.round(ROW * Math.clamp(controlScale, 50, 200) / 100f));
+                Math.round(ROW * InterfaceScale.asFraction(controlScale)));
         int room = Math.max(0, height - MARGIN * 2);
         int rowHeight = wanted;
         // The title line, then a row each, then the way out. Squeezed a step at a time rather

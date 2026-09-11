@@ -524,9 +524,15 @@ public final class DevScene {
             case 28 -> {
                 // The verb search, here rather than at the end of the tour, because a verb
                 // taken from it has to be shown doing the thing - and by the last steps this
-                // player is no longer taking moves at this table, so every verb pressed there
-                // does nothing whether the palette works or not. Proved by pressing the same
-                // verb on its own key at that point: it moved nothing either.
+                // player has no seat, so every verb pressed there does nothing whether the
+                // palette works or not.
+                //
+                // Not a mystery and not a workaround: step 104 stands the player up on
+                // purpose, to look at the same table as somebody who is only watching it, and
+                // step 105 asserts the seat is gone. Everything after that is a watcher's
+                // view by design. This note used to say only that verbs "did nothing" by the
+                // end, which read as an unexplained transition and sat in the working record
+                // as an open defect for exactly that reason.
                 //
                 // Pointing at a card first, so the card menu's verbs are among the rows: the
                 // palette searches the menus a right-click would have opened, so what is in

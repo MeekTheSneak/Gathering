@@ -77,8 +77,8 @@ public final class ClientSettings {
      * with, and because a percentage is the thing a player is actually choosing: nobody wants
      * a text scale of 1.1749999999999998.
      */
-    public static final int SMALLEST_SCALE = 75;
-    public static final int LARGEST_SCALE = 200;
+    public static final int SMALLEST_SCALE = dev.gathering.core.ui.InterfaceScale.SMALLEST_PERCENT;
+    public static final int LARGEST_SCALE = dev.gathering.core.ui.InterfaceScale.LARGEST_PERCENT;
 
     /** Milliseconds before a request that has not been answered says so. */
     public static final int SOONEST_WAITING_NOTICE = 100;

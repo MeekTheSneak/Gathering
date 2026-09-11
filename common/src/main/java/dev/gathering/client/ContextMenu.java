@@ -39,12 +39,12 @@ public final class ContextMenu {
      * every row after the first on a different fraction of a pixel from the one above it.
      */
     static int rowHeight() {
-        // The settings' own bounds, not a second pair written here. A row sized against a
-        // range the setter does not share is a row that is the wrong size for exactly the
-        // values that fall between the two.
-        int asked = Math.clamp(ClientSettings.controlScale(),
-                ClientSettings.SMALLEST_SCALE, ClientSettings.LARGEST_SCALE);
-        return Math.max(8, Math.round(ROW_HEIGHT * asked / 100f));
+        // One range, in core, shared by the settings that clamp the value and the panel that
+        // lays them out - see InterfaceScale. A row sized against a range the setter does not
+        // share is a row that is the wrong size for exactly the values between the two.
+        return Math.max(8, Math.round(
+                ROW_HEIGHT * dev.gathering.core.ui.InterfaceScale.asFraction(
+                        ClientSettings.controlScale())));
     }
     private static final int MIN_WIDTH = 70;
     private static final int SCREEN_EDGE = 4;

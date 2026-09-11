@@ -15,7 +15,8 @@ class SettingsLayoutTest {
     @Test
     @DisplayName("keeps every row inside the panel, at every control size")
     void rowsStayInside() {
-        for (int scale = 50; scale <= 200; scale += 25) {
+        for (int scale = InterfaceScale.SMALLEST_PERCENT;
+                    scale <= InterfaceScale.LARGEST_PERCENT; scale += 25) {
             SettingsLayout layout = SettingsLayout.of(854, 480, ROWS, scale);
             for (int row = 0; row < ROWS; row++) {
                 assertThat(layout.row(row).y())
@@ -33,7 +34,8 @@ class SettingsLayoutTest {
     void thewayOutIsAlwaysReachable() {
         // The one row that must never be pushed off: a panel you cannot close is a trap, and
         // this is the panel somebody opens when something is already too big to use.
-        for (int scale = 50; scale <= 200; scale += 25) {
+        for (int scale = InterfaceScale.SMALLEST_PERCENT;
+                    scale <= InterfaceScale.LARGEST_PERCENT; scale += 25) {
             for (int height : new int[] {200, 300, 480, 720, 1080}) {
                 SettingsLayout layout = SettingsLayout.of(854, height, ROWS, scale);
                 assertThat(layout.wayOut().bottom())
@@ -57,8 +59,8 @@ class SettingsLayoutTest {
     @Test
     @DisplayName("gives larger rows when larger controls are asked for")
     void controlScaleIsHonored() {
-        SettingsLayout small = SettingsLayout.of(854, 1080, ROWS, 75);
-        SettingsLayout large = SettingsLayout.of(854, 1080, ROWS, 150);
+        SettingsLayout small = SettingsLayout.of(854, 1080, ROWS, InterfaceScale.SMALLEST_PERCENT);
+        SettingsLayout large = SettingsLayout.of(854, 1080, ROWS, InterfaceScale.LARGEST_PERCENT);
         assertThat(large.rowHeight()).isGreaterThan(small.rowHeight());
     }
 
