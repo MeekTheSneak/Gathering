@@ -7,7 +7,7 @@ this says where it has got to.
 Everything here is a lead to verify, not proof.** Test counts are pasted from the run that
 produced them and from nowhere else.
 
-Last updated at `52dda92` plus the QP-07 batch described below.
+Last updated at the end of the quality-project session. The backlog is 20 of 28 done; everything still open needs a person, a graphics card, or another mod's files.
 
 ## Owner-approved requirements, and what they superseded
 
@@ -156,6 +156,39 @@ Paste results here from the run that produced them. Nothing in this section is f
   claim.
 - No graphical run has exercised a *remapped* key. QP-05 exists because nothing ever rebinds
   anything before pressing it.
+
+## What is left, and why each one needs you
+
+Nothing below is blocked on work anybody could do in this repository. Each is blocked on
+something this machine does not have.
+
+| | What it needs |
+|---|---|
+| **Q08** Validate first-game usability | The scripted graphical client (`tools/shots.sh`, ~18 min) and then a person. Nothing graphical has been run this session at all, so the tutorial overlay, the settings screen, the owner badges, the arrange outlines and the under-cursor chooser have never been looked at. |
+| **Q16** Crowded-board interaction checks | Four-seat fixtures with screenshots and frame times, on real hardware. Frame times measured through software rendering in a container are not numbers anybody's machine would see. |
+| **Q19** Playtest and tune the collection journey | People playing for long enough to have an opinion. `docs/playtest.md` is the form. |
+| **Q22 / Q23** Cataclysm and Create examples | The actual mod artifacts at exact versions, to check advancement ids, loot table paths, recipe types and reload behaviour. The reward contract they would use is done and tested against an absent mod. |
+| **Q24** Pack-author guide | Written (`docs/pack-authors.md`), and it states plainly which parts are unverified. It cannot be finished until Q22/Q23 are. |
+| **Q27** Release acceptance | Everything above, plus a human sign-off. |
+| **Q12** second half | Time-to-completion, mistakes and newcomer observations. The gesture-count half is done in `docs/quality-after.md`. |
+
+**The most valuable single thing anybody can do next is run `tools/shots.sh` and look at the
+pictures.** Seven features landed this session that have never been rendered.
+
+## The pattern worth remembering
+
+Four times this session a feature turned out to be documented, tested and never connected:
+
+- `PendingWork` — a state container with no production caller, marked Done in the backlog.
+- `RecentThings.counters()` — counter names written to disk on every use and read by nobody.
+- The turn notification — a setting for a feature that did not exist.
+- **Eight of thirteen client preferences** — all persisted, all clamped, all tested, none read.
+
+Every one of them had passing tests. The tests tested the setting, the helper or the round
+trip; none tested the behaviour. `tools/prefcheck.py` and `tools/tablecheck.py` now fail the
+build for two of those shapes, but the general lesson is the one in the workflow already: **a
+helper is a foundation until a real player action reaches it and its result reaches the
+player.**
 
 ## The starter boosters question, answered by the code
 
