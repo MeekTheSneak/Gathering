@@ -31,6 +31,24 @@ final class TableSounds {
     }
 
     /**
+     * How loud this player wants the table, or nothing at all.
+     * <p>Both settings answered in one place, because both paths out of this class go through
+     * it and a toggle honored by one of them is a toggle that half works. Zero means silence,
+     * and silence is arranged by not asking the sound engine rather than by asking it for a
+     * sound at no volume - a sound at zero is still a sound being scheduled, and the point of
+     * turning them off is that nothing happens.
+     * <p>The player's own category slider still applies on top of this: these are the noise of
+     * people handling cards, and they play under PLAYERS like people do. This is the mod's own
+     * slider for somebody who wants the game loud and the table quiet.
+     */
+    private static float wantedVolume() {
+        if (!ClientSettings.tableSounds()) {
+            return 0f;
+        }
+        return VOLUME * Math.clamp(ClientSettings.tableSoundVolume(), 0, 100) / 100f;
+    }
+
+    /**
      * The same, for one of the game's own sounds rather than one of the mod's.
      * <p>The mod has three sounds and they are audio files in its resource pack, which is the
      * owner's to add to. A gesture that wants a noise the mod has not got uses vanilla's,
@@ -41,10 +59,14 @@ final class TableSounds {
         if (client == null || table == null || sound == null) {
             return;
         }
+        float volume = wantedVolume();
+        if (volume <= 0f) {
+            return;
+        }
         client.execute(() -> {
             if (client.level != null) {
                 client.level.playLocalSound(
-                        table, sound, SoundSource.PLAYERS, VOLUME, 1f, false);
+                        table, sound, SoundSource.PLAYERS, volume, 1f, false);
             }
         });
     }
@@ -52,6 +74,10 @@ final class TableSounds {
     static void at(BlockPos table, Registered<SoundEvent> sound) {
         Minecraft client = Minecraft.getInstance();
         if (client == null || table == null || !sound.isBound()) {
+            return;
+        }
+        float volume = wantedVolume();
+        if (volume <= 0f) {
             return;
         }
         // Handed to the client thread rather than made here: a board arrives on the network
@@ -62,7 +88,7 @@ final class TableSounds {
             }
             float pitch = 1f + (client.level.random.nextFloat() - 0.5f) * 2f * PITCH_SPREAD;
             client.level.playLocalSound(
-                    table, sound.get(), SoundSource.PLAYERS, VOLUME, pitch, false);
+                    table, sound.get(), SoundSource.PLAYERS, volume, pitch, false);
         });
     }
 }

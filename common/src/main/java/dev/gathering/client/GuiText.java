@@ -106,7 +106,21 @@ public final class GuiText {
 
     /** How wide this text will actually be drawn, once fitted. */
     public static int width(Font font, Component text, int maxWidth) {
-        return Math.min(font.width(text), Math.max(0, maxWidth));
+        return Math.min(Math.round(font.width(text) * asked()), Math.max(0, maxWidth));
+    }
+
+    /**
+     * How big this player asked the mod's own writing to be, as a multiplier.
+     * <p>A request rather than an instruction, and the difference is what makes it safe: every
+     * line here is drawn into a width it has to fit, so asking for larger text gets larger text
+     * wherever there is room and the ordinary fitting wherever there is not. Nothing can be
+     * pushed out of a panel by turning this up, and a row that was already tight simply stays
+     * the size it was.
+     * <p>Clamped to the range the rest of the interface is built for, because this number
+     * comes out of a file somebody can edit.
+     */
+    private static float asked() {
+        return TextScale.sane(ClientSettings.textScale() / 100f);
     }
 
     /**
@@ -281,7 +295,20 @@ public final class GuiText {
         if (width == 0) {
             return;
         }
+        float asked = asked();
+        if (width * asked <= maxWidth) {
+            if (asked == 1f) {
+                graphics.drawString(font, text, x, y, color, shadow);
+                return;
+            }
+            drawScaled(graphics, font,
+                    Language.getInstance().getVisualOrder(text), x, y, asked, color, shadow);
+            return;
+        }
         if (width <= maxWidth) {
+            // Asked for more than fits, but it fits at its own size, so it is drawn at its own
+            // size. Somebody who turns text up does not want the rows that were already full
+            // to start losing their tails to an ellipsis.
             graphics.drawString(font, text, x, y, color, shadow);
             return;
         }
@@ -297,9 +324,20 @@ public final class GuiText {
         }
         FormattedCharSequence sequence = Language.getInstance().getVisualOrder(shown);
 
+        drawScaled(graphics, font, sequence, x, y, scale, color, shadow);
+    }
+
+    /**
+     * One line at exactly this scale, on the baseline the full-size line would have used.
+     * <p>Shared by the two reasons a line is not drawn at one to one - it did not fit, or the
+     * player asked for it bigger - so the two cannot disagree about where the baseline is. A
+     * row drawn at a different height from its neighbors reads as broken however correct its
+     * size is.
+     */
+    private static void drawScaled(
+            GuiGraphics graphics, Font font, FormattedCharSequence sequence,
+            int x, int y, float scale, int color, boolean shadow) {
         graphics.pose().pushPose();
-        // Keep the shrunken line on the same baseline the full-size one would have used,
-        // so a shrunk row does not sit visibly higher than its neighbors.
         graphics.pose().translate(x, y + (font.lineHeight - font.lineHeight * scale) / 2f, 0f);
         graphics.pose().scale(scale, scale, 1f);
         graphics.drawString(font, sequence, 0, 0, color, shadow);

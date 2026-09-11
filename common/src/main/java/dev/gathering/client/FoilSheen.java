@@ -115,7 +115,7 @@ public final class FoilSheen {
      */
     static void paint(
             Matrix4f matrix, CardLens lens, float shineX, float shineY, long grain,
-            int columns, int rows) {
+            int columns, int rows, float strength) {
         Light light = Light.from(shineX, shineY);
         float cosRake = light.cosRake();
         float sinRake = light.sinRake();
@@ -137,16 +137,16 @@ public final class FoilSheen {
         CardMesh.walk(lens.aspect(), columns, rows, SHINE_ARC,
                 (u1, v1, u2, v2, u3, v3, u4, v4) -> {
                     lit(buffer, matrix, lens, corner, u1, v1, travel, crossTravel, middle,
-                            crossMiddle, cosRake, sinRake, cosCross, sinCross);
+                            crossMiddle, cosRake, sinRake, cosCross, sinCross, strength);
                     lit(buffer, matrix, lens, corner, u2, v2, travel, crossTravel, middle,
-                            crossMiddle, cosRake, sinRake, cosCross, sinCross);
+                            crossMiddle, cosRake, sinRake, cosCross, sinCross, strength);
                     lit(buffer, matrix, lens, corner, u3, v3, travel, crossTravel, middle,
-                            crossMiddle, cosRake, sinRake, cosCross, sinCross);
+                            crossMiddle, cosRake, sinRake, cosCross, sinCross, strength);
                     lit(buffer, matrix, lens, corner, u4, v4, travel, crossTravel, middle,
-                            crossMiddle, cosRake, sinRake, cosCross, sinCross);
+                            crossMiddle, cosRake, sinRake, cosCross, sinCross, strength);
                 });
         BufferUploader.drawWithShader(buffer.buildOrThrow());
-        grain(matrix, lens, middle, cosRake, sinRake, grain);
+        grain(matrix, lens, middle, cosRake, sinRake, grain, strength);
         RenderSystem.disableBlend();
     }
 
@@ -154,11 +154,11 @@ public final class FoilSheen {
     private static void lit(
             BufferBuilder buffer, Matrix4f matrix, CardLens lens, float[] corner,
             float u, float v, float travel, float crossTravel, float middle, float crossMiddle,
-            float cosRake, float sinRake, float cosCross, float sinCross) {
-        int color = colorAt(
+            float cosRake, float sinRake, float cosCross, float sinCross, float strength) {
+        int color = fade(strength, colorAt(
                 lens.alongRake(u, v, cosRake, sinRake),
                 lens.alongRake(u, v, cosCross, sinCross),
-                travel, crossTravel, middle, crossMiddle);
+                travel, crossTravel, middle, crossMiddle));
         lens.at(u, v, corner);
         buffer.addVertex(matrix, corner[0], corner[1], 0f).setColor(color);
     }
@@ -257,7 +257,8 @@ public final class FoilSheen {
      * everything else, so they travel with the card and cannot land off it.
      */
     private static void grain(
-            Matrix4f matrix, CardLens lens, float middle, float cosRake, float sinRake, long seed) {
+            Matrix4f matrix, CardLens lens, float middle, float cosRake, float sinRake, long seed,
+            float strength) {
         java.util.Random scatter = new java.util.Random(seed * 0x9E3779B97F4A7C15L + 0x2545F491L);
         BufferBuilder buffer =
                 Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
@@ -270,7 +271,7 @@ public final class FoilSheen {
             if (lit < 0.05f) {
                 continue;
             }
-            int color = pack(GRAIN_ALPHA * lit * lit, 1f, 1f, 1f);
+            int color = pack(GRAIN_ALPHA * lit * lit * strength, 1f, 1f, 1f);
             // On the card, corners included - a point of light hanging off a cut corner is
             // the one place a viewer would notice the shine is not really part of the card.
             if (!CardMesh.holds(u, v, lens.aspect(), 0f)) {
@@ -319,7 +320,7 @@ public final class FoilSheen {
     static void paintFlat(
             VertexConsumer consumer, Matrix4f matrix,
             float halfWidth, float halfHeight, float z,
-            float shineX, float shineY, long grain, int columns, int rows) {
+            float shineX, float shineY, long grain, int columns, int rows, float strength) {
         Light light = Light.from(shineX, shineY);
         float width = halfWidth * 2f;
         float height = halfHeight * 2f;
@@ -327,12 +328,17 @@ public final class FoilSheen {
 
         CardMesh.walk(aspect, columns, rows, FLAT_ARC,
                 (u1, v1, u2, v2, u3, v3, u4, v4) -> {
-                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u1, v1);
-                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u2, v2);
-                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u3, v3);
-                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u4, v4);
+                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u1, v1,
+                            strength);
+                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u2, v2,
+                            strength);
+                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u3, v3,
+                            strength);
+                    flat(consumer, matrix, light, width, height, halfWidth, halfHeight, z, u4, v4,
+                            strength);
                 });
-        flatGrain(consumer, matrix, light, width, height, halfWidth, halfHeight, z, aspect, grain);
+        flatGrain(consumer, matrix, light, width, height, halfWidth, halfHeight, z, aspect, grain,
+                strength);
     }
 
     /** How finely the cut corners are followed on a card in the hand. Coarse: it is small. */
@@ -341,11 +347,11 @@ public final class FoilSheen {
     private static void flat(
             VertexConsumer consumer, Matrix4f matrix, Light light,
             float width, float height, float halfWidth, float halfHeight, float z,
-            float u, float v) {
-        int color = colorAt(
+            float u, float v, float strength) {
+        int color = fade(strength, colorAt(
                 light.alongRake(u, v, width, height, light.cosRake(), light.sinRake()),
                 light.alongRake(u, v, width, height, light.cosCross(), light.sinCross()),
-                light.travel(), light.crossTravel(), light.middle(), light.crossMiddle());
+                light.travel(), light.crossTravel(), light.middle(), light.crossMiddle()));
         // v runs down the picture and y runs up the model, so the card is not upside down.
         consumer.addVertex(matrix,
                         -halfWidth + u * width, halfHeight - v * height, z)
@@ -356,7 +362,7 @@ public final class FoilSheen {
     private static void flatGrain(
             VertexConsumer consumer, Matrix4f matrix, Light light,
             float width, float height, float halfWidth, float halfHeight, float z,
-            float aspect, long seed) {
+            float aspect, long seed, float strength) {
         java.util.Random scatter = new java.util.Random(seed * 0x9E3779B97F4A7C15L + 0x2545F491L);
         for (int index = 0; index < GRAINS; index++) {
             float u = scatter.nextFloat();
@@ -368,7 +374,7 @@ public final class FoilSheen {
             if (lit < 0.05f || !CardMesh.holds(u, v, aspect, 0f)) {
                 continue;
             }
-            int color = pack(GRAIN_ALPHA * lit * lit, 1f, 1f, 1f);
+            int color = pack(GRAIN_ALPHA * lit * lit * strength, 1f, 1f, 1f);
             float halfU = GRAIN_SIZE / 2f;
             float halfV = halfU * aspect;
             float leftU = Math.max(0f, u - halfU);
@@ -388,6 +394,19 @@ public final class FoilSheen {
             float u, float v, int color) {
         consumer.addVertex(matrix, -halfWidth + u * width, halfHeight - v * height, z)
                 .setColor(color);
+    }
+
+    /**
+     * The same color, as much of it as this player asked for.
+     * <p>Only the alpha moves. Taking the strength out of the color channels would make a dim
+     * sheen grey rather than faint, and a faint sheen is what "less of this effect" means.
+     */
+    private static int fade(float strength, int color) {
+        if (strength >= 1f) {
+            return color;
+        }
+        int alpha = Mth.clamp(Math.round(((color >>> 24) & 0xFF) * strength), 0, 255);
+        return (alpha << 24) | (color & 0x00FFFFFF);
     }
 
     private static int pack(float alpha, float red, float green, float blue) {

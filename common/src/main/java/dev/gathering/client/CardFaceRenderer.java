@@ -125,6 +125,15 @@ public final class CardFaceRenderer {
      * the face so it lies on the picture rather than fighting it.
      */
     private static void drawSheen(MultiBufferSource buffers, Matrix4f pose, CardComponent card) {
+        // Nothing at all at zero, rather than a sheen nobody can see: the point of turning an
+        // effect down to nothing is that the work stops happening, not that it happens
+        // invisibly. Everything between is the player's own strength for it - a holographic
+        // layer that moves as you walk past is exactly the sort of thing somebody may want
+        // less of without wanting plain cards.
+        int strength = ClientSettings.effectIntensity();
+        if (strength <= 0) {
+            return;
+        }
         FoilSheen.paintFlat(
                 buffers.getBuffer(RenderType.debugQuads()), pose,
                 WIDTH / 2f, HEIGHT / 2f, HALF_THICKNESS * SHEEN_LIFT,
@@ -132,7 +141,7 @@ public final class CardFaceRenderer {
                 // across the view, one when it points at the eye. Turning the card, or
                 // walking round it, moves both - which is the whole of what a foil answers to.
                 pose.m20(), pose.m21(),
-                grainOf(card), SHEEN_COLUMNS, SHEEN_ROWS);
+                grainOf(card), SHEEN_COLUMNS, SHEEN_ROWS, Math.min(strength, 100) / 100f);
     }
 
     /**

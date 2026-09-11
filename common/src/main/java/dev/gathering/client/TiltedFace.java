@@ -106,8 +106,13 @@ public final class TiltedFace {
             castShadow(matrix, lens, where, shineX);
         }
         paint(matrix, lens, texture);
-        if (foil) {
-            FoilSheen.paint(matrix, lens, shineX, shineY, grain, SHINE_COLUMNS, SHINE_ROWS);
+        // The same setting the card in the world answers to - see CardFaceRenderer. Both
+        // paths or neither: an effect turned down that is still at full strength on the card
+        // being read is a setting that half works, and the card being read is the biggest one
+        // on the screen.
+        if (foil && ClientSettings.effectIntensity() > 0) {
+            FoilSheen.paint(matrix, lens, shineX, shineY, grain, SHINE_COLUMNS, SHINE_ROWS,
+                    Math.min(ClientSettings.effectIntensity(), 100) / 100f);
         }
     }
 

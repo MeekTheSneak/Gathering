@@ -119,6 +119,22 @@ public final class ClientCardFlights {
      */
     public static void arrived(BlockPos table, GameView board, long now) {
         Map<CardTravel.Place, CardTravel.Held> shape = shapeOf(board);
+        if (ClientSettings.reducedMotion()) {
+            // The board is still followed - the shape is recorded below, so the next update
+            // is compared against this one - but nothing is put in the air. A card that moved
+            // is simply where it moved to, which is what this setting is asking for: the game
+            // remains entirely playable, it just stops animating between states.
+            synchronized (ClientCardFlights.class) {
+                SEEN.put(table.immutable(), new Snapshot(shape, now));
+                List<Flight> flying = FLYING.get(table.immutable());
+                if (flying != null) {
+                    // Anything already in the air when the setting was turned on lands now
+                    // rather than hanging there for ever.
+                    flying.clear();
+                }
+            }
+            return;
+        }
         synchronized (ClientCardFlights.class) {
             Snapshot before = SEEN.put(table.immutable(), new Snapshot(shape, now));
             if (before == null || !CardTravel.worthComparing(now - before.seen())) {

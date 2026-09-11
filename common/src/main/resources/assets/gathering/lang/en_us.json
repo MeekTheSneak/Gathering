@@ -735,6 +735,7 @@
   "screen.gathering.table.tax.casts": "Cast %1$s times from here",
   "screen.gathering.table.tax.hint": "Click for another cast · right-click to take one back",
   "screen.gathering.table.the_pot": "The pot (%s)",
+  "screen.gathering.table.your_turn": "Your turn",
   "screen.gathering.table.turn": "Turn %1$s - %2$s",
   "screen.gathering.token.hint": "Thrull, Treasure, Soldier, Beast",
   "screen.gathering.token.name": "Token",

@@ -59,8 +59,53 @@ public final class CardZoomOverlay {
         return keyName.get();
     }
 
+    /**
+     * Whether the key was down last time anybody asked, so a press can be told from a hold.
+     * <p>There is no key event to listen for here: the read key is polled, because it is a
+     * key that is <em>held</em> rather than pressed and the whole overlay is drawn from that
+     * one boolean. Toggling therefore has to notice the edge itself.
+     */
+    private static boolean wasDown;
+
+    /** Whether a press has left the card up, in the mode where a press is what does that. */
+    private static boolean latched;
+
+    /**
+     * Whether a card should be shown full size right now.
+     * <p>Two ways to mean yes, and the player chooses which. Holding is the default because it
+     * is the gesture the table is built around - look, let go, carry on - and it is also the
+     * one that cannot be left switched on by accident. Pressing is for anybody who cannot
+     * comfortably hold a key down while moving a mouse, which is the whole of why the setting
+     * exists and is not a preference about taste.
+     * <p>Asked every frame by the renderer, so the edge is noticed here rather than anywhere
+     * that would need a second place to keep this state.
+     */
     public static boolean isActive() {
-        return keyHeld.getAsBoolean();
+        boolean down = keyHeld.getAsBoolean();
+        if (ClientSettings.holdToInspect()) {
+            // Nothing latched can survive a switch back to holding, or the card would be
+            // stuck up with no key to let go of.
+            latched = false;
+            wasDown = down;
+            return down;
+        }
+        if (down && !wasDown) {
+            latched = !latched;
+        }
+        wasDown = down;
+        return latched;
+    }
+
+    /**
+     * Puts the card down, for a server changing underneath it.
+     * <p>Named {@code clear} because that is the name {@code tools/statecheck.py} looks for: a
+     * client holder called this has to be named in {@link ClientState}. A card left latched up
+     * across a disconnect would be a full-screen card over the main menu with no key to let go
+     * of, since the key that latched it belongs to a table that is gone.
+     */
+    public static void clear() {
+        latched = false;
+        wasDown = false;
     }
 
     /**

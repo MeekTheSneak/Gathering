@@ -35,6 +35,24 @@ public final class ClientTableNews {
 
     private static final Map<Stirred, Long> SHAKING = new HashMap<>();
 
+    /**
+     * Whose turn it was at each table last time a board arrived.
+     * <p>Kept so that "it has become your turn" can be noticed at all. It is a change rather
+     * than a state: the board says whose turn it is on every update, and a table that told you
+     * so every time would be telling you nothing.
+     */
+    private static final Map<BlockPos, SeatId> WAS_ACTIVE = new HashMap<>();
+
+    /** When the turn last came round to this client, per table. */
+    private static final Map<BlockPos, Long> CAME_ROUND = new HashMap<>();
+
+    /**
+     * How long the table says it is your turn before going quiet about it.
+     * <p>Long enough to notice on the way back from the kitchen in a game of four, short
+     * enough that it is not still on the screen when you have started playing.
+     */
+    public static final long YOUR_TURN_LASTS = 2_500L;
+
     /** Which card is being pointed at, and when the finger went down. */
     private record Pointed(BlockPos table, dev.gathering.core.game.CardInstanceId card) {
     }
@@ -98,8 +116,13 @@ public final class ClientTableNews {
                     continue;
                 }
                 if (entry.key().startsWith(SHUFFLED)) {
-                    seatOf(entry).ifPresent(seat ->
-                            SHAKING.put(new Stirred(key, seat, Zone.LIBRARY), now));
+                    // The noise still happens; the pile stops jumping. Somebody who has asked
+                    // for less motion has not asked to be told less - which is the difference
+                    // between reducing motion and removing feedback.
+                    if (!ClientSettings.reducedMotion()) {
+                        seatOf(entry).ifPresent(seat ->
+                                SHAKING.put(new Stirred(key, seat, Zone.LIBRARY), now));
+                    }
                     heard.add(GatheringSounds.SHUFFLE);
                 } else if (startsWithAny(entry.key(), DRAWN)) {
                     heard.add(GatheringSounds.DRAW);
@@ -115,11 +138,65 @@ public final class ClientTableNews {
             POINTING.entrySet().removeIf(
                     entry -> now - entry.getValue() >= dev.gathering.core.ui.Pointing.LASTS);
         }
+        noticeTheTurn(key, board, now);
         for (Registered<SoundEvent> sound : heard) {
             TableSounds.at(key, sound);
         }
         if (pointed) {
             TableSounds.vanillaAt(key, net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.value());
+        }
+    }
+
+    /**
+     * Notices the turn coming round to this player, once, when it does.
+     * <p>In a game of four, three of the boards are always somewhere other than where you are
+     * looking, and the turn passing to you is the one event you have to act on. The status row
+     * has always said whose turn it is; what it could not do is get your attention when that
+     * changed, because a row that is always on screen is a row nobody reads on the frame it
+     * changes.
+     * <p>Only your own turn, only the moment it arrives, and only at a table you are sitting
+     * at - a spectator has no turn to be told about. A board that arrives with the turn
+     * already yours because you have only just walked up says nothing: there was no change,
+     * and the first board of a table is not news.
+     */
+    private static void noticeTheTurn(BlockPos table, GameView board, long now) {
+        SeatId mine = board.viewer() instanceof dev.gathering.core.game.visibility.Viewer.Seated seated
+                ? seated.seat()
+                : null;
+        SeatId active = board.turn() == null ? null : board.turn().activeSeat();
+        SeatId before;
+        synchronized (ClientTableNews.class) {
+            before = WAS_ACTIVE.put(table, active);
+        }
+        if (mine == null || active == null || before == null || before.equals(active)) {
+            return;
+        }
+        if (!active.equals(mine) || !ClientSettings.turnNotification()) {
+            return;
+        }
+        synchronized (ClientTableNews.class) {
+            CAME_ROUND.put(table, now);
+        }
+        // Vanilla's bell, which is what every game uses to mean "look here" and needs nothing
+        // added to the resource pack. Through TableSounds, so somebody who has turned the
+        // table's noises down is not shouted at by this one.
+        TableSounds.vanillaAt(table, net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.value());
+    }
+
+    /**
+     * How long ago the turn came round to this player here, or -1 if it has not lately.
+     * <p>For the screen to say so in words as well as with a noise: a notification that only
+     * makes a sound is no notification at all to somebody playing with the sound off, which is
+     * a great many people.
+     */
+    public static long yourTurnSince(BlockPos table, long now) {
+        synchronized (ClientTableNews.class) {
+            Long when = CAME_ROUND.get(table);
+            if (when == null) {
+                return -1;
+            }
+            long gone = now - when;
+            return gone >= YOUR_TURN_LASTS ? -1 : gone;
         }
     }
 
@@ -186,6 +263,8 @@ public final class ClientTableNews {
             READ_UP_TO.remove(table);
             SHAKING.keySet().removeIf(stirred -> stirred.table().equals(table));
             POINTING.keySet().removeIf(pointed -> pointed.table().equals(table));
+            WAS_ACTIVE.remove(table);
+            CAME_ROUND.remove(table);
         }
     }
 
@@ -194,6 +273,8 @@ public final class ClientTableNews {
             READ_UP_TO.clear();
             SHAKING.clear();
             POINTING.clear();
+            WAS_ACTIVE.clear();
+            CAME_ROUND.clear();
         }
     }
 

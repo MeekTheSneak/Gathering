@@ -44,6 +44,28 @@ is in `docs/reviews/quality-progress-2026-09-11.md`; its findings CSV is beside 
 | ~~Q05 `PendingWork`~~ | **Integrated.** Both screens that wait on the server - the decklist import and the deck builder - mint their id with `sent`, resolve it with `confirmed` or `refused`, draw `noteFor` while waiting and `forget` it on close. What it added is the state neither of them had: both used to wait for ever, with the button inactive until an answer arrived, so a reply that never came left a dead button and no reason. `worthMentioning` is the one method still without a production caller; `noteFor` answers the same question and is what the screens use |
 
 
+### The settings that did nothing
+
+Eight of the thirteen client preferences were never read by production code. They persisted,
+clamped, round-tripped through the file and had tests proving they did - the tests tested the
+setting rather than the behavior, which is why it survived so long. `waitingAfterMillis` was a
+ninth until the pending-work batch earlier this session.
+
+All thirteen are wired now and `tools/prefcheck.py` fails the build if one stops being read.
+What each does: the sound toggle and volume gate `TableSounds` (silence is arranged by not
+asking the sound engine, not by asking it for a sound at zero); reduced motion stops card
+flights and the library shake but keeps the noise, because reducing motion is not removing
+feedback; hold-to-inspect switches the read key between held and pressed; effect intensity
+fades the foil sheen on **both** paths, the card in the world and the card being read;
+the turn notification rings vanilla's bell and says "Your turn" for two and a half seconds;
+text scale is a *request* honored wherever a line has room, so nothing can be pushed out of a
+panel by turning it up; control scale sizes the context menu's rows, which are measured, drawn
+and hit-tested from one number so they cannot disagree.
+
+**Only reduced motion is verified by a test.** The rest are about pixels - a sheen, a text
+size, a row height - which a dedicated server cannot draw. `prefcheck` proves they are read;
+it cannot prove they look right.
+
 ### Known defects, open
 
 | Id | What | Where |

@@ -1269,6 +1269,20 @@ public final class TableScreen extends Screen {
         // The guided first game: one instruction, over the corner with nothing in it. Drawn
         // before the tooltip so a tooltip is never underneath it, and after everything else
         // so the board it is teaching about stays visible behind it.
+        // The turn coming round, said in words for the moment after it does. The status row
+        // has always carried whose turn it is; this is the part that gets somebody's attention
+        // when it changes, for the three boards out of four that are not where they are
+        // looking. Still rather than flashing, and gone by itself - a notice that has to be
+        // dismissed is a notice in the way.
+        if (!replay) {
+            long sinceMyTurn = ClientTableNews.yourTurnSince(table, ClientCardFlights.now());
+            if (sinceMyTurn >= 0) {
+                GuiText.drawCentered(graphics, this.font,
+                        Component.translatable("screen.gathering.table.your_turn"),
+                        this.width / 2, layout().status().bottom() + 6,
+                        this.width / 2, ACCENT);
+            }
+        }
         acceptPracticeBoard();
         if (Tutorial.runningAt(table)) {
             TutorialPanel.render(graphics, this.font,
