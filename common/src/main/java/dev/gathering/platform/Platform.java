@@ -34,6 +34,16 @@ public interface Platform {
      */
     boolean canReceive(ServerPlayer player, ResourceLocation payload);
 
+    /**
+     * Whether a mod is installed.
+     * <p>Here because only the loader can answer it: each keeps its own list and neither
+     * exposes it in a way common code could read. It is asked by the reward definitions, where
+     * a pack says "this one is for people who have that boss mod" - and a wrong answer there
+     * means either handing out a reward for content nobody has, or withholding one somebody
+     * has earned.
+     */
+    boolean isModLoaded(String modId);
+
     static Platform get() {
         return Holder.INSTANCE;
     }

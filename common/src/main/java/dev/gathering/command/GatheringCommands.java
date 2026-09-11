@@ -115,6 +115,30 @@ public final class GatheringCommands {
                                                 context.getSource(),
                                                 StringArgumentType.getString(context, "setting"),
                                                 StringArgumentType.getString(context, "value"))))))
+                // What a pack has defined, and handing one over. A pack decides when a
+                // reward happens with the advancements, loot tables and recipes the game
+                // already has; this is only the "what", called by name. See Rewards.
+                .then(Commands.literal("rewards")
+                        .executes(context -> listRewards(context.getSource()))
+                        .then(Commands.literal("reload")
+                                .requires(source -> source.hasPermission(2))
+                                .executes(context -> reloadRewards(context.getSource()))))
+                .then(Commands.literal("grant")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("reward", StringArgumentType.word())
+                                .suggests((context, builder) -> {
+                                    for (String id : dev.gathering.service.Rewards.all().keySet()) {
+                                        builder.suggest(id);
+                                    }
+                                    return builder.buildFuture();
+                                })
+                                .then(Commands.argument("player",
+                                                net.minecraft.commands.arguments.EntityArgument.player())
+                                        .executes(context -> grantReward(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "reward"),
+                                                net.minecraft.commands.arguments.EntityArgument
+                                                        .getPlayer(context, "player"))))))
                 // The three ways people actually run this, as a starting point rather than a
                 // mode. Shown before it is applied, because twenty-four settings changing at
                 // once is exactly the kind of thing somebody wants to read first - and undone
@@ -202,6 +226,61 @@ public final class GatheringCommands {
     }
 
     /** Every setting and what it is currently set to. */
+    private static int listRewards(CommandSourceStack source) {
+        var all = dev.gathering.service.Rewards.all();
+        source.sendSuccess(() -> Component.translatable(
+                "message.gathering.rewards_count", all.size()), false);
+        all.forEach((id, reward) -> source.sendSuccess(() -> Component.literal(
+                "  " + id + " = " + reward.count() + " x " + reward.set() + "/" + reward.product()
+                        + reward.color().map(colour -> "/" + colour).orElse("")
+                        + (reward.requiredMods().isEmpty()
+                                ? ""
+                                : " (needs " + String.join(", ", reward.requiredMods()) + ")")),
+                false));
+        for (String problem : dev.gathering.service.Rewards.problems()) {
+            source.sendSuccess(() -> Component.literal("  ! " + problem), false);
+        }
+        return all.size();
+    }
+
+    private static int reloadRewards(CommandSourceStack source) {
+        int loaded = dev.gathering.service.Rewards.reload();
+        for (String problem : dev.gathering.service.Rewards.problems()) {
+            source.sendFailure(Component.literal("  " + problem));
+        }
+        source.sendSuccess(() -> Component.translatable(
+                "message.gathering.rewards_reloaded", loaded), true);
+        return loaded;
+    }
+
+    /**
+     * Hands one reward to one player.
+     * <p>The whole of what a pack author wires their own trigger to. A reward whose mods are
+     * not installed is refused rather than granted as something else - a pack that ships a
+     * boss reward for a mod nobody has should give nothing, not a plain pack.
+     */
+    private static int grantReward(
+            CommandSourceStack source, String id, net.minecraft.server.level.ServerPlayer to) {
+        var reward = dev.gathering.service.Rewards.find(id).orElse(null);
+        if (reward == null) {
+            source.sendFailure(Component.translatable("message.gathering.rewards_unknown", id));
+            return 0;
+        }
+        net.minecraft.world.item.ItemStack pack = dev.gathering.item.PackItem.of(
+                new dev.gathering.item.PackComponent(reward.set(), reward.product(),
+                        reward.color().orElse("")));
+        if (pack.isEmpty()) {
+            source.sendFailure(Component.translatable("message.gathering.rewards_unknown", id));
+            return 0;
+        }
+        for (int given = 0; given < reward.count(); given++) {
+            dev.gathering.server.Handing.give(to, pack.copy());
+        }
+        source.sendSuccess(() -> Component.translatable("message.gathering.rewards_granted",
+                reward.count(), id, to.getDisplayName()), true);
+        return reward.count();
+    }
+
     private static int listProfiles(CommandSourceStack source) {
         java.util.List<dev.gathering.core.config.ConfigProfile> all =
                 dev.gathering.core.config.ConfigProfile.all();

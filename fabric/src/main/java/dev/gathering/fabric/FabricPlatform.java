@@ -40,4 +40,14 @@ public final class FabricPlatform implements Platform {
                 && net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
                         .canSend(player, payload);
     }
+    /**
+     * Whether a mod is installed, as Fabric's own loader has it.
+     * <p>The loader rather than a registry lookup: a mod may be present and register nothing,
+     * and a pack author naming it means "this mod is here", not "this mod added an item".
+     */
+    @Override
+    public boolean isModLoaded(String modId) {
+        return modId != null && !modId.isBlank()
+                && net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(modId);
+    }
 }

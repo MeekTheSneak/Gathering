@@ -127,6 +127,7 @@ public final class Settings {
         Archive.warm();
         CardShop.clear();
         LoanerDecks.warm();
+        dev.gathering.service.Rewards.reload();
         return true;
     }
 

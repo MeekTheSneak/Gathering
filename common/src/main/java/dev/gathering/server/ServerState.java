@@ -28,6 +28,7 @@ public final class ServerState {
         CollectionView.clear();
         CurrentSet.clear();
         LoanerDecks.clear();
+        dev.gathering.service.Rewards.clear();
         PracticeTable.clear();
         Refusals.clear();
         ReplayWatch.clear();

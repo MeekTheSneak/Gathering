@@ -40,4 +40,15 @@ public final class NeoForgePlatform implements Platform {
         // every send. See dev.gathering.network.Sending.
         return player != null && payload != null && player.connection.hasChannel(payload);
     }
+    /**
+     * Whether a mod is installed, as NeoForge's own loading list has it.
+     * <p>The list rather than a registry lookup: a mod may be present and register nothing,
+     * and a pack author naming it means "this mod is here", not "this mod added an item".
+     */
+    @Override
+    public boolean isModLoaded(String modId) {
+        return modId != null && !modId.isBlank()
+                && net.neoforged.fml.ModList.get() != null
+                && net.neoforged.fml.ModList.get().isLoaded(modId);
+    }
 }
