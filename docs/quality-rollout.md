@@ -230,10 +230,65 @@ settings tests racing over one static holder because Minecraft runs game tests c
 
 ## Phase 3 — frequent actions and discovery (Q09-Q12)
 
-Not started. **This is where a new session picks up.** Phases 3 to 7 are unstarted; the
-backlog rows Q09-Q27 carry their scope and acceptance. Phase 1's foundations - the action
-catalogue, the bindings, the preference file and `PendingWork` - are what they were meant to
-be built on.
+**Q09 done. Q10-Q12 not started — this is where a new session picks up.**
+
+### Q09 — find an action by typing its name
+
+`core/.../ui/ActionSearch.java` and `common/.../client/ActionPalette.java`. Slash opens a box
+over the board; type a few letters, press Enter.
+
+**It is a search over the menus themselves, not a second list beside them.** This is the whole
+design and the reason the acceptance criterion "same action behavior as menus" is structural
+rather than a rule somebody has to keep. Opening the palette calls the same three methods the
+menus are built from - `cardMenuEntries`, `pileMenuEntries`, `tableMenuEntries`, split out of
+the `open*Menu` methods for this - and taking a row runs that row's own `Runnable`. There is
+one body per verb and this calls it. A verb the menus would not offer right now is not in the
+palette either, which is the same guarantee read backwards.
+
+That also settles **"no hidden card data in search"** without a filter to maintain. A menu row
+built for one particular card or player carries that name in its label and is built with
+`ContextMenu.Entry.of`, which has no catalogue id; the palette carries only rows built with
+`Entry.named`. The tokens a card makes and the hands turned toward you are exactly the rows
+without an id. Nothing hidden can be found by typing part of it because nothing a player can
+see is in the box at all - what is searched is the verbs. The line saying what the card verbs
+will act on counts its targets and never names them.
+
+`ActionSearch` is pure and has ten tests: exact beats prefix beats a word inside another, an
+alias sorts under a label, ties keep catalogue order, and a query that matches nothing gives
+nothing rather than everything.
+
+**Verified visually as well as functionally.** The scripted client types `tap`, checks Tap
+sorts above "Freeze (won't untap)" - the case that matters, since "tap" is inside "Untap",
+"Untap all" and "Untaps again" - then presses Enter and checks the card turned sideways. A
+palette that draws correctly and presses nothing is the failure that pair of steps exists for,
+and it caught exactly that twice. 308 steps, 0 failures.
+
+Three real defects surfaced on the way, each now guarded:
+
+- **`gesturecheck` found nought rows across three menus and still exited zero.** The split
+  moved the signatures it locates menus by; an empty set collides with nothing, so every
+  pairwise comparison passed. It printed "0 menu rows" and passed for a commit. There is now a
+  floor, proved by pointing the check at a row-less method.
+- **Opening the palette from its menu row ate the first letter typed.** The flag that swallows
+  the opening key's character now lasts one frame rather than one character, because opened by
+  a click there is no character coming.
+- **A resting cursor stole the highlight from the first row**, so Enter after a search took a
+  row nobody chose.
+
+`/` is on the key list, which is where somebody who cannot find a verb actually looks.
+
+**Reported rather than hidden:** the scripted steps were first written at the end of the tour,
+where they failed. Pressing the same verb on its own long-established key at that point also
+moved nothing, which is how the board - not the palette - was identified as the thing that had
+stopped taking moves there. The steps were moved to where the board is provably live rather
+than the assertion weakened. That fact is now in `DIALECT.md`.
+
+### Q10-Q12
+
+Not started. Q10 is selection and bounded bulk behavior, Q11 bounded recent and favorite
+counters and tokens, Q12 the before/after comparison against the Q01 baseline. Phase 1's
+foundations - the action catalogue, the bindings, the preference file and `PendingWork` - are
+what they were meant to be built on.
 
 ## Phase 4 — crowded Commander boards (Q13-Q16)
 

@@ -416,6 +416,60 @@ cannot be inferred from reading the code.
 - **Nothing is applied on the client before the server agrees.** A board that showed a move
   and then took it back would be leaking, because "take that back" is a sentence with
   information in it.
+- **A bitmap glyph's ink is not where the draw call was told to put it.**
+  `SheetGlyphInfo.getTop()` is `7 - ascent`, and `assets/gathering/font/mana.json` declares
+  `ascent: 8` for every glyph - so a mana symbol's ink sits one pixel *above* its line,
+  times the scale. At orb size that is six pixels, and it put a glow, a label and a hit
+  circle in three different places while each one read as correct on its own. Place a symbol
+  by where its middle should be - `ManaText.drawYForMiddle` - never by the top of its line.
+  `spritecheck` fails if the font's declared metrics and `ManaText`'s constants drift apart.
+- **A glow behind an opaque thing must live in the band outside it.** A falloff measured from
+  the middle out spends all of its brightness underneath the thing and shows only its faintest
+  tail - eighteen of two hundred and fifty-five, in the four pixels anybody could see. See
+  `GuiGlow`, which takes an inner and an outer radius for exactly this reason.
+- **A check that finds nothing must fail, not pass.** `gesturecheck` compared menus pairwise
+  for duplicate verbs; when the menu builders were split its signatures stopped matching, it
+  found nought rows across three menus, and every comparison passed because an empty set
+  collides with nothing. It printed "0 menu rows" and exited zero for a whole commit. Any
+  check that locates code by signature needs a floor.
+- **Minecraft runs game tests concurrently in a grid.** Two tests that share a static holder
+  race each other, and the failure is intermittent rather than absent. Give each its own
+  fixture, or fold the assertions into one `@GameTest`.
+- **A screenshot taken in the same DevScene step as the state change photographs the previous
+  frame.** Setting a screen, clicking, or hovering and then shooting in one step files a
+  picture of what was there before. Split into two steps. This has produced a picture of an
+  empty field filed as the color wheel, and unmarked orbs filed as picked.
+- **The board stops taking moves near the end of the scripted tour.** A verb pressed in the
+  last steps does nothing whether it works or not - proved by pressing a long-established key
+  there and watching it move nothing either. Anything that has to be shown *doing* something
+  belongs in the first third of the scene, where the board is live.
+- **A key press and the character it produces are two events.** Anything opened by a key and
+  then typed into swallows its own opening letter unless it drops the first `charTyped`. If
+  the thing has a second way in - a menu row - a flag that waits for a character will eat the
+  first letter actually typed instead. Clear it on the first frame drawn, not on the first
+  character: the letter, if there is one, arrives in the same round of input as the press.
+- **A panel that opens under a resting cursor must not let it move the highlight.** The cursor
+  is usually already in the middle of the window, so a highlight that simply follows whatever
+  is under it is dragged off the first row the instant the panel appears - and Enter takes a
+  row nobody chose. Only act on a cursor that has actually moved.
+- **`EnumSet.copyOf(collection)` throws on an empty non-`EnumSet`.** Use
+  `EnumSet.noneOf(...)` plus `addAll`.
+- **`KeyMapping#getKey` is a NeoForge addition.** `:common` compiles against vanilla and
+  cannot call it; Fabric has `KeyBindingHelper.getBoundKeyOf`. Each loader supplies the lookup
+  - `TableShortcuts.bindKeyLookup`. `matches(key, scanCode)` and `getTranslatedKeyMessage()`
+  are vanilla and do work inside a screen, where `isDown()` does not.
+- **`BlockableEventLoop#scheduleExecutables` is `!isSameThread()`, and `MinecraftServer`
+  overrides it as `super && !isStopped()`.** So `server.execute` runs a task inline on the
+  server thread, and inline on the *calling* thread once the server has stopped. It is
+  neither a next-tick scheduler nor a shutdown fence, and `runcheck` says so.
+- **`TextScale.LARGEST` is 2.0.** `GuiText.drawAt` counts any scale outside `(0, 2.0]` as a
+  mistake and `tools/shots.sh` fails the run on the count, so derive a size from the limit
+  rather than multiplying up to one. `GuiText.drawWrapped` returns void; measure with
+  `GuiText.linesNeeded`.
+- **A screen that closes itself when there is no board cannot carry an offer about having no
+  board.** The "Learn the controls" offer lived on `TableScreen`, which `tick()` closes when
+  the view is empty - which is exactly a table with no game on it. It is on
+  `TableSetupScreen`. Found by the scripted client, not by the gate.
 - **Moving a card between piles is one operation, in every direction.** Not "make commander"
   plus "move to sideboard": a verb per destination is how a deck editor quietly becomes a
   Commander deck editor, and the formats that live on their sideboard are the ones that would
