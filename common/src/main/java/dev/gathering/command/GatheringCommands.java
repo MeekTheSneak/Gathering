@@ -115,6 +115,32 @@ public final class GatheringCommands {
                                                 context.getSource(),
                                                 StringArgumentType.getString(context, "setting"),
                                                 StringArgumentType.getString(context, "value"))))))
+                // The three ways people actually run this, as a starting point rather than a
+                // mode. Shown before it is applied, because twenty-four settings changing at
+                // once is exactly the kind of thing somebody wants to read first - and undone
+                // by one command, because the answer to "what did that do" should not be
+                // "work it out from the file".
+                .then(Commands.literal("profile")
+                        .executes(context -> listProfiles(context.getSource()))
+                        .then(Commands.literal("restore")
+                                .requires(source -> source.hasPermission(2))
+                                .executes(context -> restoreProfile(context.getSource())))
+                        .then(Commands.argument("profile", StringArgumentType.word())
+                                .suggests((context, builder) -> {
+                                    for (dev.gathering.core.config.ConfigProfile profile
+                                            : dev.gathering.core.config.ConfigProfile.all()) {
+                                        builder.suggest(profile.id());
+                                    }
+                                    return builder.buildFuture();
+                                })
+                                .executes(context -> showProfile(
+                                        context.getSource(),
+                                        StringArgumentType.getString(context, "profile")))
+                                .then(Commands.literal("apply")
+                                        .requires(source -> source.hasPermission(2))
+                                        .executes(context -> applyProfile(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "profile"))))))
                 // What the server lends, and re-reading the folder without a restart. An
                 // admin who has just written a decklist should not have to bounce the server
                 // to lend it: for the one feature whose whole point is a new player's first
@@ -176,6 +202,83 @@ public final class GatheringCommands {
     }
 
     /** Every setting and what it is currently set to. */
+    private static int listProfiles(CommandSourceStack source) {
+        java.util.List<dev.gathering.core.config.ConfigProfile> all =
+                dev.gathering.core.config.ConfigProfile.all();
+        source.sendSuccess(() -> Component.translatable("message.gathering.profile_list"), false);
+        for (dev.gathering.core.config.ConfigProfile profile : all) {
+            source.sendSuccess(() -> Component.literal("  " + profile.id() + " - ")
+                    .append(Component.translatable(profile.aboutKey())), false);
+        }
+        return all.size();
+    }
+
+    /**
+     * What a profile would change, before it changes anything.
+     * <p>Every setting it names, with what the server says now beside it, and the ones that
+     * would actually move marked. Twenty-four settings changing at once is the kind of thing
+     * somebody should be able to read first.
+     */
+    private static int showProfile(CommandSourceStack source, String id) {
+        dev.gathering.core.config.ConfigProfile profile =
+                dev.gathering.core.config.ConfigProfile.byId(id).orElse(null);
+        if (profile == null) {
+            source.sendFailure(Component.translatable("message.gathering.profile_unknown", id));
+            return 0;
+        }
+        java.util.List<dev.gathering.core.config.ConfigProfile.Change> diff =
+                profile.diff(dev.gathering.server.Settings::valueOf);
+        long moving = diff.stream()
+                .filter(dev.gathering.core.config.ConfigProfile.Change::matters).count();
+        source.sendSuccess(() -> Component.translatable(
+                "message.gathering.profile_would", profile.id(), moving, diff.size()), false);
+        for (dev.gathering.core.config.ConfigProfile.Change change : diff) {
+            source.sendSuccess(() -> Component.literal(change.matters()
+                    ? "  " + change.path() + ": " + change.from() + " -> " + change.to()
+                    : "  " + change.path() + " = " + change.to() + " (already)"), false);
+        }
+        return diff.size();
+    }
+
+    private static int applyProfile(CommandSourceStack source, String id) {
+        dev.gathering.core.config.ConfigProfile profile =
+                dev.gathering.core.config.ConfigProfile.byId(id).orElse(null);
+        if (profile == null) {
+            source.sendFailure(Component.translatable("message.gathering.profile_unknown", id));
+            return 0;
+        }
+        dev.gathering.service.ConfigProfiles.Applied applied =
+                dev.gathering.service.ConfigProfiles.apply(
+                        dev.gathering.platform.Platform.get(), profile);
+        for (String refusal : applied.refused()) {
+            source.sendFailure(Component.literal("  " + refusal));
+        }
+        source.sendSuccess(() -> Component.translatable(
+                "message.gathering.profile_applied", profile.id(),
+                profile.settings().size() - applied.refused().size(),
+                profile.settings().size()), true);
+        dev.gathering.server.Settings.rewarm();
+        return applied.clean() ? 1 : 0;
+    }
+
+    private static int restoreProfile(CommandSourceStack source) {
+        String back = dev.gathering.service.ConfigProfiles.restorePoint().orElse(null);
+        if (back == null) {
+            source.sendFailure(Component.translatable("message.gathering.profile_nothing_to_undo"));
+            return 0;
+        }
+        String problem = dev.gathering.service.ConfigProfiles.restore(
+                dev.gathering.platform.Platform.get(), back);
+        if (problem != null) {
+            source.sendFailure(Component.literal(problem));
+            return 0;
+        }
+        dev.gathering.server.Settings.rewarm();
+        source.sendSuccess(() ->
+                Component.translatable("message.gathering.profile_restored"), true);
+        return 1;
+    }
+
     private static int listSettings(CommandSourceStack source) {
         java.util.List<String> names = dev.gathering.server.Settings.names();
         source.sendSuccess(() -> Component.translatable(

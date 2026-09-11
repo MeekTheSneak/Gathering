@@ -18,6 +18,7 @@ public final class ServerState {
     /** Drops everything the server that is stopping was holding. */
     public static void forgetTheWorld() {
         dev.gathering.service.ServerSettings.clear();
+        dev.gathering.service.ConfigProfiles.clear();
         Antes.clear();
         Archive.clear();
         CardArtPush.clear();
