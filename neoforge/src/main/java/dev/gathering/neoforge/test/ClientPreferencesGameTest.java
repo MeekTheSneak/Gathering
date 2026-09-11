@@ -263,4 +263,63 @@ public final class ClientPreferencesGameTest {
             }
         });
     }
+    /**
+     * Every value the settings screen offers is a value the settings will actually keep.
+     * <p>A screen that steps a row to 50% when the setter's floor is 75% shows 50, stores 75
+     * and draws at 75 - a control that lies about what it just did, and one nobody notices
+     * because every part of it looks right on its own. The screen derives its steps from the
+     * bounds now; this is what stops the two drifting apart again.
+     * <p>Reached through the same setters a press uses, because what is being checked is the
+     * round trip rather than the arithmetic. The steps live on ClientSettings rather than on
+     * the screen precisely so that this test can see them: a screen cannot be loaded here.
+     */
+    @GameTest(template = "empty")
+    public static void everyofferedsettingsurvivesbeingset(GameTestHelper helper) {
+        int text = ClientSettings.textScale();
+        int control = ClientSettings.controlScale();
+        int effects = ClientSettings.effectIntensity();
+        int volume = ClientSettings.tableSoundVolume();
+        int waiting = ClientSettings.waitingAfterMillis();
+        try {
+            for (var offered : ClientSettings.offeredSteps().entrySet()) {
+                for (int value : offered.getValue()) {
+                    int got = switch (offered.getKey()) {
+                        case "text_scale" -> {
+                            ClientSettings.textScale(value);
+                            yield ClientSettings.textScale();
+                        }
+                        case "control_scale" -> {
+                            ClientSettings.controlScale(value);
+                            yield ClientSettings.controlScale();
+                        }
+                        case "effect_intensity" -> {
+                            ClientSettings.effectIntensity(value);
+                            yield ClientSettings.effectIntensity();
+                        }
+                        case "sound_volume" -> {
+                            ClientSettings.tableSoundVolume(value);
+                            yield ClientSettings.tableSoundVolume();
+                        }
+                        case "waiting_after" -> {
+                            ClientSettings.waitingAfterMillis(value);
+                            yield ClientSettings.waitingAfterMillis();
+                        }
+                        default -> value;
+                    };
+                    if (got != value) {
+                        helper.fail("the settings screen offers " + offered.getKey() + " = "
+                                + value + ", but setting it leaves " + got);
+                        return;
+                    }
+                }
+            }
+            helper.succeed();
+        } finally {
+            ClientSettings.textScale(text);
+            ClientSettings.controlScale(control);
+            ClientSettings.effectIntensity(effects);
+            ClientSettings.tableSoundVolume(volume);
+            ClientSettings.waitingAfterMillis(waiting);
+        }
+    }
 }

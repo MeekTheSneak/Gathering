@@ -82,31 +82,12 @@ public final class Tutorial {
     }
 
     /**
-     * Says a practice game has been asked for at this table.
-     * <p>Not begun: asked for. The instruction goes up when a board actually arrives, which is
-     * {@link #beginAt}. A tutorial that started on the press would be giving instructions
-     * about a table that had just refused to have a practice game on it.
-     */
-    public static void expectAt(BlockPos where) {
-        expecting = where == null ? null : where.immutable();
-    }
-
-    /** Whether a practice game is expected at this table and has not arrived. */
-    public static boolean expectedAt(BlockPos where) {
-        return expecting != null && where != null && expecting.equals(where);
-    }
-
-    /** The table a practice game was asked for at, and has not arrived at yet. */
-    private static BlockPos expecting;
-
-    /**
      * Begins, at this table.
      * <p>Called when the server has confirmed a practice game is running - not when the button
      * was pressed. A tutorial that started on the press would put its first instruction up
      * over a table that had refused to start one.
      */
     public static void beginAt(BlockPos where, GameView board) {
-        expecting = null;
         table = where == null ? null : where.immutable();
         progress = TutorialProgress.start();
         remember(board);
@@ -128,7 +109,6 @@ public final class Tutorial {
         }
         progress = null;
         table = null;
-        expecting = null;
         turnWhenTheStepBegan = null;
         lastConfirmed = null;
     }
@@ -145,14 +125,6 @@ public final class Tutorial {
     public static void forward() {
         if (progress != null) {
             progress = progress.forward();
-            baselineNow();
-        }
-    }
-
-    /** Starts over from the first instruction. Does not touch the game that is running. */
-    public static void restart() {
-        if (progress != null) {
-            progress = TutorialProgress.start();
             baselineNow();
         }
     }
@@ -340,7 +312,6 @@ public final class Tutorial {
     public static void clear() {
         progress = null;
         table = null;
-        expecting = null;
         turnWhenTheStepBegan = null;
         lastConfirmed = null;
     }

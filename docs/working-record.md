@@ -175,6 +175,38 @@ something this machine does not have.
 **The most valuable single thing anybody can do next is run `tools/shots.sh` and look at the
 pictures.** Seven features landed this session that have never been rendered.
 
+## The quality pass, and what it found in this session's own work
+
+A sweep for public methods called only from tests turned up 55, most of them legitimate - test
+seams and the state queries tests use to check things. Four had no caller anywhere, and three
+of those were dead limbs left by this session's own changes:
+
+- **`acceptPracticeBoard` could never do anything, and ran every frame.** Retiring practice
+  removed the only caller of `Tutorial.expectAt`, so `expecting` was always null, so the
+  method returned immediately - from the render path, on every frame, for ever. Gone, along
+  with `expectAt`, `expectedAt` and `Tutorial.restart`, which had become unreachable the same
+  way.
+- **Two branches pretended a non-demo tutorial still existed.** `leaveTheTutorial` and the
+  completion handler both had a `!demo` path, and one of them still sent the retired
+  `PracticePayload.STOP`. Unreachable, and misleading to anybody reading it.
+- **`PendingWork.worthMentioning` was a second definition of "overdue"**, redundant with
+  `noteFor` since the integration landed. Two ways to decide whether something is late is one
+  more than a screen can be shown at once.
+
+A separate read of this session's own new code found two more:
+
+- **The settings screen rebuilt its widgets from inside a button press**, which clears the list
+  the click is still being dispatched over. Every other screen in the mod rebuilds from a tick
+  or a scroll. It defers to the tick now.
+- **The settings screen offered a text size the setter refused.** Its steps began at 50 while
+  `SMALLEST_SCALE` is 75, so choosing it showed 50, stored 75 and drew at 75 - a control
+  lying about what it just did, with every part of it looking right on its own. The steps now
+  come from `ClientSettings.offeredSteps()`, beside the bounds that clamp them, and a test
+  walks every offered value through the real setter. Proved failing by putting 50 back.
+
+Also checked and sound: `ClientTableState.acceptPayload` runs through `enqueueWork`, so the
+settings read it now does is on the client thread rather than the network one.
+
 ## The pattern worth remembering
 
 Four times this session a feature turned out to be documented, tested and never connected:

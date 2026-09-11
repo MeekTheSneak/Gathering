@@ -341,6 +341,38 @@ public final class ClientSettings {
 
     // ----------------------------------------------------------------- disk
 
+    /**
+     * The values a settings row steps through, by the setting it is about.
+     * <p>Here rather than in the screen, because here is what clamps them. Written down beside
+     * the bounds instead, the two drift: the screen once offered 50% while this floor was 75%,
+     * so choosing it showed 50, stored 75 and drew at 75 - a control that lies about what it
+     * just did, and one nobody notices because every part of it looks right on its own.
+     * <p>A screen cannot be loaded in a game test at all - a dedicated server refuses every
+     * client class one is built from - so a list kept in the screen is a list that can only be
+     * checked by reading it. Kept here, it is checked by running it.
+     */
+    public static java.util.Map<String, java.util.List<Integer>> offeredSteps() {
+        return java.util.Map.of(
+                "text_scale", stepsBetween(SMALLEST_SCALE, LARGEST_SCALE, 25),
+                "control_scale", stepsBetween(SMALLEST_SCALE, LARGEST_SCALE, 25),
+                "effect_intensity", java.util.List.of(0, 25, 50, 75, 100),
+                "sound_volume", java.util.List.of(0, 25, 50, 75, 100),
+                "waiting_after", java.util.List.of(
+                        SOONEST_WAITING_NOTICE, 300, 1000, LATEST_WAITING_NOTICE));
+    }
+
+    /** Every step from one bound to the other, both ends included. */
+    private static java.util.List<Integer> stepsBetween(int from, int to, int by) {
+        java.util.List<Integer> made = new java.util.ArrayList<>();
+        for (int at = from; at <= to; at += by) {
+            made.add(at);
+        }
+        if (made.getLast() != to) {
+            made.add(to);
+        }
+        return java.util.List.copyOf(made);
+    }
+
     private static int clampScale(int percent) {
         return Math.clamp(percent, SMALLEST_SCALE, LARGEST_SCALE);
     }

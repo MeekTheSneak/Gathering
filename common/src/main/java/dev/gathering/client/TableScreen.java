@@ -691,9 +691,9 @@ public final class TableScreen extends Screen {
                 Component.translatable("tutorial.gathering.next"), Tutorial::forward));
         this.addRenderableWidget(GatheringButtons.of(left, top + high + 2, wide, high,
                 Component.translatable("tutorial.gathering.restart"),
-                // The demonstration's Restart builds a new game rather than rewinding this
-                // one, which is what makes it work once the library has been drawn empty.
-                demo ? TutorialDemo::restart : Tutorial::restart));
+                // A new game rather than a rewound one, which is what makes it work once the
+                // library has been drawn empty.
+                TutorialDemo::restart));
         this.addRenderableWidget(GatheringButtons.of(left + wide + 4, top + high + 2, wide, high,
                 Component.translatable("tutorial.gathering.exit"), this::leaveTheTutorial));
     }
@@ -731,12 +731,6 @@ public final class TableScreen extends Screen {
             return false;
         }
         tutorialFinishedAt = 0;
-        if (!demo) {
-            // The old server-backed path, until it is gone.
-            leaveTheTutorial();
-            this.minecraft.setScreen(new StarterColorsScreen(null));
-            return true;
-        }
         // The whole of arriving, in one line: the lesson ends, two colors are picked, and that
         // screen puts them at the table. No stop at the world in between - a player who has
         // just learned the controls should be looking at the table they learned them for.
@@ -762,13 +756,6 @@ public final class TableScreen extends Screen {
      */
     private void leaveTheTutorial() {
         Tutorial.stop();
-        if (!demo) {
-            // The old server-backed practice game, which still exists until it is retired.
-            ClientNetworking.send(new dev.gathering.network.PracticePayload(
-                    table, dev.gathering.network.PracticePayload.What.STOP));
-            this.rebuildWidgets();
-            return;
-        }
         TutorialDemo.clear();
         this.minecraft.setScreen(whatToShowAfterwards());
     }
@@ -821,22 +808,6 @@ public final class TableScreen extends Screen {
 
     /** Long enough to read the last panel, in milliseconds this time. */
     private static final long LINGER_AFTER_FINISHING_MS = 4_000L;
-
-    /**
-     * Puts the first instruction up once the server has actually dealt a practice board.
-     * <p>Called from the render, which is where a newly arrived board is first noticed.
-     */
-    private void acceptPracticeBoard() {
-        if (!Tutorial.expectedAt(table) || Tutorial.runningAt(table)) {
-            return;
-        }
-        GameView board = view().orElse(null);
-        if (board == null || mySeat().isEmpty()) {
-            return;
-        }
-        Tutorial.beginAt(table, board);
-        this.rebuildWidgets();
-    }
 
     /** This player's own mat on the real table, in surface units, for the camera to frame. */
     private Rect myMatOnTheBlock() {
@@ -1295,7 +1266,6 @@ public final class TableScreen extends Screen {
             }
         }
         view().ifPresent(shown -> renderArrangement(graphics, shown));
-        acceptPracticeBoard();
         if (Tutorial.runningAt(table)) {
             TutorialPanel.render(graphics, this.font,
                     TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom()));

@@ -86,7 +86,7 @@ public final class PendingWorkGameTest {
                 helper.fail("a request left waiting past the threshold reads as " + work.state());
                 return;
             }
-            if (!PendingWork.worthMentioning(id) && work.state() == PendingWork.State.WAITING) {
+            if (PendingWork.noteFor(id).isEmpty() && work.state() == PendingWork.State.UNKNOWN) {
                 helper.fail("a request past the threshold is not worth mentioning");
                 return;
             }

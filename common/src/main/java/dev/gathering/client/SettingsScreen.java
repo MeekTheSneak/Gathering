@@ -28,16 +28,19 @@ public final class SettingsScreen extends ChildScreen {
 
     private static final int LABEL = 0xFFE8E4DC;
 
-    /** The sizes the two scales step through, as percentages. */
-    private static final List<Integer> SCALES = List.of(50, 75, 100, 125, 150, 175, 200);
-
-    /** The strengths an effect or a volume steps through. Nought is a real answer for both. */
-    private static final List<Integer> STRENGTHS = List.of(0, 25, 50, 75, 100);
-
-    /** How long to wait before a slow request is mentioned, in milliseconds. */
-    private static final List<Integer> WAITS = List.of(100, 300, 1000, 3000);
+    /**
+     * What each row steps through, asked of the settings rather than written down here.
+     * <p>{@link ClientSettings#offeredSteps()} owns these because it owns the bounds that
+     * clamp them - see the note there about a row that offered a value the setter refused.
+     */
+    private static List<Integer> stepsFor(String setting) {
+        return ClientSettings.offeredSteps().getOrDefault(setting, List.of());
+    }
 
     private SettingsLayout layout;
+
+    /** Whether a row changed and the panel has to be laid out again. See the press above. */
+    private boolean rebuildWanted;
 
     public SettingsScreen(Screen back) {
         super(Component.translatable("screen.gathering.settings"), back);
@@ -77,18 +80,18 @@ public final class SettingsScreen extends ChildScreen {
         return List.of(
                 new Row("text_scale",
                         () -> percent(ClientSettings.textScale()),
-                        () -> ClientSettings.textScale(next(SCALES, ClientSettings.textScale()))),
+                        () -> ClientSettings.textScale(next(stepsFor("text_scale"), ClientSettings.textScale()))),
                 new Row("control_scale",
                         () -> percent(ClientSettings.controlScale()),
                         () -> ClientSettings.controlScale(
-                                next(SCALES, ClientSettings.controlScale()))),
+                                next(stepsFor("control_scale"), ClientSettings.controlScale()))),
                 new Row("reduced_motion",
                         () -> onOrOff(ClientSettings.reducedMotion()),
                         () -> ClientSettings.reducedMotion(!ClientSettings.reducedMotion())),
                 new Row("effect_intensity",
                         () -> percent(ClientSettings.effectIntensity()),
                         () -> ClientSettings.effectIntensity(
-                                next(STRENGTHS, ClientSettings.effectIntensity()))),
+                                next(stepsFor("effect_intensity"), ClientSettings.effectIntensity()))),
                 new Row("hold_to_inspect",
                         () -> onOrOff(ClientSettings.holdToInspect()),
                         () -> ClientSettings.holdToInspect(!ClientSettings.holdToInspect())),
@@ -102,7 +105,7 @@ public final class SettingsScreen extends ChildScreen {
                         () -> percent(ClientSettings.tableSoundVolume()),
                         () -> {
                             ClientSettings.tableSoundVolume(
-                                    next(STRENGTHS, ClientSettings.tableSoundVolume()));
+                                    next(stepsFor("sound_volume"), ClientSettings.tableSoundVolume()));
                             // Heard at the moment it is set, or it is set twice.
                             TableSounds.preview();
                         }),
@@ -113,7 +116,7 @@ public final class SettingsScreen extends ChildScreen {
                         () -> Component.translatable("screen.gathering.settings.milliseconds",
                                 ClientSettings.waitingAfterMillis()),
                         () -> ClientSettings.waitingAfterMillis(
-                                next(WAITS, ClientSettings.waitingAfterMillis()))));
+                                next(stepsFor("waiting_after"), ClientSettings.waitingAfterMillis()))));
     }
 
     @Override
@@ -130,10 +133,15 @@ public final class SettingsScreen extends ChildScreen {
                     labelFor(row),
                     () -> {
                         row.step().run();
-                        // Rebuilt rather than redrawn, because the control size is one of the
-                        // things on this screen: turning it up has to move these very rows,
-                        // or the setting would be the one thing it does not apply to.
-                        this.rebuildWidgets();
+                        // Rebuilt, because the control size is one of the things on this
+                        // screen: turning it up has to move these very rows, or the setting
+                        // would be the one thing it does not apply to. And rebuilt on the next
+                        // tick rather than here, because here is inside the press - the click
+                        // is still being handed along the list of widgets this would replace,
+                        // and every other screen in the mod that rebuilds does it from a tick
+                        // or a scroll for the same reason. One tick is fifty milliseconds and
+                        // nobody can see it.
+                        rebuildWanted = true;
                     }));
         }
 
@@ -147,6 +155,15 @@ public final class SettingsScreen extends ChildScreen {
         return Component.translatable("screen.gathering.settings.row",
                 Component.translatable("screen.gathering.settings." + row.labelKey()),
                 row.says().get());
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (rebuildWanted) {
+            rebuildWanted = false;
+            rebuildWidgets();
+        }
     }
 
     @Override

@@ -163,7 +163,11 @@ public final class QualityReviewGameTest {
             if (Tutorial.showing().orElseThrow() != TutorialStep.PLAY) {
                 throw new AssertionError("The normal draw must advance before testing restart");
             }
-            Tutorial.restart();
+            // Was Tutorial.restart(). That took its baseline from the last confirmed board it
+            // was holding; the live path now takes the board it is restarting onto, because
+            // the demonstration's Restart deals a new one. Same guarantee, same moment, and
+            // the board passed here is the one restart() would have used.
+            Tutorial.restartOn(VisibilityRules.viewFor(session.state(), viewer));
             session.submit(new GameEvent.CardsDrawn(me, me, 1));
             Tutorial.sawBoard(origin, VisibilityRules.viewFor(session.state(), viewer));
             if (Tutorial.showing().orElseThrow() != TutorialStep.PLAY) {

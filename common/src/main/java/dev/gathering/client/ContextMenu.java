@@ -39,7 +39,11 @@ public final class ContextMenu {
      * every row after the first on a different fraction of a pixel from the one above it.
      */
     static int rowHeight() {
-        int asked = Math.clamp(ClientSettings.controlScale(), 50, 200);
+        // The settings' own bounds, not a second pair written here. A row sized against a
+        // range the setter does not share is a row that is the wrong size for exactly the
+        // values that fall between the two.
+        int asked = Math.clamp(ClientSettings.controlScale(),
+                ClientSettings.SMALLEST_SCALE, ClientSettings.LARGEST_SCALE);
         return Math.max(8, Math.round(ROW_HEIGHT * asked / 100f));
     }
     private static final int MIN_WIDTH = 70;

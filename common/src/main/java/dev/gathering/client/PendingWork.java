@@ -125,16 +125,13 @@ public final class PendingWork {
     }
 
     /**
-     * Whether this request has been out long enough that the screen should say so.
-     * <p>The threshold is the player's, because how long is too long depends on the server
-     * they are on: what is patience on somebody's home machine is a hang over a bad
-     * connection.
+     * Whether a request has been out long enough that a screen should say so.
+     * <p>The threshold is the player's, because how long is too long depends on the server:
+     * what is patience on somebody's home machine is a hang over a bad connection.
+     * <p>Asked in exactly one place - {@link #of} - which is what makes the answer single. It
+     * used to be asked in two, and two ways to decide whether something is late is one more
+     * than a screen can be shown at once.
      */
-    public static boolean worthMentioning(UUID id) {
-        Work work = id == null ? null : OUTSTANDING.get(id);
-        return work != null && work.state() == State.WAITING && overdue(work);
-    }
-
     private static boolean overdue(Work work) {
         return now() - work.startedAt() >= ClientSettings.waitingAfterMillis();
     }
