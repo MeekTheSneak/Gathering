@@ -114,6 +114,8 @@ public final class TableActions {
             of("see_revealed", Category.LIBRARY, Target.NONE, false),
 
             // The game, and the table it is on.
+            of("settings", Category.TABLE, Target.NONE, false,
+                    "options", "preferences", "accessibility", "text size", "sound"),
             of("make_token", Category.TABLE, Target.NONE, false, "create token", "new token"),
             of("make_emblem", Category.TABLE, Target.NONE, false, "emblem"),
             of("note_card", Category.TABLE, Target.NONE, false, "write a card", "blank card"),

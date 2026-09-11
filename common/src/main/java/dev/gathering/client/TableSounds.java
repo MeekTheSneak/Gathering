@@ -49,6 +49,23 @@ final class TableSounds {
     }
 
     /**
+     * One of the table's noises, here, now, at whatever the settings currently say.
+     * <p>For the settings screen. A volume you cannot hear while you are setting it is a
+     * volume you set twice: once by guessing, and again after going back to a table to find
+     * out what you chose.
+     * <p>At the player rather than at a table, because the point is to be heard rather than to
+     * be located, and there may be no table anywhere near. Silent when the sounds are off,
+     * which is itself the answer to "what does off sound like".
+     */
+    static void preview() {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.player == null) {
+            return;
+        }
+        at(client.player.blockPosition(), dev.gathering.sound.GatheringSounds.SHUFFLE);
+    }
+
+    /**
      * The same, for one of the game's own sounds rather than one of the mod's.
      * <p>The mod has three sounds and they are audio files in its resource pack, which is the
      * owner's to add to. A gesture that wants a noise the mod has not got uses vanilla's,

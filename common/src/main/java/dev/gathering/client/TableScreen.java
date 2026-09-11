@@ -4574,6 +4574,12 @@ public final class TableScreen extends Screen {
         entries.add(entry("say", () -> saying = new StringBuilder()));
         entries.add(entry(showingLog ? "hide_log" : "show_log", () -> showingLog = !showingLog));
         entries.add(themeEntry());
+        // Where the rest of them live. Until this existed the only way to change the text
+        // size, the control size or whether reading a card means holding a key was to close
+        // the game and edit a file - which is not a setting a player has.
+        entries.add(entry("settings",
+                () -> net.minecraft.client.Minecraft.getInstance()
+                        .setScreen(new SettingsScreen(this))));
         view().ifPresent(board -> entries.add(entry("pass_turn", () -> passTurn(board, me))));
         entries.add(entry("gain_life", () -> send(new GameEvent.LifeChanged(me, me, 1))));
         entries.add(entry("lose_life", () -> send(new GameEvent.LifeChanged(me, me, -1))));
@@ -5314,6 +5320,10 @@ public final class TableScreen extends Screen {
 
             case "arrange" -> {
                 view().ifPresent(board -> offerToArrange(board, me));
+                yield true;
+            }
+            case "settings" -> {
+                net.minecraft.client.Minecraft.getInstance().setScreen(new SettingsScreen(this));
                 yield true;
             }
             case "others_here" -> {
