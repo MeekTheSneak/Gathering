@@ -383,6 +383,8 @@
   "message.gathering.starter_given": "Two boosters. Right-click to open.",
   "message.gathering.starter_off": "No starter boosters on this server.",
   "message.gathering.starter_unavailable": "That set is not available on this server.",
+  "message.gathering.table.and_more_like_that": "...and %s more like that.",
+  "message.gathering.table.too_many_at_once": "Did %s of %s. One action does not do more at once.",
   "message.gathering.table_filled": "Played %1$s cards onto the table.",
   "message.gathering.table_full": "Every seat at this table is taken.",
   "message.gathering.table_in_use": "Somebody is seated at this table.",

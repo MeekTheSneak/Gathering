@@ -25,6 +25,7 @@ import dev.gathering.core.game.visibility.ZoneView;
 import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.TableCluster;
 import dev.gathering.core.ui.BoardGeometry;
+import dev.gathering.core.ui.BulkLimit;
 import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.CardText;
@@ -3558,9 +3559,41 @@ public final class TableScreen extends Screen {
      * <p>The selection when the card acted on is part of it, and just that card otherwise.
      * Right-clicking a card outside the selection is somebody addressing that card, not
      * forgetting what they had picked.
+     * <p>Bounded, because a selection is made by dragging a box and a box can be dragged
+     * around the whole table - see {@link BulkLimit}. Clipped here rather than at the send,
+     * so the count the menu prints, the count the palette prints and the number of moves that
+     * go out are one number rather than three.
      */
     private List<CardInstanceId> targetsFor(CardInstanceId card) {
-        return selected.contains(card) ? List.copyOf(selected) : List.of(card);
+        return howManyOfThem(selected.contains(card) ? List.copyOf(selected) : List.of(card));
+    }
+
+    /**
+     * Applies the bound, and says so once if it bit.
+     * <p>Said rather than swallowed. A gesture that quietly did a hundred and twenty-eight of
+     * a hundred and sixty leaves the player looking at cards still on the felt with no account
+     * of why, which is the failure this whole bound exists to avoid being.
+     */
+    private List<CardInstanceId> howManyOfThem(List<CardInstanceId> asked) {
+        BulkLimit.Batch<CardInstanceId> batch = BulkLimit.take(asked);
+        if (batch.wasClipped()) {
+            tellMe(Component.translatable("message.gathering.table.too_many_at_once",
+                    batch.size(), batch.askedFor()));
+        }
+        return batch.doing();
+    }
+
+    /**
+     * Says something to this player and nobody else.
+     * <p>The client's own voice, for the things only this client knows: that a gesture was
+     * bigger than one gesture is allowed to be, or that the same refusal has now arrived
+     * several times. None of it is a game event and none of it goes in the log - the log is
+     * the public account of a game, and these are notes about using the interface.
+     */
+    private void tellMe(Component what) {
+        if (this.minecraft != null && this.minecraft.player != null) {
+            this.minecraft.player.displayClientMessage(what, false);
+        }
     }
 
     /** Every selected card on the table, wherever it is, in board order. */
@@ -4676,7 +4709,7 @@ public final class TableScreen extends Screen {
      */
     private List<CardInstanceId> underCursorOrSelected() {
         if (!selected.isEmpty()) {
-            return List.copyOf(selected);
+            return howManyOfThem(List.copyOf(selected));
         }
         GameView board = view().orElse(null);
         if (board == null) {

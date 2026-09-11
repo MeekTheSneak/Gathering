@@ -55,6 +55,9 @@ public final class PlayerGone {
         // And which deck they were last told about, so the one in their hand is sent again
         // the moment they are back holding it.
         dev.gathering.item.DeckItem.forget(player.getUUID());
+        // And whatever refusal was still folding, which is counted in this server's ticks and
+        // means nothing in the next one.
+        Refusals.forget(player.getUUID());
 
         // StarterBoosters is deliberately NOT forgotten here, and this comment is what says
         // so - the check next door looks for the name rather than the call. Everything else

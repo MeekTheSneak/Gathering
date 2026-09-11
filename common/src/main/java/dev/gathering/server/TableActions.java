@@ -53,7 +53,10 @@ public final class TableActions {
 
         GameSession.Result result = session.submit(event);
         if (result instanceof GameSession.Result.Rejected rejected) {
-            player.sendSystemMessage(Component.literal(rejected.reason()));
+            // Through Refusals rather than straight out. A verb applied to a selection arrives
+            // here once per card, so a selection the table refuses used to be refused once per
+            // card - forty identical lines, which is less informative than one.
+            Refusals.tell(player, rejected.reason());
             return;
         }
 
