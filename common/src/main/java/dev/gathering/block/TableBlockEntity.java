@@ -362,6 +362,30 @@ public class TableBlockEntity extends BlockEntity {
     }
 
     /**
+     * Unmarks a practice table, for the one caller that retires a game left over from the old
+     * teaching design.
+     * <p>The one-direction rule above is about a <em>running</em> practice game, and it still
+     * holds: turning one into a real game would be a way to mint a deck out of stock the
+     * server invented. This is the other thing - a saved game from a feature that no longer
+     * exists, being taken apart. The caller clears the flag and then ends the session, in that
+     * order and never the other way round, because between the two steps the table is an
+     * ordinary table that is still holding whatever it was holding. Property survives an
+     * interruption there; it would not survive one the other way round.
+     * <p>The generated cards do not become anything. They are in the session, and ending a
+     * session does not hand its cards to anybody - only a deck the table was <em>holding</em>
+     * comes back, and the only thing that ever put one there is a real player committing a
+     * real deck. See {@link dev.gathering.server.PracticeTable#retire}.
+     */
+    public void stopBeingPractice() {
+        if (!practice) {
+            return;
+        }
+        this.practice = false;
+        setChanged();
+        tellClients();
+    }
+
+    /**
      * Pushes what a client is told about this table out again.
      * <p>The block entity's own data, not the game's: whether the felt is dyed and whether the
      * game has a command zone. A blockstate never changes for either, so nothing else would.

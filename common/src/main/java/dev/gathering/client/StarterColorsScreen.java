@@ -117,8 +117,13 @@ public final class StarterColorsScreen extends Screen {
 
     private net.minecraft.client.gui.components.Button take;
 
-    public StarterColorsScreen() {
+    /**
+     * @param afterwards the table this player is arriving at, or null when they are not
+     *                   arriving anywhere and the world is what is behind this screen
+     */
+    public StarterColorsScreen(net.minecraft.core.BlockPos afterwards) {
         super(Component.translatable("screen.gathering.starter.title"));
+        this.afterwards = afterwards;
     }
 
     @Override
@@ -175,6 +180,27 @@ public final class StarterColorsScreen extends Screen {
         ClientNetworking.send(new StarterPayload(
                 picked.stream().map(MagicColor::code).toList()));
         this.onClose();
+    }
+
+    /**
+     * The table this player was arriving at, or null when nobody is arriving anywhere.
+     * <p>Set when the guided first game hands over. Picking the colors is the last thing
+     * between sitting down and playing, so the screen after this one is the table itself
+     * rather than the world - somebody who has just been taught the controls should not have
+     * to find the table again to use them.
+     */
+    private final net.minecraft.core.BlockPos afterwards;
+
+    /**
+     * Leaves for the table this arrival was about, or the world when it was about nothing.
+     * <p>Both ways out lead here: taking the packs closes the screen, and so does Escape. A
+     * player who changes their mind about choosing still ends up at the table, because the
+     * table is where they were going. What is behind them may have been broken while they
+     * were choosing, which {@link TableScreen#afterTheLesson} answers rather than assumes.
+     */
+    @Override
+    public void onClose() {
+        this.minecraft.setScreen(TableScreen.afterTheLesson(afterwards));
     }
 
     @Override

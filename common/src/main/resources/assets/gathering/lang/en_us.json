@@ -347,6 +347,7 @@
   "message.gathering.practice_could_not_sit": "Could not sit down.",
   "message.gathering.practice_game_running": "There is a game on this table.",
   "message.gathering.practice_no_table": "No table here.",
+  "message.gathering.practice_retired": "The guided first game is now a local walkthrough. Open it from the table menu.",
   "message.gathering.practice_somebody_else_here": "Somebody else is at this table.",
   "message.gathering.practice_started": "Practice game. Nothing here can be kept.",
   "message.gathering.practice_too_small": "Practice needs a table with two seats.",

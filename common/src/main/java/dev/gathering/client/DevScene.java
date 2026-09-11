@@ -3210,7 +3210,7 @@ public final class DevScene {
                 // frame has not drawn yet, and shooting immediately photographs whatever was
                 // on screen before it - which is how a picture of a field ends up filed as a
                 // picture of the color wheel.
-                client.setScreen(new StarterColorsScreen());
+                client.setScreen(new StarterColorsScreen(null));
                 advance(SETTLE);
             }
             case 312 -> {

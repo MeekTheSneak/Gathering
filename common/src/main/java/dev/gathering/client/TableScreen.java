@@ -717,20 +717,22 @@ public final class TableScreen extends Screen {
             return false;
         }
         tutorialFinishedAt = 0;
-        // Read before leaving, because leaving is what forgets it.
-        boolean earned = Tutorial.progress()
-                .map(dev.gathering.core.tutorial.TutorialProgress::isFinished)
-                .orElse(false);
-        leaveTheTutorial();
-        // Picking two colors is the first thing this player has been asked to decide, and it
-        // is offered here only because finishing is the moment it makes sense to ask. It is
-        // not what earns anything: StarterBoosters decides that on the server, from its own
-        // once-per-player list and the server's own settings, and it has never asked whether
-        // anybody finished a tutorial. Opening this screen grants nothing, and a second
-        // finish is told "already" by the same list that told the first one "here you are".
-        if (earned) {
-            this.minecraft.setScreen(new StarterColorsScreen());
+        if (!demo) {
+            // The old server-backed path, until it is gone.
+            leaveTheTutorial();
+            this.minecraft.setScreen(new StarterColorsScreen(null));
+            return true;
         }
+        // The whole of arriving, in one line: the lesson ends, two colors are picked, and that
+        // screen puts them at the table. No stop at the world in between - a player who has
+        // just learned the controls should be looking at the table they learned them for.
+        Tutorial.stop();
+        TutorialDemo.clear();
+        // Picking the colors is not what earns the packs. StarterBoosters decides that on the
+        // server from its own once-per-player list and the server's own settings, and it has
+        // never asked whether anybody finished a tutorial - so this screen grants nothing, and
+        // a second time through is told "already" by the same list that answered the first.
+        this.minecraft.setScreen(new StarterColorsScreen(afterwards));
         return true;
     }
 
@@ -767,16 +769,28 @@ public final class TableScreen extends Screen {
      * was.
      */
     private net.minecraft.client.gui.screens.Screen whatToShowAfterwards() {
-        if (afterwards == null) {
+        return afterTheLesson(afterwards);
+    }
+
+    /**
+     * The screen to land on once the arrival is over: the real game, the table, or the world.
+     * <p>Static and shared, because the lesson does not hand straight back any more. Finishing
+     * it leads to picking two colors, and it is <em>that</em> screen the player leaves to reach
+     * the table - so both of them have to make the same decision, and it has to be made when
+     * they leave rather than when they arrived. A table can be broken while somebody is
+     * choosing.
+     */
+    static net.minecraft.client.gui.screens.Screen afterTheLesson(BlockPos where) {
+        if (where == null) {
             return null;
         }
-        if (ClientTableState.viewOf(afterwards).isPresent()) {
-            return new TableScreen(afterwards);
+        if (ClientTableState.viewOf(where).isPresent()) {
+            return new TableScreen(where);
         }
         net.minecraft.client.multiplayer.ClientLevel level =
                 net.minecraft.client.Minecraft.getInstance().level;
-        if (level != null && level.getBlockEntity(afterwards) instanceof TableBlockEntity) {
-            return new TableSetupScreen(afterwards);
+        if (level != null && level.getBlockEntity(where) instanceof TableBlockEntity) {
+            return new TableSetupScreen(where);
         }
         return null;
     }

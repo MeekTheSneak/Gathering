@@ -129,7 +129,24 @@ public class TableBlock extends BaseEntityBlock {
             return null;
         }
         return (ticking, pos, ticked, entity) -> {
-            if (entity instanceof TableBlockEntity table && table.hasSession()) {
+            if (!(entity instanceof TableBlockEntity table)) {
+                return;
+            }
+            // A practice table left in an old save is taken apart the first time it ticks,
+            // which is the first tick after its chunk loads. There is no world scan because
+            // there is nothing to scan: a table nobody has loaded is a table nobody can be
+            // hurt by, and it gets this the moment anybody comes near it.
+            //
+            // It is also why the condition asks about the flag as well as the session. A save
+            // could hold the flag with no game left on it, and such a table refuses every real
+            // deck put on it for ever - commitDeck asks isPractice - while never ticking to
+            // find that out. It ticks now, once, and then stops.
+            if (table.isPractice()) {
+                dev.gathering.server.PracticeTable.retire(
+                        (net.minecraft.server.level.ServerLevel) ticking, pos, table);
+                return;
+            }
+            if (table.hasSession()) {
                 TableBlockEntity.serverTick(ticking, pos, ticked, table);
             }
         };

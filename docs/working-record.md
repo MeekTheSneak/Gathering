@@ -14,7 +14,7 @@ Last updated at `52dda92` plus the QP-07 batch described below.
 | Decision | State |
 |---|---|
 | **QP-07: the guided first game is a local interactive overlay** shown when a player first sits at an ordinary table, before real play | **Approved. The overlay is implemented and isolated; retiring the old path and migrating saves is not done.** Full spec in `docs/reviews/quality-progress-2026-09-11.md` |
-| The separate server-backed practice table | **Superseded by QP-07.** No ordinary UI now starts one, but `PracticePayload.START` is still handled and the save flag still exists. Must be retired safely, with migration for saves that already hold one |
+| The separate server-backed practice table | **Retired.** No UI creates one, `PracticePayload.START` answers and starts nothing, and `PracticeTable.retire` takes leftovers in old saves apart from the table's own ticker. `PracticeTable.start` is kept, reachable from nothing in production, so the migration tests can build the legacy shape |
 | No rules enforcement, ever | Standing |
 | No player-supplied image URLs; the custom playmat is settled no | Standing — `docs/design-brief.md:313` |
 | Textures and sounds are the owner's | Standing — `artcheck` holds 2,152 hashes |
@@ -70,16 +70,28 @@ That second one matters because the counters screen and the pile screen send the
 and one of the six steps happens in the counters screen. `AtATable` made "which table is this
 for" a question that can be asked of a payload without knowing which payload it is.
 
+**The arrival, end to end.** Sit down, learn the controls on the local board, pick two colors,
+land at the table. The colors screen used to close to the world, which left somebody who had
+just been taught the controls standing in a field looking for the table they had learned them
+for. Both ways out of it - taking the packs and pressing Escape - now go to the table, and both
+ask what is still there rather than assuming.
+
+**Retired, with migration.** Nothing creates a practice table. The START payload answers and
+starts nothing, so an older client gets a sentence instead of a session. A leftover in an old
+save is taken apart by `PracticeTable.retire`, from the ticker the table already has, the first
+time its chunk loads - the flag comes off first and the session is ended second, so the ordinary
+return path hands a real held deck back to whoever put it down instead of discarding it. That
+order is the safety argument: interrupted between the two, the deck is still on an ordinary
+table and the next ending returns it.
+
 **Not done, and not to be described as done:**
 
-- The old practice path is not retired. `PracticePayload.START` is still handled, `PracticeTable`
-  still exists, and `TableBlockEntity` still saves a `practice` flag. No ordinary UI reaches it
-  any more, which is exactly the state the review warned is insufficient.
-- **No migration exists** for saves that already contain a practice session, a demonstration
-  occupant, or a real held deck at a practice table. This is the next action.
 - Nothing graphical has been run. The scripted client has not been run since before this batch.
   Remapped controls, small windows, large GUI scale and reduced motion are **unverified** for the
-  overlay; the six steps are verified only as state transitions, not as presses.
+  overlay; the six steps are verified as state transitions, not as presses.
+- `PracticeTable.start` and its eight lifecycle tests still exist. They are reachable from
+  nothing in production and are what the migration tests build a legacy table with. Deleting
+  them means deleting two of the external reviewer's own probes, which is the owner's call.
 
 ### Fixed, committed
 

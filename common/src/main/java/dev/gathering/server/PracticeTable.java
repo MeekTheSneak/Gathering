@@ -28,12 +28,25 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.BlockGetter;
 
 /**
- * A game somebody can learn the controls in, that cannot give them anything.
- * <p>The guided first game needs a real board: real cards to draw, a real hand, real keys, the
- * real server deciding what happened. Anything less teaches the controls of a mock-up. So this
- * is an ordinary session at an ordinary table - the same events, the same authorization, the
- * same view filtering - with exactly one thing different about it, which the table records and
- * everything that hands cards to a person checks.
+ * The practice table, retired - and the code that takes the leftovers apart.
+ * <p><b>Nothing creates one of these any more.</b> The guided first game is a demonstration
+ * built in the player's own client, at no table, with no session, no seat and nothing saved:
+ * see {@link dev.gathering.client.TutorialDemo}. The network entry point below answers and
+ * starts nothing, and no screen in the mod sends it.
+ * <p>What is left here is {@link #retire}, which exists because old saves are not old code.
+ * A world written before this change can contain a table marked practice, a game of invented
+ * cards, a chair held by a name no player can have, and - in a save written before the intake
+ * guard - a real deck somebody built, which the old ending would have discarded on its way
+ * out. That last one is why this is a migration rather than a deletion.
+ * <p>{@link #start} is kept, and is reachable from nothing in production. It is how the tests
+ * build the shape a legacy save has, because the only honest way to check that a leftover is
+ * taken apart correctly is to make a real one first. It is not a feature and must not be
+ * wired to anything.
+ * <p>The description below is of the retired design, kept because it explains what the
+ * leftovers in a save actually are.
+ * <p>It was an ordinary session at an ordinary table - the same events, the same
+ * authorization, the same view filtering - with exactly one thing different about it, which the
+ * table records and everything that hands cards to a person checks.
  * <p><b>Nothing here can become property.</b> The deck is blank stock the server invents on the
  * spot: cards in the custom namespace with nothing printed on them, which no shop sells, no
  * pack contains and no cache has to be asked about. The table never takes the deck into its
@@ -99,10 +112,12 @@ public final class PracticeTable {
     }
 
     /**
-     * Starts a practice game for one player at this table.
-     * <p>Refuses rather than clearing anything out of the way. A table with a game on it, or
-     * with anybody else sitting at it, is somebody's evening - a tutorial that took it over
-     * would be a worse first impression than no tutorial at all.
+     * Starts a practice game for one player at this table. <b>Retired.</b>
+     * <p>No production path reaches this. It is kept so that the migration tests can build the
+     * thing a legacy save contains and then check it is taken apart properly - a test that
+     * built the leftovers by hand would be testing its own idea of them. Do not wire it to a
+     * screen, a payload or a command.
+     * <p>Refuses rather than clearing anything out of the way, as it always did.
      */
     public static Outcome start(ServerPlayer learner, BlockPos tableOrigin) {
         if (learner == null || tableOrigin == null) {
@@ -251,6 +266,61 @@ public final class PracticeTable {
         TableBroadcast.sendToTable(level, tableOrigin);
     }
 
+    /**
+     * Takes apart a practice game left in a save by the design this replaced.
+     * <p>Old worlds can hold one: a table marked practice, a session of invented cards, a
+     * demonstration seat nobody can leave, and - in a save written before the intake guard
+     * landed - <b>a real deck somebody built</b>, taken by the table and due to be discarded
+     * the moment that game ended. That last one is the reason this is not simply a flag being
+     * cleared, and the reason it hands things back before it ends anything.
+     *
+     * <p>The order is the whole of the safety argument:
+     *
+     * <ol>
+     *   <li>the practice flag comes off <b>first</b>, so that
+     *   <li>ending the session runs the ordinary return path, which hands each held deck to
+     *       the player who put it down - wherever they are - and puts it on the table, then on
+     *       the floor, rather than nowhere. With the flag still on, that same path discards
+     *       them, which is exactly the loss being repaired.
+     * </ol>
+     *
+     * <p>Interrupted between the two, a crash leaves an ordinary table still holding the deck,
+     * which the next ending hands back. Interrupted the other way round it would leave a deck
+     * belonging to nothing, so it is not done the other way round.
+     *
+     * <p><b>Nothing is minted.</b> The invented cards live in the session and a session's
+     * cards are not items; only a deck the table was <em>holding</em> comes back, and the only
+     * thing that has ever put one there is a player committing a real one. Verified rather
+     * than assumed: {@code holdDeck} has two production callers, the sideboard editor and the
+     * commit path, and practice deals straight into the session without touching either.
+     *
+     * <p>Idempotent, because the flag it keys on is the first thing it clears. Running it
+     * twice does nothing the second time, and it is called from a tick, so it will be.
+     *
+     * @return whether there was a practice game here to take apart
+     */
+    public static boolean retire(ServerLevel level, BlockPos tableOrigin, TableBlockEntity table) {
+        if (level == null || tableOrigin == null || table == null || !table.isPractice()) {
+            return false;
+        }
+        int holding = table.heldDecks().size();
+        LOGGER.info("Retiring a practice game left at {} by the old guided first game;"
+                + " {} held deck(s) go back to whoever put them down", tableOrigin, holding);
+
+        // First, so that the ending below hands decks back instead of discarding them.
+        table.stopBeingPractice();
+        LEARNING.values().removeIf(GlobalPos.of(level.dimension(), tableOrigin.immutable())::equals);
+
+        if (table.hasSession()) {
+            TableSessions.end(level, tableOrigin, null, "practice retired");
+        }
+        // The seat nobody was ever in. Left behind it is a chair at a real table that no
+        // player can sit in and no player can be asked to get out of.
+        release(level, tableOrigin, THE_DEMONSTRATION);
+        TableBroadcast.sendToTable(level, tableOrigin);
+        return true;
+    }
+
     /** Whether the game at this table is somebody learning the controls. */
     public static boolean isPracticeAt(BlockGetter level, BlockPos tableOrigin) {
         return TableSessions.anchorOf(level, tableOrigin)
@@ -281,8 +351,16 @@ public final class PracticeTable {
         ServerLevel level = player.serverLevel();
         switch (asked.what()) {
             case START -> {
-                Outcome how = start(player, asked.table());
-                player.sendSystemMessage(Component.translatable(how.messageKey()));
+                // Retired. The guided first game is a local demonstration now - it never asks
+                // a server for anything, so nothing legitimate sends this any more. Closed
+                // here rather than only in the screens: taking the button away leaves the
+                // intake and lifecycle behind it reachable by anything that still knows the
+                // packet, which is the whole of what "retire it safely" was asked for.
+                //
+                // Answered rather than dropped, because a client from an older version will
+                // send this and deserves to be told why nothing happened.
+                player.sendSystemMessage(
+                        Component.translatable("message.gathering.practice_retired"));
             }
             case STOP -> {
                 // Only their own practice game, and only if it is one. A client asking to stop
