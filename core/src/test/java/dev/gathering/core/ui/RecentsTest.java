@@ -181,4 +181,90 @@ class RecentsTest {
             assertThat(Recents.scopeKey("a.b.c")).isNotEqualTo(Recents.scopeKey("abc"));
         }
     }
+
+    @Nested
+    @DisplayName("pinning a name")
+    class Pinning {
+
+        @Test
+        @DisplayName("offers it before whatever was used lately")
+        void pinnedNamesAreOfferedFirst() {
+            List<String> pinned = Recents.pin(List.of(), "Clue");
+            assertThat(Recents.offer(pinned, List.of("Treasure", "Food")))
+                    .containsExactly("Clue", "Treasure", "Food");
+        }
+
+        @Test
+        @DisplayName("does not offer it a second time as a recent one")
+        void aPinnedNameIsNotOfferedTwice() {
+            List<String> pinned = Recents.pin(List.of(), "Treasure");
+            assertThat(Recents.offer(pinned, List.of("treasure", "Food")))
+                    .containsExactly("Treasure", "Food");
+        }
+
+        @Test
+        @DisplayName("keeps the newest few rather than refusing")
+        void pinningIsBounded() {
+            List<String> pinned = List.of();
+            for (int at = 0; at < Recents.MOST_PINNED + 3; at++) {
+                pinned = Recents.pin(pinned, "token " + at);
+            }
+            assertThat(pinned).hasSize(Recents.MOST_PINNED);
+            assertThat(Recents.isPinned(pinned, "token " + (Recents.MOST_PINNED + 2))).isTrue();
+            assertThat(Recents.isPinned(pinned, "token 0")).isFalse();
+        }
+
+        @Test
+        @DisplayName("does not make the row grow")
+        void theRowStaysTheLengthItAlwaysWas() {
+            List<String> pinned = List.of();
+            for (int at = 0; at < Recents.MOST_PINNED; at++) {
+                pinned = Recents.pin(pinned, "pinned " + at);
+            }
+            List<String> recent = new ArrayList<>();
+            for (int at = 0; at < Recents.MOST_KEPT; at++) {
+                recent.add("recent " + at);
+            }
+            // A menu that grows a row every time somebody pins something punishes the feature.
+            assertThat(Recents.offer(pinned, recent)).hasSize(Recents.MOST_KEPT);
+        }
+
+        @Test
+        @DisplayName("leaves room for what was actually used")
+        void pinningLeavesRoomForWhatWasActuallyUsed() {
+            List<String> pinned = List.of();
+            for (int at = 0; at < Recents.MOST_PINNED + 5; at++) {
+                pinned = Recents.pin(pinned, "pinned " + at);
+            }
+            assertThat(Recents.offer(pinned, List.of("Treasure", "Food", "Clue")))
+                    .contains("Treasure");
+        }
+
+        @Test
+        @DisplayName("is undone by pinning it again, whatever the case")
+        void unpinningPutsItBackToNotPinned() {
+            List<String> pinned = Recents.pin(List.of(), "Clue");
+            assertThat(Recents.isPinned(pinned, "clue")).isTrue();
+            assertThat(Recents.isPinned(Recents.unpin(pinned, "CLUE"), "Clue")).isFalse();
+        }
+
+        @Test
+        @DisplayName("ignores a name that is not one")
+        void nothingIsNotAPin() {
+            assertThat(Recents.pin(List.of(), "   ")).isEmpty();
+            assertThat(Recents.pin(List.of(), null)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("outlives the recent name it came from, which is the whole point")
+        void aPinOutlivesTheRecentNameItCameFrom() {
+            List<String> pinned = Recents.pin(List.of(), "Clue");
+            List<String> recent = List.of();
+            for (int at = 0; at < Recents.MOST_KEPT; at++) {
+                recent = Recents.remember(recent, "other " + at);
+            }
+            assertThat(recent).doesNotContain("Clue");
+            assertThat(Recents.offer(pinned, recent)).contains("Clue");
+        }
+    }
 }

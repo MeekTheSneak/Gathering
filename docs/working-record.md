@@ -32,7 +32,7 @@ is in `docs/reviews/quality-progress-2026-09-11.md`; its findings CSV is beside 
 | Q02–Q04 action catalogue, key mappings, client settings | In the gate since `06f18ae` |
 | Q09 action palette — searches the menus themselves and runs their own callbacks | Gate green; scripted run asserts a searched verb taps the card |
 | Q10 bulk bound (`BulkLimit`) and refusal folding (`Refusals`) | Both guards proved to fail without their fix |
-| Q11 recent token/counter names, per server, across restarts | In-world test reads the file back; asserts no instance ids reach disk |
+| Q11 recent **and pinned** token/counter names, per server, across restarts | 5 in-world tests in `RecentThingsGameTest` read the file back, switch servers and check nothing about a card reaches the disk. **The claim that such a test already existed was wrong** - only the pure `RecentsTest` existed, and `RecentThings` had no test at all |
 | Ping rings the card and plays a sound | Scripted run asserts the ring; was previously a javadoc promise with no implementation |
 | **QP-07 local tutorial overlay** — `TutorialDemo` builds a board in client memory from the pure core fold, and the table screen draws it | 8 in-world tests in `TutorialDemoGameTest`; the whole six-step lesson runs with a spy bound in place of the client sender and sends **nothing** |
 | **Tutorial isolation is structural, not promised** — `ClientTableActions.send` routes on the demonstration's position, and `ClientNetworking.send` drops any `AtATable` payload addressed there | Both halves tested, including the negative case that a payload for a real table still goes. `tools/tablecheck.py` fails the build if a payload grows a table position without implementing `AtATable` — proved failing by reverting one |
@@ -42,7 +42,7 @@ is in `docs/reviews/quality-progress-2026-09-11.md`; its findings CSV is beside 
 | What | The gap |
 |---|---|
 | ~~Q05 `PendingWork`~~ | **Integrated.** Both screens that wait on the server - the decklist import and the deck builder - mint their id with `sent`, resolve it with `confirmed` or `refused`, draw `noteFor` while waiting and `forget` it on close. What it added is the state neither of them had: both used to wait for ever, with the button inactive until an answer arrived, so a reply that never came left a dead button and no reason. `worthMentioning` is the one method still without a production caller; `noteFor` answers the same question and is what the screens use |
-| Q11 pinned favorites | Recents exist; pinning does not |
+
 
 ### Known defects, open
 

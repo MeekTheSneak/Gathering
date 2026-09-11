@@ -36,6 +36,16 @@ public final class RecentThings {
     private static final String COUNTERS = "counters";
 
     /**
+     * The pinned names, kept on their own lines.
+     * <p>A separate line rather than a mark on the existing one, because the two lists mean
+     * different things and are bounded differently: one is what happened, the other is what
+     * somebody said they always want. Writing them together would mean a file where deleting
+     * a recent name could silently unpin it.
+     */
+    private static final String PINNED_TOKENS = "tokens_pinned";
+    private static final String PINNED_COUNTERS = "counters_pinned";
+
+    /**
      * A ceiling on how many servers are remembered at all.
      * <p>One line per server this player has ever joined would otherwise grow for as long as
      * they play. Past this, the file is left alone rather than added to: losing the offer of a
@@ -157,6 +167,77 @@ public final class RecentThings {
         }
     }
 
+    /** The token names this player pinned on this server, in the order they pinned them. */
+    public static List<String> pinnedTokens() {
+        return read(keyFor(PINNED_TOKENS));
+    }
+
+    /** The counter names this player pinned on this server. */
+    public static List<String> pinnedCounters() {
+        return read(keyFor(PINNED_COUNTERS));
+    }
+
+    /**
+     * The row of token names to offer: pinned first, then recent, no name twice.
+     * <p>The thing every screen should ask for, rather than either list on its own.
+     */
+    public static List<String> tokenOffers() {
+        return Recents.offer(pinnedTokens(), tokens());
+    }
+
+    /** The same for counters. */
+    public static List<String> counterOffers() {
+        return Recents.offer(pinnedCounters(), counters());
+    }
+
+    /** Whether this token name is pinned on this server. */
+    public static boolean tokenIsPinned(String name) {
+        return Recents.isPinned(pinnedTokens(), name);
+    }
+
+    /** Whether this counter name is pinned on this server. */
+    public static boolean counterIsPinned(String name) {
+        return Recents.isPinned(pinnedCounters(), name);
+    }
+
+    /** Pins a token name, or unpins it if it was already pinned. */
+    public static void toggleTokenPin(String name) {
+        togglePin(keyFor(PINNED_TOKENS), name);
+    }
+
+    /** Pins a counter name, or unpins it if it was already pinned. */
+    public static void toggleCounterPin(String name) {
+        togglePin(keyFor(PINNED_COUNTERS), name);
+    }
+
+    /**
+     * One press does both, because there is one control and two states.
+     * <p>The bound is the pinned list's own, so pinning a fifth name drops the first rather
+     * than refusing - see {@link Recents#pin}.
+     */
+    private static void togglePin(String key, String name) {
+        load();
+        List<String> had = LINES.getOrDefault(key, List.of());
+        List<String> next = Recents.isPinned(had, name)
+                ? Recents.unpin(had, name)
+                : Recents.pin(had, name);
+        if (next.equals(had)) {
+            return;
+        }
+        if (!LINES.containsKey(key) && LINES.size() >= MOST_SERVERS) {
+            return;
+        }
+        if (next.isEmpty()) {
+            // An empty line is not written out, so it is not kept in memory either - the two
+            // have to agree or a restart is a different state from the one before it.
+            LINES.remove(key);
+        } else {
+            LINES.put(key, next);
+        }
+        unsaved = true;
+        sinceChanged = 0;
+    }
+
     private static List<String> read(String key) {
         load();
         return LINES.getOrDefault(key, List.of());
@@ -231,7 +312,9 @@ public final class RecentThings {
         StringBuilder text = new StringBuilder();
         text.append("# The token and counter names you use most, per server.\n");
         text.append("# Names only, and at most ").append(Recents.MOST_KEPT)
-                .append(" of each. Safe to delete.\n\n");
+                .append(" of each. Safe to delete.\n");
+        text.append("# The _pinned lines are the ones you asked to keep, at most ")
+                .append(Recents.MOST_PINNED).append(" of each.\n\n");
         List<String> keys = new ArrayList<>(LINES.keySet());
         java.util.Collections.sort(keys);
         for (String key : keys) {

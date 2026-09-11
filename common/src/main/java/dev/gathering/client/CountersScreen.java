@@ -185,7 +185,18 @@ public final class CountersScreen extends ChildScreen {
                     SeatState.Counters.EXPERIENCE);
         });
         Map<String, Integer> already = current();
-        for (String name : namedAtThisTable()) {
+        // What this player has pinned or used lately, before what happens to be on this table.
+        // These were being written to disk on every custom counter and then read by nobody:
+        // the whole point of remembering the word somebody typed is that the next table
+        // playing that set is a press rather than the word typed again, and that never
+        // happened, because the button list was built from the fixed set and the board alone.
+        //
+        // Ahead of the table's own names rather than after them, because a name already on
+        // this table is one press away on its own row with its count on it; a remembered one
+        // is the one with nowhere else to be reached from.
+        List<String> wanted = new ArrayList<>(RecentThings.counterOffers());
+        wanted.addAll(namedAtThisTable());
+        for (String name : wanted) {
             if (shown.size() >= MOST_BUTTONS) {
                 break;
             }

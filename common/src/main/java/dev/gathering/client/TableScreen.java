@@ -4434,10 +4434,16 @@ public final class TableScreen extends Screen {
         // The ones this player keeps making, on this server, one press each. Built with
         // Entry.of rather than entry(...) because the label carries a name - which is also
         // what correctly keeps them out of the palette's search. See ActionPalette.
-        for (String token : RecentThings.tokens()) {
+        for (String token : RecentThings.tokenOffers()) {
             entries.add(ContextMenu.Entry.of(
                     Component.translatable("menu.gathering.table.make_this_token", token),
                     () -> makeToken(token, 1)));
+        }
+        // Recency is a good guess and a poor promise: the token a deck makes every turn needs
+        // no help staying on the row, and the one it makes twice a game has fallen off the end
+        // by the time it is wanted. This is where somebody says which of those they have.
+        if (!RecentThings.tokenOffers().isEmpty() || !RecentThings.counterOffers().isEmpty()) {
+            entries.add(entry("pin_names", this::askWhatToPin));
         }
         // Blank stock and a pen, for every table state the mod has no feature for: the
         // monarch, the initiative, the ring tempting you, whatever the next set calls its
@@ -4695,6 +4701,35 @@ public final class TableScreen extends Screen {
                 Component.translatable("screen.gathering.amount.basics", name), 1,
                 count -> ClientNetworking.send(new FetchBasicPayload(table, land, count)),
                 this));
+    }
+
+    /**
+     * Which remembered name to pin, or unpin.
+     * <p>One list with both kinds on it, because it is one question - "which of these do I
+     * always want?" - and two screens to answer it would be two places to look. Each row says
+     * which state pressing it leads to rather than which state it is in, since a row that
+     * reads as a label is a row nobody presses.
+     */
+    private void askWhatToPin() {
+        List<ChoiceScreen.Option> rows = new ArrayList<>();
+        for (String token : RecentThings.tokenOffers()) {
+            boolean pinned = RecentThings.tokenIsPinned(token);
+            rows.add(new ChoiceScreen.Option(
+                    Component.translatable(pinned
+                            ? "screen.gathering.pin.unpin_token"
+                            : "screen.gathering.pin.pin_token", token),
+                    () -> RecentThings.toggleTokenPin(token)));
+        }
+        for (String counter : RecentThings.counterOffers()) {
+            boolean pinned = RecentThings.counterIsPinned(counter);
+            rows.add(new ChoiceScreen.Option(
+                    Component.translatable(pinned
+                            ? "screen.gathering.pin.unpin_counter"
+                            : "screen.gathering.pin.pin_counter", counter),
+                    () -> RecentThings.toggleCounterPin(counter)));
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.pin.which"), rows, this));
     }
 
     private void openCounters(CountersScreen.Subject subject) {

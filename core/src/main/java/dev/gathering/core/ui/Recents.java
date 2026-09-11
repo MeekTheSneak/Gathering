@@ -52,7 +52,99 @@ public final class Recents {
     private static final char BETWEEN = '|';
     private static final char ESCAPE = '\\';
 
+    /**
+     * How many names may be pinned.
+     * <p>Fewer than are remembered, and deliberately: a pinned name is one somebody said they
+     * always want, and a row that is all pins is a row with no room left to notice what they
+     * have actually been using. Four leaves at least half the row for what happened recently,
+     * whatever anybody pins.
+     */
+    public static final int MOST_PINNED = 4;
+
     private Recents() {
+    }
+
+    /**
+     * Pins a name, so it is offered whether or not it was used lately.
+     * <p>Recency is a good guess and a poor promise. A deck that makes a Treasure every turn
+     * needs no help being remembered; the one that makes a Clue twice a game is the one that
+     * has fallen off the end of the row by the time it is wanted. Pinning is how somebody says
+     * which of those they have, and it is the only thing here that is not a guess.
+     * <p>At the end rather than the front: pins are a set somebody assembled, and a row that
+     * reordered itself every time one was added would be a row nobody can learn.
+     *
+     * @return a new list; the one passed in is not touched
+     */
+    public static List<String> pin(List<String> pinned, String name) {
+        String wanted = tidy(name);
+        if (wanted.isEmpty()) {
+            return pinned == null ? List.of() : List.copyOf(pinned);
+        }
+        List<String> next = new ArrayList<>();
+        if (pinned != null) {
+            for (String already : pinned) {
+                String kept = tidy(already);
+                if (!kept.isEmpty() && !kept.equalsIgnoreCase(wanted)) {
+                    next.add(kept);
+                }
+            }
+        }
+        next.add(wanted);
+        // The oldest pin makes room, the same rule the recents use, because the alternative is
+        // refusing to pin and saying so - a message about a limit nobody knew about.
+        while (next.size() > MOST_PINNED) {
+            next.removeFirst();
+        }
+        return List.copyOf(next);
+    }
+
+    /** Unpins a name. The same as {@link #forget}, said about the other list. */
+    public static List<String> unpin(List<String> pinned, String name) {
+        return forget(pinned, name);
+    }
+
+    /** Whether this name is pinned, compared the way the rest of this class compares names. */
+    public static boolean isPinned(List<String> pinned, String name) {
+        String wanted = tidy(name);
+        if (pinned == null || wanted.isEmpty()) {
+            return false;
+        }
+        for (String already : pinned) {
+            if (tidy(already).equalsIgnoreCase(wanted)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The row to offer: what was pinned, then what was used lately, with no name twice.
+     * <p>Pinned first because that is what pinning means. Bounded to {@link #MOST_KEPT} in
+     * total, so the row is the same length it has always been however many pins there are -
+     * a menu that grows a row every time somebody pins something is a menu that punishes
+     * using the feature.
+     */
+    public static List<String> offer(List<String> pinned, List<String> recent) {
+        List<String> row = new ArrayList<>();
+        if (pinned != null) {
+            for (String name : pinned) {
+                addTo(row, name);
+                if (row.size() >= MOST_PINNED) {
+                    break;
+                }
+            }
+        }
+        if (recent != null) {
+            for (String name : recent) {
+                if (row.size() >= MOST_KEPT) {
+                    break;
+                }
+                // addTo already refuses a name the row has, without regard to case, which is
+                // what stops a pinned name appearing a second time as a recent one.
+                addTo(row, name);
+            }
+        }
+        return List.copyOf(row);
     }
 
     /**
