@@ -951,32 +951,16 @@ public final class TableScreen extends Screen {
         ClientTableRolls.forget();
         // A frame that arrives after the screen has gone must not put it back up.
         ClientReplay.stop();
-        if (demo) {
-            // The third door out, and the one nothing on the screen leads to: Escape closes a
-            // screen without pressing anything on it, and so does the world going away. Both
-            // used to leave a demonstration running with nobody looking at it, and leave the
-            // player recorded as having been offered a lesson they were in the middle of.
-            //
-            // Idempotent, and deliberately so: leaving through the Exit button has already
-            // done all of this, and Tutorial.stop on a lesson that is over does nothing. What
-            // it must not do is record finishing - stop writes down which of the two things
-            // happened, so an abandoned lesson is written as skipped, which is what it was.
-            Tutorial.stop();
-            TutorialDemo.clear();
-        }
         super.removed();
     }
 
     // ------------------------------------------------------------- the board
 
     private Optional<GameView> view() {
-        if (demo) {
-            // Never ClientTableState, even though a real table may be sending boards to it
-            // the whole time this is open. Those boards are still arriving and are still this
-            // player's to see the moment they leave; they simply are not what is being drawn,
-            // and so cannot advance a step of the lesson.
-            return TutorialDemo.board();
-        }
+        // ClientTableState answers for the demonstration too - its board is filed at a
+        // position no table can occupy, so asking by position is the whole question. A real
+        // table's boards go on arriving the whole time this is open and are still this
+        // player's to see the moment they leave; they simply are not filed here.
         return replay ? ClientReplay.frame() : ClientTableState.viewOf(table);
     }
 
@@ -1025,6 +1009,7 @@ public final class TableScreen extends Screen {
         if (replay) {
             ClientReplay.tick();
         }
+        dropAStaleArrangement();
         if (tickTheTutorial()) {
             // The lesson ended and has already put the next screen up. This one is not the
             // screen any more, and the rest of this method is about a board it no longer has:
@@ -4889,12 +4874,56 @@ public final class TableScreen extends Screen {
             arranging = List.of();
             return;
         }
-        for (dev.gathering.core.ui.ArrangeSelection.Spot spot : arranging) {
+        // Filtered against the board as it stands, not as it stood when the plan was drawn.
+        // A card moved to a graveyard between the preview and the press is still named by the
+        // plan, and sending its move would put it back on the battlefield - the convenience
+        // tool undoing a real decision. The tick below drops a stale preview outright; this is
+        // the belt for the frames between the last check and the press.
+        for (dev.gathering.core.ui.ArrangeSelection.Spot spot
+                : dev.gathering.core.ui.ArrangeSelection.stillStanding(
+                        arranging, onMyBattlefield(me))) {
             send(new GameEvent.CardMoved(me, spot.id(),
                     ZoneRef.of(me, Zone.BATTLEFIELD),
                     dev.gathering.core.game.Placement.at(spot.to())));
         }
         arranging = List.of();
+    }
+
+    /**
+     * Which of this player's cards are on their battlefield right now.
+     * <p>The set a plan is checked against. Only visible ones, because only a visible card has
+     * an id this client could have planned a move for.
+     */
+    private java.util.Set<CardInstanceId> onMyBattlefield(SeatId me) {
+        GameView board = view().orElse(null);
+        if (board == null || me == null) {
+            return java.util.Set.of();
+        }
+        java.util.Set<CardInstanceId> here = new LinkedHashSet<>();
+        for (CardView card : board.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible) {
+                here.add(visible.id());
+            }
+        }
+        return here;
+    }
+
+    /**
+     * Drops a tidy that no longer describes the board.
+     * <p>A preview is a promise about cards where they are now. If one of them has gone to a
+     * graveyard, been exiled or changed hands since, the promise is not true any more and the
+     * honest thing is to stop showing it - rather than to apply the rest and quietly do
+     * something the player did not see drawn.
+     */
+    private void dropAStaleArrangement() {
+        if (arranging.isEmpty()) {
+            return;
+        }
+        SeatId me = mySeat().orElse(null);
+        if (me == null || dev.gathering.core.ui.ArrangeSelection.isStale(
+                arranging, onMyBattlefield(me))) {
+            arranging = List.of();
+        }
     }
 
     /**
@@ -6366,6 +6395,25 @@ public final class TableScreen extends Screen {
 
     @Override
     public void onClose() {
+        if (demo) {
+            // The door nothing on the screen leads to: Escape, and the world going away.
+            // Without this a demonstration ran on with nobody looking at it, and the player
+            // was recorded as having been offered a lesson they were in the middle of.
+            //
+            // Here rather than in removed(), which was the first attempt and was wrong.
+            // Minecraft calls removed() whenever the screen is replaced - including when this
+            // screen opens one of its own children - so opening the counters editor from the
+            // lesson's own card menu tore the lesson down on the way in. An audit reproduced
+            // it in a real client: demo running=false, screen=CountersScreen. onClose is the
+            // one that means "this player is leaving", which is the thing being asked about.
+            //
+            // Idempotent: leaving through the Exit button has already done this, and
+            // Tutorial.stop on a lesson that is over does nothing. What it must not do is
+            // record finishing - stop writes down which of the two happened, so an abandoned
+            // lesson is written as skipped, which is what it was.
+            Tutorial.stop();
+            TutorialDemo.clear();
+        }
         ClientHoverState.clear();
         TableCameraView.release();
         TablePointer.forget();

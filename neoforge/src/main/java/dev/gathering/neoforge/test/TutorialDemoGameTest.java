@@ -419,4 +419,84 @@ public final class TutorialDemoGameTest {
             helper.succeed();
         });
     }
+    /**
+     * The counter editor's own lookups find the lesson's board and seat, and its send lands.
+     * <p>The lesson's fourth step is "put a counter on it", and the ordinary route to it is the
+     * card menu's Counters row. That screen does not take a board; it looks one up by table
+     * position through {@code ClientTableState}, and looks its seat up the same way. While
+     * those answered only for real tables, the editor found no seat and sent nothing, and found
+     * no board and closed itself on the next tick - so the step could not be completed the way
+     * a player reaches it. An audit reproduced it in a real client: "sample +1/+1 counters=0;
+     * expected 1".
+     * <p>This drives the same seat resolution and the same send rather than the screen, because
+     * neither a screen nor {@code ClientTableState} can be loaded on a dedicated server - both
+     * reach {@code Screen}. So the lookup's own wiring is checked by the audit's client probe,
+     * and what it decides - that a counter aimed at the lesson lands on the lesson and reaches
+     * no server - is checked here.
+     */
+    @GameTest(template = "empty")
+    public static void thecountereditorslookupsfindthelesson(GameTestHelper helper) {
+        restoring(() -> {
+            TutorialDemo.begin();
+            BlockPos where = TutorialDemo.table();
+
+            // The seat as a child screen resolves it: off the board's own viewer, which is
+            // what ClientTableState.seatAt returns. Asked of the board directly because that
+            // class cannot be loaded here - it reaches Screen - so the lookup itself is
+            // checked by the audit's client probe and the behaviour it decides is checked here.
+            SeatId seat = TutorialDemo.board()
+                    .map(GameView::viewer)
+                    .filter(dev.gathering.core.game.visibility.Viewer.Seated.class::isInstance)
+                    .map(dev.gathering.core.game.visibility.Viewer.Seated.class::cast)
+                    .map(dev.gathering.core.game.visibility.Viewer.Seated::seat)
+                    .orElse(null);
+            if (seat == null) {
+                helper.fail("the lesson's board named no seat, so a child screen asking for one"
+                        + " would send nothing");
+                return;
+            }
+            if (!seat.equals(LEARNER)) {
+                helper.fail("the lesson's seat came back as " + seat + " rather than the learner");
+                return;
+            }
+
+            // Get a card onto the battlefield, the way the lesson does.
+            TutorialDemo.submit(new GameEvent.CardsDrawn(LEARNER, LEARNER, 1));
+            CardView.Visible inHand =
+                    firstVisibleIn(TutorialDemo.board().orElseThrow(), Zone.HAND).orElse(null);
+            if (inHand == null) {
+                helper.fail("nothing in hand to play");
+                return;
+            }
+            TutorialDemo.submit(new GameEvent.CardMoved(LEARNER, inHand.id(),
+                    ZoneRef.of(LEARNER, Zone.BATTLEFIELD), Placement.BOTTOM));
+            CardView.Visible onTable =
+                    firstVisibleIn(TutorialDemo.board().orElseThrow(), Zone.BATTLEFIELD)
+                            .orElse(null);
+            if (onTable == null) {
+                helper.fail("nothing on the battlefield to count");
+                return;
+            }
+
+            // And exactly what the editor sends, through the production path.
+            List<CustomPacketPayload> sent = watchingTheWire(() ->
+                    ClientTableActions.send(where,
+                            new GameEvent.CounterChanged(seat, onTable.id(), "+1/+1", 1)));
+
+            if (!sent.isEmpty()) {
+                helper.fail("the counter editor put " + sent.size() + " payload(s) on the wire"
+                        + " from inside the lesson");
+                return;
+            }
+            CardView.Visible after =
+                    firstVisibleIn(TutorialDemo.board().orElseThrow(), Zone.BATTLEFIELD)
+                            .orElse(null);
+            int counters = after == null ? 0 : after.counters().getOrDefault("+1/+1", 0);
+            if (counters != 1) {
+                helper.fail("the sample card has " + counters + " +1/+1 counters; expected 1");
+                return;
+            }
+            helper.succeed();
+        });
+    }
 }

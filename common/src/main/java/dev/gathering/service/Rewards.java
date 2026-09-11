@@ -34,10 +34,12 @@ import java.util.stream.Stream;
  *       live one and swapped at the end. Nothing ever sees half a reload, and a grant that
  *       arrives while somebody is editing files gets the whole of the last good set rather
  *       than whatever had been parsed so far.
- *   <li><b>A bad reload changes nothing.</b> If the folder will not read, the previous
- *       snapshot stays exactly as it was. The alternative - an empty set of rewards because
- *       somebody left a trailing comma in one file - turns a typo into a server where nothing
- *       is granted and nobody knows why.
+ *   <li><b>A bad reload changes nothing.</b> If <em>anything</em> in the folder will not
+ *       read - the listing, a file's JSON, or a field's bounds - the previous snapshot stays
+ *       exactly as it was and the problems are reported. This once skipped the bad file and
+ *       published the rest, which looks like resilience and is the opposite: the file somebody
+ *       is halfway through editing is the one whose reward they were using, so a typo silently
+ *       removed a working definition.
  *   <li><b>A missing dependency is not an error.</b> A reward naming a mod nobody installed
  *       loads and sits there inert. One pack ships rewards for four boss mods and expects two
  *       to be installed; refusing would punish the packs being careful.
@@ -178,10 +180,27 @@ public final class Rewards {
             return loaded.size();
         }
 
+        if (!problems.isEmpty()) {
+            // The documented contract is all or nothing, and this is the half that was
+            // missing. Skipping a file that will not parse and publishing the rest looks like
+            // resilience and is the opposite: the file somebody is halfway through editing is
+            // exactly the one whose reward they were using, so a typo in it silently removed a
+            // working definition and left the server running without it.
+            //
+            // An unrelated broken file beside an untouched good one kept working before this,
+            // which is what the old test proved - and it is not the same claim. Damaging the
+            // working file itself is the case that matters, and an external audit reproduced
+            // it: audit_existing present=false after one bad edit.
+            lastProblems = List.copyOf(problems);
+            LOGGER.warn("The rewards folder has {} problem(s); keeping the {} definition(s)"
+                    + " that were already loaded", problems.size(), loaded.size());
+            return loaded.size();
+        }
+        // Clean, so this is the whole truth about the folder - including a definition somebody
+        // deliberately deleted, which has to disappear rather than linger from the last read.
         loaded = Map.copyOf(built);
-        lastProblems = List.copyOf(problems);
-        LOGGER.info("Loaded {} reward definition(s) with {} problem(s)",
-                built.size(), problems.size());
+        lastProblems = List.of();
+        LOGGER.info("Loaded {} reward definition(s)", built.size());
         return built.size();
     }
 

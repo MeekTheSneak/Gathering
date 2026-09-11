@@ -164,6 +164,30 @@ Paste results here from the run that produced them. Nothing in this section is f
 - No graphical run has exercised a *remapped* key. QP-05 exists because nothing ever rebinds
   anything before pressing it.
 
+## The follow-up audit, and what it found
+
+An external audit of `9fa4f737` ran the graphical client this session could not, and found
+four defects - every one of them in work done this session. All four are fixed; the review is
+kept at `docs/reviews/quality-followup-2026-09-11.md` with its screenshot.
+
+| | What was wrong | Fixed by |
+|---|---|---|
+| **QF-01** | Opening the counters editor from the lesson **tore the lesson down on the way in**. `removed()` fires whenever a screen is replaced, including by its own child, so a normal route to the lesson's fourth step abandoned it. The editor also looked its board and seat up through `ClientTableState`, which answered only for real tables - so it found no seat, sent nothing, and closed itself on the next tick | Cleanup moved to `onClose()`, which means "this player is leaving"; `ClientTableState.viewOf` answers for the demonstration, so every screen keyed by a position agrees |
+| **QF-02** | Applying a **stale** Tidy preview moved a card back out of the graveyard. The plan stored ids and positions and rechecked nothing | `ArrangeSelection.isStale` / `stillStanding` in core; the preview is dropped on the tick when a planned card leaves, and filtered again at the press for the frames in between |
+| **QF-03** | A malformed edit to a **working** reward file discarded that reward. `readInto` skipped the bad file and `reload` published the rest, against the documented all-or-nothing contract | Nothing is published unless the whole folder reads; a clean reload still drops a deliberately deleted definition |
+| **QF-04** | Text and control scales are independent, and the card menu sized its rows from the control scale alone - so at text 200% with controls 75% the rows **drew through one another**. Columns were measured unscaled too, so short labels rendered at full size and long ones were squeezed: one menu in three sizes | `InterfaceScale.rowHeightFor` in core, tested across every pair of scales; columns measured at the size text is actually drawn; the row height is decided once per menu so measuring, drawing and picking cannot disagree |
+
+**The lesson, again.** Three of these four are the same shape as the ones found earlier in the
+session: the gate was green, the tests passed, and the thing was broken where a player would
+meet it. QF-01 in particular is a lifecycle hook doing the right thing at the wrong moments -
+exactly what the workflow's "check every exit" step exists to catch, and it did not, because I
+checked which exits existed and not which ones `removed()` actually fires on.
+
+**What this does not prove.** Only QF-03's fix is verified end to end by a test I can run.
+QF-01's lookup and QF-04's rendering are verified by rules extracted into core and by
+reasoning; the client probes that found them need a display. The audit's own harnesses are the
+way to confirm them, and they are in the bundle.
+
 ## What is left, and why each one needs you
 
 Nothing below is blocked on work anybody could do in this repository. Each is blocked on

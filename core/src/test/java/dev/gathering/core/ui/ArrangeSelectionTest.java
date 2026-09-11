@@ -153,4 +153,65 @@ class ArrangeSelectionTest {
             assertThat(spots).doesNotHaveDuplicates();
         }
     }
+    @Nested
+    @DisplayName("a plan that has gone stale")
+    class Stale {
+
+        private static java.util.Set<CardInstanceId> onTheBattlefield(int... ids) {
+            java.util.Set<CardInstanceId> here = new java.util.HashSet<>();
+            for (int id : ids) {
+                here.add(CardInstanceId.of(id));
+            }
+            return here;
+        }
+
+        @Test
+        @DisplayName("is noticed when one of its cards has left the battlefield")
+        void noticesACardThatLeft() {
+            // The audit's case: two cards planned, one sent to the graveyard before the
+            // preview was agreed to. Applying it as drawn would put that card back.
+            List<ArrangeSelection.Spot> plan =
+                    ArrangeSelection.plan(List.of(at(1, 100, 100), at(2, 500, 100)));
+            assertThat(ArrangeSelection.isStale(plan, onTheBattlefield(1, 2))).isFalse();
+            assertThat(ArrangeSelection.isStale(plan, onTheBattlefield(1))).isTrue();
+        }
+
+        @Test
+        @DisplayName("moves only the cards that are still there")
+        void movesOnlyWhatIsStillThere() {
+            List<ArrangeSelection.Spot> plan =
+                    ArrangeSelection.plan(List.of(at(1, 100, 100), at(2, 500, 100)));
+            List<ArrangeSelection.Spot> kept =
+                    ArrangeSelection.stillStanding(plan, onTheBattlefield(1));
+            assertThat(kept).hasSize(1);
+            assertThat(kept.getFirst().id()).isEqualTo(CardInstanceId.of(1));
+        }
+
+        @Test
+        @DisplayName("moves nothing at all when the board is unknown")
+        void nothingWhenTheBoardIsUnknown() {
+            // A screen with no board must not fall back to "move everything where the old plan
+            // said", which is the failure this whole pair exists to prevent.
+            List<ArrangeSelection.Spot> plan =
+                    ArrangeSelection.plan(List.of(at(1, 100, 100), at(2, 500, 100)));
+            assertThat(ArrangeSelection.stillStanding(plan, null)).isEmpty();
+            assertThat(ArrangeSelection.isStale(plan, null)).isTrue();
+        }
+
+        @Test
+        @DisplayName("is not stale when there was no plan to begin with")
+        void noPlanIsNotStale() {
+            assertThat(ArrangeSelection.isStale(List.of(), onTheBattlefield())).isFalse();
+            assertThat(ArrangeSelection.isStale(null, onTheBattlefield())).isFalse();
+        }
+
+        @Test
+        @DisplayName("keeps every card when nothing has moved")
+        void unchangedBoardKeepsEverything() {
+            List<ArrangeSelection.Spot> plan = ArrangeSelection.plan(
+                    List.of(at(1, 100, 100), at(2, 500, 100), at(3, 900, 800)));
+            assertThat(ArrangeSelection.stillStanding(plan, onTheBattlefield(1, 2, 3)))
+                    .isEqualTo(plan);
+        }
+    }
 }

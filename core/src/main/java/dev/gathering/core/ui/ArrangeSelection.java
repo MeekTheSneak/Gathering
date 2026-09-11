@@ -124,6 +124,55 @@ public final class ArrangeSelection {
     }
 
     /**
+     * Whether a plan still describes the board it was made for.
+     * <p>A preview is a promise about cards where they are now. Between making one and
+     * agreeing to it, somebody can move a card to a graveyard - their own hand can, and at a
+     * table of four so can somebody else - and the plan still names it, still says where it
+     * should sit on the battlefield, and applying it would <b>put it back</b>. That is not
+     * tidying; it is the convenience tool undoing a real decision, and an audit reproduced it:
+     * zero cards in the graveyard afterwards, expected one.
+     * <p>Nothing about the rules stops it, and nothing should: the mod moves cards where it is
+     * asked. So the check belongs where the asking is decided.
+     *
+     * @param plan    what was promised
+     * @param stillOn the cards currently on the battlefield this plan is about
+     */
+    public static boolean isStale(List<Spot> plan, java.util.Set<CardInstanceId> stillOn) {
+        if (plan == null || plan.isEmpty()) {
+            return false;
+        }
+        if (stillOn == null) {
+            return true;
+        }
+        for (Spot spot : plan) {
+            if (!stillOn.contains(spot.id())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The part of a plan that still describes cards on the battlefield.
+     * <p>The belt to {@link #isStale}'s braces. A board can change between the last frame that
+     * checked and the moment a key is pressed, so the moves that actually go out are filtered
+     * one more time - a card that has left is simply not moved, rather than dragged back.
+     */
+    public static List<Spot> stillStanding(
+            List<Spot> plan, java.util.Set<CardInstanceId> stillOn) {
+        if (plan == null || plan.isEmpty() || stillOn == null) {
+            return List.of();
+        }
+        List<Spot> kept = new ArrayList<>();
+        for (Spot spot : plan) {
+            if (stillOn.contains(spot.id())) {
+                kept.add(spot);
+            }
+        }
+        return List.copyOf(kept);
+    }
+
+    /**
      * Where the {@code index}th of {@code howMany} sits along an axis {@code usable} long.
      * <p>One of them goes in the middle rather than at the start: a lone row pinned to the top
      * of a mat reads as a mistake, and the arithmetic for "evenly spaced" divides by zero.

@@ -44,4 +44,28 @@ public final class InterfaceScale {
     public static float asFraction(int percent) {
         return sane(percent) / 100f;
     }
+
+    /**
+     * How tall a row has to be to hold its writing, at whatever sizes the player has chosen.
+     * <p>The text and control scales are independent on purpose - large text with small
+     * controls is a perfectly ordinary pair of wishes, and somebody who needs one often does
+     * not want the other. A row sized from the control scale alone then has text taller than
+     * itself, and the rows draw straight through one another: an audit photographed a card
+     * menu at text 200% with controls 75% with "Turn right" printed over "Freeze (won't
+     * untap)", entirely unreadable.
+     * <p>So a row is the larger of the two answers, never the control one alone. It grows when
+     * either scale does, which is what makes the two safe to offer separately.
+     *
+     * @param baseRow        the row height the interface ships with
+     * @param lineHeight     the font's own line height
+     * @param controlPercent the player's control size
+     * @param textScale      the player's text size, as a multiplier
+     * @param padding        clear space above and below the writing
+     */
+    public static int rowHeightFor(
+            int baseRow, int lineHeight, int controlPercent, float textScale, int padding) {
+        int forTheControls = Math.round(baseRow * asFraction(controlPercent));
+        int forTheText = Math.round(lineHeight * Math.max(0f, textScale)) + padding;
+        return Math.max(1, Math.max(forTheControls, forTheText));
+    }
 }

@@ -221,4 +221,87 @@ public final class RewardsGameTest {
         }
         helper.succeed();
     }
+
+    /**
+     * Damaging the file a working reward lives in keeps the reward that was already loaded.
+     * <p>From the September follow-up audit, which reproduced it. The test above adds an
+     * unrelated broken file beside an untouched good one, which proves the good file can be
+     * read again and is <em>not</em> the same claim: the file somebody is halfway through
+     * editing is exactly the one whose reward they were using.
+     */
+    @GameTest(template = "empty")
+    public static void amalformededittoaworkingfilekeepsit(GameTestHelper helper) {
+        try {
+            tidyUp();
+            write("working.json", rewardJson("still_granted", ""));
+            Rewards.reload();
+            var before = Rewards.find("still_granted").orElse(null);
+            var snapshot = Rewards.all();
+            if (before == null) {
+                helper.fail("the fixture did not load in the first place");
+                return;
+            }
+
+            // The same file, mid-edit.
+            write("working.json", "{\"id\": \"still_granted\", \"set\": ");
+            Rewards.reload();
+
+            if (Rewards.problems().isEmpty()) {
+                helper.fail("a malformed edit was accepted without a word");
+                return;
+            }
+            if (Rewards.find("still_granted").filter(before::equals).isEmpty()) {
+                helper.fail("a malformed edit discarded the reward that was working: present="
+                        + Rewards.find("still_granted").isPresent());
+                return;
+            }
+            if (!snapshot.equals(Rewards.all())) {
+                helper.fail("a malformed edit changed the snapshot rather than keeping it");
+                return;
+            }
+
+            // And correcting it takes effect, rather than the old snapshot sticking for ever.
+            write("working.json", rewardJson("still_granted", ""));
+            Rewards.reload();
+            if (!Rewards.problems().isEmpty()) {
+                helper.fail("a corrected file was still complained about: " + Rewards.problems());
+                return;
+            }
+            helper.succeed();
+        } catch (IOException couldNotWrite) {
+            helper.fail("could not write a reward file: " + couldNotWrite.getMessage());
+        } finally {
+            tidyUp();
+        }
+    }
+
+    /**
+     * A clean reload with a file deleted drops that reward.
+     * <p>The other half of all-or-nothing. Keeping the previous snapshot when something is
+     * wrong must not turn into keeping a definition somebody deliberately removed - otherwise
+     * the only way to retire a reward would be to restart the server.
+     */
+    @GameTest(template = "empty")
+    public static void adeletedrewardgoesawayonacleanreload(GameTestHelper helper) {
+        try {
+            tidyUp();
+            write("going.json", rewardJson("temporary", ""));
+            Rewards.reload();
+            if (!Rewards.all().containsKey("temporary")) {
+                helper.fail("the fixture did not load");
+                return;
+            }
+            Files.delete(folder().resolve("going.json"));
+            Rewards.reload();
+            if (Rewards.all().containsKey("temporary")) {
+                helper.fail("a deliberately deleted reward survived a clean reload");
+                return;
+            }
+            helper.succeed();
+        } catch (IOException couldNotWrite) {
+            helper.fail("could not work with the reward folder: " + couldNotWrite.getMessage());
+        } finally {
+            tidyUp();
+        }
+    }
 }

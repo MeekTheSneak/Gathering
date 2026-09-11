@@ -23,7 +23,7 @@ public final class ContextMenu {
     private static final int PADDING = 4;
     /**
      * How tall a row is at the size the menu shipped at.
-     * <p>Read through {@link #rowHeight()} rather than used directly: a player may ask for
+     * <p>Read through {@link #rowHeight} rather than used directly: a player may ask for
      * larger controls, and a row is the table's main hit target - every verb that is not on a
      * key is reached by pointing at one of these.
      */
@@ -38,13 +38,16 @@ public final class ContextMenu {
      * <p>Rounded to a whole pixel because rows stack, and a fractional row height would put
      * every row after the first on a different fraction of a pixel from the one above it.
      */
-    static int rowHeight() {
+    static int rowHeight(Font font) {
         // One range, in core, shared by the settings that clamp the value and the panel that
         // lays them out - see InterfaceScale. A row sized against a range the setter does not
         // share is a row that is the wrong size for exactly the values between the two.
-        return Math.max(8, Math.round(
-                ROW_HEIGHT * dev.gathering.core.ui.InterfaceScale.asFraction(
-                        ClientSettings.controlScale())));
+        // Never shorter than the writing in it - see InterfaceScale.rowHeightFor, where the
+        // rule lives so that it can be run rather than only read. A menu cannot be loaded in a
+        // test at all; the arithmetic that decides whether its rows overlap can.
+        return Math.max(8, dev.gathering.core.ui.InterfaceScale.rowHeightFor(
+                ROW_HEIGHT, font.lineHeight, ClientSettings.controlScale(),
+                GuiText.askedScale(), PADDING));
     }
     private static final int MIN_WIDTH = 70;
     private static final int SCREEN_EDGE = 4;
@@ -70,9 +73,18 @@ public final class ContextMenu {
 
     private final int columnWidth;
 
+    /**
+     * How tall a row is in this menu.
+     * <p>Worked out once, when the menu is built, and then used by the drawing and the
+     * hit-testing alike. Asked again each time, it could answer differently halfway through a
+     * frame if a setting changed - and a menu drawn at one height and picked at another is a
+     * menu where clicking a verb does a different one.
+     */
+    private final int rowHeight;
+
     private ContextMenu(
             List<Entry> entries, int x, int y, int width, int height,
-            int perColumn, int columnWidth) {
+            int perColumn, int columnWidth, int rowHeight) {
         this.entries = List.copyOf(entries);
         this.x = x;
         this.y = y;
@@ -80,6 +92,7 @@ public final class ContextMenu {
         this.height = height;
         this.perColumn = Math.max(1, perColumn);
         this.columnWidth = Math.max(1, columnWidth);
+        this.rowHeight = Math.max(1, rowHeight);
     }
 
     /**
@@ -109,8 +122,13 @@ public final class ContextMenu {
                 int shortcut = entry.shortcut() == null
                         ? 0
                         : font.width(entry.shortcut()) + SHORTCUT_GAP;
-                columnWidth = Math.max(
-                        columnWidth, font.width(entry.label()) + shortcut + PADDING * 2);
+                // Measured at the size the text will actually be drawn, not at one to one.
+                // Measured small, a short label fitted its column at full size and a long one
+                // was squeezed to fit - so one menu came out in two or three different sizes,
+                // which is the exact fault the key list already learned to avoid. See GuiText.
+                columnWidth = Math.max(columnWidth,
+                        Math.round((font.width(entry.label()) + shortcut) * GuiText.askedScale())
+                                + PADDING * 2);
             }
         }
 
@@ -119,8 +137,9 @@ public final class ContextMenu {
         // has a lot of things you can do to it, and at a GUI scale of two on a small window
         // the list is taller than the window. So it wraps into columns, which is what a long
         // menu does everywhere else and never costs an entry.
+        int rows = rowHeight(font);
         int room = Math.max(1, screenHeight - highest - SCREEN_EDGE - PADDING * 2);
-        int perColumn = Math.max(1, room / rowHeight());
+        int perColumn = Math.max(1, room / rows);
         int columns = Math.max(1, (entries.size() + perColumn - 1) / perColumn);
         if (columns > 1) {
             // Spread evenly rather than filling the first column and leaving a stub.
@@ -128,7 +147,7 @@ public final class ContextMenu {
         }
 
         int width = columnWidth * columns;
-        int height = Math.min(entries.size(), perColumn) * rowHeight() + PADDING * 2;
+        int height = Math.min(entries.size(), perColumn) * rows + PADDING * 2;
 
         int left = pointX;
         if (left + width > screenWidth - SCREEN_EDGE) {
@@ -141,7 +160,7 @@ public final class ContextMenu {
         return new ContextMenu(entries,
                 Math.max(SCREEN_EDGE, Math.min(left, screenWidth - SCREEN_EDGE - width)),
                 Math.max(highest, Math.min(top, screenHeight - SCREEN_EDGE - height)),
-                width, height, perColumn, columnWidth);
+                width, height, perColumn, columnWidth, rows);
     }
 
     public void render(GuiGraphics graphics, Font font, int mouseX, int mouseY) {
@@ -150,15 +169,15 @@ public final class ContextMenu {
         for (int index = 0; index < entries.size(); index++) {
             Entry entry = entries.get(index);
             int left = x + (index / perColumn) * columnWidth;
-            int row = y + PADDING + (index % perColumn) * rowHeight();
+            int row = y + PADDING + (index % perColumn) * rowHeight;
             if (entry.isRule()) {
                 GatheringSprites.draw(graphics, Element.MENU_RULE,
-                        left + PADDING, row + rowHeight() / 2, columnWidth - PADDING * 2, 1);
+                        left + PADDING, row + rowHeight / 2, columnWidth - PADDING * 2, 1);
                 continue;
             }
             boolean hovered = entry.enabled() && index == indexAt(mouseX, mouseY);
             if (hovered) {
-                GatheringSprites.highlight(graphics, left + 2, row, columnWidth - 4, rowHeight());
+                GatheringSprites.highlight(graphics, left + 2, row, columnWidth - 4, rowHeight);
             }
             // The row under the cursor brightens as well as lighting up, so a menu read at a
             // glance still says which line a click would take.
@@ -186,7 +205,7 @@ public final class ContextMenu {
             return -1;
         }
         int column = (pointX - x) / columnWidth;
-        int row = (pointY - y - PADDING) / rowHeight();
+        int row = (pointY - y - PADDING) / rowHeight;
         if (row < 0 || row >= perColumn) {
             return -1;
         }

@@ -117,7 +117,22 @@ public final class ClientTableState {
         }
     }
 
+    /**
+     * The board at this position, whoever is keeping it.
+     * <p>The guided first game's board is built in this client rather than sent by a server,
+     * and it is filed at a position no table can occupy - so a lookup by position is exactly
+     * the question whose answer it is, and this is where that has to be answered. Answering it
+     * only in the table screen meant every other screen opened from the table asked the real
+     * map, got nothing, and quietly did nothing: the counters editor closed itself on the next
+     * tick and refused to send a counter, so the lesson's own counter step could not be
+     * completed through the menu. An audit reproduced it in a real client.
+     * <p>Nothing is stored under that position, so nothing that walks the tables sees the
+     * demonstration. Only a lookup that names it does, which is what asking for it means.
+     */
     public static Optional<GameView> viewOf(BlockPos table) {
+        if (TutorialDemo.at(table)) {
+            return TutorialDemo.board();
+        }
         return Optional.ofNullable(BOARDS.get(table));
     }
 

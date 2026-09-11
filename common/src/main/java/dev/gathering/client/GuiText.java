@@ -106,7 +106,7 @@ public final class GuiText {
 
     /** How wide this text will actually be drawn, once fitted. */
     public static int width(Font font, Component text, int maxWidth) {
-        return Math.min(Math.round(font.width(text) * asked()), Math.max(0, maxWidth));
+        return Math.min(Math.round(font.width(text) * askedScale()), Math.max(0, maxWidth));
     }
 
     /**
@@ -118,8 +118,11 @@ public final class GuiText {
      * the size it was.
      * <p>Clamped to the range the rest of the interface is built for, because this number
      * comes out of a file somebody can edit.
+     * <p>Public because a panel has to be built big enough for the text it will hold. Measured
+     * at one to one, a short label fits its column at full size while a long one is squeezed to
+     * fit - one panel in two or three sizes, which the key list already learned to avoid.
      */
-    private static float asked() {
+    public static float askedScale() {
         return TextScale.sane(ClientSettings.textScale() / 100f);
     }
 
@@ -295,7 +298,7 @@ public final class GuiText {
         if (width == 0) {
             return;
         }
-        float asked = asked();
+        float asked = askedScale();
         if (width * asked <= maxWidth) {
             if (asked == 1f) {
                 graphics.drawString(font, text, x, y, color, shadow);
