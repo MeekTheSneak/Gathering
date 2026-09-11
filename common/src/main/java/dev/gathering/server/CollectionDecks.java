@@ -4,6 +4,7 @@ import dev.gathering.block.CollectionBlockEntity;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.CardMetadata;
 import dev.gathering.core.collection.CardTally;
+import dev.gathering.core.collection.AcquisitionHints;
 import dev.gathering.core.collection.DeckFromCollection;
 import dev.gathering.core.deck.ResolvedCard;
 import dev.gathering.core.deck.ResolvedDeck;
@@ -254,7 +255,34 @@ public final class CollectionDecks {
             said.add(leftBehind + " more would not fit: a deck holds "
                     + DeckComponent.MAX_CARDS + " cards, and they are still in the collection.");
         }
+        // Being told what you are short of is half an answer. The other half is what to do
+        // about it, and that depends entirely on how this server is set up - so it is read off
+        // the settings in force rather than assumed. A server with the shop off never suggests
+        // the shop: advice that sends somebody looking for something that is not there makes
+        // the mod look broken rather than the advice look wrong. See AcquisitionHints.
+        if (!built.missing().isEmpty()) {
+            for (String hint : AcquisitionHints.forSources(sourcesHere())) {
+                said.add(Component.translatable(hint).getString());
+            }
+        }
         return said;
+    }
+
+    /**
+     * What this server offers, as its own settings have it.
+     * <p>Read fresh rather than held, because an operator may turn the shop on between one
+     * import and the next and a hint that was true an hour ago is exactly the kind of thing
+     * nobody thinks to check.
+     */
+    private static AcquisitionHints.Sources sourcesHere() {
+        var config = dev.gathering.service.ServerSettings.get();
+        var collecting = config.collecting();
+        return new AcquisitionHints.Sources(
+                config.modes().collectionEnabled(),
+                collecting.sealedStoreEnabled(),
+                !collecting.packLootSources().isEmpty(),
+                config.modes().importEnabled(),
+                collecting.villageShopWeight() > 0);
     }
 
     /**
