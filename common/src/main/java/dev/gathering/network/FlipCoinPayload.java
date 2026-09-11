@@ -12,7 +12,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * "rolled a 1" would be true and useless.
  * <p>The side is the server's to decide, for the same reason a die's number is.
  */
-public record FlipCoinPayload(BlockPos table) implements CustomPacketPayload {
+public record FlipCoinPayload(BlockPos table) implements AtATable {
 
     public static final CustomPacketPayload.Type<FlipCoinPayload> TYPE =
             GatheringPayloads.type("flip_coin");

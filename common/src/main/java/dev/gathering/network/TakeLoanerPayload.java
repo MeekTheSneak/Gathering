@@ -13,7 +13,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * shelf rather than doing anything with the string - so a client asking for a deck that is
  * not on the shelf gets nothing rather than an error worth exploring.
  */
-public record TakeLoanerPayload(BlockPos table, String name) implements CustomPacketPayload {
+public record TakeLoanerPayload(BlockPos table, String name) implements AtATable {
 
     public static final CustomPacketPayload.Type<TakeLoanerPayload> TYPE =
             GatheringPayloads.type("take_loaner");

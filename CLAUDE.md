@@ -27,9 +27,9 @@ not confirmed.**
 tools/gate.sh --game
 ```
 
-Thirteen checks: gradle build (all unit tests), then `langcheck`, `doccheck`, `scenecheck`,
+Fourteen checks: gradle build (all unit tests), then `langcheck`, `doccheck`, `scenecheck`,
 `plotcheck`, `gesturecheck`, `spritecheck`, `statecheck`, `savecheck`, `runcheck`,
-`texturecheck`, `artcheck`, and the in-world game tests.
+`texturecheck`, `artcheck`, `tablecheck`, and the in-world game tests.
 
 Run the slow stages **one at a time** — they share `neoforge/run` and fight if two are going.
 

@@ -15,7 +15,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * be a payload somebody could send an unexpected name in, and one that carried a boolean would
  * read as {@code practice(true)} at every call site.
  */
-public record PracticePayload(BlockPos table, What what) implements CustomPacketPayload {
+public record PracticePayload(BlockPos table, What what) implements AtATable {
 
     /** What is being asked for. */
     public enum What {

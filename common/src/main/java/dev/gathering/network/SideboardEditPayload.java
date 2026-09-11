@@ -18,7 +18,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  */
 public record SideboardEditPayload(
         BlockPos table, DeckComponent.Section from, DeckComponent.Section to, CardComponent card)
-        implements CustomPacketPayload {
+        implements AtATable {
 
     public static final CustomPacketPayload.Type<SideboardEditPayload> TYPE =
             GatheringPayloads.type("sideboard_edit");

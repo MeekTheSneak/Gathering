@@ -17,7 +17,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * <p>Carries no seat either: it is your roll, and which seat that is comes from the player the
  * packet arrived from.
  */
-public record RollDicePayload(BlockPos table, int sides) implements CustomPacketPayload {
+public record RollDicePayload(BlockPos table, int sides) implements AtATable {
 
     public RollDicePayload {
         // The same bound the event keeps, checked here too so a refused roll is a packet that

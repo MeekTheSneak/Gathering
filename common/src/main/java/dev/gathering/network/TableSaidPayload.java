@@ -17,7 +17,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * and a watcher has no seat. It is the speaker's own profile name, which every player at the
  * table can already read off the name above their head.
  */
-public record TableSaidPayload(BlockPos table, String who, String text) implements CustomPacketPayload {
+public record TableSaidPayload(BlockPos table, String who, String text) implements AtATable {
 
     /** Long enough for any name Minecraft allows, and bounded because everything here is. */
     public static final int LONGEST_NAME = 64;

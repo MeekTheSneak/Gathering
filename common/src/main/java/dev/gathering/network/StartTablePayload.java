@@ -13,7 +13,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * the same reason.
  */
 public record StartTablePayload(BlockPos table, String formatId, int bestOf)
-        implements CustomPacketPayload {
+        implements AtATable {
 
     /**
      * The id that means "no format at all".

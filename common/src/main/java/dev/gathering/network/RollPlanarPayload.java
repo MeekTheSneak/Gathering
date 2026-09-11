@@ -12,7 +12,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * everybody watched the same symbol come up, and a player who rolled their own would be
  * claiming a chaos symbol rather than getting one.
  */
-public record RollPlanarPayload(BlockPos table) implements CustomPacketPayload {
+public record RollPlanarPayload(BlockPos table) implements AtATable {
 
     public static final CustomPacketPayload.Type<RollPlanarPayload> TYPE =
             GatheringPayloads.type("roll_planar");

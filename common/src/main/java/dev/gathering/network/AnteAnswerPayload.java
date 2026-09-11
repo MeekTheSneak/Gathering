@@ -12,7 +12,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * from the payload - so there is no way to phrase an answer on somebody else's behalf, which
  * matters more here than anywhere else in the mod.
  */
-public record AnteAnswerPayload(BlockPos table, boolean in) implements CustomPacketPayload {
+public record AnteAnswerPayload(BlockPos table, boolean in) implements AtATable {
 
     public static final CustomPacketPayload.Type<AnteAnswerPayload> TYPE =
             GatheringPayloads.type("ante_answer");

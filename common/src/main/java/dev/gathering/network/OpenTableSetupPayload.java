@@ -11,7 +11,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * server's copy authoritative over a client that already has it - the client asks for a format
  * by id and the server is the one that looks it up, which is the check that matters.
  */
-public record OpenTableSetupPayload(BlockPos table) implements CustomPacketPayload {
+public record OpenTableSetupPayload(BlockPos table) implements AtATable {
 
     public static final CustomPacketPayload.Type<OpenTableSetupPayload> TYPE =
             GatheringPayloads.type("open_table_setup");

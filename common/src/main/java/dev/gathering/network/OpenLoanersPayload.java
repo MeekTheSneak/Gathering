@@ -17,7 +17,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param table where the offer was made, so taking a deck can be answered at the same place
  */
 public record OpenLoanersPayload(BlockPos table, List<String> names)
-        implements CustomPacketPayload {
+        implements AtATable {
 
     public static final CustomPacketPayload.Type<OpenLoanersPayload> TYPE =
             GatheringPayloads.type("open_loaners");

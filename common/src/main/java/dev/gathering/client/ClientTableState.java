@@ -65,7 +65,14 @@ public final class ClientTableState {
         }
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         if (payload.open() && !(client.screen instanceof TableScreen)) {
-            client.setScreen(new TableScreen(payload.table()));
+            // The first sit-down of this client's life opens the lesson instead, with the
+            // real board waiting behind it. Everyone else's game carries on: the board that
+            // just arrived is filed above whatever happens next, and walking out of the
+            // demonstration walks into it. Once per client profile - see
+            // Tutorial.worthOffering - so this is the ordinary path by the second table.
+            client.setScreen(Tutorial.worthOffering()
+                    ? TableScreen.learning(payload.table())
+                    : new TableScreen(payload.table()));
         }
     }
 

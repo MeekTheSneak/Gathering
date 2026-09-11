@@ -14,7 +14,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * tables lost both. It also went only to the seated players, leaving anybody watching with a
  * board that still looked live.
  */
-public record CloseTablePayload(BlockPos table) implements CustomPacketPayload {
+public record CloseTablePayload(BlockPos table) implements AtATable {
 
     public static final CustomPacketPayload.Type<CloseTablePayload> TYPE =
             GatheringPayloads.type("close_table");

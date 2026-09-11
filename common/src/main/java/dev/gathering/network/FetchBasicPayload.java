@@ -21,7 +21,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * packet arrived from.
  */
 public record FetchBasicPayload(BlockPos table, BasicLand land, int count)
-        implements CustomPacketPayload {
+        implements AtATable {
 
 
     /** Enough for a land drop and a Cultivate, and short of a board full of Islands. */

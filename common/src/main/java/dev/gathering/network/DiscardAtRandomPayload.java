@@ -20,7 +20,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * packet arrived from. A client asking to discard out of somebody else's hand is asking to
  * reach across the table, and there is nothing here to ask with.
  */
-public record DiscardAtRandomPayload(BlockPos table, int howMany) implements CustomPacketPayload {
+public record DiscardAtRandomPayload(BlockPos table, int howMany) implements AtATable {
 
     public DiscardAtRandomPayload {
         howMany = Math.max(1, Math.min(RandomPick.MOST_AT_ONCE, howMany));

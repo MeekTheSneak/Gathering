@@ -17,7 +17,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param gameNumber which game of the set is about to be played, for the screen to say so
  */
 public record OpenSideboardPayload(BlockPos table, DeckComponent deck, int gameNumber, int bestOf)
-        implements CustomPacketPayload {
+        implements AtATable {
 
     public static final CustomPacketPayload.Type<OpenSideboardPayload> TYPE =
             GatheringPayloads.type("open_sideboard");

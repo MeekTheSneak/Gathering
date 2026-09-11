@@ -30,6 +30,11 @@ public final class ClientState {
         ClientWants.clear();
         PendingWork.clear();
         Tutorial.clear();
+        // A demonstration is this client's own and owes the server nothing, but a player who
+        // disconnects halfway through one is not halfway through it any more. Dropped rather
+        // than finished: Tutorial.clear above records neither skipped nor completed, so an
+        // interrupted walkthrough is still offered again rather than counted as done.
+        TutorialDemo.clear();
         // Not a clear, because a replay is something this client is doing rather than
         // something it was told: stopping it is what closes the watch as well as dropping the
         // frame. A frame is a board with hands in it, so it is the one piece of this that

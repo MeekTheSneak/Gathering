@@ -18,7 +18,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  */
 public record AnteConsentPayload(
         BlockPos table, int cardsEach, int waitingOn, boolean iAmIn, boolean over)
-        implements CustomPacketPayload {
+        implements AtATable {
 
     public static final CustomPacketPayload.Type<AnteConsentPayload> TYPE =
             GatheringPayloads.type("ante_consent");

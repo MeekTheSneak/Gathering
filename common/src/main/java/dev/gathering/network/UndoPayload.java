@@ -13,7 +13,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * A client that asked to rewind somebody else's turn would be refused by the same code that
  * refuses it in the interface.
  */
-public record UndoPayload(BlockPos table, int actions) implements CustomPacketPayload {
+public record UndoPayload(BlockPos table, int actions) implements AtATable {
 
     /** More than this in one request is a client that is not asking in good faith. */
     public static final int MOST_AT_ONCE = 32;

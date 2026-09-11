@@ -19,7 +19,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * server's, from the level's own randomness and never from the session's shuffle seed.
  */
 public record ToBottomAtRandomPayload(BlockPos table, List<CardInstanceId> cards)
-        implements CustomPacketPayload {
+        implements AtATable {
 
     /**
      * The most cards one press may put back.

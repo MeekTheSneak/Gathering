@@ -21,7 +21,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * a pot.
  */
 public record AntePotPayload(BlockPos table, List<CardComponent> cards)
-        implements CustomPacketPayload {
+        implements AtATable {
 
     /**
      * Every card a full table can stake, and not one fewer.

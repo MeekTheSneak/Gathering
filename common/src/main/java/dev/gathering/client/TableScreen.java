@@ -252,6 +252,25 @@ public final class TableScreen extends Screen {
     /** Whether this is a replay. Set once at construction; nothing switches it. */
     private final boolean replay;
 
+    /**
+     * Whether this is the guided first game, played against nothing on this client alone.
+     * <p>Set once at construction, like {@link #replay}, and for the same reason: a mode that
+     * could be switched halfway through is a mode a gesture can be in the middle of when it
+     * changes. What it changes is where the board comes from - see {@link #view()} - and,
+     * because {@link #table} is then {@link TutorialDemo#table()}, where every move goes.
+     * <p>It is deliberately not the thing that stops a move reaching a server. That is
+     * {@link ClientTableActions#send}, which routes on the position and so cannot be fooled by
+     * a screen, a sub-screen or a menu callback that forgot to ask.
+     */
+    private final boolean demo;
+
+    /**
+     * The table in the world to show once the demonstration is over, if there still is one.
+     * <p>The demonstration is not at a table, so the screen it hands back to has to be
+     * remembered rather than derived. Null for every other mode.
+     */
+    private final BlockPos afterwards;
+
     /** Where the scrubber was grabbed, so a drag along the bar keeps scrubbing. */
     private boolean scrubbing;
 
@@ -337,14 +356,31 @@ public final class TableScreen extends Screen {
     private int cursorY;
 
     public TableScreen(BlockPos table) {
-        this(java.util.Objects.requireNonNull(table, "table"), false);
+        this(java.util.Objects.requireNonNull(table, "table"), false, false, null);
     }
 
-    private TableScreen(BlockPos table, boolean replay) {
+    private TableScreen(BlockPos table, boolean replay, boolean demo, BlockPos afterwards) {
         super(Component.translatable(replay
                 ? "screen.gathering.replay" : "screen.gathering.table"));
         this.table = table;
         this.replay = replay;
+        this.demo = demo;
+        this.afterwards = afterwards;
+    }
+
+    /**
+     * The same screen, teaching the controls on a board nobody else can see.
+     * <p>The same screen deliberately, for the reason a replay is: a demonstration drawn by a
+     * second renderer would be a second copy of every layout rule on the table, free to drift
+     * from the one people play on - and a tutorial that teaches a board you will never see
+     * again teaches nothing. What changes is that the board is local and that no move made on
+     * it leaves this client.
+     * <p>{@code afterwards} is the table to hand back to when it ends. It may be gone by then;
+     * {@link #leaveTheTutorial()} deals with that rather than assuming it is still there.
+     */
+    public static TableScreen learning(BlockPos afterwards) {
+        TutorialDemo.begin();
+        return new TableScreen(TutorialDemo.table(), false, true, afterwards);
     }
 
     /**
@@ -365,7 +401,7 @@ public final class TableScreen extends Screen {
      * {@link #view()} and {@link #send}.
      */
     public static TableScreen watching() {
-        return new TableScreen(NOT_A_TABLE, true);
+        return new TableScreen(NOT_A_TABLE, true, false, null);
     }
 
     /** Where a replay files its flights and its news. See {@link #NOT_A_TABLE}. */
@@ -640,29 +676,123 @@ public final class TableScreen extends Screen {
         this.addRenderableWidget(GatheringButtons.of(left + wide + 4, top, wide, high,
                 Component.translatable("tutorial.gathering.next"), Tutorial::forward));
         this.addRenderableWidget(GatheringButtons.of(left, top + high + 2, wide, high,
-                Component.translatable("tutorial.gathering.restart"), Tutorial::restart));
+                Component.translatable("tutorial.gathering.restart"),
+                // The demonstration's Restart builds a new game rather than rewinding this
+                // one, which is what makes it work once the library has been drawn empty.
+                demo ? TutorialDemo::restart : Tutorial::restart));
         this.addRenderableWidget(GatheringButtons.of(left + wide + 4, top + high + 2, wide, high,
                 Component.translatable("tutorial.gathering.exit"), this::leaveTheTutorial));
     }
 
-    /** Leaves the guided first game, and takes the practice table down with it. */
-    private void leaveTheTutorial() {
-        Tutorial.stop();
-        ClientNetworking.send(new dev.gathering.network.PracticePayload(
-                table, dev.gathering.network.PracticePayload.What.STOP));
-        this.rebuildWidgets();
+    /**
+     * Lets the last panel stand for a moment, then ends the guided first game by itself.
+     * <p>On the tick rather than in the render, and against the clock rather than a count of
+     * frames. Both for the same reason: drawing a frame is not an event in the game, and a
+     * lifecycle decision taken while drawing happens at a rate that depends on the window.
+     * <p>Left standing, a finished tutorial is a board somebody has to work out how to leave,
+     * which is a poor last impression for the thing whose whole job was making the first one
+     * good.
+     *
+     * @return whether it ended the lesson and put another screen up, so the caller stops
+     */
+    private boolean tickTheTutorial() {
+        if (!Tutorial.runningAt(table)) {
+            tutorialFinishedAt = 0;
+            return false;
+        }
+        boolean finished = Tutorial.progress()
+                .map(dev.gathering.core.tutorial.TutorialProgress::isFinished)
+                .orElse(false);
+        if (!finished) {
+            // Not done, or gone backwards through Back into a step that is not the last one.
+            tutorialFinishedAt = 0;
+            return false;
+        }
+        long now = ClientCardFlights.now();
+        if (tutorialFinishedAt == 0) {
+            tutorialFinishedAt = now;
+            return false;
+        }
+        if (now - tutorialFinishedAt < LINGER_AFTER_FINISHING_MS) {
+            return false;
+        }
+        tutorialFinishedAt = 0;
+        // Read before leaving, because leaving is what forgets it.
+        boolean earned = Tutorial.progress()
+                .map(dev.gathering.core.tutorial.TutorialProgress::isFinished)
+                .orElse(false);
+        leaveTheTutorial();
+        // Picking two colors is the first thing this player has been asked to decide, and it
+        // is offered here only because finishing is the moment it makes sense to ask. It is
+        // not what earns anything: StarterBoosters decides that on the server, from its own
+        // once-per-player list and the server's own settings, and it has never asked whether
+        // anybody finished a tutorial. Opening this screen grants nothing, and a second
+        // finish is told "already" by the same list that told the first one "here you are".
+        if (earned) {
+            this.minecraft.setScreen(new StarterColorsScreen());
+        }
+        return true;
     }
 
     /**
-     * How many frames the "you have the controls" panel has been up.
-     * <p>Long enough to read, then the practice table goes away by itself. Left standing it
-     * is a game somebody has to work out how to leave, which is a poor last impression for a
-     * thing whose whole job was making the first one good.
+     * Leaves the guided first game, however it ended, and hands the player back the world.
+     * <p>{@link Tutorial#stop()} records which of the two things happened - finished, or left
+     * partway through - before anything else, because that is the fact that decides whether
+     * this is ever offered again, and an interrupted walkthrough must never be written down as
+     * a completed one.
+     * <p>Where it hands back to is decided by what is actually there, not by what was there
+     * when the demonstration started. A player can spend a minute learning the controls while
+     * somebody breaks the table they were sitting at.
      */
-    private int finishedTutorialLingers;
+    private void leaveTheTutorial() {
+        Tutorial.stop();
+        if (!demo) {
+            // The old server-backed practice game, which still exists until it is retired.
+            ClientNetworking.send(new dev.gathering.network.PracticePayload(
+                    table, dev.gathering.network.PracticePayload.What.STOP));
+            this.rebuildWidgets();
+            return;
+        }
+        TutorialDemo.clear();
+        this.minecraft.setScreen(whatToShowAfterwards());
+    }
 
-    /** About four seconds at sixty frames a second. */
-    private static final int LINGER_AFTER_FINISHING = 240;
+    /**
+     * The screen the demonstration hands back to: the real game, the table, or the world.
+     * <p>In that order, and each step is a thing that may not be true any more. A board this
+     * client is entitled to means a game to walk into. No board but a table still standing
+     * means the screen that starts one, which is where they were going when they were offered
+     * the lesson. Neither means the table has gone, and the honest answer is the world - not a
+     * screen about a table that is not there, and never a request to recreate the game that
+     * was.
+     */
+    private net.minecraft.client.gui.screens.Screen whatToShowAfterwards() {
+        if (afterwards == null) {
+            return null;
+        }
+        if (ClientTableState.viewOf(afterwards).isPresent()) {
+            return new TableScreen(afterwards);
+        }
+        net.minecraft.client.multiplayer.ClientLevel level =
+                net.minecraft.client.Minecraft.getInstance().level;
+        if (level != null && level.getBlockEntity(afterwards) instanceof TableBlockEntity) {
+            return new TableSetupScreen(afterwards);
+        }
+        return null;
+    }
+
+    /**
+     * When the "you have the controls" panel went up, or nought while it has not.
+     * <p>A clock reading rather than a count of frames. It used to count rendered frames to
+     * 240, described as "about four seconds at sixty frames a second" - which it is, at sixty
+     * frames a second. At fifteen it is sixteen seconds, and on a paused or minimized window
+     * it never arrives at all, so the last thing the guided first game did was take a
+     * different length of time for everybody depending on their hardware.
+     */
+    private long tutorialFinishedAt;
+
+    /** Long enough to read the last panel, in milliseconds this time. */
+    private static final long LINGER_AFTER_FINISHING_MS = 4_000L;
 
     /**
      * Puts the first instruction up once the server has actually dealt a practice board.
@@ -822,12 +952,32 @@ public final class TableScreen extends Screen {
         ClientTableRolls.forget();
         // A frame that arrives after the screen has gone must not put it back up.
         ClientReplay.stop();
+        if (demo) {
+            // The third door out, and the one nothing on the screen leads to: Escape closes a
+            // screen without pressing anything on it, and so does the world going away. Both
+            // used to leave a demonstration running with nobody looking at it, and leave the
+            // player recorded as having been offered a lesson they were in the middle of.
+            //
+            // Idempotent, and deliberately so: leaving through the Exit button has already
+            // done all of this, and Tutorial.stop on a lesson that is over does nothing. What
+            // it must not do is record finishing - stop writes down which of the two things
+            // happened, so an abandoned lesson is written as skipped, which is what it was.
+            Tutorial.stop();
+            TutorialDemo.clear();
+        }
         super.removed();
     }
 
     // ------------------------------------------------------------- the board
 
     private Optional<GameView> view() {
+        if (demo) {
+            // Never ClientTableState, even though a real table may be sending boards to it
+            // the whole time this is open. Those boards are still arriving and are still this
+            // player's to see the moment they leave; they simply are not what is being drawn,
+            // and so cannot advance a step of the lesson.
+            return TutorialDemo.board();
+        }
         return replay ? ClientReplay.frame() : ClientTableState.viewOf(table);
     }
 
@@ -876,11 +1026,20 @@ public final class TableScreen extends Screen {
         if (replay) {
             ClientReplay.tick();
         }
+        if (tickTheTutorial()) {
+            // The lesson ended and has already put the next screen up. This one is not the
+            // screen any more, and the rest of this method is about a board it no longer has:
+            // reading on reaches the empty-view branch below and closes what was just opened,
+            // which puts the player in the world instead of at the table they were handed.
+            return;
+        }
         // Which piles a mat has. A live table asks the block, because the block is what a
         // format was chosen on; a finished game has no block left to ask, so it is read off
         // the board itself - a seat that named commanders played with a command zone.
-        piles = Zone.pilesFor(replay
-                ? view().map(TableScreen::hadACommandZone).orElse(false)
+        piles = Zone.pilesFor(replay || demo
+                // A demonstration has no block to ask either, and is dealt as Commander is
+                // because Commander is what walking up to a table already starts.
+                ? demo || view().map(TableScreen::hadACommandZone).orElse(false)
                 : net.minecraft.client.Minecraft.getInstance().level != null
                         && net.minecraft.client.Minecraft.getInstance().level
                                 .getBlockEntity(table) instanceof TableBlockEntity entity
@@ -1096,25 +1255,6 @@ public final class TableScreen extends Screen {
         if (Tutorial.runningAt(table)) {
             TutorialPanel.render(graphics, this.font,
                     TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom()));
-            // Once the last step is done, the practice table goes away by itself rather than
-            // sitting there as a game somebody has to work out how to leave.
-            Tutorial.progress()
-                    .filter(dev.gathering.core.tutorial.TutorialProgress::isFinished)
-                    .ifPresent(finished -> finishedTutorialLingers++);
-            if (finishedTutorialLingers > LINGER_AFTER_FINISHING) {
-                finishedTutorialLingers = 0;
-                boolean earned = Tutorial.progress()
-                        .map(dev.gathering.core.tutorial.TutorialProgress::isFinished)
-                        .orElse(false);
-                leaveTheTutorial();
-                // Finishing earns two boosters, and picking their colors is the first thing
-                // this player has been asked to decide. Only for finishing: leaving partway
-                // through takes the practice table down and nothing else, because a reward for
-                // pressing Leave is a reward for nothing.
-                if (earned) {
-                    this.minecraft.setScreen(new StarterColorsScreen());
-                }
-            }
         }
 
         if (!tooltip.isEmpty() && !showingLog && !showingKeys && held == null
@@ -4297,6 +4437,14 @@ public final class TableScreen extends Screen {
             entries.add(ContextMenu.Entry.of(
                     Component.translatable("menu.gathering.table.leave_practice"),
                     this::leaveTheTutorial));
+        } else if (!replay) {
+            // The way back to the lesson, for somebody who skipped it or wants it again. It
+            // opens a demonstration of its own and leaves this table exactly as it is: the
+            // game here carries on without them for the minute they are gone, because nothing
+            // about the demonstration touches it.
+            entries.add(ContextMenu.Entry.of(
+                    Component.translatable("menu.gathering.table.replay_tutorial"),
+                    () -> this.minecraft.setScreen(TableScreen.learning(table))));
         }
         entries.add(ContextMenu.Entry.rule());
         // The one verb that ends a game. Everything else the table does is a move somebody can

@@ -140,10 +140,29 @@ public final class TableSetupScreen extends Screen {
      * table that is no longer free.
      */
     private void learn() {
-        ClientNetworking.send(new dev.gathering.network.PracticePayload(
-                table, dev.gathering.network.PracticePayload.What.START));
-        Tutorial.expectAt(table);
-        onClose();
+        // Straight into a demonstration this client builds for itself. Nothing is asked of
+        // the server, so there is nothing that can be refused, nothing to wait for and no
+        // table to take over - which is what makes this work at a table somebody else is
+        // already playing at, and on a fresh install with no cards downloaded at all.
+        this.minecraft.setScreen(TableScreen.learning(table));
+    }
+
+    /**
+     * Offers the guided first game once, to somebody who has never been offered it.
+     * <p>On the tick rather than in {@code init}, because {@code init} runs again on every
+     * resize and because swapping the screen out from inside its own construction is a way to
+     * have two of them half-built at once.
+     * <p>Once is enforced by the offer itself: beginning records that this client has been
+     * asked, whatever they go on to do about it, so the next table does not ask again. A
+     * player who skips is not asked a second time and a player who disconnects halfway
+     * through has not finished, so they are.
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        if (Tutorial.worthOffering()) {
+            learn();
+        }
     }
 
     private static int rowsFor(int formats) {

@@ -157,6 +157,24 @@ public final class Tutorial {
         }
     }
 
+    /**
+     * Starts over on a board that has just been rebuilt from nothing.
+     * <p>For the local demonstration, whose Restart is a new game rather than a rewound one -
+     * which is what makes it work after the library has been drawn empty. The board is passed
+     * in rather than waited for because the one that is about to arrive is the same one: a
+     * baseline taken from the board that has just been thrown away would measure the player's
+     * next action against a game nobody is playing, which is the shape of the defect an
+     * external review reproduced against navigation. See {@link #baselineNow()}.
+     */
+    public static void restartOn(GameView fresh) {
+        if (progress == null) {
+            return;
+        }
+        progress = TutorialProgress.start();
+        lastConfirmed = fresh;
+        remember(fresh);
+    }
+
     /** They said no. */
     public static void skip() {
         if (progress != null) {

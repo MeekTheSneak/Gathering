@@ -17,7 +17,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * to make impossible.
  */
 public record TableViewPayload(BlockPos table, byte[] view, boolean open)
-        implements CustomPacketPayload {
+        implements AtATable {
 
     /** A four-player Commander board is far below this; a bound so a bad packet is refused. */
     public static final int MAX_BYTES = 1 << 20;

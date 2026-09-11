@@ -14,7 +14,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  *
  * @param count how many, bounded on decode so a typo cannot ask for a million Thrulls
  */
-public record CreateTokenPayload(BlockPos table, String name, int count) implements CustomPacketPayload {
+public record CreateTokenPayload(BlockPos table, String name, int count) implements AtATable {
 
     /** Longer than any real token name and short enough that a bad one is not a payload. */
     public static final int MAX_NAME = 64;

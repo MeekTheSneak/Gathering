@@ -18,7 +18,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  *
  * @param text what to say. Bounded on decode, so a bad client cannot make a packet out of it
  */
-public record TableChatPayload(BlockPos table, String text) implements CustomPacketPayload {
+public record TableChatPayload(BlockPos table, String text) implements AtATable {
 
     /**
      * How much may be said at once.

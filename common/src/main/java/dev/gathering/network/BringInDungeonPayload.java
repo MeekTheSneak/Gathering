@@ -15,7 +15,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * Magic rather than about this mod, so they are an enum and the wire carries its position.
  * <p>Clamped on decode, so an index nobody printed is the first dungeon rather than a crash.
  */
-public record BringInDungeonPayload(BlockPos table, int which) implements CustomPacketPayload {
+public record BringInDungeonPayload(BlockPos table, int which) implements AtATable {
 
     public static final CustomPacketPayload.Type<BringInDungeonPayload> TYPE =
             GatheringPayloads.type("bring_in_dungeon");

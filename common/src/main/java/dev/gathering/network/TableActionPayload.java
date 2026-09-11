@@ -16,7 +16,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * what, so "any seated player may move any public card" is safe. A client that could put
  * somebody else's name on a move would take that away.
  */
-public record TableActionPayload(BlockPos table, byte[] event) implements CustomPacketPayload {
+public record TableActionPayload(BlockPos table, byte[] event) implements AtATable {
 
     /** One event, generously. A move is tens of bytes; a deck load is the big one. */
     public static final int MAX_BYTES = 1 << 16;

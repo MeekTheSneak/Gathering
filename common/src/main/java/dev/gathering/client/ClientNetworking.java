@@ -22,6 +22,21 @@ public final class ClientNetworking {
     }
 
     public static void send(CustomPacketPayload payload) {
+        // The guided first game is not at a table, and nothing done to it may leave this
+        // machine. Its board is filed at a position no table can occupy, so a payload that
+        // names that position is one some screen addressed to the demonstration - and the
+        // demonstration has no server end. Dropped here rather than in the screens because
+        // there are seventeen files that send one of these and only one that puts them on
+        // the wire. See AtATable.
+        //
+        // Nothing reaches the server to be refused: a reach check would have refused these
+        // anyway, since no player can be within reach of a position below the world, but
+        // "refused at the other end" is not the same promise as "never sent" and it is the
+        // second one this is for.
+        if (payload instanceof dev.gathering.network.AtATable addressed
+                && TutorialDemo.at(addressed.table())) {
+            return;
+        }
         Consumer<CustomPacketPayload> current = sender;
         if (current == null) {
             throw new IllegalStateException(

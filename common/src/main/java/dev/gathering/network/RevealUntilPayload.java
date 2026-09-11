@@ -21,7 +21,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * to read it, and there is nothing here to ask with.
  */
 public record RevealUntilPayload(BlockPos table, Until until, int manaValue, String wanted)
-        implements CustomPacketPayload {
+        implements AtATable {
 
     /**
      * Which question is being asked of each card on the way down.
