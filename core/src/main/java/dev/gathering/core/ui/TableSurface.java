@@ -899,9 +899,12 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         int height = Math.max(1, (int) Math.round(cardHeightOn(seat)));
         int width = Math.max(1, CardShape.widthFor(height));
         int middle = mat.x() + (mat.width() - width) / 2;
-        // Just outside the mat's own near edge, so a card arriving there reads as leaving the
-        // table rather than as landing on the lands row.
-        int edge = isTurned(seat) ? mat.y() - height / 2 : mat.bottom() - height / 2;
+        // Wholly outside the mat's own near edge, not straddling it. Half on and half off put
+        // every rival's hand across the top row of their own board, so the cards they were
+        // holding sat over the cards they had played - and at a four-player table that is the
+        // part of the screen with the most on it already. A hand belongs in front of its
+        // owner, which from across the table means above their board rather than on it.
+        int edge = isTurned(seat) ? mat.y() - height : mat.bottom();
         return new Rect(middle, edge, width, height);
     }
 }

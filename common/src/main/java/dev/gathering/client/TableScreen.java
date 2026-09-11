@@ -119,6 +119,13 @@ public final class TableScreen extends Screen {
     /** Zone names printed on the felt: quieter than a card, loud enough to read. */
     private static final int ZONE_LABEL = 0xFFB9C4C0;
 
+    /**
+     * The color of the ring around a card somebody is pointing at.
+     * <p>Warm and not any of the seat colors, so "look at this" is never mistaken for "this
+     * is whose card it is".
+     */
+    private static final int POINTED_AT_RING = 0xFFE8B24A;
+
     /** How solid a free chair's outline is: there, and clearly not a board in play. */
     private static final int FREE_SEAT_EDGE = 0x44;
 
@@ -1254,16 +1261,24 @@ public final class TableScreen extends Screen {
                 continue;
             }
             Rect edge = board().handEdgeRect(seat.seat());
-            if (edge.isEmpty() || isOffScreen(edge)) {
+            if (edge.isEmpty()) {
                 continue;
             }
-            // Held down out of the status bar. That edge is just outside the near side of
+            // Held down out of the status bar. That edge is wholly outside the near side of
             // its own mat, which for the seat across the table is the top of the screen - so
             // the fan for the one player it exists to show was drawn under the row of life
             // totals with only its bottom corner visible.
+            //
+            // Before the off-screen test, not after. The hand sits a full card clear of the
+            // mat, which at the top of the window is often above the window, and testing
+            // first threw the fan away instead of pulling it down - so the rival's hand
+            // simply stopped being drawn. A screenshot caught it; nothing else would have.
             int floor = layout().status().bottom() + 2;
             if (edge.y() < floor) {
                 edge = new Rect(edge.x(), floor, edge.width(), edge.height());
+            }
+            if (isOffScreen(edge)) {
+                continue;
             }
             // Fanned about the middle of that edge, overlapping so a big hand stays a hand
             // rather than a row of cards wider than the mat it belongs to.
@@ -3763,7 +3778,7 @@ public final class TableScreen extends Screen {
             for (String token : tokensMadeBy(card)) {
                 entries.add(ContextMenu.Entry.of(
                         Component.translatable("menu.gathering.table.make_this_token", token),
-                        () -> ClientNetworking.send(new CreateTokenPayload(table, token, 1))));
+                        () -> makeToken(token, 1)));
             }
             if (card.token()) {
                 entries.add(entry("remove_token", () -> eachCard(board, targets, seen ->
@@ -4048,6 +4063,20 @@ public final class TableScreen extends Screen {
     }
 
     /**
+     * Makes a token, and remembers what it was called.
+     * <p>One body, because there are three ways to ask for one - typing a name, the tokens a
+     * card says it makes, and the row of what this player keeps making - and a name that was
+     * only remembered down one of them would be a row that never filled up for the player who
+     * uses the card menu.
+     * <p>The name, and nothing about the card. An instance id would be a handle on one card in
+     * one game, written into a file that outlives both.
+     */
+    private void makeToken(String name, int count) {
+        RecentThings.rememberToken(name);
+        ClientNetworking.send(new CreateTokenPayload(table, name, count));
+    }
+
+    /**
      * Asks what token, then how many.
      * <p>Two questions rather than one screen with two fields, because they are answered in
      * that order and the second one is usually "one". The name goes to the server, which does
@@ -4064,7 +4093,7 @@ public final class TableScreen extends Screen {
                 // longer see. Every other amount asked for in the mod names its verb.
                 name -> net.minecraft.client.Minecraft.getInstance().setScreen(new AmountScreen(
                         Component.translatable("screen.gathering.amount.tokens", name), 1,
-                        count -> ClientNetworking.send(new CreateTokenPayload(table, name, count)),
+                        count -> makeToken(name, count),
                         this)),
                 this));
     }
@@ -4219,6 +4248,14 @@ public final class TableScreen extends Screen {
             }
         });
         entries.add(entry("make_token", this::askForToken));
+        // The ones this player keeps making, on this server, one press each. Built with
+        // Entry.of rather than entry(...) because the label carries a name - which is also
+        // what correctly keeps them out of the palette's search. See ActionPalette.
+        for (String token : RecentThings.tokens()) {
+            entries.add(ContextMenu.Entry.of(
+                    Component.translatable("menu.gathering.table.make_this_token", token),
+                    () -> makeToken(token, 1)));
+        }
         // Blank stock and a pen, for every table state the mod has no feature for: the
         // monarch, the initiative, the ring tempting you, whatever the next set calls its
         // version. See PaperCardCreated - the point of it is that it is never one set behind.
@@ -5263,9 +5300,50 @@ public final class TableScreen extends Screen {
             GatheringSprites.draw(graphics, Element.FOCUS_RING,
                     where.x(), where.y(), where.width(), where.height());
         }
+        // Last, over everything, because it is the one mark on a card that is somebody at the
+        // table talking rather than a fact about the card.
+        drawPointedAt(graphics, card, where);
         if (turned) {
             graphics.pose().popPose();
         }
+    }
+
+    /**
+     * The ring around a card somebody has just pointed at.
+     * <p>"In response to that" needs a "that", and until now pointing did nothing whatsoever:
+     * the event's own description promised it "highlights a public card for everyone for a few
+     * seconds", and what it actually did was write a line in the log - which is the one place
+     * nobody is looking while somebody is pointing at something.
+     * <p>Drawn rather than painted, four bars around the edge, because there is no ring texture
+     * and the artwork is somebody else's to make.
+     * <p>Only ever a card this client can already identify. What is rung comes out of the log
+     * line, which names a card only when the whole table may see it - see
+     * {@link ClientTableNews}. A face-down card carries no id and gets no ring, which is the
+     * right outcome rather than a gap: a ring would be this client saying which one it is.
+     */
+    private void drawPointedAt(GuiGraphics graphics, CardView card, Rect where) {
+        if (!(card instanceof CardView.Visible visible)) {
+            return;
+        }
+        long since = ClientTableNews.pointedAtFor(
+                replay ? replayTable() : table, visible.id(), ClientCardFlights.now());
+        int thick = dev.gathering.core.ui.Pointing.thickness(
+                Math.min(where.width(), where.height()), since);
+        if (thick <= 0) {
+            return;
+        }
+        int color = dev.gathering.core.ui.Pointing.color(POINTED_AT_RING, since);
+        // Around the card rather than over it. Inside its edge the ring covers the art, and
+        // on a card the cursor happens to be on it blends with the hover ring into a third
+        // color that is neither - which a screenshot of this caught.
+        int left = where.x() - thick;
+        int top = where.y() - thick;
+        int right = where.right() + thick;
+        int bottom = where.bottom() + thick;
+        graphics.fill(left, top, right, top + thick, color);
+        graphics.fill(left, bottom - thick, right, bottom, color);
+        graphics.fill(left, top + thick, left + thick, bottom - thick, color);
+        graphics.fill(right - thick, top + thick, right, bottom - thick, color);
     }
 
     /**
@@ -5685,6 +5763,21 @@ public final class TableScreen extends Screen {
         return replay
                 ? TableScreenLayout.watching(this.width, this.height)
                 : TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
+    }
+
+    /**
+     * Points at a card, as the card menu's row does, for the scripted run.
+     * <p>Through the same event, so what is checked is the whole path: the move goes to the
+     * server, comes back as a log line, and the client reads the ring out of the log.
+     */
+    void pointAtForTesting(CardInstanceId card) {
+        mySeat().ifPresent(me -> send(new GameEvent.CardPinged(me, card)));
+    }
+
+    /** Whether that card is ringed right now, for the scripted run. */
+    boolean aCardIsBeingPointedAt(CardInstanceId card) {
+        return ClientTableNews.pointedAtFor(
+                replay ? replayTable() : table, card, ClientCardFlights.now()) >= 0;
     }
 
     /** What a key press or a palette row would act on right now, for the scripted run. */

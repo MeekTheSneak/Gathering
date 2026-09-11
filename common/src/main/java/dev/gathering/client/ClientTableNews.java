@@ -35,11 +35,25 @@ public final class ClientTableNews {
 
     private static final Map<Stirred, Long> SHAKING = new HashMap<>();
 
+    /** Which card is being pointed at, and when the finger went down. */
+    private record Pointed(BlockPos table, dev.gathering.core.game.CardInstanceId card) {
+    }
+
+    private static final Map<Pointed, Long> POINTING = new HashMap<>();
+
     /** The last log line each table had already been seen to produce. */
     private static final Map<BlockPos, Long> READ_UP_TO = new HashMap<>();
 
     /** Which log keys mean what, in one table so a new line cannot be given two meanings. */
     private static final String SHUFFLED = "log.gathering.library_shuffled";
+
+    /**
+     * Somebody pointing at a card.
+     * <p>Taken from the log like everything else here, and that is what makes it safe: the
+     * line is built with {@code CardRef.publicRefFor}, which names a card only when the whole
+     * table may see it. A ping of something private carries no id to ring, and rings nothing.
+     */
+    private static final String POINTED_AT = "log.gathering.pinged";
 
     /** A card, or several, going from a library into a hand. */
     private static final String[] DRAWN = {
@@ -71,6 +85,10 @@ public final class ClientTableNews {
         // One of each at most: eight cards drawn in one update is a hand being dealt, and
         // eight copies of the same noise on top of one another is a bang.
         java.util.Set<Registered<SoundEvent>> heard = new java.util.LinkedHashSet<>();
+        // Vanilla's, not the mod's: the mod's three sounds are its own audio files and those
+        // are the owner's to make. A pling is what every game uses to mean "look here", and
+        // it needs nothing added to the resource pack.
+        boolean pointed = false;
         synchronized (ClientTableNews.class) {
             Long readTo = READ_UP_TO.get(key);
             long highest = readTo == null ? -1 : readTo;
@@ -87,14 +105,59 @@ public final class ClientTableNews {
                     heard.add(GatheringSounds.DRAW);
                 } else if (startsWithAny(entry.key(), OFF_THE_TOP)) {
                     heard.add(GatheringSounds.SCRY);
+                } else if (entry.key().startsWith(POINTED_AT)) {
+                    cardOf(entry).ifPresent(card -> POINTING.put(new Pointed(key, card), now));
+                    pointed = true;
                 }
             }
             READ_UP_TO.put(key, highest);
             SHAKING.entrySet().removeIf(entry -> now - entry.getValue() >= Shaking.LASTS);
+            POINTING.entrySet().removeIf(
+                    entry -> now - entry.getValue() >= dev.gathering.core.ui.Pointing.LASTS);
         }
         for (Registered<SoundEvent> sound : heard) {
             TableSounds.at(key, sound);
         }
+        if (pointed) {
+            TableSounds.vanillaAt(key, net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.value());
+        }
+    }
+
+    /**
+     * How long this card has been ringed, or -1 when it is not.
+     * <p>Asked by both boards while they draw, so it is a lookup rather than a scan.
+     */
+    public static long pointedAtFor(
+            BlockPos table, dev.gathering.core.game.CardInstanceId card, long now) {
+        if (table == null || card == null) {
+            return -1;
+        }
+        synchronized (ClientTableNews.class) {
+            Long began = POINTING.get(new Pointed(table, card));
+            if (began == null) {
+                return -1;
+            }
+            long gone = now - began;
+            return gone >= dev.gathering.core.ui.Pointing.LASTS ? -1 : gone;
+        }
+    }
+
+    /**
+     * Which card a line is about, when it names one this client may see.
+     * <p>Only {@code ById} counts. A log line about a card nobody at the table is entitled to
+     * identify carries {@code Anonymous} instead, and there is nothing to ring - which is the
+     * right outcome rather than a gap: a ring around a face-down card would be this client
+     * saying which one it is.
+     */
+    private static java.util.Optional<dev.gathering.core.game.CardInstanceId> cardOf(
+            LogEntry entry) {
+        for (LogArg arg : entry.args()) {
+            if (arg instanceof LogArg.Card card
+                    && card.card() instanceof dev.gathering.core.game.event.CardRef.ById byId) {
+                return java.util.Optional.of(byId.id());
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     private static boolean startsWithAny(String key, String[] prefixes) {
@@ -122,6 +185,7 @@ public final class ClientTableNews {
         synchronized (ClientTableNews.class) {
             READ_UP_TO.remove(table);
             SHAKING.keySet().removeIf(stirred -> stirred.table().equals(table));
+            POINTING.keySet().removeIf(pointed -> pointed.table().equals(table));
         }
     }
 
@@ -129,6 +193,7 @@ public final class ClientTableNews {
         synchronized (ClientTableNews.class) {
             READ_UP_TO.clear();
             SHAKING.clear();
+            POINTING.clear();
         }
     }
 

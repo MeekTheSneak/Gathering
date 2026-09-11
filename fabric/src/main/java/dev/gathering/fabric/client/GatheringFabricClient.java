@@ -66,6 +66,8 @@ public final class GatheringFabricClient implements ClientModInitializer {
         CardZoomOverlay.bindKeyState(ZoomKeyState.of(ZOOM_KEY, () -> KeyBindingHelper.getBoundKeyOf(ZOOM_KEY)));
         CardZoomOverlay.bindKeyName(ZOOM_KEY::getTranslatedKeyMessage);
         dev.gathering.client.TableShortcuts.bindKeyLookup(KeyBindingHelper::getBoundKeyOf);
+        dev.gathering.client.RecentThings.bindServerLookup(
+                dev.gathering.client.WhichServer::name);
         ClientNetworking.bindSender(ClientPlayNetworking::send);
         ClientFetching.identifyAs(
                 Gathering.MOD_NAME + " client (+https://github.com/MeekTheSneak/Gathering)");

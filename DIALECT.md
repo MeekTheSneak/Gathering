@@ -416,6 +416,14 @@ cannot be inferred from reading the code.
 - **Nothing is applied on the client before the server agrees.** A board that showed a move
   and then took it back would be leaking, because "take that back" is a sentence with
   information in it.
+- **`alongreplayisfoldedoffthetick` compares two measured durations and flakes under load.**
+  It asserts rewinding costs more than a step forward; on a container busy with back-to-back
+  Gradle runs the two timings cross and the gate goes red on a test nothing touched. Confirmed
+  by a re-run going 362 of 362. Re-run once before believing it; if it fails twice it is real.
+- **An off-screen test that runs before the clamp meant to rescue it throws the thing away.**
+  The rival hand fan is placed outside its own mat, which at the top of the window is often
+  above the window; the clamp that pulls it back under the status bar ran after the
+  `isOffScreen` check, so the fan was discarded instead of moved. Clamp first, then test.
 - **A bitmap glyph's ink is not where the draw call was told to put it.**
   `SheetGlyphInfo.getTop()` is `7 - ascent`, and `assets/gathering/font/mana.json` declares
   `ascent: 8` for every glyph - so a mana symbol's ink sits one pixel *above* its line,

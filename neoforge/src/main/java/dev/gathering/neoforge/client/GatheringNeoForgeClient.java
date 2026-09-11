@@ -129,6 +129,10 @@ public final class GatheringNeoForgeClient {
             CardZoomOverlay.bindKeyState(ZoomKeyState.of(ZOOM_KEY, ZOOM_KEY::getKey));
             CardZoomOverlay.bindKeyName(ZOOM_KEY::getTranslatedKeyMessage);
             dev.gathering.client.TableShortcuts.bindKeyLookup(KeyMapping::getKey);
+            // Where the row of remembered token names is kept: a name learned on one server
+            // is not an offer worth making on another.
+            dev.gathering.client.RecentThings.bindServerLookup(
+                    dev.gathering.client.WhichServer::name);
             ClientNetworking.bindSender(payload -> {
                 var connection = Minecraft.getInstance().getConnection();
                 if (connection != null) {

@@ -29,6 +29,9 @@ public final class ClientTicks {
         // Settings are written from here rather than from the setter, so dragging a slider is
         // one write when the player lets go instead of one per frame while they choose.
         ClientSettings.tick();
+        // And the row of token names, on the same debounce and for the same reason: making
+        // five Treasures in a row is one write rather than five.
+        RecentThings.tick();
         // The scripted run. It does nothing at all unless its property is set, and it is the
         // only thing that tells us whether a loader plays the game rather than merely
         // starting it - so it runs on both.

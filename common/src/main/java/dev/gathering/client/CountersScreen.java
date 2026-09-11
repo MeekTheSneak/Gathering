@@ -344,6 +344,9 @@ public final class CountersScreen extends ChildScreen {
             return;
         }
         change(name, 1);
+        // Remembered so the next table playing a set with this keyword counter is a click
+        // rather than the word typed again. The name, and nothing about the card it went on.
+        RecentThings.rememberCounter(name);
         customName.setValue("");
     }
 

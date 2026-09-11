@@ -30,6 +30,25 @@ final class TableSounds {
     private TableSounds() {
     }
 
+    /**
+     * The same, for one of the game's own sounds rather than one of the mod's.
+     * <p>The mod has three sounds and they are audio files in its resource pack, which is the
+     * owner's to add to. A gesture that wants a noise the mod has not got uses vanilla's,
+     * which needs nothing added and is already a sound every player knows.
+     */
+    static void vanillaAt(BlockPos table, SoundEvent sound) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || table == null || sound == null) {
+            return;
+        }
+        client.execute(() -> {
+            if (client.level != null) {
+                client.level.playLocalSound(
+                        table, sound, SoundSource.PLAYERS, VOLUME, 1f, false);
+            }
+        });
+    }
+
     static void at(BlockPos table, Registered<SoundEvent> sound) {
         Minecraft client = Minecraft.getInstance();
         if (client == null || table == null || !sound.isBound()) {
