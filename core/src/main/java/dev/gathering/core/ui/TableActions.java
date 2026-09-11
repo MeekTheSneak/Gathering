@@ -69,6 +69,11 @@ public final class TableActions {
             of("detach", Category.CARD, Target.CARD, false, "unequip", "take off"),
             of("write", Category.CARD, Target.CARD, false, "note", "annotate"),
             of("ping", Category.CARD, Target.CARD, false, "point", "look at this"),
+            // Reaching what is under something else. In the catalogue rather than only on the
+            // menu so that it can be searched for and bound to a key, which is the whole of
+            // what makes a buried card reachable without a mouse.
+            of("others_here", Category.CARD, Target.CARD, false,
+                    "underneath", "beneath", "stacked", "behind", "overlapping"),
             of("copy", Category.CARD, Target.CARD, false, "token copy", "duplicate"),
 
             // Where a card goes.
@@ -82,6 +87,10 @@ public final class TableActions {
             of("to_library_bottom_random", Category.SELECTION, Target.SELECTION, true,
                     "under the deck in no order"),
             of("remove_token", Category.SELECTION, Target.SELECTION, true, "delete token"),
+            // Tidying, shown before it happens. See ArrangeSelection: the plan is worked out,
+            // drawn as a promise, and sent only if the player says so.
+            of("arrange", Category.SELECTION, Target.SELECTION, true,
+                    "tidy", "line up", "straighten the board", "neaten"),
 
             // The hand.
             of("sort_hand", Category.HAND, Target.NONE, false, "tidy", "order by cost"),

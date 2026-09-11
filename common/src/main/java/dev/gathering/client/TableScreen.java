@@ -318,6 +318,15 @@ public final class TableScreen extends Screen {
     /** The corner a box-select started from, while one is being dragged out. */
     private int[] boxFrom;
 
+    /**
+     * Where the chosen cards would go if the tidy were applied, or empty while none is offered.
+     * <p>A promise rather than an act. Nothing has moved, nothing has been sent, and pressing
+     * Escape leaves the board exactly as it was - which is the whole reason this is a preview
+     * and not a verb that simply tidies: a board that rearranged itself on a keypress is a
+     * board nobody trusts to leave a card where they put it.
+     */
+    private List<dev.gathering.core.ui.ArrangeSelection.Spot> arranging = List.of();
+
     /** Where a middle-drag pan started, so the table follows the hand. */
     private int[] panFrom;
 
@@ -1283,6 +1292,7 @@ public final class TableScreen extends Screen {
                         this.width / 2, ACCENT);
             }
         }
+        view().ifPresent(shown -> renderArrangement(graphics, shown));
         acceptPracticeBoard();
         if (Tutorial.runningAt(table)) {
             TutorialPanel.render(graphics, this.font,
@@ -3680,6 +3690,35 @@ public final class TableScreen extends Screen {
     // ------------------------------------------------------------ hit-testing
 
     /**
+     * Every card at this point, front-most first.
+     * <p>{@link #frontMostAt} answers what a click acts on; this answers what is <em>there</em>,
+     * which is a different question and the one somebody asks when the card they want is under
+     * something else. Cards overlap constantly on a Commander board - an aura on a creature, a
+     * token half behind a land, four permanents tucked together to make room - and until now
+     * the only way to reach a buried one was to move whatever was on top of it, which is a
+     * move the table logs and the other players see.
+     */
+    private List<Placed> everythingAt(List<Placed> onTable, int x, int y) {
+        if (!layout().isOnFelt(x, y)) {
+            return List.of();
+        }
+        double[] at = pointer(x, y);
+        if (at == null) {
+            return List.of();
+        }
+        int pointX = (int) Math.round(at[0]);
+        int pointY = (int) Math.round(at[1]);
+        List<Placed> found = new ArrayList<>();
+        for (int index = onTable.size() - 1; index >= 0; index--) {
+            Placed placed = onTable.get(index);
+            if (placed.where().containsTurned(placed.angle(), pointX, pointY)) {
+                found.add(placed);
+            }
+        }
+        return List.copyOf(found);
+    }
+
+    /**
      * The card under a point, front-most first.
      * <p>Front to back, because the card you can see is the card you meant, and turned cards
      * are tested at the angle they are drawn at - so the empty corner of an angled card is
@@ -4019,6 +4058,14 @@ public final class TableScreen extends Screen {
                 () -> ClientNetworking.send(new ToBottomAtRandomPayload(table, targets))));
         entries.add(ContextMenu.Entry.rule());
         entries.add(entry("ping", () -> send(new GameEvent.CardPinged(me, id))));
+        // Only when there is something to reach. A row that opens a list of one card is a row
+        // that wasted a press, and this menu is already long.
+        long readableHere = everythingAt(everythingOnTheTable(board), cursorX, cursorY).stream()
+                .filter(placed -> placed.card() instanceof CardView.Visible)
+                .count();
+        if (readableHere > 1) {
+            entries.add(entry("others_here", () -> showWhatIsUnderTheCursor(board)));
+        }
 
         return entries;
     }
@@ -4424,6 +4471,12 @@ public final class TableScreen extends Screen {
         entries.add(entry("discard_at_random", () -> ask("discard_at_random", 1,
                 howMany -> ClientNetworking.send(new DiscardAtRandomPayload(table, howMany)))));
         entries.add(entry("sort_hand", () -> sortMyHand(me)));
+        // Tidying what is chosen, shown before it happens. Only offered when there is a
+        // selection to tidy: an empty one would plan nothing and look broken doing it.
+        if (selected.size() > 1) {
+            view().ifPresent(shown -> entries.add(
+                    entry("arrange", () -> offerToArrange(shown, me))));
+        }
         // Turning your hand round. Always your own: "target player reveals their hand" is
         // resolved by that player pressing this, exactly as they would turn it toward you
         // across a table - see GameEvent.HandShown.
@@ -4746,6 +4799,107 @@ public final class TableScreen extends Screen {
                 Component.translatable("screen.gathering.pin.which"), rows, this));
     }
 
+    /**
+     * Lists everything under the cursor, so the one underneath can be picked.
+     * <p>A list rather than a fan of pictures, and deliberately: a list is read by a narrator,
+     * walked with the arrow keys and pressed with Enter, which a fan of overlapping rectangles
+     * is not. Reaching a buried card was the problem; reaching it only with a mouse would have
+     * solved half of it.
+     * <p><b>Nothing is moved.</b> Choosing a card opens its own menu, or selects it when it is
+     * one this player is not entitled to read - so a card can be reached and acted on without
+     * the board changing merely because somebody went looking.
+     * <p>Only cards this player is entitled to read appear, which is not a policy decision
+     * here so much as a consequence of one made further down: a face-down card reaches this
+     * client as {@code CardView.Anonymous}, which deliberately carries no instance id at all -
+     * there is nothing to name and nothing to address. So a face-down card belonging to
+     * somebody else, buried under a visible one, cannot be singled out by this client. That is
+     * the visibility rule working rather than a gap in this screen, and the card is still
+     * reachable the ordinary way when it is the one on top.
+     */
+    private void showWhatIsUnderTheCursor(GameView board) {
+        List<Placed> under = everythingAt(everythingOnTheTable(board), cursorX, cursorY);
+        if (under.size() < 2) {
+            return;
+        }
+        List<ChoiceScreen.Option> rows = new ArrayList<>();
+        for (Placed placed : under) {
+            if (placed.card() instanceof CardView.Visible visible) {
+                rows.add(new ChoiceScreen.Option(nameOf(visible),
+                        () -> openCardMenu(board, visible, false, cursorX, cursorY)));
+            }
+        }
+        if (rows.isEmpty()) {
+            return;
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(new ChoiceScreen(
+                Component.translatable("screen.gathering.table.under_here"), rows, this));
+    }
+
+    /**
+     * Works out where the chosen cards would sit if they were tidied, and offers it.
+     * <p>Only this player's own cards. The selection can only contain cards this client can
+     * see, but seeing somebody else's creature is not permission to rearrange their board -
+     * so the plan is built from the cards on <em>my</em> battlefield and nothing else. That
+     * check is here rather than only at the far end because a plan that drew somebody else's
+     * cards moving would be a promise this client had no business making.
+     */
+    private void offerToArrange(GameView board, SeatId me) {
+        List<dev.gathering.core.ui.ArrangeSelection.Card> chosen = new ArrayList<>();
+        for (CardView card : board.seat(me).zone(Zone.BATTLEFIELD).cards()) {
+            if (card instanceof CardView.Visible visible && selected.contains(visible.id())) {
+                chosen.add(new dev.gathering.core.ui.ArrangeSelection.Card(
+                        visible.id(),
+                        visible.position() == null ? TablePosition.ORIGIN : visible.position(),
+                        visible.attachedTo()));
+            }
+        }
+        arranging = dev.gathering.core.ui.ArrangeSelection.plan(chosen);
+    }
+
+    /**
+     * Sends the tidy the player has just agreed to.
+     * <p>One ordinary move per card, which is the point: there is no "arrange" on the wire and
+     * no new authority. Each one goes through the same commit the server applies to a card
+     * dragged by hand, so it is refused on the same terms, logged in the same words and undone
+     * the same way. A verb that could rearrange a board in one packet would be a verb that
+     * needed its own rules about who may use it.
+     */
+    private void applyTheArrangement() {
+        SeatId me = mySeat().orElse(null);
+        if (me == null || arranging.isEmpty()) {
+            arranging = List.of();
+            return;
+        }
+        for (dev.gathering.core.ui.ArrangeSelection.Spot spot : arranging) {
+            send(new GameEvent.CardMoved(me, spot.id(),
+                    ZoneRef.of(me, Zone.BATTLEFIELD),
+                    dev.gathering.core.game.Placement.at(spot.to())));
+        }
+        arranging = List.of();
+    }
+
+    /**
+     * Draws the tidy as it would be, over the board as it is.
+     * <p>Outlines rather than card faces: a preview drawn as real cards is a board with every
+     * card on it twice, and the question being asked is "where would things go", not "what are
+     * they". The cards themselves stay where they are underneath, so the movement each one
+     * would make is the gap between the two.
+     */
+    private void renderArrangement(GuiGraphics graphics, GameView board) {
+        SeatId me = mySeat().orElse(null);
+        if (me == null || arranging.isEmpty()) {
+            return;
+        }
+        for (dev.gathering.core.ui.ArrangeSelection.Spot spot : arranging) {
+            Rect where = board().rectOf(me, spot.to());
+            GatheringSprites.highlight(graphics, where.x(), where.y(), where.width(), where.height());
+        }
+        GuiText.drawCentered(graphics, this.font,
+                Component.translatable("screen.gathering.table.arrange_asks",
+                        TableShortcuts.labelOrUnbound("arrange")),
+                this.width / 2, layout().status().bottom() + 6, this.width / 2, ACCENT);
+    }
+
     private void openCounters(CountersScreen.Subject subject) {
         net.minecraft.client.Minecraft.getInstance()
                 .setScreen(new CountersScreen(table, subject, this));
@@ -4917,6 +5071,12 @@ public final class TableScreen extends Screen {
                 return true;
             }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> {
+                // A tidy that is on offer is what Enter is agreeing to. Passing the turn is
+                // the wrong thing to do to somebody who is looking at a question.
+                if (!arranging.isEmpty()) {
+                    applyTheArrangement();
+                    return true;
+                }
                 view().ifPresent(board -> passTurn(board, me));
                 return true;
             }
@@ -5109,6 +5269,14 @@ public final class TableScreen extends Screen {
             case "untap" -> setTapUnderCursor(me, false);
             case "turn_over" -> flipUnderCursor(me);
 
+            case "arrange" -> {
+                view().ifPresent(board -> offerToArrange(board, me));
+                yield true;
+            }
+            case "others_here" -> {
+                view().ifPresent(this::showWhatIsUnderTheCursor);
+                yield true;
+            }
             case "sort_hand" -> {
                 sortMyHand(me);
                 yield true;
@@ -6082,7 +6250,7 @@ public final class TableScreen extends Screen {
      */
     private boolean somethingIsOpen() {
         return saying != null || menu != null || palette != null || !attaching.isEmpty()
-                || showingKeys || showingLog || held != null;
+                || showingKeys || showingLog || held != null || !arranging.isEmpty();
     }
 
     /** Shuts all of it, because Escape is one press and a player pressed it once. */
@@ -6096,6 +6264,9 @@ public final class TableScreen extends Screen {
         // Put back where it came from, which is what letting go off the table does too: the
         // card never moved as far as the server is concerned, so there is nothing to undo.
         held = null;
+        // The same is true of a tidy nobody agreed to: it was a drawing, and dropping it
+        // leaves every card exactly where its owner put it.
+        arranging = List.of();
     }
 
     /**
