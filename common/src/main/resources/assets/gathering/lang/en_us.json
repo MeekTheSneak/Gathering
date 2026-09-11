@@ -325,6 +325,7 @@
   "message.gathering.next_game_ready": "Crouch and right-click the table to start the next game.",
   "message.gathering.no_basic_in_deck": "There is no %s left in your deck.",
   "message.gathering.no_loaners": "This server does not lend any decks.",
+  "message.gathering.no_real_deck_while_practicing": "Not while you are learning the controls. This table keeps nothing.",
   "message.gathering.no_such_loaner": "That deck is not on the shelf any more.",
   "message.gathering.owed_could_not_be_paid": "This server owes you something and could not write down that it had handed it over, so it has held on to it rather than risk giving it to you twice. Tell whoever runs the server that Gathering cannot write to the world folder.",
   "message.gathering.owed_delivered": "%s card(s) this server owed you have been handed over.",

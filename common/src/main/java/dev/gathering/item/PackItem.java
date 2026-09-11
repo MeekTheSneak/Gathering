@@ -51,7 +51,7 @@ public class PackItem extends Item {
             // stops existing. The receipt goes on disk first and is settled at the end, so
             // the window holds a record rather than nothing.
             String receipt = dev.gathering.server.Owed
-                    .opening(opener.getUUID(), pack.setCode(), pack.kind())
+                    .opening(opener.getUUID(), pack.setCode(), pack.kind(), pack.color())
                     .orElse(null);
             if (receipt == null) {
                 // Nowhere to write it down, so the pack is not taken. A booster that cannot

@@ -86,15 +86,42 @@ public final class Owed {
      * @return the receipt to settle, or empty if nothing could be written - in which case the
      *     caller must not consume the pack
      */
-    public static java.util.Optional<String> opening(UUID player, String setCode, String kind) {
+    public static java.util.Optional<String> opening(
+            UUID player, String setCode, String kind, String color) {
         if (player == null || setCode == null || setCode.isBlank()) {
             return java.util.Optional.empty();
         }
         String receipt = UUID.randomUUID().toString();
+        // The color is part of what the pack is, not decoration on it. A starter booster is
+        // a white one or a red one because somebody chose, and a receipt that recorded only
+        // the set and the kind handed back a pack that could open as anything - which is the
+        // choice quietly undone by a crash. Written last so a line from before this field
+        // existed still reads: a receipt with three words is the same receipt with no color.
         boolean written = add(player, List.of("opening " + receipt + " "
                 + setCode.trim().toLowerCase(Locale.ROOT)
-                + " " + (kind == null ? "" : kind.trim().toLowerCase(Locale.ROOT))));
+                + " " + wordFor(kind)
+                + " " + wordFor(color)));
         return written ? java.util.Optional.of(receipt) : java.util.Optional.empty();
+    }
+
+    /**
+     * One field of a receipt line, safe to write and safe to leave out.
+     * <p>A blank becomes a dash rather than nothing, because the fields are separated by
+     * spaces and an empty one in the middle would shift every field after it along. Read back
+     * by {@link #wordBack}.
+     */
+    private static String wordFor(String value) {
+        String kept = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        return kept.isEmpty() ? "-" : kept;
+    }
+
+    /** The other half of {@link #wordFor}: a dash, or a missing field, is nothing. */
+    private static String wordBack(String[] parts, int at) {
+        if (parts.length <= at) {
+            return "";
+        }
+        String word = parts[at];
+        return "-".equals(word) ? "" : word;
     }
 
     /**
@@ -127,12 +154,13 @@ public final class Owed {
      * @return whether it is safely on disk. A caller told false must not report the pack as
      *     safeguarded: nothing was recorded and nobody will hand it over.
      */
-    public static boolean aPack(UUID player, String setCode, String kind) {
+    public static boolean aPack(UUID player, String setCode, String kind, String color) {
         if (player == null || setCode == null || setCode.isBlank()) {
             return false;
         }
         return add(player, List.of("pack " + setCode.trim().toLowerCase(Locale.ROOT)
-                + " " + (kind == null ? "" : kind.trim().toLowerCase(Locale.ROOT))));
+                + " " + wordFor(kind)
+                + " " + wordFor(color)));
     }
 
     /**
@@ -247,11 +275,13 @@ public final class Owed {
         try {
             return switch (parts[0]) {
                 case "pack" -> PackItem.of(new PackComponent(
-                        parts[1], parts.length > 2 ? parts[2] : ""));
+                        parts[1], wordBack(parts, 2), wordBack(parts, 3)));
                 // A receipt nobody settled: this server, or a previous one, took the pack and
-                // never finished opening it. The pack comes back, once.
+                // never finished opening it. The pack comes back, once, as the pack it was -
+                // set, kind and color. A line written before the color existed has three
+                // words and reads back as no color, which is what it meant.
                 case "opening" -> parts.length < 3 ? null : PackItem.of(new PackComponent(
-                        parts[2], parts.length > 3 ? parts[3] : ""));
+                        parts[2], wordBack(parts, 3), wordBack(parts, 4)));
                 case "card" -> CardItem.of(new CardComponent(
                         java.util.Optional.of(UUID.fromString(parts[1])),
                         parts.length > 2 && Boolean.parseBoolean(parts[2]),

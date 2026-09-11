@@ -58,6 +58,11 @@ public final class PlayerGone {
         // And whatever refusal was still folding, which is counted in this server's ticks and
         // means nothing in the next one.
         Refusals.forget(player.getUUID());
+        // And the lesson they were in the middle of. A practice game exists to teach one
+        // person; when that person goes there is nobody it is for, and leaving it behind
+        // leaves the table holding a game nobody can play and nobody can replace. Ordinary
+        // games are untouched - a real match outlasts a logout on purpose.
+        PracticeTable.forget(player.getServer(), player.getUUID());
 
         // StarterBoosters is deliberately NOT forgotten here, and this comment is what says
         // so - the check next door looks for the name rather than the call. Everything else

@@ -62,7 +62,7 @@ public final class OwedGameTest {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         Owed.forget(player.getUUID());
 
-        Owed.aPack(player.getUUID(), "DMU", "draft");
+        Owed.aPack(player.getUUID(), "DMU", "draft", "");
         Owed.deliver(player);
 
         if (countOf(player, PackItem.class) != 1) {
@@ -99,7 +99,7 @@ public final class OwedGameTest {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         Owed.forget(player.getUUID());
 
-        Owed.aPack(player.getUUID(), "DMU", "draft");
+        Owed.aPack(player.getUUID(), "DMU", "draft", "");
         java.nio.file.Path list = dev.gathering.server.ServerRun.inSave("owed")
                 .orElseThrow().resolve(player.getUUID() + ".txt");
         try {
@@ -162,7 +162,7 @@ public final class OwedGameTest {
     public static void whatIsOwedBelongsToTheSave(GameTestHelper helper) {
         java.util.UUID who = java.util.UUID.randomUUID();
         try {
-            Owed.aPack(who, "DMU", "draft");
+            Owed.aPack(who, "DMU", "draft", "");
 
             java.nio.file.Path list = dev.gathering.server.ServerRun.inSave("owed")
                     .orElseThrow().resolve(who + ".txt");
@@ -207,7 +207,7 @@ public final class OwedGameTest {
             return;
         }
         try {
-            if (Owed.aPack(who, "DMU", "draft")) {
+            if (Owed.aPack(who, "DMU", "draft", "")) {
                 helper.fail("A pack that could not be written down was reported as safeguarded");
                 return;
             }
@@ -243,7 +243,7 @@ public final class OwedGameTest {
 
         // The receipt, written before the pack is consumed. Then nothing else happens,
         // which is what a server stopped mid-opening looks like from the disk's side.
-        String receipt = Owed.opening(player.getUUID(), "DMU", "draft").orElse(null);
+        String receipt = Owed.opening(player.getUUID(), "DMU", "draft", "").orElse(null);
         if (receipt == null) {
             helper.fail("A pack about to be opened could not be written down at all");
             return;
@@ -276,7 +276,7 @@ public final class OwedGameTest {
     public static void asettledOpeningOwesNothingMore(GameTestHelper helper) {
         java.util.UUID who = java.util.UUID.randomUUID();
         try {
-            String receipt = Owed.opening(who, "DMU", "draft").orElseThrow();
+            String receipt = Owed.opening(who, "DMU", "draft", "").orElseThrow();
             if (Owed.waitingFor(who) != 1) {
                 helper.fail("A receipt was written and the list holds " + Owed.waitingFor(who));
                 return;
@@ -296,7 +296,7 @@ public final class OwedGameTest {
             }
 
             // And the other ending: the player had gone, so the cards take the receipt's place.
-            String second = Owed.opening(who, "DMU", "draft").orElseThrow();
+            String second = Owed.opening(who, "DMU", "draft", "").orElseThrow();
             Owed.settled(who, second, java.util.List.of(
                     CardIdentity.ofPrinting(BOLT, false), CardIdentity.ofPrinting(BOLT, true)));
             if (Owed.waitingFor(who) != 2) {

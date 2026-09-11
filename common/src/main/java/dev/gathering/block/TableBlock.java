@@ -715,6 +715,23 @@ public class TableBlock extends BaseEntityBlock {
             }
         }
         DeckCameFrom cameFrom = inHand == null ? DeckCameFrom.THE_TABLE : DeckCameFrom.THEIR_HAND;
+        // Nothing real goes onto a table that is teaching somebody. The practice library is
+        // made up so that a newcomer can learn which key draws a card, and what the table
+        // holds while practice is running is discarded when it ends rather than handed back -
+        // which is right for cards the server invented and catastrophic for a deck somebody
+        // built. Drawing all twenty practice cards and then putting a real deck down let one
+        // through, and it was consumed, recorded as held, and then deleted. An external
+        // review reproduced it with no forged packet and no administrator.
+        //
+        // Refused here, at the one boundary every route in shares - a hand, the loaner shelf,
+        // and the delayed callback that lands after a check finished - rather than at any of
+        // them. The return guard stays exactly as it is: loosening that would start minting
+        // decks out of invented cards, which is the opposite mistake.
+        if (TableSessions.isPractice(level, tableOrigin)) {
+            player.sendSystemMessage(
+                    Component.translatable("message.gathering.no_real_deck_while_practicing"));
+            return;
+        }
         GameSession session = TableSessions.sessionAt(level, tableOrigin).orElse(null);
         if (session == null) {
             player.sendSystemMessage(Component.translatable("message.gathering.session_not_running"));

@@ -117,7 +117,7 @@ public final class ReviewRoundTwoGameTest {
         Path list=folder.resolve(who+".txt");
         Path blocked=folder.resolve(who+".txt.writing");
         try {
-            if(!Owed.aPack(who,"dmu","draft")) throw new AssertionError("fixture write failed");
+            if(!Owed.aPack(who,"dmu","draft","")) throw new AssertionError("fixture write failed");
             Files.writeString(list,Files.readString(list)+"\nfuture-kind unknown\n");
             Files.createDirectory(blocked);
             Files.writeString(blocked.resolve("keep-blocked"),"fault injection");

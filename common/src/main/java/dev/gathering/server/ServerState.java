@@ -27,6 +27,7 @@ public final class ServerState {
         CollectionView.clear();
         CurrentSet.clear();
         LoanerDecks.clear();
+        PracticeTable.clear();
         Refusals.clear();
         ReplayWatch.clear();
         SealedLoot.clear();

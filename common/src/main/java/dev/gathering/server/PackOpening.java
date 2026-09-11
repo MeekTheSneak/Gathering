@@ -156,7 +156,9 @@ public final class PackOpening {
                                 Owed.settled(player.getUUID(), receipt, opened.pack().cards());
                             }
                         } else if (receipt == null) {
-                            Owed.aPack(player.getUUID(), set, kind);
+                            // The color too: a refunded starter is the color it was chosen
+                            // as, and a pack handed back without one opens as anything.
+                            Owed.aPack(player.getUUID(), set, kind, color);
                         }
                         return;
                     }

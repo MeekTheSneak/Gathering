@@ -43,6 +43,19 @@ public final class Tutorial {
     private static int countersWhenTheStepBegan;
     private static dev.gathering.core.game.TurnMarker turnWhenTheStepBegan;
 
+    /**
+     * The last board the server confirmed, kept so navigation can take its own baseline.
+     * <p>Restart, Back and Forward used to clear the baseline and wait for the next board to
+     * set a new one - and that next board is the one carrying the player's next action. So
+     * the action that satisfied the new step was spent establishing the baseline it was
+     * measured against, and the instruction sat there unchanged until they did it twice. An
+     * external review reproduced it: restart, draw once, feed the confirmed board, still
+     * showing DRAW.
+     * <p>Keeping the last confirmed board means a baseline can be taken at the moment the
+     * step changes, before the next input, which is the only time it is honest.
+     */
+    private static GameView lastConfirmed;
+
     private Tutorial() {
     }
 
@@ -117,13 +130,14 @@ public final class Tutorial {
         table = null;
         expecting = null;
         turnWhenTheStepBegan = null;
+        lastConfirmed = null;
     }
 
     /** Shows the previous instruction again. Reviews; changes nothing about the game. */
     public static void back() {
         if (progress != null) {
             progress = progress.back();
-            turnWhenTheStepBegan = null;
+            baselineNow();
         }
     }
 
@@ -131,7 +145,7 @@ public final class Tutorial {
     public static void forward() {
         if (progress != null) {
             progress = progress.forward();
-            turnWhenTheStepBegan = null;
+            baselineNow();
         }
     }
 
@@ -139,7 +153,7 @@ public final class Tutorial {
     public static void restart() {
         if (progress != null) {
             progress = TutorialProgress.start();
-            turnWhenTheStepBegan = null;
+            baselineNow();
         }
     }
 
@@ -178,6 +192,7 @@ public final class Tutorial {
         if (me == null) {
             return;
         }
+        lastConfirmed = board;
         if (turnWhenTheStepBegan == null) {
             remember(board);
             return;
@@ -196,6 +211,20 @@ public final class Tutorial {
             progress = progress.saw(step);
             remember(board);
         }
+    }
+
+    /**
+     * Takes a baseline from the last board the server confirmed, now.
+     * <p>Called when the step changes rather than when the next board arrives, so the
+     * player's next action is measured against where they were when they were asked - not
+     * against where they were after doing it.
+     */
+    private static void baselineNow() {
+        if (lastConfirmed == null) {
+            turnWhenTheStepBegan = null;
+            return;
+        }
+        remember(lastConfirmed);
     }
 
     /**
@@ -295,5 +324,6 @@ public final class Tutorial {
         table = null;
         expecting = null;
         turnWhenTheStepBegan = null;
+        lastConfirmed = null;
     }
 }

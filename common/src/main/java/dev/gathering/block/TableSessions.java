@@ -289,6 +289,16 @@ public final class TableSessions {
     }
 
     /**
+     * Whether this table is teaching somebody rather than hosting a game.
+     * <p>Asked at the deck intake boundary, because nothing real may go onto a table whose
+     * contents are discarded at the end - see the note where it is asked.
+     */
+    public static boolean isPractice(Level level, BlockPos tableOrigin) {
+        return level.getBlockEntity(tableOrigin) instanceof TableBlockEntity table
+                && table.isPractice();
+    }
+
+    /**
      * Puts a released deck into somebody's hands, or onto the table if nobody's are here.
      * <p>To whoever put it down, wherever they are on the server - not to whoever is sitting
      * in the chair now. Handing it to the chair meant a player who stood up mid-match had

@@ -15,6 +15,7 @@ import dev.gathering.core.game.event.GameEvent;
 import dev.gathering.core.match.MatchRules;
 import dev.gathering.core.table.SeatAnchor;
 import java.nio.charset.StandardCharsets;
+import net.minecraft.core.GlobalPos;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -175,7 +176,51 @@ public final class PracticeTable {
         TableActions.openFor(learner, tableOrigin);
         LOGGER.info("Started a practice game at {} for {}",
                 tableOrigin, learner.getGameProfile().getName());
+        // Whose lesson this is, so logging out ends it rather than leaving the table with a
+        // game nobody is playing and nobody can replace.
+        LEARNING.put(learner.getUUID(), GlobalPos.of(level.dimension(), tableOrigin.immutable()));
         return Outcome.STARTED;
+    }
+
+    /**
+     * Which table each learner is practicing at, so a disconnect can end it.
+     * <p>A practice session has an owner in a way an ordinary game does not: it exists to
+     * teach one person, and when that person goes there is nobody it is for. Without this the
+     * table kept the session and the demonstration seat, the client forgot it was teaching
+     * there, and on reconnect a new practice session was refused because the table already
+     * had a game - a table left unusable by logging out, which an external review reproduced
+     * through the shared disconnect hook.
+     */
+    private static final java.util.Map<UUID, GlobalPos> LEARNING = new java.util.HashMap<>();
+
+    /**
+     * Ends whatever this player was being taught, wherever it was.
+     * <p>Idempotent, and called from {@link dev.gathering.server.PlayerGone#left} - the one
+     * list both loaders run. Ordinary games are untouched: only a table this player started
+     * practicing at is ended, and only while it is still marked practice.
+     */
+    public static void forget(net.minecraft.server.MinecraftServer server, UUID who) {
+        if (server == null || who == null) {
+            return;
+        }
+        GlobalPos at = LEARNING.remove(who);
+        if (at == null) {
+            return;
+        }
+        ServerLevel level = server.getLevel(at.dimension());
+        if (level != null && isPracticeAt(level, at.pos())) {
+            stop(level, at.pos());
+        }
+    }
+
+    /** Drops everything, for a server that is stopping. */
+    public static void clear() {
+        LEARNING.clear();
+    }
+
+    /** Where somebody is being taught, for a test to ask. */
+    public static boolean isLearning(UUID who) {
+        return who != null && LEARNING.containsKey(who);
     }
 
     /**
@@ -185,6 +230,10 @@ public final class PracticeTable {
      * broken and a player pressing Exit, and none of them can be sure they are first.
      */
     public static void stop(ServerLevel level, BlockPos tableOrigin) {
+        // Whoever was being taught here is no longer being taught here, however this was
+        // reached - the button, a disconnect, or the table being broken.
+        GlobalPos here = GlobalPos.of(level.dimension(), tableOrigin.immutable());
+        LEARNING.values().removeIf(here::equals);
         if (level == null || tableOrigin == null) {
             return;
         }
