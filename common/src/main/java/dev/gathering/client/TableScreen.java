@@ -227,8 +227,12 @@ public final class TableScreen extends Screen {
             new String[] {
                 "screen.gathering.table.keys_camera",
                 "screen.gathering.table.key_zoom",
-                "screen.gathering.table.key_pan",
-                "screen.gathering.table.key_frame",
+                // Not the table's pan line and not its framing line. A watcher's arrow keys
+                // step the recording and its Home goes to the beginning - which the watching
+                // section below says - so a panel promising that the arrows move the view and
+                // Home shows the whole table was describing a screen this is not. Dragging
+                // with the middle button does still pan, and is all that is left that does.
+                "screen.gathering.replay.key_pan",
             },
             new String[] {
                 "screen.gathering.replay.keys_watching",
@@ -2903,16 +2907,25 @@ public final class TableScreen extends Screen {
     private float keyListScale = 1f;
 
     /**
-     * One line of the key list.
-     * <p>The lines that name a mat button's key take that key as an argument rather than
-     * spelling it out, so the list cannot go on saying "2 - draw a card" after 2 has stopped
-     * drawing one. Everything else is prose that names no key of its own.
+     * One line of the key list, with the keys it names filled in from the real bindings.
+     * <p>Half this list used to be written out with the keys in it - "L - game log", "3 -
+     * scry", "Q and E - untap and tap". Those are the keys it shipped with, and they stayed on
+     * the screen after a player moved them, so the one panel whose entire job is answering
+     * "which key does this" answered with the wrong key to precisely the people who had cared
+     * enough to change it.
+     * <p>A line with no verbs is a line about something that cannot be rebound - the mouse,
+     * Escape, the camera keys - and is printed as it is written.
      */
     private static Component keyLine(String name) {
-        String verb = KEY_LIST_ACTIONS.get(name);
-        return verb == null
-                ? Component.translatable(name)
-                : Component.translatable(name, TableShortcuts.labelOrUnbound(verb));
+        List<String> verbs = KEY_LIST_ACTIONS.get(name);
+        if (verbs == null) {
+            return Component.translatable(name);
+        }
+        Object[] keys = new Object[verbs.size()];
+        for (int at = 0; at < verbs.size(); at++) {
+            keys[at] = TableShortcuts.labelOrUnbound(verbs.get(at));
+        }
+        return Component.translatable(name, keys);
     }
 
     /**
@@ -2922,11 +2935,27 @@ public final class TableScreen extends Screen {
      * draw onto Z reads "Z - draw a card", which is the only version of that sentence worth
      * printing.
      */
-    private static final java.util.Map<String, String> KEY_LIST_ACTIONS = java.util.Map.of(
-            "screen.gathering.table.key_untap", "untap_all",
-            "screen.gathering.table.key_draw", "draw",
-            "screen.gathering.table.key_shuffle", "shuffle",
-            "screen.gathering.table.key_palette", "palette");
+    private static final java.util.Map<String, List<String>> KEY_LIST_ACTIONS =
+            java.util.Map.ofEntries(
+                    java.util.Map.entry("screen.gathering.table.key_untap", List.of("untap_all")),
+                    java.util.Map.entry("screen.gathering.table.key_draw", List.of("draw")),
+                    java.util.Map.entry("screen.gathering.table.key_shuffle", List.of("shuffle")),
+                    java.util.Map.entry("screen.gathering.table.key_palette", List.of("palette")),
+                    java.util.Map.entry("screen.gathering.table.key_log", List.of("show_log")),
+                    java.util.Map.entry("screen.gathering.table.key_mill", List.of("mill")),
+                    java.util.Map.entry("screen.gathering.table.key_pass", List.of("pass_turn")),
+                    java.util.Map.entry("screen.gathering.table.key_reveal", List.of("reveal")),
+                    java.util.Map.entry("screen.gathering.table.key_scry", List.of("scry")),
+                    java.util.Map.entry("screen.gathering.table.key_surveil", List.of("surveil")),
+                    java.util.Map.entry("screen.gathering.table.key_flip", List.of("turn_over")),
+                    java.util.Map.entry("screen.gathering.table.key_frame",
+                            List.of("show_everything")),
+                    // Two and three verbs on one line, because one line is how they read: the
+                    // pair that turn a card, and the three that send it away.
+                    java.util.Map.entry("screen.gathering.table.key_turn",
+                            List.of("untap", "tap")),
+                    java.util.Map.entry("screen.gathering.table.key_to_zones",
+                            List.of("to_exile", "to_graveyard", "to_library_bottom_random")));
 
     /** Whichever list this screen is teaching: the game's keys, or a watcher's. */
     private List<String[]> keyHelp() {
@@ -4770,27 +4799,28 @@ public final class TableScreen extends Screen {
             closeWhatIsOpen();
             return true;
         }
-        // The log is above the seat check, because it is the one panel here that is about
-        // the table rather than about a board. It is the public record of a public game, and
-        // the person most likely to want to read it is somebody watching who did not see the
-        // first half - who had no way to open it at all: the key gave up here and the table
-        // menu refused to open for them, while the layout went on reserving room for a panel
-        // they could not reach.
-        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_L) {
-            showingLog = !showingLog;
+        // Whatever the player has this key bound to, which is the only place that question is
+        // asked. The mat buttons, the number row and the TTS letters were three separate
+        // switches on hardcoded constants; they are one table now, and it is the table the
+        // menus, the key list and the palette all read their labels out of.
+        //
+        // Resolved before the seat check rather than after it, which is two fixes in one
+        // line. The log used to be a literal `L` tested above here: rebinding the log to Z
+        // left L still opening it, unbinding it left L still opening it, and binding anything
+        // else to L never saw the press - because a hardcoded key above the lookup is not a
+        // default, it is an override. And three of these verbs are not about a board at all,
+        // so a watcher used to reach none of them: the early return below gave up before the
+        // lookup, and the one person most likely to want to read the log of a game they
+        // joined halfway through was the one person who could not open it.
+        String bound = TableShortcuts.actionFor(key, scanCode);
+        if (doActionWithoutASeat(bound)) {
             return true;
         }
         SeatId me = mySeat().orElse(null);
         if (me == null) {
             return super.keyPressed(key, scanCode, modifiers);
         }
-
-        // Whatever the player has this key bound to, which is the only place that question is
-        // asked. The mat buttons, the number row and the TTS letters were three separate
-        // switches on hardcoded constants; they are one table now, and it is the table the
-        // menus, the key list and the palette all read their labels out of.
-        String bound = TableShortcuts.actionFor(key, scanCode);
-        if (bound != null && doAction(me, bound)) {
+        if (doAction(me, bound)) {
             return true;
         }
 
@@ -4921,6 +4951,37 @@ public final class TableScreen extends Screen {
     }
 
     /**
+     * The verbs that are about the table rather than about a board.
+     * <p>Nothing anybody else can see, and nothing that needs a chair: the log is the public
+     * record of a public game, framing the camera is where you are looking from, and the
+     * palette is how you find a verb whose key you do not know. A watcher may do all three,
+     * which is why they are answered before the seat check rather than inside {@link
+     * #doAction}, and why they live in one method rather than being written out twice.
+     *
+     * @param action a catalogue verb id, or null for a press that is not one
+     */
+    private boolean doActionWithoutASeat(String action) {
+        if (action == null) {
+            return false;
+        }
+        return switch (action) {
+            case "show_log", "hide_log" -> {
+                showingLog = !showingLog;
+                yield true;
+            }
+            case "show_everything" -> {
+                showEverything();
+                yield true;
+            }
+            case "palette" -> {
+                openThePalette();
+                yield true;
+            }
+            default -> false;
+        };
+    }
+
+    /**
      * Does one verb, named by its catalogue id.
      * <p>The number row's defaults are matched to the reference table key for key, because a
      * row that is nearly the same is worse than one that is different: 0 passes, 1 untaps, 2
@@ -4942,6 +5003,11 @@ public final class TableScreen extends Screen {
     boolean doAction(SeatId me, String action) {
         if (me == null || action == null) {
             return false;
+        }
+        // The three that need no seat are still reachable through here, because this is what
+        // a menu row and a palette row call and both of those are open to a watcher too.
+        if (doActionWithoutASeat(action)) {
+            return true;
         }
         return switch (action) {
             // The mat's own four. A button and its key are one body here, which is why the
@@ -4994,19 +5060,6 @@ public final class TableScreen extends Screen {
             case "untap" -> setTapUnderCursor(me, false);
             case "turn_over" -> flipUnderCursor(me);
 
-            // Nothing anybody else can see.
-            case "show_log", "hide_log" -> {
-                showingLog = !showingLog;
-                yield true;
-            }
-            case "show_everything" -> {
-                showEverything();
-                yield true;
-            }
-            case "palette" -> {
-                openThePalette();
-                yield true;
-            }
             case "sort_hand" -> {
                 sortMyHand(me);
                 yield true;
@@ -5829,6 +5882,11 @@ public final class TableScreen extends Screen {
                 ClientReplay.nudge(1);
                 return true;
             }
+            // keycheck: HOME is the start of the recording here, not the table's framing
+            // verb. Watching is a mode where show_everything is not offered at all - there is
+            // no seat, no mat and nothing to frame on - so the two never both mean something
+            // at once, and Home going to the beginning is what every other player in the game
+            // does with it.
             case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> {
                 ClientReplay.scrubTo(0);
                 return true;
@@ -5837,15 +5895,20 @@ public final class TableScreen extends Screen {
                 ClientReplay.scrubTo(ClientReplay.steps());
                 return true;
             }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_L -> {
-                showingLog = !showingLog;
-                return true;
-            }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_F1 -> {
                 showingKeys = !showingKeys;
                 return true;
             }
             default -> {
+                // The log is the same verb on the same catalogue key as it is at a table, so
+                // it is asked for the same way. It was a literal L here too, which meant a
+                // player who moved the log key could open the log of a game they were playing
+                // and not of one they were watching - with this panel telling them L either
+                // way.
+                if (TableShortcuts.matches("show_log", key, scanCode)) {
+                    showingLog = !showingLog;
+                    return true;
+                }
                 return super.keyPressed(key, scanCode, modifiers);
             }
         }
