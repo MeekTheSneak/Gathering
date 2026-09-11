@@ -48,12 +48,21 @@ is in `docs/reviews/quality-progress-2026-09-11.md`; its findings CSV is beside 
 
 | Id | What | Where |
 |---|---|---|
-| ~~QP-05~~ | **Fixed.** The binding lookup now happens *before* the seat check, so rebinding the log to Z moves it, unbinding it silences L, and a watcher reaches the three verbs that need no chair (log, framing, palette) instead of none. The key list interpolates 14 lines rather than 4, including the two that name more than one verb. The replay's own hardcoded `L` went the same way, and its camera section no longer promises that Home shows the whole table when Home goes to the start of the recording. `tools/keycheck.py` fails the build on a rebindable key written down in an input handler, or a help line with the wrong number of slots — both proved failing | `TableScreen.java`, `tools/keycheck.py` |
-| ~~QP-06~~ | **Fixed.** See Q05 above. The policy - silence while young, "no answer yet" when overdue, never "failed" - lives in `PendingWork.noteFor` rather than in the screens, because a screen cannot be loaded in a test at all: a dedicated server refuses every client class one is built from. Two in-world tests cover it | `PendingWork.java`, `DecklistImportScreen.java`, `DeckBuilderScreen.java` |
-| — | ~~Tutorial completion counts 240 **rendered frames**~~ **Fixed.** It is a 4,000 ms deadline read off `Util.getMillis`, taken on the tick, and `tick` now returns as soon as the lesson hands over — without that return the old screen read on, found an empty view and closed the screen it had just opened | `TableScreen.java` |
 | — | Client clips a gesture to 128 targets, but the server broadcasts the whole board per event, so a 100-card gesture is 100 broadcasts. Unmeasured | `TableActions.java` |
 | — | A retry after "no answer yet" is only offered where it cannot cost anything - a decklist becomes a deck out of nothing, so the button comes back; a build from a collection takes real cards, so it does not. Whether that is the right split for the builder is a judgment, not a proof | `DecklistImportScreen.java`, `DeckBuilderScreen.java` |
 | — | Scripted tour's board stops accepting moves in its late steps. Assertions were moved earlier rather than the transition being understood | `DevScene.java` |
+
+Everything the September review raised is now closed. What is left above is a measurement
+nobody has taken, a judgment call worth revisiting, and a scripted-run mystery that was worked
+around rather than understood.
+
+### Fixed this session, with the evidence
+
+| Id | What was wrong, and what closed it |
+|---|---|
+| QP-05 | The binding lookup now happens *before* the seat check, so rebinding the log to Z moves it, unbinding it silences L, and a watcher reaches the three verbs that need no chair (log, framing, palette) instead of none. The key list interpolates 14 lines rather than 4, including the two that name more than one verb. The replay's own hardcoded `L` went the same way, and its camera section no longer promises that Home shows the whole table when Home goes to the start of the recording. `tools/keycheck.py` fails the build on a rebindable key written down in an input handler, or a help line with the wrong number of slots — both proved failing |
+| QP-06 | See Q05 above. The policy - silence while young, "no answer yet" when overdue, never "failed" - lives in `PendingWork.noteFor` rather than in the screens, because a screen cannot be loaded in a test at all: a dedicated server refuses every client class one is built from. Two in-world tests cover it |
+| Frame count | The tutorial's completion counted 240 **rendered frames** - four seconds at sixty a second, sixteen at fifteen, and never on a paused window. It is a 4,000 ms deadline read off `Util.getMillis`, taken on the tick, and `tick` now returns as soon as the lesson hands over — without that return the old screen read on, found an empty view and closed the screen it had just opened |
 
 ### QP-07, what is done and what is not
 
