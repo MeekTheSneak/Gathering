@@ -160,7 +160,11 @@ public final class DecklistImportScreen extends Screen {
         this.status = Component.translatable("screen.gathering.import.working");
         this.importButton.active = false;
 
-        this.pressed = java.util.UUID.randomUUID();
+        // Minted by PendingWork rather than here, which is what makes the wait something
+        // the client actually knows about rather than a boolean on one screen. It is the
+        // same id the server echoes back, so the answer resolves the very entry the waiting
+        // note is drawn from.
+        this.pressed = PendingWork.sent();
         ClientNetworking.send(new ImportDecklistPayload(
                 decklist, this.nameField.getValue(), this.descriptionField.getValue(), this.from,
                 this.pressed));
@@ -168,6 +172,47 @@ public final class DecklistImportScreen extends Screen {
 
     /** Which press this screen is waiting on, or null if it is not waiting on one. */
     private java.util.UUID pressed;
+
+    /**
+     * Says so when an answer is taking long enough that silence is its own message.
+     * <p>This screen used to wait for ever. The button went inactive on the press and came
+     * back only when the server answered, so a reply that never arrived - a disconnect, a path
+     * that returned without sending - left somebody looking at "Working" with nothing to press
+     * and no reason given.
+     * <p>What it does about that depends on what pressing again would cost. A decklist becomes
+     * a deck out of nothing, so trying once more is harmless and the button comes back. A deck
+     * built out of a collection takes real cards off somebody's shelves, and a second press
+     * that turned out to be a second build would be the mod taking them twice - so that one
+     * says what it knows and waits, and the player can close the screen.
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        if (!this.waiting || this.pressed == null) {
+            return;
+        }
+        Component note = PendingWork.noteFor(this.pressed).orElse(null);
+        if (note == null) {
+            return;
+        }
+        this.status = note;
+        if (fromCollection()) {
+            return;
+        }
+        this.waiting = false;
+        this.importButton.active = true;
+    }
+
+    /**
+     * Drops this screen's outstanding request, which is not the same as cancelling it.
+     * <p>The server goes on doing whatever it was asked; there is simply nowhere left to show
+     * the answer, and an entry nobody will ever read is only a map that grows.
+     */
+    @Override
+    public void removed() {
+        PendingWork.forget(this.pressed);
+        super.removed();
+    }
 
     /**
      * Called from the payload handler when the server reports back.
@@ -181,6 +226,18 @@ public final class DecklistImportScreen extends Screen {
         if (this.pressed == null || result.forRequest().filter(this.pressed::equals).isEmpty()) {
             return;
         }
+        // Resolved before anything is drawn from it. A result that produced no cards and
+        // nothing but problems is the server having refused; anything that produced cards is
+        // the server having done it, problems and all - an import that half worked still
+        // makes a deck, and telling somebody it failed would be wrong in the useful half.
+        if (result.cardCount() > 0) {
+            PendingWork.confirmed(this.pressed);
+        } else {
+            PendingWork.refused(this.pressed, result.problems().isEmpty()
+                    ? null
+                    : Component.literal(result.problems().getFirst()));
+        }
+        PendingWork.forget(this.pressed);
         this.pressed = null;
         this.waiting = false;
         this.importButton.active = true;

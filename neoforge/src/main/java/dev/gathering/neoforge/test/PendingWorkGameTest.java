@@ -1,6 +1,7 @@
 package dev.gathering.neoforge.test;
 
 import dev.gathering.Gathering;
+import dev.gathering.client.ClientSettings;
 import dev.gathering.client.PendingWork;
 import java.util.UUID;
 import net.minecraft.gametest.framework.GameTest;
@@ -155,6 +156,95 @@ public final class PendingWorkGameTest {
             if (PendingWork.remembered() > 64) {
                 helper.fail("five hundred requests left " + PendingWork.remembered()
                         + " remembered, past the bound of 64");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            PendingWork.clear();
+        }
+    }
+    /**
+     * A young request says nothing, an overdue one says it does not know, and neither says
+     * failed.
+     * <p>This is the policy the screens draw, kept in {@link PendingWork} precisely so that it
+     * can be run: a screen cannot be loaded here at all, because a dedicated server refuses
+     * every client class one is built from. Before this existed, both screens that wait on the
+     * server waited for ever - the button went inactive on the press and came back only when
+     * an answer arrived, so a reply that never came left a dead button and no reason.
+     */
+    @GameTest(template = "empty")
+    public static void anoverduerequestsayssoandneversaysfailed(GameTestHelper helper) {
+        PendingWork.clear();
+        int patience = ClientSettings.waitingAfterMillis();
+        try {
+            // The most patient this setting goes. The threshold is the player's and it is
+            // clamped, so a test that asked for a minute got three seconds and one that asked
+            // for nothing got a tenth of one - which is why these are the named bounds rather
+            // than numbers that look convincing.
+            ClientSettings.waitingAfterMillis(ClientSettings.LATEST_WAITING_NOTICE);
+            UUID id = PendingWork.sent();
+            if (PendingWork.noteFor(id).isPresent()) {
+                helper.fail("a request that has only just gone out already had something to say");
+                return;
+            }
+
+            // Now the least patient it goes, and past it. This wait is a lower bound on a
+            // monotonic elapsed time rather than a race with another thread: the clock only
+            // moves one way, so sleeping longer than the threshold cannot make the answer
+            // wrong, and nothing else has to happen for it to become true.
+            ClientSettings.waitingAfterMillis(ClientSettings.SOONEST_WAITING_NOTICE);
+            Thread.sleep(ClientSettings.SOONEST_WAITING_NOTICE + 50L);
+
+            Component said = PendingWork.noteFor(id).orElse(null);
+            if (said == null) {
+                helper.fail("an overdue request said nothing at all");
+                return;
+            }
+            if (PendingWork.of(id).orElseThrow().state() != PendingWork.State.UNKNOWN) {
+                helper.fail("an overdue request was left as "
+                        + PendingWork.of(id).orElseThrow().state() + " rather than UNKNOWN");
+                return;
+            }
+            if (PendingWork.of(id).orElseThrow().state() == PendingWork.State.REFUSED) {
+                helper.fail("silence was reported as a refusal, which is the one thing it is not");
+                return;
+            }
+
+            // And an answer that does arrive, late, still settles it - so the note goes away
+            // rather than standing over a result the screen is about to show.
+            PendingWork.confirmed(id);
+            if (PendingWork.noteFor(id).isPresent()) {
+                helper.fail("a confirmed request went on saying it had no answer");
+                return;
+            }
+            helper.succeed();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            helper.fail("the wait for the threshold was interrupted");
+        } finally {
+            ClientSettings.waitingAfterMillis(patience);
+            PendingWork.clear();
+        }
+    }
+
+    /**
+     * A refusal shows the server's own words rather than a shrug.
+     * <p>The difference between this and the test above is the whole reason the four states
+     * exist: one of them is the server having decided, and the other is nobody knowing.
+     */
+    @GameTest(template = "empty")
+    public static void arefusalshowsthereasonitcamewith(GameTestHelper helper) {
+        PendingWork.clear();
+        try {
+            UUID id = PendingWork.sent();
+            PendingWork.refused(id, Component.literal("line 4: no such card"));
+            Component said = PendingWork.noteFor(id).orElse(null);
+            if (said == null) {
+                helper.fail("a refusal said nothing");
+                return;
+            }
+            if (!said.getString().contains("line 4")) {
+                helper.fail("a refusal lost the reason it came with and said: " + said.getString());
                 return;
             }
             helper.succeed();

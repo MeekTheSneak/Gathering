@@ -41,7 +41,7 @@ is in `docs/reviews/quality-progress-2026-09-11.md`; its findings CSV is beside 
 
 | What | The gap |
 |---|---|
-| **Q05 `PendingWork`** | **No production code calls `sent`, `confirmed`, `refused`, `of` or `worthMentioning`.** Only `clear`, from disconnect cleanup. No request carries an id from it and no screen renders its state. The backlog says Done; that is wrong and is being corrected. A unit-tested state container is a foundation, not the feature |
+| ~~Q05 `PendingWork`~~ | **Integrated.** Both screens that wait on the server - the decklist import and the deck builder - mint their id with `sent`, resolve it with `confirmed` or `refused`, draw `noteFor` while waiting and `forget` it on close. What it added is the state neither of them had: both used to wait for ever, with the button inactive until an answer arrived, so a reply that never came left a dead button and no reason. `worthMentioning` is the one method still without a production caller; `noteFor` answers the same question and is what the screens use |
 | Q11 pinned favorites | Recents exist; pinning does not |
 
 ### Known defects, open
@@ -49,9 +49,10 @@ is in `docs/reviews/quality-progress-2026-09-11.md`; its findings CSV is beside 
 | Id | What | Where |
 |---|---|---|
 | ~~QP-05~~ | **Fixed.** The binding lookup now happens *before* the seat check, so rebinding the log to Z moves it, unbinding it silences L, and a watcher reaches the three verbs that need no chair (log, framing, palette) instead of none. The key list interpolates 14 lines rather than 4, including the two that name more than one verb. The replay's own hardcoded `L` went the same way, and its camera section no longer promises that Home shows the whole table when Home goes to the start of the recording. `tools/keycheck.py` fails the build on a rebindable key written down in an input handler, or a help line with the wrong number of slots — both proved failing | `TableScreen.java`, `tools/keycheck.py` |
-| QP-06 | Q05 as above | `PendingWork.java`, `ClientState.java` |
+| ~~QP-06~~ | **Fixed.** See Q05 above. The policy - silence while young, "no answer yet" when overdue, never "failed" - lives in `PendingWork.noteFor` rather than in the screens, because a screen cannot be loaded in a test at all: a dedicated server refuses every client class one is built from. Two in-world tests cover it | `PendingWork.java`, `DecklistImportScreen.java`, `DeckBuilderScreen.java` |
 | — | ~~Tutorial completion counts 240 **rendered frames**~~ **Fixed.** It is a 4,000 ms deadline read off `Util.getMillis`, taken on the tick, and `tick` now returns as soon as the lesson hands over — without that return the old screen read on, found an empty view and closed the screen it had just opened | `TableScreen.java` |
 | — | Client clips a gesture to 128 targets, but the server broadcasts the whole board per event, so a 100-card gesture is 100 broadcasts. Unmeasured | `TableActions.java` |
+| — | A retry after "no answer yet" is only offered where it cannot cost anything - a decklist becomes a deck out of nothing, so the button comes back; a build from a collection takes real cards, so it does not. Whether that is the right split for the builder is a judgment, not a proof | `DecklistImportScreen.java`, `DeckBuilderScreen.java` |
 | — | Scripted tour's board stops accepting moves in its late steps. Assertions were moved earlier rather than the transition being understood | `DevScene.java` |
 
 ### QP-07, what is done and what is not

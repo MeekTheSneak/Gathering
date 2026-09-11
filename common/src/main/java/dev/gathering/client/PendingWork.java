@@ -140,6 +140,36 @@ public final class PendingWork {
     }
 
     /**
+     * What a screen should tell the player about a request, or nothing while there is nothing
+     * to say.
+     * <p>The policy, kept here rather than in the screens, because it is the same policy for
+     * all of them and because a screen cannot be loaded in a test at all - a dedicated server
+     * refuses every client class a screen is built from. Written like this, what a player is
+     * told about a slow request is something that can be run.
+     * <p>Silence while a request is merely young: a note that appears the instant a button is
+     * pressed is a note nobody reads, and most answers arrive inside the threshold. Silence
+     * again once it is answered, because the screen then has a real result to show and this
+     * would be a second voice saying something vaguer.
+     * <p>The one it does speak up about is the one the screens had no answer for: long enough
+     * has passed that this client does not know. <b>It does not say failed.</b> The request may
+     * be being worked on, may be done with its reply lost, or may never have arrived, and a
+     * screen that guessed between those would be inventing the one fact the player needs.
+     */
+    public static Optional<Component> noteFor(UUID id) {
+        Work work = of(id).orElse(null);
+        if (work == null) {
+            return Optional.empty();
+        }
+        return switch (work.state()) {
+            case WAITING, CONFIRMED -> Optional.empty();
+            case REFUSED -> Optional.of(work.said() == null
+                    ? Component.translatable("screen.gathering.pending.refused")
+                    : work.said());
+            case UNKNOWN -> Optional.of(Component.translatable("screen.gathering.pending.no_answer"));
+        };
+    }
+
+    /**
      * Forgets a request, for a screen that has closed.
      * <p>A screen that is gone has nowhere to show an answer, so keeping the entry would only
      * grow the map. What it does <em>not</em> do is cancel anything: the server is doing

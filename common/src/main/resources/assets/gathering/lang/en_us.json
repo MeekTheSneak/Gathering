@@ -607,6 +607,8 @@
   "screen.gathering.pile.title": "%s (%s)",
   "screen.gathering.pile.to_bottom": "to the bottom",
   "screen.gathering.pile.to_graveyard": "to the graveyard",
+  "screen.gathering.pending.no_answer": "No answer yet. The server may still be working on it.",
+  "screen.gathering.pending.refused": "The server refused that.",
   "screen.gathering.replay": "Replay",
   "screen.gathering.replay.at": "Replay  %s / %s",
   "screen.gathering.replay.back": "One step back",

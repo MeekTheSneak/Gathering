@@ -376,6 +376,28 @@ public final class DeckBuilderScreen extends ChildScreen {
             typedAt = 0;
             askFor(0);
         }
+        // Finish used to wait for ever. The button went inactive on the press and came back
+        // only when the server answered, so a reply that never arrived left somebody looking
+        // at a dead button with no reason given. Now the wait says so.
+        //
+        // It says so and nothing else. Finishing takes real cards off this player's shelves,
+        // so the button stays inactive: a second press that turned out to be a second build
+        // would be the mod taking them twice, and "no answer yet" is not "it did not happen".
+        // Closing the screen is always available and costs nothing.
+        if (waiting && pressed != null) {
+            PendingWork.noteFor(pressed).ifPresent(note -> this.saidBack = note);
+        }
+    }
+
+    /**
+     * Drops this screen's outstanding request, which is not the same as cancelling it.
+     * <p>Whatever was asked for is still being done; there is simply nowhere left to show the
+     * answer once this screen has gone.
+     */
+    @Override
+    public void removed() {
+        PendingWork.forget(pressed);
+        super.removed();
     }
 
     /**
@@ -543,7 +565,7 @@ public final class DeckBuilderScreen extends ChildScreen {
             this.onClose();
             return;
         }
-        this.pressed = java.util.UUID.randomUUID();
+        this.pressed = PendingWork.sent();
         ClientNetworking.send(new BuildDeckPayload(
                 where,
                 nameBox == null ? "" : nameBox.getValue(),
@@ -594,6 +616,14 @@ public final class DeckBuilderScreen extends ChildScreen {
         if (pressed == null || !result.forRequest().filter(pressed::equals).isPresent()) {
             return;
         }
+        if (result.cardCount() > 0) {
+            PendingWork.confirmed(pressed);
+        } else {
+            PendingWork.refused(pressed, result.problems().isEmpty()
+                    ? null
+                    : net.minecraft.network.chat.Component.literal(result.problems().getFirst()));
+        }
+        PendingWork.forget(pressed);
         waiting = false;
         if (finishButton != null) {
             finishButton.active = true;
