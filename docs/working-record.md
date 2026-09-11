@@ -70,7 +70,7 @@ it cannot prove they look right.
 
 | Id | What | Where |
 |---|---|---|
-| — | Client clips a gesture to 128 targets, but the server broadcasts the whole board per event, so a 100-card gesture is 100 broadcasts. Unmeasured | `TableActions.java` |
+| — | **Measured, not fixed.** A gesture on a selection costs one full board build per card *per recipient*: six taps sent six boards to one seated player and two sent two (`BulkBroadcastGameTest`). At a four-seat table with two onlookers a hundred-card gesture is about six hundred view builds, each walking every zone of every seat through the visibility rules. Coalescing was considered and **not** done - see below | `TableActions.java`, `TableBroadcast.java` |
 | — | A retry after "no answer yet" is only offered where it cannot cost anything - a decklist becomes a deck out of nothing, so the button comes back; a build from a collection takes real cards, so it does not. Whether that is the right split for the builder is a judgment, not a proof | `DecklistImportScreen.java`, `DeckBuilderScreen.java` |
 
 **One entry was withdrawn rather than fixed.** The record listed "the scripted tour's board
@@ -181,6 +181,30 @@ something this machine does not have.
 
 **The most valuable single thing anybody can do next is run `tools/shots.sh` and look at the
 pictures.** Seven features landed this session that have never been rendered.
+
+## Why the bulk broadcast was measured and left alone
+
+Deferring the broadcast to the end of the tick would collapse a hundred boards into one, and
+the arithmetic says that is worth having. It was not done, for three reasons that a later
+session should weigh again rather than inherit:
+
+1. **Game-end ordering.** `TableActions.handle` broadcasts and *then* calls
+   `TableMatch.settleIfFinished`, deliberately: "a move that ended the game is still a move,
+   and everybody should see the board it ended on before it is taken away." A deferred
+   broadcast settles the match first, and the last board of a game is the one nobody would get.
+   Any coalescing has to flush before settling, which means knowing the move ended the game
+   before asking whether it did.
+2. **The client's one-event-per-card model is a deliberate property**, not an oversight:
+   "what gets sent is the same events one card at a time would have sent, so a selection cannot
+   do anything a sequence of ordinary moves could not". Batching on the wire would weaken the
+   argument that a selection grants no new authority.
+3. **The benefit is unmeasured in the units that matter.** The count is known; what it costs in
+   frame time or bandwidth on real hardware is not, and this machine cannot say. The working
+   agreement is explicit - measure before adding caching or concurrency - and a correctness
+   risk taken against an unmeasured benefit is the wrong trade.
+
+What is now in place is the number and a test that fails if the shape of the growth changes in
+either direction, so whoever does take this on starts from a measurement.
 
 ## The quality pass, and what it found in this session's own work
 

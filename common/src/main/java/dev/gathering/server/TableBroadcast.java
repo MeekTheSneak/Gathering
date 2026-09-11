@@ -50,6 +50,27 @@ public final class TableBroadcast {
      */
     private static final int LOG_LINES_SENT = 40;
 
+    /**
+     * How many boards have been built and sent since the counter was last cleared.
+     * <p>Here so that "a hundred-card gesture is a hundred broadcasts" can be a number rather
+     * than a claim. Building a view means walking every zone of every seat through the
+     * visibility rules and serializing the result, once per person who can see the table - so
+     * the cost of a bulk gesture is this count multiplied by the people at it, and until it
+     * was counted nobody knew which of those two numbers was the problem.
+     * <p>Plain arithmetic on the server thread, which is the only thread that broadcasts.
+     */
+    private static int boardsSent;
+
+    /** How many boards have gone out. For a test that wants to count them. */
+    public static int boardsSent() {
+        return boardsSent;
+    }
+
+    /** Starts the count again. */
+    public static void forgetTheCount() {
+        boardsSent = 0;
+    }
+
     /** Sends the board to every seated player at this cluster, and the public one to the room. */
     public static void sendToTable(ServerLevel level, BlockPos tableOrigin) {
         GameSession session = TableSessions.sessionAt(level, tableOrigin).orElse(null);
@@ -133,6 +154,7 @@ public final class TableBroadcast {
             // nobody scrolls back past the last dozen. What is kept is kept on the server.
             GameView seen = VisibilityRules.viewFor(
                     session.state(), viewer, session.recentLog(LOG_LINES_SENT));
+            boardsSent++;
             Sending.to(player,
                     new TableViewPayload(tableOrigin, ViewCodec.write(seen), open));
             // And the pictures for what is in it. A client only ever asked about cards in its
