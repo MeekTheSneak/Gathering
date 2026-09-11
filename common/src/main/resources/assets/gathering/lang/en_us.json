@@ -732,6 +732,8 @@
   "screen.gathering.table.pile.hint_draw": "Click to draw a card",
   "screen.gathering.table.pile.hint_look": "Click to look through it",
   "screen.gathering.table.pile.hint_more": "Right-click for more",
+  "screen.gathering.table.owned_by": "%s",
+  "screen.gathering.table.seat_marked": "%s %s",
   "screen.gathering.table.seat_away": " (away)",
   "screen.gathering.table.spectating": "Watching - take a seat to play",
   "screen.gathering.table.tax": "Commander tax +%1$s",

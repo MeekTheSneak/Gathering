@@ -33,6 +33,7 @@ import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Legibility;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.SeatColor;
+import dev.gathering.core.ui.SeatMark;
 import dev.gathering.core.ui.Shaking;
 import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableAttachments;
@@ -1204,6 +1205,7 @@ public final class TableScreen extends Screen {
                         placed == hovered || isSelected(placed.card()), true);
             }
             renderPileBadges(graphics, board, onTable);
+            renderOwnerBadges(graphics, onTable);
             renderFlights(graphics, board);
             if (hovered == null && tooltip.isEmpty()) {
                 List<Component> life = tipForLife(board, mouseX, mouseY);
@@ -2374,6 +2376,42 @@ public final class TableScreen extends Screen {
                 : new Rect(where.x() + lean, where.y() + lean, where.width(), where.height());
     }
 
+    /**
+     * Says whose a card really is, when that is not whose board it is on.
+     * <p>Control and ownership come apart the moment anybody steals a creature, and until now
+     * nothing on the table said so: the card simply sat on the thief's mat looking like theirs.
+     * Everybody at a paper table knows whose card it is because they watched it happen and
+     * because it is in somebody else's sleeves; on a screen an hour later, nobody does - and
+     * it matters, because it goes home at the end and because "whose is that" is a question
+     * with a rules answer.
+     * <p>Only when they differ. A badge on every card would be forty badges, which is a board
+     * nobody can read for the sake of the two cards it is about.
+     * <p>The owner's color <em>and</em> the owner's mark, not one or the other. A color alone
+     * is unreadable to somebody who cannot tell those two colors apart - see {@link SeatMark} -
+     * and a mark alone throws away the cue everybody else picks up without reading anything.
+     */
+    private void renderOwnerBadges(GuiGraphics graphics, List<Placed> onTable) {
+        for (Placed placed : onTable) {
+            if (!(placed.card() instanceof CardView.Visible visible)) {
+                // A face-down card carries no owner to name, which is the point of it.
+                continue;
+            }
+            SeatId owner = visible.owner();
+            if (owner == null || owner.equals(placed.seat())) {
+                continue;
+            }
+            Rect where = placed.where();
+            if (where.isEmpty()) {
+                continue;
+            }
+            GuiText.drawOverTheBoard(graphics, this.font,
+                    Component.translatable("screen.gathering.table.owned_by",
+                            SeatMark.of(owner.index())),
+                    where.x() + 2, where.y() + 2, where.width() - 4,
+                    SeatColor.at(owner.index(), 0xFF));
+        }
+    }
+
     /** The pile counts, drawn last so a stack of four says four over whatever is on top of it. */
     private void renderPileBadges(GuiGraphics graphics, GameView board, List<Placed> onTable) {
         for (SeatView seat : board.seats()) {
@@ -2627,7 +2665,12 @@ public final class TableScreen extends Screen {
                     text = text.copy().append(Component.literal("  " + describeCounters(seat)));
                 }
             }
-            GuiText.drawOverTheBoard(graphics, this.font, text,
+            // The seat's own mark in front of its name, so the mark an owner badge shows is
+            // a thing the board says somewhere else too. Colour and mark together, for the
+            // same reason the badge carries both.
+            GuiText.drawOverTheBoard(graphics, this.font,
+                    Component.translatable("screen.gathering.table.seat_marked",
+                            SeatMark.of(seat.seat().index()), text),
                     area.x() + pad + index * column, line, column - gap,
                     SeatColor.at(seat.seat().index(), 0xFF));
         }
