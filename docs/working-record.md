@@ -188,6 +188,37 @@ QF-01's lookup and QF-04's rendering are verified by rules extracted into core a
 reasoning; the client probes that found them need a display. The audit's own harnesses are the
 way to confirm them, and they are in the bundle.
 
+## The cleanup audit: two follow-ons fixed, a roadmap open
+
+A second external audit of `0e2502ed` re-ran the client probes. **Three of the four earlier
+fixes hold** - the lesson survives opening a child screen, the counters editor reads the
+lesson, and a card moved to a graveyard stays there. Two probes failed, and both were
+incompleteness in those same fixes rather than new ground:
+
+- **CL-01 - Tidy still overwrote a newer rotation.** The staleness check asked whether a card
+  was still on the battlefield, but the plan also carried the angle the card had when the
+  preview was drawn. Turn a card afterwards and applying straightened it. The class javadoc
+  already claimed "nothing here returns an angle, so nothing here can straighten one" - the
+  code disagreed. A `Spot` is now two coordinates with no angle in it at all, and the move is
+  built with the rotation the card has at the moment of applying. A card that has since become
+  attached to another is skipped too, for the same reason a graveyard card is.
+- **CL-02 - the menu still ran off the screen.** Fixing the vertical overlap by measuring
+  columns at the asked text size made the menu 792 pixels wide in a 427-pixel viewport: one
+  bug traded for another. `MenuFit` in core now solves all three constraints together - honour
+  the asked size where it fits, wrap into columns when too tall, and only then shrink,
+  uniformly. Tested against the audit's own viewport at every pair of sizes.
+
+The rest of the audit is a fourteen-item roadmap (`docs/reviews/cleanup-2026-09-13-roadmap.csv`)
+covering release packaging, bulk-action batching, snapshot reuse, search caching and
+decomposing `TableScreen`. **None of it is started.** Its own ordering says CL-01 and CL-02
+first, which is what this batch did, and then the gate/status consolidation (CL-13) before the
+performance work.
+
+The audit also measured the bulk-broadcast cost independently and agrees with the number
+recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views
+would cost 1.97 ms and 7 MB. That is the strongest single argument for CL-03, and it is still
+a synthetic core benchmark rather than a live server.
+
 ## What is left, and why each one needs you
 
 Nothing below is blocked on work anybody could do in this repository. Each is blocked on

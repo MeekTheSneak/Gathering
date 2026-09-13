@@ -4879,12 +4879,18 @@ public final class TableScreen extends Screen {
         // plan, and sending its move would put it back on the battlefield - the convenience
         // tool undoing a real decision. The tick below drops a stale preview outright; this is
         // the belt for the frames between the last check and the press.
+        java.util.Map<CardInstanceId, Integer> facing = howMyCardsAreTurned(me);
         for (dev.gathering.core.ui.ArrangeSelection.Spot spot
                 : dev.gathering.core.ui.ArrangeSelection.stillStanding(
-                        arranging, onMyBattlefield(me))) {
+                        arranging, facing.keySet())) {
+            // The angle it has now, not the one it had when this was drawn. Turning a card
+            // after previewing is a decision the player made later, and later wins - a tidy
+            // that straightened it would be the convenience tool overruling them. An audit
+            // caught exactly that: rotation=0 where 90 was expected.
             send(new GameEvent.CardMoved(me, spot.id(),
                     ZoneRef.of(me, Zone.BATTLEFIELD),
-                    dev.gathering.core.game.Placement.at(spot.to())));
+                    dev.gathering.core.game.Placement.at(
+                            spot.facing(facing.getOrDefault(spot.id(), 0)))));
         }
         arranging = List.of();
     }
@@ -4894,15 +4900,18 @@ public final class TableScreen extends Screen {
      * <p>The set a plan is checked against. Only visible ones, because only a visible card has
      * an id this client could have planned a move for.
      */
-    private java.util.Set<CardInstanceId> onMyBattlefield(SeatId me) {
+    private java.util.Map<CardInstanceId, Integer> howMyCardsAreTurned(SeatId me) {
         GameView board = view().orElse(null);
         if (board == null || me == null) {
-            return java.util.Set.of();
+            return java.util.Map.of();
         }
-        java.util.Set<CardInstanceId> here = new LinkedHashSet<>();
+        java.util.Map<CardInstanceId, Integer> here = new java.util.LinkedHashMap<>();
         for (CardView card : board.seat(me).zone(Zone.BATTLEFIELD).cards()) {
-            if (card instanceof CardView.Visible visible) {
-                here.add(visible.id());
+            // Loose cards only. One that has become an aura on something since the preview was
+            // drawn would be torn off its host by being given a spot of its own.
+            if (card instanceof CardView.Visible visible && visible.attachedTo() == null) {
+                here.put(visible.id(),
+                        visible.position() == null ? 0 : visible.position().rotation());
             }
         }
         return here;
@@ -4921,7 +4930,7 @@ public final class TableScreen extends Screen {
         }
         SeatId me = mySeat().orElse(null);
         if (me == null || dev.gathering.core.ui.ArrangeSelection.isStale(
-                arranging, onMyBattlefield(me))) {
+                arranging, howMyCardsAreTurned(me).keySet())) {
             arranging = List.of();
         }
     }
@@ -4939,7 +4948,7 @@ public final class TableScreen extends Screen {
             return;
         }
         for (dev.gathering.core.ui.ArrangeSelection.Spot spot : arranging) {
-            Rect where = board().rectOf(me, spot.to());
+            Rect where = board().rectOf(me, spot.facing(0));
             GatheringSprites.highlight(graphics, where.x(), where.y(), where.width(), where.height());
         }
         GuiText.drawCentered(graphics, this.font,

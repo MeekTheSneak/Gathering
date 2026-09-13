@@ -205,6 +205,18 @@ public final class GuiText {
         drawAt(graphics, font, text, leftX, y, scale, color);
     }
 
+    /**
+     * One line at exactly this size, left-aligned, with no fitting of its own.
+     * <p>For a panel that has already decided one size for everything in it - see
+     * {@code MenuFit}. Fitting each line to its own column instead gives a panel in as many
+     * sizes as it has lengths, which reads as unfinished however correct each line is.
+     */
+    public static void drawExactly(
+            GuiGraphics graphics, Font font, Component text, int x, int y, float scale,
+            int color) {
+        drawAt(graphics, font, text, x, y, scale, color);
+    }
+
     private static void drawAt(
             GuiGraphics graphics, Font font, Component text, float x, int y,
             float scale, int color) {

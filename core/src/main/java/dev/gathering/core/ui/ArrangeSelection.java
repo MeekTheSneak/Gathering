@@ -59,8 +59,27 @@ public final class ArrangeSelection {
         }
     }
 
-    /** Where one card would go. Position only: see the note about rotation above. */
-    public record Spot(CardInstanceId id, TablePosition to) {
+    /**
+     * Where one card would go: a point, and deliberately not an angle.
+     * <p>This used to carry a whole {@link TablePosition}, which carries a rotation - so the
+     * angle the card happened to have when the preview was drawn travelled with the plan and
+     * was written back when it was applied. Turn a card after previewing and the tidy
+     * straightened it. The class javadoc said "nothing here returns an angle, so nothing here
+     * can straighten one"; the code disagreed, and an audit caught it: rotation=0, expected 90.
+     * <p>Two coordinates, so there is no angle to get wrong. The caller supplies the card's
+     * current rotation when it turns this into a move - see {@link #facing}.
+     */
+    public record Spot(CardInstanceId id, int x, int y) {
+
+        /**
+         * This spot as a position, keeping whatever way round the card is <em>now</em>.
+         * <p>Asked for at the moment of applying rather than stored, which is the whole point:
+         * a rotation made after the preview was drawn is a decision the player made later, and
+         * later wins.
+         */
+        public TablePosition facing(int rotationNow) {
+            return new TablePosition(x, y, rotationNow);
+        }
     }
 
     /**
@@ -114,11 +133,9 @@ public final class ArrangeSelection {
         for (int index = 0; index < placeable.size(); index++) {
             int column = index % columns;
             int row = index / columns;
-            plan.add(new Spot(placeable.get(index).id(), new TablePosition(
+            plan.add(new Spot(placeable.get(index).id(),
                     MARGIN + spread(column, columns, usable),
-                    MARGIN + spread(row, rows, usable),
-                    // The card keeps whatever angle it had. See the note on rotation.
-                    placeable.get(index).at().rotation())));
+                    MARGIN + spread(row, rows, usable)));
         }
         return List.copyOf(plan);
     }
@@ -134,8 +151,13 @@ public final class ArrangeSelection {
      * <p>Nothing about the rules stops it, and nothing should: the mod moves cards where it is
      * asked. So the check belongs where the asking is decided.
      *
+     * <p>What counts as "still there" is a card on the battlefield <em>and not attached to
+     * another</em>. A card that has become an aura on something since the preview was drawn
+     * would be torn off its host by being given a spot of its own, which is the same mistake
+     * as moving one out of a graveyard.
+     *
      * @param plan    what was promised
-     * @param stillOn the cards currently on the battlefield this plan is about
+     * @param stillOn the cards on the battlefield, unattached, that this plan is about
      */
     public static boolean isStale(List<Spot> plan, java.util.Set<CardInstanceId> stillOn) {
         if (plan == null || plan.isEmpty()) {

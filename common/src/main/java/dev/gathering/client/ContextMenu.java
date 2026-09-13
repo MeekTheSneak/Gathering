@@ -23,32 +23,11 @@ public final class ContextMenu {
     private static final int PADDING = 4;
     /**
      * How tall a row is at the size the menu shipped at.
-     * <p>Read through {@link #rowHeight} rather than used directly: a player may ask for
-     * larger controls, and a row is the table's main hit target - every verb that is not on a
-     * key is reached by pointing at one of these.
+     * <p>Never used directly: a player may ask for larger controls or larger text, and a row
+     * has to hold both. {@code MenuFit} turns this into the height a row actually gets.
      */
     private static final int ROW_HEIGHT = 12;
 
-    /**
-     * How tall a row is for this player.
-     * <p>One number, used by the measuring, the drawing and the hit-testing alike, which is
-     * the whole reason it is a method: a menu whose rows are drawn at one height and picked at
-     * another is a menu where clicking a verb does a different one, and that is a far worse
-     * bug than a menu that is the wrong size.
-     * <p>Rounded to a whole pixel because rows stack, and a fractional row height would put
-     * every row after the first on a different fraction of a pixel from the one above it.
-     */
-    static int rowHeight(Font font) {
-        // One range, in core, shared by the settings that clamp the value and the panel that
-        // lays them out - see InterfaceScale. A row sized against a range the setter does not
-        // share is a row that is the wrong size for exactly the values between the two.
-        // Never shorter than the writing in it - see InterfaceScale.rowHeightFor, where the
-        // rule lives so that it can be run rather than only read. A menu cannot be loaded in a
-        // test at all; the arithmetic that decides whether its rows overlap can.
-        return Math.max(8, dev.gathering.core.ui.InterfaceScale.rowHeightFor(
-                ROW_HEIGHT, font.lineHeight, ClientSettings.controlScale(),
-                GuiText.askedScale(), PADDING));
-    }
     private static final int MIN_WIDTH = 70;
     private static final int SCREEN_EDGE = 4;
 
@@ -82,9 +61,17 @@ public final class ContextMenu {
      */
     private final int rowHeight;
 
+    /**
+     * The one size everything in this menu is drawn at.
+     * <p>Decided when the menu opens and used by the measuring, the drawing and the
+     * hit-testing alike - see {@code MenuFit}. A menu that measured at one size and drew at
+     * another was 792 pixels wide in a 427-pixel viewport, with half its actions off the edge.
+     */
+    private final float scale;
+
     private ContextMenu(
             List<Entry> entries, int x, int y, int width, int height,
-            int perColumn, int columnWidth, int rowHeight) {
+            int perColumn, int columnWidth, int rowHeight, float scale) {
         this.entries = List.copyOf(entries);
         this.x = x;
         this.y = y;
@@ -93,6 +80,7 @@ public final class ContextMenu {
         this.perColumn = Math.max(1, perColumn);
         this.columnWidth = Math.max(1, columnWidth);
         this.rowHeight = Math.max(1, rowHeight);
+        this.scale = scale;
     }
 
     /**
@@ -116,19 +104,16 @@ public final class ContextMenu {
             Font font, int pointX, int pointY, int screenWidth, int screenHeight,
             int topEdge, List<Entry> entries) {
         int highest = Math.max(SCREEN_EDGE, topEdge);
-        int columnWidth = MIN_WIDTH;
+        // The widest row at one to one. MenuFit decides what size that becomes: it honours the
+        // asked text size where there is room, wraps into columns when there is not, and only
+        // then shrinks - uniformly, so the menu is one size rather than one size per row.
+        int widest = 0;
         for (Entry entry : entries) {
             if (!entry.isRule()) {
                 int shortcut = entry.shortcut() == null
                         ? 0
                         : font.width(entry.shortcut()) + SHORTCUT_GAP;
-                // Measured at the size the text will actually be drawn, not at one to one.
-                // Measured small, a short label fitted its column at full size and a long one
-                // was squeezed to fit - so one menu came out in two or three different sizes,
-                // which is the exact fault the key list already learned to avoid. See GuiText.
-                columnWidth = Math.max(columnWidth,
-                        Math.round((font.width(entry.label()) + shortcut) * GuiText.askedScale())
-                                + PADDING * 2);
+                widest = Math.max(widest, font.width(entry.label()) + shortcut);
             }
         }
 
@@ -137,17 +122,19 @@ public final class ContextMenu {
         // has a lot of things you can do to it, and at a GUI scale of two on a small window
         // the list is taller than the window. So it wraps into columns, which is what a long
         // menu does everywhere else and never costs an entry.
-        int rows = rowHeight(font);
         int room = Math.max(1, screenHeight - highest - SCREEN_EDGE - PADDING * 2);
-        int perColumn = Math.max(1, room / rows);
-        int columns = Math.max(1, (entries.size() + perColumn - 1) / perColumn);
-        if (columns > 1) {
-            // Spread evenly rather than filling the first column and leaving a stub.
-            perColumn = (entries.size() + columns - 1) / columns;
-        }
+        dev.gathering.core.ui.MenuFit fit = dev.gathering.core.ui.MenuFit.of(
+                entries.size(), widest, font.lineHeight,
+                screenWidth - SCREEN_EDGE * 2, room,
+                ROW_HEIGHT, ClientSettings.controlScale(), GuiText.askedScale(),
+                PADDING, MIN_WIDTH);
+        int rows = fit.rowHeight();
+        int columnWidth = fit.columnWidth();
+        // Spread evenly rather than filling the first column and leaving a stub.
+        int perColumn = fit.perColumn(entries.size());
 
-        int width = columnWidth * columns;
-        int height = Math.min(entries.size(), perColumn) * rows + PADDING * 2;
+        int width = fit.width();
+        int height = fit.height(entries.size(), PADDING);
 
         int left = pointX;
         if (left + width > screenWidth - SCREEN_EDGE) {
@@ -160,7 +147,7 @@ public final class ContextMenu {
         return new ContextMenu(entries,
                 Math.max(SCREEN_EDGE, Math.min(left, screenWidth - SCREEN_EDGE - width)),
                 Math.max(highest, Math.min(top, screenHeight - SCREEN_EDGE - height)),
-                width, height, perColumn, columnWidth, rows);
+                width, height, perColumn, columnWidth, rows, fit.scale());
     }
 
     public void render(GuiGraphics graphics, Font font, int mouseX, int mouseY) {
@@ -185,12 +172,15 @@ public final class ContextMenu {
             int shortcutWidth = entry.shortcut() == null
                     ? 0
                     : font.width(entry.shortcut()) + SHORTCUT_GAP;
-            GuiText.draw(graphics, font, entry.label(),
-                    left + PADDING, row + 2, columnWidth - PADDING * 2 - shortcutWidth, color);
+            // At the menu's own size, not fitted per line: the column was measured for this
+            // size, so every row gets it and the menu reads as one thing.
+            GuiText.drawExactly(graphics, font, entry.label(),
+                    left + PADDING, row + 2, scale, color);
             if (entry.shortcut() != null) {
-                GuiText.draw(graphics, font, entry.shortcut(),
-                        left + columnWidth - PADDING - shortcutWidth + SHORTCUT_GAP, row + 2,
-                        shortcutWidth, SHORTCUT);
+                GuiText.drawExactly(graphics, font, entry.shortcut(),
+                        left + columnWidth - PADDING - Math.round(shortcutWidth * scale)
+                                + Math.round(SHORTCUT_GAP * scale),
+                        row + 2, scale, SHORTCUT);
             }
         }
     }

@@ -61,14 +61,29 @@ class ArrangeSelectionTest {
         }
 
         @Test
-        @DisplayName("keeps every card's own angle")
-        void rotationIsNotTouched() {
+        @DisplayName("carries no angle at all, so it cannot write a stale one back")
+        void aPlanHasNoRotationInIt() {
             // A card turned sideways is tapped and a card turned because somebody likes it is
-            // theirs. Neither is untidiness.
+            // theirs; neither is untidiness. This used to keep the angle the card had when the
+            // preview was drawn, so turning a card afterwards and then applying straightened
+            // it - an audit caught it as rotation=0 where 90 was expected. A spot is two
+            // coordinates now, so there is no angle to get wrong.
             List<ArrangeSelection.Spot> plan =
                     ArrangeSelection.plan(List.of(turned(1, 100, 100, 90), turned(2, 500, 100, 17)));
-            assertThat(plan.get(0).to().rotation()).isEqualTo(90);
-            assertThat(plan.get(1).to().rotation()).isEqualTo(17);
+            // Whatever the card is doing now is what the move carries.
+            assertThat(plan.getFirst().facing(90).rotation()).isEqualTo(90);
+            assertThat(plan.getFirst().facing(0).rotation()).isZero();
+            assertThat(plan.getFirst().facing(17).rotation()).isEqualTo(17);
+        }
+
+        @Test
+        @DisplayName("puts a card where it planned whatever way round it now is")
+        void thePointIsTheSameAtAnyAngle() {
+            List<ArrangeSelection.Spot> plan =
+                    ArrangeSelection.plan(List.of(at(1, 100, 100), at(2, 500, 100)));
+            ArrangeSelection.Spot spot = plan.getFirst();
+            assertThat(spot.facing(0).x()).isEqualTo(spot.facing(270).x());
+            assertThat(spot.facing(0).y()).isEqualTo(spot.facing(270).y());
         }
 
         @Test
@@ -112,9 +127,9 @@ class ArrangeSelectionTest {
                         card * 311 % TablePosition.SPAN));
             }
             for (ArrangeSelection.Spot spot : ArrangeSelection.plan(many)) {
-                assertThat(spot.to().x())
+                assertThat(spot.facing(0).x())
                         .isBetween(ArrangeSelection.MARGIN, TablePosition.SPAN - ArrangeSelection.MARGIN);
-                assertThat(spot.to().y())
+                assertThat(spot.facing(0).y())
                         .isBetween(ArrangeSelection.MARGIN, TablePosition.SPAN - ArrangeSelection.MARGIN);
             }
         }
@@ -147,8 +162,7 @@ class ArrangeSelectionTest {
                 many.add(at(card + 1, card * 700, card * 500));
             }
             List<TablePosition> spots = ArrangeSelection.plan(many).stream()
-                    .map(ArrangeSelection.Spot::to)
-                    .map(where -> new TablePosition(where.x(), where.y(), 0))
+                    .map(spot -> spot.facing(0))
                     .toList();
             assertThat(spots).doesNotHaveDuplicates();
         }
