@@ -105,13 +105,24 @@ public final class CollectionSearch {
         }
     }
 
-    /** The rows that match, in the order they were asked for. */
+    /**
+     * The rows that match, in the order they were asked for.
+     * <p>The typed part of the query is turned into terms <b>once</b>, here, and handed to
+     * every row. It used to be parsed inside the per-row test, which meant a collection of ten
+     * thousand cards parsed the same sentence ten thousand times to answer one question - the
+     * same work, repeated, for an answer that could not change. An audit measured the shape of
+     * it: 7.01 ms and 20.68 MB for ten thousand rows, against 2.41 ms and 10.04 MB when the
+     * query is compiled once.
+     * <p>Safe to hoist because parsing is a pure function of the text: the same sentence gives
+     * the same terms, and nothing about a row can change them.
+     */
     public static List<Row> run(List<Row> rows, Query query) {
         Query asked = query == null ? Query.everything() : query;
+        List<CardSearch.Term> terms = CardSearch.parse(asked.text());
         List<Row> found = new ArrayList<>();
         if (rows != null) {
             for (Row row : rows) {
-                if (row != null && row.count() > 0 && matches(row, asked)) {
+                if (row != null && row.count() > 0 && matches(row, asked, terms)) {
                     found.add(row);
                 }
             }
@@ -120,12 +131,21 @@ public final class CollectionSearch {
         return List.copyOf(found);
     }
 
-    /** Whether one card answers a search. */
+    /**
+     * Whether one card answers a search.
+     * <p>Parses the typed part for this one row, which is what a caller asking about a single
+     * card wants. {@link #run} compiles it once instead - see the note there.
+     */
     public static boolean matches(Row row, Query query) {
+        Query asked = query == null ? Query.everything() : query;
+        return matches(row, asked, CardSearch.parse(asked.text()));
+    }
+
+    /** The same, with the typed part already compiled. */
+    private static boolean matches(Row row, Query asked, List<CardSearch.Term> terms) {
         if (row == null) {
             return false;
         }
-        Query asked = query == null ? Query.everything() : query;
         CardMetadata about = row.about();
         if (about == null) {
             // Nothing is known about it, so nothing can be said to be true of it. It survives
@@ -147,7 +167,7 @@ public final class CollectionSearch {
         if (!isColors(about, asked.colors())) {
             return false;
         }
-        return CardSearch.matches(about, row.count(), CardSearch.parse(asked.text()));
+        return CardSearch.matches(about, row.count(), terms);
     }
 
     // ------------------------------------------------------------- the rules

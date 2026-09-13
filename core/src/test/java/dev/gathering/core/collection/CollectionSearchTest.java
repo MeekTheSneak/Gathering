@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /** Finding one card in a collection of ten thousand. */
@@ -230,5 +231,73 @@ class CollectionSearchTest {
                 collectorNumber, rarity, false, true, true, false, false,
                 List.of("paper"), Map.of(), Map.of(), "");
         return new CollectionSearch.Row(CardIdentity.ofPrinting(id, false), count, about);
+    }
+
+    @Nested
+    @DisplayName("compiling the query once")
+    class CompiledOnce {
+
+        /** A binder big enough that parsing per row would be doing it thousands of times. */
+        private static List<CollectionSearch.Row> aBigBinder() {
+            List<CollectionSearch.Row> rows = new java.util.ArrayList<>();
+            for (int at = 0; at < 2_000; at++) {
+                rows.addAll(BINDER);
+            }
+            return List.copyOf(rows);
+        }
+
+        @Test
+        @DisplayName("finds exactly what testing each row on its own finds")
+        void sameAnswerAsRowByRow() {
+            // The property the optimisation has to keep: run() hoists the parse out of the
+            // loop, and matches() still parses for its one row, so if hoisting changed any
+            // answer these two would disagree.
+            for (String typed : List.of("", "   ", "creature", "t:creature", "c:g",
+                    "mv<=4", "o:draw", "t:creature c:g mv<=4 o:draw", "-t:land",
+                    "\"exact phrase\"", "nonsense:term", "r:mythic")) {
+                CollectionSearch.Query query = new CollectionSearch.Query(
+                        typed, "", java.util.Set.of(), null, "",
+                        CollectionSearch.Sort.NAME, false);
+                List<CollectionSearch.Row> byRun = CollectionSearch.run(BINDER, query);
+                List<CollectionSearch.Row> oneAtATime = BINDER.stream()
+                        .filter(row -> row.count() > 0)
+                        .filter(row -> CollectionSearch.matches(row, query))
+                        .toList();
+                assertThat(byRun)
+                        .as("query %s", typed)
+                        .containsExactlyInAnyOrderElementsOf(oneAtATime);
+            }
+        }
+
+        @Test
+        @DisplayName("answers a large binder the same way as a small one")
+        void scaleChangesNothing() {
+            CollectionSearch.Query query = new CollectionSearch.Query(
+                    "t:creature", "", java.util.Set.of(), null, "",
+                    CollectionSearch.Sort.NAME, false);
+            int small = CollectionSearch.run(BINDER, query).size();
+            int large = CollectionSearch.run(aBigBinder(), query).size();
+            assertThat(large).isEqualTo(small * 2_000);
+        }
+
+        @Test
+        @DisplayName("still says nothing is known about a card with no metadata")
+        void unknownMetadataUnchanged() {
+            // The one row whose answer depends on whether anything was asked at all, which is
+            // exactly the branch that returns before the compiled terms are consulted.
+            CollectionSearch.Row unknown = BINDER.stream()
+                    .filter(row -> row.about() == null)
+                    .findFirst()
+                    .orElse(null);
+            if (unknown == null) {
+                return;
+            }
+            CollectionSearch.Query filtered = new CollectionSearch.Query(
+                    "creature", "", java.util.Set.of(), null, "",
+                    CollectionSearch.Sort.NAME, false);
+            assertThat(CollectionSearch.run(List.of(unknown), filtered)).isEmpty();
+            assertThat(CollectionSearch.run(List.of(unknown), CollectionSearch.Query.everything()))
+                    .containsExactly(unknown);
+        }
     }
 }
