@@ -268,7 +268,6 @@ public final class GameSession {
         this.undoMode = mode;
     }
 
-    /** The whole record, undone entries included, in order. Public by default. */
     /**
      * A number that changes whenever this session does, and costs nothing to ask for.
      * <p>The next sequence number, which every submitted event and every undo consumes. So a
@@ -285,6 +284,7 @@ public final class GameSession {
         return nextSequence;
     }
 
+    /** The whole record, undone entries included, in order. Public by default. */
     public List<SessionRecord> records() {
         return List.copyOf(records);
     }

@@ -545,12 +545,6 @@ public class TableBlockEntity extends BlockEntity {
     }
 
     /**
-     * Hands the decks back and forgets them, which is what the end of a match is.
-     * <p>Deck and pool together in one value, because handing one back without the other is
-     * the bug this shape exists to prevent - and two calls that must both happen is one call
-     * somebody forgets.
-     */
-    /**
      * Forgets what the room was last told, so the next tick sends whatever is there now.
      * <p>Called whenever the session is replaced or taken away. Left alone, a new game whose
      * revision happened to match the old one's would be silently withheld from everybody
@@ -561,7 +555,13 @@ public class TableBlockEntity extends BlockEntity {
         this.lastAmbientAudience = java.util.Set.of();
     }
 
-    /** How many decks this table is holding, for something that wants to say so. */    public Map<SeatId, HeldDeck> releaseDecks() {
+    /** How many decks this table is holding, for something that wants to say so. */    /**
+     * Hands the decks back and forgets them, which is what the end of a match is.
+     * <p>Deck and pool together in one value, because handing one back without the other is
+     * the bug this shape exists to prevent - and two calls that must both happen is one call
+     * somebody forgets.
+     */
+    public Map<SeatId, HeldDeck> releaseDecks() {
         Map<SeatId, HeldDeck> released = new LinkedHashMap<>();
         decks.forEach((seat, deck) ->
                 released.put(seat, new HeldDeck(deck, pools.get(seat), deckOwners.get(seat))));
