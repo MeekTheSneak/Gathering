@@ -298,4 +298,35 @@ public final class PracticeRetirementGameTest {
         }
         helper.succeed();
     }
+
+    /**
+     * A STOP from an old client, arriving before the table has ticked, keeps a real deck.
+     * <p>The migration runs on the table's first tick. Until then a legacy practice table still
+     * says it is one, and an old client that knows the packet can send STOP into that window -
+     * a player who logs in standing at the table, for instance. STOP used to run the old
+     * practice ending, which discards whatever the table holds because it assumes the table
+     * only ever held invented cards. In a save written before the intake guard, that is a deck
+     * somebody built.
+     */
+    @GameTest(template = "empty")
+    public static void astopbeforethefirsttickkeepsarealdeck(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.getInventory().clearContent();
+        BlockPos origin = table(helper);
+        player.setPos(origin.getX() + 0.5, origin.getY(), origin.getZ() + 0.5);
+        DeckComponent deck = ownedDeck();
+        aPracticeTableHoldingARealDeck(helper, player, origin, deck);
+
+        // No tick has run, so nothing has retired it yet. The old client sends STOP.
+        PracticeTable.handle(player, new dev.gathering.network.PracticePayload(
+                origin, dev.gathering.network.PracticePayload.What.STOP));
+
+        int back = copiesOf(helper, player, deck, origin);
+        if (back != 1) {
+            helper.fail("a STOP before the first tick left " + back
+                    + " copies of an owned deck; expected exactly 1");
+            return;
+        }
+        helper.succeed();
+    }
 }

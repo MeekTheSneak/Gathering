@@ -365,9 +365,19 @@ public final class PracticeTable {
             case STOP -> {
                 // Only their own practice game, and only if it is one. A client asking to stop
                 // a game somebody else is really playing is asking for nothing to happen.
+                //
+                // Through retire, never through the old ending. Nothing creates a practice table
+                // now, so any this reaches is a leftover in an old save - and the table's first
+                // tick retires those, but an old client can send STOP before that tick runs. The
+                // old ending discarded whatever the table was holding, on the assumption that it
+                // only ever held invented cards; in a save written before the intake guard that is
+                // a real deck somebody built. Reproduced: zero copies left, expected one.
+                // retire takes the flag off first, so the ordinary return hands it back.
                 if (isPracticeAt(level, asked.table())
                         && TableSessions.seatIdOf(level, asked.table(), player.getUUID()).isPresent()) {
-                    stop(level, asked.table());
+                    TableSessions.anchorOf(level, asked.table())
+                            .flatMap(anchor -> TableBlock.entityAt(level, anchor))
+                            .ifPresent(table -> retire(level, asked.table(), table));
                 }
             }
         }
