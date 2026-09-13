@@ -116,9 +116,9 @@ public final class LoanerScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         int showing = rowsThatFit();
-        if (names.size() > showing) {
-            int wanted = Math.max(0,
-                    Math.min(this.scroll - (int) Math.signum(scrollY), names.size() - showing));
+        if (dev.gathering.core.ui.ListScroll.scrolls(names.size(), showing)) {
+            int wanted = dev.gathering.core.ui.ListScroll.after(
+                    this.scroll, names.size(), showing, scrollY);
             if (wanted != this.scroll) {
                 this.scroll = wanted;
                 rebuildWidgets();
@@ -131,7 +131,8 @@ public final class LoanerScreen extends Screen {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        GatheringSprites.panel(graphics, panelLeft(), panelTop(), panelWidth(), panelHeight());
+        Prompts.panel(graphics, new dev.gathering.core.ui.Rect(
+                panelLeft(), panelTop(), panelWidth(), panelHeight()));
     }
 
     @Override

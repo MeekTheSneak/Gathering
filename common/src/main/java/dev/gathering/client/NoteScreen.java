@@ -125,7 +125,7 @@ public final class NoteScreen extends ChildScreen {
 
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
-        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
+        if (Prompts.confirms(key)) {
             confirmTyped();
             return true;
         }
@@ -136,17 +136,14 @@ public final class NoteScreen extends ChildScreen {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
+        Prompts.panel(graphics, panel);
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        GuiText.drawCentered(graphics, this.font, question,
-                panel.x() + panel.width() / 2, panel.y() + 5, panel.width() - MARGIN * 2, LABEL);
-        GuiText.drawCentered(graphics, this.font,
-                Component.translatable(pen.hint()),
-                panel.x() + panel.width() / 2, panel.bottom() - MARGIN + 1,
-                panel.width() - MARGIN * 2, HINT);
+        Prompts.question(graphics, this.font, question, panel, MARGIN, LABEL);
+        Prompts.hint(graphics, this.font, Component.translatable(pen.hint()), panel,
+                panel.bottom() - MARGIN + 1, MARGIN, HINT);
     }
 }

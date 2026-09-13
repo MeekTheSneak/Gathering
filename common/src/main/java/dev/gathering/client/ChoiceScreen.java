@@ -82,13 +82,12 @@ public final class ChoiceScreen extends ChildScreen {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        GatheringSprites.panel(graphics, panel.x(), panel.y(), panel.width(), panel.height());
+        Prompts.panel(graphics, panel);
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        GuiText.drawCentered(graphics, this.font, question,
-                panel.x() + panel.width() / 2, panel.y() + 5, panel.width() - MARGIN * 2, LABEL);
+        Prompts.question(graphics, this.font, question, panel, MARGIN, LABEL);
     }
 }
