@@ -11,6 +11,19 @@ plugins {
 // as a missing property on an unrelated type.
 def sharedModules = rootProject.ext.sharedModules
 
+// The in-world tests live in their own source set, the way :fabric's testmod already did.
+// They were in main, so all seventy-five of them were compiled into the shipped jar - about a
+// megabyte of test classes in every copy of the mod anybody installs. Moving them changes
+// nothing about what runs: the game test server takes its classpath from here, and the gate
+// fails if either loader reports no tests, which is what would happen if this were wired
+// wrongly.
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+        runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+    }
+}
+
 neoForge {
     version = project.neo_version
 
@@ -62,8 +75,19 @@ neoForge {
             // sharedModules, so this and :fabric cannot disagree about what the
             // mod is made of - see the note there.
             sharedModules.each { sourceSet project(it).sourceSets.main }
+            // The tests, for the runs only. They are part of the mod as far as a development
+            // run is concerned - the game test server has to find them - and no part of it as
+            // far as the jar is concerned, which is the whole point of the split.
+            sourceSet sourceSets.gametest
         }
     }
+}
+
+// After the source set rather than inside it, for the reason :fabric's build spells out: a
+// source set's classpath is copied when it is declared.
+sharedModules.each {
+    sourceSets.gametest.compileClasspath += project(it).sourceSets.main.output
+    sourceSets.gametest.runtimeClasspath += project(it).sourceSets.main.output
 }
 
 dependencies {
@@ -89,6 +113,16 @@ tasks.matching { it.name == 'runGameTestServer' }.configureEach {
 
 tasks.named('compileJava') {
     dependsOn ':common:classes', ':core:classes'
+}
+
+tasks.named('compileGametestJava') {
+    dependsOn ':common:classes', ':core:classes'
+}
+
+// The tests have to be compiled for a run to find them, and `build` does not compile a source
+// set nothing depends on. Without this the gate would run against whatever was last compiled.
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    dependsOn tasks.named('gametestClasses')
 }
 
 // Property expansion for neoforge.mods.toml, so versions live in one place.

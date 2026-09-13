@@ -188,6 +188,26 @@ QF-01's lookup and QF-04's rendering are verified by rules extracted into core a
 reasoning; the client probes that found them need a display. The audit's own harnesses are the
 way to confirm them, and they are in the bundle.
 
+## CL-08: the tests were shipping in the jar
+
+Every copy of the mod anybody installed carried all seventy-five NeoForge game-test classes,
+because they lived in `neoforge/src/main`. `:fabric` had solved this long ago with a `testmod`
+source set whose jar carries none - NeoForge was the outlier, and mirroring what already
+worked here was the whole fix.
+
+The 69 test files now live in `neoforge/src/gametest`. The jar carries **0** test classes and
+the suite still reports **402**, which is the pair that matters: moving tests somewhere the
+runner cannot see them would have been the obvious way to get this wrong, and the gate's new
+zero-discovery stage exists precisely to catch it.
+
+**DevScene is still in the jar, deliberately.** It is 245 KB and the single largest file in the
+repository, and its own javadoc says it is "never referenced by anything that ships" - which is
+untrue: `ClientTicks.tick` calls `DevScene.tick` directly, and `ClientTicks` ships. Removing
+that reference means something else must register the scene when its property is set, and that
+registration is the one thing here that **cannot be verified without a display**. Getting it
+wrong breaks `tools/shots.sh`, which is the tool most worth running right now. It should be
+done after a known-good graphical run exists to compare against, not before.
+
 ## CL-13: there were two gates, and they disagreed
 
 `tools/gate.sh` ran `./gradlew build`. `verify` ran `:core:test`, the architecture fences,
