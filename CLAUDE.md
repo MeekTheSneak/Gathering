@@ -24,15 +24,25 @@ Nothing is done until this exits zero. **Never report something as working that 
 not confirmed.**
 
 ```
-tools/gate.sh --game
+tools/gate.sh
 ```
 
-Sixteen checks: gradle build (all unit tests), then `langcheck`, `doccheck`, `scenecheck`,
-`plotcheck`, `gesturecheck`, `spritecheck`, `statecheck`, `savecheck`, `runcheck`,
-`texturecheck`, `artcheck`, `tablecheck`, `keycheck`, `prefcheck`, and the in-world game
-tests.
+Sixteen stages. `./gradlew verify` first — both loaders built, `:core:test`, the architecture
+fences, data generation, and **both** loaders' in-world tests — then the fourteen static
+checks: `langcheck`, `doccheck`, `scenecheck`, `plotcheck`, `gesturecheck`, `spritecheck`,
+`statecheck`, `savecheck`, `runcheck`, `texturecheck`, `artcheck`, `tablecheck`, `keycheck`,
+`prefcheck`. Last, a check that the in-world tests **discovered** anything: both loaders have
+to report a nonzero count, because a suite that finds no tests passes.
 
-Run the slow stages **one at a time** — they share `neoforge/run` and fight if two are going.
+`tools/gate.sh --quick` is the build and the static checks only, for iterating. It says so
+when it finishes, because it is **not** the gate.
+
+There used to be two gates. This script ran `./gradlew build`, which leaves out datagen,
+Fabric's in-world tests and verify's own coverage check, while `verify` covered different
+ground beside it — so "gate green" meant one loader. An audit found them disagreeing.
+
+Never run the scripted client alongside it: `tools/shots.sh` holds `neoforge/run` for a
+quarter of an hour and the game tests want the same directory.
 
 ## Testing functionally *and* visually
 

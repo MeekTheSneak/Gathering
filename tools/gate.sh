@@ -6,13 +6,25 @@
 # tests fail, because a failing test prints "FAILED". This looks at exit codes, which cannot
 # be misread, and says plainly which stage went wrong.
 #
-#   tools/gate.sh            build, the unit tests, and the static checks
-#   tools/gate.sh --game     and the in-world game tests, which want neoforge/run to itself
+#   tools/gate.sh            the gate: everything below
+#   tools/gate.sh --quick    compile, unit tests and the static checks only, for iterating
+#
+# The gate runs `./gradlew verify`, not `./gradlew build`. That difference mattered. For a long
+# time this script ran `build`, which does not include data generation, does not include
+# Fabric's in-world tests, and does not include verify's own check that it still covers what it
+# claims - so "gate green" meant one loader's game tests and no datagen, while a second gate,
+# `verify`, existed beside it covering different ground. An audit found the two disagreeing.
+# There is one gate now, and --quick is explicitly not it.
 #
 # Never runs the scripted client: that holds neoforge/run for a quarter of an hour and the
 # game tests fight it for the same directory. Run tools/shots.sh separately.
-set -u
+set -uo pipefail
 cd "$(dirname "$0")/.."
+
+QUICK=0
+if [ "${1:-}" = "--quick" ]; then
+    QUICK=1
+fi
 
 failed=()
 stage() {
@@ -27,17 +39,58 @@ stage() {
     fi
 }
 
-stage "gradle build (all unit tests)" ./gradlew build
-for check in langcheck doccheck scenecheck plotcheck gesturecheck spritecheck statecheck savecheck runcheck texturecheck artcheck tablecheck keycheck prefcheck; do
+#: Where the build's own output is kept, so the in-world results can be read back out of it.
+GRADLE_LOG=$(mktemp -t gathering-gate)
+trap 'rm -f "$GRADLE_LOG"' EXIT
+
+# The Gradle half, as one task: verify is the one that knows what it has to cover and fails
+# when a dependency is dropped, renamed or wired to the wrong project.
+if [ "$QUICK" = 1 ]; then
+    GRADLE_STAGE="gradle build (unit tests only)"
+    GRADLE_TASK="build"
+else
+    GRADLE_STAGE="gradle verify (both loaders)"
+    GRADLE_TASK="verify"
+fi
+printf '%-34s' "$GRADLE_STAGE"
+if ./gradlew "$GRADLE_TASK" > "$GRADLE_LOG" 2>&1; then
+    printf 'ok\n'
+else
+    printf 'FAILED\n'
+    failed+=("$GRADLE_STAGE")
+    grep -iE 'FAILED|error:|expected|but was' "$GRADLE_LOG" | head -12
+fi
+
+for check in langcheck doccheck scenecheck plotcheck gesturecheck spritecheck statecheck \
+             savecheck runcheck texturecheck artcheck tablecheck keycheck prefcheck; do
     stage "$check" python3 "tools/$check.py"
 done
-if [ "${1:-}" = "--game" ]; then
-    stage "in-world game tests" ./gradlew :neoforge:runGameTestServer
+
+# A suite that discovered nothing passes. Both loaders print how many required tests ran, and a
+# run reporting none - a renamed annotation, a source set that stopped being scanned, a
+# registration quietly dropped - would otherwise read as a clean gate. Two loaders, both
+# nonzero, or this is not a pass.
+if [ "$QUICK" = 0 ]; then
+    printf '%-34s' "in-world tests actually ran"
+    counts=$(grep -oE 'All [0-9]+ required tests passed' "$GRADLE_LOG" | grep -oE '[0-9]+' || true)
+    howMany=$(printf '%s' "$counts" | grep -c '[0-9]' || true)
+    zeroes=$(printf '%s' "$counts" | grep -cx '0' || true)
+    if [ "$howMany" -lt 2 ] || [ "$zeroes" -gt 0 ]; then
+        printf 'FAILED\n'
+        failed+=("in-world tests actually ran")
+        echo "  expected both loaders to report a nonzero count; saw: ${counts:-none}"
+    else
+        printf 'ok (%s)\n' "$(printf '%s' "$counts" | tr '\n' '/')"
+    fi
 fi
 
 echo
 if [ ${#failed[@]} -eq 0 ]; then
-    echo "gate green"
+    if [ "$QUICK" = 1 ]; then
+        echo "quick checks green - this is NOT the gate; run tools/gate.sh"
+    else
+        echo "gate green"
+    fi
     exit 0
 fi
 echo "gate RED: ${failed[*]}"

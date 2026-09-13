@@ -152,7 +152,7 @@ Paste results here from the run that produced them. Nothing in this section is f
 |---|---|---|
 | `./gradlew :neoforge:runGameTestServer` on `8aea932` + reviewer probes | `4 required tests failed` — all four reproduced as the review described | before the fixes |
 | `./gradlew :neoforge:runGameTestServer` after the fixes | `All 366 required tests passed` | after the fixes |
-| `tools/gate.sh --game` | `gate green` — all thirteen checks. The gate summarises and does not print a test count; the 366 above is from the direct run, not inferred from this one | after the fixes |
+| `tools/gate.sh --game` | `gate green` — all thirteen checks as they stood then. Both the flag and the count are historical: the gate is one command now and covers both loaders. See the CL-13 note below | after the fixes |
 | `tools/shots.sh` | Last clean run was before these fixes: `reached step 315 of 315`, `failures: 0` | on `8aea932` |
 
 ### What has never been verified, by anyone
@@ -187,6 +187,27 @@ checked which exits existed and not which ones `removed()` actually fires on.
 QF-01's lookup and QF-04's rendering are verified by rules extracted into core and by
 reasoning; the client probes that found them need a display. The audit's own harnesses are the
 way to confirm them, and they are in the bundle.
+
+## CL-13: there were two gates, and they disagreed
+
+`tools/gate.sh` ran `./gradlew build`. `verify` ran `:core:test`, the architecture fences,
+datagen, **and both loaders' in-world tests**, plus its own check that it still covers what it
+claims. Neither ran the other. So "gate green" in every report before this one meant NeoForge's
+game tests and no datagen, and Fabric's ten in-world tests were only ever run by whoever
+happened to type `verify`.
+
+Nothing was hiding behind it - the first full run passed, 402 and 10 - but that was luck rather
+than knowledge, and it is exactly the shape of thing the gate exists to stop being luck.
+
+There is one gate now. `tools/gate.sh` runs verify, then the fourteen static checks, then a new
+stage: **both loaders must report a nonzero test count**. A suite that discovers nothing passes,
+so a renamed annotation or a source set that quietly stopped being scanned would have read as
+green. That assertion was checked against all four cases it exists for - two counts, one
+count, a zero, and none - before being relied on.
+
+`--quick` is the build and the checks, for iterating, and it says it is not the gate when it
+finishes. `CLAUDE.md` and `tools/README.md` now describe what actually runs; the latter had
+said "the eight checks" since there were eight.
 
 ## The cleanup audit: two follow-ons fixed, a roadmap open
 
