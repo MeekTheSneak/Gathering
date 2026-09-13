@@ -73,6 +73,26 @@ public class TableBlockEntity extends BlockEntity {
 
     /** Two seconds. Ambience, not gameplay - moves are pushed as they happen. */
     private static final int AMBIENT_INTERVAL_TICKS = 40;
+
+    /**
+     * What the room was last told, so a board nobody has changed is not sent again.
+     * <p>The public board went out every two seconds whether or not anything had happened -
+     * per table, for as long as a session existed. Building one means walking every zone of
+     * every seat through the visibility rules and serializing the result, once per person in
+     * range: a measured 0.397 ms and 874 KB for two spectators on a sixteen-hundred-card board,
+     * repeated for ever on a game nobody was playing.
+     * <p>-1 means "nothing has been sent", which is also what it is reset to when the session
+     * is replaced - a revision is monotonic within one session and meaningless across two.
+     */
+    private long lastAmbientRevision = -1;
+
+    /**
+     * Who was told, so somebody who has just walked up is not left looking at nothing.
+     * <p>The audience is half the question. A board that has not changed still has to reach a
+     * player who was not there for the last send, and that is the case a revision check alone
+     * would get wrong - the commonest way to walk up to a table is to walk up to a quiet one.
+     */
+    private java.util.Set<UUID> lastAmbientAudience = java.util.Set.of();
     private static final String SIDE_KEY = "side";
     private static final String PLAYER_KEY = "player";
 
@@ -325,6 +345,9 @@ public class TableBlockEntity extends BlockEntity {
 
     public void beginSession(GameSession newSession, int life, MatchState newMatch) {
         this.session = newSession;
+        // A revision counts within one session and means nothing across two, so what the room
+        // was last told about the old game cannot be compared against the new one.
+        forgetWhatTheRoomWasTold();
         this.startingLife = life;
         this.match = newMatch;
         this.stored = null;
@@ -527,7 +550,18 @@ public class TableBlockEntity extends BlockEntity {
      * the bug this shape exists to prevent - and two calls that must both happen is one call
      * somebody forgets.
      */
-    public Map<SeatId, HeldDeck> releaseDecks() {
+    /**
+     * Forgets what the room was last told, so the next tick sends whatever is there now.
+     * <p>Called whenever the session is replaced or taken away. Left alone, a new game whose
+     * revision happened to match the old one's would be silently withheld from everybody
+     * standing at the table.
+     */
+    private void forgetWhatTheRoomWasTold() {
+        this.lastAmbientRevision = -1;
+        this.lastAmbientAudience = java.util.Set.of();
+    }
+
+    /** How many decks this table is holding, for something that wants to say so. */    public Map<SeatId, HeldDeck> releaseDecks() {
         Map<SeatId, HeldDeck> released = new LinkedHashMap<>();
         decks.forEach((seat, deck) ->
                 released.put(seat, new HeldDeck(deck, pools.get(seat), deckOwners.get(seat))));
@@ -590,6 +624,7 @@ public class TableBlockEntity extends BlockEntity {
                     worldPosition, pot.size());
         }
         this.session = null;
+        forgetWhatTheRoomWasTold();
         this.stored = null;
         this.match = null;
         this.restoreFailed = false;
@@ -604,6 +639,7 @@ public class TableBlockEntity extends BlockEntity {
     /** Ends the current game but keeps the match and the decks, for the next game of a set. */
     public void endGameKeepingMatch() {
         this.session = null;
+        forgetWhatTheRoomWasTold();
         this.stored = null;
         this.restoreFailed = false;
         setChanged();
@@ -626,11 +662,30 @@ public class TableBlockEntity extends BlockEntity {
         if (!(level instanceof net.minecraft.server.level.ServerLevel server)) {
             return;
         }
-        table.session().ifPresent(session -> dev.gathering.server.TableBroadcast.sendAmbient(
-                server, pos, session,
-                dev.gathering.server.TableBroadcast.seatedAt(server, pos).stream()
-                        .map(seated -> seated.player().getUUID())
-                        .collect(java.util.stream.Collectors.toSet())));
+        table.session().ifPresent(session -> {
+            java.util.Set<UUID> seated =
+                    dev.gathering.server.TableBroadcast.seatedAt(server, pos).stream()
+                            .map(occupant -> occupant.player().getUUID())
+                            .collect(java.util.stream.Collectors.toSet());
+            // Who this push would reach: everyone in range who is not sitting at it. Scanning
+            // for them is a distance check per player; building them a board is not, which is
+            // why the cheap question is asked first.
+            java.util.Set<UUID> audience = new java.util.LinkedHashSet<>();
+            for (net.minecraft.server.level.ServerPlayer nearby
+                    : dev.gathering.server.TableBroadcast.watchingNearby(server, pos)) {
+                if (!seated.contains(nearby.getUUID())) {
+                    audience.add(nearby.getUUID());
+                }
+            }
+            long revision = session.revision();
+            if (revision == table.lastAmbientRevision && audience.equals(table.lastAmbientAudience)) {
+                // Same board, same room. Sending it again would tell nobody anything.
+                return;
+            }
+            table.lastAmbientRevision = revision;
+            table.lastAmbientAudience = java.util.Set.copyOf(audience);
+            dev.gathering.server.TableBroadcast.sendAmbient(server, pos, session, seated);
+        });
     }
 
     public Optional<DyeColor> felt() {
@@ -753,6 +808,7 @@ public class TableBlockEntity extends BlockEntity {
         formatChosen = tag.getBoolean(FORMAT_CHOSEN_KEY);
 
         session = null;
+        forgetWhatTheRoomWasTold();
         restoreFailed = false;
         startingLife = tag.getInt(STARTING_LIFE_KEY);
         stored = tag.contains(SESSION_OPEN_KEY)

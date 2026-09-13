@@ -269,6 +269,22 @@ public final class GameSession {
     }
 
     /** The whole record, undone entries included, in order. Public by default. */
+    /**
+     * A number that changes whenever this session does, and costs nothing to ask for.
+     * <p>The next sequence number, which every submitted event and every undo consumes. So a
+     * caller holding one from a moment ago can tell "nothing has happened here" from "something
+     * has" without comparing states or copying the log.
+     * <p>{@link #records()} would answer the same question and hands back a copy of the whole
+     * log to do it, which is fine once and ruinous on a timer - the table's public board is
+     * pushed to everyone nearby every two seconds, and asking that way would allocate a copy of
+     * every record in the game, per table, per push.
+     * <p>Monotonic within one session and meaningless across two, so a caller comparing it must
+     * forget its old value when the session is replaced.
+     */
+    public long revision() {
+        return nextSequence;
+    }
+
     public List<SessionRecord> records() {
         return List.copyOf(records);
     }
