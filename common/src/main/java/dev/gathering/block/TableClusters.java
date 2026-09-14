@@ -22,9 +22,32 @@ public final class TableClusters {
     private TableClusters() {
     }
 
-    /** The cluster the table at this origin belongs to. Cells are relative to that origin. */
+    /**
+     * The cluster the table at this origin belongs to. Cells are relative to that origin.
+     * <p>Tables set to be played apart are clusters of one: a long table split into 1v1 games is
+     * several tables that happen to touch. Everything that asks which game a table is part of -
+     * sessions, seats, boards, chat, the pot - asks here, so this is the whole of the split.
+     */
     public static TableCluster at(BlockGetter level, BlockPos origin) {
+        TableCell home = new TableCell(0, 0);
+        if (playsApart(level, origin)) {
+            return TableCluster.around(home, cell -> cell.equals(home) && isTableOrigin(level, blockPos(origin, cell)));
+        }
+        return TableCluster.around(home, cell -> isTableOrigin(level, blockPos(origin, cell))
+                && !playsApart(level, blockPos(origin, cell)));
+    }
+
+    /**
+     * Every table physically joined to this one, played apart or not: the long table as it
+     * stands in the world. What playing apart is switched for, all at once.
+     */
+    public static TableCluster touching(BlockGetter level, BlockPos origin) {
         return TableCluster.around(new TableCell(0, 0), cell -> isTableOrigin(level, blockPos(origin, cell)));
+    }
+
+    /** Whether the table with its corner here is set to be played on its own. */
+    public static boolean playsApart(BlockGetter level, BlockPos origin) {
+        return level.getBlockEntity(origin) instanceof TableBlockEntity table && table.playsApart();
     }
 
     /**

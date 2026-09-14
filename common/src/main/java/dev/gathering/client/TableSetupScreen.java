@@ -57,7 +57,7 @@ public final class TableSetupScreen extends Screen {
         // the panel is a button on the felt.
         int height = MARGIN * 2 + ROW_HEIGHT * 3 + GAP * 3
                 + rowsFor(formats.size() + 1) * (ROW_HEIGHT + GAP)
-                + (ROW_HEIGHT + GAP) * 3
+                + (ROW_HEIGHT + GAP) * (touchingTables() > 1 ? 4 : 3)
                 + ROW_HEIGHT + GAP * 3;
         panel = new Rect(
                 (this.width - PANEL_WIDTH) / 2,
@@ -144,6 +144,26 @@ public final class TableSetupScreen extends Screen {
                 panel.x() + MARGIN, eventTop, panel.width() - MARGIN * 2, ROW_HEIGHT,
                 Component.translatable("screen.gathering.setup.event"),
                 () -> this.minecraft.setScreen(new PodCreateScreen(table))));
+
+        // A long table can be one surface or several tables side by side. Offered only where
+        // there is more than one table to split, and said as what pressing it does.
+        if (touchingTables() > 1) {
+            boolean apart = dev.gathering.block.TableClusters.playsApart(this.minecraft.level, table);
+            addRenderableWidget(GatheringButtons.of(
+                    panel.x() + MARGIN, eventTop + ROW_HEIGHT + GAP, panel.width() - MARGIN * 2, ROW_HEIGHT,
+                    Component.translatable(apart ? "screen.gathering.setup.play_together" : "screen.gathering.setup.play_apart",
+                            touchingTables()),
+                    () -> {
+                        ClientNetworking.send(new dev.gathering.network.TablesApartPayload(table, !apart));
+                        this.onClose();
+                    }));
+        }
+    }
+
+    /** How many tables are pushed together here, however they are being played. */
+    private int touchingTables() {
+        return this.minecraft == null || this.minecraft.level == null
+                ? 1 : dev.gathering.block.TableClusters.touching(this.minecraft.level, table).cells().size();
     }
 
     /**

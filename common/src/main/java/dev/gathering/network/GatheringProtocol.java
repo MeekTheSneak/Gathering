@@ -87,6 +87,8 @@ public final class GatheringProtocol {
             toServer(TableActionsPayload.TYPE, TableActionsPayload.STREAM_CODEC,
                     TableActions::handleAll),
             toServer(UndoPayload.TYPE, UndoPayload.STREAM_CODEC, TableActions::handleUndo),
+            toServer(TablesApartPayload.TYPE, TablesApartPayload.STREAM_CODEC,
+                    dev.gathering.server.TablesApart::handle),
             toServer(CreatePodPayload.TYPE, CreatePodPayload.STREAM_CODEC,
                     dev.gathering.server.PodLobbies::create),
             toServer(PodActionPayload.TYPE, PodActionPayload.STREAM_CODEC,

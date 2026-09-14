@@ -55,6 +55,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String POD_KEY = "draft_pod";
     private static final String SIGNUP_KEY = "pod_signup";
     private static final String POD_RECORD_KEY = "pod_record";
+    private static final String APART_KEY = "plays_apart";
     private static final String SESSION_SEALED_KEY = "session_sealed";
     private static final String STARTING_LIFE_KEY = "starting_life";
     private static final String FORMAT_KEY = "format";
@@ -330,6 +331,26 @@ public class TableBlockEntity extends BlockEntity {
 
     public void setOpening(boolean now) {
         this.opening = now;
+    }
+
+    /**
+     * Whether this table is played on its own even when others touch it.
+     * <p>Set for the whole long table at once, and only while none of it is in use - see
+     * {@code TablesApart}. Sent to clients with the felt, because it is a fact about the
+     * furniture that anybody looking at the tables can see.
+     */
+    private boolean playsApart;
+
+    public boolean playsApart() {
+        return playsApart;
+    }
+
+    public void setPlaysApart(boolean apart) {
+        if (this.playsApart != apart) {
+            this.playsApart = apart;
+            setChanged();
+            tellClients();
+        }
     }
 
     /**
@@ -877,6 +898,7 @@ public class TableBlockEntity extends BlockEntity {
         // And whether this game has a command zone, which is a fact about the format and not
         // about anybody's cards - the client needs it to know whether to draw the box.
         tag.putBoolean(COMMAND_ZONE_KEY, hasCommandZone());
+        tag.putBoolean(APART_KEY, playsApart);
         return tag;
     }
 
@@ -896,6 +918,7 @@ public class TableBlockEntity extends BlockEntity {
         }
         commandZone = tag.getBoolean(COMMAND_ZONE_KEY);
         formatChosen = tag.getBoolean(FORMAT_CHOSEN_KEY);
+        playsApart = tag.getBoolean(APART_KEY);
 
         session = null;
         forgetWhatTheRoomWasTold();
@@ -1042,6 +1065,9 @@ public class TableBlockEntity extends BlockEntity {
         }
         if (podRecord != null) {
             tag.putByteArray(POD_RECORD_KEY, dev.gathering.core.draft.PodRecord.write(podRecord));
+        }
+        if (playsApart) {
+            tag.putBoolean(APART_KEY, true);
         }
         ListTag seats = new ListTag();
         claims.forEach((side, player) -> {
