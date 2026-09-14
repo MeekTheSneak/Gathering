@@ -97,6 +97,10 @@ public final class DraftActions {
      * <p>A sponsored pod whose cards go back to the sponsor hands out nothing, which the pod
      * itself decides: the question of who keeps what was settled before anybody picked.
      */
+    static void finish(ServerLevel level, BlockPos tableOrigin, DraftPod pod) {
+        handOutThePools(level, tableOrigin, pod);
+    }
+
     private static void handOutThePools(ServerLevel level, BlockPos tableOrigin, DraftPod pod) {
         List<List<CardIdentity>> pools = pod.pooledAway();
         // Names the draft rather than identifying it: two pools from two different pods must

@@ -28,7 +28,19 @@ public record GatheringConfig(
         Collecting collecting,
         Tables tables,
         Ante ante,
+        Events events,
         List<String> notes) {
+
+    /**
+     * Tournaments.
+     *
+     * @param hostCooldownMinutes how long after hosting one tournament a player waits to create
+     *                            another, on top of running only one at a time
+     * @param ratedMinPlayers     the fewest distinct players a finished tournament needs for its
+     *                            results to move ratings
+     */
+    public record Events(int hostCooldownMinutes, int ratedMinPlayers) {
+    }
 
     /**
      * The master switches.
@@ -209,7 +221,9 @@ public record GatheringConfig(
                 "ante.enabled",
                 "ante.cards_per_player",
                 "ante.exclusions",
-                "ante.allow_per_table_opt_out"));
+                "ante.allow_per_table_opt_out",
+                "events.host_cooldown_minutes",
+                "events.rated_min_players"));
     }
 
     /** What a server that has never touched the file runs as. */
@@ -307,12 +321,20 @@ public record GatheringConfig(
                 noted("ante.allow_per_table_opt_out",
                         toml.flag("ante.allow_per_table_opt_out", true), true, notes));
 
+        Events events = new Events(
+                noted("events.host_cooldown_minutes",
+                        clamped(toml.number("events.host_cooldown_minutes", 0), 0, 1440,
+                                "events.host_cooldown_minutes", notes), 0, notes),
+                noted("events.rated_min_players",
+                        clamped(toml.number("events.rated_min_players", 6), 2, 64,
+                                "events.rated_min_players", notes), 6, notes));
+
         for (String unknown : toml.unknownKeys(knownKeys())) {
             notes.add("'" + unknown + "' is not a setting this version knows about");
         }
         return new GatheringConfig(
                 new Modes(importEnabled, collectionEnabled, replays),
-                importing, collecting, tables, ante,
+                importing, collecting, tables, ante, events,
                 notes);
     }
 
@@ -524,6 +546,13 @@ public record GatheringConfig(
                 cards_per_player = 1
                 exclusions = ["basic lands"]
                 allow_per_table_opt_out = true
+
+                [events]
+                # Tournaments any player can host. A host runs one at a time, and waits this many
+                # minutes after hosting one before creating another.
+                # A finished tournament moves ratings only with at least rated_min_players players.
+                host_cooldown_minutes = 0
+                rated_min_players = 6
                 """;
     }
 }

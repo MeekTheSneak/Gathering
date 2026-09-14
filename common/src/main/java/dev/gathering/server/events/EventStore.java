@@ -85,6 +85,9 @@ final class EventStore {
         tag.putLong("round_ticks", state.roundTicks);
         tag.putLong("build_ticks", state.buildTicks);
         tag.putBoolean("pod_opened", state.podOpened);
+        if (state.registrationPoint != null) {
+            tag.putLong("registration", state.registrationPoint.asLong());
+        }
         ListTag decks = new ListTag();
         state.decks.forEach((player, deck) -> DeckComponent.CODEC.encodeStart(NbtOps.INSTANCE, deck).result()
                 .ifPresent(encoded -> {
@@ -135,6 +138,9 @@ final class EventStore {
         state.roundTicks = tag.getLong("round_ticks");
         state.buildTicks = tag.getLong("build_ticks");
         state.podOpened = tag.getBoolean("pod_opened");
+        if (tag.contains("registration")) {
+            state.registrationPoint = BlockPos.of(tag.getLong("registration"));
+        }
         ListTag decks = tag.getList("decks", Tag.TAG_COMPOUND);
         for (int index = 0; index < decks.size(); index++) {
             CompoundTag entry = decks.getCompound(index);

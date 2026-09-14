@@ -38,6 +38,28 @@ class PodRecordTest {
     }
 
     @Test
+    void theClockIsSavedWithTheRecord() throws Exception {
+        PodRecord old = record();
+        PodRecord clocked = new PodRecord(old.host(), old.cardsGo(), old.seated(), old.contributors(), old.opened(),
+                old.podName(), 45);
+        assertThat(PodRecord.read(PodRecord.write(clocked)).pickSeconds()).isEqualTo(45);
+    }
+
+    /** A pod saved before the clock existed still opens, with no clock. */
+    @Test
+    void aRecordSavedBeforeTheClockStillReads() throws Exception {
+        PodRecord record = record();
+        byte[] now = PodRecord.write(record);
+        // Version 1 is version 2 without the four bytes of the clock after the pod's name.
+        int nameEnds = 4 + 16 + 2 + record.cardsGo().name().length() + 2 + record.podName().length();
+        byte[] old = new byte[now.length - 4];
+        System.arraycopy(now, 0, old, 0, nameEnds);
+        System.arraycopy(now, nameEnds + 4, old, nameEnds, now.length - nameEnds - 4);
+        old[3] = 1;
+        assertThat(PodRecord.read(old)).isEqualTo(record);
+    }
+
+    @Test
     void roundsAreEachSeatsNthPack() {
         List<List<DraftPack>> rounds = record().rounds();
         assertThat(rounds).hasSize(2);

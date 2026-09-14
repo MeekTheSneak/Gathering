@@ -174,7 +174,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 321;
+    private static final int LAST_STEP = 339;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -3368,6 +3368,144 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
+            case 322 -> {
+                // A tournament, hosted at the same table from its setup screen's list.
+                EventListScreen.openFrom(practiceTable);
+                advance(SETTLE);
+            }
+            case 323 -> {
+                expectScreen(client, "opening the tournaments list", EventListScreen.class);
+                shoot(client, "100-tournaments");
+                press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.events.host").getString());
+                advance(SETTLE / 2);
+            }
+            case 324 -> {
+                expectScreen(client, "hosting a tournament", EventCreateScreen.class);
+                // Any deck, so the run needs none registered.
+                press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.event.decks.off").getString());
+                advance(SETTLE / 4);
+            }
+            case 325 -> {
+                if (client.screen instanceof EventCreateScreen create && !create.said().startsWith("Constructed")) {
+                    fail("the new tournament screen says \"" + create.said() + "\"");
+                }
+                shoot(client, "101-a-new-tournament");
+                press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.event.create_button").getString());
+                advance(SETTLE);
+            }
+            case 326 -> {
+                expectScreen(client, "creating a tournament", EventScreen.class);
+                shoot(client, "102-a-tournament-signing-up");
+                press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.event.register").getString());
+                advance(SETTLE);
+            }
+            case 327 -> {
+                // A board of their own with the deck in hand, while registered.
+                press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.event.practice").getString());
+                advance(SETTLE);
+            }
+            case 328 -> {
+                expectScreen(client, "practicing with a deck", TableScreen.class);
+                if (!TutorialDemo.practising()) {
+                    fail("the practice board is not dealt the deck in hand");
+                }
+                shoot(client, "102a-practising-a-deck");
+                TutorialDemo.clear();
+                client.setScreen(null);
+                if (client.player != null && client.player.connection != null) {
+                    client.player.connection.sendCommand("gathering events");
+                }
+                advance(SETTLE);
+            }
+            case 329 -> {
+                expectScreen(client, "the tournaments list after practice", EventListScreen.class);
+                if (client.screen instanceof EventListScreen list && !list.events().isEmpty()) {
+                    ClientNetworking.send(dev.gathering.network.EventActionPayload.of(list.events().get(0).id(),
+                            dev.gathering.network.EventActionPayload.Action.VIEW));
+                }
+                advance(SETTLE);
+            }
+            case 330 -> {
+                // An opponent: a single-player run has nobody else to register, so one is put in
+                // the event on the server, as a second player registering would be.
+                addATournamentOpponent(client);
+                if (client.screen instanceof EventScreen event) {
+                    event.showTab(EventScreen.Tab.HOST);
+                }
+                advance(SETTLE / 2);
+            }
+            case 331 -> {
+                press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.event.begin").getString());
+                advance(SETTLE * 2);
+            }
+            case 332 -> {
+                if (client.screen instanceof EventScreen event) {
+                    event.showTab(EventScreen.Tab.OVERVIEW);
+                    if (event.view().mine().table() != 1) {
+                        fail("round one did not seat the host at table 1: " + event.view().mine());
+                    }
+                }
+                advance(SETTLE / 2);
+            }
+            case 333 -> {
+                shoot(client, "103-round-one");
+                client.setScreen(null);
+                advance(SETTLE);
+            }
+            case 334 -> {
+                // Either moved to their seat, being sat at this long table already, or shown the
+                // way to it: never left with only a line in the chat.
+                boolean atTheTable = client.player != null && practiceTable != null
+                        && client.player.blockPosition().closerThan(practiceTable, 4);
+                System.out.println("[devscene] after round one: pointing " + EventHud.isPointing()
+                        + ", at the table " + atTheTable);
+                if (!EventHud.isPointing() && !atTheTable) {
+                    fail("round one neither moved the host to table 1 nor pointed the way");
+                }
+                shoot(client, "104-a-numbered-table");
+                if (client.player != null && client.player.connection != null) {
+                    client.player.connection.sendCommand("gathering events");
+                }
+                advance(SETTLE);
+            }
+            case 335 -> {
+                expectScreen(client, "the tournaments list again", EventListScreen.class);
+                if (client.screen instanceof EventListScreen list && !list.events().isEmpty()) {
+                    ClientNetworking.send(dev.gathering.network.EventActionPayload.of(list.events().get(0).id(),
+                            dev.gathering.network.EventActionPayload.Action.VIEW));
+                }
+                advance(SETTLE);
+            }
+            case 336 -> {
+                expectScreen(client, "opening the tournament", EventScreen.class);
+                if (client.screen instanceof EventScreen event) {
+                    event.showTab(EventScreen.Tab.PAIRINGS);
+                }
+                advance(SETTLE / 4);
+            }
+            case 337 -> {
+                shoot(client, "105-pairings");
+                settleTableOne(client, 2);
+                advance(20 * 18);
+            }
+            case 338 -> {
+                // No round two: the opponent was never online, so the next round drops them, as
+                // anybody still gone at the next round is, and one player left finishes the event.
+                advance(SETTLE / 4);
+            }
+            case 339 -> {
+                if (client.screen instanceof EventScreen event) {
+                    event.showTab(EventScreen.Tab.STANDINGS);
+                    if (!"finished".equals(event.view().phase()) || event.view().places().isEmpty()) {
+                        fail("the tournament did not finish with places: " + event.view().phase());
+                    } else {
+                        System.out.println("[devscene] a tournament finished, won by " + event.view().places().get(0));
+                    }
+                } else {
+                    fail("the tournament screen closed before the standings could be read");
+                }
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -6390,6 +6528,44 @@ public final class DevScene {
         if (Tutorial.running()) {
             fail("the guided first game is still running after Leave");
         }
+    }
+
+    /** Adds a second entrant to the tournament this player hosts, on the server. */
+    private static void addATournamentOpponent(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to add an opponent on");
+            return;
+        }
+        java.util.UUID host = client.player.getUUID();
+        server.execute(() -> dev.gathering.server.events.Events.all().stream()
+                .filter(state -> !state.tournament().isOver() && state.tournament().host().equals(host))
+                .findFirst()
+                .ifPresentOrElse(state -> dev.gathering.server.events.Events.setForTesting(state,
+                                state.tournament().register(dev.gathering.core.tournament.Entrant.registering(
+                                        java.util.UUID.nameUUIDFromBytes("devscene-opponent".getBytes()), "Opponent", 1400))),
+                        () -> fail("the hosted tournament was not there to add an opponent to")));
+    }
+
+    /** Picks table 1 on the pairings tab and settles it for its first player. */
+    private static void settleTableOne(Minecraft client, int wins) {
+        if (!(client.screen instanceof EventScreen event)) {
+            fail("there was no tournament screen to settle a table on");
+            return;
+        }
+        event.showTab(EventScreen.Tab.PAIRINGS);
+        String pick = net.minecraft.network.chat.Component.translatable("screen.gathering.event.select").getString();
+        boolean hasSettle = false;
+        for (var child : event.children()) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget
+                    && widget.getMessage().getString().equals(wins + "-0")) {
+                hasSettle = true;
+            }
+        }
+        if (!hasSettle) {
+            press(client, pick);
+        }
+        press(client, wins + "-0");
     }
 
     /**

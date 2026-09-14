@@ -15,6 +15,12 @@ import dev.gathering.item.PackComponent;
 import dev.gathering.item.PackItem;
 import dev.gathering.server.PodSignups;
 import dev.gathering.server.TablesApart;
+import dev.gathering.server.events.EventState;
+import dev.gathering.server.events.Events;
+import dev.gathering.core.tournament.Entrant;
+import dev.gathering.core.tournament.EventSettings;
+import dev.gathering.core.tournament.Pairing;
+import dev.gathering.core.tournament.Tournament;
 import java.util.UUID;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.core.BlockPos;
@@ -48,6 +54,41 @@ public class FabricEventsGameTest implements FabricGameTest {
                 return;
             }
         }
+        helper.succeed();
+    }
+
+    /** A tournament round seats each pair at its numbered table and starts its match. */
+    @GameTest(template = EMPTY_STRUCTURE)
+    public void atournamentRoundSeatsEachPairAtItsTable(GameTestHelper helper) {
+        java.util.List<BlockPos> tables = java.util.List.of(place(helper, 0), place(helper, 3));
+        java.util.List<net.minecraft.server.level.ServerPlayer> players = new java.util.ArrayList<>();
+        for (int index = 0; index < 4; index++) {
+            var player = helper.makeMockServerPlayerInLevel();
+            player.setGameMode(GameType.SURVIVAL);
+            players.add(player);
+        }
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Fabric", players.get(0).getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        for (int index = 0; index < 4; index++) {
+            tournament = tournament.register(Entrant.registering(players.get(index).getUUID(), "F" + index, 1500 - index));
+        }
+        tournament = tournament.beginPreparing();
+        for (var player : players) {
+            tournament = tournament.markReady(player.getUUID());
+        }
+        EventState state = Events.stateForTesting(tournament.startSwiss(), helper.getLevel(), tables);
+        Events.putForTesting(state);
+        Events.seatRoundForTesting(helper.getLevel().getServer(), state);
+        for (Pairing pairing : state.tournament().currentRound().orElseThrow().pairings()) {
+            BlockPos table = state.table(pairing.table()).orElseThrow();
+            if (TableSeats.seatOf(helper.getLevel(), table, pairing.a()).isEmpty()
+                    || TableSeats.seatOf(helper.getLevel(), table, pairing.b()).isEmpty()
+                    || TableSessions.sessionAt(helper.getLevel(), table).isEmpty()) {
+                helper.fail("table " + pairing.table() + " did not seat its pairing and start their match");
+                return;
+            }
+        }
+        Events.removeForTesting(state);
         helper.succeed();
     }
 

@@ -64,6 +64,7 @@ public final class EventViews {
             }
             case ADD_PRIZE -> EventPrizes.put(player, id, payload.table());
             case RECORD -> record(player, payload.player());
+            case MARK_REGISTRATION -> Events.markRegistration(player, id);
         }
         if (payload.action() != EventActionPayload.Action.LIST && payload.action() != EventActionPayload.Action.VIEW
                 && payload.action() != EventActionPayload.Action.RECORD) {

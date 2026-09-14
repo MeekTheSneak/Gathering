@@ -337,6 +337,26 @@ public class TableBlockEntity extends BlockEntity {
     }
 
     /**
+     * Which draft turn the pick clock is counting and the game tick it began on. Not saved:
+     * see {@link dev.gathering.server.PickClocks}.
+     */
+    private long clockTurn = Long.MIN_VALUE;
+    private long clockStartedAt;
+
+    public boolean isClockOnTurn(long turn) {
+        return clockTurn == turn;
+    }
+
+    public void startClock(long turn, long now) {
+        this.clockTurn = turn;
+        this.clockStartedAt = now;
+    }
+
+    public long clockStartedAt() {
+        return clockStartedAt;
+    }
+
+    /**
      * Whether this table is played on its own even when others touch it.
      * <p>Set for the whole long table at once, and only while none of it is in use - see
      * {@code TablesApart}. Sent to clients with the felt, because it is a fact about the
@@ -798,6 +818,9 @@ public class TableBlockEntity extends BlockEntity {
             net.minecraft.world.level.Level level, BlockPos pos, BlockState state, TableBlockEntity table) {
         if (table.signupIsToBeHandedBack() && level instanceof net.minecraft.server.level.ServerLevel handing) {
             dev.gathering.server.PodSignups.handBackEverything(handing, pos, table, "pod_signup_unreadable");
+        }
+        if (table.pod != null && table.podRecord != null && level instanceof net.minecraft.server.level.ServerLevel clocked) {
+            dev.gathering.server.PickClocks.tick(clocked, pos, table);
         }
         if (++table.ambientCountdown < AMBIENT_INTERVAL_TICKS) {
             return;

@@ -84,6 +84,8 @@ public final class Settings {
             case "ante.exclusions" -> String.join(", ", now.ante().exclusions());
             case "ante.allow_per_table_opt_out" ->
                     String.valueOf(now.ante().allowPerTableOptOut());
+            case "events.host_cooldown_minutes" -> String.valueOf(now.events().hostCooldownMinutes());
+            case "events.rated_min_players" -> String.valueOf(now.events().ratedMinPlayers());
             default -> "?";
         };
     }

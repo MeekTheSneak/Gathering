@@ -26,14 +26,24 @@ import java.util.UUID;
  * @param contributors per seat, per pack, who put that pack in; null for a pack the server made
  * @param opened       per seat, per pack, what came out of it
  * @param podName      what the event calls itself on a pool, never the shuffle seed
+ * @param pickSeconds  the pick clock the host set, or 0
  */
 public record PodRecord(
         UUID host, PodSettings.CardsGo cardsGo, List<UUID> seated,
-        List<List<UUID>> contributors, List<List<List<CardIdentity>>> opened, String podName) {
+        List<List<UUID>> contributors, List<List<List<CardIdentity>>> opened, String podName, int pickSeconds) {
+
+    /** A record with no pick clock. */
+    public PodRecord(UUID host, PodSettings.CardsGo cardsGo, List<UUID> seated,
+            List<List<UUID>> contributors, List<List<List<CardIdentity>>> opened, String podName) {
+        this(host, cardsGo, seated, contributors, opened, podName, 0);
+    }
 
     public PodRecord {
         if (host == null || cardsGo == null) {
             throw new IllegalArgumentException("A pod record needs a host and where the cards go");
+        }
+        if (pickSeconds < 0 || pickSeconds > PodSettings.LONGEST_PICK_SECONDS) {
+            throw new IllegalArgumentException("A pick clock is 0 to " + PodSettings.LONGEST_PICK_SECONDS + " seconds");
         }
         seated = List.copyOf(seated);
         List<List<UUID>> whose = new ArrayList<>();
@@ -73,7 +83,8 @@ public record PodRecord(
             }
             contributors.add(whose);
         }
-        return new PodRecord(lobby.host(), lobby.settings().cardsGo(), seated, contributors, opened, podName);
+        return new PodRecord(lobby.host(), lobby.settings().cardsGo(), seated, contributors, opened, podName,
+                lobby.settings().pickSeconds());
     }
 
     /** Everything a seat opened, in order: what a sealed player builds from. */
@@ -121,7 +132,8 @@ public record PodRecord(
 
     // ------------------------------------------------------------------ bytes
 
-    private static final int VERSION = 1;
+    /** Two, for the pick clock; one is still read, with none. */
+    private static final int VERSION = 2;
 
     public static byte[] write(PodRecord record) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -130,6 +142,7 @@ public record PodRecord(
             uuid(out, record.host());
             out.writeUTF(record.cardsGo().name());
             out.writeUTF(record.podName());
+            out.writeInt(record.pickSeconds());
             out.writeInt(record.seated().size());
             for (int seat = 0; seat < record.seated().size(); seat++) {
                 uuid(out, record.seated().get(seat));
@@ -152,12 +165,13 @@ public record PodRecord(
     public static PodRecord read(byte[] written) throws IOException {
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(written))) {
             int version = in.readInt();
-            if (version != VERSION) {
-                throw new IOException("A pod record is version " + version + ", this reads " + VERSION);
+            if (version != 1 && version != VERSION) {
+                throw new IOException("A pod record is version " + version + ", this reads 1 and " + VERSION);
             }
             UUID host = uuid(in);
             PodSettings.CardsGo cardsGo = PodSettings.CardsGo.valueOf(in.readUTF());
             String podName = in.readUTF();
+            int pickSeconds = version >= 2 ? in.readInt() : 0;
             int seats = DraftBytes.place(in.readInt());
             List<UUID> seated = new ArrayList<>();
             List<List<UUID>> contributors = new ArrayList<>();
@@ -174,7 +188,7 @@ public record PodRecord(
                 contributors.add(whose);
                 opened.add(held);
             }
-            return new PodRecord(host, cardsGo, seated, contributors, opened, podName);
+            return new PodRecord(host, cardsGo, seated, contributors, opened, podName, pickSeconds);
         } catch (IllegalArgumentException malformed) {
             throw new IOException("A saved pod record does not add up: " + malformed.getMessage(), malformed);
         }

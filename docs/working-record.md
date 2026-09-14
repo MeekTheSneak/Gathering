@@ -148,9 +148,35 @@ build order T1-T7 are in `docs/tournaments.md`. Progress:
 | T1c opening into a draft or sealed pools (`PodEvents`, `PodRecord`, `PackOpening.draw`) | **Done** (`39fbeb68`) | 6 in-world tests with supplied pack contents (no pipeline in tests), cards followed by identity; three guards shown to fail. Real drawing only exercised by the graphical client. Gate 455/10 |
 | T1d screens (create, sign-up) and payloads, protocol 6 | **Committed** (`4b8845f1`), graphical run pending | Tour steps 315-321 create a one-pack sealed event through the screens and check the pool. Gate 455/10 |
 
-Not yet done in T1: an optional pick clock (deferred to T4 with the other clocks); Fabric in-world
-tests of the event path; a sign-up locked by an opening that never completes stays locked until
-restart (the lock is not saved).
+| T2 tables played apart (`TablesApart`, `playsApart`) | **Done** (`fb3c5ff7`) | NeoForge split and lock tests; Fabric: three games on a long table played apart, and a sign-up's packs coming back. Protocol 7 |
+| T3 tournament engine (pure, `core/tournament`) | **Done** (`0647cd29`) | Swiss with folded seeds and no rematches, byes, drops, standings with the 33% floor, time and extra turns, top-cut bracket, codec. Seed-fold guard shown to fail |
+| T4-T7 events in the world, venues, records, top cut and prizes | **Done** (`f2ae9390`) | 8 in-world tests: seating, time and extra turns, 5-minute grace, suggested result, locked deck, save round trip, ratings (6-player minimum, pair limit, exclusion, void), prizes. Protocol 8. Guards shown to fail: locked deck, extra turns, pair limit |
+| Tour of the tournament screens | **Run** (tour after `f2ae9390`) | 337 steps, 2 failures, both the script's: it tried to settle a second round that the rules had rightly dropped the never-online opponent from. Screenshots 100-105 reviewed; found and fixed a clipped "Constructed", a "Pick" button narrower than its word (now "Settle"), "None" for no top cut, and no pointer or move shown after round one |
+| Pick clock, registration point, practice board, config, abuse guards | **Done** (the commit after `f2ae9390`) | Gate 471/13. See "Tournament finishing batch" below. Graphical run of the new steps pending |
+
+### Tournament finishing batch
+
+- **Pick clock** (`PickClock` pure, `PickClocks` on the table tick, `DraftViewPayload.secondsLeft`,
+  countdown on the draft screen). Found while testing it: **a table with no game on it never
+  ticked**, so the pick clock and the hand-back of an unreadable sign-up's packs did nothing in a
+  world. The sign-up test called the tick by hand and hid it; it now waits for the real ticker.
+  Both guards fail with the old ticker condition.
+- **Ratings loophole closed:** an empty set of played tables used to mean "every result counts",
+  so an event whose results were all typed in, with no game at any table, moved ratings. Guard
+  shown to fail with the old condition. Official events at full weight versus half is tested on
+  a one-round event, exactly twice.
+- **Seating in a venue:** a round used to teleport anybody within 24 blocks, which in a hall of
+  tables is everybody. Now only a player already sitting at that long table is moved; the rest
+  get the pointer (owner decision). 16 players on 8 separate tables: seated, matches started,
+  labels numbered, nobody moved. Guard shown to fail with the old rule.
+- **Registration point**, **host cooldown** and **rated minimum** as config
+  (`events.host_cooldown_minutes`, `events.rated_min_players`, readable by `/gathering settings`),
+  **practice board** on the event screen, tour steps for practice and the pointer.
+- Saves: tournament codec v2 and pod record v2 add the clock; both read v1, tested byte for byte.
+  Protocol 9.
+
+Still open: a sign-up locked by an opening that never completes stays locked until restart (the
+lock is not saved); prize descriptions use server-side item names.
 
 ## Owner-approved requirements, and what they superseded
 

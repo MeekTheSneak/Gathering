@@ -273,12 +273,10 @@ public final class PodSignupGameTest {
             helper.fail("a signup with unreadable settings was not kept to hand back");
             return;
         }
-        TableBlockEntity.serverTick(helper.getLevel(), origin, helper.getLevel().getBlockState(origin), table);
-        if (table.hasSignup() || packsIn(host, "m21") != before + 2) {
-            helper.fail("the packs were not handed back: " + (packsIn(host, "m21") - before) + " of 2");
-            return;
-        }
-        helper.succeed();
+        // By the table's own ticker, as in a world: calling the tick by hand once hid that a table
+        // with no game on it never ticked at all.
+        helper.succeedWhen(() -> helper.assertTrue(!table.hasSignup() && packsIn(host, "m21") == before + 2,
+                "the packs were not handed back: " + (packsIn(host, "m21") - before) + " of 2"));
     }
 
     /** Breaking the table hands every held pack back. */

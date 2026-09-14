@@ -104,6 +104,7 @@ public record PodSignup(UUID host, PodSettings settings, List<Held> held) {
     private static final String PACKS_EACH = "packs_each";
     private static final String PICKS = "picks";
     private static final String CARDS_GO = "cards_go";
+    private static final String PICK_SECONDS = "pick_seconds";
     private static final String HELD = "held";
     private static final String CONTRIBUTOR = "contributor";
     private static final String PACK = "pack";
@@ -122,6 +123,7 @@ public record PodSignup(UUID host, PodSettings settings, List<Held> held) {
         tag.putInt(PACKS_EACH, settings.packsEach());
         tag.putInt(PICKS, settings.picksPerTurn());
         tag.putString(CARDS_GO, settings.cardsGo().name());
+        tag.putInt(PICK_SECONDS, settings.pickSeconds());
         ListTag packs = new ListTag();
         for (Held pack : held) {
             CompoundTag entry = new CompoundTag();
@@ -166,7 +168,8 @@ public record PodSignup(UUID host, PodSettings settings, List<Held> held) {
                     new PodSettings.SetRule(PodSettings.SetRule.Mode.valueOf(tag.getString(SET_MODE)), named),
                     tag.getInt(PACKS_EACH),
                     tag.getInt(PICKS),
-                    PodSettings.CardsGo.valueOf(tag.getString(CARDS_GO)));
+                    PodSettings.CardsGo.valueOf(tag.getString(CARDS_GO)),
+                    tag.getInt(PICK_SECONDS));
             broken = settings.problem().isPresent();
         } catch (IllegalArgumentException unreadableSettings) {
             settings = PodSettings.usual(PodSettings.Kind.DRAFT);

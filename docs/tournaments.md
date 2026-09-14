@@ -70,3 +70,48 @@ Each phase is usable when it lands and goes through the gate and graphical runs 
 6. **T6 - Records, ratings and admin tools.** World-saved records, private rating, the abuse
    rules, admin commands. Proof: a guard per abuse case, each shown to fail without its rule.
 7. **T7 - Top cut and prizes.** Elimination bracket, item prizes by standing, handouts, guide.
+
+## As built
+
+All seven phases are implemented. What each part does, where the build differs from the plan
+above, and what is still limited. `docs/working-record.md` carries the evidence.
+
+**Playing.** `/gathering events` (or *Tournaments* on a table's setup screen) lists current and
+past events. *Host one* opens the create screen: event kind, format, best of, round and build
+minutes, rounds (auto or fixed), top cut, deck registration (any / checked / locked), check-in,
+and for draft or sealed the full pack settings. The event screen has four tabs: overview (your
+table, opponent, result buttons, practice), standings (records and rates, never a seed),
+pairings, and host.
+
+**Seating.** A round claims each pair's seats at their numbered table and starts their match with
+the event's format and length. A player already sitting at that long table - a pod that drafted
+there - is moved straight into the seat; anybody else is told the table's number and shown the
+way by a pointer across the top of the screen until they arrive. Gathering everybody for a draft
+or sealed event also brings in players standing nearby. Every event table shows its number, the
+pairing and the round clock floating over it.
+
+**Registration point.** The host can press *Register here* on the host tab; from then on signing
+up only works within 8 blocks of that spot, and anybody further away is pointed to it.
+
+**Pick clock.** Off, 45 or 90 seconds a pick (any value up to 300 is accepted by the server), for
+drafts only. When it runs out, everybody still to pick takes the first cards in their pack -
+never a choice made for them on merit, and never a random one. The draft screen counts down, red
+for the last ten seconds. The turn's start is not saved: a restart gives everybody a full clock.
+
+**Practice.** *Practice* on the overview deals the deck in the player's hand onto a board that
+exists only on their client, like the lesson's, for laying out and drawing hands while building.
+Nothing done there reaches the server.
+
+**Ratings and hosting rules.** A result counts toward ratings only when a game was played at the
+match's table; a result two players only typed in stays in the standings and the record. Events
+of fewer than `events.rated_min_players` (default 6) move no rating. An event an admin marks
+official counts at full weight, anybody else's at half. A host runs one event at a time, and
+`events.host_cooldown_minutes` (default 0) adds a wait between events. Admin commands:
+`/gathering events record|rating|void|exclude|official`.
+
+**Limits known.**
+- A sign-up locked by a pack opening that never completes stays locked until restart.
+- Prize descriptions use the server's item names, so they are not translated per player.
+- The standings tab is plain text columns; long names can crowd the rates.
+- A registered opponent who has never been online is dropped at the next round, as anybody gone
+  at the next round is - so a two-player event with an absent opponent ends after round one.

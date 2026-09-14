@@ -146,7 +146,9 @@ public class TableBlock extends BaseEntityBlock {
                         (net.minecraft.server.level.ServerLevel) ticking, pos, table);
                 return;
             }
-            if (table.hasSession()) {
+            // A draft or a sign-up has work on the tick too - the pick clock, and packs to hand
+            // back from a sign-up that would not read - and neither has a game on the table.
+            if (table.hasSession() || table.pod().isPresent() || table.signupIsToBeHandedBack()) {
                 TableBlockEntity.serverTick(ticking, pos, ticked, table);
             }
         };

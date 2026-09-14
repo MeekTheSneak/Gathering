@@ -79,7 +79,7 @@ public final class ClientPayloads {
                     ClientTableState::acceptPayload),
             route(dev.gathering.network.DraftViewPayload.TYPE,
                     dev.gathering.network.DraftViewPayload.class,
-                    pod -> DraftScreen.show(pod.pod(), pod.view(), pod.open())),
+                    pod -> DraftScreen.show(pod.pod(), pod.view(), pod.open(), pod.secondsLeft())),
             route(dev.gathering.network.TradeViewPayload.TYPE,
                     dev.gathering.network.TradeViewPayload.class,
                     TradeScreen::accept),

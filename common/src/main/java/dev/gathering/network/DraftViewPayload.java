@@ -19,8 +19,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param open whether this opens the pack screen or updates one already showing, so a
  *             drafter who closed the screen to look at something is not dragged back to it
  *             every time a neighbor picks
+ * @param secondsLeft how long this drafter has to pick before the first cards are taken for
+ *                    them, or -1 when the pod has no clock
  */
-public record DraftViewPayload(BlockPos pod, byte[] view, boolean open)
+public record DraftViewPayload(BlockPos pod, byte[] view, boolean open, int secondsLeft)
         implements CustomPacketPayload {
 
     /** An eight-drafter pod is far below this; a bound so a bad packet is refused. */
@@ -34,6 +36,7 @@ public record DraftViewPayload(BlockPos pod, byte[] view, boolean open)
                     BlockPos.STREAM_CODEC, DraftViewPayload::pod,
                     ByteBufCodecs.byteArray(MAX_BYTES), DraftViewPayload::view,
                     ByteBufCodecs.BOOL, DraftViewPayload::open,
+                    ByteBufCodecs.VAR_INT, DraftViewPayload::secondsLeft,
                     DraftViewPayload::new);
 
     @Override

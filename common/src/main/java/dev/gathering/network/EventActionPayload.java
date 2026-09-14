@@ -27,7 +27,7 @@ public record EventActionPayload(
 
     public enum Action {
         LIST, VIEW, REGISTER, WITHDRAW, CHECK_IN, READY, REPORT, OPEN_CHECK_IN, BEGIN, START_NOW, SETTLE,
-        DROP_PLAYER, CANCEL, ADD_TABLES, ADD_PRIZE, RECORD
+        DROP_PLAYER, CANCEL, ADD_TABLES, ADD_PRIZE, RECORD, MARK_REGISTRATION
     }
 
     public static final UUID NONE = new UUID(0L, 0L);

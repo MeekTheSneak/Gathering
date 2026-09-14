@@ -87,7 +87,7 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
      * @param open false for an update, so a drafter who closed the screen to look something
      *             up is not dragged back to it every time anybody else picks
      */
-    public static void show(BlockPos pod, byte[] written, boolean open) {
+    public static void show(BlockPos pod, byte[] written, boolean open, int secondsLeft) {
         DraftView view;
         try {
             view = DraftViewCodec.read(written);
@@ -101,12 +101,15 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         Minecraft client = Minecraft.getInstance();
         if (client.screen instanceof DraftScreen already && already.pod().equals(pod)) {
             already.update(view);
+            already.clockFrom(secondsLeft);
             return;
         }
         if (!open) {
             return;
         }
-        client.setScreen(new DraftScreen(pod, view, client.screen));
+        DraftScreen screen = new DraftScreen(pod, view, client.screen);
+        screen.clockFrom(secondsLeft);
+        client.setScreen(screen);
     }
 
     private DraftScreen(BlockPos pod, DraftView view, Screen back) {
@@ -136,6 +139,21 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
 
     public BlockPos pod() {
         return pod;
+    }
+
+    /** When the pick clock runs out, by this client's clock, or 0 for no clock. */
+    private long clockEndsAt;
+
+    private void clockFrom(int secondsLeft) {
+        clockEndsAt = secondsLeft < 0 ? 0 : net.minecraft.Util.getMillis() + secondsLeft * 1000L;
+    }
+
+    /** Whole seconds left on the pick clock, or -1 when it is not counting for this drafter. */
+    int clockShowing() {
+        if (clockEndsAt == 0 || view.finished() || !canPick()) {
+            return -1;
+        }
+        return (int) Math.max(0, (clockEndsAt - net.minecraft.Util.getMillis() + 999) / 1000);
     }
 
     @Override
@@ -261,8 +279,17 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
 
+        int clock = clockShowing();
+        int clockRoom = 0;
+        if (clock >= 0) {
+            Component left = Component.translatable("screen.gathering.draft.clock", clock);
+            clockRoom = this.font.width(left) + GAP * 2;
+            graphics.drawString(this.font, left,
+                    panel.x() + panel.width() - MARGIN / 2 - this.font.width(left), panel.y() + 5,
+                    clock <= 10 ? 0xFFE8766F : ACCENT, false);
+        }
         GuiText.draw(graphics, this.font, headline(),
-                panel.x() + MARGIN / 2, panel.y() + 5, panel.width() - MARGIN, ACCENT);
+                panel.x() + MARGIN / 2, panel.y() + 5, panel.width() - MARGIN - clockRoom, ACCENT);
 
         List<CardIdentity> cards = onShow();
         int hovered = cardUnder(mouseX, mouseY);

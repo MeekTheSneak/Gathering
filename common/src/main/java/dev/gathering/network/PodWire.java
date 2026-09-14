@@ -35,6 +35,7 @@ public final class PodWire {
                 buffer.writeVarInt(settings.packsEach());
                 buffer.writeVarInt(settings.picksPerTurn());
                 buffer.writeVarInt(settings.cardsGo().ordinal());
+                buffer.writeVarInt(settings.pickSeconds());
             },
             buffer -> {
                 PodSettings.Kind kind = pick(PodSettings.Kind.values(), buffer.readVarInt());
@@ -51,7 +52,8 @@ public final class PodWire {
                 int packsEach = buffer.readVarInt();
                 int picks = buffer.readVarInt();
                 PodSettings.CardsGo cardsGo = pick(PodSettings.CardsGo.values(), buffer.readVarInt());
-                return new PodSettings(kind, source, ruleOrAny(mode, sets), packsEach, picks, cardsGo);
+                int pickSeconds = buffer.readVarInt();
+                return new PodSettings(kind, source, ruleOrAny(mode, sets), packsEach, picks, cardsGo, pickSeconds);
             });
 
     /**

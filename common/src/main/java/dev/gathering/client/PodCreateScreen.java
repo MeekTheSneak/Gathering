@@ -49,6 +49,7 @@ public final class PodCreateScreen extends Screen {
     private int packsEach = PodSettings.USUAL_DRAFT_PACKS;
     private int picks = 0;
     private PodSettings.CardsGo cardsGo = PodSettings.CardsGo.PLAYERS_KEEP;
+    private int pickSeconds;
 
     private EditBox setsField;
     private String setsTyped = "";
@@ -83,6 +84,7 @@ public final class PodCreateScreen extends Screen {
         this.packsEach = initial.packsEach();
         this.picks = initial.picksPerTurn();
         this.cardsGo = initial.cardsGo();
+        this.pickSeconds = initial.pickSeconds();
     }
 
     @Override
@@ -130,6 +132,17 @@ public final class PodCreateScreen extends Screen {
         addRenderableWidget(GatheringButtons.of(controlsX() + step + GAP + 40 + GAP, y, step,
                 ROW_HEIGHT, Component.literal("+"), () -> packsEach = Math.min(PodSettings.MOST_PACKS_EACH, packsEach + 1)));
         packsAt = new int[] {controlsX() + step + GAP + 20, y + (ROW_HEIGHT - this.font.lineHeight) / 2 + 1};
+        // The pick clock shares the row: off, or a number of seconds a pick may take.
+        Integer[] clocks = {0, 45, 90};
+        int clockX = controlsX() + step * 2 + GAP * 3 + 40 + 6;
+        int clockWidth = (controlsX() + controlsWidth() - clockX - GAP * (clocks.length - 1)) / clocks.length;
+        for (int index = 0; index < clocks.length; index++) {
+            int seconds = clocks[index];
+            addRenderableWidget(GatheringButtons.toggle(clockX + index * (clockWidth + GAP), y, clockWidth, ROW_HEIGHT,
+                    seconds == 0 ? Component.translatable("screen.gathering.pod.clock.off")
+                            : Component.translatable("screen.gathering.pod.clock.seconds", seconds),
+                    () -> pickSeconds == seconds, () -> pickSeconds = kind == PodSettings.Kind.SEALED ? 0 : seconds));
+        }
         y += ROW_HEIGHT + GAP;
 
         Integer[] pickChoices = {0, 1, 2};
@@ -191,7 +204,8 @@ public final class PodCreateScreen extends Screen {
         } catch (IllegalArgumentException incomplete) {
             return null;
         }
-        return new PodSettings(kind, source, rule, packsEach, kind == PodSettings.Kind.SEALED ? 0 : picks, cardsGo);
+        return new PodSettings(kind, source, rule, packsEach, kind == PodSettings.Kind.SEALED ? 0 : picks, cardsGo,
+                kind == PodSettings.Kind.SEALED ? 0 : pickSeconds);
     }
 
     private void create() {

@@ -51,6 +51,7 @@ public final class EventRecords {
     private static final String FILE = "records.dat";
 
     public static final double STARTING_RATING = 1500.0;
+    /** The default; a server's own number is in its config, events.rated_min_players. */
     public static final int RATED_MIN_PLAYERS = 6;
     public static final int PAIR_LIMIT = 3;
     public static final long PAIR_WINDOW_MILLIS = 7L * 24L * 60L * 60L * 1000L;
@@ -128,6 +129,8 @@ public final class EventRecords {
     /** Rating changes each event made, so an admin can void them. */
     private static Map<UUID, Map<UUID, Double>> effects;
     private static Set<UUID> official;
+    /** When each host last created a tournament, for the cooldown. */
+    private static Map<UUID, Long> lastHosted;
 
     private EventRecords() {
     }
@@ -137,6 +140,7 @@ public final class EventRecords {
         meetings = null;
         effects = null;
         official = null;
+        lastHosted = null;
     }
 
     private static void load() {
@@ -147,6 +151,7 @@ public final class EventRecords {
         meetings = new LinkedHashMap<>();
         effects = new LinkedHashMap<>();
         official = new java.util.LinkedHashSet<>();
+        lastHosted = new LinkedHashMap<>();
         Path file = path().orElse(null);
         if (file == null || !Files.exists(file)) {
             return;
@@ -188,6 +193,10 @@ public final class EventRecords {
                     deltas.put(UUID.fromString(key), changes.getDouble(key));
                 }
                 effects.put(entry.getUUID("event"), deltas);
+            }
+            CompoundTag hosts = tag.getCompound("hosted");
+            for (String key : hosts.getAllKeys()) {
+                lastHosted.put(UUID.fromString(key), hosts.getLong(key));
             }
             for (long[] packed : new long[][] {tag.getLongArray("official")}) {
                 for (int index = 0; index + 1 < packed.length; index += 2) {
@@ -244,6 +253,9 @@ public final class EventRecords {
             packed[at++] = id.getLeastSignificantBits();
         }
         tag.putLongArray("official", packed);
+        CompoundTag hosts = new CompoundTag();
+        lastHosted.forEach((host, time) -> hosts.putLong(host.toString(), time));
+        tag.put("hosted", hosts);
         try {
             Files.createDirectories(file.getParent());
             Path temporary = file.resolveSibling(FILE + ".tmp");
@@ -287,13 +299,32 @@ public final class EventRecords {
 
     /** Why this player may not host another event right now, if they may not. */
     public static Optional<String> whyNotHost(UUID host) {
+        return whyNotHost(host, System.currentTimeMillis());
+    }
+
+    public static Optional<String> whyNotHost(UUID host, long now) {
+        load();
         boolean running = Events.all().stream()
                 .anyMatch(state -> !state.tournament.isOver() && state.tournament.host().equals(host));
-        return running ? Optional.of("message.gathering.event.hosting_one") : Optional.empty();
+        if (running) {
+            return Optional.of("message.gathering.event.hosting_one");
+        }
+        long cooldown = dev.gathering.service.ServerSettings.get().events().hostCooldownMinutes() * 60_000L;
+        Long last = lastHosted.get(host);
+        return last != null && now - last < cooldown
+                ? Optional.of("message.gathering.event.host_cooldown")
+                : Optional.empty();
     }
 
     static void hosted(UUID host) {
         load();
+        lastHosted.put(host, System.currentTimeMillis());
+        save();
+    }
+
+    /** The fewest players a finished tournament needs to move ratings, from the server's config. */
+    static int ratedMinPlayers() {
+        return dev.gathering.service.ServerSettings.get().events().ratedMinPlayers();
     }
 
     // ------------------------------------------------------------------ recording
@@ -302,7 +333,9 @@ public final class EventRecords {
      * The same, knowing which matches had a game played at their table.
      *
      * @param playedAtTable "round:table" for every match a game was played at, which is what a
-     *                      rated result needs; empty treats every result as played
+     *                      rated result needs. A result with no game behind
+     *                      it still counts in the record, and never moves a rating: a result
+     *                      two players only typed in is a result anybody could arrange
      */
     public static void finished(Tournament tournament, Set<String> playedAtTable, long now) {
         load();
@@ -318,7 +351,7 @@ public final class EventRecords {
         if (!places.isEmpty()) {
             records.get(places.get(0)).eventsWon++;
         }
-        boolean rated = tournament.entrants().size() >= RATED_MIN_PLAYERS;
+        boolean rated = tournament.entrants().size() >= ratedMinPlayers();
         double weight = official.contains(tournament.id()) ? 1.0 : 0.5;
         Map<UUID, Double> deltas = new LinkedHashMap<>();
         for (Round round : tournament.rounds()) {
@@ -337,7 +370,7 @@ public final class EventRecords {
                 if (!rated || a.excluded || b.excluded) {
                     continue;
                 }
-                if (!playedAtTable.isEmpty() && !playedAtTable.contains(round.number() + ":" + pairing.table())) {
+                if (!playedAtTable.contains(round.number() + ":" + pairing.table())) {
                     continue;
                 }
                 if (!meetingCounts(pairing.a(), pairing.b(), now)) {
@@ -427,6 +460,12 @@ public final class EventRecords {
             official.remove(event);
         }
         save();
+    }
+
+    /** For the in-world tests: a host having hosted at this moment. */
+    public static void hostedAtForTesting(UUID host, long when) {
+        load();
+        lastHosted.put(host, when);
     }
 
     /** For the in-world tests: a record's rating set directly. */

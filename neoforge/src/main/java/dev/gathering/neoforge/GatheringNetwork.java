@@ -38,8 +38,10 @@ public final class GatheringNetwork {
      * <p>Six, for draft and sealed signups: creating one, acting at one, and being shown one.
      * <p>Seven, for playing a long table apart.
      * <p>Eight, for tournaments: creating, acting in and being shown one, and being pointed to a seat.
+     * <p>Nine, for the pick clock and registration points: pack settings carry a clock, a draft
+     * view carries the seconds left, and a host can mark where players register.
      */
-    private static final String PROTOCOL_VERSION = "8";
+    private static final String PROTOCOL_VERSION = "9";
 
     private GatheringNetwork() {
     }

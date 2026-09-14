@@ -110,9 +110,32 @@ public final class TutorialDemo {
      */
     public static void begin(PlayerRef who) {
         learner = who;
+        practiceDeck = null;
         session = freshGame();
         Tutorial.beginAt(NOWHERE, board().orElse(null));
     }
+
+    /**
+     * A practice board with this player's own deck, and no lesson.
+     * <p>For building a deck at a tournament: the same board the lesson uses, which exists only on
+     * this client and sends nothing anywhere, dealt the deck in the player's hand instead of blank
+     * cards, so they can lay it out and draw hands with it while the build clock runs. Nothing
+     * done here is property or reaches the server.
+     */
+    public static void practice(PlayerRef who, List<CardIdentity> deck, List<CardIdentity> commanders) {
+        learner = who;
+        practiceDeck = List.copyOf(deck);
+        practiceCommanders = List.copyOf(commanders);
+        session = freshGame();
+    }
+
+    /** Whether the board is a deck practice rather than the lesson. */
+    public static boolean practising() {
+        return session != null && practiceDeck != null;
+    }
+
+    private static List<CardIdentity> practiceDeck;
+    private static List<CardIdentity> practiceCommanders = List.of();
 
     /** Whose lesson this is, kept so Restart deals the same chairs. Null for a stand-in. */
     private static PlayerRef learner;
@@ -188,6 +211,8 @@ public final class TutorialDemo {
     public static void clear() {
         session = null;
         learner = null;
+        practiceDeck = null;
+        practiceCommanders = List.of();
         shown = null;
         shownFrom = null;
         shownAt = -1;
@@ -219,6 +244,13 @@ public final class TutorialDemo {
                 java.util.UUID.nameUUIDFromBytes("gathering:tutorial-demonstration".getBytes(
                         java.nio.charset.StandardCharsets.UTF_8)),
                 Component.translatable("tutorial.gathering.demonstration_seat").getString())));
+        if (practiceDeck != null) {
+            // The player's own deck in their chair, and nothing across the table: a practice
+            // board is somebody alone with their cards.
+            fresh.submit(new GameEvent.DeckLoaded(LEARNER, practiceDeck, practiceCommanders, null));
+            fresh.submit(new GameEvent.LibraryShuffled(LEARNER, LEARNER));
+            return fresh;
+        }
         deal(fresh, LEARNER);
         deal(fresh, DEMONSTRATION);
         // One card face up in front of the seat nobody is in, so that "read a card somebody

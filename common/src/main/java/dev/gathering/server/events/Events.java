@@ -230,6 +230,14 @@ public final class Events {
             player.sendSystemMessage(Component.translatable("message.gathering.event.in_another"));
             return;
         }
+        if (state.registrationPoint != null && (!player.serverLevel().dimension().location().toString().equals(state.dimension)
+                || !player.blockPosition().closerThan(state.registrationPoint, EventState.AT_REGISTRATION))) {
+            BlockPos at = state.registrationPoint;
+            player.sendSystemMessage(Component.translatable("message.gathering.event.go_to_registration",
+                    at.getX(), at.getY(), at.getZ()));
+            EventPointers.pointTo(player, at);
+            return;
+        }
         EventSettings settings = state.tournament.settings();
         DeckComponent deck = null;
         if (settings.kind() == EventSettings.Kind.CONSTRUCTED && settings.decks() != EventSettings.DeckRegistration.OFF) {
@@ -289,6 +297,18 @@ public final class Events {
     }
 
     // ------------------------------------------------------------------ the host's controls
+
+    /** The host marks where they are standing as the place registrations are taken. */
+    public static void markRegistration(ServerPlayer host, UUID eventId) {
+        hosted(host, eventId).ifPresent(state -> {
+            if (!host.serverLevel().dimension().location().toString().equals(state.dimension)) {
+                return;
+            }
+            state.registrationPoint = host.blockPosition();
+            changed(host.getServer(), state);
+            host.sendSystemMessage(Component.translatable("message.gathering.event.registration_marked"));
+        });
+    }
 
     public static void openCheckIn(ServerPlayer host, UUID eventId) {
         hosted(host, eventId).ifPresent(state -> apply(host, state, Tournament::openCheckIn));
@@ -499,8 +519,8 @@ public final class Events {
                 tell(server, pairing.b(), Component.translatable("message.gathering.event.no_table_free", pairing.table()));
                 continue;
             }
-            seatAt(level, table, 0, pairing.a(), true);
-            seatAt(level, table, 1, pairing.b(), true);
+            seatAt(level, table, 0, pairing.a(), false);
+            seatAt(level, table, 1, pairing.b(), false);
             TableSessions.Outcome outcome = TableSessions.start(level, table,
                     new MatchRules(format, state.tournament.settings().bestOf()));
             if (outcome == TableSessions.Outcome.STARTED) {
@@ -516,17 +536,24 @@ public final class Events {
 
     /**
      * Moves a player into a seat at this table, claiming it for them.
-     * <p>Moved straight there when they are near - at the same long table, as after a draft -
-     * and told the table's number otherwise; a venue's pointer shows the way.
+     * <p>Moved straight there when they are already sitting at the same long table, as after a
+     * draft, and told the table's number otherwise, with a pointer showing the way - the owner's
+     * rule for a venue. The one exception is gathering everybody for a draft or sealed event,
+     * which also brings in whoever is standing nearby.
+     *
+     * @param bringFromNearby whether somebody within a few tables is moved too, not only
+     *                        somebody already sitting at this long table
      */
-    static void seatAt(ServerLevel level, BlockPos table, int seatIndex, UUID player, boolean moveIfNear) {
+    static void seatAt(ServerLevel level, BlockPos table, int seatIndex, UUID player, boolean bringFromNearby) {
         List<SeatAnchor> seats = TableClusters.at(level, table).seats();
         if (seatIndex >= seats.size()) {
             return;
         }
         SeatAnchor seat = seats.get(seatIndex);
         // Out of wherever they were sitting in the event's tables first: one chair each.
+        boolean atThisLongTable = false;
         for (BlockPos anywhere : TablesApart.tablesTouching(level, table).stream().map(TableBlockEntity::getBlockPos).toList()) {
+            atThisLongTable |= TableSeats.seatOf(level, anywhere, player).isPresent();
             TableSeats.leave(level, anywhere, player);
         }
         Optional<UUID> sitting = TableBlock.entityAt(level, TableClusters.blockPos(table, seat.cell()))
@@ -539,7 +566,7 @@ public final class Events {
         }
         BlockPos stand = TableClusters.seatPos(table, seat);
         boolean near = online.serverLevel() == level && online.blockPosition().closerThan(table, 24);
-        if (moveIfNear && near) {
+        if (atThisLongTable || (bringFromNearby && near)) {
             online.teleportTo(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5,
                     seat.side() == dev.gathering.core.table.Side.NORTH ? 180f : 0f, 0f);
         } else {
@@ -901,6 +928,16 @@ public final class Events {
     /** For the in-world tests: puts an event in as if it had been read from the save. */
     public static void putForTesting(EventState state) {
         events().put(state.tournament.id(), state);
+    }
+
+    /** For the in-world tests: the numbers over the event's tables brought up to date. */
+    public static void labelTablesForTesting(MinecraftServer server, EventState state) {
+        EventLabels.update(server, state);
+    }
+
+    /** For the in-world tests: an event taken out, as if it had never been. */
+    public static void removeForTesting(EventState state) {
+        events().remove(state.tournament.id());
     }
 
     /** For the in-world tests: a fresh event state around a tournament. */

@@ -151,6 +151,49 @@ public final class PodEventGameTest {
         helper.succeed();
     }
 
+    /**
+     * The pick clock: nothing is taken before the time is up, and once it is, whoever has not
+     * picked takes the first cards in their pack - so a draft nobody touches still finishes.
+     */
+    @GameTest(template = "tables", timeoutTicks = 300)
+    public static void thePickClockPicksForWhoeverIsLate(GameTestHelper helper) {
+        BlockPos origin = twoTables(helper);
+        List<ServerPlayer> four = sitFour(helper, origin);
+        PodSettings settings = new PodSettings(PodSettings.Kind.DRAFT, PodSettings.Source.EACH_BRINGS,
+                PodSettings.SetRule.ANY, 1, 1, PodSettings.CardsGo.PLAYERS_KEEP, 1);
+        PodSignups.create(helper.getLevel(), origin, four.get(0).getUUID(), settings);
+        for (ServerPlayer player : four) {
+            PodSignups.putIn(player, origin, packs("m21", 1));
+        }
+        Started started = begin(helper, origin, 3);
+        DraftPod opened = DraftPods.podAt(helper.getLevel(), origin).orElse(null);
+        if (!started.began() || opened == null) {
+            helper.fail("a ready draft with a clock did not begin a pod");
+            return;
+        }
+        DrafterId second = opened.placeOf(four.get(1).getUUID()).orElseThrow();
+        CardIdentity secondsFirst = opened.state().packHeldBy(second).cards().get(0);
+        DraftActions.handle(four.get(0), origin, List.of(2));
+        helper.runAfterDelay(10, () -> {
+            DraftPod early = DraftPods.podAt(helper.getLevel(), origin).orElse(null);
+            if (early == null || !early.state().poolOf(second).isEmpty()) {
+                helper.fail("the clock picked before its time was up");
+            }
+        });
+        helper.runAfterDelay(30, () -> {
+            DraftPod late = DraftPods.podAt(helper.getLevel(), origin).orElse(null);
+            if (late == null || !late.state().poolOf(second).equals(List.of(secondsFirst))) {
+                helper.fail("a drafter out of time was not given the first card in their pack");
+            }
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(DraftPods.podAt(helper.getLevel(), origin).isEmpty(), "the clock did not finish the draft");
+            for (int seat = 0; seat < 4; seat++) {
+                helper.assertTrue(cardsInDecks(four.get(seat)).size() == 3, "seat " + seat + " was not handed a pool of 3");
+            }
+        });
+    }
+
     /** A table broken mid-draft gives each contributor back what their packs held. */
     @GameTest(template = "tables")
     public static void breakingTheTableMidDraftGivesThePacksCardsBack(GameTestHelper helper) {

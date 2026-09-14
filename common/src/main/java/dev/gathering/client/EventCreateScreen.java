@@ -146,11 +146,23 @@ public final class EventCreateScreen extends Screen {
     private <T> int choices(int x, int y, int column, String key, T[] values, java.util.function.Predicate<T> isChosen,
             java.util.function.Consumer<T> choose, java.util.function.Function<T, String> labelKey) {
         label(x, y, key);
-        int width = (column - LABEL_WIDTH - GAP * (values.length - 1)) / values.length;
+        // Shared by how much each label needs, so "Constructed" is not cut to fit beside "Draft".
+        int room = column - LABEL_WIDTH - GAP * (values.length - 1);
+        int[] wants = new int[values.length];
+        int wanted = 0;
+        for (int index = 0; index < values.length; index++) {
+            wants[index] = this.font.width(Component.translatable(labelKey.apply(values[index]))) + 8;
+            wanted += wants[index];
+        }
+        int left = x + LABEL_WIDTH;
+        int given = 0;
         for (int index = 0; index < values.length; index++) {
             T value = values[index];
-            addRenderableWidget(GatheringButtons.toggle(x + LABEL_WIDTH + index * (width + GAP), y, width, ROW,
+            int width = index == values.length - 1 ? room - given : Math.round(room * (float) wants[index] / wanted);
+            addRenderableWidget(GatheringButtons.toggle(left, y, width, ROW,
                     Component.translatable(labelKey.apply(value)), () -> isChosen.test(value), () -> choose.accept(value)));
+            left += width + GAP;
+            given += width;
         }
         return y + ROW + GAP;
     }
@@ -176,7 +188,7 @@ public final class EventCreateScreen extends Screen {
         PodSettings.Kind wanted = kind == EventSettings.Kind.SEALED ? PodSettings.Kind.SEALED : PodSettings.Kind.DRAFT;
         return chosen.kind() == wanted ? chosen : new PodSettings(wanted, chosen.source(), chosen.sets(),
                 wanted == PodSettings.Kind.SEALED ? PodSettings.USUAL_SEALED_PACKS : PodSettings.USUAL_DRAFT_PACKS,
-                0, chosen.cardsGo());
+                0, chosen.cardsGo(), wanted == PodSettings.Kind.SEALED ? 0 : chosen.pickSeconds());
     }
 
     String said() {

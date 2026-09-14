@@ -257,6 +257,31 @@ class TournamentTest {
         assertThat(TournamentCodec.read(TournamentCodec.write(tournament))).isEqualTo(tournament);
     }
 
+    /** An event saved before pack settings had a clock still loads, with no clock. */
+    @Test
+    void aTournamentSavedBeforeThePickClockStillReads() throws Exception {
+        Tournament tournament = readyWith(6, EventSettings.usual(EventSettings.Kind.DRAFT, "")).startSwiss();
+        byte[] now = TournamentCodec.write(tournament);
+        // The clock is the last thing written for the pack settings, just before the phase.
+        String phase = tournament.phase().name();
+        int phaseAt = indexOf(now, phase.getBytes(java.nio.charset.StandardCharsets.UTF_8)) - 2;
+        byte[] old = new byte[now.length - 4];
+        System.arraycopy(now, 0, old, 0, phaseAt - 4);
+        System.arraycopy(now, phaseAt, old, phaseAt - 4, now.length - phaseAt);
+        old[3] = 1;
+        assertThat(TournamentCodec.read(old)).isEqualTo(tournament);
+        assertThat(TournamentCodec.read(old).settings().pod().pickSeconds()).isZero();
+    }
+
+    private static int indexOf(byte[] in, byte[] wanted) {
+        for (int at = 0; at + wanted.length <= in.length; at++) {
+            if (java.util.Arrays.equals(in, at, at + wanted.length, wanted, 0, wanted.length)) {
+                return at;
+            }
+        }
+        throw new AssertionError("not found");
+    }
+
     @Test
     void checkInLeavesOutPlayersWhoDidNotCome() {
         Tournament tournament = Tournament.create(UUID.randomUUID(), "Big", HOST,

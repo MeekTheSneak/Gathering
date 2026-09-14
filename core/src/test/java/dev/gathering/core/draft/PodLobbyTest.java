@@ -53,6 +53,18 @@ class PodLobbyTest {
         assertThat(PodSettings.usual(Kind.SEALED).packsEach()).isEqualTo(6);
     }
 
+    @Test
+    void aPickClockIsForADraftAndHasALimit() {
+        assertThat(new PodSettings(Kind.DRAFT, Source.EACH_BRINGS, SetRule.ANY, 3, 0, CardsGo.PLAYERS_KEEP, 45).problem())
+                .isEmpty();
+        assertThat(new PodSettings(Kind.DRAFT, Source.EACH_BRINGS, SetRule.ANY, 3, 0, CardsGo.PLAYERS_KEEP, 301).problem())
+                .contains("message.gathering.pod.pick_clock");
+        assertThat(new PodSettings(Kind.DRAFT, Source.EACH_BRINGS, SetRule.ANY, 3, 0, CardsGo.PLAYERS_KEEP, -1).problem())
+                .contains("message.gathering.pod.pick_clock");
+        assertThat(new PodSettings(Kind.SEALED, Source.EACH_BRINGS, SetRule.ANY, 6, 0, CardsGo.PLAYERS_KEEP, 45).problem())
+                .contains("message.gathering.pod.pick_clock");
+    }
+
     /** A promise nobody can keep is refused where it is made. */
     @Test
     void settingsThatCannotBeKeptAreRefused() {

@@ -61,8 +61,12 @@ public final class DraftBroadcast {
     public static void sendTo(
             ServerPlayer drafter, BlockPos tableOrigin, DraftPod pod, DrafterId place, boolean open) {
         DraftView seen = DraftVisibility.viewFor(pod.state(), place);
+        int secondsLeft = dev.gathering.block.TableSessions.anchorOf(drafter.serverLevel(), tableOrigin)
+                .flatMap(anchor -> dev.gathering.block.TableBlock.entityAt(drafter.serverLevel(), anchor)
+                        .map(table -> PickClocks.secondsLeft(drafter.serverLevel(), anchor, table, pod)))
+                .orElse(-1);
         Sending.to(drafter,
-                new DraftViewPayload(tableOrigin, DraftViewCodec.write(seen), open));
+                new DraftViewPayload(tableOrigin, DraftViewCodec.write(seen), open, secondsLeft));
         // Exactly the cards this view just named and no others, which is the same argument
         // the table's art push makes: a card the rules turned into a count has no identity
         // here to send.

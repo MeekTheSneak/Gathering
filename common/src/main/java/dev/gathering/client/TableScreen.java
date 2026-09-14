@@ -364,6 +364,19 @@ public final class TableScreen extends Screen {
     }
 
     /**
+     * A practice board with the deck in this player's hand, for building at a tournament.
+     * <p>The lesson's board without the lesson: local, sent nowhere, and closed back to wherever
+     * the player was.
+     */
+    public static TableScreen practising(BlockPos afterwards, java.util.List<dev.gathering.core.card.CardIdentity> deck,
+            java.util.List<dev.gathering.core.card.CardIdentity> commanders) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        TutorialDemo.practice(player == null ? null : new dev.gathering.core.game.PlayerRef(
+                player.getUUID(), player.getGameProfile().getName()), deck, commanders);
+        return new TableScreen(TutorialDemo.table(), TableMode.LEARNING, afterwards);
+    }
+
+    /**
      * The same screen, teaching the controls on a board nobody else can see.
      * <p>The same screen deliberately, for the reason a replay is: a demonstration drawn by a
      * second renderer would be a second copy of every layout rule on the table, free to drift
@@ -4733,7 +4746,7 @@ public final class TableScreen extends Screen {
         // Reachable for as long as anybody wants it, not only the first time. Somebody who
         // said no thanks a month ago and now wants to know which key taps a card has no other
         // way back to it, and "start a new world" is not an answer.
-        if (Tutorial.runningAt(table)) {
+        if (Tutorial.runningAt(table) || (mode.isLearning() && TutorialDemo.practising())) {
             entries.add(ContextMenu.Entry.of(
                     Component.translatable("menu.gathering.table.leave_practice"),
                     this::leaveTheTutorial));

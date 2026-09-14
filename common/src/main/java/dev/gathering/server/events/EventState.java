@@ -32,6 +32,19 @@ public final class EventState {
     /** Ticks the build clock has run. */
     long buildTicks;
 
+    /**
+     * Where a large event takes registrations, if its host marked one: registering then needs
+     * the player to be there, as paying an entry at a store's counter does.
+     */
+    BlockPos registrationPoint;
+
+    /** How close to the registration point counts as being at it. */
+    static final int AT_REGISTRATION = 8;
+
+    public java.util.Optional<BlockPos> registrationPoint() {
+        return java.util.Optional.ofNullable(registrationPoint);
+    }
+
     /** For a limited event: whether its packs have been handed to a sign-up at the home table. */
     boolean podOpened;
 

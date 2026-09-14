@@ -19,7 +19,8 @@ import java.util.UUID;
  */
 public final class TournamentCodec {
 
-    public static final int VERSION = 1;
+    /** Two, for the pick clock in pack settings. One is still read, with no clock. */
+    public static final int VERSION = 2;
 
     private static final int MOST = 4096;
 
@@ -73,13 +74,13 @@ public final class TournamentCodec {
     public static Tournament read(byte[] written) throws IOException {
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(written))) {
             int version = in.readInt();
-            if (version != VERSION) {
-                throw new IOException("A tournament is version " + version + ", this reads " + VERSION);
+            if (version != 1 && version != VERSION) {
+                throw new IOException("A tournament is version " + version + ", this reads 1 and " + VERSION);
             }
             UUID id = uuid(in);
             String name = in.readUTF();
             UUID host = uuid(in);
-            EventSettings settings = settings(in);
+            EventSettings settings = settings(in, version);
             Tournament.Phase phase = Tournament.Phase.valueOf(in.readUTF());
             int planned = in.readInt();
             int count = bounded(in.readInt());
@@ -135,10 +136,11 @@ public final class TournamentCodec {
             out.writeInt(pod.packsEach());
             out.writeInt(pod.picksPerTurn());
             out.writeUTF(pod.cardsGo().name());
+            out.writeInt(pod.pickSeconds());
         }
     }
 
-    private static EventSettings settings(DataInputStream in) throws IOException {
+    private static EventSettings settings(DataInputStream in, int version) throws IOException {
         EventSettings.Kind kind = EventSettings.Kind.valueOf(in.readUTF());
         String format = in.readUTF();
         int bestOf = in.readInt();
@@ -159,8 +161,11 @@ public final class TournamentCodec {
             for (int index = 0; index < sets; index++) {
                 named.add(in.readUTF());
             }
-            pod = new PodSettings(podKind, source, new PodSettings.SetRule(mode, named), in.readInt(), in.readInt(),
-                    PodSettings.CardsGo.valueOf(in.readUTF()));
+            int packsEach = in.readInt();
+            int picks = in.readInt();
+            PodSettings.CardsGo cardsGo = PodSettings.CardsGo.valueOf(in.readUTF());
+            int pickSeconds = version >= 2 ? in.readInt() : 0;
+            pod = new PodSettings(podKind, source, new PodSettings.SetRule(mode, named), packsEach, picks, cardsGo, pickSeconds);
         }
         return new EventSettings(kind, format, pod, bestOf, roundMinutes, buildMinutes, extraTurns, rounds, topCut,
                 decks, large);

@@ -112,6 +112,9 @@ public final class EventScreen extends Screen {
                 addRenderableWidget(GatheringButtons.of(x + buttonWidth + 4, bottom, buttonWidth, ROW,
                         Component.translatable("screen.gathering.event.check_in_now"), () -> send(EventActionPayload.Action.CHECK_IN)));
             }
+            // Try the deck in hand on a board of your own before committing to it.
+            addRenderableWidget(GatheringButtons.of(x + (buttonWidth + 4) * 2, bottom, buttonWidth, ROW,
+                    Component.translatable("screen.gathering.event.practice"), this::practice));
             if ("preparing".equals(view.phase()) && !view.ready() && !"constructed".equals(view.kind())) {
                 addRenderableWidget(GatheringButtons.of(x + buttonWidth + 4, bottom, buttonWidth, ROW,
                         Component.translatable("screen.gathering.event.ready"), () -> send(EventActionPayload.Action.READY)));
@@ -137,6 +140,22 @@ public final class EventScreen extends Screen {
         }
     }
 
+    private void practice() {
+        var player = Minecraft.getInstance().player;
+        var deck = player == null ? null : dev.gathering.item.DeckItem.deckOf(player.getMainHandItem()).orElse(null);
+        if (deck == null) {
+            if (player != null) {
+                player.displayClientMessage(Component.translatable("message.gathering.event.hold_a_deck_to_practice"), true);
+            }
+            return;
+        }
+        java.util.List<dev.gathering.core.card.CardIdentity> cards = deck.entries().stream()
+                .map(dev.gathering.item.CardComponent::toIdentity).toList();
+        java.util.List<dev.gathering.core.card.CardIdentity> commanders = deck.commanders().stream()
+                .map(dev.gathering.item.CardComponent::toIdentity).toList();
+        Minecraft.getInstance().setScreen(TableScreen.practising(player.blockPosition(), cards, commanders));
+    }
+
     private void paging(int bottom) {
         int x = panel.x() + MARGIN;
         int count = tab == Tab.STANDINGS ? view.standings().size() : view.pairings().size();
@@ -156,8 +175,10 @@ public final class EventScreen extends Screen {
             for (int index = from; index < Math.min(view.pairings().size(), from + PER_PAGE); index++) {
                 EventViewPayload.Match match = view.pairings().get(index);
                 if (match.table() > 0) {
-                    addRenderableWidget(GatheringButtons.toggle(panel.right() - MARGIN - 40, y - 1, 40, LINE,
-                            Component.translatable("screen.gathering.event.select"), () -> selectedTable == match.table(),
+                    Component settle = Component.translatable("screen.gathering.event.select");
+                    int width = this.font.width(settle) + 12;
+                    addRenderableWidget(GatheringButtons.toggle(panel.right() - MARGIN - width, y - 1, width, LINE,
+                            settle, () -> selectedTable == match.table(),
                             () -> {
                                 selectedTable = selectedTable == match.table() ? -1 : match.table();
                                 rebuildWidgets();
@@ -211,6 +232,9 @@ public final class EventScreen extends Screen {
         }));
         addRenderableWidget(GatheringButtons.of(x + (width + 4) * 2, y, width, ROW, Component.translatable("screen.gathering.event.cancel"),
                 () -> send(EventActionPayload.Action.CANCEL)));
+        y += ROW + 6;
+        addRenderableWidget(GatheringButtons.of(x, y, width, ROW, Component.translatable("screen.gathering.event.mark_registration"),
+                () -> send(EventActionPayload.Action.MARK_REGISTRATION)));
     }
 
     private int listTop() {
@@ -236,7 +260,7 @@ public final class EventScreen extends Screen {
             case STANDINGS -> renderStandings(graphics, x, y, width);
             case PAIRINGS -> renderPairings(graphics, x, y, width);
             case HOST -> GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.event.host_help"),
-                    x, panel.y() + 26 + 16 + 8 + (ROW + 6) * 2, width, DIM);
+                    x, panel.y() + 26 + 16 + 8 + (ROW + 6) * 3, width, DIM);
         }
     }
 
@@ -254,7 +278,7 @@ public final class EventScreen extends Screen {
 
     private void renderOverview(GuiGraphics graphics, int x, int y, int width) {
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.event.settings_line", view.host(),
-                view.bestOf(), view.roundMinutes(), view.topCut() == 0 ? Component.translatable("screen.gathering.event.top_cut.0")
+                view.bestOf(), view.roundMinutes(), view.topCut() == 0 ? Component.translatable("screen.gathering.event.no_top_cut")
                         : Component.translatable("screen.gathering.event.top_cut." + view.topCut()),
                 Component.translatable("screen.gathering.event.decks." + view.decks())), x, y, width, DIM);
         y += LINE;

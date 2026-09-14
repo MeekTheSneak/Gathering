@@ -20,9 +20,19 @@ import java.util.Optional;
  * @param packsEach    how many packs each player drafts or opens
  * @param picksPerTurn 1 or 2, or 0 for the pod size to decide - see {@link DraftRules}
  * @param cardsGo      who ends up with the cards when it is over
+ * @param pickSeconds  how long a drafter has to pick before the first cards in their pack are
+ *                     picked for them, or 0 for no clock
  */
 public record PodSettings(
-        Kind kind, Source source, SetRule sets, int packsEach, int picksPerTurn, CardsGo cardsGo) {
+        Kind kind, Source source, SetRule sets, int packsEach, int picksPerTurn, CardsGo cardsGo, int pickSeconds) {
+
+    /** Settings with no pick clock, as every event had before the clock existed. */
+    public PodSettings(Kind kind, Source source, SetRule sets, int packsEach, int picksPerTurn, CardsGo cardsGo) {
+        this(kind, source, sets, packsEach, picksPerTurn, cardsGo, 0);
+    }
+
+    /** The longest a pick clock may be set to. */
+    public static final int LONGEST_PICK_SECONDS = 300;
 
     /** A draft or a sealed event. */
     public enum Kind {
@@ -95,6 +105,9 @@ public record PodSettings(
         }
         if (picksPerTurn < 0 || picksPerTurn > 2) {
             return Optional.of("message.gathering.pod.picks_per_turn");
+        }
+        if (pickSeconds < 0 || pickSeconds > LONGEST_PICK_SECONDS || (pickSeconds > 0 && kind == Kind.SEALED)) {
+            return Optional.of("message.gathering.pod.pick_clock");
         }
         if (kind == Kind.SEALED && picksPerTurn != 0) {
             // Nothing is picked in sealed. A setting that does nothing is a setting somebody
