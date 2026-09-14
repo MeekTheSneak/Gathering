@@ -113,12 +113,19 @@ An external review of `10960959` proposed six items (RF-01..RF-06). Progress, ne
 | Owner: other players' hands and life counters fixed to the table, not the camera | **Done** (`f4f79bb5`) | The only screen-anchored pieces left on the seated board are the top strip, your own hand and screen UI. Tour 315/315, 0 failures |
 | RF-02 shared client payload application | **Done** (`769532c4`) | One typed route list; both loaders check coverage at client start. Gate 428/10; NeoForge tour 315/315, 0 failures. Fabric client not re-toured for this change |
 | Owner: several different tokens with one name (Cats, Elves) | **Done** (`569ef142`) | Exact-name search, a chooser when tokens differ, card rows make the linked printing, remembered rows keep the variant. Protocol 4. Gate 431/10; choice test shown to fail on make-the-newest |
-| RF-03 held-deck custody as one value | Next | |
+| Owner: ante pot out of the way of the board | **Done** (`544b2175`) | A column past the east edge of the whole surface; "whole table" frames it. Pure properties for 1-8 seats. Gate 431/10. The tour's pot check passed, but its photograph had no pot - see the next row |
+| Fix: other hands, pot and table talk invisible to anyone not seated | **Done** (`92c4abc0`) | Clip band bottom read the top of an absent hand (0). `TableScreenLayout#tableArea`; layout property shown to fail on the old edge; the pot step now checks the drawn band. Regressed in `f4f79bb5` for other hands; pot and talk older |
+| RF-03 held-deck custody as one value | **Done** (`f782685a`) | One ordered `Map<SeatId, HeldDeck>`; NBT unchanged. Six custody tests; run against the old code, the four new guards failed and the two behaviors meant to stay the same passed. Found and fixed: sideboarding re-owned the deck to the editor; an offline owner's deck went to the chair's occupant; `endSession` and malformed loads left orphan pools. Gate 437/10. A malformed held deck is still logged and not written back (unchanged) |
 | RF-04 table gestures and modes | Not started | Needs graphical runs per stage |
-| RF-05 world counter label profiling | Not started | Profile first |
-| RF-06 missing-metadata outcomes | Not started | Protocol change; the "Loading forever" gap |
+| RF-05 world counter label profiling | **Measured; no change** | A temporary in-world measurement (run once, not committed) of `markUp`'s preparation on four dense Commander boards, 200 cards, 15 per board with counters, 2 walkers, 1 written on: 28-41 us and 89 KB per frame, measured beside the test server. Well under 1% of a frame; below the review's own threshold for a cache. Glyph drawing not measured |
+| RF-06 missing-metadata outcomes | **Done** (`5c5bfe61`) | `CardsUnresolvedPayload` (missing / unavailable), `UnresolvedCards` client tracker (4096 cap, missing believed 30 min, unavailable never blocks retry). All seven "Loading" sites ask `ClientCardCache#unnamed`. Protocol 5. In-world sorting and cache tests; failed-batch test shown to fail when an outage is reported as missing. Gate 440/10. Not yet seen on screen: no scripted step reaches a missing or unavailable card |
+| Owner: reorder the hand by dragging | **Done** (`1617ba4d`) | Drop over the strip takes the nearest place and sends `HandSorted`; the fan parts under the carried card. Pure placement properties; tour step 183-184 drags the first card to the end and checks the server's order. Gate 440/10 |
 
 **Open from the tour runs:**
+- The second run after the pot change failed cursor-hover steps (life counter, graveyard, written
+  card tooltips) and the pen for power and toughness (steps 164-206) while the owner was using the
+  machine; the run before it passed them with the same hover code. Treated as the real cursor over
+  the window, not proven.
 - Two runs after the token change showed card-targeting steps (172-181: reading a written card,
   freezing, keys 7 and 9) failing when a run before them had passed the same steps with the same
   code; the failing run used a smaller heap. Not reproduced deliberately, not explained.
