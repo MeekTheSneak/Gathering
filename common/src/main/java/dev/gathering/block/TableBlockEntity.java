@@ -143,28 +143,19 @@ public class TableBlockEntity extends BlockEntity {
      * included - which is the only reason sideboarding between games is possible - hands it
      * back when the match ends, and is saved with the world, because a restart mid-match must
      * not eat four decks.
+     * <p>Each one with the pool it was drafted from and who put it down, as one value per
+     * seat. They were three maps kept in step by every method that touched any of them, and
+     * two of those methods did not: ending a session cleared the decks and left the pools and
+     * owners, and a saved deck that would not load still left its pool claiming the seat. One
+     * value is one thing to put, take and forget.
+     * <p>Ordered by when each seat first put a deck down, which is the order they are put back
+     * down and handed back in - see {@link #heldDecks()}.
      */
-    private final Map<SeatId, DeckComponent> decks = new LinkedHashMap<>();
-
-    /**
-     * And the pool each of those was drafted from, for the ones that were.
-     * <p>Beside the decks rather than inside them: a deck's contents change every time
-     * somebody boards a card in and a pool never changes at all.
-     */
-    private final Map<SeatId, DraftedPool> pools = new LinkedHashMap<>();
-
-    /**
-     * Who put each held deck down, so it goes back to them rather than to the chair.
-     * <p>Decks used to be handed back to whoever was sitting in the seat when the match
-     * ended. A player who stood up mid-match got their deck dropped on the floor, and a
-     * player who took the vacated chair got somebody else's deck put in their inventory -
-     * which is a collection changing hands because of where a person was standing.
-     */
-    private final Map<SeatId, UUID> deckOwners = new LinkedHashMap<>();
+    private final Map<SeatId, HeldDeck> held = new LinkedHashMap<>();
 
     /**
      * Who put each seat's stake in the pot.
-     * <p>Beside the pot, exactly as {@code deckOwners} sits beside the decks: a seat says
+     * <p>Beside the pot, exactly as each held deck keeps its owner: a seat says
      * where a card was staked from and a UUID says whose it was, and only the second is any
      * use when a pot goes back to the people who filled it.
      */
@@ -429,18 +420,28 @@ public class TableBlockEntity extends BlockEntity {
      * time somebody calls the short form out of habit, and nothing shows when it happens.
      */
     public void holdDeck(SeatId seat, DeckComponent deck, DraftedPool pool, UUID owner) {
-        decks.put(seat, deck);
-        if (owner == null) {
-            deckOwners.remove(seat);
-        } else {
-            deckOwners.put(seat, owner);
-        }
-        if (pool == null || pool.isEmpty()) {
-            pools.remove(seat);
-        } else {
-            pools.put(seat, pool);
-        }
+        held.put(seat, new HeldDeck(deck, pool, owner));
         setChanged();
+    }
+
+    /**
+     * Replaces a held deck's contents and nothing else about it: the pool it was drafted from
+     * and whose it is stay as they were.
+     * <p>For sideboarding, which edits a deck between games. It used to put the edited deck
+     * down again as though freshly handed over, naming whoever made the edit as its owner -
+     * and the person in a chair between games is not always the person whose deck is held
+     * there.
+     *
+     * @return whether there was a deck at that seat to change
+     */
+    public boolean changeHeldDeck(SeatId seat, DeckComponent edited) {
+        HeldDeck was = held.get(seat);
+        if (was == null) {
+            return false;
+        }
+        held.put(seat, new HeldDeck(edited, was.pool(), was.owner()));
+        setChanged();
+        return true;
     }
 
     /** Whether this game is being played for keeps. */
@@ -524,12 +525,12 @@ public class TableBlockEntity extends BlockEntity {
     }
 
     public Optional<DeckComponent> deckOf(SeatId seat) {
-        return Optional.ofNullable(decks.get(seat));
+        return Optional.ofNullable(held.get(seat)).map(HeldDeck::deck);
     }
 
     /** The pool the deck at this seat was drafted from, if it was drafted. */
     public Optional<DraftedPool> poolOf(SeatId seat) {
-        return Optional.ofNullable(pools.get(seat));
+        return Optional.ofNullable(held.get(seat)).map(HeldDeck::pool);
     }
 
     /**
@@ -541,7 +542,9 @@ public class TableBlockEntity extends BlockEntity {
      * thing everybody can check afterwards.
      */
     public Map<SeatId, DeckComponent> heldDecks() {
-        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(decks));
+        Map<SeatId, DeckComponent> decks = new LinkedHashMap<>();
+        held.forEach((seat, deck) -> decks.put(seat, deck.deck()));
+        return java.util.Collections.unmodifiableMap(decks);
     }
 
     /**
@@ -555,19 +558,15 @@ public class TableBlockEntity extends BlockEntity {
         this.lastAmbientAudience = java.util.Set.of();
     }
 
-    /** How many decks this table is holding, for something that wants to say so. */    /**
+    /**
      * Hands the decks back and forgets them, which is what the end of a match is.
      * <p>Deck and pool together in one value, because handing one back without the other is
      * the bug this shape exists to prevent - and two calls that must both happen is one call
      * somebody forgets.
      */
     public Map<SeatId, HeldDeck> releaseDecks() {
-        Map<SeatId, HeldDeck> released = new LinkedHashMap<>();
-        decks.forEach((seat, deck) ->
-                released.put(seat, new HeldDeck(deck, pools.get(seat), deckOwners.get(seat))));
-        decks.clear();
-        pools.clear();
-        deckOwners.clear();
+        Map<SeatId, HeldDeck> released = new LinkedHashMap<>(held);
+        held.clear();
         setChanged();
         // Seat order, for the same reason: this decides what order decks are handed back in.
         return java.util.Collections.unmodifiableMap(released);
@@ -581,6 +580,17 @@ public class TableBlockEntity extends BlockEntity {
      * remembered whose they were; the table falls back to the chair for those.
      */
     public record HeldDeck(DeckComponent deck, DraftedPool pool, UUID owner) {
+
+        /**
+         * A deck is required; an empty pool is no pool. Saying so here rather than in each
+         * place one is made is what lets "has a pool" mean one thing wherever it is asked.
+         */
+        public HeldDeck {
+            java.util.Objects.requireNonNull(deck, "a held deck needs a deck");
+            if (pool != null && pool.isEmpty()) {
+                pool = null;
+            }
+        }
     }
 
     /**
@@ -590,15 +600,12 @@ public class TableBlockEntity extends BlockEntity {
      * ending a match is a thing the rest of the table is in the middle of.
      */
     public Optional<HeldDeck> releaseDeck(SeatId seat) {
-        DeckComponent deck = decks.remove(seat);
-        if (deck == null) {
-            pools.remove(seat);
-            deckOwners.remove(seat);
+        HeldDeck released = held.remove(seat);
+        if (released == null) {
             return Optional.empty();
         }
-        HeldDeck held = new HeldDeck(deck, pools.remove(seat), deckOwners.remove(seat));
         setChanged();
-        return Optional.of(held);
+        return Optional.of(released);
     }
 
     /** Records how a game went, without ending the set it belongs to. */
@@ -631,7 +638,7 @@ public class TableBlockEntity extends BlockEntity {
         this.formatChosen = false;
         this.forKeeps = false;
         this.practice = false;
-        this.decks.clear();
+        this.held.clear();
         setChanged();
         tellClients();
     }
@@ -829,28 +836,34 @@ public class TableBlockEntity extends BlockEntity {
             }
         }
 
-        decks.clear();
-        pools.clear();
-        deckOwners.clear();
+        held.clear();
         ListTag heldDecks = tag.getList(DECKS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < heldDecks.size(); index++) {
-            CompoundTag held = heldDecks.getCompound(index);
-            SeatId seat = new SeatId(held.getInt(DECK_SEAT_KEY));
-            DeckComponent.CODEC
-                    .parse(net.minecraft.nbt.NbtOps.INSTANCE, held.get(DECK_KEY))
+            CompoundTag entry = heldDecks.getCompound(index);
+            SeatId seat = new SeatId(entry.getInt(DECK_SEAT_KEY));
+            // The deck is the record. A deck that will not read is logged and skipped, and
+            // its pool and owner with it: they describe a deck this table does not have.
+            // Not written back at the next save, which is how it was before this was one
+            // value too.
+            DeckComponent deck = DeckComponent.CODEC
+                    .parse(net.minecraft.nbt.NbtOps.INSTANCE, entry.get(DECK_KEY))
                     .resultOrPartial(problem -> LOGGER.error(
                             "A deck held at {} will not load: {}", worldPosition, problem))
-                    .ifPresent(deck -> decks.put(seat, deck));
-            if (held.hasUUID(DECK_OWNER_KEY)) {
-                deckOwners.put(seat, held.getUUID(DECK_OWNER_KEY));
+                    .orElse(null);
+            if (deck == null) {
+                continue;
             }
-            if (held.contains(POOL_KEY)) {
-                DraftedPool.CODEC
-                        .parse(net.minecraft.nbt.NbtOps.INSTANCE, held.get(POOL_KEY))
-                        .resultOrPartial(problem -> LOGGER.error(
-                                "A pool held at {} will not load: {}", worldPosition, problem))
-                        .ifPresent(pool -> pools.put(seat, pool));
-            }
+            // Absent in a world saved before decks remembered whose they were. Such a deck
+            // goes back to the chair - see TableSessions#returnDecks.
+            UUID owner = entry.hasUUID(DECK_OWNER_KEY) ? entry.getUUID(DECK_OWNER_KEY) : null;
+            // A pool that will not read leaves the deck held without one, as it always has:
+            // the deck is somebody's cards, and losing the limited check is the lesser loss.
+            DraftedPool pool = !entry.contains(POOL_KEY) ? null : DraftedPool.CODEC
+                    .parse(net.minecraft.nbt.NbtOps.INSTANCE, entry.get(POOL_KEY))
+                    .resultOrPartial(problem -> LOGGER.error(
+                            "A pool held at {} will not load: {}", worldPosition, problem))
+                    .orElse(null);
+            held.put(seat, new HeldDeck(deck, pool, owner));
         }
 
         forKeeps = tag.getBoolean(FOR_KEEPS_KEY);
@@ -963,31 +976,31 @@ public class TableBlockEntity extends BlockEntity {
 
     /** Writes the held decks down. Losing one to a server restart is losing somebody's deck. */
     private void writeDecks(CompoundTag tag) {
-        ListTag held = new ListTag();
-        decks.forEach((seat, deck) -> DeckComponent.CODEC
-                .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, deck)
+        ListTag written = new ListTag();
+        held.forEach((seat, holding) -> DeckComponent.CODEC
+                .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, holding.deck())
                 .resultOrPartial(problem -> LOGGER.error(
                         "A deck held at {} will not save: {}", worldPosition, problem))
                 .ifPresent(encoded -> {
                     CompoundTag entry = new CompoundTag();
                     entry.putInt(DECK_SEAT_KEY, seat.index());
-                    UUID owner = deckOwners.get(seat);
+                    UUID owner = holding.owner();
                     if (owner != null) {
                         entry.putUUID(DECK_OWNER_KEY, owner);
                     }
                     entry.put(DECK_KEY, encoded);
-                    DraftedPool pool = pools.get(seat);
-                    if (pool != null && !pool.isEmpty()) {
+                    DraftedPool pool = holding.pool();
+                    if (pool != null) {
                         DraftedPool.CODEC
                                 .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, pool)
                                 .resultOrPartial(problem -> LOGGER.error(
                                         "A pool held at {} will not save: {}",
                                         worldPosition, problem))
-                                .ifPresent(written -> entry.put(POOL_KEY, written));
+                                .ifPresent(encodedPool -> entry.put(POOL_KEY, encodedPool));
                     }
-                    held.add(entry);
+                    written.add(entry);
                 }));
-        tag.put(DECKS_KEY, held);
+        tag.put(DECKS_KEY, written);
     }
 
     /**

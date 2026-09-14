@@ -359,6 +359,232 @@ public final class DeckCustodyGameTest {
         helper.succeed();
     }
 
+    /**
+     * Swapping a card in from the sideboard does not change whose deck it is.
+     * <p>The edit wrote the deck back with the player doing the swapping as its owner. That is
+     * only ever the same person while they are the one in the chair: somebody who drops out
+     * mid-match and whose chair is taken by somebody else would find the newcomer had become
+     * the owner by moving one card, and the deck went to them when the match ended.
+     */
+    @GameTest(template = "tables")
+    public static void sideboardingKeepsWhoseDeckItIs(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        UUID owner = new UUID(91L, 1L);
+        ServerPlayer squatter = helper.makeMockServerPlayerInLevel();
+        squatter.setPos(origin.getX() + 0.5, origin.getY(), origin.getZ() + 1.5);
+        List<SeatAnchor> anchors = TableClusters.at(helper.getLevel(), origin).seats();
+        TableSeats.take(helper.getLevel(), origin,
+                anchors.get(0).cell(), anchors.get(0).side(), squatter.getUUID());
+        TableSeats.take(helper.getLevel(), origin,
+                anchors.get(1).cell(), anchors.get(1).side(), new UUID(91L, 2L));
+        TableSessions.start(helper.getLevel(), origin, new dev.gathering.core.match.MatchRules(
+                dev.gathering.core.format.FormatPresets.STANDARD, 3));
+
+        TableBlockEntity table = tableAt(helper, origin);
+        DraftedPool pool = new DraftedPool(List.of(card(SOL_RING), card(BOLT)), "a pod");
+        table.holdDeck(new SeatId(0), deck(), pool, owner);
+        var session = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        session.submit(new dev.gathering.core.game.event.GameEvent.Conceded(new SeatId(1)));
+        dev.gathering.server.TableMatch.settleIfFinished(helper.getLevel(), origin, session.state());
+        if (!dev.gathering.server.TableMatch.isSideboarding(helper.getLevel(), origin)) {
+            helper.fail("the fixture never reached sideboarding between games");
+            return;
+        }
+
+        int mainBefore = table.deckOf(new SeatId(0)).orElseThrow().entries().size();
+        dev.gathering.server.Sideboarding.handle(squatter, new dev.gathering.network.SideboardEditPayload(
+                origin, DeckComponent.Section.SIDEBOARD, DeckComponent.Section.MAINBOARD, card(BOLT)));
+        if (table.deckOf(new SeatId(0)).orElseThrow().entries().size() != mainBefore + 1) {
+            helper.fail("the fixture's sideboard swap did not go through");
+            return;
+        }
+
+        TableBlockEntity.HeldDeck held = table.releaseDeck(new SeatId(0)).orElseThrow();
+        if (!owner.equals(held.owner())) {
+            helper.fail("moving one card from the sideboard made " + held.owner()
+                    + " the owner of " + owner + "'s deck");
+            return;
+        }
+        if (!pool.equals(held.pool())) {
+            helper.fail("a sideboard swap lost the pool the deck was drafted from");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A deck whose owner is not here goes onto the table, not to whoever is in their chair.
+     * <p>The chair stands in only for a deck that never recorded an owner - one held by a world
+     * saved before decks did. A deck that knows whose it is and cannot find them online was
+     * being handed to the chair's current occupant as well, which is the cards changing hands
+     * because of where somebody was standing.
+     */
+    @GameTest(template = "tables")
+    public static void anAbsentOwnersDeckIsNotHandedToTheChair(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        clearItems(helper, origin);
+        ServerPlayer squatter = helper.makeMockServerPlayerInLevel();
+        SeatAnchor seat = TableClusters.at(helper.getLevel(), origin).seats().get(0);
+        TableSeats.take(helper.getLevel(), origin, seat.cell(), seat.side(), squatter.getUUID());
+
+        TableBlockEntity table = tableAt(helper, origin);
+        table.holdDeck(new SeatId(0), deck(), null, new UUID(92L, 1L));
+        TableSessions.returnDecks(helper.getLevel(), origin, table);
+
+        if (deckInInventory(squatter).isPresent()) {
+            helper.fail("an absent player's deck was handed to whoever sat in their chair");
+            return;
+        }
+        if (deckOnTheFloor(helper, origin).isEmpty()) {
+            helper.fail("an absent player's deck was not left on the table for them");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** A deck from before decks knew their owner still goes to the chair it was put down at. */
+    @GameTest(template = "tables")
+    public static void anOwnerlessDeckGoesToTheChair(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        clearItems(helper, origin);
+        ServerPlayer sitting = helper.makeMockServerPlayerInLevel();
+        SeatAnchor seat = TableClusters.at(helper.getLevel(), origin).seats().get(0);
+        TableSeats.take(helper.getLevel(), origin, seat.cell(), seat.side(), sitting.getUUID());
+
+        // Written without an owner and read back, which is exactly the shape an old save has.
+        TableBlockEntity table = tableAt(helper, origin);
+        table.holdDeck(new SeatId(0), deck(), null, null);
+        var registries = helper.getLevel().registryAccess();
+        net.minecraft.nbt.CompoundTag saved = table.saveWithoutMetadata(registries);
+        net.minecraft.nbt.CompoundTag entry = saved.getList("decks", 10).getCompound(0);
+        if (entry.contains("owner")) {
+            helper.fail("an ownerless deck was written with an owner: " + entry);
+            return;
+        }
+        table.loadWithComponents(saved, registries);
+        TableSessions.returnDecks(helper.getLevel(), origin, table);
+
+        if (deckInInventory(sitting).isEmpty()) {
+            helper.fail("an ownerless deck did not go to the player in its chair");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Deck, pool and owner come back from a save together, in the order they were held.
+     * <p>Asserted on the values handed back rather than on the table's accessors, because the
+     * values are what a restart that dropped one of the three would get wrong.
+     */
+    @GameTest(template = "tables")
+    public static void theWholeHeldRecordSurvivesASave(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableBlockEntity table = tableAt(helper, origin);
+        UUID first = new UUID(93L, 1L);
+        UUID second = new UUID(93L, 2L);
+        DraftedPool pool = new DraftedPool(List.of(card(BOLT), card(BOLT)), "a pod");
+        table.holdDeck(new SeatId(3), deck(), pool, first);
+        table.holdDeck(new SeatId(0), deck(), null, second);
+
+        var registries = helper.getLevel().registryAccess();
+        TableBlockEntity reloaded = new TableBlockEntity(
+                origin, helper.getLevel().getBlockState(origin));
+        reloaded.loadWithComponents(table.saveWithoutMetadata(registries), registries);
+
+        List<SeatId> order = List.copyOf(reloaded.heldDecks().keySet());
+        if (!order.equals(List.of(new SeatId(3), new SeatId(0)))) {
+            helper.fail("held decks came back from a save in the order " + order);
+            return;
+        }
+        var released = reloaded.releaseDecks();
+        TableBlockEntity.HeldDeck three = released.get(new SeatId(3));
+        TableBlockEntity.HeldDeck zero = released.get(new SeatId(0));
+        if (three == null || !first.equals(three.owner()) || !pool.equals(three.pool())
+                || three.deck().totalCards() != deck().totalCards()) {
+            helper.fail("seat 3's held deck did not come back whole: " + three);
+            return;
+        }
+        if (zero == null || !second.equals(zero.owner()) || zero.pool() != null) {
+            helper.fail("seat 0's held deck did not come back as it went in: " + zero);
+            return;
+        }
+        if (!reloaded.heldDecks().isEmpty()) {
+            helper.fail("releasing every deck left some held");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A held record whose deck will not read loads the others, and leaves nothing behind.
+     * <p>The deck is what is held; a pool or an owner with no deck is not a record of
+     * anything. Read as three maps, a record whose deck was malformed still left its pool
+     * claiming a seat the table held no deck for.
+     * <p>The unreadable record is logged and is not written back at the next save - that was
+     * true before this was one value and still is.
+     */
+    @GameTest(template = "tables")
+    public static void aMalformedHeldDeckLoadsTheOthersAndLeavesNoPool(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableBlockEntity table = tableAt(helper, origin);
+        DraftedPool pool = new DraftedPool(List.of(card(BOLT)), "a pod");
+        table.holdDeck(new SeatId(0), deck(), null, new UUID(94L, 1L));
+        table.holdDeck(new SeatId(1), deck(), pool, new UUID(94L, 2L));
+
+        var registries = helper.getLevel().registryAccess();
+        net.minecraft.nbt.CompoundTag saved = table.saveWithoutMetadata(registries);
+        net.minecraft.nbt.ListTag held = saved.getList("decks", 10);
+        held.getCompound(1).put("deck", net.minecraft.nbt.StringTag.valueOf("not a deck"));
+        saved.put("decks", held);
+
+        TableBlockEntity reloaded = new TableBlockEntity(
+                origin, helper.getLevel().getBlockState(origin));
+        reloaded.loadWithComponents(saved, registries);
+
+        if (reloaded.deckOf(new SeatId(0)).isEmpty()) {
+            helper.fail("one malformed held deck stopped a good one loading");
+            return;
+        }
+        if (reloaded.deckOf(new SeatId(1)).isPresent()) {
+            helper.fail("a malformed deck loaded as something");
+            return;
+        }
+        if (reloaded.poolOf(new SeatId(1)).isPresent()) {
+            helper.fail("a pool was left claiming a seat with no deck held at it");
+            return;
+        }
+        if (reloaded.heldDecks().size() != 1) {
+            helper.fail("the table reports " + reloaded.heldDecks().size() + " held decks, not 1");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Ending a session drops the whole held record, not just the deck.
+     * <p>It cleared the decks and left the pools and owners, so a seat that held a drafted deck
+     * went on reporting that deck's pool after the table had let the deck go.
+     */
+    @GameTest(template = "tables")
+    public static void endingASessionForgetsPoolsWithTheirDecks(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableBlockEntity table = tableAt(helper, origin);
+        table.holdDeck(new SeatId(2), deck(),
+                new DraftedPool(List.of(card(SOL_RING)), "a pod"), new UUID(95L, 1L));
+
+        table.endSession();
+
+        if (table.deckOf(new SeatId(2)).isPresent()) {
+            helper.fail("ending the session kept the deck");
+            return;
+        }
+        if (table.poolOf(new SeatId(2)).isPresent()) {
+            helper.fail("ending the session kept a pool for a deck it had let go");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
         BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
         var table = GatheringContent.TABLE.get().defaultBlockState();

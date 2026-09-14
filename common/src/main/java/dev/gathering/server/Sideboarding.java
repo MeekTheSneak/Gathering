@@ -67,11 +67,12 @@ public final class Sideboarding {
             // A stale click: the card is not where the client thought. Doing nothing is right.
             return;
         }
-        // Kept, not dropped. Boarding between games edits the deck and never the pool, and a
-        // pool that vanished at the first sideboard step would stop a limited match being
-        // limited halfway through.
-        held.table().holdDeck(held.seat(), edited.get(),
-                held.table().poolOf(held.seat()).orElse(null), player.getUUID());
+        // The deck's contents and nothing else. Boarding between games edits the deck and
+        // never the pool, and a pool that vanished at the first sideboard step would stop a
+        // limited match being limited halfway through. Nor whose it is: the edit used to name
+        // whoever made it as the owner, and the person in a chair between games is not always
+        // the one who put the deck down there.
+        held.table().changeHeldDeck(held.seat(), edited.get());
         Sending.to(player, new OpenSideboardPayload(
                 origin, edited.get(),
                 TableSessions.matchAt(level, origin).map(match -> match.gameNumber()).orElse(1),

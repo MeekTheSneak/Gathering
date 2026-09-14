@@ -327,8 +327,12 @@ public final class TableSessions {
             stack.set(dev.gathering.registry.GatheringComponents.POOL.get(), held.pool());
         }
 
+        // The chair stands in only for a deck that never recorded whose it is, which is one
+        // held by a world saved before decks did. A deck that knows its owner and cannot find
+        // them goes on the table: handed to the chair, it went to whoever had sat down in the
+        // absent owner's place.
         Player owner = held.owner() == null ? null : level.getPlayerByUUID(held.owner());
-        if (owner == null) {
+        if (held.owner() == null) {
             List<SeatAnchor> anchors = TableClusters.at(level, tableOrigin).seats();
             owner = seat.index() < anchors.size()
                     ? occupantOf(level, tableOrigin, anchors.get(seat.index())).orElse(null)
