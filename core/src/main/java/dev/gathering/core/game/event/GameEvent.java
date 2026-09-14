@@ -825,6 +825,22 @@ public sealed interface GameEvent {
     }
 
     /**
+     * Who plays first, chosen by the server when a game begins: at random for a first game, or
+     * the loser of the last game in a match.
+     * <p>The server's to write, like a die roll: a client that could send this would always go
+     * first. Nothing about it is enforced afterwards - the player it names can pass the turn.
+     *
+     * @param lostTheLastGame whether it went to them as the loser of the previous game
+     */
+    record StartingPlayerChosen(SeatId actor, boolean lostTheLastGame) implements GameEvent {
+        @Override
+        public LogLine describe(GameState before) {
+            return LogLine.of(lostTheLastGame ? "log.gathering.goes_first.lost_last_game" : "log.gathering.goes_first.random",
+                    actor);
+        }
+    }
+
+    /**
      * A die rolled where the whole table can see it.
      * <p>A die nobody else watched is not a die, it is a claim. The server rolls it, everyone
      * is told the number, and the log keeps it under the name of whoever asked.

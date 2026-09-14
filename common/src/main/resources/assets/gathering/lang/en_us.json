@@ -140,6 +140,8 @@
   "log.gathering.planar_blank": "%1$s rolled the planar die: blank",
   "log.gathering.planar_chaos": "%1$s rolled the planar die: chaos",
   "log.gathering.planar_walk": "%1$s rolled the planar die: planeswalk",
+  "log.gathering.goes_first.random": "%1$s goes first, chosen at random",
+  "log.gathering.goes_first.lost_last_game": "%1$s goes first, having lost the last game",
   "log.gathering.rolled": "%1$s rolled a d%2$s: %3$s",
   "log.gathering.scried": "%1$s scried %3$s, keeping %4$s on top",
   "log.gathering.seat_counter_changed": "%1$s changed %2$s's %3$s by %4$s",

@@ -253,6 +253,7 @@ class SessionCodecTest {
                 new GameEvent.DiceRolled(a, 20, 17),
                 new GameEvent.CoinFlipped(a, true),
                 new GameEvent.HandShown(a, b, true),
+                new GameEvent.StartingPlayerChosen(a, true),
                 new GameEvent.PlanarRolled(
                         a, dev.gathering.core.game.event.PlanarFace.CHAOS));
     }

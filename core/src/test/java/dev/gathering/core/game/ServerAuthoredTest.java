@@ -33,7 +33,8 @@ class ServerAuthoredTest {
 
     /** And everything the server writes, for the same reason. */
     private static final Set<String> THE_SERVER_WRITES = Set.of(
-            "SeatTaken", "DeckLoaded", "SessionEnded", "DiceRolled", "CoinFlipped", "PlanarRolled");
+            "SeatTaken", "DeckLoaded", "SessionEnded", "DiceRolled", "CoinFlipped", "PlanarRolled",
+            "StartingPlayerChosen");
 
     @Test
     @DisplayName("every event is on exactly one side of the wire")

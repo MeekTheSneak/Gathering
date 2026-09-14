@@ -38,6 +38,20 @@ class MatchStateTest {
     }
 
     @Test
+    @DisplayName("the loser of a game plays first in the next; a draw or a crowd starts at random")
+    void theLoserOfTheLastGameStartsTheNext() {
+        SeatId alice = SeatId.of(0);
+        SeatId bob = SeatId.of(1);
+        MatchState match = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3));
+        assertThat(match.startsNextGame(List.of(alice, bob))).isEmpty();
+
+        MatchState afterOne = match.afterGameWonBy(alice);
+        assertThat(afterOne.startsNextGame(List.of(alice, bob))).contains(bob);
+        assertThat(afterOne.startsNextGame(List.of(alice, bob, SeatId.of(2)))).isEmpty();
+        assertThat(afterOne.afterDrawnGame().startsNextGame(List.of(alice, bob))).isEmpty();
+    }
+
+    @Test
     @DisplayName("best of three is won by two, not by three")
     void twoWinsTakeABestOfThree() {
         MatchState match = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 3));

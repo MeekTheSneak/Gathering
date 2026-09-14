@@ -361,6 +361,31 @@ public final class MatchGameTest {
         }
     }
 
+    /**
+     * Who plays first: chosen at random for the first game, then the loser of the last game of a
+     * two-player match (MTR 2.2 gives them the choice, and playing first is the usual one).
+     */
+    @GameTest(template = "tables")
+    public static void theLoserOfAGamePlaysFirstInTheNext(GameTestHelper helper) {
+        BlockPos origin = seatedTable(helper);
+        startMatch(helper, origin, 3);
+        var first = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        boolean chosen = first.records().stream().anyMatch(record -> record instanceof dev.gathering.core.game.SessionRecord.EventRecord event
+                && event.event() instanceof GameEvent.StartingPlayerChosen starting && !starting.lostTheLastGame());
+        if (!chosen) {
+            helper.fail("the first game of a match did not choose who plays first");
+            return;
+        }
+        winGame(helper, origin, new SeatId(0));
+        startNextGame(helper, origin);
+        var second = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        if (!second.state().turn().activeSeat().equals(new SeatId(1))) {
+            helper.fail("the player who lost game one is not first in game two: " + second.state().turn().activeSeat());
+            return;
+        }
+        helper.succeed();
+    }
+
     private static long shelvedFor(UUID player) {
         return dev.gathering.server.Replays.kept().stream().filter(kept -> kept.wasPlayedBy(player)).count();
     }

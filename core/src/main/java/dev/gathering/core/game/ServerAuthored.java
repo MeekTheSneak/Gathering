@@ -36,6 +36,7 @@ public final class ServerAuthored {
             // the server answers it with the level's randomness; this is the packet that
             // skips the rolling and reports the answer.
             case GameEvent.DiceRolled ignored -> true;
+            case GameEvent.StartingPlayerChosen ignored -> true;
             case GameEvent.CoinFlipped ignored -> true;
             case GameEvent.PlanarRolled ignored -> true;
 

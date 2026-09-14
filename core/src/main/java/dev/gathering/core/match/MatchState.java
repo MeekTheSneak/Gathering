@@ -12,7 +12,26 @@ import java.util.Optional;
  * currently on, which is precisely what it has to do.
  * <p>Nothing here is secret. Who has won how many is the most public fact at a table.
  */
-public record MatchState(MatchRules rules, Map<SeatId, Integer> wins, int gameNumber) {
+public record MatchState(MatchRules rules, Map<SeatId, Integer> wins, int gameNumber, SeatId lastGameWinner) {
+
+    /** A match that has not yet had a game won in it, or one read from before winners were kept. */
+    public MatchState(MatchRules rules, Map<SeatId, Integer> wins, int gameNumber) {
+        this(rules, wins, gameNumber, null);
+    }
+
+    /**
+     * Who plays first in the next game of a two-player match: the player who lost the last one.
+     * <p>The tournament rules give the loser of the previous game the choice of playing or drawing
+     * (MTR 2.2), and playing first is what almost everybody chooses - so the table starts them,
+     * and they can pass the turn if they would rather draw. Empty for the first game, after a
+     * drawn game, or when it is not a two-player match: those start at random.
+     */
+    public Optional<SeatId> startsNextGame(java.util.Collection<SeatId> playing) {
+        if (lastGameWinner == null || playing.size() != 2 || !playing.contains(lastGameWinner)) {
+            return Optional.empty();
+        }
+        return playing.stream().filter(seat -> !seat.equals(lastGameWinner)).findFirst();
+    }
 
     public MatchState {
         // In seat order rather than a hash order salted once per launch: this is walked to
@@ -43,13 +62,13 @@ public record MatchState(MatchRules rules, Map<SeatId, Integer> wins, int gameNu
         Map<SeatId, Integer> updated = new LinkedHashMap<>(wins);
         updated.merge(winner, 1, Integer::sum);
 
-        MatchState next = new MatchState(rules, updated, gameNumber);
-        return next.isDecided() ? next : new MatchState(rules, updated, gameNumber + 1);
+        MatchState next = new MatchState(rules, updated, gameNumber, winner);
+        return next.isDecided() ? next : new MatchState(rules, updated, gameNumber + 1, winner);
     }
 
     /** A game nobody won - conceded by everyone, or abandoned - still uses one up. */
     public MatchState afterDrawnGame() {
-        return gameNumber >= rules.bestOf() ? this : new MatchState(rules, wins, gameNumber + 1);
+        return gameNumber >= rules.bestOf() ? this : new MatchState(rules, wins, gameNumber + 1, null);
     }
 
     public boolean isDecided() {

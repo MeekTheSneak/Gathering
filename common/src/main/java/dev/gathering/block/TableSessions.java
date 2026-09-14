@@ -161,6 +161,17 @@ public final class TableSessions {
                     deck.sleeve()));
             session.submit(new GameEvent.LibraryShuffled(seat, seat));
         });
+
+        // Who plays first. The loser of the last game of a two-player match; otherwise chosen at
+        // random with the level's randomness, the way a die would be rolled for it.
+        List<SeatId> playing = session.state().seats().stream()
+                .filter(seat -> session.state().seatState(seat).isOccupied()).toList();
+        if (playing.size() > 1) {
+            MatchState match = table.match().orElse(null);
+            Optional<SeatId> loser = match == null ? Optional.empty() : match.startsNextGame(playing);
+            SeatId first = loser.orElseGet(() -> playing.get(level.getRandom().nextInt(playing.size())));
+            session.submit(new GameEvent.StartingPlayerChosen(first, loser.isPresent()));
+        }
         return Outcome.STARTED;
     }
 

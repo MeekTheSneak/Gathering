@@ -64,6 +64,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String FORMAT_KEY = "format";
     private static final String BEST_OF_KEY = "best_of";
     private static final String GAME_NUMBER_KEY = "game_number";
+    private static final String LAST_WINNER_KEY = "last_winner";
     private static final String WINS_KEY = "wins";
     private static final String DECKS_KEY = "decks";
     private static final String DECK_SEAT_KEY = "seat";
@@ -1286,6 +1287,9 @@ public class TableBlockEntity extends BlockEntity {
             wins.add(entry);
         });
         tag.put(WINS_KEY, wins);
+        if (match.lastGameWinner() != null) {
+            tag.putInt(LAST_WINNER_KEY, match.lastGameWinner().index());
+        }
     }
 
     private static MatchState readMatch(CompoundTag tag) {
@@ -1307,7 +1311,8 @@ public class TableBlockEntity extends BlockEntity {
                 CompoundTag entry = stored.getCompound(index);
                 wins.put(new dev.gathering.core.game.SeatId(entry.getInt("seat")), entry.getInt("won"));
             }
-            return new MatchState(rules, wins, Math.max(1, tag.getInt(GAME_NUMBER_KEY)));
+            return new MatchState(rules, wins, Math.max(1, tag.getInt(GAME_NUMBER_KEY)),
+                    tag.contains(LAST_WINNER_KEY) ? new dev.gathering.core.game.SeatId(tag.getInt(LAST_WINNER_KEY)) : null);
         } catch (IllegalArgumentException e) {
             LOGGER.warn("Table has an unreadable match: {}", e.getMessage());
             return null;
