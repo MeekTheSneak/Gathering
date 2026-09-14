@@ -74,7 +74,7 @@ public final class EventCreateScreen extends Screen {
         // The left column is the wider one: "Constructed" sits in it beside two other kinds,
         // while the right column's choices are all short.
         int both = panel.width() - MARGIN * 3;
-        int column = both * 11 / 20;
+        int column = both * 21 / 40;
         int rightColumn = both - column;
         int left = panel.x() + MARGIN;
         int right = left + column + MARGIN;
@@ -154,7 +154,7 @@ public final class EventCreateScreen extends Screen {
         int[] wants = new int[values.length];
         int wanted = 0;
         for (int index = 0; index < values.length; index++) {
-            wants[index] = this.font.width(Component.translatable(labelKey.apply(values[index]))) + 6;
+            wants[index] = this.font.width(Component.translatable(labelKey.apply(values[index]))) + 8;
             wanted += wants[index];
         }
         int left = x + LABEL_WIDTH;

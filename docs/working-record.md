@@ -190,10 +190,13 @@ build order T1-T7 are in `docs/tournaments.md`. Progress:
   with a polygon offset, as sign text is), the label hidden within 3 blocks of the table's
   middle, a seated player looks down at the felt, and the create screen's left column is the
   wider one. The tour now photographs the seat and then the label from 8 blocks back.
-  **Not yet seen on screen:** three tour runs of these fixes (`81e22a4f`) were killed by the
-  machine for low memory (other applications were using most of it), each within the first
-  third. Next action: rerun the tour with the machine otherwise idle and look at
-  `101-a-new-tournament`, `104-seated-at-table-one` and `104a-a-numbered-table`.
+  Three tour runs of these fixes were killed by the machine for low memory; the fourth, with a
+  1.8 GB client heap and no Gradle daemon, completed.
+- **Tour of `81e22a4f`:** 342 steps, **0 failures** (the graveyard hover passed this time).
+  Seen: the whole label "Table 1 / Dev - Opponent / 49:50" from 8 blocks back, the seated view
+  looking down across the mat, and "Constructed" fitting. The right column's "Any" and "Locked"
+  then touched their borders, so the columns are split 21:19 with more padding per toggle (not
+  yet re-photographed).
 
 Still open: a sign-up locked by an opening that never completes stays locked until restart (the
 lock is not saved); prize descriptions use server-side item names.
