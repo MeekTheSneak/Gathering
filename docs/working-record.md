@@ -273,6 +273,61 @@ bound.
 Not changed: image URLs are still six strings per card face (about a fifth of what remains),
 because each is distinct and shortening them would change the saved cache format.
 
+## Rules and tournament pass (2026-09-14, while the owner was away)
+
+Checked against the Comprehensive Rules and the Magic Tournament Rules. The MTR sections were
+read from the judges' rules blog (MTR 2.2, 2.4, Appendix E), not recalled. Nothing here enforces
+a rule of the game: each is a count shown, a default the table starts from, or tournament
+procedure the event already ran.
+
+**Changed:**
+- **London mulligan counted** (CR 103.5, free first mulligan in multiplayer 103.5c): the seat
+  shows how many cards are owed to the bottom, and putting a card from hand on the bottom of the
+  library counts one off. Nothing makes anybody do it.
+- **Loss thresholds shown in red**: life 0, poison 10, commander damage 21. Displayed, never acted on.
+- **Tournament draft timing** (MTR Appendix B) as a pick clock choice, "Tourney".
+- **Who plays first** (MTR 2.2): random for a Swiss match's first game; the higher Swiss seed for
+  a cut match's first game, even when an upset put them in the second chair; the loser of the
+  previous game after that; and after a drawn game, whoever went first in it. The mod picks
+  *play*; the player can pass the turn. Saved as `drawn_game_chooser` beside `last_winner`.
+  The log event's boolean became a one-byte reason in the same place, so old logs read the same.
+- **Result buttons cover every way a match ends** (1-0 at time, 1-1, 0-0-1, 0-0 intentional
+  draw), in two rows; a cut offers no draws, which the server refused anyway. The host's settle
+  buttons moved to their own row; a dozen of them overlapped Done.
+- **A cut match tied on games at the end of extra turns goes to the higher life total** (MTR 2.4).
+  Tied on life too, it stays open for the host, and the table is told so instead of "recorded".
+- **Shopkeeper test flake fixed:** `lookingTwiceChangesNothing` failed once in the gate because the
+  shop shelf is swapped by a worker and by other tests' settings between its two looks. It retries
+  on later ticks; a look that really restocks still fails on every one.
+- **Swiss round counts past 128 players follow Appendix E** (8 to 226, 9 to 409, 10 beyond);
+  they had kept doubling.
+- **Standings in columns** (#, player, points, W-L-D, OMW%, GW%, OGW%).
+- **Sealed events gray out the pick clock and picks-at-a-time** instead of taking presses that did nothing.
+
+**Bug fixed - it crashed the server:** in a best-of-one event, a player gone five minutes
+conceded 2-0, which is not a best-of-one result. Settling it threw inside the server tick, and the
+mutation run shows what that did: "Exception in server tick loop", the whole server down. A
+concession is now the games it takes to win a match of the event's length. Guard:
+`EventsGameTest.aplayerGoneFromABestOfOneConcedesOneGameToNone`. And because one tournament's clock
+should never be able to do that, each event's tick now runs contained: a failure is logged and told
+to the host once, and the server and every other event carry on
+(`EventsIntegrityGameTest.aFailingEventClockDoesNotStopTheServer`).
+
+**Guards proved to fail without their fixes** (sources mutated, run, restored, tree confirmed
+clean): the best-of-one concession (crashed the run), `thehigherseedplaysfirstinacutmatch` and
+`whoeverwentfirstinadrawngamegoesfirstagain` (2 required tests failed, exactly those).
+
+**Checked and left alone:** five extra turns after time (MTR 2.4, the setting's default is right);
+tiebreakers and their 33% floors, byes as 2-0 and left out of opponents (Appendix C); top-8 bracket
+seeding; deck validation.
+
+**Differences from the MTR kept on purpose, for the owner:**
+- Round one is paired by rating seed, not at random (the anti-sandbagging decision).
+- Appendix E runs 9-16 players as 5 rounds and a top 4 outside draft-playoff events; the mod
+  plays 4 rounds, and its cut is the host's choice.
+- A drawn game uses up one of the match's games; the MTR (2.1) plays on until somebody has won the
+  games needed, with the round clock as the limit. Changing it changes when a table's match ends.
+
 ## Owner-approved requirements, and what they superseded
 
 | Decision | State |

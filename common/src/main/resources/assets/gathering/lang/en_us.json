@@ -354,6 +354,7 @@
   "message.gathering.event.left": "You left %s.",
   "message.gathering.event.marked_official": "Marked official.",
   "message.gathering.event.match_over_at_time": "Extra turns are over. The match is recorded on games won.",
+  "message.gathering.event.clock_failed": "Something went wrong running %s's clock. The server log says what.",
   "message.gathering.event.cut_tied_at_time": "Extra turns are over, tied on games and life. The host decides this match.",
   "message.gathering.event.no_record": "No tournament record yet.",
   "message.gathering.event.no_such_event": "No such tournament.",

@@ -805,7 +805,28 @@ public final class Events {
             return;
         }
         for (EventState state : all()) {
-            advance(server, state, elapsed);
+            contained(server, state, () -> advance(server, state, elapsed));
+        }
+    }
+
+    /**
+     * Runs one event's share of a tick, keeping anything that goes wrong in it to that event.
+     * <p>Uncaught, an exception here went out of the server's tick and took the whole server down -
+     * every world and every table - over one tournament's clock. The same failure on every tick is
+     * logged and told to the host once, not twenty times a second.
+     */
+    static void contained(MinecraftServer server, EventState state, Runnable work) {
+        try {
+            work.run();
+            state.lastFailure = null;
+        } catch (RuntimeException wentWrong) {
+            String what = String.valueOf(wentWrong);
+            if (!what.equals(state.lastFailure)) {
+                state.lastFailure = what;
+                LOGGER.error("The tournament {} could not run its clock this tick", state.tournament.id(), wentWrong);
+                tell(server, state.tournament.host(), Component.translatable("message.gathering.event.clock_failed",
+                        state.tournament.name()));
+            }
         }
     }
 

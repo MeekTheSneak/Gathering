@@ -92,14 +92,14 @@ pairing and the round clock floating over it.
 
 **Who plays first** (MTR 2.2). The first game of a Swiss match goes to a player chosen at random;
 the first game of a cut match to the player who finished the Swiss rounds higher; every later game
-to the loser of the one before. The mod picks *play* for them - the usual choice - and they can
-pass the turn to draw instead. After a drawn game the next is chosen at random, where the
-tournament rules give the choice back to whoever chose for the drawn game.
+to the loser of the one before, or after a drawn game to whoever went first in it. The mod picks
+*play* for them - the usual choice - and they can pass the turn to draw instead.
 
 **Reporting.** The result buttons cover every way a match ends: won and lost at each count, won at
 time a game up with no game in progress (1-0), drawn at games apiece or with a game unfinished
 (1-1, 1-1-1, 0-0-1), and 0-0 for a draw agreed before playing. A cut match cannot be drawn, so
-its buttons offer no draws.
+its buttons offer no draws. A cut match still tied on games when the extra turns end goes to the
+higher life total (MTR 2.4); tied on life as well, the host decides it.
 
 **Registration point.** The host can press *Register here* on the host tab; from then on signing
 up only works within 8 blocks of that spot, and anybody further away is pointed to it.

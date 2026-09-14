@@ -41,6 +41,11 @@ public final class EventState {
      * event loaded with a complete round starts the pause again, and pairs the next round after it.
      */
     long completeForTicks = -1;
+    /**
+     * What last went wrong running this event's clocks, so it is reported once rather than on
+     * every tick it keeps going wrong. Not saved: a restart reports it again, which is right.
+     */
+    String lastFailure;
 
     /**
      * Each limited player's pool as the server handed it to them, by player: what their Ready is

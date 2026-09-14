@@ -45,6 +45,37 @@ public final class EventsIntegrityGameTest {
     }
 
     /** The pool this event handed this player, held while building, makes them ready. */
+    /**
+     * Something going wrong in one event's clock stays in that event: it used to leave the server's
+     * tick and crash the whole server. Reported once while it keeps failing, and again only after
+     * the clock has run cleanly in between.
+     */
+    @GameTest(template = "empty")
+    public static void aFailingEventClockDoesNotStopTheServer(GameTestHelper helper) {
+        EventState state = Events.stateForTesting(Tournament.create(UUID.randomUUID(), "Broken", UUID.randomUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern")), helper.getLevel(), List.of());
+        var server = helper.getLevel().getServer();
+        try {
+            Events.contained(server, state, () -> {
+                throw new IllegalArgumentException("message.gathering.event.not_a_result");
+            });
+        } catch (RuntimeException escaped) {
+            helper.fail("a failing event clock escaped into the server's tick: " + escaped);
+            return;
+        }
+        String reported = state.lastFailure;
+        if (reported == null || !reported.contains("not_a_result")) {
+            helper.fail("the failure was not kept to report once: " + reported);
+            return;
+        }
+        Events.contained(server, state, () -> { });
+        if (state.lastFailure != null) {
+            helper.fail("a clean tick did not clear the last failure");
+            return;
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "tables")
     public static void thePoolThisEventHandedOutIsAccepted(GameTestHelper helper) {
         Fixture fixture = fixture(helper, EventSettings.Kind.SEALED, false);
