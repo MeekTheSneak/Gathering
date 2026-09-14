@@ -103,6 +103,28 @@ Seen and **not fixed**, recorded here instead:
   text; the world cannot be clipped the way the seated screen's pot now is. **A scripted run is not a playtest**; nothing here says how the lesson feels to a
 person, only that it can be completed with the keys it names and now shows what it describes.
 
+## Refactoring opportunities review (2026-09-14) and owner requests since
+
+An external review of `10960959` proposed six items (RF-01..RF-06). Progress, newest last:
+
+| Item | State | Evidence |
+|---|---|---|
+| RF-01 DevScene out of release jars | **Done** (`219e758c`) | Both jars: 0 DevScene classes (Fabric jar -116,856 bytes). Gate 428/10. NeoForge tour from the new dev source set 315/315, 0 failures. Fabric tour 315/315 with **one failure at step 181** (key 9 did not put a card under the library) - open, not investigated |
+| Owner: other players' hands and life counters fixed to the table, not the camera | **Done** (`f4f79bb5`) | The only screen-anchored pieces left on the seated board are the top strip, your own hand and screen UI. Tour 315/315, 0 failures |
+| RF-02 shared client payload application | **Done** (`769532c4`) | One typed route list; both loaders check coverage at client start. Gate 428/10; NeoForge tour 315/315, 0 failures. Fabric client not re-toured for this change |
+| Owner: several different tokens with one name (Cats, Elves) | **Done** (`569ef142`) | Exact-name search, a chooser when tokens differ, card rows make the linked printing, remembered rows keep the variant. Protocol 4. Gate 431/10; choice test shown to fail on make-the-newest |
+| RF-03 held-deck custody as one value | Next | |
+| RF-04 table gestures and modes | Not started | Needs graphical runs per stage |
+| RF-05 world counter label profiling | Not started | Profile first |
+| RF-06 missing-metadata outcomes | Not started | Protocol change; the "Loading forever" gap |
+
+**Open from the tour runs:**
+- Two runs after the token change showed card-targeting steps (172-181: reading a written card,
+  freezing, keys 7 and 9) failing when a run before them had passed the same steps with the same
+  code; the failing run used a smaller heap. Not reproduced deliberately, not explained.
+- The machine repeatedly killed tour runs for low memory while other applications were open.
+  Tours need roughly 5 GB free (1-1.5 GB Gradle, 3 GB client).
+
 ## Owner-approved requirements, and what they superseded
 
 | Decision | State |
