@@ -54,25 +54,104 @@ public final class TableStacking {
      * nothing, because it is not on the table to be under anything.
      */
     public static List<Integer> depths(List<TablePosition> positions) {
-        List<Integer> depths = new ArrayList<>(positions.size());
-        for (int index = 0; index < positions.size(); index++) {
-            depths.add(depthOf(positions, index));
-        }
-        return List.copyOf(depths);
+        return piles(positions).depths();
     }
 
-    private static int depthOf(List<TablePosition> positions, int index) {
-        TablePosition here = positions.get(index);
-        if (here == null) {
-            return 0;
-        }
-        int under = 0;
-        for (int below = 0; below < index; below++) {
-            if (isStackedOn(here, positions.get(below))) {
-                under++;
+    /**
+     * Every card's depth, pile size and whether anything is on it, worked out in one pass.
+     * <p>Asked one card at a time, each of those is a walk over the whole mat, so a mat of
+     * two hundred permanents cost forty thousand comparisons per question per frame - and the
+     * board asks all three, for every card, every frame. An audit counted it.
+     * <p>So the cards are dropped into a grid of cells a little wider than {@link #TIGHT}. Two
+     * cards close enough to be stacked are then in the same cell or the next one along, and
+     * only those nine cells are ever compared. A table spread out the way people actually
+     * spread one is linear; a single pile of forty is still forty against forty, because
+     * every one of those really is on every other.
+     * <p>The same answers as the one-card questions, not approximately the same: the test
+     * beside this checks them against a plain walk over random boards.
+     */
+    public static Piles piles(List<TablePosition> positions) {
+        int count = positions.size();
+        int[] depths = new int[count];
+        int[] sizes = new int[count];
+        boolean[] buried = new boolean[count];
+        java.util.Map<Long, List<Integer>> cells = new java.util.HashMap<>();
+        int cell = TIGHT + 1;
+        for (int index = 0; index < count; index++) {
+            TablePosition here = positions.get(index);
+            if (here == null) {
+                continue;
             }
+            int column = Math.floorDiv(here.x(), cell);
+            int row = Math.floorDiv(here.y(), cell);
+            for (int across = column - 1; across <= column + 1; across++) {
+                for (int down = row - 1; down <= row + 1; down++) {
+                    List<Integer> earlier = cells.get(cellKey(across, down));
+                    if (earlier == null) {
+                        continue;
+                    }
+                    for (int below : earlier) {
+                        if (isStackedOn(here, positions.get(below))) {
+                            depths[index]++;
+                            sizes[index]++;
+                            sizes[below]++;
+                            buried[below] = true;
+                        }
+                    }
+                }
+            }
+            // Itself, which the one-card count includes because a card is on its own spot.
+            sizes[index]++;
+            cells.computeIfAbsent(cellKey(column, row), key -> new ArrayList<>()).add(index);
         }
-        return under;
+        return new Piles(depths, sizes, buried);
+    }
+
+    private static long cellKey(int column, int row) {
+        return ((long) column << 32) ^ (row & 0xFFFFFFFFL);
+    }
+
+    /** The answers {@link #piles} works out, by index into the list it was given. */
+    public static final class Piles {
+
+        private final int[] depths;
+        private final int[] sizes;
+        private final boolean[] buried;
+
+        private Piles(int[] depths, int[] sizes, boolean[] buried) {
+            this.depths = depths;
+            this.sizes = sizes;
+            this.buried = buried;
+        }
+
+        /** How many cards this covers. */
+        public int size() {
+            return depths.length;
+        }
+
+        /** The same as {@link TableStacking#depths}, for one card. */
+        public int depth(int index) {
+            return depths[index];
+        }
+
+        /** The same as {@link TableStacking#pileSizeAt}. */
+        public int pileSize(int index) {
+            return sizes[index] > 1 ? sizes[index] : 0;
+        }
+
+        /** The same as {@link TableStacking#isBuriedAt}. */
+        public boolean isBuried(int index) {
+            return buried[index];
+        }
+
+        /** Every depth, in order. */
+        public List<Integer> depths() {
+            List<Integer> all = new ArrayList<>(depths.length);
+            for (int depth : depths) {
+                all.add(depth);
+            }
+            return List.copyOf(all);
+        }
     }
 
     public static boolean isStackedOn(TablePosition above, TablePosition below) {

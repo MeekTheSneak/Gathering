@@ -264,6 +264,7 @@ notes below are what a status line cannot hold.
 | CL-11a | Done | `Prompts` and core `ListScroll`; four panels and two lists |
 | CL-09 | Done | Below |
 | CL-05b | Done | Below |
+| CL-06 | Done, not seen | Below |
 
 **CL-09.** `PracticeTable` now holds only what production needs: `retire`, the answers to an
 old client's START and STOP, `isPracticeAt` and the demonstration seat. Creation lives in
@@ -306,6 +307,32 @@ new `pageFor` so a test can read what a stand-in player cannot receive.
 
 Not measured: the saving per page flip. CL-05a measured the search it skips at about 2 ms for
 ten thousand distinct cards; what a page flip now costs on a real server is inferred, not timed.
+
+**CL-06.** `BoardPresentation` in core works out what a board looks like before it is put on
+a screen - each seat's piles, attachments, and every visible card by id - once per view, kept
+by identity in a small `Memo`. The seated `TableScreen` and the block's `TableMiniatureRenderer`
+both read it; before, the screen worked it out at least twice a frame and the renderer once per
+table per frame. Rectangles are still computed per frame, because they move with the window,
+camera and held card when the board does not.
+
+`TableStacking.piles` answers depth, pile size and burial in one pass over a grid of cells just
+wider than the stacking distance. The audit warned that grid bucketing can change stacking
+behavior; this one compares exactly the same pairs the old walk did, and a jqwik property checks
+all three answers against the plain definition on clustered boards with cell-edge and table-edge
+positions. **Shown to fail** with the neighbouring cells left out.
+
+Measured on this machine, pile work a frame used to do versus one pass: 0.085 ms to 0.031 ms at
+200 cards, 0.586 ms to 0.116 ms at 800. Those figures understate the old cost - the benchmark's
+"before" already used the new depths - and an unchanged frame now does none of it. They are core
+microbenchmarks, not frame times.
+
+`TutorialDemo.board()` built a fresh view on every call, many times a frame, which would also have
+defeated the memo. It is now rebuilt only when the demonstration's `GameSession.revision()` moves.
+
+**One visible change, not seen.** The block used to count a card attached to another at its own
+recorded spot, which the seated board stopped doing because it made a lone creature with an aura
+read as a pile. Both now use the seated rule, so a card dropped on an aura's old spot no longer
+leans on the block. `BoardPresentationTest` pins the rule; nobody has looked at it.
 
 The audit also measured the bulk-broadcast cost independently and agrees with the number
 recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views

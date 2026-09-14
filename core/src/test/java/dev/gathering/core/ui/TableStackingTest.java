@@ -193,4 +193,76 @@ class TableStackingTest {
         }
         assertThat(TableStacking.shownDepth(-4)).isZero();
     }
+
+    @Property(tries = 500)
+    void workingItOutInOnePassGivesTheSameAnswersAsAskingOneCardAtATime(
+            @ForAll("boards") List<TablePosition> board) {
+        // The grid only compares neighbouring cells, so the thing to prove is that nothing
+        // stacked is ever two cells apart - including on a cell boundary, at the table's edges, and on
+        // cards with no position. The walk below is the definition, written out plainly.
+        TableStacking.Piles piles = TableStacking.piles(board);
+        assertThat(piles.size()).isEqualTo(board.size());
+        for (int index = 0; index < board.size(); index++) {
+            TablePosition here = board.get(index);
+            int under = 0;
+            int size = 0;
+            boolean covered = false;
+            for (int other = 0; other < board.size(); other++) {
+                boolean stacked = TableStacking.isStackedOn(here, board.get(other));
+                if (stacked && other < index) {
+                    under++;
+                }
+                if (stacked) {
+                    size++;
+                }
+                if (stacked && other > index) {
+                    covered = true;
+                }
+            }
+            assertThat(piles.depth(index)).as("depth of %d", index).isEqualTo(here == null ? 0 : under);
+            assertThat(piles.pileSize(index)).as("pile at %d", index).isEqualTo(size > 1 ? size : 0);
+            assertThat(piles.isBuried(index)).as("buried at %d", index).isEqualTo(covered);
+            assertThat(TableStacking.pileSizeAt(board, index)).isEqualTo(piles.pileSize(index));
+            assertThat(TableStacking.isBuriedAt(board, index)).isEqualTo(piles.isBuried(index));
+        }
+    }
+
+    /**
+     * Boards worth checking the grid against: clustered on a few spots so piles actually form,
+     * spread either side of cell edges and the table's own edges, with the odd card that has
+     * no position.
+     */
+    @net.jqwik.api.Provide
+    net.jqwik.api.Arbitrary<List<TablePosition>> boards() {
+        net.jqwik.api.Arbitrary<Integer> anchor = net.jqwik.api.Arbitraries.of(
+                0, TableStacking.TIGHT, TableStacking.TIGHT + 1, 2 * (TableStacking.TIGHT + 1) - 1,
+                5000, TablePosition.SPAN);
+        net.jqwik.api.Arbitrary<Integer> jitter =
+                net.jqwik.api.Arbitraries.integers().between(-2 * TableStacking.TIGHT, 2 * TableStacking.TIGHT);
+        net.jqwik.api.Arbitrary<TablePosition> spot = net.jqwik.api.Combinators
+                .combine(anchor, jitter, anchor, jitter)
+                .as((ax, jx, ay, jy) -> TablePosition.of(onTheTable(ax + jx), onTheTable(ay + jy)));
+        net.jqwik.api.Arbitrary<TablePosition> maybe = net.jqwik.api.Arbitraries.frequencyOf(
+                net.jqwik.api.Tuple.of(9, spot),
+                net.jqwik.api.Tuple.of(1, net.jqwik.api.Arbitraries.just((TablePosition) null)));
+        return maybe.list().ofMaxSize(60);
+    }
+
+    private static int onTheTable(int value) {
+        return Math.clamp(value, 0, TablePosition.SPAN);
+    }
+
+    @Test
+    @DisplayName("a pile of two hundred on one spot is still counted right")
+    void oneBigPile() {
+        List<TablePosition> pile = new ArrayList<>();
+        for (int index = 0; index < 200; index++) {
+            pile.add(SPOT);
+        }
+        TableStacking.Piles piles = TableStacking.piles(pile);
+        assertThat(piles.depth(199)).isEqualTo(199);
+        assertThat(piles.pileSize(0)).isEqualTo(200);
+        assertThat(piles.isBuried(0)).isTrue();
+        assertThat(piles.isBuried(199)).isFalse();
+    }
 }

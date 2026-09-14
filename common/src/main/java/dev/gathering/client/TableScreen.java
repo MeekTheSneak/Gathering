@@ -39,6 +39,7 @@ import dev.gathering.core.ui.SurfaceBoard;
 import dev.gathering.core.ui.TableAttachments;
 import dev.gathering.core.ui.TableDrag;
 import dev.gathering.core.ui.TableScreenLayout;
+import dev.gathering.core.ui.BoardPresentation;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableTop;
@@ -81,6 +82,13 @@ import net.minecraft.network.chat.Component;
  * <p>Client-only.
  */
 public final class TableScreen extends Screen {
+
+    /**
+     * What each board this screen draws looks like before it is put anywhere: piles,
+     * attachments and cards by id, worked out once per view rather than per frame. Two, for a
+     * live board and the frame a replay is showing.
+     */
+    private final BoardPresentation.Memo presentations = new BoardPresentation.Memo(2);
 
     private static final int LABEL = 0xFFE8E4DC;
     private static final int DIM = 0xFF9A9690;
@@ -2257,19 +2265,18 @@ public final class TableScreen extends Screen {
      */
     private List<Placed> everythingOnTheTable(GameView board) {
         List<Placed> placed = new ArrayList<>();
-        for (SeatView seat : board.seats()) {
-            List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
-            List<TablePosition> spots = spotsIn(cards);
-            List<Integer> depths = TableStacking.depths(spots);
-            Map<CardInstanceId, List<CardView>> attachments = TableAttachments.by(cards);
+        for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+            SeatId seat = mat.seat();
+            List<CardView> cards = mat.cards();
+            Map<CardInstanceId, List<CardView>> attachments = mat.attachments();
 
             for (int index = 0; index < cards.size(); index++) {
                 CardView card = cards.get(index);
                 if (isHeld(card) || card.host().isPresent()) {
                     continue;
                 }
-                Rect where = spotOf(seat.seat(), card, depths.get(index));
-                placed.add(new Placed(seat.seat(), card, where, angleOf(seat.seat(), card)));
+                Rect where = spotOf(seat, card, mat.piles().depth(index));
+                placed.add(new Placed(seat, card, where, angleOf(seat, card)));
 
                 List<CardView> attached = TableAttachments.on(attachments, card);
                 if (attached.isEmpty()) {
@@ -2283,8 +2290,8 @@ public final class TableScreen extends Screen {
                     Rect at = left
                             ? TableAttachments.slot(where, slot)
                             : TableAttachments.slotOnTheRight(where, slot);
-                    placed.add(new Placed(seat.seat(), attached.get(slot), at,
-                            angleOf(seat.seat(), attached.get(slot))));
+                    placed.add(new Placed(seat, attached.get(slot), at,
+                            angleOf(seat, attached.get(slot))));
                 }
             }
         }
@@ -2369,23 +2376,28 @@ public final class TableScreen extends Screen {
 
     /** The pile counts, drawn last so a stack of four says four over whatever is on top of it. */
     private void renderPileBadges(GuiGraphics graphics, GameView board, List<Placed> onTable) {
-        for (SeatView seat : board.seats()) {
-            List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
-            List<TablePosition> spots = spotsIn(cards);
+        // Found by the card object itself, as the walk over every placed card for every pile
+        // found it - once, rather than once per pile.
+        Map<CardView, Placed> placedFor = null;
+        for (BoardPresentation.Mat mat : presentations.of(board).mats()) {
+            List<CardView> cards = mat.cards();
             for (int index = 0; index < cards.size(); index++) {
-                if (TableStacking.isBuriedAt(spots, index)) {
+                if (mat.piles().isBuried(index)) {
                     continue;
                 }
-                int pile = TableStacking.pileSizeAt(spots, index);
+                int pile = mat.piles().pileSize(index);
                 if (pile <= 1) {
                     continue;
                 }
-                CardView card = cards.get(index);
-                for (Placed placed : onTable) {
-                    if (placed.card() == card) {
-                        drawPileBadge(graphics, placed.where(), pile);
-                        break;
+                if (placedFor == null) {
+                    placedFor = new java.util.IdentityHashMap<>();
+                    for (Placed placed : onTable) {
+                        placedFor.putIfAbsent(placed.card(), placed);
                     }
+                }
+                Placed placed = placedFor.get(cards.get(index));
+                if (placed != null) {
+                    drawPileBadge(graphics, placed.where(), pile);
                 }
             }
         }
@@ -6000,16 +6012,11 @@ public final class TableScreen extends Screen {
         }
     }
 
-    private static Optional<CardView> findCard(GameView board, CardInstanceId id) {
+    private Optional<CardView> findCard(GameView board, CardInstanceId id) {
         if (board == null) {
             return Optional.empty();
         }
-        return board.allCardViews().stream()
-                .filter(CardView.Visible.class::isInstance)
-                .map(CardView.Visible.class::cast)
-                .filter(visible -> visible.id().equals(id))
-                .map(CardView.class::cast)
-                .findFirst();
+        return presentations.of(board).card(id);
     }
 
     /** A seat's counters as one short run of text, for the line across the top. */

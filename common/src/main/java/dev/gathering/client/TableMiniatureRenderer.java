@@ -17,6 +17,7 @@ import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.Shaking;
 import dev.gathering.core.ui.SeatColor;
 import dev.gathering.core.ui.SurfaceBoard;
+import dev.gathering.core.ui.BoardPresentation;
 import dev.gathering.core.ui.TableStacking;
 import dev.gathering.core.ui.TableSurface;
 import dev.gathering.core.ui.TableTop;
@@ -50,6 +51,13 @@ import org.joml.Matrix4f;
  * <p>Client-only.
  */
 public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEntity> {
+
+    /**
+     * Piles, attachments and ids for the boards this draws, once per view rather than per
+     * frame. Several, because one renderer draws every table in sight each frame and a cache
+     * of one would be rebuilt for each in turn.
+     */
+    private final BoardPresentation.Memo presentations = new BoardPresentation.Memo(8);
 
     /**
      * Where a card sits on a mat, in surface units, asked of the same rule the seated board
@@ -278,9 +286,10 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             }
         }
         int drawn = 0;
+        BoardPresentation shown = presentations.of(board);
         for (int index = 0; index < board.seats().size() && drawn < MAX_CARDS; index++) {
             drawn += drawSeat(poseStack, buffers, packedLight, board.seats().get(index),
-                    surface, placement, index, span, MAX_CARDS - drawn);
+                    shown.mats().get(index), surface, placement, index, span, MAX_CARDS - drawn);
         }
         drawFlights(poseStack, buffers, packedLight, board, placement, pos, piles, span);
         poseStack.popPose();
@@ -755,8 +764,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      */
     private int drawSeat(
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, SeatView seat,
-            TableSurface surface, SurfaceBoard placement, int seatIndex, float span, int budget) {
-        List<CardView> cards = seat.zone(Zone.BATTLEFIELD).cards();
+            BoardPresentation.Mat mat, TableSurface surface, SurfaceBoard placement,
+            int seatIndex, float span, int budget) {
+        List<CardView> cards = mat.cards();
         if (cards.isEmpty()) {
             return 0;
         }
@@ -766,18 +776,12 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             return 0;
         }
 
-        List<TablePosition> spots = new ArrayList<>(cards.size());
-        for (CardView card : cards) {
-            spots.add(card.placedAt().orElse(null));
-        }
-        List<Integer> depths = TableStacking.depths(spots);
-        // Reported as "attach to visuals dont work on actual table view". They did not: this
-        // drew every permanent at its own recorded position, so an aura sat in the corner of
-        // the mat rather than on the creature it was enchanting - and the same game looked
-        // like two different games depending on which view you were in. The fan rules are
-        // TableAttachments' now, shared with the seated board, so the two cannot drift.
-        java.util.Map<CardInstanceId, List<CardView>> attachments =
-                dev.gathering.core.ui.TableAttachments.by(cards);
+        // Worked out once per board rather than per frame, and by the rule the seated board
+        // uses. This used to count an attached card at its own recorded spot, which the seated
+        // board stopped doing because it made a lone creature with an aura read as a pile - so
+        // the block leaned and lifted a card the seated view drew flat.
+        TableStacking.Piles piles = mat.piles();
+        java.util.Map<CardInstanceId, List<CardView>> attachments = mat.attachments();
 
         int drawn = 0;
         for (int index = 0; index < cards.size() && drawn < budget; index++) {
@@ -805,7 +809,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             // pile read as a pile from directly above, where a stack that only went upwards
             // would be one card.
             float lean = onSurface(
-                    TableStacking.offsetFor(depths.get(index), (int) surface.cardWidthOn(seatIndex)),
+                    TableStacking.offsetFor(piles.depth(index), (int) surface.cardWidthOn(seatIndex)),
                     span);
             // A position is the card's middle, not its corner - see BoardPlacement - and
             // draw() is given a corner. Adding half a card without taking half a card off
@@ -815,7 +819,7 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             Rect placed = placement.rectOf(seat.seat(), where);
             float x = onSurface(placed.x(), span) + lean;
             float z = onSurface(placed.y(), span) + lean;
-            float lift = TableStacking.shownDepth(depths.get(index)) * STACK_LIFT;
+            float lift = TableStacking.shownDepth(piles.depth(index)) * STACK_LIFT;
 
             if (card instanceof CardView.Visible visible && ClientTableHighlight.isLit(visible.id())) {
                 // Under the card rather than over it: a ring drawn on top would cover the art

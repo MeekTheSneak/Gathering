@@ -137,10 +137,26 @@ public final class TutorialDemo {
 
     /** The board as the learner is entitled to see it, which is the only view ever built. */
     public static Optional<GameView> board() {
-        return session == null
-                ? Optional.empty()
-                : Optional.of(VisibilityRules.viewFor(session.state(), new Viewer.Seated(LEARNER)));
+        GameSession game = session;
+        if (game == null) {
+            return Optional.empty();
+        }
+        // The same board until the game moves. The screen asks for it many times a frame, and
+        // building it anew each time was a walk through the visibility rules per ask - and a
+        // new object each time, which is exactly what makes everything keyed on "is this the
+        // board I already worked out" work it out again.
+        if (shown == null || shownFrom != game || shownAt != game.revision()) {
+            shown = VisibilityRules.viewFor(game.state(), new Viewer.Seated(LEARNER));
+            shownFrom = game;
+            shownAt = game.revision();
+        }
+        return Optional.of(shown);
     }
+
+    /** The board last built, the game it was built from and at which revision. */
+    private static GameView shown;
+    private static GameSession shownFrom;
+    private static long shownAt = -1;
 
     /**
      * Drops the demonstration, however it ended.
@@ -154,6 +170,9 @@ public final class TutorialDemo {
      */
     public static void clear() {
         session = null;
+        shown = null;
+        shownFrom = null;
+        shownAt = -1;
     }
 
     // ------------------------------------------------------------------ bits
