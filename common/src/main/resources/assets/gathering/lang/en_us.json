@@ -104,7 +104,7 @@
   "log.gathering.hand_hidden_all": "%1$s took their hand back",
   "log.gathering.hand_shown": "%1$s showed their hand to %2$s",
   "log.gathering.hand_shown_all": "%1$s turned their hand face up to the table",
-  "log.gathering.hand_sorted": "%1$s sorted their hand",
+  "log.gathering.hand_sorted": "%1$s rearranged their hand",
   "log.gathering.library_closed": "%1$s stopped looking through the library",
   "log.gathering.library_exiled": "%1$s exiled %3$s cards from the top of %2$s's library",
   "log.gathering.library_exiled.own": "%1$s exiled %3$s cards from the top of their library",

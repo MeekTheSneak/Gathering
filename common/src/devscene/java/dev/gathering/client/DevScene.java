@@ -2131,9 +2131,17 @@ public final class DevScene {
                 }
                 System.out.println("[devscene] the hand came back cheapest first");
                 shoot(client, "54e-hand-sorted");
-                advance(SETTLE / 2);
+                // And by hand: the cheapest card dragged along the strip to the far end.
+                dragTheFirstCardInHandToTheEnd(client);
+                advance(SETTLE);
             }
             case 184 -> {
+                String wrong = theHandCameBackRearranged();
+                if (wrong != null) {
+                    fail("a card dragged to the end of the hand " + wrong);
+                } else {
+                    System.out.println("[devscene] a card dragged along the hand took its new place");
+                }
                 // A Forest goes back into the deck first. By this point the library is down
                 // to its last card or two - the run has drawn, milled and discarded its way
                 // through it - and a fetch out of an empty deck proves only that the deck is
@@ -3654,6 +3662,66 @@ public final class DevScene {
      * priced it - so this fails if the order never arrived, not if the two disagree about
      * what a hybrid symbol costs. That question is answered by ManaValueTest.
      */
+    /** The hand's order a drag along it should come back as, or null before one was made. */
+    private static List<dev.gathering.core.game.CardInstanceId> handAfterTheDrag;
+
+    /**
+     * Presses the first card in the hand, carries it along the strip and lets go over the last
+     * card's place - through the screen's own mouse handlers, as a player's drag arrives.
+     */
+    private static void dragTheFirstCardInHandToTheEnd(Minecraft client) {
+        handAfterTheDrag = null;
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (!(client.screen instanceof TableScreen board) || me == null || view == null) {
+            fail("there was no hand to rearrange");
+            return;
+        }
+        List<dev.gathering.core.game.CardInstanceId> ids = new ArrayList<>();
+        for (CardView card : view.seat(me).zone(Zone.HAND).cards()) {
+            if (card instanceof CardView.Visible visible) {
+                ids.add(visible.id());
+            }
+        }
+        if (ids.size() < 3) {
+            fail("the hand had " + ids.size() + " cards, too few to rearrange");
+            return;
+        }
+        int width = client.getWindow().getGuiScaledWidth();
+        int height = client.getWindow().getGuiScaledHeight();
+        Rect strip = TableScreenLayout.of(width, height).hand();
+        Rect first = HandFan.slot(strip, ids.size(), 0, -1).where();
+        Rect last = HandFan.slot(strip, ids.size(), ids.size() - 1, -1).where();
+        double fromX = first.x() + first.width() / 4.0;
+        double fromY = first.centerY();
+        double toX = last.centerX();
+        double toY = last.centerY();
+        board.mouseClicked(fromX, fromY, 0);
+        board.mouseDragged(toX, toY, 0, toX - fromX, toY - fromY);
+        board.mouseReleased(toX, toY, 0);
+        handAfterTheDrag = HandFan.moved(ids, 0, ids.size() - 1);
+    }
+
+    /** Null when the hand is in the order the drag asked for; otherwise what is wrong. */
+    private static String theHandCameBackRearranged() {
+        if (handAfterTheDrag == null) {
+            return "was never dragged";
+        }
+        SeatId me = ClientTableState.seatAt(table).orElse(null);
+        GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);
+        if (me == null || view == null) {
+            return "had no board to come back to";
+        }
+        List<dev.gathering.core.game.CardInstanceId> now = new ArrayList<>();
+        for (CardView card : view.seat(me).zone(Zone.HAND).cards()) {
+            if (card instanceof CardView.Visible visible) {
+                now.add(visible.id());
+            }
+        }
+        return now.equals(handAfterTheDrag) ? null
+                : "came back as " + now + " rather than " + handAfterTheDrag;
+    }
+
     private static String theHandIsInCostOrder() {
         SeatId me = ClientTableState.seatAt(table).orElse(null);
         GameView view = table == null ? null : ClientTableState.viewOf(table).orElse(null);

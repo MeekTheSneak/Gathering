@@ -2574,17 +2574,20 @@ public final class TableScreen extends Screen {
             drawHandExposure(graphics, board, seat, area);
             return;
         }
-        int lifted = handIndexAt(board, mouseX, mouseY);
+        // Carrying one of these cards: nothing rises, and the rest part where it would land.
+        boolean reordering = heldHandIndex(hand) >= 0;
+        int lifted = reordering ? -1 : handIndexAt(board, mouseX, mouseY);
         liftedNow = lifted;
+        List<CardView> shown = handAsItWouldLand(hand, mouseX, mouseY);
 
         // The lifted one last, so it is drawn over the cards it has risen in front of.
         for (int pass = 0; pass < 2; pass++) {
-            for (int index = 0; index < hand.size(); index++) {
-                if (isHeld(hand.get(index)) || (index == lifted) != (pass == 1)) {
+            for (int index = 0; index < shown.size(); index++) {
+                if (isHeld(shown.get(index)) || (index == lifted) != (pass == 1)) {
                     continue;
                 }
-                HandFan.Slot slot = HandFan.slot(area, hand.size(), index, lifted);
-                drawCard(graphics, hand.get(index), CardSleeves.of(board, seat),
+                HandFan.Slot slot = HandFan.slot(area, shown.size(), index, lifted);
+                drawCard(graphics, shown.get(index), CardSleeves.of(board, seat),
                         slot.where(), slot.angle(), false, false);
             }
         }
@@ -2632,6 +2635,62 @@ public final class TableScreen extends Screen {
                 area.x(), area.y(), area.width(), high);
         GuiText.drawCentered(graphics, this.font, said,
                 area.x() + area.width() / 2, area.y() + 1, area.width() - 4, EXPOSED_TEXT);
+    }
+
+    /**
+     * The hand as it will be if the card being carried is let go of here.
+     * <p>What the strip draws while a card from it is dragged along it, so the gap opens where
+     * the card will land rather than the player having to guess from where they let go. The
+     * hand as it is anywhere else - carried over the table, a card is leaving the hand, not
+     * moving within it.
+     */
+    private List<CardView> handAsItWouldLand(List<CardView> hand, int mouseX, int mouseY) {
+        int from = heldHandIndex(hand);
+        if (from < 0 || !held.hasMoved(mouseX, mouseY)
+                || !layout().hand().contains(mouseX, mouseY)) {
+            return hand;
+        }
+        return HandFan.moved(hand, from, HandFan.placeAt(layout().hand(), hand.size(), mouseX));
+    }
+
+    /** Where in the hand the card being carried came from, or -1 if it is not from the hand. */
+    private int heldHandIndex(List<CardView> hand) {
+        if (held == null || !held.fromHand() || held.card() == null) {
+            return -1;
+        }
+        for (int index = 0; index < hand.size(); index++) {
+            if (isHeld(hand.get(index))) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Puts a card from your hand in the place in it where it was let go of.
+     * <p>The same event sorting the hand sends, with the order worked out from the drop, so
+     * the fan everybody's own client draws and the order the server keeps cannot disagree - a
+     * hand rearranged only on screen would snap back the first time a card was drawn. Nothing
+     * is sent when the card lands back in its own place.
+     */
+    private void reorderMyHand(GameView board, SeatId me, CardInstanceId card, int x) {
+        if (card == null) {
+            return;
+        }
+        List<CardView> hand = board.seat(me).zone(Zone.HAND).cards();
+        List<CardInstanceId> ids = new ArrayList<>(hand.size());
+        for (CardView each : hand) {
+            if (!(each instanceof CardView.Visible visible)) {
+                return;
+            }
+            ids.add(visible.id());
+        }
+        int from = ids.indexOf(card);
+        int to = HandFan.placeAt(layout().hand(), ids.size(), x);
+        if (from < 0 || from == to) {
+            return;
+        }
+        send(new GameEvent.HandSorted(me, me, HandFan.moved(ids, from, to)));
     }
 
     /** The card drawn risen this frame, which is the only one whose top half is a card. */
@@ -3631,7 +3690,14 @@ public final class TableScreen extends Screen {
         if (layout().hand().contains(x, y)) {
             if (dropped.whole() && dropped.fromPile() != null) {
                 sendWholePile(dropped, me, ZoneRef.of(me, Zone.HAND), Placement.BOTTOM);
-            } else if (!dropped.fromHand()) {
+            } else if (dropped.fromHand()) {
+                // Out of the hand and back into it somewhere else: the hand in a new order.
+                // Only once it has really moved - a press on the overlapped edge of a card
+                // lands nearer the next card's place, and a click must not shuffle the hand.
+                if (dropped.hasMoved(x, y)) {
+                    view().ifPresent(board -> reorderMyHand(board, me, dropped.card(), x));
+                }
+            } else {
                 for (CardInstanceId card : movingWith(dropped)) {
                     send(new GameEvent.CardMoved(
                             me, card, ZoneRef.of(me, Zone.HAND), Placement.BOTTOM));

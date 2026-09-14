@@ -201,4 +201,49 @@ class HandFanTest {
 
         assertThat(only.centerX()).isCloseTo(AREA.centerX(), org.assertj.core.data.Offset.offset(2.0));
     }
+    @Nested
+    @DisplayName("dragging a card to another place in the hand")
+    class Reordering {
+
+        /** Let go over a card's own resting place, and that is the place it takes. */
+        @Property(tries = 300)
+        void aDropOverASlotTakesThatPlace(@ForAll @IntRange(min = 1, max = 30) int count) {
+            for (int index = 0; index < count; index++) {
+                Rect where = HandFan.slot(AREA, count, index, -1).where();
+                assertThat(HandFan.placeAt(AREA, count, (int) Math.round(where.centerX())))
+                        .as("slot %s of %s", index, count).isEqualTo(index);
+            }
+        }
+
+        @Property(tries = 100)
+        void pastEitherEndIsThatEnd(@ForAll @IntRange(min = 1, max = 30) int count) {
+            assertThat(HandFan.placeAt(AREA, count, AREA.x() - 500)).isZero();
+            assertThat(HandFan.placeAt(AREA, count, AREA.right() + 500)).isEqualTo(count - 1);
+        }
+
+        /** However a card is moved, the hand keeps every card exactly once. */
+        @Property(tries = 400)
+        void movingKeepsEveryCard(
+                @ForAll @IntRange(min = 1, max = 20) int count,
+                @ForAll @IntRange(min = -2, max = 22) int from,
+                @ForAll @IntRange(min = -2, max = 22) int to) {
+            java.util.List<Integer> hand = new java.util.ArrayList<>();
+            for (int card = 0; card < count; card++) {
+                hand.add(card);
+            }
+            java.util.List<Integer> after = HandFan.moved(hand, from, to);
+            assertThat(after).containsExactlyInAnyOrderElementsOf(hand);
+            if (from >= 0 && from < count) {
+                assertThat(after.indexOf(from)).isEqualTo(Math.max(0, Math.min(count - 1, to)));
+            }
+        }
+
+        @Test
+        void theFirstCardDraggedToTheEndGoesLast() {
+            assertThat(HandFan.moved(java.util.List.of("a", "b", "c", "d"), 0, 3))
+                    .containsExactly("b", "c", "d", "a");
+            assertThat(HandFan.moved(java.util.List.of("a", "b", "c", "d"), 3, 1))
+                    .containsExactly("a", "d", "b", "c");
+        }
+    }
 }

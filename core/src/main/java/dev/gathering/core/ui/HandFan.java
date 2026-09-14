@@ -124,6 +124,40 @@ public final class HandFan {
     }
 
     /**
+     * Which place in the hand a card let go of here would take: 0 at the left end, the last
+     * place at the right.
+     * <p>The nearest resting slot to the pointer, measured across the fan and not down it, so
+     * the drop lands where the gap is drawn however high over the strip the card is carried.
+     * Beyond either end is that end: a card dragged off past the last one goes last.
+     */
+    public static int placeAt(Rect area, int count, int x) {
+        if (area.isEmpty() || count <= 1) {
+            return 0;
+        }
+        int width = widthFor(area, count);
+        int step = stepFor(area, count, width);
+        int total = width + step * (count - 1);
+        int left = area.x() + (area.width() - total) / 2;
+        int nearest = (int) Math.round((x - left - width / 2.0) / step);
+        return Math.max(0, Math.min(count - 1, nearest));
+    }
+
+    /**
+     * The hand with one card taken out of its place and put in another.
+     * <p>Every card is still there exactly once, whatever the two places are; a place past
+     * either end is that end.
+     */
+    public static <T> java.util.List<T> moved(java.util.List<T> hand, int from, int to) {
+        if (hand == null || from < 0 || from >= hand.size()) {
+            return hand == null ? java.util.List.of() : java.util.List.copyOf(hand);
+        }
+        java.util.List<T> order = new java.util.ArrayList<>(hand);
+        T card = order.remove(from);
+        order.add(Math.max(0, Math.min(order.size(), to)), card);
+        return java.util.List.copyOf(order);
+    }
+
+    /**
      * How big a card is drawn.
      * <p>As tall as the strip allows, until there are so many that even at the tightest
      * overlap they would not fit across it - at which point the cards themselves give way.
