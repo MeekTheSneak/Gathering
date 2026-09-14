@@ -29,6 +29,9 @@ public final class ChoiceScreen extends ChildScreen {
     /** Two to a row, which fits a land's name at the width a panel wants to be. */
     private static final int ACROSS = 2;
 
+    /** Room either side of a label inside its button. */
+    private static final int LABEL_ROOM = 8;
+
     /** One answer: what it is called, and what happens when it is pressed. */
     public record Option(Component label, Runnable chosen) {
     }
@@ -46,7 +49,8 @@ public final class ChoiceScreen extends ChildScreen {
 
     @Override
     protected void init() {
-        int rows = (options.size() + ACROSS - 1) / ACROSS;
+        int across = acrossFor(options.stream().mapToInt(option -> this.font.width(option.label())).toArray());
+        int rows = (options.size() + across - 1) / across;
         int height = MARGIN * 2 + ROW * 2 + GAP * 2 + rows * (ROW + GAP);
         panel = new Rect(
                 (this.width - PANEL_WIDTH) / 2,
@@ -55,12 +59,12 @@ public final class ChoiceScreen extends ChildScreen {
                 Math.min(height, this.height - MARGIN * 2));
 
         int top = panel.y() + MARGIN + ROW;
-        int width = (panel.width() - MARGIN * 2 - GAP * (ACROSS - 1)) / ACROSS;
+        int width = (panel.width() - MARGIN * 2 - GAP * (across - 1)) / across;
         for (int index = 0; index < options.size(); index++) {
             Option option = options.get(index);
             addRenderableWidget(GatheringButtons.of(
-                    panel.x() + MARGIN + (index % ACROSS) * (width + GAP),
-                    top + (index / ACROSS) * (ROW + GAP), width, ROW,
+                    panel.x() + MARGIN + (index % across) * (width + GAP),
+                    top + (index / across) * (ROW + GAP), width, ROW,
                     option.label(), () -> choose(option)));
         }
 
@@ -71,6 +75,22 @@ public final class ChoiceScreen extends ChildScreen {
         addRenderableWidget(GatheringButtons.of(
                 panel.x() + MARGIN, decideTop, panel.width() - MARGIN * 2, ROW,
                 Component.translatable("gui.cancel"), this::onClose));
+    }
+
+    /**
+     * Two answers to a row when every one of them fits half the panel, and one otherwise.
+     * <p>All or none: "Plains" fits half and is two across, but "Lost Mine of Phandelver" does
+     * not, and a pair of dungeons shrunk to fit sat beside "Undercity" at full size - four
+     * buttons in three sizes of writing.
+     */
+    static int acrossFor(int[] labelWidths) {
+        int half = (PANEL_WIDTH - MARGIN * 2 - GAP * (ACROSS - 1)) / ACROSS;
+        for (int wide : labelWidths) {
+            if (wide + LABEL_ROOM > half) {
+                return 1;
+            }
+        }
+        return ACROSS;
     }
 
     private void choose(Option option) {

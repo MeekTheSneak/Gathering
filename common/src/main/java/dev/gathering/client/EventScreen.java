@@ -232,8 +232,8 @@ public final class EventScreen extends Screen {
                 }
                 Component dropA = Component.translatable("screen.gathering.event.drop_a");
                 Component dropB = Component.translatable("screen.gathering.event.drop_b");
-                int dropAWidth = Math.max(44, this.font.width(dropA) + 10);
-                int dropBWidth = Math.max(44, this.font.width(dropB) + 10);
+                int dropAWidth = Math.max(44, this.font.width(dropA) + 14);
+                int dropBWidth = Math.max(44, this.font.width(dropB) + 14);
                 addRenderableWidget(GatheringButtons.of(x + 56, bottom, dropAWidth, ROW, dropA,
                         () -> send(EventActionPayload.Action.DROP_PLAYER, 0, 0, 0, 0, chosen.idA())));
                 addRenderableWidget(GatheringButtons.of(x + 56 + dropAWidth + 3, bottom, dropBWidth, ROW, dropB,

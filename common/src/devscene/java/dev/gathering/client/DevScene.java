@@ -10362,6 +10362,16 @@ public final class DevScene {
                         + " in " + width + "x" + height);
             }
         }
+        // Said rather than failed, for now: a button shrinks a label that is too wide and trims
+        // what still is not, and "1-0-1" losing its first digit read as a design until it was
+        // looked at. Every one is listed so the run can be read for them.
+        for (AbstractWidget widget : shown) {
+            if (widget instanceof net.minecraft.client.gui.components.Button
+                    && client.font.width(widget.getMessage()) + 4 > widget.getWidth()) {
+                System.out.println("[devscene] tight button at " + name + ": \"" + widget.getMessage().getString()
+                        + "\" is " + client.font.width(widget.getMessage()) + " wide in " + widget.getWidth());
+            }
+        }
         for (int one = 0; one < shown.size(); one++) {
             for (int two = one + 1; two < shown.size(); two++) {
                 AbstractWidget first = shown.get(one);
