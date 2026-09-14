@@ -190,8 +190,10 @@ build order T1-T7 are in `docs/tournaments.md`. Progress:
   with a polygon offset, as sign text is), the label hidden within 3 blocks of the table's
   middle, a seated player looks down at the felt, and the create screen's left column is the
   wider one. The tour now photographs the seat and then the label from 8 blocks back.
-  **Not yet seen on screen:** two tour runs of these fixes were killed by the machine for low
-  memory (other applications were using most of it), at roughly a third of the way.
+  **Not yet seen on screen:** three tour runs of these fixes (`81e22a4f`) were killed by the
+  machine for low memory (other applications were using most of it), each within the first
+  third. Next action: rerun the tour with the machine otherwise idle and look at
+  `101-a-new-tournament`, `104-seated-at-table-one` and `104a-a-numbered-table`.
 
 Still open: a sign-up locked by an opening that never completes stays locked until restart (the
 lock is not saved); prize descriptions use server-side item names.
