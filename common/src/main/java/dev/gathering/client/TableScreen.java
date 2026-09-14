@@ -27,6 +27,7 @@ import dev.gathering.core.ui.BulkLimit;
 import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.CardShape;
 import dev.gathering.core.ui.HandFan;
+import dev.gathering.core.ui.TableGesture;
 import dev.gathering.core.ui.Legibility;
 import dev.gathering.core.ui.Rect;
 import dev.gathering.core.ui.ReplayStrip;
@@ -152,17 +153,6 @@ public final class TableScreen extends Screen {
     private static final float SMALLEST_LIFE_SCALE = 0.6f;
 
     private static final int SMALLEST_LIFE_BOX = 4;
-
-    /** How far the cursor must travel before a press becomes a drag rather than a click. */
-    private static final int DRAG_THRESHOLD = 3;
-
-    /**
-     * How long a press has to be held still before it means the whole pile, in milliseconds.
-     * <p>Long enough that nobody picks up their graveyard by accident on the way to picking
-     * up the top card of it, short enough that it is a gesture rather than a wait. Measured
-     * against the same monotonic clock the card flights use.
-     */
-    private static final long LONG_HOLD = 350L;
 
     /** Where the dragged card is drawn relative to the cursor while it is in the air. */
     private static final float LIFT = 300f;
@@ -293,16 +283,12 @@ public final class TableScreen extends Screen {
     /** Whether the board being played is the one on the table in the world. */
     private boolean playingOnTheBlock;
 
-    /** The card in the air, if any, and where on it the cursor took hold. */
-    private Held held;
-
     /**
-     * Whether the press currently down ever wandered.
-     * <p>Latched, rather than asked of the cursor's position each frame: a drag that happens
-     * to pass back over the point it started from is still a drag, and must not turn into a
-     * long hold three seconds in because the hand came home.
+     * What the pointer is in the middle of: a card carried, a box dragged out, a pan.
+     * <p>Every change to it is one of {@link TableGesture}'s transitions; this screen reads
+     * it and decides what a gesture means for the board.
      */
-    private boolean holdStrayed;
+    private final TableGesture gesture = new TableGesture();
 
     /**
      * The cards a player has picked out to act on together.
@@ -312,9 +298,6 @@ public final class TableScreen extends Screen {
      */
     private final Set<CardInstanceId> selected = new LinkedHashSet<>();
 
-    /** The corner a box-select started from, while one is being dragged out. */
-    private int[] boxFrom;
-
     /**
      * Where the chosen cards would go if the tidy were applied, or empty while none is offered.
      * <p>A promise rather than an act. Nothing has moved, nothing has been sent, and pressing
@@ -323,9 +306,6 @@ public final class TableScreen extends Screen {
      * board nobody trusts to leave a card where they put it.
      */
     private List<dev.gathering.core.ui.ArrangeSelection.Spot> arranging = List.of();
-
-    /** Where a middle-drag pan started, so the table follows the hand. */
-    private int[] panFrom;
 
     /**
      * The cards waiting to be put onto something, once their host has been picked.
@@ -615,43 +595,6 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * A card that has been picked up.
-     * <p>The grab offset is the whole reason this is a record rather than an id: a card that
-     * snaps its corner to the cursor jumps out from under your finger the moment you touch it,
-     * and putting something down where you are pointing is the one thing a table has to get
-     * right.
-     */
-    private record Held(
-            CardInstanceId card, SeatId from, boolean fromHand, Zone fromPile,
-            int grabX, int grabY, int pressX, int pressY, long began, boolean whole) {
-        // grabX/grabY are in the space the *board* is measured in - pixels on the seated
-        // screen, surface units on the block. pressX/pressY stay in pixels, because how far
-        // the hand has moved before a press becomes a drag is a question about the mouse.
-        //
-        // fromPile is the zone the card was lifted off, or null. A press on a pile cannot
-        // know yet whether it is a click or the start of a drag, so it becomes a drag either
-        // way and the release decides: moved, and the card goes where it was dropped; not
-        // moved, and it was a click on the pile after all.
-        //
-        // card is null only for a pile whose top this client may not name - your own library.
-        // There is still something to hold there, because holding a library is how you pick
-        // the whole thing up, and the whole thing needs no card named to move.
-        //
-        // whole is set once the press has been held still long enough to mean the pile or the
-        // stack rather than the card off the top of it. began is when the press landed, on
-        // the same monotonic clock everything else in the client measures against.
-
-        boolean hasMoved(int mouseX, int mouseY) {
-            return Math.abs(mouseX - pressX) >= DRAG_THRESHOLD
-                    || Math.abs(mouseY - pressY) >= DRAG_THRESHOLD;
-        }
-
-        Held asWhole() {
-            return new Held(card, from, fromHand, fromPile, grabX, grabY, pressX, pressY, began, true);
-        }
-    }
-
-    /**
      * One card as it is currently drawn: whose it is, where on screen, and which way round.
      * <p>Built once a frame and used by both the drawing and the hit-testing, which is what
      * stops them disagreeing about where anything is. In back-to-front order, so drawing walks
@@ -666,9 +609,7 @@ public final class TableScreen extends Screen {
         // Nothing half-done survives a re-init. A screen opened over this one mid-gesture
         // - a prompt, a pile - came back to a card still held, a box still being drawn or an
         // attach still waiting, and the next unrelated release dropped or consumed it.
-        held = null;
-        boxFrom = null;
-        panFrom = null;
+        gesture.cancel();
         attaching = List.of();
         swallowingTheChatKey = false;
         if (geometry == null) {
@@ -997,9 +938,7 @@ public final class TableScreen extends Screen {
     private void useTheBlock(boolean wanted) {
         playingOnTheBlock = wanted;
         forgetThePointer();
-        held = null;
-        boxFrom = null;
-        panFrom = null;
+        gesture.cancel();
         if (wanted) {
             TableCameraView.focusOn(table, myMatIsOnTheSouthHalf(), myMatOnTheBlock(),
                     coveredByTheStatus(), coveredByTheHand());
@@ -1172,7 +1111,7 @@ public final class TableScreen extends Screen {
             // because the world renderer has no idea where anybody's mouse is.
             hovered = frontMostAt(everythingOnTheTable(board), mouseX, mouseY);
             ClientTableHighlight.set(idOf(hovered), List.copyOf(selected),
-                    held == null ? null : held.card());
+                    gesture.held() == null ? null : gesture.held().card());
             // The mats on the block carry the same buttons and the same piles as the seated
             // board, and until the cursor could light them and name them they were boxes
             // painted on a table - pressable, but only by somebody who already knew.
@@ -1293,8 +1232,9 @@ public final class TableScreen extends Screen {
                     Component.translatable("screen.gathering.table.attaching", attaching.size()),
                     this.width / 2, 6, this.width - 16, ACCENT);
         }
+        TableGesture.Start boxFrom = gesture.boxStart();
         if (boxFrom != null) {
-            Rect box = boxBetween(boxFrom[0], boxFrom[1], mouseX, mouseY);
+            Rect box = boxBetween(boxFrom.x(), boxFrom.y(), mouseX, mouseY);
             GatheringSprites.draw(graphics, Element.SELECT_BOX,
                     box.x(), box.y(), box.width(), box.height());
         }
@@ -1352,7 +1292,7 @@ public final class TableScreen extends Screen {
                     leftEdgeOfTheMats()));
         }
 
-        if (!tooltip.isEmpty() && !showingLog && !showingKeys && held == null
+        if (!tooltip.isEmpty() && !showingLog && !showingKeys && gesture.held() == null
                 && !CardZoomOverlay.isActive()) {
             // Pushed down far enough that it cannot land on the status bar. Vanilla clamps a
             // tooltip to the window and knows nothing about the one row of this screen that
@@ -1950,6 +1890,7 @@ public final class TableScreen extends Screen {
         pile = shakenIfStirred(view.seat(), zone, pile);
         ZoneView contents = view.zones().get(zone);
         int count = contents == null ? 0 : contents.count();
+        TableGesture.Held held = gesture.held();
         if (held != null && held.fromPile() == zone && held.from().equals(view.seat())) {
             // Whatever is in the air is out of the pile as far as anybody looking is
             // concerned - the top card, or on a long hold the whole thing.
@@ -2646,7 +2587,7 @@ public final class TableScreen extends Screen {
      */
     private List<CardView> handAsItWouldLand(List<CardView> hand, int mouseX, int mouseY) {
         int from = heldHandIndex(hand);
-        if (from < 0 || !held.hasMoved(mouseX, mouseY)
+        if (from < 0 || !gesture.held().hasMoved(mouseX, mouseY)
                 || !layout().hand().contains(mouseX, mouseY)) {
             return hand;
         }
@@ -2655,6 +2596,7 @@ public final class TableScreen extends Screen {
 
     /** Where in the hand the card being carried came from, or -1 if it is not from the hand. */
     private int heldHandIndex(List<CardView> hand) {
+        TableGesture.Held held = gesture.held();
         if (held == null || !held.fromHand() || held.card() == null) {
             return -1;
         }
@@ -3242,7 +3184,7 @@ public final class TableScreen extends Screen {
      * are about to put it on.
      */
     private void renderHeldCard(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
-        if (held == null) {
+        if (gesture.held() == null) {
             aimReport = "nothing held";
             aimedSlotLastFrame = -1;
             ClientTableHighlight.aimAt(null, -1);
@@ -3250,6 +3192,7 @@ public final class TableScreen extends Screen {
             return;
         }
         checkLongHold(board);
+        TableGesture.Held held = gesture.held();
         CardView card = held.card() == null ? null : findCard(board, held.card()).orElse(null);
         if (card == null && !held.whole()) {
             aimReport = "held a card the view has no answer for";
@@ -3355,19 +3298,19 @@ public final class TableScreen extends Screen {
      * what it looks like.
      */
     private void drawHeldPile(GuiGraphics graphics, GameView board, CardView top, Rect airborne) {
-        ZoneView contents = board.seat(held.from()).zone(held.fromPile());
+        ZoneView contents = board.seat(gesture.held().from()).zone(gesture.held().fromPile());
         int count = contents == null ? 0 : contents.count();
         int step = Math.max(2, airborne.height() / 24);
         for (int behind = Math.min(3, count - 1); behind >= 1; behind--) {
             int offset = behind * step;
-            CardSleeves.draw(graphics, CardSleeves.of(board, held.from()),
+            CardSleeves.draw(graphics, CardSleeves.of(board, gesture.held().from()),
                     airborne.x() + offset, airborne.y() - offset,
                     airborne.width(), airborne.height());
         }
         if (top != null) {
-            drawCard(graphics, top, CardSleeves.of(board, held.from()), airborne, 0, false, false);
+            drawCard(graphics, top, CardSleeves.of(board, gesture.held().from()), airborne, 0, false, false);
         } else {
-            CardSleeves.draw(graphics, CardSleeves.of(board, held.from()),
+            CardSleeves.draw(graphics, CardSleeves.of(board, gesture.held().from()),
                     airborne.x(), airborne.y(), airborne.width(), airborne.height());
         }
         drawCountInTheCorner(graphics, airborne, count);
@@ -3441,7 +3384,7 @@ public final class TableScreen extends Screen {
 
         // Middle-drag pans, which is what it does in every table simulator.
         if (button == 2) {
-            panFrom = new int[] {x, y};
+            gesture.startPan(x, y);
             return true;
         }
 
@@ -3492,7 +3435,7 @@ public final class TableScreen extends Screen {
             // Empty table: drag out a box to pick several cards, or click to let them go.
             if (button == 0) {
                 selected.clear();
-                boxFrom = new int[] {x, y};
+                gesture.startBox(x, y);
                 return true;
             }
         }
@@ -3523,7 +3466,7 @@ public final class TableScreen extends Screen {
                 // meant, not the one you forgot to clear.
                 selected.clear();
             }
-            held = grab(visible.id(), seat, fromHand, where, x, y);
+            gesture.pickUp(grab(visible.id(), seat, fromHand, where, x, y));
             return true;
         }
         return true;
@@ -3536,14 +3479,14 @@ public final class TableScreen extends Screen {
      * of the hand has no such offset to keep - its slot in the fan is not where it is going -
      * so it takes the cursor by the middle, which is where you would expect to be holding it.
      */
-    private Held grab(CardInstanceId card, SeatId seat, boolean fromHand, Rect where, int x, int y) {
+    private TableGesture.Held grab(
+            CardInstanceId card, SeatId seat, boolean fromHand, Rect where, int x, int y) {
         return grab(card, seat, fromHand, null, where, x, y);
     }
 
-    private Held grab(
+    private TableGesture.Held grab(
             CardInstanceId card, SeatId seat, boolean fromHand, Zone fromPile,
             Rect where, int x, int y) {
-        holdStrayed = false;
         long now = ClientCardFlights.now();
         double[] at = fromHand ? null : pointer(x, y);
         // On the block the card takes the cursor by the middle too: the grab offset there is
@@ -3553,9 +3496,9 @@ public final class TableScreen extends Screen {
         if (at == null || playingOnTheBlock) {
             // Straight from the hand, or from somewhere the table cannot answer for: the card
             // takes the cursor by the middle, which is where you would expect to be holding it.
-            return new Held(card, seat, fromHand, fromPile, 0, 0, x, y, now, false);
+            return new TableGesture.Held(card, seat, fromHand, fromPile, 0, 0, x, y, now, false);
         }
-        return new Held(card, seat, fromHand, fromPile,
+        return new TableGesture.Held(card, seat, fromHand, fromPile,
                 (int) Math.round(at[0] - where.centerX()),
                 (int) Math.round(at[1] - where.centerY()), x, y, now, false);
     }
@@ -3570,17 +3513,15 @@ public final class TableScreen extends Screen {
      * off the cursor, so a press that produced none never moved.
      */
     private void checkLongHold(GameView board) {
-        if (held == null || held.whole() || held.fromHand()) {
+        if (!gesture.isDueForAHold(ClientCardFlights.now())) {
             return;
         }
-        if (holdStrayed || ClientCardFlights.now() - held.began() < LONG_HOLD) {
-            return;
-        }
+        TableGesture.Held held = gesture.held();
         if (held.fromPile() != null) {
             // A pile with one card in it is a card; there is nothing for the gesture to mean.
             ZoneView contents = board.seat(held.from()).zone(held.fromPile());
             if (contents == null || contents.count() < 2) {
-                holdStrayed = true;
+                gesture.refuseWhole();
                 return;
             }
             // Emptying somebody else's library into the open would show you the whole thing,
@@ -3588,10 +3529,10 @@ public final class TableScreen extends Screen {
             // draws a pile in the air and then does nothing on release is worse than one that
             // never arms at all.
             if (held.fromPile().isHidden() && !held.from().equals(mySeat().orElse(null))) {
-                holdStrayed = true;
+                gesture.refuseWhole();
                 return;
             }
-            held = held.asWhole();
+            gesture.holdWhole();
             GatheringButtons.clickSound();
             return;
         }
@@ -3600,12 +3541,12 @@ public final class TableScreen extends Screen {
         // the rule for how close counts is the same one that draws them leaning.
         List<CardInstanceId> stack = stackedWith(board, held.from(), held.card());
         if (stack.size() < 2) {
-            holdStrayed = true;
+            gesture.refuseWhole();
             return;
         }
         selected.clear();
         selected.addAll(stack);
-        held = held.asWhole();
+        gesture.holdWhole();
         GatheringButtons.clickSound();
     }
 
@@ -3640,16 +3581,14 @@ public final class TableScreen extends Screen {
             replayControls.drag(replayStrip(), (int) mouseX);
             return true;
         }
-        if (panFrom != null && button == 2) {
+        if (gesture.isPanning() && button == 2) {
             pan(dragX, dragY);
             return true;
         }
         // A press that has wandered is a drag, and stays one. Latched here rather than read
         // off the cursor while drawing, because a drag that happens to pass back over where
         // it started is still a drag and must not become a long hold when the hand comes home.
-        if (held != null && !held.whole() && held.hasMoved((int) mouseX, (int) mouseY)) {
-            holdStrayed = true;
-        }
+        gesture.dragged((int) mouseX, (int) mouseY);
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -3658,18 +3597,16 @@ public final class TableScreen extends Screen {
         if (replayControls.release()) {
             return true;
         }
-        if (panFrom != null && button == 2) {
-            panFrom = null;
+        if (button == 2 && gesture.endPan()) {
             return true;
         }
-        if (boxFrom != null) {
-            int[] from = boxFrom;
-            boxFrom = null;
+        TableGesture.Start from = gesture.endBox();
+        if (from != null) {
             view().ifPresent(board ->
-                    selectWithin(board, boxBetween(from[0], from[1], (int) mouseX, (int) mouseY)));
+                    selectWithin(board, boxBetween(from.x(), from.y(), (int) mouseX, (int) mouseY)));
             return true;
         }
-        if (held == null) {
+        if (gesture.held() == null) {
             return super.mouseReleased(mouseX, mouseY, button);
         }
         // The button that picked it up is the one that puts it down. A right button released
@@ -3677,8 +3614,7 @@ public final class TableScreen extends Screen {
         if (button != 0) {
             return true;
         }
-        Held dropped = held;
-        held = null;
+        TableGesture.Held dropped = gesture.putDown();
 
         SeatId me = mySeat().orElse(null);
         if (me == null) {
@@ -3803,7 +3739,7 @@ public final class TableScreen extends Screen {
      * <p>Only for cards already on the felt. One coming out of a hand or off a pile is the one
      * card that was picked up, whatever else happens to be selected.
      */
-    private List<CardInstanceId> movingWith(Held dropped) {
+    private List<CardInstanceId> movingWith(TableGesture.Held dropped) {
         if (dropped.card() == null) {
             return List.of();
         }
@@ -3819,7 +3755,7 @@ public final class TableScreen extends Screen {
      * moved at all: nobody may name the cards in one, so a client that had to list them could
      * not ask - and it is what keeps the log to a line and undo to a step.
      */
-    private void sendWholePile(Held dropped, SeatId me, ZoneRef to, Placement placement) {
+    private void sendWholePile(TableGesture.Held dropped, SeatId me, ZoneRef to, Placement placement) {
         if (dropped.fromPile() == null || to.equals(ZoneRef.of(dropped.from(), dropped.fromPile()))) {
             return;
         }
@@ -3833,7 +3769,7 @@ public final class TableScreen extends Screen {
      * which is what clamping each card on its own would do to a board somebody spent the game
      * building.
      */
-    private void dropGroup(Held dropped, SeatId landing, TablePosition where, SeatId me) {
+    private void dropGroup(TableGesture.Held dropped, SeatId landing, TablePosition where, SeatId me) {
         GameView board = view().orElse(null);
         if (board == null) {
             return;
@@ -4092,6 +4028,7 @@ public final class TableScreen extends Screen {
     }
 
     private boolean isHeld(CardView card) {
+        TableGesture.Held held = gesture.held();
         return held != null && held.card() != null
                 && card instanceof CardView.Visible visible && visible.id().equals(held.card());
     }
@@ -4387,8 +4324,8 @@ public final class TableScreen extends Screen {
             // A pile whose top nobody may name is still held, with no card in hand: your own
             // library is the pile most worth being able to pick up whole, and the release
             // decides between the click that draws and the hold that moves the lot.
-            held = grab(liftableFrom(board, owner, pile), owner, false, pile,
-                    pileSlotOf(owner, pile), x, y);
+            gesture.pickUp(grab(liftableFrom(board, owner, pile), owner, false, pile,
+                    pileSlotOf(owner, pile), x, y));
             return true;
         }
         // The sound is the answer to "did that do anything", so it is only made when the
@@ -6140,7 +6077,7 @@ public final class TableScreen extends Screen {
     private boolean watcherClicked(int x, int y, int button) {
         if (button == 2) {
             // Panning is looking, not playing, and a replay is entirely for looking.
-            panFrom = new int[] {x, y};
+            gesture.startPan(x, y);
         } else if (button == 0) {
             replayControls.click(replayStrip(), x, y);
         }
@@ -6268,7 +6205,7 @@ public final class TableScreen extends Screen {
      */
     private boolean somethingIsOpen() {
         return saying != null || menu != null || palette != null || !attaching.isEmpty()
-                || showingKeys || showingLog || held != null || !arranging.isEmpty();
+                || showingKeys || showingLog || gesture.held() != null || !arranging.isEmpty();
     }
 
     /** Shuts all of it, because Escape is one press and a player pressed it once. */
@@ -6281,7 +6218,7 @@ public final class TableScreen extends Screen {
         showingLog = false;
         // Put back where it came from, which is what letting go off the table does too: the
         // card never moved as far as the server is concerned, so there is nothing to undo.
-        held = null;
+        gesture.putDown();
         // The same is true of a tidy nobody agreed to: it was a drawing, and dropping it
         // leaves every card exactly where its owner put it.
         arranging = List.of();
