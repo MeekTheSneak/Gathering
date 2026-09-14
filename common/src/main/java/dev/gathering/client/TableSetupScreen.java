@@ -52,8 +52,8 @@ public final class TableSetupScreen extends Screen {
     @Override
     protected void init() {
         List<FormatPreset> formats = FormatPresets.all();
-        // The last term is the guided first game's row and the line above it saying what it
-        // is. Counted here rather than left to overflow: a button drawn past the bottom of
+        // The last term is the guided first game's row and the line under it saying what is
+        // chosen. Counted here rather than left to overflow: a button drawn past the bottom of
         // the panel is a button on the felt.
         int height = MARGIN * 2 + ROW_HEIGHT * 3 + GAP * 3
                 + rowsFor(formats.size() + 1) * (ROW_HEIGHT + GAP)
@@ -123,14 +123,20 @@ public final class TableSetupScreen extends Screen {
         // so there is no board screen to offer it on - which is exactly the moment it is
         // wanted. Always offered, not only the first time: somebody who said no a month ago
         // and now wants to know which key taps a card has nowhere else to go.
-        learnTop = decideTop + ROW_HEIGHT + GAP * 2;
-        addRenderableWidget(GatheringButtons.of(
+        int learnTop = decideTop + ROW_HEIGHT + GAP * 2;
+        net.minecraft.client.gui.components.Button learnButton = GatheringButtons.of(
                 panel.x() + MARGIN, learnTop, panel.width() - MARGIN * 2, ROW_HEIGHT,
-                Component.translatable("tutorial.gathering.offer.yes"), this::learn));
+                Component.translatable("tutorial.gathering.offer.yes"), this::learn);
+        // What it is for, on the button rather than above it. It was a line drawn in the eight
+        // pixels between this row and Cancel and Start, which is a pixel less than a line of
+        // text: the scripted client photographed it running through the bottom of both
+        // buttons. There is no room to give it on a small window - this panel is already
+        // taller than a 240-pixel-high interface - and the button's own label says most of
+        // it, so the sentence went where a sentence about a button goes.
+        learnButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable("tutorial.gathering.offer")));
+        addRenderableWidget(learnButton);
     }
-
-    /** Where the "learn the controls" row sits, so its explanation can be drawn above it. */
-    private int learnTop;
 
     /**
      * Asks for a practice game and gets out of the way.
@@ -225,12 +231,6 @@ public final class TableSetupScreen extends Screen {
         GuiText.drawCentered(graphics, this.font, chosen,
                 panel.x() + panel.width() / 2, panel.bottom() - 12, panel.width() - MARGIN * 2, DIM);
 
-        // Said above the button rather than inside it, because it is the sentence that makes
-        // the button worth pressing and it does not fit on one.
-        GuiText.drawCentered(graphics, this.font,
-                Component.translatable("tutorial.gathering.offer"),
-                panel.x() + panel.width() / 2, learnTop - this.font.lineHeight - 1,
-                panel.width() - MARGIN * 2, DIM);
         chosenSaid = chosen.getString();
     }
 
