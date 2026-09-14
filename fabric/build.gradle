@@ -85,6 +85,9 @@ sourceSets {
     testmod {
         compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
         runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+        // The scripted client run, shared with :neoforge's game tests. Development code: here,
+        // in the runs, and never in the jar. Ticked by DevSceneTicks.
+        java.srcDir rootProject.file('common/src/devscene/java')
     }
 }
 
@@ -111,6 +114,13 @@ loom.mods {
     gathering_testmod {
         sourceSet sourceSets.testmod
     }
+}
+
+// The client run carries the test mod, because the scripted run lives there now and it is the
+// client that runs it. Set here rather than where the run is declared: the source set does not
+// exist yet at that point in the file. The dedicated server run is left on main.
+loom.runs.client {
+    source sourceSets.testmod
 }
 
 // Dev runs need the shared classes and assets without dragging :common's own Minecraft

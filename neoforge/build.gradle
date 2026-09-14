@@ -21,6 +21,9 @@ sourceSets {
     gametest {
         compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
         runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+        // The scripted client run, shared with :fabric's testmod. Development code, so it is
+        // compiled here - into the runs and never into the jar - and ticked by DevSceneTicks.
+        java.srcDir rootProject.file('common/src/devscene/java')
     }
 }
 

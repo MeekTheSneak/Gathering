@@ -75,8 +75,10 @@ import net.minecraft.world.level.levelgen.presets.WorldPresets;
  * table up, starts a game, opens the board, photographs it in both views, and quits. The
  * pictures land in {@code run/screenshots} and can be looked at by anybody - or anything -
  * that can open a PNG.
- * <p>Off unless the property is set, and never referenced by anything that ships. It is a
- * workbench, not a feature.
+ * <p>Off unless the property is set, and not in anything that ships. It lives in a development
+ * source directory that only the loaders' development source sets compile - NeoForge's game
+ * tests and Fabric's test mod - and each ticks it from a development-only hook there. The mod a
+ * player installs neither contains it nor names it. It is a workbench, not a feature.
  * <p>Client-only.
  */
 public final class DevScene {

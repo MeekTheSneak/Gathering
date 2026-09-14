@@ -6,6 +6,9 @@
   "description": "In-world checks for the parts of Gathering that are the Fabric loader's own. Never shipped: its own source set and its own mod id, so nothing here is on a player's classpath.",
   "environment": "*",
   "entrypoints": {
+    "client": [
+      "dev.gathering.fabric.test.DevSceneTicks"
+    ],
     "fabric-gametest": [
       "dev.gathering.fabric.test.FabricLootGameTest",
       "dev.gathering.fabric.test.FabricRegistrationGameTest",

@@ -32,9 +32,9 @@ public final class ClientTicks {
         // And the row of token names, on the same debounce and for the same reason: making
         // five Treasures in a row is one write rather than five.
         RecentThings.tick();
-        // The scripted run. It does nothing at all unless its property is set, and it is the
-        // only thing that tells us whether a loader plays the game rather than merely
-        // starting it - so it runs on both.
-        DevScene.tick(client);
+        // Not the scripted run. That is development code and is not in the shipped mod: each
+        // loader's development source set ticks it from its own hook - DevSceneTicks in both -
+        // so nothing here names it and a release jar has nothing to name. It was called from
+        // here until it was, which is what kept a ten-thousand-line test driver in every copy.
     }
 }

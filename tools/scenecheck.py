@@ -19,7 +19,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SCENE = ROOT / "common/src/main/java/dev/gathering/client/DevScene.java"
+SCENE = ROOT / "common/src/devscene/java/dev/gathering/client/DevScene.java"
 
 CASE = re.compile(r"^\s*case (\d+) ->", re.MULTILINE)
 LAST = re.compile(r"private static final int LAST_STEP = (\d+);")
