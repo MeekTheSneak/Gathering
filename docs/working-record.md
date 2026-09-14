@@ -266,6 +266,7 @@ notes below are what a status line cannot hold.
 | CL-05b | Done | Below |
 | CL-06 | Done, not seen | Below |
 | CL-10 | Partial, not seen | Below |
+| CL-11b | Done | Below |
 
 **CL-09.** `PracticeTable` now holds only what production needs: `retire`, the answers to an
 old client's START and STOP, `isPracticeAt` and the demonstration seat. Creation lives in
@@ -355,6 +356,23 @@ and one action binding shared by menu, palette and keys. Nothing automated exerc
 verified by the compiler and by reading. The three above are small enough for that. The
 remaining ones move input handling, and should be paired with a scripted client run.
 **All three pieces above are graphically unverified.**
+
+**CL-11b.** `GatheringProtocol` in common is the one list of payloads: type, codec, direction,
+and for serverbound ones the handler. Each loader walks it through a generic helper that keeps
+type, codec and handler agreeing at compile time - no cast, no reflection - and adds only what
+is its own: NeoForge's protocol version and handler thread and its context-to-player check,
+Fabric's type registries. NeoForge's file went from 499 lines to 79, Fabric's from 335 to 60.
+
+Checked before the switch rather than assumed: a script read both loaders' registrations and
+the new list and found the same 34 serverbound and 22 clientbound types in all three. One small
+difference went away in passing - four NeoForge handlers cast the context's player without
+checking it; every route now checks. Both game-test servers boot on the shared list, and
+`ProtocolGameTest` checks each id is listed once, in one direction, in this mod's namespace.
+What a client does with a payload is still wired in each client bootstrap, so a dedicated server
+still names no client class.
+
+Not run: a real dedicated server and a real client connecting across the two loaders. The game-
+test servers prove registration succeeds, not that a live connection negotiates.
 
 The audit also measured the bulk-broadcast cost independently and agrees with the number
 recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views
