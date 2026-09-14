@@ -19,8 +19,15 @@ public final class JdkHttpTransport implements HttpTransport {
 
     private final HttpClient client;
 
+    /**
+     * One client for every transport that does not bring its own. A JDK client owns a selector
+     * thread and a connection pool; a fresh one per service, made again for every world opened
+     * in single player, left each of those behind until the collector happened to reach it.
+     */
+    private static final HttpClient SHARED = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
+
     public JdkHttpTransport() {
-        this(HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build());
+        this(SHARED);
     }
 
     public JdkHttpTransport(HttpClient client) {

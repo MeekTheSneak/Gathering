@@ -389,6 +389,7 @@ public final class EventRecords {
             }
         }
         effects.put(tournament.id(), deltas);
+        forgetOldMeetings(now);
         save();
     }
 
@@ -411,6 +412,16 @@ public final class EventRecords {
     }
 
     /** Whether this meeting of two players may move ratings, recording it if so. */
+    /**
+     * Forgets meetings that no longer count toward anything: older than the window, and pairs
+     * with none left. Each pair used to keep its list for ever, saved with the records, however
+     * long ago the two played - one entry for every pair of players the server has ever seen.
+     */
+    private static void forgetOldMeetings(long now) {
+        meetings.values().forEach(times -> times.removeIf(time -> now - time >= PAIR_WINDOW_MILLIS));
+        meetings.values().removeIf(List::isEmpty);
+    }
+
     private static boolean meetingCounts(UUID a, UUID b, long now) {
         String key = a.compareTo(b) < 0 ? a + "|" + b : b + "|" + a;
         List<Long> times = meetings.computeIfAbsent(key, ignored -> new ArrayList<>());

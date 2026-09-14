@@ -106,6 +106,11 @@ public final class EventViews {
         return ++budget[1] <= ACTIONS_PER_SECOND;
     }
 
+    /** Forgets one player's budget, who has gone. */
+    public static void forget(UUID player) {
+        BUDGETS.remove(player);
+    }
+
     /** Forgets every budget, for a server that is stopping. */
     static void forgetBudgets() {
         BUDGETS.clear();

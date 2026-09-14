@@ -61,6 +61,18 @@ public final class ActionBudget {
         return true;
     }
 
+    /** Forgets one player, who has gone. */
+    public void forget(UUID player) {
+        buckets.remove(player);
+    }
+
+    /** Forgets one player in every shared budget. */
+    public static void forgetShared(UUID player) {
+        CARD_LOOKUPS.forget(player);
+        WHOLE_SETS.forget(player);
+        TABLE_REQUESTS.forget(player);
+    }
+
     /** Forgets everybody, for a server that is stopping. */
     public void clear() {
         buckets.clear();

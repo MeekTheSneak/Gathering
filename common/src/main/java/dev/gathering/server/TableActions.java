@@ -48,6 +48,12 @@ public final class TableActions {
     /** Undos: each one refolds the whole game, so fewer. */
     static final ActionBudget UNDOS = new ActionBudget(2, 6);
 
+    /** Forgets one player's budgets, who has gone. */
+    public static void forget(java.util.UUID player) {
+        MOVES.forget(player);
+        UNDOS.forget(player);
+    }
+
     /** Forgets every player's budget, for a server that is stopping. */
     public static void clear() {
         MOVES.clear();

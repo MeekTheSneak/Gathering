@@ -239,6 +239,40 @@ Open, for the owner: seated players may draw, mill or shuffle another seat's lib
 pack and shuffle randomness is
 `SecureRandom`, an undocumented but stronger exception to the `level.getRandom()` rule.
 
+## Memory audit (2026-09-14)
+
+Asked for by the owner. Every static collection, static reference to a world, player or screen,
+texture registration, thread pool and in-memory cache on both sides was checked for how it is
+emptied.
+
+**Sound:** the only static world reference (`ServerRun.running`) is cleared on stop; no static
+players, entities, block entities or screens; client textures are released against a byte budget
+and set-symbol textures past a cap; every per-player server cache is forgotten in
+`PlayerGone.left` and every holder is cleared on stop (`statecheck` enforces the second);
+client per-table state is dropped per table and on disconnect; the card and collation workers
+are shut down on server stop on both loaders; the tick scheduler and every throttle map have a
+bound.
+
+**Fixed:**
+- **Card metadata was the one large grower.** Every card a server has looked up is held for name
+  lookups, measured at **5.3 KB per card** on the 3,037-card development cache (about half a
+  gigabyte for every English printing). A heap histogram showed 62 strings per card, most of
+  them repeats: 21 format names in every legality table, set names, type lines, artists. The
+  codec now shares repeated words and whole legality tables (bounded pools), and prices are a
+  compact immutable map. Measured again: strings 188,000 to 70,000, live heap for the cache
+  about 16 MB to 9.7 MB. Guard: `ScryfallCardCodecTest.repeatedPartsOfCardsAreKeptOnce`, shown
+  to fail without the shared tables.
+- Per-player budgets added in the security review (moves, lookups, event actions) are now
+  forgotten when a player leaves, not only when the server stops.
+- `Events.goneSince` is swept on each disconnect of players no event is waiting on.
+- The rating ledger kept every pair of players who had ever met, saved with the records; pairs
+  whose meetings have all aged out of the seven-day window are dropped.
+- Every HTTP transport made its own JDK client, each with a selector thread, again for every
+  single-player world opened; they now share one.
+
+Not changed: image URLs are still six strings per card face (about a fifth of what remains),
+because each is distinct and shortening them would change the saved cache format.
+
 ## Owner-approved requirements, and what they superseded
 
 | Decision | State |

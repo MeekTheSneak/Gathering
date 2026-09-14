@@ -61,6 +61,9 @@ public final class PlayerGone {
         // means nothing in the next one.
         Refusals.forget(player.getUUID());
         CreativeDecks.forget(player);
+        // And the budgets that limit how fast they may ask for things.
+        TableActions.forget(player.getUUID());
+        ActionBudget.forgetShared(player.getUUID());
 
         // StarterBoosters is deliberately NOT forgotten here, and this comment is what says
         // so - the check next door looks for the name rather than the call. Everything else

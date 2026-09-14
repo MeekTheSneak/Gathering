@@ -76,7 +76,11 @@ public record CardMetadata(
         faces = faces == null ? List.of() : List.copyOf(faces);
         games = games == null ? List.of() : List.copyOf(games);
         legalities = legalities == null ? Map.of() : Map.copyOf(legalities);
-        prices = prices == null ? Map.of() : Collections.unmodifiableMap(new java.util.HashMap<>(prices));
+        // Compact and immutable, missing prices left out: a hash map per card was a table node for
+        // every currency on every card the server holds.
+        prices = prices == null ? Map.of() : prices.entrySet().stream()
+                .filter(entry -> entry.getKey() != null && entry.getValue() != null)
+                .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
         related = related == null ? List.of() : List.copyOf(related);
     }
 

@@ -1060,9 +1060,13 @@ public final class Events {
     }
 
     public static void left(ServerPlayer player) {
+        EventViews.forget(player.getUUID());
         if (of(player.getUUID()).isPresent()) {
             goneSince.put(player.getUUID(), wallClock.getAsLong());
         }
+        // Nobody who is no longer in an unfinished event needs their absence counted. Swept here,
+        // on a disconnect, so the map holds only players some event is still waiting on.
+        goneSince.keySet().removeIf(gone -> of(gone).isEmpty());
     }
 
     public static void arrived(ServerPlayer player) {

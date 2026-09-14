@@ -29,6 +29,24 @@ class ScryfallCardCodecTest {
         assertThat(solRing.usdPrice()).isPresent();
     }
 
+    /**
+     * A server holds every card it has looked up. Read twice, the same card must share its
+     * repeated parts - the legality table and the words in it - rather than hold two of each:
+     * those were most of every kilobyte a cached card cost.
+     */
+    @Test
+    @DisplayName("cards read separately share their legality tables and repeated words")
+    void repeatedPartsOfCardsAreKeptOnce() {
+        CardMetadata one = Fixtures.card("sol_ring");
+        CardMetadata two = Fixtures.card("sol_ring");
+
+        assertThat(one).isEqualTo(two);
+        assertThat(one.legalities()).isSameAs(two.legalities());
+        assertThat(one.setName()).isSameAs(two.setName());
+        assertThat(one.typeLine()).isSameAs(two.typeLine());
+        assertThat(one.faces().isEmpty() || one.faces().get(0).artist() == two.faces().get(0).artist()).isTrue();
+    }
+
     @Test
     @DisplayName("a transform card's faces each keep their own text and art")
     void readsBothFacesOfATransformCard() {

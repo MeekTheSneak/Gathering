@@ -31,6 +31,53 @@ public final class ScryfallCardCodec {
     private ScryfallCardCodec() {
     }
 
+    /**
+     * Words that repeat across cards, kept once.
+     * <p>A server keeps every card it has looked up in memory, and a card read straight off
+     * JSON is sixty-odd separate strings - twenty-one of them the names of the formats in its
+     * legality table, identical on every card, and most of the rest a set name, a type line or
+     * an artist that hundreds of other cards share. Measured on a cache of three thousand cards,
+     * strings were four of every five kilobytes. The same word is now the same string.
+     * <p>Bounded, so a flood of distinct values stops being shared rather than growing this.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<String, String> WORDS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Legality tables, which repeat whole: a few dozen distinct tables cover thousands of cards. */
+    private static final java.util.concurrent.ConcurrentHashMap<Map<String, Legality>, Map<String, Legality>> TABLES =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static final int MOST_WORDS = 1 << 16;
+    private static final int MOST_TABLES = 1 << 12;
+
+    static String shared(String word) {
+        if (word == null) {
+            return null;
+        }
+        String kept = WORDS.get(word);
+        if (kept != null) {
+            return kept;
+        }
+        if (WORDS.size() >= MOST_WORDS) {
+            return word;
+        }
+        kept = WORDS.putIfAbsent(word, word);
+        return kept == null ? word : kept;
+    }
+
+    private static Map<String, Legality> sharedTable(Map<String, Legality> table) {
+        Map<String, Legality> copied = Map.copyOf(table);
+        Map<String, Legality> kept = TABLES.get(copied);
+        if (kept != null) {
+            return kept;
+        }
+        if (TABLES.size() >= MOST_TABLES) {
+            return copied;
+        }
+        kept = TABLES.putIfAbsent(copied, copied);
+        return kept == null ? copied : kept;
+    }
+
     /** Returns empty rather than throwing when the object is not a usable card. */
     public static Optional<CardMetadata> parse(JsonObject json) {
         if (json == null) {
@@ -47,16 +94,16 @@ public final class ScryfallCardCodec {
                 id,
                 uuid(json, "oracle_id"),
                 string(json, "name"),
-                string(json, "mana_cost"),
+                shared(string(json, "mana_cost")),
                 number(json, "cmc"),
-                string(json, "type_line"),
+                shared(string(json, "type_line")),
                 string(json, "oracle_text"),
                 stringSet(json, "colors"),
                 stringSet(json, "color_identity"),
                 faces,
-                string(json, "layout"),
-                string(json, "set"),
-                string(json, "set_name"),
+                shared(string(json, "layout")),
+                shared(string(json, "set")),
+                shared(string(json, "set_name")),
                 string(json, "collector_number"),
                 Rarity.parse(string(json, "rarity")),
                 bool(json, "reserved"),
@@ -177,14 +224,14 @@ public final class ScryfallCardCodec {
 
         faces.add(new CardFace(
                 string(json, "name"),
-                string(json, "mana_cost"),
-                string(json, "type_line"),
+                shared(string(json, "mana_cost")),
+                shared(string(json, "type_line")),
                 string(json, "oracle_text"),
-                string(json, "power"),
-                string(json, "toughness"),
-                string(json, "loyalty"),
+                shared(string(json, "power")),
+                shared(string(json, "toughness")),
+                shared(string(json, "loyalty")),
                 string(json, "flavor_text"),
-                string(json, "artist"),
+                shared(string(json, "artist")),
                 parseImageUris(object(json, "image_uris"))));
         return faces;
     }
@@ -209,9 +256,9 @@ public final class ScryfallCardCodec {
         }
         Map<String, Legality> out = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> entry : legalities.entrySet()) {
-            out.put(entry.getKey(), Legality.parse(asString(entry.getValue())));
+            out.put(shared(entry.getKey()), Legality.parse(asString(entry.getValue())));
         }
-        return out;
+        return sharedTable(out);
     }
 
     private static Map<String, String> parsePrices(JsonObject json) {
@@ -223,7 +270,7 @@ public final class ScryfallCardCodec {
         for (Map.Entry<String, JsonElement> entry : prices.entrySet()) {
             String value = asString(entry.getValue());
             if (value != null) {
-                out.put(entry.getKey(), value);
+                out.put(shared(entry.getKey()), value);
             }
         }
         return out;
@@ -295,7 +342,7 @@ public final class ScryfallCardCodec {
         for (JsonElement element : array) {
             String value = asString(element);
             if (value != null) {
-                out.add(value);
+                out.add(shared(value));
             }
         }
         return List.copyOf(out);
