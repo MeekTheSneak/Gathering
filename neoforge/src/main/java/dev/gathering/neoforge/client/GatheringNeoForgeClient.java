@@ -11,12 +11,8 @@ import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientNetworking;
 import dev.gathering.client.TableColors;
 import dev.gathering.client.DeckContentsScreen;
-import dev.gathering.client.DecklistImportScreen;
 import dev.gathering.client.ZoomKeyState;
 import dev.gathering.item.GatheringContent;
-import dev.gathering.network.CardMetadataPayload;
-import dev.gathering.network.ImportResultPayload;
-import dev.gathering.network.OpenImportScreenPayload;
 import dev.gathering.neoforge.GatheringClientPayloadHandlers;
 import dev.gathering.service.CardNameLookup;
 import dev.gathering.service.DeckScreenHook;
@@ -141,6 +137,11 @@ public final class GatheringNeoForgeClient {
             });
             ClientFetching.identifyAs(
                     Gathering.MOD_NAME + " client (+https://github.com/MeekTheSneak/Gathering)");
+            // What happens when each clientbound payload arrives is ClientPayloads', shared with
+            // Fabric. Checked against the protocol first, so a payload the server can send and
+            // this client cannot apply stops the client starting rather than going missing.
+            dev.gathering.client.ClientPayloads.checkCovers(
+                    dev.gathering.network.GatheringProtocol.TO_CLIENT);
             GatheringClientPayloadHandlers.bind(GatheringNeoForgeClient::handlePayload);
 
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onRenderGui);
@@ -153,119 +154,16 @@ public final class GatheringNeoForgeClient {
         });
     }
 
+    /**
+     * Every clientbound payload, onto the client thread and into the shared routes.
+     * <p>Enqueued, as every route but the card metadata one was before. The registrar already
+     * runs handlers on the client thread, where enqueueing runs the work straight through, so
+     * this changes no ordering; it keeps the one line that decides the thread saying so.
+     */
     private static void handlePayload(
             net.minecraft.network.protocol.common.custom.CustomPacketPayload payload,
             net.neoforged.neoforge.network.handling.IPayloadContext context) {
-        if (payload instanceof CardMetadataPayload metadata) {
-            ClientCardCache.get().accept(metadata.cards());
-            return;
-        }
-        if (payload instanceof OpenImportScreenPayload) {
-            context.enqueueWork(() -> Minecraft.getInstance().setScreen(new DecklistImportScreen()));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.OpenTableSetupPayload setup) {
-            context.enqueueWork(() -> Minecraft.getInstance()
-                    .setScreen(new dev.gathering.client.TableSetupScreen(setup.table())));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.OpenSideboardPayload sideboard) {
-            context.enqueueWork(() -> acceptSideboard(sideboard));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.SetProgressPayload progress) {
-            context.enqueueWork(() -> dev.gathering.client.SetProgressScreen.accept(progress));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.WantsPayload wants) {
-            context.enqueueWork(() -> dev.gathering.client.ClientWants.accept(wants));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.SetMissingPayload missing) {
-            context.enqueueWork(() -> dev.gathering.client.MissingCardsScreen.accept(missing));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.TableSaidPayload said) {
-            context.enqueueWork(() -> dev.gathering.client.ClientTableChat.accept(said));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.TableViewPayload table) {
-            context.enqueueWork(() -> dev.gathering.client.ClientTableState.acceptPayload(table));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.PackOpenedPayload opened) {
-            context.enqueueWork(() -> Minecraft.getInstance().setScreen(
-                    new dev.gathering.client.PackOpeningScreen(
-                            opened.setCode(), opened.kind(), opened.cards())));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.AntePotPayload pot) {
-            context.enqueueWork(() ->
-                    dev.gathering.client.ClientTableState.acceptPot(pot.table(), pot.cards()));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.AnteConsentPayload ante) {
-            context.enqueueWork(() -> dev.gathering.client.AnteConsentScreen.accept(ante));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.OpenLoanersPayload loaners) {
-            context.enqueueWork(() -> dev.gathering.client.LoanerScreen.accept(loaners));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.OpenCollectionPayload collection) {
-            context.enqueueWork(() ->
-                    dev.gathering.client.CollectionScreen.show(collection));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.CollectionPagePayload page) {
-            context.enqueueWork(() -> dev.gathering.client.CollectionScreen.accept(page));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.ReplayListPayload listed) {
-            context.enqueueWork(() -> dev.gathering.client.ReplayListScreen.accept(listed));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.ReplayFramePayload frame) {
-            context.enqueueWork(() -> dev.gathering.client.ClientReplay.accept(frame));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.DraftViewPayload pod) {
-            context.enqueueWork(() -> acceptDraftView(pod));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.TradeViewPayload trade) {
-            context.enqueueWork(() -> dev.gathering.client.TradeScreen.accept(trade));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.MyDeckPayload mine) {
-            context.enqueueWork(() -> dev.gathering.client.ClientHeldDeck.accept(mine));
-            return;
-        }
-        if (payload instanceof dev.gathering.network.CloseTablePayload closing) {
-            context.enqueueWork(() -> dev.gathering.client.ClientTableState.closed(closing.table()));
-            return;
-        }
-        if (payload instanceof ImportResultPayload result) {
-            context.enqueueWork(() -> {
-                if (Minecraft.getInstance().screen
-                        instanceof dev.gathering.client.DeckBuilderScreen builder) {
-                    builder.onResult(result);
-                } else if (Minecraft.getInstance().screen instanceof DecklistImportScreen screen) {
-                    screen.onResult(result);
-                }
-            });
-        }
-    }
-
-    /** Takes a pack off the wire and puts it in front of the drafter it belongs to. */
-    private static void acceptDraftView(dev.gathering.network.DraftViewPayload payload) {
-        dev.gathering.client.DraftScreen.show(payload.pod(), payload.view(), payload.open());
-    }
-
-    /** Hands the payload to the screen, which decides whether to open or refresh. */
-    private static void acceptSideboard(dev.gathering.network.OpenSideboardPayload payload) {
-        dev.gathering.client.SideboardScreen.open(
-                payload.table(), payload.deck(), payload.gameNumber(), payload.bestOf());
+        context.enqueueWork(() -> dev.gathering.client.ClientPayloads.apply(payload));
     }
 
     /** The overlay over the HUD, for a card held in hand. */

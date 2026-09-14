@@ -8,15 +8,12 @@ import dev.gathering.client.ClientCardCache;
 import dev.gathering.client.ClientFetching;
 import dev.gathering.client.ClientHoverState;
 import dev.gathering.client.ClientNetworking;
+import dev.gathering.client.ClientPayloads;
 import dev.gathering.client.GuiThemeOption;
 import dev.gathering.client.TableColors;
 import dev.gathering.client.DeckContentsScreen;
-import dev.gathering.client.DecklistImportScreen;
 import dev.gathering.client.ZoomKeyState;
 import dev.gathering.item.GatheringContent;
-import dev.gathering.network.CardMetadataPayload;
-import dev.gathering.network.ImportResultPayload;
-import dev.gathering.network.OpenImportScreenPayload;
 import dev.gathering.service.CardNameLookup;
 import dev.gathering.service.DeckScreenHook;
 import net.fabricmc.api.ClientModInitializer;
@@ -46,11 +43,11 @@ public final class GatheringFabricClient implements ClientModInitializer {
             GLFW.GLFW_KEY_LEFT_ALT,
             "key.categories." + Gathering.MOD_ID);
 
-    /** Hands the payload to the screen, which decides whether to open or refresh. */
-    private static void acceptSideboard(
-            net.minecraft.client.Minecraft client, dev.gathering.network.OpenSideboardPayload payload) {
-        dev.gathering.client.SideboardScreen.open(
-                payload.table(), payload.deck(), payload.gameNumber(), payload.bestOf());
+    /** One clientbound route, applied on the client thread. Generic so the type needs no cast. */
+    private static <T extends net.minecraft.network.protocol.common.custom.CustomPacketPayload>
+            void receive(ClientPayloads.Route<T> route) {
+        ClientPlayNetworking.registerGlobalReceiver(route.type(), (payload, context) ->
+                context.client().execute(() -> route.apply().accept(payload)));
     }
 
     @Override
@@ -103,107 +100,14 @@ public final class GatheringFabricClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.ITEM.register(
                 dev.gathering.item.DeckItem::tintOf, GatheringContent.DECK.get());
 
-        ClientPlayNetworking.registerGlobalReceiver(CardMetadataPayload.TYPE, (payload, context) ->
-                ClientCardCache.get().accept(payload.cards()));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.TableViewPayload.TYPE, (payload, context) ->
-                        context.client().execute(() -> dev.gathering.client.ClientTableState.acceptPayload(payload)));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.SetProgressPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.SetProgressScreen.accept(payload)));
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.WantsPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.ClientWants.accept(payload)));
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.SetMissingPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.MissingCardsScreen.accept(payload)));
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.TableSaidPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.ClientTableChat.accept(payload)));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.PackOpenedPayload.TYPE, (payload, context) ->
-                        context.client().execute(() -> context.client().setScreen(
-                                new dev.gathering.client.PackOpeningScreen(
-                                        payload.setCode(), payload.kind(), payload.cards()))));
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.AntePotPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.ClientTableState.acceptPot(
-                                        payload.table(), payload.cards())));
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.AnteConsentPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.AnteConsentScreen.accept(payload)));
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.OpenLoanersPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.LoanerScreen.accept(payload)));
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.OpenCollectionPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.CollectionScreen.show(payload)));
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.CollectionPagePayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.CollectionScreen.accept(payload)));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.ReplayListPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.ReplayListScreen.accept(payload)));
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.ReplayFramePayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.ClientReplay.accept(payload)));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.DraftViewPayload.TYPE, (payload, context) ->
-                        context.client().execute(() -> dev.gathering.client.DraftScreen.show(
-                                payload.pod(), payload.view(), payload.open())));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.TradeViewPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.TradeScreen.accept(payload)));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.MyDeckPayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.ClientHeldDeck.accept(payload)));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.CloseTablePayload.TYPE, (payload, context) ->
-                        context.client().execute(() ->
-                                dev.gathering.client.ClientTableState.closed(payload.table())));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.OpenTableSetupPayload.TYPE, (payload, context) ->
-                        context.client().execute(() -> context.client()
-                                .setScreen(new dev.gathering.client.TableSetupScreen(payload.table()))));
-
-        ClientPlayNetworking.registerGlobalReceiver(
-                dev.gathering.network.OpenSideboardPayload.TYPE, (payload, context) ->
-                        context.client().execute(() -> acceptSideboard(context.client(), payload)));
-
-        ClientPlayNetworking.registerGlobalReceiver(OpenImportScreenPayload.TYPE, (payload, context) ->
-                context.client().execute(() -> context.client().setScreen(new DecklistImportScreen())));
-
-        ClientPlayNetworking.registerGlobalReceiver(ImportResultPayload.TYPE, (payload, context) ->
-                context.client().execute(() -> {
-                    if (context.client().screen
-                            instanceof dev.gathering.client.DeckBuilderScreen builder) {
-                        builder.onResult(payload);
-                    } else if (context.client().screen instanceof DecklistImportScreen screen) {
-                        screen.onResult(payload);
-                    }
-                }));
+        // What happens when each clientbound payload arrives is ClientPayloads', shared with
+        // NeoForge; this loader only registers a receiver for each and gets the work onto the
+        // client thread. Checked against the protocol first, so a payload the server can send
+        // and this client cannot apply stops the client starting rather than going missing.
+        ClientPayloads.checkCovers(dev.gathering.network.GatheringProtocol.TO_CLIENT);
+        for (ClientPayloads.Route<?> route : ClientPayloads.ROUTES) {
+            receive(route);
+        }
 
         // Vanilla keeps the hovered slot private to the container screen, so the tooltip
         // callback - which already knows which stack it is describing - is where the overlay
