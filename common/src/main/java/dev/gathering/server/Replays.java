@@ -142,8 +142,14 @@ public final class Replays {
             Path kept = folder.resolve(System.currentTimeMillis() + "-"
                     + Integer.toHexString(session.hashCode()) + SUFFIX);
             Path writing = kept.resolveSibling(kept.getFileName() + ".writing");
-            Files.write(writing, bytes.toByteArray());
-            Files.move(writing, kept, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            try {
+                Files.write(writing, bytes.toByteArray());
+                Files.move(writing, kept, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } finally {
+                // Gone either way: moved into place, or a failed attempt that nothing lists and
+                // nothing would ever delete - one per game on a nearly full disk.
+                Files.deleteIfExists(writing);
+            }
             forgetTheOldest();
             return true;
         } catch (IOException | RuntimeException couldNotWrite) {

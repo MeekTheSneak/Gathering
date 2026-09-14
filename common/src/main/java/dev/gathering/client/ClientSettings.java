@@ -509,9 +509,28 @@ public final class ClientSettings {
     private static void writeFresh(Path where) {
         try {
             Files.createDirectories(where.getParent());
-            Files.writeString(where, template(), StandardCharsets.UTF_8);
+            replaceWhole(where, template());
         } catch (IOException couldNotWrite) {
             LOGGER.warn("Could not write {}: {}", FILE_NAME, couldNotWrite.getMessage());
+        }
+    }
+
+    /**
+     * Writes a file beside itself and moves it into place.
+     * <p>Both ways this file is written go through here - the first launch as much as every
+     * change after - so a game closed or crashing halfway through leaves the old file, or no
+     * file, rather than half of one. Half of one is refused on the next launch, which falls back
+     * to the defaults and then writes them back over everything the player had chosen. A failed
+     * attempt removes its own leftover. Protection against a process stopping, not against the
+     * power going: nothing here forces the disk to flush.
+     */
+    private static void replaceWhole(Path where, String text) throws IOException {
+        Path writing = where.resolveSibling(where.getFileName() + ".writing");
+        try {
+            Files.writeString(writing, text, StandardCharsets.UTF_8);
+            Files.move(writing, where, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(writing);
         }
     }
 
@@ -615,13 +634,7 @@ public final class ClientSettings {
                 text = replaced(text, entry.getKey(), entry.getValue());
             }
             Files.createDirectories(where.getParent());
-            // Written beside and moved into place, as the recents file already is, so a game
-            // closed or crashing halfway through a write leaves the old settings rather than
-            // half of the new ones - which the reader would then refuse, and fall back to the
-            // defaults, and write back over everything the player had chosen.
-            Path writing = where.resolveSibling(where.getFileName() + ".writing");
-            Files.writeString(writing, text, StandardCharsets.UTF_8);
-            Files.move(writing, where, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            replaceWhole(where, text);
             failing = false;
             return true;
         } catch (IOException | RuntimeException couldNotWrite) {

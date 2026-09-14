@@ -186,7 +186,9 @@ or unverified.
 
 The quality project (`docs/quality-backlog.csv`) is the current spine, but
 **`docs/working-record.md` is where its real state lives** - the backlog has been wrong about
-its own rows before. The next piece is QP-07, the local tutorial overlay, specified in
-`docs/reviews/quality-progress-2026-09-11.md`.
+its own rows before. After it came the cleanup roadmap
+(`docs/reviews/cleanup-2026-09-13-roadmap.csv`, with a status column). What is left on both
+needs a graphical client run, a person, or another mod's files; the working record's "Next
+concrete action" says which comes first.
 
 Branch: `claude/new-session-beye3i`.

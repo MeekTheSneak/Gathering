@@ -7,13 +7,13 @@ this says where it has got to.
 Everything here is a lead to verify, not proof.** Test counts are pasted from the run that
 produced them and from nowhere else.
 
-Last updated at the end of the quality-project session. The backlog is 20 of 28 done; everything still open needs a person, a graphics card, or another mod's files.
+Last updated 2026-09-13, after the cleanup roadmap. The quality backlog is 20 of 28 done and the cleanup roadmap 12 of 14 rows done; everything still open on either needs a person, a graphical client run, or another mod's files - see "What is left, and why each one needs you".
 
 ## Owner-approved requirements, and what they superseded
 
 | Decision | State |
 |---|---|
-| **QP-07: the guided first game is a local interactive overlay** shown when a player first sits at an ordinary table, before real play | **Approved. The overlay is implemented and isolated; retiring the old path and migrating saves is not done.** Full spec in `docs/reviews/quality-progress-2026-09-11.md` |
+| **QP-07: the guided first game is a local interactive overlay** shown when a player first sits at an ordinary table, before real play | **Approved and implemented.** The overlay is isolated, the old server-backed path is retired, and legacy practice tables in saves are migrated on their first tick. Graphically unverified. Full spec in `docs/reviews/quality-progress-2026-09-11.md` |
 | The separate server-backed practice table | **Retired.** No UI creates one, `PracticePayload.START` answers and starts nothing, and `PracticeTable.retire` takes leftovers in old saves apart from the table's own ticker. Creating one is no longer in the jar: the migration tests build the legacy shape with `LegacyPracticeTables`, a fixture in the game-test source set (CL-09) |
 | No rules enforcement, ever | Standing |
 | No player-supplied image URLs; the custom playmat is settled no | Standing — `docs/design-brief.md:313` |
@@ -463,6 +463,32 @@ What the profiling turned up instead were two write-safety defects, both fixed s
 
 Not measured: close and save latency of a long session on a real server with a real disk.
 
+### Independent review of the cleanup batch
+
+A reviewer agent was given the ten requirements above and the diff `daf8aa9a~1..HEAD`, before
+any narrative, read-only. **No high or medium findings**; it checked each requirement against
+the enforcing code (listed in its report: batch gates and ordering, spectator exclusion, cache
+keys and revision bumps, FrozenMap mutators and adoption sites, grid-cell arithmetic, payload
+parity and client-class isolation, practice retirement order, the read-key lookup). Five low
+findings, investigated:
+
+1. *`TableActionsPayload`'s comment claimed any payload meeting its bounds fits a packet.* It
+   does not: the bounds allow about 66 KB against a 32,767-byte serverbound limit. Only the
+   client's 16 KB split keeps batches sendable. The server-side bound is unaffected. **Comment
+   corrected** to say so and to route construction through `sendAll`.
+2. *A failed atomic write left its `.writing` file behind*, unlisted and never deleted - one per
+   game on a nearly full disk for replays. **Fixed**: both writers delete the leftover.
+3. *First-launch settings were still written straight over the file*, while the new comment
+   implied every write was protected. **Fixed**: both settings writes share one helper, and its
+   comment now says it protects against a process stopping, not a power loss (no fsync).
+4. *Any metadata store invalidates every collection answer*, including the names a page's own
+   lookup fetches, so page two of a cold collection searches again. Conservative and correct;
+   left as is. Noted with it: the cache holds up to 64 collection block entities strongly until
+   disconnect.
+5. *The block now piles attached cards differently.* Intended and recorded under CL-06.
+
+Gate after the fixes: green, 418/10.
+
 The audit also measured the bulk-broadcast cost independently and agrees with the number
 recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views
 would cost 1.97 ms and 7 MB. That is the strongest single argument for CL-03, and it is still
@@ -482,9 +508,13 @@ something this machine does not have.
 | **Q24** Pack-author guide | Written (`docs/pack-authors.md`), and it states plainly which parts are unverified. It cannot be finished until Q22/Q23 are. |
 | **Q27** Release acceptance | Everything above, plus a human sign-off. |
 | **Q12** second half | Time-to-completion, mistakes and newcomer observations. The gesture-count half is done in `docs/quality-after.md`. |
+| **CL-08** second half | DevScene out of the release jars. `ClientTicks` calls it directly, so it needs a development hook that registers it only in a dev run - and the only way to know the scripted client still starts afterwards is to start it. Do it after a known-good graphical run. |
+| **CL-10** remainder | Mode context, pointer controller and one action binding for menu, palette and keys. These move input handling in a screen no automated check loads; each needs a scripted client run beside it. |
+| **CL-14** Modpack qualification | Exact installed versions of Create, Aeronautics and Cataclysm, and real hardware for the p50/p95/p99 matrix. |
+| Live timings for CL-03/05/06/07/12 | Every number recorded for those is a core microbenchmark or a game-test count on this machine. Server tick and client frame times under a real crowded game have not been taken. |
 
-**The most valuable single thing anybody can do next is run `tools/shots.sh` and look at the
-pictures.** Seven features landed this session that have never been rendered.
+**The most valuable single thing anybody can do next is run the scripted client and look at the
+pictures.** Everything client-side from the quality project and the cleanup roadmap is unrendered.
 
 ## Why the bulk broadcast was measured and left alone
 
@@ -586,10 +616,12 @@ is still the owner's to make.
 
 ## Next concrete action
 
-1. **QP-07** — the local overlay, replacing server practice. Acceptance checks are listed in
-   the review; the short version is that a tutorial action must produce zero gameplay packets
-   and zero changes to inventory, seats, rewards or any real match, proved with a send-spy and
-   a live table in the background. Retiring the old practice path needs idempotent migration
-   for saves that already hold a practice table with a real deck on it.
-2. QP-05, then QP-06.
-3. Re-run `tools/shots.sh`: the last clean scripted run predates these fixes.
+1. **Run the scripted client and look at the pictures** (`./gradlew :neoforge:runClient -Pdevscene`
+   on macOS; `tools/shots.sh` under Xvfb). Every client-side change since the last clean run is
+   unseen: the tutorial overlay, menu fitting, the arrange preview, pile and attachment drawing
+   on both views, the replay strip, reading a card chosen from a pile, and a selection verb
+   animating after it became one batch.
+2. With a known-good run to compare against: the second half of CL-08 (DevScene out of the
+   release jar behind a development hook) and the rest of CL-10 (mode context, pointer
+   controller, shared action binding). Both change what the scripted client exercises.
+3. CL-14 once the pack's exact Create, Aeronautics and Cataclysm versions are known.

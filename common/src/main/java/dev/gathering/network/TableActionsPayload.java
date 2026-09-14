@@ -26,8 +26,12 @@ public record TableActionsPayload(BlockPos table, List<byte[]> events) implement
     /**
      * The most one event in a batch may take.
      * <p>Far below a single action's allowance, because a single action can be a deck load and a
-     * batch is a verb applied to a selection: a tap, a move, a counter - tens of bytes each. The
-     * whole payload therefore stays well inside what a client may send in one packet.
+     * batch is a verb applied to a selection: a tap, a move, a counter - tens of bytes each.
+     * <p>These bounds cap what the server will decode and do; they do <b>not</b> make every
+     * payload that meets them sendable. At the limits this codec accepts about 66 KB, and a
+     * client may send at most 32,767 bytes in one packet. Keeping a batch under that is
+     * {@code ClientTableActions.sendAll}'s job - it splits at 16 KB - so build these through it
+     * rather than directly.
      */
     public static final int MOST_BYTES_EACH = 512;
 
