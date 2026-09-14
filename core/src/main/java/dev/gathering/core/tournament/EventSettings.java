@@ -100,6 +100,13 @@ public record EventSettings(
             if (pod.kind() != (kind == Kind.SEALED ? PodSettings.Kind.SEALED : PodSettings.Kind.DRAFT)) {
                 return Optional.of("message.gathering.event.pod_kind");
             }
+            if (pod.cardsGo() != PodSettings.CardsGo.PLAYERS_KEEP) {
+                // A tournament's players build and play from their pools for the whole event.
+                // Cards going to a sponsor or back to their packs' owners would leave them
+                // nothing to build from - and taking a pool back out of a player's inventory at
+                // the end is not something the server can promise. A pod on its own still can.
+                return Optional.of("message.gathering.event.players_keep_pools");
+            }
             return pod.problem();
         }
         return Optional.empty();

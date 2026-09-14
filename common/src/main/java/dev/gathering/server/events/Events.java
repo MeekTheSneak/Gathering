@@ -28,7 +28,6 @@ import dev.gathering.registry.GatheringComponents;
 import dev.gathering.server.DeckCheck;
 import dev.gathering.server.PodLobbies;
 import dev.gathering.server.PodSignups;
-import dev.gathering.server.ServerTicks;
 import dev.gathering.server.TablesApart;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -65,17 +64,40 @@ public final class Events {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Gathering");
 
-    /** Ticks in a minute. */
+    /** Ticks in a minute, for what is still counted in ticks. */
     static final long MINUTE = 20L * 60L;
 
-    /** How long a player may be gone from a round before their match is conceded: five minutes. */
-    static final long GRACE = 5L * MINUTE;
+    /** Milliseconds in a minute. */
+    static final long MINUTE_MILLIS = 60_000L;
 
-    /** How long after a round's last result the next round is paired: long enough to read it. */
+    /** How long a player may be gone from a round before their match is conceded: five minutes. */
+    static final long GRACE_MILLIS = 5L * MINUTE_MILLIS;
+
+    /**
+     * How long after a round's last result the next round is paired, in server ticks: long enough
+     * to read it. A pause, not a clock anybody plays against, so it is counted in ticks.
+     */
     static final int PAUSE_BEFORE_NEXT_ROUND = 20 * 15;
 
+    /**
+     * The most real time one server tick may count for. A server that stalls, or a single-player
+     * game paused on its menu, resumes with a long gap since its last tick; that gap is the
+     * server not running, and a round's clock does not run while the server does not.
+     */
+    static final long LONGEST_TICK_MILLIS = 1_000L;
+
     private static Map<UUID, EventState> events;
+
+    /** When each absent player was first seen gone from an unfinished match, in wall-clock milliseconds. */
     private static final Map<UUID, Long> goneSince = new HashMap<>();
+
+    /** Where real time comes from, in nanoseconds. Replaced only by the in-world tests. */
+    static java.util.function.LongSupplier clock = System::nanoTime;
+
+    /** Wall-clock time, in milliseconds, for grace periods. Replaced only by the in-world tests. */
+    static java.util.function.LongSupplier wallClock = System::currentTimeMillis;
+
+    private static long lastTickNanos;
 
     private Events() {
     }
@@ -84,6 +106,8 @@ public final class Events {
     public static void clear() {
         events = null;
         goneSince.clear();
+        lastTickNanos = 0;
+        EventViews.forgetBudgets();
     }
 
     private static Map<UUID, EventState> events() {
@@ -157,6 +181,7 @@ public final class Events {
         EventState state = new EventState(tournament, level.dimension().location().toString());
         state.tables.addAll(tables);
         events().put(tournament.id(), state);
+        state.log(host.getUUID(), "create", tournament.name());
         EventRecords.hosted(host.getUUID());
         changed(level.getServer(), state);
         host.sendSystemMessage(Component.translatable("message.gathering.event.created", tournament.name(), tables.size()));
@@ -168,6 +193,10 @@ public final class Events {
         EventState state = hosted(host, eventId).orElse(null);
         ServerLevel level = host.serverLevel();
         if (state == null || !level.dimension().location().toString().equals(state.dimension)) {
+            return;
+        }
+        if (state.tournament.isOver()) {
+            host.sendSystemMessage(Component.translatable("message.gathering.event.already_over"));
             return;
         }
         BlockPos origin = nearestTable(level, clicked).orElse(null);
@@ -265,10 +294,11 @@ public final class Events {
                 player.getUUID(), player.getGameProfile().getName(), EventRecords.seedOf(player.getUUID()))))) {
             return;
         }
+        state.log(player.getUUID(), "register", player.getGameProfile().getName());
         if (deck != null) {
             state.decks.put(player.getUUID(), deck);
-            save(state);
         }
+        save(state);
         player.sendSystemMessage(Component.translatable(deck != null && settings.decks() == EventSettings.DeckRegistration.LOCKED
                 ? "message.gathering.event.registered_locked" : "message.gathering.event.registered", state.tournament.name()));
     }
@@ -279,11 +309,13 @@ public final class Events {
             return;
         }
         if (apply(player, state, tournament -> tournament.drop(player.getUUID()))) {
+            state.log(player.getUUID(), "withdraw", player.getGameProfile().getName());
             if (!state.tournament.isRegistered(player.getUUID())) {
                 state.decks.remove(player.getUUID());
                 state.pools.remove(player.getUUID());
-                save(state);
+                state.allocated.remove(player.getUUID());
             }
+            save(state);
             player.sendSystemMessage(Component.translatable("message.gathering.event.left", state.tournament.name()));
         }
     }
@@ -320,14 +352,35 @@ public final class Events {
      */
     public static void begin(ServerPlayer host, UUID eventId) {
         EventState state = hosted(host, eventId).orElse(null);
-        if (state == null || !apply(host, state, Tournament::beginPreparing)) {
+        if (state == null) {
             return;
         }
         MinecraftServer server = host.getServer();
         ServerLevel level = levelOf(server, state).orElse(null);
-        if (level == null) {
+        if (level == null || state.tables.isEmpty()) {
+            host.sendSystemMessage(Component.translatable("message.gathering.event.at_a_table"));
             return;
         }
+        if (state.tournament.settings().kind().isLimited()) {
+            // Asked before anything changes: a draft or sealed event is one pod at its home long
+            // table, and a pod that cannot seat everybody registered is refused here rather
+            // than begun with some of them left standing.
+            int seats = TableClusters.touching(level, state.tables.get(0)).seats().size();
+            int players = (int) state.tournament.entrants().stream()
+                    .filter(entrant -> !state.tournament.settings().largeEvent()
+                            || state.tournament.checkedIn().contains(entrant.id()))
+                    .count();
+            var pod = state.tournament.settings().pod();
+            int most = pod == null ? seats : Math.min(seats, pod.mostPlayers());
+            if (players > most) {
+                host.sendSystemMessage(Component.translatable("message.gathering.event.not_enough_seats", most, players));
+                return;
+            }
+        }
+        if (!apply(host, state, Tournament::beginPreparing)) {
+            return;
+        }
+        state.log(host.getUUID(), "begin", state.tournament.entrants().size() + " players");
         if (!state.tournament.settings().kind().isLimited()) {
             Tournament ready = state.tournament;
             for (Entrant entrant : ready.stillIn()) {
@@ -375,10 +428,12 @@ public final class Events {
         ItemStack held = player.getMainHandItem();
         DeckComponent deck = DeckItem.deckOf(held).orElse(null);
         DraftedPool pool = held.get(GatheringComponents.POOL.get());
-        // The pool names the table its draft was opened at, which is whichever of the long
-        // table's tables the cluster answered for - so any of this event's tables counts.
-        boolean fromThisEvent = pool != null && state.tables.stream()
-                .anyMatch(table -> table.toShortString().equals(pool.fromPod()));
+        // The pool has to be the one this event handed this player: named for this event, and
+        // the same cards the server recorded giving them. A pool item alone proves neither - one
+        // from an earlier event at the same table, or somebody else's, looks just the same.
+        List<CardComponent> given = state.allocated.get(player.getUUID());
+        boolean fromThisEvent = pool != null && pool.fromPod().equals(state.podName())
+                && given != null && sameCards(given, pool.cards());
         if (deck == null || !fromThisEvent) {
             player.sendSystemMessage(Component.translatable("message.gathering.event.hold_your_pool"));
             return;
@@ -398,6 +453,7 @@ public final class Events {
         }
         if (apply(player, state, tournament -> tournament.markReady(player.getUUID()))) {
             state.pools.put(player.getUUID(), pool);
+            state.log(player.getUUID(), "ready", deck.entries().size() + " cards");
             save(state);
             player.sendSystemMessage(Component.translatable("message.gathering.event.ready"));
             if (state.tournament.everyoneIsReady()) {
@@ -409,16 +465,35 @@ public final class Events {
     /** The host starts play now, whoever is not ready. Also what the build clock does at time. */
     public static void startNow(ServerPlayer host, UUID eventId) {
         hosted(host, eventId).ifPresent(state -> {
-            if (state.tournament.phase() == Tournament.Phase.PREPARING) {
-                startPlay(host.getServer(), state);
+            if (state.tournament.phase() != Tournament.Phase.PREPARING) {
+                return;
             }
+            ServerLevel level = levelOf(host.getServer(), state).orElse(null);
+            if (level != null && podStillRunning(level, state)) {
+                // Starting now skips the building, never the packs: they are still in a sign-up
+                // or a draft, and play cannot begin at a table they are on.
+                host.sendSystemMessage(Component.translatable("message.gathering.event.pod_still_running"));
+                return;
+            }
+            state.log(host.getUUID(), "start_now", "");
+            startPlay(host.getServer(), state);
         });
+    }
+
+    /** Whether the event's packs are still being signed up for, opened or drafted at its home table. */
+    static boolean podStillRunning(ServerLevel level, EventState state) {
+        if (!state.tournament.settings().kind().isLimited() || state.tables.isEmpty()) {
+            return false;
+        }
+        return TableBlock.entityAt(level, state.tables.get(0))
+                .map(entity -> entity.hasSignup() || entity.hasPod() || entity.isOpening()).orElse(false);
     }
 
     /** A player reports their match, as they see it. */
     public static void report(ServerPlayer player, UUID eventId, MatchResult asTheySeeIt) {
         get(eventId).ifPresent(state -> {
             if (apply(player, state, tournament -> tournament.report(player.getUUID(), asTheySeeIt))) {
+                state.log(player.getUUID(), "report", asTheySeeIt.winsA() + "-" + asTheySeeIt.winsB() + "-" + asTheySeeIt.draws());
                 Pairing pairing = state.tournament.currentRound().flatMap(round -> round.pairingOf(player.getUUID()))
                         .orElse(null);
                 if (pairing != null && pairing.isDisputed()) {
@@ -434,6 +509,8 @@ public final class Events {
     public static void settle(ServerPlayer host, UUID eventId, int table, MatchResult fromFirst) {
         hosted(host, eventId).ifPresent(state -> {
             if (apply(host, state, tournament -> tournament.settle(table, fromFirst))) {
+                state.log(host.getUUID(), "settle", "table " + table + ": " + fromFirst.winsA() + "-" + fromFirst.winsB()
+                        + "-" + fromFirst.draws());
                 afterResult(host.getServer(), state);
             }
         });
@@ -442,6 +519,7 @@ public final class Events {
     public static void dropPlayer(ServerPlayer host, UUID eventId, UUID player) {
         hosted(host, eventId).ifPresent(state -> {
             if (apply(host, state, tournament -> tournament.drop(player))) {
+                state.log(host.getUUID(), "drop", nameOf(state, player));
                 afterResult(host.getServer(), state);
             }
         });
@@ -456,7 +534,14 @@ public final class Events {
             host.sendSystemMessage(Component.translatable("message.gathering.event.host_only"));
             return;
         }
-        apply(host, state, Tournament::cancel);
+        if (state.tournament.isOver()) {
+            // An event that has ended has nothing left to call off - and its tables may be a
+            // newer event's by now, which a second clean-up would tear down.
+            host.sendSystemMessage(Component.translatable("message.gathering.event.already_over"));
+            return;
+        }
+        state.tournament = state.tournament.cancel();
+        state.log(host.getUUID(), "cancel", "");
         finishUp(host.getServer(), state);
     }
 
@@ -480,10 +565,22 @@ public final class Events {
             return;
         }
         ServerLevel level = levelOf(server, state).orElse(null);
+        if (level != null && podStillRunning(level, state)) {
+            tell(server, state.tournament.host(), Component.translatable("message.gathering.event.pod_still_running"));
+            return;
+        }
         if (level != null && !state.tables.isEmpty()) {
             // Whatever the draft left at the home table is over now.
             clearTables(level, state);
-            TablesApart.set(level, state.tables.get(0), true);
+            // Every long table in the venue played apart, not only the first: a second row left
+            // joined puts two pairings on one surface.
+            for (BlockPos table : tablesStillOurs(level, state)) {
+                if (TablesApart.set(level, table, true) == TablesApart.Result.IN_USE) {
+                    tell(server, state.tournament.host(), Component.translatable("message.gathering.event.tables_in_use",
+                            state.numberOf(table)));
+                    return;
+                }
+            }
         }
         try {
             state.tournament = state.tournament.startSwiss();
@@ -491,7 +588,9 @@ public final class Events {
             tell(server, state.tournament.host(), Component.translatable(refused.getMessage()));
             return;
         }
-        state.roundTicks = 0;
+        state.roundMillis = 0;
+        state.completeForTicks = -1;
+        state.log(null, "round", "1");
         seatRound(server, state);
         changed(server, state);
     }
@@ -592,7 +691,7 @@ public final class Events {
 
     /** Ends anything left running at the event's tables, handing decks back. */
     private static void clearTables(ServerLevel level, EventState state) {
-        for (BlockPos table : state.tables) {
+        for (BlockPos table : tablesStillOurs(level, state)) {
             TableBlock.entityAt(level, table).ifPresent(entity -> {
                 if (entity.hasSession()) {
                     TableSessions.end(level, table, entity, new SeatId(0), "event_round_over");
@@ -605,16 +704,24 @@ public final class Events {
         }
     }
 
+    /**
+     * After a result. The next round is not scheduled from here: the round clock notices a
+     * complete round however it became complete - a report, the host, a drop, a player gone too
+     * long, time - and pairs the next one after a pause, including after a restart.
+     */
     private static void afterResult(MinecraftServer server, EventState state) {
-        Round round = state.tournament.currentRound().orElse(null);
-        if (round != null && round.isComplete() && !state.tournament.isOver()) {
-            ServerTicks.on("event-next-" + state.tournament.id(), server.getTickCount() + PAUSE_BEFORE_NEXT_ROUND,
-                    () -> nextRound(server, state.tournament.id()));
-            for (Entrant entrant : state.tournament.stillIn()) {
-                tell(server, entrant.id(), Component.translatable("message.gathering.event.round_complete", round.number()));
-            }
-        }
         changed(server, state);
+    }
+
+    /**
+     * This event's tables that no other unfinished event has claimed since.
+     * <p>Coordinates are not ownership. An event that has ended gives its tables up, and a newer
+     * event may be playing on them - so anything an event does to its tables asks this first.
+     */
+    static List<BlockPos> tablesStillOurs(ServerLevel level, EventState state) {
+        return state.tables.stream()
+                .filter(table -> atTable(level, table).map(owner -> owner == state).orElse(true))
+                .toList();
     }
 
     private static void nextRound(MinecraftServer server, UUID eventId) {
@@ -634,11 +741,13 @@ public final class Events {
             }
         }
         state.tournament = tournament.nextRound();
-        state.roundTicks = 0;
+        state.roundMillis = 0;
+        state.completeForTicks = -1;
         if (state.tournament.isOver()) {
             finishUp(server, state);
             return;
         }
+        state.log(null, "round", String.valueOf(state.tournament.currentRound().map(Round::number).orElse(0)));
         seatRound(server, state);
         changed(server, state);
     }
@@ -646,11 +755,22 @@ public final class Events {
     private static void finishUp(MinecraftServer server, EventState state) {
         ServerLevel level = levelOf(server, state).orElse(null);
         if (level != null && !state.tables.isEmpty()) {
+            List<BlockPos> ours = tablesStillOurs(level, state);
             clearTables(level, state);
-            TablesApart.set(level, state.tables.get(0), false);
-            TableBlock.entityAt(level, state.tables.get(0)).filter(TableBlockEntity::hasSignup)
-                    .ifPresent(entity -> PodSignups.handBackEverything(level, state.tables.get(0), entity, "pod_signup_cancelled"));
+            BlockPos home = state.tables.get(0);
+            if (ours.contains(home)) {
+                // A draft still running is ended through its own return path: every contributor
+                // gets back what their packs held, as when its table is broken.
+                TableBlock.entityAt(level, home).filter(TableBlockEntity::hasPod)
+                        .ifPresent(entity -> dev.gathering.server.PodEvents.tableGoneMidDraft(level, home, entity));
+                TableBlock.entityAt(level, home).filter(TableBlockEntity::hasSignup)
+                        .ifPresent(entity -> PodSignups.handBackEverything(level, home, entity, "pod_signup_cancelled"));
+            }
+            for (BlockPos table : ours) {
+                TablesApart.set(level, table, false);
+            }
         }
+        state.log(null, state.tournament.phase().key(), "");
         if (state.tournament.phase() == Tournament.Phase.FINISHED) {
             EventRecords.finished(state.tournament, state.playedAtTable, System.currentTimeMillis());
             EventPrizes.handOut(server, state);
@@ -675,23 +795,31 @@ public final class Events {
 
     /** Every server tick: clocks, the build timer, and players gone too long. */
     public static void tick(MinecraftServer server) {
+        long now = clock.getAsLong();
+        long elapsed = lastTickNanos == 0 ? 50L : Math.min(LONGEST_TICK_MILLIS, Math.max(0L, (now - lastTickNanos) / 1_000_000L));
+        lastTickNanos = now;
         if (events == null && server.getTickCount() % 100 != 0) {
             return;
         }
         for (EventState state : all()) {
-            Tournament tournament = state.tournament;
-            if (tournament.isOver()) {
-                continue;
-            }
-            switch (tournament.phase()) {
-                case PREPARING -> buildTick(server, state);
-                case SWISS, CUT -> roundTick(server, state);
-                default -> { }
-            }
+            advance(server, state, elapsed);
         }
     }
 
-    private static void buildTick(MinecraftServer server, EventState state) {
+    /** One tick's worth of an event's clocks, counting this much real time. */
+    private static void advance(MinecraftServer server, EventState state, long elapsedMillis) {
+        Tournament tournament = state.tournament;
+        if (tournament.isOver()) {
+            return;
+        }
+        switch (tournament.phase()) {
+            case PREPARING -> buildTick(server, state, elapsedMillis);
+            case SWISS, CUT -> roundTick(server, state, elapsedMillis);
+            default -> { }
+        }
+    }
+
+    private static void buildTick(MinecraftServer server, EventState state, long elapsedMillis) {
         if (!state.tournament.settings().kind().isLimited() || !state.podOpened) {
             return;
         }
@@ -699,17 +827,16 @@ public final class Events {
         if (level == null || state.tables.isEmpty()) {
             return;
         }
-        boolean podStillRunning = TableBlock.entityAt(level, state.tables.get(0))
-                .map(entity -> entity.hasSignup() || entity.hasPod()).orElse(false);
-        if (podStillRunning) {
+        if (!level.isLoaded(state.tables.get(0)) || podStillRunning(level, state)) {
+            // An unloaded home table says nothing about whether its draft has finished.
             return;
         }
-        state.buildTicks++;
-        if (state.buildTicks % (20 * 60) == 0) {
-            save(state);
+        long before = state.buildMillis / MINUTE_MILLIS;
+        state.buildMillis += elapsedMillis;
+        if (state.buildMillis / MINUTE_MILLIS != before) {
             changed(server, state);
         }
-        if (state.buildTicks >= state.tournament.settings().buildMinutes() * MINUTE) {
+        if (state.buildMillis >= state.tournament.settings().buildMinutes() * MINUTE_MILLIS) {
             for (Entrant entrant : state.tournament.stillIn()) {
                 tell(server, entrant.id(), Component.translatable("message.gathering.event.build_time_up"));
             }
@@ -717,13 +844,28 @@ public final class Events {
         }
     }
 
-    private static void roundTick(MinecraftServer server, EventState state) {
+    private static void roundTick(MinecraftServer server, EventState state, long elapsedMillis) {
         Round round = state.tournament.currentRound().orElse(null);
-        if (round == null || round.isComplete()) {
+        if (round == null) {
             return;
         }
-        state.roundTicks++;
-        if (!round.timeCalled() && state.roundTicks >= state.tournament.settings().roundMinutes() * MINUTE) {
+        if (round.isComplete()) {
+            if (state.completeForTicks < 0) {
+                state.completeForTicks = 0;
+                for (Entrant entrant : state.tournament.stillIn()) {
+                    tell(server, entrant.id(), Component.translatable("message.gathering.event.round_complete", round.number()));
+                }
+                return;
+            }
+            if (++state.completeForTicks >= PAUSE_BEFORE_NEXT_ROUND) {
+                nextRound(server, state.tournament.id());
+            }
+            return;
+        }
+        state.completeForTicks = -1;
+        long before = state.roundMillis / 30_000L;
+        state.roundMillis += elapsedMillis;
+        if (!round.timeCalled() && state.roundMillis >= state.tournament.settings().roundMinutes() * MINUTE_MILLIS) {
             state.tournament = state.tournament.callTime();
             for (Pairing pairing : state.tournament.currentRound().orElseThrow().pairings()) {
                 if (!pairing.isConfirmed()) {
@@ -735,23 +877,29 @@ public final class Events {
             }
             changed(server, state);
         }
-        long now = server.getTickCount();
+        long now = wallClock.getAsLong();
         for (Pairing pairing : round.pairings()) {
             if (pairing.isConfirmed() || pairing.isBye()) {
                 continue;
             }
             for (UUID player : new UUID[] {pairing.a(), pairing.b()}) {
+                if (server.getPlayerList().getPlayer(player) == null) {
+                    // Somebody who is not here is counted as gone from when it is first noticed,
+                    // not only from a disconnect this server saw: after a restart, a player who
+                    // never comes back still runs out their grace.
+                    goneSince.putIfAbsent(player, now);
+                }
                 Long gone = goneSince.get(player);
-                if (gone != null && now - gone >= GRACE && state.tournament.currentRound().flatMap(r -> r.pairingOf(player))
+                if (gone != null && now - gone >= GRACE_MILLIS && state.tournament.currentRound().flatMap(r -> r.pairingOf(player))
                         .map(p -> !p.isConfirmed()).orElse(false)) {
                     state.tournament = state.tournament.settle(pairing.table(), MatchResult.conceded(pairing.a().equals(player)));
+                    state.log(null, "gone", nameOf(state, player));
                     tell(server, pairing.opponentOf(player), Component.translatable("message.gathering.event.opponent_gone"));
                     afterResult(server, state);
                 }
             }
         }
-        if (state.roundTicks % (20 * 30) == 0) {
-            save(state);
+        if (state.roundMillis / 30_000L != before) {
             changed(server, state);
         }
     }
@@ -859,6 +1007,48 @@ public final class Events {
         return everyCard(registered).equals(everyCard(deck));
     }
 
+    /** Whether two lists hold the same cards, in any order. */
+    static boolean sameCards(List<CardComponent> one, List<CardComponent> other) {
+        Map<CardIdentity, Integer> counts = new HashMap<>();
+        one.forEach(card -> counts.merge(card.toIdentity(), 1, Integer::sum));
+        for (CardComponent card : other) {
+            Integer left = counts.get(card.toIdentity());
+            if (left == null) {
+                return false;
+            }
+            if (left == 1) {
+                counts.remove(card.toIdentity());
+            } else {
+                counts.put(card.toIdentity(), left - 1);
+            }
+        }
+        return counts.isEmpty();
+    }
+
+    /**
+     * A draft or sealed opening handed this player a pool at this table. Recorded against the
+     * event that opened it, when there is one, as the pool that player's Ready is checked against.
+     */
+    public static void poolHandedOut(ServerLevel level, BlockPos tableOrigin, UUID player, String podName,
+            List<CardComponent> cards) {
+        if (podName == null || !podName.startsWith(EventState.PREFIX)) {
+            return;
+        }
+        events().values().stream()
+                .filter(state -> !state.tournament.isOver() && state.podName().equals(podName))
+                .findFirst()
+                .ifPresent(state -> {
+                    state.allocated.put(player, List.copyOf(cards));
+                    state.log(player, "pool", cards.size() + " cards");
+                    save(state);
+                });
+    }
+
+    /** The pod name an event's packs at this table carry, if an unfinished event plays there. */
+    public static Optional<String> podNameAt(ServerLevel level, BlockPos tableOrigin) {
+        return atTable(level, tableOrigin).map(EventState::podName);
+    }
+
     private static Map<CardIdentity, Integer> everyCard(DeckComponent deck) {
         Map<CardIdentity, Integer> counts = new HashMap<>();
         List<CardComponent> all = new ArrayList<>();
@@ -871,9 +1061,9 @@ public final class Events {
         return counts;
     }
 
-    public static void left(ServerPlayer player, int tick) {
+    public static void left(ServerPlayer player) {
         if (of(player.getUUID()).isPresent()) {
-            goneSince.put(player.getUUID(), (long) tick);
+            goneSince.put(player.getUUID(), wallClock.getAsLong());
         }
     }
 
@@ -893,7 +1083,9 @@ public final class Events {
     static boolean apply(ServerPlayer player, EventState state, java.util.function.UnaryOperator<Tournament> change) {
         try {
             Tournament after = change.apply(state.tournament);
-            if (after == state.tournament) {
+            if (after == state.tournament || after.equals(state.tournament)) {
+                // Nothing changed - a second check-in, a repeated button - so nothing is saved
+                // or sent: a repeated request costs a comparison, not a write and a broadcast.
                 return true;
             }
             state.tournament = after;
@@ -915,8 +1107,9 @@ public final class Events {
         EventViews.broadcast(server, state);
     }
 
-    static void save(EventState state) {
-        EventStore.write(state);
+    /** Saves the event, and says whether it is on disk. */
+    static boolean save(EventState state) {
+        return EventStore.write(state);
     }
 
     static Optional<ServerLevel> levelOf(MinecraftServer server, EventState state) {
@@ -976,8 +1169,18 @@ public final class Events {
     /** For the in-world tests: the round clock, run forward. */
     public static void runClockForTesting(MinecraftServer server, EventState state, long ticks) {
         for (long tick = 0; tick < ticks; tick++) {
-            roundTick(server, state);
+            roundTick(server, state, 50L);
         }
+    }
+
+    /** For the in-world tests: the wall clock grace periods are measured by. */
+    public static long wallClockForTesting() {
+        return wallClock.getAsLong();
+    }
+
+    /** For the in-world tests: the pools this event recorded handing out, as a draft or sealed opening does. */
+    public static void allocateForTesting(EventState state, UUID player, List<CardComponent> cards) {
+        state.allocated.put(player, List.copyOf(cards));
     }
 
     /** For the in-world tests: an event written to its saved form and read back. */

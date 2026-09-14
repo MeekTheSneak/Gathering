@@ -107,7 +107,12 @@ public final class DraftActions {
         // not read as the same pool, and this is what a deck check says it is checking
         // against. Never the session seed, which is the one value that never leaves the
         // server - the pod's own place in the world is enough to tell two drafts apart.
-        String podName = tableOrigin.toShortString();
+        String podName = dev.gathering.block.TableSessions.anchorOf(level, tableOrigin)
+                .flatMap(anchor -> TableBlock.entityAt(level, anchor))
+                .flatMap(table -> table.podRecord())
+                .map(dev.gathering.core.draft.PodRecord::podName)
+                .filter(name -> !name.isEmpty())
+                .orElse(tableOrigin.toShortString());
         if (!everybodyIsHere(level, pod)) {
             // Somebody left between their own last pick and the last one in the pod. Their
             // pool is still in it, and the pod is saved with the world - so nothing is handed
@@ -145,6 +150,7 @@ public final class DraftActions {
             // table the draft happened at.
             stack.set(dev.gathering.registry.GatheringComponents.POOL.get(),
                     new dev.gathering.item.DraftedPool(cards, podName));
+            dev.gathering.server.events.Events.poolHandedOut(level, tableOrigin, drafter.getUUID(), podName, cards);
             dev.gathering.server.Handing.give(drafter, stack);
             drafter.sendSystemMessage(Component.translatable(
                     "message.gathering.draft_finished", pool.size()));

@@ -46,6 +46,9 @@ public final class EventCommands {
                                         .executes(context -> exclude(context.getSource(),
                                                 StringArgumentType.getString(context, "player"),
                                                 BoolArgumentType.getBool(context, "excluded"))))))
+                .then(Commands.literal("log")
+                        .then(Commands.argument("event", StringArgumentType.word())
+                                .executes(context -> log(context.getSource(), StringArgumentType.getString(context, "event")))))
                 .then(Commands.literal("official")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("event", StringArgumentType.word())
@@ -102,6 +105,33 @@ public final class EventCommands {
         source.sendSuccess(() -> Component.translatable(excluded
                 ? "message.gathering.event.excluded" : "message.gathering.event.included", name), true);
         return 1;
+    }
+
+    /** The last lines of an event's log, for its host or an admin. */
+    private static int log(CommandSourceStack source, String event) {
+        UUID id = eventId(event);
+        var state = id == null ? null : Events.get(id).orElse(null);
+        if (state == null) {
+            source.sendFailure(Component.translatable("message.gathering.event.no_such_event"));
+            return 0;
+        }
+        var player = source.getPlayer();
+        if (!source.hasPermission(2) && (player == null || !player.getUUID().equals(state.tournament().host()))) {
+            source.sendFailure(Component.translatable("message.gathering.event.host_only"));
+            return 0;
+        }
+        var lines = state.log();
+        java.time.format.DateTimeFormatter format = java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm")
+                .withZone(java.time.ZoneId.systemDefault());
+        for (var line : lines.subList(Math.max(0, lines.size() - 20), lines.size())) {
+            String who = line.actor() == null ? "-" : EventRecords.recordOf(line.actor()).map(EventRecords.Record::name)
+                    .filter(name -> !name.isBlank())
+                    .orElseGet(() -> state.tournament().entrant(line.actor()).map(entrant -> entrant.name())
+                            .orElse(line.actor().toString().substring(0, 8)));
+            source.sendSuccess(() -> Component.literal(format.format(java.time.Instant.ofEpochMilli(line.at())) + " " + who
+                    + " " + line.action() + (line.detail().isEmpty() ? "" : ": " + line.detail())), false);
+        }
+        return lines.size();
     }
 
     private static int official(CommandSourceStack source, String event, boolean isOfficial) {

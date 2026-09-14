@@ -113,8 +113,9 @@ public final class EventsGameTest {
     public static void aplayerGoneFiveMinutesConcedesTheirMatch(GameTestHelper helper) {
         Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
         Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
-        long now = helper.getLevel().getServer().getTickCount();
-        Events.goneForTesting(pairing.b(), now - 5L * 20L * 60L - 1);
+        // Grace is measured in real time now, not server ticks: the same five minutes, from the wall clock.
+        long now = Events.wallClockForTesting();
+        Events.goneForTesting(pairing.b(), now - 5L * 60_000L - 1);
         Events.runClockForTesting(helper.getLevel().getServer(), fixture.state, 1);
         Pairing after = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
         if (!after.isConfirmed() || !after.result().firstWon()) {

@@ -37,7 +37,7 @@ public final class PlayerGone {
             return;
         }
         Wants.left(player);
-        dev.gathering.server.events.Events.left(player, player.getServer() == null ? 0 : player.getServer().getTickCount());
+        dev.gathering.server.events.Events.left(player);
         ReplayWatch.forget(player.getUUID());
         // The trade goes with them, and whoever is across the table is told rather than left
         // agreeing with an empty chair.

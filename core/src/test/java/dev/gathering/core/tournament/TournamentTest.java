@@ -312,6 +312,84 @@ class TournamentTest {
         assertThat(EventSettings.usual(EventSettings.Kind.SEALED, "").problem()).isEmpty();
     }
 
+    /** Counts are bounded one by one, so no three of them add up past the top of an int and through the check. */
+    @Test
+    void aResultIsBoundedCountByCount() {
+        assertThat(MatchResult.isAMatch(Integer.MAX_VALUE, Integer.MAX_VALUE - 1, 0)).isFalse();
+        assertThat(MatchResult.isAMatch(9, 0, 0)).isTrue();
+        assertThat(MatchResult.isAMatch(9, 1, 0)).isFalse();
+        assertThat(MatchResult.isAMatch(-1, 2, 0)).isFalse();
+        assertThat(new MatchResult(2, 1, 0).fits(3)).isTrue();
+        assertThat(new MatchResult(3, 0, 0).fits(3)).isFalse();
+        assertThat(new MatchResult(2, 2, 0).fits(3)).isFalse();
+        assertThat(new MatchResult(1, 1, 1).fits(3)).isTrue();
+        assertThat(new MatchResult(1, 0, 0).fits(1)).isTrue();
+        assertThat(new MatchResult(2, 0, 0).fits(1)).isFalse();
+        assertThat(new MatchResult(3, 2, 0).fits(5)).isTrue();
+    }
+
+    /** A report longer than the match is refused, from a player and from the host. */
+    @Test
+    void aResultLongerThanTheMatchIsRefused() {
+        Tournament tournament = readyWith(4, constructed()).startSwiss();
+        Pairing pairing = tournament.currentRound().orElseThrow().pairings().get(0);
+        Tournament playing = tournament;
+        assertThatThrownBy(() -> playing.report(pairing.a(), new MatchResult(3, 0, 0)))
+                .hasMessage("message.gathering.event.not_a_result");
+        assertThatThrownBy(() -> playing.settle(pairing.table(), new MatchResult(2, 2, 0)))
+                .hasMessage("message.gathering.event.not_a_result");
+    }
+
+    /** A save from before counts were bounded one by one loads with the impossible report gone, not refused whole. */
+    @Test
+    void aSavedReportThatIsNotAMatchLoadsAsNoReport() throws Exception {
+        Tournament tournament = readyWith(4, constructed()).startSwiss();
+        Pairing pairing = tournament.currentRound().orElseThrow().pairings().get(0);
+        tournament = tournament.report(pairing.a(), new MatchResult(2, 1, 0));
+        byte[] bytes = TournamentCodec.write(tournament);
+        // The report is written as a present flag and three ints: 2, 1, 0. Overwrite them with
+        // counts whose total overflows.
+        byte[] pattern = {1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0};
+        int at = -1;
+        for (int index = 0; index + pattern.length <= bytes.length && at < 0; index++) {
+            if (java.util.Arrays.equals(bytes, index, index + pattern.length, pattern, 0, pattern.length)) {
+                at = index;
+            }
+        }
+        assertThat(at).isNotNegative();
+        java.nio.ByteBuffer.wrap(bytes, at + 1, 12).putInt(Integer.MAX_VALUE).putInt(Integer.MAX_VALUE - 1).putInt(0);
+        Tournament loaded = TournamentCodec.read(bytes);
+        Pairing back = loaded.currentRound().orElseThrow().pairings().get(0);
+        assertThat(back.reportA()).isNull();
+        assertThat(loaded.entrants()).isEqualTo(tournament.entrants());
+    }
+
+    /** A tournament's players keep their pools; a pod's other card policies are for pods on their own. */
+    @Test
+    void aTournamentsPlayersKeepTheirPools() {
+        var sponsored = new dev.gathering.core.draft.PodSettings(dev.gathering.core.draft.PodSettings.Kind.DRAFT,
+                dev.gathering.core.draft.PodSettings.Source.SPONSORED, dev.gathering.core.draft.PodSettings.SetRule.ANY,
+                3, 0, dev.gathering.core.draft.PodSettings.CardsGo.TO_SPONSOR);
+        assertThat(sponsored.problem()).isEmpty();
+        assertThat(new EventSettings(EventSettings.Kind.DRAFT, "", sponsored, 3, 50, 30, 5, 0, 0, null, false).problem())
+                .contains("message.gathering.event.players_keep_pools");
+    }
+
+    /** Dropping the second player of a finished match leaves the first player's win counted for pairing. */
+    @Test
+    void aWinOverAnOpponentWhoDroppedStillCountsFromEitherChair() {
+        Entrant a = Entrant.registering(new UUID(0, 1), "A", 1400);
+        Entrant b = Entrant.registering(new UUID(0, 2), "B", 1600);
+        Entrant c = Entrant.registering(new UUID(0, 3), "C", 1500);
+        Entrant d = Entrant.registering(new UUID(0, 4), "D", 1700);
+        Round previous = new Round(1, false, List.of(
+                Pairing.of(1, b.id(), a.id()).settled(new MatchResult(2, 0, 0)),
+                Pairing.of(2, c.id(), d.id()).settled(new MatchResult(2, 0, 0))), false);
+        List<Pairing> next = SwissPairer.pair(List.of(b, c, d), List.of(previous), 2);
+        assertThat(next.stream().filter(Pairing::isBye).findFirst().orElseThrow().a()).isEqualTo(d.id());
+        assertThat(Standings.of(List.of(b, c, d), List.of(previous)).get(2).player()).isEqualTo(d);
+    }
+
     @Test
     void roundsGrowWithTheField() {
         assertThat(SwissRounds.forPlayers(4)).isEqualTo(2);

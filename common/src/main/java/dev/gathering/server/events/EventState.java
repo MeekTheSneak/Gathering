@@ -26,11 +26,51 @@ public final class EventState {
     /** The event's tables, numbered from one in this order. */
     final List<BlockPos> tables = new ArrayList<>();
 
-    /** Ticks the current round's clock has run. Counted only while the server runs. */
-    long roundTicks;
+    /**
+     * Real milliseconds the current round's clock has run. Counted from the time between server
+     * ticks, so a server running slowly still gives a round its fifty minutes, and nothing is
+     * counted while the server is stopped.
+     */
+    long roundMillis;
 
-    /** Ticks the build clock has run. */
-    long buildTicks;
+    /** Real milliseconds the build clock has run, the same way. */
+    long buildMillis;
+
+    /**
+     * How many ticks the last round has stood complete, or -1 while it is not. Not saved: an
+     * event loaded with a complete round starts the pause again, and pairs the next round after it.
+     */
+    long completeForTicks = -1;
+
+    /**
+     * Each limited player's pool as the server handed it to them, by player: what their Ready is
+     * checked against. A pool item says what it is; this says who was given it, by this event.
+     */
+    final Map<UUID, List<dev.gathering.item.CardComponent>> allocated = new LinkedHashMap<>();
+
+    /** What happened in the event, oldest first, for the host and admins. Bounded. */
+    final List<LogLine> log = new ArrayList<>();
+
+    /** The most lines an event's log keeps; the oldest go first. */
+    static final int MOST_LOG_LINES = 500;
+
+    /**
+     * One thing that happened.
+     *
+     * @param at     wall-clock milliseconds
+     * @param actor  who did it, or null for the event itself
+     * @param action a short key, e.g. {@code settle}
+     * @param detail what, in a few words; never a card in a hidden zone or a seed
+     */
+    public record LogLine(long at, UUID actor, String action, String detail) {
+    }
+
+    void log(UUID actor, String action, String detail) {
+        log.add(new LogLine(System.currentTimeMillis(), actor, action, detail == null ? "" : detail));
+        while (log.size() > MOST_LOG_LINES) {
+            log.remove(0);
+        }
+    }
 
     /**
      * Where a large event takes registrations, if its host marked one: registering then needs
@@ -82,12 +122,17 @@ public final class EventState {
         return List.copyOf(tables);
     }
 
+    /** The round clock in ticks' worth of real time. */
     public long roundTicks() {
-        return roundTicks;
+        return roundMillis / 50;
     }
 
     public long buildTicks() {
-        return buildTicks;
+        return buildMillis / 50;
+    }
+
+    public List<LogLine> log() {
+        return List.copyOf(log);
     }
 
     /** The table with this number, from one, if the event has that many. */
@@ -102,10 +147,17 @@ public final class EventState {
         return index < 0 ? 0 : index + 1;
     }
 
-    /** The pod name a limited event's pools carry: its home table. */
+    /**
+     * The pod name a limited event's pools carry: the event itself. Not its table - a pool
+     * drafted at the same table for an earlier event carried the same coordinates, and was
+     * accepted as this event's.
+     */
     public String podName() {
-        return tables.isEmpty() ? "" : tables.get(0).toShortString();
+        return PREFIX + tournament.id();
     }
+
+    /** What every event's pod name starts with. */
+    static final String PREFIX = "event:";
 
     public Map<UUID, DeckComponent> decks() {
         return java.util.Collections.unmodifiableMap(decks);

@@ -102,6 +102,16 @@ for the last ten seconds. The turn's start is not saved: a restart gives everybo
 the main deck is empty, as a fresh pool is - onto a board that exists only on their client, like the lesson's, for laying out and drawing hands while building.
 Nothing done there reaches the server.
 
+**Integrity** (after the audit in `docs/reviews/tournament-audit-2026-09-14/`). Results must be a
+match of the event's length. A tournament's draft or sealed pools are named for the event and
+recorded against the player they were handed to, and only that pool makes that player ready; a
+tournament's players keep their pools, so sponsor and give-back card policies are for pods on
+their own. The next round is paired by the round clock whenever a round stands complete, however
+it got there, including after a restart. Prizes are saved before they move. An ended event never
+touches tables a newer event plays at. Round and build clocks count real time (at most a second
+per tick). A draft or sealed event that cannot seat everybody is refused before it begins. Each
+event keeps a log: `/gathering events log <event>` for its host or an admin.
+
 **Ratings and hosting rules.** A result counts toward ratings only when a game was played at the
 match's table; a result two players only typed in stays in the standings and the record. Events
 of fewer than `events.rated_min_players` (default 6) move no rating. An event an admin marks

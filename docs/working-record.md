@@ -198,8 +198,20 @@ build order T1-T7 are in `docs/tournaments.md`. Progress:
   then touched their borders, so the columns are split 21:19 with more padding per toggle (not
   yet re-photographed).
 
+### Tournament audit (2026-09-14) and fixes
+
+An external audit of `63bd0410` (`docs/reviews/tournament-audit-2026-09-14/`) reproduced ten
+defects with failing guards. All ten confirmed in the source and fixed; the response, finding by
+finding, is `RESPONSE.md` beside the audit. The audit's 2 core and 9 in-world guards pass; 6 more
+in-world guards (`EventsIntegrityGameTest`) and 5 core tests cover the cases it asked for, and
+each in-world one was shown to fail with its fix removed. In-world run: **486/486**. The two
+guards that first still failed after the fix (advancement after withdrawal and after reload) did
+so because the test server ticks faster than real time, and the pause between rounds had been
+moved to real time; it is counted in ticks again.
+
 Still open: a sign-up locked by an opening that never completes stays locked until restart (the
-lock is not saved); prize descriptions use server-side item names.
+lock is not saved); prize descriptions use server-side item names; no two-process restart,
+socket disconnect or load test; one pod per event.
 
 ## Owner-approved requirements, and what they superseded
 

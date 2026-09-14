@@ -180,8 +180,20 @@ public final class TournamentCodec {
         }
     }
 
+    /**
+     * A saved result, or none when the counts are not a match. An event saved before counts were
+     * bounded one by one could hold a report whose total overflowed; it loads with that report
+     * gone, so the players report again or the host settles, rather than the whole event
+     * refusing to load.
+     */
     private static MatchResult result(DataInputStream in) throws IOException {
-        return in.readBoolean() ? new MatchResult(in.readInt(), in.readInt(), in.readInt()) : null;
+        if (!in.readBoolean()) {
+            return null;
+        }
+        int winsA = in.readInt();
+        int winsB = in.readInt();
+        int draws = in.readInt();
+        return MatchResult.isAMatch(winsA, winsB, draws) ? new MatchResult(winsA, winsB, draws) : null;
     }
 
     private static void uuids(DataOutputStream out, Set<UUID> ids) throws IOException {

@@ -37,17 +37,27 @@ final class EventStore {
     private EventStore() {
     }
 
+    /**
+     * The most ended events kept loaded. Older ones are moved to an archive folder beside them,
+     * still on disk and still readable, so a world that has held events for years does not read
+     * and list every one of them at every start. Players' records are kept separately and are
+     * not affected.
+     */
+    static final int MOST_ENDED_KEPT = 200;
+
     static Map<UUID, EventState> readAll() {
         Map<UUID, EventState> events = new LinkedHashMap<>();
         Path folder = ServerRun.inSave(FOLDER).orElse(null);
         if (folder == null || !Files.isDirectory(folder)) {
             return events;
         }
+        Map<UUID, Path> from = new LinkedHashMap<>();
         try (Stream<Path> files = Files.list(folder)) {
             files.filter(path -> path.getFileName().toString().endsWith(SUFFIX)).sorted().forEach(path -> {
                 try {
                     EventState state = read(NbtIo.readCompressed(path, NbtAccounter.unlimitedHeap()));
                     events.put(state.tournament.id(), state);
+                    from.put(state.tournament.id(), path);
                 } catch (IOException | RuntimeException unreadable) {
                     LOGGER.error("The tournament in {} will not load: {}", path.getFileName(), unreadable.toString());
                 }
@@ -55,7 +65,39 @@ final class EventStore {
         } catch (IOException unlistable) {
             LOGGER.error("The tournaments folder could not be read: {}", unlistable.toString());
         }
+        archiveTheOldest(folder, events, from);
         return events;
+    }
+
+    private static void archiveTheOldest(Path folder, Map<UUID, EventState> events, Map<UUID, Path> from) {
+        java.util.List<UUID> ended = events.values().stream()
+                .filter(state -> state.tournament.isOver() && state.prizes.isEmpty() && state.waitingPrizes.isEmpty())
+                .map(state -> state.tournament.id())
+                .sorted(java.util.Comparator.comparingLong(id -> modified(from.get(id))))
+                .toList();
+        if (ended.size() <= MOST_ENDED_KEPT) {
+            return;
+        }
+        Path archive = folder.resolve("archive");
+        for (UUID id : ended.subList(0, ended.size() - MOST_ENDED_KEPT)) {
+            try {
+                Files.createDirectories(archive);
+                Path source = from.get(id);
+                Files.move(source, archive.resolve(source.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+                events.remove(id);
+            } catch (IOException failed) {
+                LOGGER.warn("Could not archive the ended tournament {}: {}", id, failed.toString());
+                return;
+            }
+        }
+    }
+
+    private static long modified(Path path) {
+        try {
+            return Files.getLastModifiedTime(path).toMillis();
+        } catch (IOException | RuntimeException unknown) {
+            return 0L;
+        }
     }
 
     static boolean write(EventState state) {
@@ -82,8 +124,8 @@ final class EventStore {
         tag.putString("dimension", state.dimension == null ? "" : state.dimension);
         long[] tables = state.tables.stream().mapToLong(BlockPos::asLong).toArray();
         tag.putLongArray("tables", tables);
-        tag.putLong("round_ticks", state.roundTicks);
-        tag.putLong("build_ticks", state.buildTicks);
+        tag.putLong("round_millis", state.roundMillis);
+        tag.putLong("build_millis", state.buildMillis);
         tag.putBoolean("pod_opened", state.podOpened);
         if (state.registrationPoint != null) {
             tag.putLong("registration", state.registrationPoint.asLong());
@@ -107,6 +149,27 @@ final class EventStore {
                 }));
         tag.put("pools", pools);
         tag.putString("played", String.join(",", state.playedAtTable));
+        ListTag allocated = new ListTag();
+        state.allocated.forEach((player, cards) -> dev.gathering.item.CardComponent.CODEC.listOf()
+                .encodeStart(NbtOps.INSTANCE, cards).result().ifPresent(encoded -> {
+                    CompoundTag entry = new CompoundTag();
+                    entry.putUUID("player", player);
+                    entry.put("cards", encoded);
+                    allocated.add(entry);
+                }));
+        tag.put("allocated", allocated);
+        ListTag log = new ListTag();
+        for (EventState.LogLine line : state.log) {
+            CompoundTag entry = new CompoundTag();
+            entry.putLong("at", line.at());
+            if (line.actor() != null) {
+                entry.putUUID("actor", line.actor());
+            }
+            entry.putString("action", line.action());
+            entry.putString("detail", line.detail());
+            log.add(entry);
+        }
+        tag.put("log", log);
         registries().ifPresent(registries -> {
             ListTag prizes = new ListTag();
             for (EventPrizes.Prize prize : state.prizes) {
@@ -135,8 +198,9 @@ final class EventStore {
         for (long packed : tag.getLongArray("tables")) {
             state.tables.add(BlockPos.of(packed));
         }
-        state.roundTicks = tag.getLong("round_ticks");
-        state.buildTicks = tag.getLong("build_ticks");
+        // Saved in ticks before the clocks counted real time; a tick was meant as 50 ms.
+        state.roundMillis = tag.contains("round_millis") ? tag.getLong("round_millis") : tag.getLong("round_ticks") * 50L;
+        state.buildMillis = tag.contains("build_millis") ? tag.getLong("build_millis") : tag.getLong("build_ticks") * 50L;
         state.podOpened = tag.getBoolean("pod_opened");
         if (tag.contains("registration")) {
             state.registrationPoint = BlockPos.of(tag.getLong("registration"));
@@ -157,6 +221,18 @@ final class EventStore {
             if (!played.isBlank()) {
                 state.playedAtTable.add(played);
             }
+        }
+        ListTag allocated = tag.getList("allocated", Tag.TAG_COMPOUND);
+        for (int index = 0; index < allocated.size(); index++) {
+            CompoundTag entry = allocated.getCompound(index);
+            dev.gathering.item.CardComponent.CODEC.listOf().parse(NbtOps.INSTANCE, entry.get("cards")).result()
+                    .ifPresent(cards -> state.allocated.put(entry.getUUID("player"), java.util.List.copyOf(cards)));
+        }
+        ListTag log = tag.getList("log", Tag.TAG_COMPOUND);
+        for (int index = 0; index < log.size() && index < EventState.MOST_LOG_LINES; index++) {
+            CompoundTag entry = log.getCompound(index);
+            state.log.add(new EventState.LogLine(entry.getLong("at"), entry.hasUUID("actor") ? entry.getUUID("actor") : null,
+                    entry.getString("action"), entry.getString("detail")));
         }
         var registries = registries().orElse(null);
         if (registries != null) {

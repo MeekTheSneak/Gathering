@@ -42,6 +42,11 @@ public final class EventViews {
     }
 
     public static void act(ServerPlayer player, EventActionPayload payload) {
+        if (!withinBudget(player)) {
+            // Each action can save and broadcast a whole event; a client sending them faster
+            // than a person can press is dropped rather than answered.
+            return;
+        }
         UUID id = payload.event();
         switch (payload.action()) {
             case LIST -> list(player, true);
@@ -50,11 +55,11 @@ public final class EventViews {
             case WITHDRAW -> Events.withdraw(player, id);
             case CHECK_IN -> Events.checkIn(player, id);
             case READY -> Events.ready(player, id);
-            case REPORT -> Events.report(player, id, result(payload));
+            case REPORT -> result(player, payload).ifPresent(result -> Events.report(player, id, result));
             case OPEN_CHECK_IN -> Events.openCheckIn(player, id);
             case BEGIN -> Events.begin(player, id);
             case START_NOW -> Events.startNow(player, id);
-            case SETTLE -> Events.settle(player, id, payload.table(), result(payload));
+            case SETTLE -> result(player, payload).ifPresent(result -> Events.settle(player, id, payload.table(), result));
             case DROP_PLAYER -> Events.dropPlayer(player, id, payload.player());
             case CANCEL -> Events.cancel(player, id);
             case ADD_TABLES -> {
@@ -72,12 +77,38 @@ public final class EventViews {
         }
     }
 
-    private static MatchResult result(EventActionPayload payload) {
-        try {
-            return new MatchResult(Math.max(0, payload.winsA()), Math.max(0, payload.winsB()), Math.max(0, payload.draws()));
-        } catch (IllegalArgumentException nonsense) {
-            return new MatchResult(0, 0, 0);
+    /**
+     * The result a button sent, or empty with the player told it is not one. Never turned into
+     * some other result: a report nobody made is worse than a refusal.
+     */
+    private static java.util.Optional<MatchResult> result(ServerPlayer player, EventActionPayload payload) {
+        if (!MatchResult.isAMatch(payload.winsA(), payload.winsB(), payload.draws())) {
+            player.sendSystemMessage(Component.translatable("message.gathering.event.not_a_result"));
+            return java.util.Optional.empty();
         }
+        return java.util.Optional.of(new MatchResult(payload.winsA(), payload.winsB(), payload.draws()));
+    }
+
+    /** Actions each player has left this second, and which second that is. */
+    private static final java.util.Map<UUID, long[]> BUDGETS = new java.util.HashMap<>();
+
+    /** The most event actions one player is answered for in a second; a person pressing buttons makes a few. */
+    static final int ACTIONS_PER_SECOND = 8;
+
+    /** Whether this player may be answered for another action now. */
+    private static boolean withinBudget(ServerPlayer player) {
+        long second = System.currentTimeMillis() / 1000L;
+        long[] budget = BUDGETS.computeIfAbsent(player.getUUID(), ignored -> new long[] {second, 0});
+        if (budget[0] != second) {
+            budget[0] = second;
+            budget[1] = 0;
+        }
+        return ++budget[1] <= ACTIONS_PER_SECOND;
+    }
+
+    /** Forgets every budget, for a server that is stopping. */
+    static void forgetBudgets() {
+        BUDGETS.clear();
     }
 
     /** A player's public record, said in chat. */
@@ -153,8 +184,10 @@ public final class EventViews {
                         pairing.a(), pairing.isBye() ? EventActionPayload.NONE : pairing.b()));
                 if (pairing.has(viewer)) {
                     boolean first = pairing.a().equals(viewer);
-                    MatchResult mineReported = first ? pairing.reportA() : flip(pairing.reportB());
-                    MatchResult theirs = first ? flip(pairing.reportB()) : pairing.reportA();
+                    // Both reports are kept from the first player's chair; each is turned to the
+                    // viewer's chair exactly once.
+                    MatchResult mineReported = fromChair(first ? pairing.reportA() : pairing.reportB(), first);
+                    MatchResult theirs = fromChair(first ? pairing.reportB() : pairing.reportA(), first);
                     String suggested = Events.suggested(state, pairing.table())
                             .map(result -> said(first ? result : result.flipped())).orElse("");
                     mine = new EventViewPayload.Mine(pairing.table(), pairing.isBye() ? "" : Events.nameOf(state, pairing.opponentOf(viewer)),
@@ -163,8 +196,8 @@ public final class EventViews {
             }
         }
         long ticksLeft = switch (tournament.phase()) {
-            case SWISS, CUT -> settings.roundMinutes() * Events.MINUTE - state.roundTicks;
-            case PREPARING -> settings.kind().isLimited() ? settings.buildMinutes() * Events.MINUTE - state.buildTicks : -1;
+            case SWISS, CUT -> (settings.roundMinutes() * Events.MINUTE_MILLIS - state.roundMillis) / 50L;
+            case PREPARING -> settings.kind().isLimited() ? (settings.buildMinutes() * Events.MINUTE_MILLIS - state.buildMillis) / 50L : -1;
             default -> -1;
         };
         Entrant me = tournament.entrant(viewer).orElse(null);
@@ -187,8 +220,9 @@ public final class EventViews {
                 mine, EventPrizes.describe(state), places, show);
     }
 
-    private static MatchResult flip(MatchResult result) {
-        return result == null ? null : result.flipped();
+    /** A result kept from the first player's chair, as the viewer sees it. */
+    private static MatchResult fromChair(MatchResult fromFirst, boolean viewerIsFirst) {
+        return fromFirst == null || viewerIsFirst ? fromFirst : fromFirst.flipped();
     }
 
     private static String said(MatchResult result) {

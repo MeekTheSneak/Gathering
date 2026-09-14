@@ -215,6 +215,9 @@ public record Tournament(
         if (round.elimination() && asTheySeeIt.isDraw()) {
             throw new IllegalArgumentException("message.gathering.event.cut_needs_a_winner");
         }
+        if (!asTheySeeIt.fits(settings.bestOf())) {
+            throw new IllegalArgumentException("message.gathering.event.not_a_result");
+        }
         return replace(round, pairing.withReport(player, asTheySeeIt));
     }
 
@@ -225,6 +228,9 @@ public record Tournament(
                 new IllegalArgumentException("message.gathering.event.no_such_table"));
         if (round.elimination() && fromFirstPlayer.isDraw()) {
             throw new IllegalArgumentException("message.gathering.event.cut_needs_a_winner");
+        }
+        if (!fromFirstPlayer.fits(settings.bestOf())) {
+            throw new IllegalArgumentException("message.gathering.event.not_a_result");
         }
         return replace(round, pairing.settled(fromFirstPlayer));
     }

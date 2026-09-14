@@ -12,10 +12,32 @@ package dev.gathering.core.tournament;
  */
 public record MatchResult(int winsA, int winsB, int draws) {
 
+    /** The most games any match here has: a best of five with every game drawn is fewer. */
+    public static final int MOST_GAMES = 9;
+
     public MatchResult {
-        if (winsA < 0 || winsB < 0 || draws < 0 || winsA + winsB + draws > 9) {
+        // Each count bounded before any are added: three counts near the top of an int add up
+        // to a negative number, which a single check on the total let through.
+        if (winsA < 0 || winsB < 0 || draws < 0 || winsA > MOST_GAMES || winsB > MOST_GAMES || draws > MOST_GAMES
+                || winsA + winsB + draws > MOST_GAMES) {
             throw new IllegalArgumentException("Not a match: " + winsA + "-" + winsB + "-" + draws);
         }
+    }
+
+    /** Whether these counts make a match, without building one. */
+    public static boolean isAMatch(int winsA, int winsB, int draws) {
+        return winsA >= 0 && winsB >= 0 && draws >= 0 && winsA <= MOST_GAMES && winsB <= MOST_GAMES
+                && draws <= MOST_GAMES && winsA + winsB + draws <= MOST_GAMES;
+    }
+
+    /**
+     * Whether a match of this length can end this way. Nobody wins more games than it takes to
+     * win the match, and both players cannot have won it; drawn games and a match called at
+     * time are still any shape short of that.
+     */
+    public boolean fits(int bestOf) {
+        int toWin = bestOf / 2 + 1;
+        return winsA <= toWin && winsB <= toWin && !(winsA == toWin && winsB == toWin);
     }
 
     /** What a bye is worth: a match won two games to none, against nobody. */

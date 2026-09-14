@@ -27,11 +27,16 @@ public final class EventLabels {
         boolean playing = tournament.phase() == Tournament.Phase.SWISS || tournament.phase() == Tournament.Phase.CUT;
         Round round = tournament.currentRound().orElse(null);
         long endsAt = playing && round != null && !round.timeCalled()
-                ? level.getGameTime() + Math.max(0, tournament.settings().roundMinutes() * Events.MINUTE - state.roundTicks)
+                ? level.getGameTime() + Math.max(0, (tournament.settings().roundMinutes() * Events.MINUTE_MILLIS - state.roundMillis) / 50L)
                 : 0;
+        java.util.List<BlockPos> ours = Events.tablesStillOurs(level, state);
         for (int index = 0; index < state.tables.size(); index++) {
             int number = index + 1;
             BlockPos table = state.tables.get(index);
+            if (!ours.contains(table)) {
+                // A newer event plays here now, and the number over it is that event's.
+                continue;
+            }
             String line = "";
             if (playing && round != null) {
                 Pairing pairing = round.atTable(number).orElse(null);

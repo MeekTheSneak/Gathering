@@ -43,11 +43,25 @@ public final class Standings {
         }
     }
 
-    /** Standings over the confirmed matches of these Swiss rounds, best first. */
+    /**
+     * Standings over the confirmed matches of these Swiss rounds, best first, for these players.
+     * <p>Every match in the rounds is counted, including against somebody not in {@code
+     * players}. Pairing asks for the standings of the players still in, and a match against an
+     * opponent who has since dropped still happened: leaving it out erased the survivor's win,
+     * and with it their place in the order a bye is chosen by.
+     */
     public static List<Row> of(List<Entrant> players, List<Round> rounds) {
         Map<UUID, Tally> tallies = new LinkedHashMap<>();
         for (Entrant player : players) {
             tallies.put(player.id(), new Tally());
+        }
+        for (Round round : rounds) {
+            for (Pairing pairing : round.pairings()) {
+                tallies.computeIfAbsent(pairing.a(), ignored -> new Tally());
+                if (!pairing.isBye()) {
+                    tallies.computeIfAbsent(pairing.b(), ignored -> new Tally());
+                }
+            }
         }
         for (Round round : rounds) {
             if (round.elimination()) {
@@ -58,18 +72,13 @@ public final class Standings {
                     continue;
                 }
                 Tally a = tallies.get(pairing.a());
-                if (a == null) {
-                    continue;
-                }
                 MatchResult result = pairing.result();
                 a.record(result);
                 if (!pairing.isBye()) {
                     Tally b = tallies.get(pairing.b());
-                    if (b != null) {
-                        b.record(result.flipped());
-                        a.opponents.add(pairing.b());
-                        b.opponents.add(pairing.a());
-                    }
+                    b.record(result.flipped());
+                    a.opponents.add(pairing.b());
+                    b.opponents.add(pairing.a());
                 }
             }
         }

@@ -123,11 +123,7 @@ public final class EventScreen extends Screen {
         EventViewPayload.Mine mine = view.mine();
         if (mine.table() > 0 && mine.confirmed().isEmpty()) {
             // The results a match of this length can end in, from this player's chair.
-            int[][] results = view.bestOf() == 1
-                    ? new int[][] {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}
-                    : view.bestOf() == 3
-                            ? new int[][] {{2, 0, 0}, {2, 1, 0}, {1, 2, 0}, {0, 2, 0}, {1, 1, 1}, {1, 0, 1}, {0, 1, 1}}
-                            : new int[][] {{3, 0, 0}, {3, 1, 0}, {3, 2, 0}, {2, 3, 0}, {1, 3, 0}, {0, 3, 0}, {2, 2, 1}};
+            int[][] results = resultsFor(view.bestOf());
             int width = (panel.width() - MARGIN * 2 - 4 * (results.length - 1)) / results.length;
             int y = panel.y() + 26 + 16 + 6 + LINE * 4;
             for (int index = 0; index < results.length; index++) {
@@ -138,6 +134,15 @@ public final class EventScreen extends Screen {
                                 result[0], result[1], result[2], EventActionPayload.NONE)));
             }
         }
+    }
+
+    /** The results a match of this length can end in, from the first chair. */
+    static int[][] resultsFor(int bestOf) {
+        return bestOf == 1
+                ? new int[][] {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}
+                : bestOf == 3
+                        ? new int[][] {{2, 0, 0}, {2, 1, 0}, {1, 2, 0}, {0, 2, 0}, {1, 1, 1}, {1, 0, 1}, {0, 1, 1}}
+                        : new int[][] {{3, 0, 0}, {3, 1, 0}, {3, 2, 0}, {2, 3, 0}, {1, 3, 0}, {0, 3, 0}, {2, 2, 1}};
     }
 
     private void practice() {
@@ -196,14 +201,17 @@ public final class EventScreen extends Screen {
             EventViewPayload.Match chosen = view.pairings().stream().filter(match -> match.table() == selectedTable)
                     .findFirst().orElse(null);
             if (chosen != null) {
-                int[][] results = {{2, 0, 0}, {2, 1, 0}, {1, 2, 0}, {0, 2, 0}, {1, 1, 1}};
+                // The results a match of this length can end in, as the players' own buttons offer.
+                int[][] results = resultsFor(view.bestOf());
                 int sx = x + 56;
+                int room = panel.right() - MARGIN - 74 - sx - 48;
+                int each = Math.max(22, Math.min(34, room / results.length - 3));
                 for (int[] result : results) {
                     String label = result[0] + "-" + result[1] + (result[2] > 0 ? "-" + result[2] : "");
-                    addRenderableWidget(GatheringButtons.of(sx, bottom, 34, ROW, Component.literal(label),
+                    addRenderableWidget(GatheringButtons.of(sx, bottom, each, ROW, Component.literal(label),
                             () -> send(EventActionPayload.Action.SETTLE, chosen.table(), result[0], result[1], result[2],
                                     EventActionPayload.NONE)));
-                    sx += 37;
+                    sx += each + 3;
                 }
                 addRenderableWidget(GatheringButtons.of(sx, bottom, 44, ROW, Component.translatable("screen.gathering.event.drop_a"),
                         () -> send(EventActionPayload.Action.DROP_PLAYER, 0, 0, 0, 0, chosen.idA())));

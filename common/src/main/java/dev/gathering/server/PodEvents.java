@@ -156,7 +156,9 @@ public final class PodEvents {
         }
 
         PodSettings settings = signup.settings();
-        String podName = tableOrigin.toShortString();
+        // Named for the tournament that opened it, when one did, so its pools can only ever be
+        // that event's; a table's coordinates are shared by every event ever held there.
+        String podName = dev.gathering.server.events.Events.podNameAt(level, tableOrigin).orElse(tableOrigin.toShortString());
         PodRecord record = PodRecord.of(signup.lobby(), seated, plan, opened, podName);
         // The packs are used up here and nowhere else: the signup closes, and what it was
         // holding is either opened into the record or handed back unused.
@@ -248,6 +250,7 @@ public final class PodEvents {
             if (aPool) {
                 stack.set(dev.gathering.registry.GatheringComponents.POOL.get(),
                         new DraftedPool(components, record.podName()));
+                dev.gathering.server.events.Events.poolHandedOut(level, tableOrigin, who, record.podName(), components);
             }
             Handing.give(player, stack);
             player.sendSystemMessage(Component.translatable(aPool
