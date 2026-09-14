@@ -30,11 +30,15 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * The guided first game's one hard rule: nothing in it can become property.
- * <p>A practice game is a real session with real events at a real table, which is what makes
- * it worth having and also what makes it worth checking. Everything here is about the ways a
- * card could get out: handed back at the end, dropped on the floor, staked in a pot, or left
- * behind for whoever sits down next.
+ * The retired practice game's one hard rule: nothing in it can become property.
+ * <p>Nothing creates a practice game now, but old saves hold them and the rules that kept
+ * their cards from getting out are still production code: {@code TableSessions.giveBack}
+ * refusing to hand a practice deck to anybody, and a practice table refusing to be played for
+ * keeps. The legacy shape is built with {@link LegacyPracticeTables}, the fixture that took over
+ * from the old start path. Everything here is about the ways a card could get out: handed back
+ * at the end, dropped on the floor, staked in a pot, or left behind for whoever sits down next.
+ * <p>The old start path's refusals - a table with a game on it, a table somebody else is at -
+ * went with it. They described what a feature nobody can reach would have declined to do.
  */
 @GameTestHolder(Gathering.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -81,8 +85,8 @@ public final class PracticeTableGameTest {
         ServerPlayer learner = helper.makeMockServerPlayerInLevel();
         BlockPos origin = aTable(helper);
         try {
-            PracticeTable.Outcome how = PracticeTable.start(learner, origin);
-            if (how != PracticeTable.Outcome.STARTED) {
+            LegacyPracticeTables.Outcome how = LegacyPracticeTables.start(learner, origin);
+            if (how != LegacyPracticeTables.Outcome.STARTED) {
                 helper.fail("a practice game would not start on an empty table: " + how);
                 return;
             }
@@ -119,7 +123,7 @@ public final class PracticeTableGameTest {
             }
             helper.succeed();
         } finally {
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
         }
     }
 
@@ -135,11 +139,11 @@ public final class PracticeTableGameTest {
         BlockPos origin = aTable(helper);
         int litterBefore = itemsOnTheFloorNear(helper, origin);
         try {
-            if (PracticeTable.start(learner, origin) != PracticeTable.Outcome.STARTED) {
+            if (LegacyPracticeTables.start(learner, origin) != LegacyPracticeTables.Outcome.STARTED) {
                 helper.fail("the fixture would not start");
                 return;
             }
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
 
             if (decksCarriedBy(learner) != 0) {
                 helper.fail("a practice game handed the learner "
@@ -156,7 +160,7 @@ public final class PracticeTableGameTest {
             }
             helper.succeed();
         } finally {
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
         }
     }
 
@@ -171,7 +175,7 @@ public final class PracticeTableGameTest {
         learner.getInventory().clearContent();
         BlockPos origin = aTable(helper);
         try {
-            if (PracticeTable.start(learner, origin) != PracticeTable.Outcome.STARTED) {
+            if (LegacyPracticeTables.start(learner, origin) != LegacyPracticeTables.Outcome.STARTED) {
                 helper.fail("the fixture would not start");
                 return;
             }
@@ -184,7 +188,7 @@ public final class PracticeTableGameTest {
             }
             helper.succeed();
         } finally {
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
         }
     }
 
@@ -194,7 +198,7 @@ public final class PracticeTableGameTest {
         ServerPlayer learner = helper.makeMockServerPlayerInLevel();
         BlockPos origin = aTable(helper);
         try {
-            if (PracticeTable.start(learner, origin) != PracticeTable.Outcome.STARTED) {
+            if (LegacyPracticeTables.start(learner, origin) != LegacyPracticeTables.Outcome.STARTED) {
                 helper.fail("the fixture would not start");
                 return;
             }
@@ -208,55 +212,7 @@ public final class PracticeTableGameTest {
             }
             helper.succeed();
         } finally {
-            PracticeTable.stop(helper.getLevel(), origin);
-        }
-    }
-
-    /** Practice never takes over a table somebody is really playing at. */
-    @GameTest(template = "empty")
-    public static void practicewillnottakeoveraliveGame(GameTestHelper helper) {
-        ServerPlayer learner = helper.makeMockServerPlayerInLevel();
-        BlockPos origin = aTable(helper);
-        try {
-            var seats = dev.gathering.block.TableClusters.at(helper.getLevel(), origin).seats();
-            TableSeats.take(helper.getLevel(), origin, seats.get(0).cell(), seats.get(0).side(),
-                    learner.getUUID());
-            TableSessions.start(helper.getLevel(), origin,
-                    new MatchRules(FormatPresets.COMMANDER, 1));
-
-            PracticeTable.Outcome how = PracticeTable.start(learner, origin);
-            if (how != PracticeTable.Outcome.GAME_RUNNING) {
-                helper.fail("practice started on a table with a game already on it: " + how);
-                return;
-            }
-            if (PracticeTable.isPracticeAt(helper.getLevel(), origin)) {
-                helper.fail("a real game was turned into a practice game");
-                return;
-            }
-            helper.succeed();
-        } finally {
-            TableSessions.end(helper.getLevel(), origin, null, "test over");
-        }
-    }
-
-    /** Nor a table somebody else is sitting at, even with no game on it. */
-    @GameTest(template = "empty")
-    public static void practicewillnottakesomebodyelsestable(GameTestHelper helper) {
-        ServerPlayer learner = helper.makeMockServerPlayerInLevel();
-        BlockPos origin = aTable(helper);
-        try {
-            var seats = dev.gathering.block.TableClusters.at(helper.getLevel(), origin).seats();
-            TableSeats.take(helper.getLevel(), origin, seats.get(0).cell(), seats.get(0).side(),
-                    UUID.randomUUID());
-
-            PracticeTable.Outcome how = PracticeTable.start(learner, origin);
-            if (how != PracticeTable.Outcome.SOMEBODY_ELSE_HERE) {
-                helper.fail("practice took a table somebody else was sitting at: " + how);
-                return;
-            }
-            helper.succeed();
-        } finally {
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
         }
     }
 
@@ -273,7 +229,7 @@ public final class PracticeTableGameTest {
         learner.getInventory().clearContent();
         BlockPos origin = aTable(helper);
         try {
-            if (PracticeTable.start(learner, origin) != PracticeTable.Outcome.STARTED) {
+            if (LegacyPracticeTables.start(learner, origin) != LegacyPracticeTables.Outcome.STARTED) {
                 helper.fail("the fixture would not start");
                 return;
             }
@@ -288,7 +244,7 @@ public final class PracticeTableGameTest {
             table.holdDeck(mine, new DeckComponent("Smuggled", "", Optional.empty(),
                     List.of(card), List.of(), List.of()), null, learner.getUUID());
 
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
 
             if (decksCarriedBy(learner) != 0) {
                 helper.fail("a deck held by a practice table was handed to the learner");
@@ -300,15 +256,21 @@ public final class PracticeTableGameTest {
             }
             helper.succeed();
         } finally {
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
         }
     }
 
-    /** Stopping something that is not a practice game does nothing at all. */
+    /**
+     * A STOP aimed at a real game does nothing at all.
+     * <p>Through the network entry point, which is the only production path that still answers
+     * STOP. A player seated at an ordinary game who sends it - an old client, or anything else
+     * that knows the packet - is asking for nothing, and must not end somebody's match.
+     */
     @GameTest(template = "empty")
     public static void stoppingsomethingthatisnotpracticedoesnothing(GameTestHelper helper) {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         BlockPos origin = aTable(helper);
+        player.setPos(origin.getX() + 0.5, origin.getY(), origin.getZ() + 0.5);
         try {
             var seats = dev.gathering.block.TableClusters.at(helper.getLevel(), origin).seats();
             TableSeats.take(helper.getLevel(), origin, seats.get(0).cell(), seats.get(0).side(),
@@ -316,7 +278,8 @@ public final class PracticeTableGameTest {
             TableSessions.start(helper.getLevel(), origin,
                     new MatchRules(FormatPresets.COMMANDER, 1));
 
-            PracticeTable.stop(helper.getLevel(), origin);
+            PracticeTable.handle(player, new dev.gathering.network.PracticePayload(
+                    origin, dev.gathering.network.PracticePayload.What.STOP));
 
             if (!TableSessions.hasSession(helper.getLevel(), origin)) {
                 helper.fail("stopping practice ended a real game");

@@ -55,7 +55,7 @@ public final class QualityReviewGameTest {
     }
 
     private static void start(GameTestHelper helper, ServerPlayer player, BlockPos origin) {
-        if (PracticeTable.start(player, origin) != PracticeTable.Outcome.STARTED) {
+        if (LegacyPracticeTables.start(player, origin) != LegacyPracticeTables.Outcome.STARTED) {
             throw new AssertionError("Practice fixture did not start");
         }
     }
@@ -80,7 +80,7 @@ public final class QualityReviewGameTest {
             ItemStack stack = DeckItem.of(owned);
             player.setItemInHand(InteractionHand.MAIN_HAND, stack);
             TableBlock.putDown(helper.getLevel(), origin, player, stack);
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
             int remaining = 0;
             for (ItemStack item : player.getInventory().items) {
                 if (DeckItem.deckOf(item).map(owned::equals).orElse(false)) remaining += item.getCount();
@@ -97,29 +97,33 @@ public final class QualityReviewGameTest {
             }
             helper.succeed();
         } finally {
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
         }
     }
 
     @GameTest(template = "empty")
     public static void disconnectMustCleanUpPractice(GameTestHelper helper) {
+        // Adapted when practice creation left production. The probe used to expect the
+        // disconnect hook itself to end a practice game, through a per-learner map that only
+        // a live practice start ever filled. Nothing starts one now, so that map could only
+        // ever be empty and went with it; the thing the probe was protecting - a table left
+        // unusable after its learner logs out - is guarded by the table's own ticker, which
+        // retires any practice game it finds. So: the same fixture, the same shared hook, and
+        // the same three things that must not be left behind, checked once the table has had
+        // the chance to tick rather than on the same line.
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         BlockPos origin = table(helper);
-        try {
-            start(helper, player, origin);
-            // The actual shared disconnect hook called by both loaders.
-            PlayerGone.left(player);
+        start(helper, player, origin);
+        // The actual shared disconnect hook called by both loaders.
+        PlayerGone.left(player);
+        helper.succeedWhen(() -> {
             if (PracticeTable.isPracticeAt(helper.getLevel(), origin)
                     || TableSessions.hasSession(helper.getLevel(), origin)
                     || TableSeats.seatOf(helper.getLevel(), origin,
                             PracticeTable.demonstrationSeat()).isPresent()) {
                 helper.fail("Disconnect left the practice session and demonstration seat behind");
-                return;
             }
-            helper.succeed();
-        } finally {
-            PracticeTable.stop(helper.getLevel(), origin);
-        }
+        });
     }
 
     @GameTest(template = "empty")
@@ -179,7 +183,7 @@ public final class QualityReviewGameTest {
         } finally {
             Tutorial.clear();
             ClientSettings.tutorialOffered(offeredBefore);
-            PracticeTable.stop(helper.getLevel(), origin);
+            LegacyPracticeTables.stop(helper.getLevel(), origin);
         }
     }
 }

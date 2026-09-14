@@ -14,7 +14,7 @@ Last updated at the end of the quality-project session. The backlog is 20 of 28 
 | Decision | State |
 |---|---|
 | **QP-07: the guided first game is a local interactive overlay** shown when a player first sits at an ordinary table, before real play | **Approved. The overlay is implemented and isolated; retiring the old path and migrating saves is not done.** Full spec in `docs/reviews/quality-progress-2026-09-11.md` |
-| The separate server-backed practice table | **Retired.** No UI creates one, `PracticePayload.START` answers and starts nothing, and `PracticeTable.retire` takes leftovers in old saves apart from the table's own ticker. `PracticeTable.start` is kept, reachable from nothing in production, so the migration tests can build the legacy shape |
+| The separate server-backed practice table | **Retired.** No UI creates one, `PracticePayload.START` answers and starts nothing, and `PracticeTable.retire` takes leftovers in old saves apart from the table's own ticker. Creating one is no longer in the jar: the migration tests build the legacy shape with `LegacyPracticeTables`, a fixture in the game-test source set (CL-09) |
 | No rules enforcement, ever | Standing |
 | No player-supplied image URLs; the custom playmat is settled no | Standing — `docs/design-brief.md:313` |
 | Textures and sounds are the owner's | Standing — `artcheck` holds 2,152 hashes |
@@ -128,9 +128,7 @@ table and the next ending returns it.
 - Nothing graphical has been run. The scripted client has not been run since before this batch.
   Remapped controls, small windows, large GUI scale and reduced motion are **unverified** for the
   overlay; the six steps are verified as state transitions, not as presses.
-- `PracticeTable.start` and its eight lifecycle tests still exist. They are reachable from
-  nothing in production and are what the migration tests build a legacy table with. Deleting
-  them means deleting two of the external reviewer's own probes, which is the owner's call.
+- *(Resolved by CL-09.)* Practice creation moved out of production into a game-test fixture. See the cleanup roadmap progress section.
 
 ### Fixed, committed
 
@@ -251,9 +249,45 @@ incompleteness in those same fixes rather than new ground:
 
 The rest of the audit is a fourteen-item roadmap (`docs/reviews/cleanup-2026-09-13-roadmap.csv`)
 covering release packaging, bulk-action batching, snapshot reuse, search caching and
-decomposing `TableScreen`. **None of it is started.** Its own ordering says CL-01 and CL-02
-first, which is what this batch did, and then the gate/status consolidation (CL-13) before the
-performance work.
+decomposing `TableScreen`. Its status column is kept current and is the per-item record; the
+notes below are what a status line cannot hold.
+
+### Cleanup roadmap progress
+
+| Id | State | The part worth knowing |
+|---|---|---|
+| CL-01, CL-02 | Done | Above |
+| CL-13 | Done | Below, "there were two gates" |
+| CL-08 | Partial | Tests out of the jar; DevScene is not, and needs a display to verify |
+| CL-05a | Done | The query is parsed once per request. 5.893 ms to 2.141 ms at 10k rows, on this machine, with an equivalence test over twelve queries |
+| CL-04 | Done for the board | A quiet table sends nothing after its first push, keyed on `GameSession.revision()` and the audience. `AmbientBoardGameTest` checks both halves: silence, and that a changed board and a newly arrived spectator are still sent one. **The first commit of this (`a3bd7b69`) went in with the gate red** - a pipeline read `tail`'s exit code rather than the gate's - and was fixed in the next commit. Commits now check the gate's own exit code |
+| CL-11a | Done | `Prompts` and core `ListScroll`; four panels and two lists |
+| CL-09 | Done | Below |
+
+**CL-09.** `PracticeTable` now holds only what production needs: `retire`, the answers to an
+old client's START and STOP, `isPracticeAt` and the demonstration seat. Creation lives in
+`neoforge/src/gametest/.../LegacyPracticeTables.java`, unchanged in what it builds.
+
+Doing it found a real property-loss path first. STOP still ran the old ending, which discards
+whatever the table holds. The ticker retires a legacy table on its first tick, but an old client
+can send STOP before that - and in a save written before the intake guard, the table can be
+holding a deck somebody built. Reproduced at zero copies (`astopbeforethefirsttickkeepsarealdeck`),
+fixed by routing STOP through `retire`, which takes the flag off before ending anything.
+
+Two things went with creation, and are recorded rather than quietly dropped:
+
+- The per-learner map that let a disconnect end a practice game. Only a live start ever filled
+  it, so it could only be empty. The external reviewer's `disconnectMustCleanUpPractice` probe
+  was adapted rather than deleted: same fixture, same shared disconnect hook, same three
+  things that must not be left behind, but checked after the table has ticked. **Shown to
+  fail** with the ticker's retirement disabled, and only that test failed.
+- Two tests of the old start path's refusals (a table with a game on it, a table somebody else
+  is at). They described what an unreachable feature would have declined. The STOP-on-a-real-
+  game test was kept and now goes through the production network entry point. The suite went
+  406 to 404 for exactly those two.
+
+Six `message.gathering.practice_*` strings only the old start's outcomes used were removed;
+`practice_retired` stays.
 
 The audit also measured the bulk-broadcast cost independently and agrees with the number
 recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views

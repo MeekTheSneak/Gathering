@@ -94,7 +94,7 @@ public final class PracticeRetirementGameTest {
      */
     private static void aPracticeTableHoldingARealDeck(
             GameTestHelper helper, ServerPlayer player, BlockPos origin, DeckComponent deck) {
-        if (PracticeTable.start(player, origin) != PracticeTable.Outcome.STARTED) {
+        if (LegacyPracticeTables.start(player, origin) != LegacyPracticeTables.Outcome.STARTED) {
             throw new AssertionError("the legacy practice fixture did not start");
         }
         SeatId seat = TableSessions.seatIdOf(helper.getLevel(), origin, player.getUUID())
@@ -255,7 +255,7 @@ public final class PracticeRetirementGameTest {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         player.getInventory().clearContent();
         BlockPos origin = table(helper);
-        if (PracticeTable.start(player, origin) != PracticeTable.Outcome.STARTED) {
+        if (LegacyPracticeTables.start(player, origin) != LegacyPracticeTables.Outcome.STARTED) {
             throw new AssertionError("the legacy practice fixture did not start");
         }
         if (TableSeats.seatOf(helper.getLevel(), origin, PracticeTable.demonstrationSeat())
