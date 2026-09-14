@@ -101,6 +101,10 @@ public final class BulkBroadcastGameTest {
      * <p>What it does assert is that the count grows with the selection. If it ever stops
      * doing so, the coalescing somebody added is working and this test should be rewritten to
      * say so rather than quietly continuing to pass.
+     * <p>This is the single-move path, and it still grows, on purpose: one move is one board.
+     * A verb on a selection now goes as one batch and costs one board however many cards it
+     * touches - {@link BatchedActionsGameTest} says so. What this pins is that a client sending
+     * single moves, as an older one does, still gets exactly what it always got.
      */
     @GameTest(template = "empty")
     public static void abulkgesturecostsaboardpercard(GameTestHelper helper) {

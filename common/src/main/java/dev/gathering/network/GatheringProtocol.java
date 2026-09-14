@@ -84,6 +84,8 @@ public final class GatheringProtocol {
                                     ? dev.gathering.core.ante.AnteConsent.Answer.IN
                                     : dev.gathering.core.ante.AnteConsent.Answer.OUT)),
             toServer(TableActionPayload.TYPE, TableActionPayload.STREAM_CODEC, TableActions::handle),
+            toServer(TableActionsPayload.TYPE, TableActionsPayload.STREAM_CODEC,
+                    TableActions::handleAll),
             toServer(UndoPayload.TYPE, UndoPayload.STREAM_CODEC, TableActions::handleUndo),
             toServer(StartTablePayload.TYPE, StartTablePayload.STREAM_CODEC,
                     dev.gathering.server.TableSetup::handle),

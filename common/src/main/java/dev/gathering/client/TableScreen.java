@@ -4123,12 +4123,14 @@ public final class TableScreen extends Screen {
     private void eachTarget(
             GameView board, List<CardInstanceId> targets,
             java.util.function.Function<CardInstanceId, GameEvent> verb) {
+        List<GameEvent> events = new ArrayList<>(targets.size());
         for (CardInstanceId target : targets) {
             GameEvent event = verb.apply(target);
             if (event != null) {
-                send(event);
+                events.add(event);
             }
         }
+        sendAll(events);
         selected.clear();
     }
 
@@ -4140,13 +4142,15 @@ public final class TableScreen extends Screen {
     private void eachCard(
             GameView board, List<CardInstanceId> targets,
             java.util.function.Function<CardView.Visible, GameEvent> verb) {
+        List<GameEvent> events = new ArrayList<>(targets.size());
         for (CardInstanceId target : targets) {
             findCard(board, target)
                     .filter(CardView.Visible.class::isInstance)
                     .map(CardView.Visible.class::cast)
                     .map(verb)
-                    .ifPresent(this::send);
+                    .ifPresent(events::add);
         }
+        sendAll(events);
         selected.clear();
     }
 
@@ -4927,6 +4931,7 @@ public final class TableScreen extends Screen {
         // tool undoing a real decision. The tick below drops a stale preview outright; this is
         // the belt for the frames between the last check and the press.
         java.util.Map<CardInstanceId, Integer> facing = howMyCardsAreTurned(me);
+        List<GameEvent> moves = new ArrayList<>(arranging.size());
         for (dev.gathering.core.ui.ArrangeSelection.Spot spot
                 : dev.gathering.core.ui.ArrangeSelection.stillStanding(
                         arranging, facing.keySet())) {
@@ -4934,11 +4939,12 @@ public final class TableScreen extends Screen {
             // after previewing is a decision the player made later, and later wins - a tidy
             // that straightened it would be the convenience tool overruling them. An audit
             // caught exactly that: rotation=0 where 90 was expected.
-            send(new GameEvent.CardMoved(me, spot.id(),
+            moves.add(new GameEvent.CardMoved(me, spot.id(),
                     ZoneRef.of(me, Zone.BATTLEFIELD),
                     dev.gathering.core.game.Placement.at(
                             spot.facing(facing.getOrDefault(spot.id(), 0)))));
         }
+        sendAll(moves);
         arranging = List.of();
     }
 
@@ -5635,12 +5641,14 @@ public final class TableScreen extends Screen {
         // send every card to the presser's own battlefield, so grouping a selection on an
         // opponent's mat quietly stole it.
         SeatId mat = matHolding(board, cards.get(0)).orElse(me);
+        List<GameEvent> moves = new ArrayList<>(cards.size());
         for (CardView card : cards) {
             if (card instanceof CardView.Visible visible) {
-                send(new GameEvent.CardMoved(me, visible.id(),
+                moves.add(new GameEvent.CardMoved(me, visible.id(),
                         ZoneRef.of(mat, Zone.BATTLEFIELD), Placement.at(onto)));
             }
         }
+        sendAll(moves);
         selected.clear();
         return true;
     }
@@ -5708,6 +5716,25 @@ public final class TableScreen extends Screen {
             ClientCardFlights.movedItOurselves(moved.card(), now);
         }
         ClientTableActions.send(table, event);
+    }
+
+    /**
+     * Sends the moves one gesture makes on a selection, together.
+     * <p>The same moves {@link #send} would send one at a time, in the same order, with the same
+     * fence in front of them; the server judges each on its own and shows the table the result
+     * once. See {@link ClientTableActions#sendAll}.
+     */
+    private void sendAll(List<GameEvent> events) {
+        if (replay || events.isEmpty()) {
+            return;
+        }
+        long now = ClientCardFlights.now();
+        for (GameEvent event : events) {
+            if (event instanceof GameEvent.CardMoved moved) {
+                ClientCardFlights.movedItOurselves(moved.card(), now);
+            }
+        }
+        ClientTableActions.sendAll(table, events);
     }
 
     // --------------------------------------------------------------- drawing

@@ -38,16 +38,59 @@ public final class TableActions {
 
     public static void handle(ServerPlayer player, TableActionPayload payload) {
         ServerLevel level = player.serverLevel();
-        BlockPos clicked = payload.table();
-
-        BlockPos origin = TableReach.originFor(player, clicked).orElse(null);
+        BlockPos origin = TableReach.originFor(player, payload.table()).orElse(null);
         if (origin == null) {
             return;
         }
+        if (apply(level, origin, player, payload.event())) {
+            showTheBoard(level, origin);
+        }
+    }
 
-        GameEvent event = accept(level, origin, player.getUUID(), payload.event()).orElse(null);
-        if (event == null) {
+    /**
+     * Several moves in order, answered with one board.
+     * <p>Each event is the single path's, gate for gate: {@link #apply} is the same method. What
+     * differs is only when the table is shown the result. One board after the last move rather
+     * than one after every move - except when a move ends the game, when the board it ended on
+     * goes out first and the game is settled before anything else in the batch is looked at,
+     * exactly as it is for single moves. Whatever follows that finds no game to act on, as a
+     * separate packet arriving after it would have.
+     * <p>The reach check is made once, for the batch. It is a check on where the player is
+     * standing, and nothing in a batch moves the player.
+     */
+    public static void handleAll(ServerPlayer player, dev.gathering.network.TableActionsPayload payload) {
+        ServerLevel level = player.serverLevel();
+        BlockPos origin = TableReach.originFor(player, payload.table()).orElse(null);
+        if (origin == null) {
             return;
+        }
+        int limit = Math.min(payload.events().size(), dev.gathering.core.ui.BulkLimit.MOST_AT_ONCE);
+        boolean unshown = false;
+        for (int index = 0; index < limit; index++) {
+            if (!apply(level, origin, player, payload.events().get(index))) {
+                continue;
+            }
+            unshown = true;
+            GameSession session = TableSessions.sessionAt(level, origin).orElse(null);
+            if (session != null && dev.gathering.core.match.GameOutcome.isFinished(session.state())) {
+                showTheBoard(level, origin);
+                unshown = false;
+            }
+        }
+        if (unshown) {
+            showTheBoard(level, origin);
+        }
+    }
+
+    /**
+     * Applies one move if it is allowed, and says whether it was.
+     * <p>Everything a move does to the table except showing it: the gates, the rules, the
+     * refusal, and the seat and deck bookkeeping when somebody stands up.
+     */
+    private static boolean apply(ServerLevel level, BlockPos origin, ServerPlayer player, byte[] bytes) {
+        GameEvent event = accept(level, origin, player.getUUID(), bytes).orElse(null);
+        if (event == null) {
+            return false;
         }
         GameSession session = TableSessions.sessionAt(level, origin).orElseThrow();
 
@@ -57,7 +100,7 @@ public final class TableActions {
             // here once per card, so a selection the table refuses used to be refused once per
             // card - forty identical lines, which is less informative than one.
             Refusals.tell(player, rejected.reason());
-            return;
+            return false;
         }
 
         // Giving up a seat is two stores, not one: the game's own seat state, which the fold
@@ -75,13 +118,18 @@ public final class TableActions {
             TableSessions.returnDeckTo(level, origin, released.actor());
             Antes.seatsChanged(level, origin);
         }
+        TableSessions.markDirty(level, origin);
+        return true;
+    }
 
+    /** Sends the table its board, and then settles the game if that board is the last one. */
+    private static void showTheBoard(ServerLevel level, BlockPos origin) {
         TableSessions.markDirty(level, origin);
         TableBroadcast.sendToTable(level, origin);
-
         // Last, and after the board has gone out: a move that ended the game is still a move,
         // and everybody should see the board it ended on before it is taken away.
-        TableMatch.settleIfFinished(level, origin, session.state());
+        TableSessions.sessionAt(level, origin).ifPresent(session ->
+                TableMatch.settleIfFinished(level, origin, session.state()));
     }
 
     /**

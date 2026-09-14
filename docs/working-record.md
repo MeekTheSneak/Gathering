@@ -267,6 +267,7 @@ notes below are what a status line cannot hold.
 | CL-06 | Done, not seen | Below |
 | CL-10 | Partial, not seen | Below |
 | CL-11b | Done | Below |
+| CL-03 | Done, not timed live | Below; supersedes "Why the bulk broadcast was measured and left alone" |
 
 **CL-09.** `PracticeTable` now holds only what production needs: `retire`, the answers to an
 old client's START and STOP, `isPracticeAt` and the demonstration seat. Creation lives in
@@ -361,7 +362,7 @@ remaining ones move input handling, and should be paired with a scripted client 
 and for serverbound ones the handler. Each loader walks it through a generic helper that keeps
 type, codec and handler agreeing at compile time - no cast, no reflection - and adds only what
 is its own: NeoForge's protocol version and handler thread and its context-to-player check,
-Fabric's type registries. NeoForge's file went from 499 lines to 79, Fabric's from 335 to 60.
+Fabric's type registries. NeoForge's file went from 499 lines to 79, Fabric's from 335 to 56.
 
 Checked before the switch rather than assumed: a script read both loaders' registrations and
 the new list and found the same 34 serverbound and 22 clientbound types in all three. One small
@@ -373,6 +374,42 @@ still names no client class.
 
 Not run: a real dedicated server and a real client connecting across the two loaders. The game-
 test servers prove registration succeeds, not that a live connection negotiates.
+
+**CL-03.** A verb on a selection - tap, freeze, turn, counters, moves to a zone, grouping, tidy -
+now goes as one `TableActionsPayload` instead of one payload per card, and the table is shown
+its board once instead of once per card per viewer. The three reasons this was left alone
+earlier (the section below) were each answered rather than set aside:
+
+1. *Game-end ordering.* The server applies each move through `TableActions.apply` - the same
+   method a single action uses now - and after every move asks whether the game is finished.
+   If it is, it shows that board and settles immediately, before looking at the next move,
+   which then finds the game put away exactly as a separate packet would have.
+2. *One event per card as the authority argument.* Kept whole. Nothing new crosses the wire:
+   the batch is a list of the same encoded events, each judged alone by every gate. A refused
+   move is refused without taking its neighbours with it.
+3. *Unmeasured benefit.* Still not timed on a live server. What is measured is the count: one
+   board where there were eight, in the game tests; the audit's core microbenchmark put 128
+   changes at six viewers at 43.60 ms against 1.97 ms for final views only.
+
+Bounded on the server regardless of the client: at most `BulkLimit.MOST_AT_ONCE` moves applied
+per payload whatever it was built with, 512 bytes per move at decode, and the client splits a
+selection into batches under 16 KB. A single move, or an event too big for a batch, goes as a
+single action. `PROTOCOL_VERSION` is 3. The single-action path is unchanged, and
+`BulkBroadcastGameTest` still pins that it costs one board per move.
+
+Separately, everybody watching a table who is not seated now shares one public view per
+broadcast - built and encoded once, sent to each - where each used to get their own copy of
+an identical view. Seated players still get their own view.
+
+`BatchedActionsGameTest`: one board for eight moves; every gate on every move; game-end
+settling mid-batch; the server-side bound; out-of-reach; shared spectator view. **Shown to
+fail**: a board after every move fails the first; no bound, no mid-batch settle and a view per
+spectator fail the other three, and nothing else.
+
+Not verified: the client half. `ClientTableActions.sendAll` and the screen's four bulk verbs are
+compiled and read, not run - no automated check loads client classes - and nobody has watched a
+selection animate after the change. Card flights are worked out from the difference between
+boards, so one board should still move every card; that is reasoning, not observation.
 
 The audit also measured the bulk-broadcast cost independently and agrees with the number
 recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views
@@ -398,6 +435,9 @@ something this machine does not have.
 pictures.** Seven features landed this session that have never been rendered.
 
 ## Why the bulk broadcast was measured and left alone
+
+*Superseded by CL-03 above, which answers each of the three reasons below. Kept because the
+reasons are what the implementation had to satisfy.*
 
 Deferring the broadcast to the end of the tick would collapse a hundred boards into one, and
 the arithmetic says that is worth having. It was not done, for three reasons that a later

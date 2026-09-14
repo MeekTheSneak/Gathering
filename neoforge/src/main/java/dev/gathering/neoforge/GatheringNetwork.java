@@ -29,8 +29,10 @@ public final class GatheringNetwork {
      * while decoding a payload, which disconnects whoever is on the wrong side of it with a
      * message about a byte count. Refusing to connect at all is the honest answer, and it is
      * what a different number here buys.
+     * <p>Three, for the batched table action: a client that sends a selection's verbs as one
+     * payload cannot play at a server that does not know the payload.
      */
-    private static final String PROTOCOL_VERSION = "2";
+    private static final String PROTOCOL_VERSION = "3";
 
     private GatheringNetwork() {
     }

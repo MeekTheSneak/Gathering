@@ -66,9 +66,21 @@ public final class TableBroadcast {
         return boardsSent;
     }
 
-    /** Starts the count again. */
+    /**
+     * How many views have been worked out and encoded, which is fewer than the boards sent
+     * whenever several spectators share one. For a test that wants to count them.
+     */
+    private static int viewsBuilt;
+
+    /** How many views have been built. */
+    public static int viewsBuilt() {
+        return viewsBuilt;
+    }
+
+    /** Starts both counts again. */
     public static void forgetTheCount() {
         boardsSent = 0;
+        viewsBuilt = 0;
     }
 
     /** Sends the board to every seated player at this cluster, and the public one to the room. */
@@ -99,6 +111,13 @@ public final class TableBroadcast {
     public static void sendAmbient(
             ServerLevel level, BlockPos tableOrigin, GameSession session,
             java.util.Set<java.util.UUID> exclude) {
+        // Built once for everybody watching rather than once each. Every spectator is the same
+        // viewer - Viewer.Spectator has no identity to differ by - so the view, and the bytes
+        // it encodes to, are the same for all of them; building it per person was the same
+        // walk through the visibility rules repeated for each. Built only if somebody is
+        // watching, and never shared with a seated player, whose view is a different view.
+        GameView shared = null;
+        byte[] encoded = null;
         for (ServerPlayer nearby : level.players()) {
             if (exclude.contains(nearby.getUUID())) {
                 continue;
@@ -107,7 +126,21 @@ public final class TableBroadcast {
                     tableOrigin.getZ() + 1.0) > AMBIENT_RANGE * AMBIENT_RANGE) {
                 continue;
             }
-            send(nearby, tableOrigin, session, Optional.empty(), false);
+            if (shared == null) {
+                try {
+                    shared = VisibilityRules.viewFor(
+                            session.state(), Viewer.SPECTATOR, session.recentLog(LOG_LINES_SENT));
+                    encoded = ViewCodec.write(shared);
+                    viewsBuilt++;
+                } catch (IOException e) {
+                    LOGGER.error("Could not build the public board at {}: {}",
+                            tableOrigin, e.getMessage());
+                    return;
+                }
+            }
+            boardsSent++;
+            Sending.to(nearby, new TableViewPayload(tableOrigin, encoded, false));
+            CardArtPush.sendFor(nearby, shared);
         }
     }
 
@@ -154,6 +187,7 @@ public final class TableBroadcast {
             // nobody scrolls back past the last dozen. What is kept is kept on the server.
             GameView seen = VisibilityRules.viewFor(
                     session.state(), viewer, session.recentLog(LOG_LINES_SENT));
+            viewsBuilt++;
             boardsSent++;
             Sending.to(player,
                     new TableViewPayload(tableOrigin, ViewCodec.write(seen), open));
