@@ -174,6 +174,14 @@ build order T1-T7 are in `docs/tournaments.md`. Progress:
   **practice board** on the event screen, tour steps for practice and the pointer.
 - Saves: tournament codec v2 and pod record v2 add the clock; both read v1, tested byte for byte.
   Protocol 9.
+- **Tour after `564c1665`:** 340 steps, 1 failure: resting the cursor on the graveyard (step
+  ~44) named nothing, the same hover step that has failed before while the real cursor was over
+  the window; unrelated code, not reproduced. Screenshots 100-105 and 102a reviewed, and they
+  found two real defects the automated checks had passed: **the practice board was empty**
+  (it dealt only the main deck, and a drafted pool is all sideboard; the tour's step checked
+  only that practice had started), and **a player moved into their seat faced away from the
+  table** (north and south yaws swapped). Both fixed; the tour now counts the practice library
+  and checks the facing. The event-kind buttons were still cramped; labels narrowed.
 
 Still open: a sign-up locked by an opening that never completes stays locked until restart (the
 lock is not saved); prize descriptions use server-side item names.

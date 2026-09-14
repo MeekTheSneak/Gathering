@@ -29,7 +29,7 @@ public final class EventCreateScreen extends Screen {
     private static final int MARGIN = 8;
     private static final int ROW = 18;
     private static final int GAP = 3;
-    private static final int LABEL_WIDTH = 62;
+    private static final int LABEL_WIDTH = 52;
 
     private final BlockPos table;
     private String name = "";
@@ -151,7 +151,7 @@ public final class EventCreateScreen extends Screen {
         int[] wants = new int[values.length];
         int wanted = 0;
         for (int index = 0; index < values.length; index++) {
-            wants[index] = this.font.width(Component.translatable(labelKey.apply(values[index]))) + 8;
+            wants[index] = this.font.width(Component.translatable(labelKey.apply(values[index]))) + 6;
             wanted += wants[index];
         }
         int left = x + LABEL_WIDTH;

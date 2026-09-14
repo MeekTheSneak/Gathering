@@ -174,7 +174,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 339;
+    private static final int LAST_STEP = 340;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -3400,14 +3400,23 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 327 -> {
-                // A board of their own with the deck in hand, while registered.
+                // A board of their own with the deck in hand, while registered: a drafted pool,
+                // all sideboard, which is the deck a limited player is holding while they build.
+                handAPoolToPractiseWith(client);
+                advance(SETTLE / 2);
+            }
+            case 328 -> {
                 press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.event.practice").getString());
                 advance(SETTLE);
             }
-            case 328 -> {
+            case 329 -> {
                 expectScreen(client, "practicing with a deck", TableScreen.class);
-                if (!TutorialDemo.practising()) {
-                    fail("the practice board is not dealt the deck in hand");
+                int library = TutorialDemo.board()
+                        .map(board -> board.seat(dev.gathering.core.game.SeatId.of(0)).zones()
+                                .get(dev.gathering.core.game.Zone.LIBRARY))
+                        .map(zone -> zone.count()).orElse(-1);
+                if (!TutorialDemo.practising() || library != PRACTICE_POOL) {
+                    fail("the practice board was not dealt the pool in hand: library " + library);
                 }
                 shoot(client, "102a-practising-a-deck");
                 TutorialDemo.clear();
@@ -3417,7 +3426,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 329 -> {
+            case 330 -> {
                 expectScreen(client, "the tournaments list after practice", EventListScreen.class);
                 if (client.screen instanceof EventListScreen list && !list.events().isEmpty()) {
                     ClientNetworking.send(dev.gathering.network.EventActionPayload.of(list.events().get(0).id(),
@@ -3425,7 +3434,7 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 330 -> {
+            case 331 -> {
                 // An opponent: a single-player run has nobody else to register, so one is put in
                 // the event on the server, as a second player registering would be.
                 addATournamentOpponent(client);
@@ -3434,11 +3443,11 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 331 -> {
+            case 332 -> {
                 press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.event.begin").getString());
                 advance(SETTLE * 2);
             }
-            case 332 -> {
+            case 333 -> {
                 if (client.screen instanceof EventScreen event) {
                     event.showTab(EventScreen.Tab.OVERVIEW);
                     if (event.view().mine().table() != 1) {
@@ -3447,12 +3456,12 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 333 -> {
+            case 334 -> {
                 shoot(client, "103-round-one");
                 client.setScreen(null);
                 advance(SETTLE);
             }
-            case 334 -> {
+            case 335 -> {
                 // Either moved to their seat, being sat at this long table already, or shown the
                 // way to it: never left with only a line in the chat.
                 boolean atTheTable = client.player != null && practiceTable != null
@@ -3462,13 +3471,21 @@ public final class DevScene {
                 if (!EventHud.isPointing() && !atTheTable) {
                     fail("round one neither moved the host to table 1 nor pointed the way");
                 }
+                if (atTheTable && client.player != null) {
+                    // Moved into the seat means looking across the table, not away from it.
+                    net.minecraft.world.phys.Vec3 toTable = net.minecraft.world.phys.Vec3.atCenterOf(practiceTable.offset(1, 0, 1))
+                            .subtract(client.player.position()).multiply(1, 0, 1).normalize();
+                    if (client.player.getLookAngle().multiply(1, 0, 1).normalize().dot(toTable) < 0.5) {
+                        fail("the host was moved into their seat facing away from the table");
+                    }
+                }
                 shoot(client, "104-a-numbered-table");
                 if (client.player != null && client.player.connection != null) {
                     client.player.connection.sendCommand("gathering events");
                 }
                 advance(SETTLE);
             }
-            case 335 -> {
+            case 336 -> {
                 expectScreen(client, "the tournaments list again", EventListScreen.class);
                 if (client.screen instanceof EventListScreen list && !list.events().isEmpty()) {
                     ClientNetworking.send(dev.gathering.network.EventActionPayload.of(list.events().get(0).id(),
@@ -3476,24 +3493,24 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 336 -> {
+            case 337 -> {
                 expectScreen(client, "opening the tournament", EventScreen.class);
                 if (client.screen instanceof EventScreen event) {
                     event.showTab(EventScreen.Tab.PAIRINGS);
                 }
                 advance(SETTLE / 4);
             }
-            case 337 -> {
+            case 338 -> {
                 shoot(client, "105-pairings");
                 settleTableOne(client, 2);
                 advance(20 * 18);
             }
-            case 338 -> {
+            case 339 -> {
                 // No round two: the opponent was never online, so the next round drops them, as
                 // anybody still gone at the next round is, and one player left finishes the event.
                 advance(SETTLE / 4);
             }
-            case 339 -> {
+            case 340 -> {
                 if (client.screen instanceof EventScreen event) {
                     event.showTab(EventScreen.Tab.STANDINGS);
                     if (!"finished".equals(event.view().phase()) || event.view().places().isEmpty()) {
@@ -6528,6 +6545,32 @@ public final class DevScene {
         if (Tutorial.running()) {
             fail("the guided first game is still running after Leave");
         }
+    }
+
+    /** How many cards the pool handed over for practice holds. */
+    private static final int PRACTICE_POOL = 23;
+
+    /** Puts a drafted-pool shaped deck, every card in the sideboard, in this player's hand. */
+    private static void handAPoolToPractiseWith(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            fail("there was no server to hand a pool on");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player == null) {
+                return;
+            }
+            List<dev.gathering.item.CardComponent> pool = new java.util.ArrayList<>();
+            for (int card = 0; card < PRACTICE_POOL; card++) {
+                pool.add(dev.gathering.item.CardComponent.of(dev.gathering.core.card.CardIdentity.ofPrinting(
+                        java.util.UUID.nameUUIDFromBytes(("devscene-pool/" + card).getBytes()))));
+            }
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, dev.gathering.item.DeckItem.of(
+                    new dev.gathering.item.DeckComponent("Pool", "", java.util.Optional.of(who), List.of(), List.of(), pool)));
+        });
     }
 
     /** Adds a second entrant to the tournament this player hosts, on the server. */

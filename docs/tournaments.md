@@ -98,8 +98,8 @@ drafts only. When it runs out, everybody still to pick takes the first cards in 
 never a choice made for them on merit, and never a random one. The draft screen counts down, red
 for the last ten seconds. The turn's start is not saved: a restart gives everybody a full clock.
 
-**Practice.** *Practice* on the overview deals the deck in the player's hand onto a board that
-exists only on their client, like the lesson's, for laying out and drawing hands while building.
+**Practice.** *Practice* on the overview deals the deck in the player's hand - its sideboard when
+the main deck is empty, as a fresh pool is - onto a board that exists only on their client, like the lesson's, for laying out and drawing hands while building.
 Nothing done there reaches the server.
 
 **Ratings and hosting rules.** A result counts toward ratings only when a game was played at the

@@ -149,7 +149,14 @@ public final class EventScreen extends Screen {
             }
             return;
         }
-        java.util.List<dev.gathering.core.card.CardIdentity> cards = deck.entries().stream()
+        // The main deck, or the sideboard when there is none: a pool fresh from a draft or a
+        // sealed opening is all sideboard until the player builds from it.
+        java.util.List<dev.gathering.item.CardComponent> source = deck.entries().isEmpty() ? deck.sideboard() : deck.entries();
+        if (source.isEmpty()) {
+            player.displayClientMessage(Component.translatable("message.gathering.event.hold_a_deck_to_practice"), true);
+            return;
+        }
+        java.util.List<dev.gathering.core.card.CardIdentity> cards = source.stream()
                 .map(dev.gathering.item.CardComponent::toIdentity).toList();
         java.util.List<dev.gathering.core.card.CardIdentity> commanders = deck.commanders().stream()
                 .map(dev.gathering.item.CardComponent::toIdentity).toList();

@@ -567,11 +567,24 @@ public final class Events {
         BlockPos stand = TableClusters.seatPos(table, seat);
         boolean near = online.serverLevel() == level && online.blockPosition().closerThan(table, 24);
         if (atThisLongTable || (bringFromNearby && near)) {
-            online.teleportTo(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5,
-                    seat.side() == dev.gathering.core.table.Side.NORTH ? 180f : 0f, 0f);
+            online.teleportTo(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, facingTheTable(seat.side()), 0f);
         } else {
             EventPointers.pointTo(online, stand);
         }
+    }
+
+    /**
+     * The yaw that looks across the table from a chair on this side. Minecraft's yaw is 0 for
+     * south, 90 for west, 180 for north and -90 for east - so a chair on the north edge looks
+     * south, over the table.
+     */
+    static float facingTheTable(dev.gathering.core.table.Side side) {
+        return switch (side) {
+            case NORTH -> 0f;
+            case SOUTH -> 180f;
+            case EAST -> 90f;
+            case WEST -> -90f;
+        };
     }
 
     /** Ends anything left running at the event's tables, handing decks back. */
