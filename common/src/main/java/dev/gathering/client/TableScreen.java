@@ -5781,7 +5781,22 @@ public final class TableScreen extends Screen {
                 tray.x() + tray.width() / 2, area.bottom() + 2, tray.width() - 4, POT_LABEL);
     }
 
-    /** Geometry and input stay in the screen; painting receives only the filtered card. */
+    /**
+     * A card: its picture, turned to its own angle, and nothing drawn round it.
+     * <p>No border, anywhere. The art has its own printed one, so a second is somebody else's
+     * idea of a card drawn over the real one - and a frame round every card turns a hand into
+     * a row of lines with slivers of art between them.
+     * <p>Where it goes is decided here; painting it is {@link TableCardRenderer}'s, which is
+     * handed nothing but the filtered card.
+     * <p>What is left is feedback rather than decoration: a shadow under a card on the felt so
+     * a stack reads as a stack, a tint on a tapped one, a ring on the one under the cursor.
+     * <p>The sleeve is handed in rather than looked up, because a face-down card carries no
+     * owner - that is the visibility rule. Whose card it is is a fact about the zone it lies
+     * in, so it is known where the zones are walked and nowhere else.
+     *
+     * @param onTheFelt whether this is a card lying on the table, which is what earns it a
+     *     shadow and a tapped tint - a card in a hand or in a list has neither
+     */
     private void drawCard(
             GuiGraphics graphics, CardView card, dev.gathering.core.card.Sleeve sleeve,
             Rect where, int angle, boolean hovered, boolean onTheFelt) {
@@ -5869,9 +5884,14 @@ public final class TableScreen extends Screen {
         return TableReplayControls.layout(layout().hand(), this.font);
     }
 
-    /** Replay clicks cannot reach the live board; middle-drag remains a camera gesture. */
+    /**
+     * A watcher's click. Three buttons, a bar, and nothing else on the whole screen.
+     * <p>Everything is swallowed rather than passed on, which is the point: a finished game
+     * has no verbs, and a click that fell through to the board would be looking for one.
+     */
     private boolean watcherClicked(int x, int y, int button) {
         if (button == 2) {
+            // Panning is looking, not playing, and a replay is entirely for looking.
             panFrom = new int[] {x, y};
         } else if (button == 0) {
             replayControls.click(replayStrip(), x, y);
@@ -5879,7 +5899,12 @@ public final class TableScreen extends Screen {
         return true;
     }
 
-    /** Modal panels and the screen lifecycle stay here; transport keys stay together. */
+    /**
+     * A watcher's key. The panels that read the game, the transport, and the way out.
+     * <p>Space, the arrows and Home and End, because that is what every video scrubber in the
+     * world uses and nobody should have to be told. L still opens the log - a replay is mostly
+     * read alongside it - and F1 still lists the keys.
+     */
     private boolean watcherPressed(int key, int scanCode, int modifiers) {
         switch (key) {
             case org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> {
@@ -5896,7 +5921,14 @@ public final class TableScreen extends Screen {
                 return true;
             }
             default -> {
-                if (replayControls.keyPressed(key, scanCode)) return true;
+                if (replayControls.keyPressed(key, scanCode)) {
+                    return true;
+                }
+                // The log is the same verb on the same catalogue key as it is at a table, so
+                // it is asked for the same way. It was a literal L here too, which meant a
+                // player who moved the log key could open the log of a game they were playing
+                // and not of one they were watching - with this panel telling them L either
+                // way.
                 if (TableShortcuts.matches("show_log", key, scanCode)) {
                     showingLog = !showingLog;
                     return true;
@@ -5906,10 +5938,17 @@ public final class TableScreen extends Screen {
         }
     }
 
+    /**
+     * The strip along the bottom of a replay: where you are in the game, and the way about it.
+     * <p>Drawn last, over the felt, because the board is fitted to the window above it and
+     * anything that reached down here would be a card half under a control.
+     */
     private void renderScrubber(GuiGraphics graphics) {
         List<Component> hint = replayControls.render(
                 graphics, this.font, replayStrip(), cursorX, cursorY);
-        if (!hint.isEmpty()) tooltip = hint;
+        if (!hint.isEmpty()) {
+            tooltip = hint;
+        }
     }
 
     private TableScreenLayout layout() {

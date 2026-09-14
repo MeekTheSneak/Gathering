@@ -8,16 +8,26 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
-/** Replay transport input and painting. The screen retains camera and modal-panel handling;
- * ClientReplay retains requests, frames, playback timing and cancellation. Client thread only. */
+/**
+ * A replay's transport: its four buttons, its bar, the keys that drive it, and drawing them.
+ * <p>Where they are is {@link ReplayStrip}'s, so drawing and pointing agree by construction.
+ * What is not here stays where it was: the screen keeps panning, the log and key panels and
+ * closing; {@link ClientReplay} keeps requests, frames, playback timing and cancellation.
+ * <p>Client thread only.
+ */
 final class TableReplayControls {
     private static final int LABEL = 0xFFE8E4DC;
     private static final int SCRUB_TRACK = 0xFF3A3A3A;
     private static final int SCRUB_FILL = 0xFF6FD3E8;
     private static final int SCRUB_HEAD = 0xFFF2EEE6;
+    /** Whether the bar was grabbed, so a drag along it keeps scrubbing until released. */
     private boolean scrubbing;
     private List<Component> tooltip = List.of();
 
+    /**
+     * The transport laid along this strip, with room for "Replay 128 / 340" measured rather
+     * than guessed so the bar never runs under it.
+     */
     static ReplayStrip layout(Rect area, Font font) {
         int countWidth = font.width(Component.translatable(
                 "screen.gathering.replay.at", "0000", "0000")) + 4;
@@ -34,7 +44,8 @@ final class TableReplayControls {
                 scrubbing = true;
                 drag(transport, x);
             }
-            case NOTHING -> { }
+            case NOTHING -> {
+            }
         }
     }
 
@@ -43,7 +54,9 @@ final class TableReplayControls {
     }
 
     void drag(ReplayStrip transport, int x) {
-        if (scrubbing) ClientReplay.scrubTo(transport.stepUnder(x, ClientReplay.steps()));
+        if (scrubbing) {
+            ClientReplay.scrubTo(transport.stepUnder(x, ClientReplay.steps()));
+        }
     }
 
     boolean release() {
@@ -61,14 +74,17 @@ final class TableReplayControls {
             // offered while watching; this preserves the transport's existing fixed keys.
             case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> ClientReplay.scrubTo(0);
             case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> ClientReplay.scrubTo(ClientReplay.steps());
-            default -> { return false; }
+            default -> {
+                return false;
+            }
         }
         return true;
     }
 
     private static void panel(GuiGraphics graphics, Rect where) {
-        if (!where.isEmpty()) GatheringSprites.panel(graphics,
-                where.x(), where.y(), where.width(), where.height());
+        if (!where.isEmpty()) {
+            GatheringSprites.panel(graphics, where.x(), where.y(), where.width(), where.height());
+        }
     }
 
     List<Component> render(GuiGraphics graphics, Font font, ReplayStrip transport, int cursorX, int cursorY) {

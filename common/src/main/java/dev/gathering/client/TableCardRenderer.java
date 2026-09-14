@@ -17,10 +17,21 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
-/** Paints a filtered card at a position chosen by the table screen.
- * Does not select cards, route actions, or retain a game session. Client thread only. */
+/**
+ * Paints one card, at a place and angle the table screen has already chosen.
+ * <p>Moved out of the screen, which decides where every card goes and what pressing one does;
+ * this decides only what a card looks like. It is handed the filtered card and nothing else, so
+ * it can draw nothing the view did not show, and it keeps no game: no session, no selection, no
+ * table of its own.
+ * <p>Client thread only.
+ */
 final class TableCardRenderer {
     private static final int COUNTER_TEXT = 0xFFFFE9A8;
+    /**
+     * The color of the ring around a card somebody is pointing at.
+     * <p>Warm and not any of the seat colors, so "look at this" is never mistaken for "this
+     * is whose card it is".
+     */
     private static final int POINTED_AT_RING = 0xFFE8B24A;
     private static final int SHADOW_OFFSET = 1;
 
@@ -30,9 +41,15 @@ final class TableCardRenderer {
     private final List<Component> lines = new ArrayList<>();
     private final List<Component> counts = new ArrayList<>();
 
-    /** Draws the card, its public annotations, hover feedback, then the ping ring.
-     * The zone supplies the sleeve because an anonymous card carries no owner.
-     * Cards on the felt receive shadows and tapped/frozen tints; hand and drag cards do not. */
+    /**
+     * Draws a card at a place the screen chose: picture, marks, hover ring, pointing ring.
+     * <p>The sleeve is handed in rather than looked up, because a face-down card carries no
+     * owner - that is the visibility rule. Whose card it is is a fact about the zone it lies in,
+     * so it is known where the zones are walked and nowhere else.
+     *
+     * @param onTheFelt whether this is a card lying on the table, which is what earns it a
+     *     shadow and a tapped tint - a card in a hand or in a list has neither
+     */
     void draw(
             GuiGraphics graphics, Font font, BlockPos table, CardView card, Sleeve sleeve,
             Rect where, int angle, boolean hovered, boolean onTheFelt) {
@@ -98,8 +115,22 @@ final class TableCardRenderer {
         }
     }
 
-    /** Rings only an identified card in this table's public news. The caller supplies the
-     * live, tutorial or replay position; retaining it here would confuse those lifecycles. */
+    /**
+     * The ring around a card somebody has just pointed at.
+     * <p>"In response to that" needs a "that", and until now pointing did nothing whatsoever:
+     * the event's own description promised it "highlights a public card for everyone for a few
+     * seconds", and what it actually did was write a line in the log - which is the one place
+     * nobody is looking while somebody is pointing at something.
+     * <p>Drawn rather than painted, four bars around the edge, because there is no ring texture
+     * and the artwork is somebody else's to make.
+     * <p>Only ever a card this client can already identify. What is rung comes out of the log
+     * line, which names a card only when the whole table may see it - see
+     * {@link ClientTableNews}. A face-down card carries no id and gets no ring, which is the
+     * right outcome rather than a gap: a ring would be this client saying which one it is.
+     * <p>The table is handed in on every draw rather than kept: the live table, the
+     * demonstration and a replay each file their news under a different position, and a renderer
+     * that remembered one would ring cards from the wrong game.
+     */
     private void drawPointedAt(GuiGraphics graphics, BlockPos table, CardView card, Rect where) {
         if (!(card instanceof CardView.Visible visible)) {
             return;
@@ -125,7 +156,13 @@ final class TableCardRenderer {
         graphics.fill(right - thick, top + thick, right, bottom - thick, color);
     }
 
-    /** Written notes sit above counters. Paper stock already draws its note as the face. */
+    /**
+     * What somebody wrote on the card, across the top of it.
+     * <p>At the top because the counters are along the bottom, and a card carrying both is
+     * one somebody is keeping track of - exactly when both must be readable at once.
+     * <p>Over the name rather than the art: the name is the one thing on a card its owner
+     * already knows, and the art is what makes a board readable from across the table.
+     */
     private void drawWriting(GuiGraphics graphics, Font font, CardView card, Rect art) {
         // Not on blank stock. There the writing is the card - drawn across the whole of it by
         // PaperFace - and a band repeating the first few words of it over the top would be
@@ -136,14 +173,29 @@ final class TableCardRenderer {
         CardInspectPanel.drawNote(graphics, font, card.writtenOn().orElse(null), art);
     }
 
-    /** Written strength or loyalty in the corner; returns the floor for the counter stack. */
+    /**
+     * The power and toughness somebody wrote on it, in the corner where the printed ones are.
+     * <p>Where the card already puts them, so a board reads the same printed or written:
+     * right-hand corner, one line, on a badge dark enough to read over whatever the art is
+     * doing. Nothing is worked out - what is drawn is exactly what somebody typed. See
+     * {@link dev.gathering.core.game.CardStrength}, and section 16 of the brief.
+     *
+     * @return the line the counters may stack up from, which is above this when there is one
+     */
     private int drawStrength(GuiGraphics graphics, Font font, CardView card, Rect art) {
         return CardInspectPanel.drawStrength(
                 graphics, font, CounterText.cornerNumber(card), art);
     }
 
 
-    /** Edge rime and tint leave space for notes, counters and hover feedback. */
+    /**
+     * What a frozen card looks like: a rime along its edges.
+     * <p>Round the outside rather than over the art: a card may already carry a note across
+     * its top, counters up its bottom and numbers in its corner, so the frame is the last
+     * piece nothing else has claimed - and it reads at any size, which a corner mark does not.
+     * <p>Cold against the warm gold of a written power and toughness and the cursor's cyan:
+     * three marks on one card have to be three colors or they read as one.
+     */
     private void drawFrost(GuiGraphics graphics, Rect where) {
         GatheringSprites.draw(graphics, Element.FROZEN_TINT,
                 where.x(), where.y(), where.width(), where.height());
@@ -158,7 +210,13 @@ final class TableCardRenderer {
                 where.x(), where.bottom() - rime, where.width(), rime);
     }
 
-    /** Counter bands stay attached to the card and wrap at its current projected width. */
+    /**
+     * The counters on a card, along its bottom edge.
+     * <p>On the card rather than beside it, because a counter that lives next to a card stops
+     * being on that card the moment somebody moves either of them.
+     * <p>The text of each label is prepared once per card view - see {@link CardCounterLabels} -
+     * and measured every draw, so a zoom or a font change never meets a remembered width.
+     */
     private void drawCounters(GuiGraphics graphics, Font font, CardView card, Rect art, int floor) {
         if (card.counters().isEmpty()) {
             return;
