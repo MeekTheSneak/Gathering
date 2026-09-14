@@ -37,11 +37,13 @@ public final class TableActions {
     }
 
     /**
-     * Moves each player may make. Thirty a second sustained, two full selections at once: far
-     * beyond anybody playing, and a ceiling on a client that sends moves as fast as it can - each
-     * accepted one is folded, logged, saved and sent as a board to everybody at the table.
+     * Moves each player may make: sixty a second sustained, a thousand at once. Far beyond
+     * anybody playing - a pile carried card by card, or several full selections, fits in the
+     * burst - and still a ceiling on a client that sends moves as fast as a socket allows, each
+     * of which is folded, logged, saved and sent as a board to everybody at the table. The first
+     * setting, thirty and 256, dropped moves from the scripted client's piles.
      */
-    static final ActionBudget MOVES = new ActionBudget(30, 256);
+    static final ActionBudget MOVES = new ActionBudget(60, 1000);
 
     /** Undos: each one refolds the whole game, so fewer. */
     static final ActionBudget UNDOS = new ActionBudget(2, 6);

@@ -225,8 +225,13 @@ use to lag the server, and a set of medium and low items - all fixed. 10 new in-
 7 new core tests, each in-world guard shown to fail with its fix removed; one existing test
 rewritten because it asserted the theft path. Protocol 10.
 
+Also fixed after: creative mode wiped a moved deck's cards (a server hook on the creative slot
+packet, both loaders, guard on each; the Fabric guard caught that Fabric loaded the mod's mixin
+config on the client only, so it now loads on both sides with the camera hooks still client-only). The first move budget (30/s, burst 256) dropped moves in
+the scripted tour's pile steps; raised to 60/s, burst 1,000.
+
 Open, for the owner: seated players may draw, mill or shuffle another seat's library by design;
-creative mode can wipe a deck (redacted copy sent back); pack and shuffle randomness is
+pack and shuffle randomness is
 `SecureRandom`, an undocumented but stronger exception to the `level.getRandom()` rule.
 
 ## Owner-approved requirements, and what they superseded

@@ -60,6 +60,7 @@ public final class PlayerGone {
         // And whatever refusal was still folding, which is counted in this server's ticks and
         // means nothing in the next one.
         Refusals.forget(player.getUUID());
+        CreativeDecks.forget(player);
 
         // StarterBoosters is deliberately NOT forgotten here, and this comment is what says
         // so - the check next door looks for the name rather than the call. Everything else

@@ -344,8 +344,10 @@ public final class CardDataService implements AutoCloseable {
                     throw new UncheckedIOException(e);
                 }
             }, executor);
-        } catch (java.util.concurrent.RejectedExecutionException full) {
-            return CompletableFuture.failedFuture(new IOException("The card lookup queue is full; try again shortly", full));
+        } catch (java.util.concurrent.RejectedExecutionException refused) {
+            return CompletableFuture.failedFuture(new IOException(executor.isShutdown()
+                    ? "Card lookups have stopped; the server is shutting down"
+                    : "The card lookup queue is full; try again shortly", refused));
         }
     }
 

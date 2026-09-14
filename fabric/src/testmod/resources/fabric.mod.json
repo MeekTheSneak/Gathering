@@ -14,7 +14,8 @@
       "dev.gathering.fabric.test.FabricRegistrationGameTest",
       "dev.gathering.fabric.test.FabricBreakRulesGameTest",
       "dev.gathering.fabric.test.FabricEventsGameTest",
-      "dev.gathering.fabric.test.FabricLootSourceGameTest"
+      "dev.gathering.fabric.test.FabricLootSourceGameTest",
+      "dev.gathering.fabric.test.FabricCreativeDeckGameTest"
     ]
   },
   "depends": {

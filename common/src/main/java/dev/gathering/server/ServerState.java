@@ -38,6 +38,7 @@ public final class ServerState {
         Lending.clear();
         StarterBoosters.clear();
         ActionBudget.clearShared();
+        CreativeDecks.clear();
         dev.gathering.server.events.Events.clear();
         dev.gathering.server.events.EventRecords.clear();
     }

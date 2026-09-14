@@ -24,7 +24,7 @@
   "mixins": [
     {
       "config": "gathering.mixins.json",
-      "environment": "client"
+      "environment": "*"
     }
   ],
   "depends": {
