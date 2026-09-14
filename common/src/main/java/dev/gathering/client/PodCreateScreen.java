@@ -27,11 +27,18 @@ public final class PodCreateScreen extends Screen {
     private static final int DIM = 0xFF9A9690;
     private static final int WARN = 0xFFE0B15A;
 
-    private static final int PANEL_WIDTH = 300;
+    private static final int PANEL_WIDTH = 360;
     private static final int MARGIN = 10;
     private static final int ROW_HEIGHT = 18;
-    private static final int GAP = 4;
-    private static final int HEADING = 11;
+    private static final int GAP = 3;
+
+    /**
+     * How wide the name of each row is, written to its left.
+     * <p>Beside the choices rather than above them. Above them, seven rows came to a panel
+     * taller than a 240-pixel-high interface, and the scripted client photographed the last row
+     * off the bottom of the window and two more under Cancel and Create.
+     */
+    private static final int LABEL_WIDTH = 84;
 
     private final BlockPos table;
 
@@ -59,11 +66,12 @@ public final class PodCreateScreen extends Screen {
         headings.clear();
         headingText.clear();
         int rows = 7;
-        int height = MARGIN * 2 + ROW_HEIGHT + rows * (HEADING + ROW_HEIGHT + GAP) + ROW_HEIGHT + GAP * 2
-                + ROW_HEIGHT + GAP * 2;
-        panel = new Rect((this.width - PANEL_WIDTH) / 2, Math.max(MARGIN, (this.height - height) / 2),
-                PANEL_WIDTH, Math.min(height, this.height - MARGIN * 2));
-        int y = panel.y() + MARGIN + ROW_HEIGHT;
+        int height = MARGIN + ROW_HEIGHT + rows * (ROW_HEIGHT + GAP) + GAP + this.font.lineHeight + GAP * 2
+                + ROW_HEIGHT + MARGIN;
+        int width = Math.min(PANEL_WIDTH, this.width - MARGIN * 2);
+        panel = new Rect((this.width - width) / 2, Math.max(4, (this.height - height) / 2),
+                width, Math.min(height, this.height - 8));
+        int y = panel.y() + MARGIN + ROW_HEIGHT - 4;
 
         y = row(y, "screen.gathering.pod.kind", PodSettings.Kind.values(),
                 value -> kind == value, value -> {
@@ -82,23 +90,23 @@ public final class PodCreateScreen extends Screen {
 
         // What the set rule names, typed. One code, or one per pack separated by commas.
         heading(y, "screen.gathering.pod.set_codes");
-        setsField = new EditBox(this.font, panel.x() + MARGIN, y + HEADING,
-                panel.width() - MARGIN * 2, ROW_HEIGHT, Component.translatable("screen.gathering.pod.set_codes"));
+        setsField = new EditBox(this.font, controlsX(), y,
+                controlsWidth(), ROW_HEIGHT, Component.translatable("screen.gathering.pod.set_codes"));
         setsField.setMaxLength(PodSettings.MOST_PACKS_EACH * 6);
         setsField.setValue(setsTyped);
         setsField.setResponder(typed -> setsTyped = typed);
         addRenderableWidget(setsField);
-        y += HEADING + ROW_HEIGHT + GAP;
+        y += ROW_HEIGHT + GAP;
 
         // How many packs each, as a number with a step either side.
         heading(y, "screen.gathering.pod.packs_each");
         int step = 24;
-        addRenderableWidget(GatheringButtons.of(panel.x() + MARGIN, y + HEADING, step, ROW_HEIGHT,
+        addRenderableWidget(GatheringButtons.of(controlsX(), y, step, ROW_HEIGHT,
                 Component.literal("-"), () -> packsEach = Math.max(1, packsEach - 1)));
-        addRenderableWidget(GatheringButtons.of(panel.x() + MARGIN + step + GAP + 40 + GAP, y + HEADING, step,
+        addRenderableWidget(GatheringButtons.of(controlsX() + step + GAP + 40 + GAP, y, step,
                 ROW_HEIGHT, Component.literal("+"), () -> packsEach = Math.min(PodSettings.MOST_PACKS_EACH, packsEach + 1)));
-        packsAt = new int[] {panel.x() + MARGIN + step + GAP + 20, y + HEADING + (ROW_HEIGHT - this.font.lineHeight) / 2};
-        y += HEADING + ROW_HEIGHT + GAP;
+        packsAt = new int[] {controlsX() + step + GAP + 20, y + (ROW_HEIGHT - this.font.lineHeight) / 2 + 1};
+        y += ROW_HEIGHT + GAP;
 
         Integer[] pickChoices = {0, 1, 2};
         y = row(y, "screen.gathering.pod.picks", pickChoices, value -> picks == value,
@@ -122,18 +130,26 @@ public final class PodCreateScreen extends Screen {
             java.util.function.Consumer<T> choose, java.util.function.Function<T, String> labelKey) {
         heading(y, headingKey);
         int columns = values.length;
-        int width = (panel.width() - MARGIN * 2 - GAP * (columns - 1)) / columns;
+        int width = (controlsWidth() - GAP * (columns - 1)) / columns;
         for (int index = 0; index < columns; index++) {
             T value = values[index];
-            addRenderableWidget(GatheringButtons.toggle(panel.x() + MARGIN + index * (width + GAP), y + HEADING,
+            addRenderableWidget(GatheringButtons.toggle(controlsX() + index * (width + GAP), y,
                     width, ROW_HEIGHT, Component.translatable(labelKey.apply(value)),
                     () -> chosen.test(value), () -> choose.accept(value)));
         }
-        return y + HEADING + ROW_HEIGHT + GAP;
+        return y + ROW_HEIGHT + GAP;
+    }
+
+    private int controlsX() {
+        return panel.x() + MARGIN + LABEL_WIDTH;
+    }
+
+    private int controlsWidth() {
+        return panel.width() - MARGIN * 2 - LABEL_WIDTH;
     }
 
     private void heading(int y, String key) {
-        headings.add(new int[] {panel.x() + MARGIN, y + 1});
+        headings.add(new int[] {panel.x() + MARGIN, y + (ROW_HEIGHT - this.font.lineHeight) / 2 + 1});
         headingText.add(Component.translatable(key));
     }
 
@@ -181,7 +197,7 @@ public final class PodCreateScreen extends Screen {
                 panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);
         for (int index = 0; index < headings.size(); index++) {
             int[] at = headings.get(index);
-            GuiText.draw(graphics, this.font, headingText.get(index), at[0], at[1], panel.width() - MARGIN * 2, DIM);
+            GuiText.draw(graphics, this.font, headingText.get(index), at[0], at[1], LABEL_WIDTH - GAP, DIM);
         }
         GuiText.drawCentered(graphics, this.font, Component.literal(Integer.toString(packsEach)),
                 packsAt[0], packsAt[1], 40, LABEL);
@@ -193,9 +209,9 @@ public final class PodCreateScreen extends Screen {
                 ? Component.translatable(problem)
                 : Component.translatable("screen.gathering.pod.chosen",
                         Component.translatable("screen.gathering.pod.kind." + kind.key()), packsEach,
-                        Component.translatable("screen.gathering.pod.cards_go." + cardsGo.key()));
+                        Component.translatable("screen.gathering.pod.cards_line." + cardsGo.key()));
         GuiText.drawCentered(graphics, this.font, line, panel.x() + panel.width() / 2,
-                panel.bottom() - MARGIN - ROW_HEIGHT - GAP - this.font.lineHeight - 2,
+                panel.bottom() - MARGIN - ROW_HEIGHT - GAP * 2 - this.font.lineHeight,
                 panel.width() - MARGIN * 2, problem != null ? WARN : DIM);
         saidLastFrame = line.getString();
     }

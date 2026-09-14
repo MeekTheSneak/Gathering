@@ -3307,7 +3307,7 @@ public final class DevScene {
             }
             case 317 -> {
                 if (client.screen instanceof PodCreateScreen create
-                        && !create.said().startsWith("Sealed, 1 packs each")) {
+                        && !create.said().startsWith("Sealed · 1 per player")) {
                     fail("the new event screen says \"" + create.said() + "\" for a one-pack sealed event");
                 }
                 shoot(client, "98-a-new-event");

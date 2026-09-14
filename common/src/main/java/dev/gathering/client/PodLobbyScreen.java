@@ -78,7 +78,7 @@ public final class PodLobbyScreen extends Screen {
     @Override
     protected void init() {
         int height = MARGIN * 2 + ROW_HEIGHT + LINE * 2 + GAP
-                + Math.max(1, view.players().size()) * LINE + GAP * 2
+                + Math.max(1, (view.players().size() + (view.players().size() > 4 ? 1 : 0)) / (view.players().size() > 4 ? 2 : 1)) * LINE + GAP * 2
                 + LINE + GAP * 2 + (ROW_HEIGHT + GAP) * 3;
         panel = new Rect((this.width - PANEL_WIDTH) / 2, Math.max(MARGIN, (this.height - height) / 2),
                 PANEL_WIDTH, Math.min(height, this.height - MARGIN * 2));
@@ -135,7 +135,7 @@ public final class PodLobbyScreen extends Screen {
         y += LINE;
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.pod.summary",
                         settings.packsEach(), setsLine(settings),
-                        Component.translatable("screen.gathering.pod.cards_go." + settings.cardsGo().key())),
+                        Component.translatable("screen.gathering.pod.cards_line." + settings.cardsGo().key())),
                 x, y, width, DIM);
         y += LINE + GAP;
 
@@ -143,15 +143,22 @@ public final class PodLobbyScreen extends Screen {
             GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.pod.nobody_seated"), x, y, width, DIM);
             y += LINE;
         }
-        for (PodLobbyPayload.Player player : view.players()) {
-            GuiText.draw(graphics, this.font, Component.literal(player.name()), x, y, width / 2, LABEL);
+        // Two columns past four players, so a full table of eight still fits a small window.
+        int columns = view.players().size() > 4 ? 2 : 1;
+        int column = width / columns;
+        int rowsTop = y;
+        for (int index = 0; index < view.players().size(); index++) {
+            PodLobbyPayload.Player player = view.players().get(index);
+            int px = x + (index % columns) * column;
+            int py = rowsTop + (index / columns) * LINE;
+            GuiText.draw(graphics, this.font, Component.literal(player.name()), px, py, column * 3 / 5 - GAP, LABEL);
             Component packs = settings.source() == PodSettings.Source.EACH_BRINGS
                     ? Component.translatable("screen.gathering.pod.player_packs", player.in(), player.in() + player.owed())
                     : Component.translatable("screen.gathering.pod.player_in");
-            GuiText.draw(graphics, this.font, packs, x + width / 2, y, width / 2,
+            GuiText.draw(graphics, this.font, packs, px + column * 3 / 5, py, column * 2 / 5 - GAP,
                     player.owed() == 0 ? GOOD : WARN);
-            y += LINE;
         }
+        y = rowsTop + ((view.players().size() + columns - 1) / columns) * LINE;
         y += GAP;
 
         Component status = view.opening()
