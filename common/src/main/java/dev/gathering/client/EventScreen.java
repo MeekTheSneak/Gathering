@@ -345,18 +345,63 @@ public final class EventScreen extends Screen {
         }
     }
 
+    /**
+     * The standings as columns, each figure under its own heading.
+     * <p>Laid out by position rather than by padding a string with spaces: this font is not
+     * monospaced, so a name one letter wider pushed every number after it out of line.
+     */
     private void renderStandings(GuiGraphics graphics, int x, int y, int width) {
-        GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.event.standings_head"), x, y, width, DIM);
+        int[] rightEdges = standingsColumns(x, width);
+        String[] heads = {"rank", "player", "points", "record", "omw", "gw", "ogw"};
+        for (int column = 0; column < heads.length; column++) {
+            cell(graphics, Component.translatable("screen.gathering.event.standings." + heads[column]), column, rightEdges, x, y, DIM);
+        }
         y += LINE;
         int from = page * PER_PAGE;
         for (int index = from; index < Math.min(view.standings().size(), from + PER_PAGE); index++) {
             EventViewPayload.Row row = view.standings().get(index);
-            String line = String.format(java.util.Locale.ROOT, "%2d  %-16s %2d  %d-%d-%d  %4.1f  %4.1f  %4.1f",
-                    row.rank(), row.name(), row.points(), row.wins(), row.losses(), row.draws(),
-                    row.omw() / 10.0, row.gw() / 10.0, row.ogw() / 10.0);
-            GuiText.draw(graphics, this.font, Component.literal(line), x, y, width, row.dropped() ? DIM : LABEL);
+            int color = row.dropped() ? DIM : LABEL;
+            String[] cells = {
+                    Integer.toString(row.rank()), row.name(), Integer.toString(row.points()),
+                    row.wins() + "-" + row.losses() + "-" + row.draws(),
+                    percent(row.omw()), percent(row.gw()), percent(row.ogw())};
+            for (int column = 0; column < cells.length; column++) {
+                cell(graphics, Component.literal(cells[column]), column, rightEdges, x, y, color);
+            }
             y += LINE;
         }
+    }
+
+    /** Where each standings column ends: rank, then the name's wide column, then the figures. */
+    private int[] standingsColumns(int x, int width) {
+        int figure = Math.max(28, width / 10);
+        int rank = this.font.width("88") + 4;
+        int[] edges = new int[7];
+        edges[6] = x + width;
+        for (int column = 5; column >= 2; column--) {
+            edges[column] = edges[column + 1] - figure - (column == 3 ? 6 : 0);
+        }
+        edges[0] = x + rank;
+        edges[1] = edges[2] - figure;
+        return edges;
+    }
+
+    /** One cell: the name column left-aligned and cut to fit, every other column right-aligned. */
+    private void cell(GuiGraphics graphics, Component text, int column, int[] rightEdges, int x, int y, int color) {
+        if (column == 1) {
+            int left = rightEdges[0] + 6;
+            GuiText.draw(graphics, this.font, text, left, y, Math.max(8, rightEdges[1] - left - 4), color);
+            return;
+        }
+        int left = column == 0 ? x : rightEdges[column - 1];
+        int room = Math.max(8, rightEdges[column] - left - 2);
+        int drawn = GuiText.width(this.font, text, room);
+        GuiText.draw(graphics, this.font, text, rightEdges[column] - drawn, y, room, color);
+    }
+
+    /** A tiebreaker percentage sent in tenths, as one decimal place. */
+    private static String percent(int tenths) {
+        return String.format(java.util.Locale.ROOT, "%.1f", tenths / 10.0);
     }
 
     private void renderPairings(GuiGraphics graphics, int x, int y, int width) {

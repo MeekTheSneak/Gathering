@@ -174,7 +174,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 341;
+    private static final int LAST_STEP = 342;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -3543,6 +3543,11 @@ public final class DevScene {
                 } else {
                     fail("the tournament screen closed before the standings could be read");
                 }
+                advance(SETTLE / 2);
+            }
+            case 342 -> {
+                // A frame after the tab changed, so the picture is of the standings and not the tab before.
+                shoot(client, "106-final-standings");
                 advance(SETTLE / 2);
             }
             default -> {
