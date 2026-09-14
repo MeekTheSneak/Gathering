@@ -243,20 +243,12 @@ public final class TableScreen extends Screen {
     /** The table in the world, or {@link #NOT_A_TABLE} when this is a replay. */
     private final BlockPos table;
 
-    /** Whether this is a replay. Set once at construction; nothing switches it. */
-    private final boolean replay;
-
     /**
-     * Whether this is the guided first game, played against nothing on this client alone.
-     * <p>Set once at construction, like {@link #replay}, and for the same reason: a mode that
-     * could be switched halfway through is a mode a gesture can be in the middle of when it
-     * changes. What it changes is where the board comes from - see {@link #view()} - and,
-     * because {@link #table} is then {@link TutorialDemo#table()}, where every move goes.
-     * <p>It is deliberately not the thing that stops a move reaching a server. That is
-     * {@link ClientTableActions#send}, which routes on the position and so cannot be fooled by
-     * a screen, a sub-screen or a menu callback that forgot to ask.
+     * A game at a table, the lesson, or a replay. Set once at construction; nothing switches
+     * it. See {@link TableMode} for what each decides - and, for the lesson, that
+     * {@link #table} is then {@link TutorialDemo#table()}, which is where every move goes.
      */
-    private final boolean demo;
+    private final TableMode mode;
 
     /**
      * The table in the world to show once the demonstration is over, if there still is one.
@@ -360,15 +352,14 @@ public final class TableScreen extends Screen {
     private int cursorY;
 
     public TableScreen(BlockPos table) {
-        this(java.util.Objects.requireNonNull(table, "table"), false, false, null);
+        this(java.util.Objects.requireNonNull(table, "table"), TableMode.PLAYING, null);
     }
 
-    private TableScreen(BlockPos table, boolean replay, boolean demo, BlockPos afterwards) {
-        super(Component.translatable(replay
+    private TableScreen(BlockPos table, TableMode mode, BlockPos afterwards) {
+        super(Component.translatable(mode.isWatching()
                 ? "screen.gathering.replay" : "screen.gathering.table"));
         this.table = table;
-        this.replay = replay;
-        this.demo = demo;
+        this.mode = mode;
         this.afterwards = afterwards;
     }
 
@@ -386,7 +377,7 @@ public final class TableScreen extends Screen {
         var player = net.minecraft.client.Minecraft.getInstance().player;
         TutorialDemo.begin(player == null ? null : new dev.gathering.core.game.PlayerRef(
                 player.getUUID(), player.getGameProfile().getName()));
-        return new TableScreen(TutorialDemo.table(), false, true, afterwards);
+        return new TableScreen(TutorialDemo.table(), TableMode.LEARNING, afterwards);
     }
 
     /**
@@ -407,7 +398,7 @@ public final class TableScreen extends Screen {
      * {@link #view()} and {@link #send}.
      */
     public static TableScreen watching() {
-        return new TableScreen(NOT_A_TABLE, true, false, null);
+        return new TableScreen(NOT_A_TABLE, TableMode.WATCHING, null);
     }
 
     /** Where a replay files its flights and its news. See {@link #NOT_A_TABLE}. */
@@ -421,12 +412,12 @@ public final class TableScreen extends Screen {
      * does the frame handler, which must not open a second screen over the first.
      */
     public boolean isReplay() {
-        return replay;
+        return mode.isWatching();
     }
 
     /** Whether this screen is showing that table, for anything deciding where to go back to. */
     public boolean isAbout(BlockPos which) {
-        return !replay && table.equals(which);
+        return !mode.isWatching() && table.equals(which);
     }
 
     /** The seat the camera is currently framed for, or null for the whole table. */
@@ -449,7 +440,7 @@ public final class TableScreen extends Screen {
      * learner's own buttons; everywhere else the answer is "nowhere to keep off".
      */
     private int leftEdgeOfTheMats() {
-        if (!demo || geometry == null) {
+        if (!mode.isLearning() || geometry == null) {
             return Integer.MAX_VALUE;
         }
         int left = Integer.MAX_VALUE;
@@ -625,7 +616,7 @@ public final class TableScreen extends Screen {
             // seat has face up, and framed on the learner's own mat that card was off the top of
             // the window - the step asked for something nobody could see, and only a script
             // that reads the card without pointing at it could do it.
-            if (demo && framedFor != null) {
+            if (mode.isLearning() && framedFor != null) {
                 // Turned for the learner first, so the whole table is shown from their chair:
                 // their mat nearest, the card they are asked to read across from them. Shown
                 // unturned, the scripted client photographed the learner's own mat at the top
@@ -970,7 +961,7 @@ public final class TableScreen extends Screen {
         // position no table can occupy, so asking by position is the whole question. A real
         // table's boards go on arriving the whole time this is open and are still this
         // player's to see the moment they leave; they simply are not filed here.
-        return replay ? ClientReplay.frame() : ClientTableState.viewOf(table);
+        return mode.view(table);
     }
 
     private Optional<SeatId> mySeat() {
@@ -1015,7 +1006,7 @@ public final class TableScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
-        if (replay) {
+        if (mode.isWatching()) {
             ClientReplay.tick();
         }
         dropAStaleArrangement();
@@ -1029,10 +1020,10 @@ public final class TableScreen extends Screen {
         // Which piles a mat has. A live table asks the block, because the block is what a
         // format was chosen on; a finished game has no block left to ask, so it is read off
         // the board itself - a seat that named commanders played with a command zone.
-        piles = Zone.pilesFor(replay || demo
+        piles = Zone.pilesFor(!mode.hasABlock()
                 // A demonstration has no block to ask either, and is dealt as Commander is
                 // because Commander is what walking up to a table already starts.
-                ? demo || view().map(TableScreen::hadACommandZone).orElse(false)
+                ? mode.isLearning() || view().map(TableScreen::hadACommandZone).orElse(false)
                 : net.minecraft.client.Minecraft.getInstance().level != null
                         && net.minecraft.client.Minecraft.getInstance().level
                                 .getBlockEntity(table) instanceof TableBlockEntity entity
@@ -1264,7 +1255,7 @@ public final class TableScreen extends Screen {
         //
         // Nor while the read key is down: that draws the card full size at the cursor, and a
         // tooltip under it is a second answer to a question already being answered better.
-        if (replay) {
+        if (mode.isWatching()) {
             renderScrubber(graphics);
         }
 
@@ -1276,7 +1267,7 @@ public final class TableScreen extends Screen {
         // when it changes, for the three boards out of four that are not where they are
         // looking. Still rather than flashing, and gone by itself - a notice that has to be
         // dismissed is a notice in the way.
-        if (!replay) {
+        if (!mode.isWatching()) {
             long sinceMyTurn = ClientTableNews.yourTurnSince(table, ClientCardFlights.now());
             if (sinceMyTurn >= 0) {
                 GuiText.drawCentered(graphics, this.font,
@@ -2754,7 +2745,7 @@ public final class TableScreen extends Screen {
             // Not an offer to sit down in a replay: nobody watching a finished game can take a
             // chair in it, and the scripted client photographed the first frame of one offering
             // two of them.
-            return replay
+            return mode.isWatching()
                     ? Component.translatable("screen.gathering.table.seat_marked", mark,
                             Component.translatable("screen.gathering.table.free_seat_short"))
                     : firstThatFits(mark, room, List.of(
@@ -3126,7 +3117,7 @@ public final class TableScreen extends Screen {
 
     /** Whichever list this screen is teaching: the game's keys, or a watcher's. */
     private List<String[]> keyHelp() {
-        return replay ? KEY_HELP_REPLAY : KEY_HELP;
+        return mode.isWatching() ? KEY_HELP_REPLAY : KEY_HELP;
     }
 
     /** How many lines the whole key list wants, headings included. */
@@ -3343,7 +3334,7 @@ public final class TableScreen extends Screen {
         int x = (int) mouseX;
         int y = (int) mouseY;
 
-        if (replay) {
+        if (mode.isWatching()) {
             return watcherClicked(x, y, button);
         }
 
@@ -4746,7 +4737,7 @@ public final class TableScreen extends Screen {
             entries.add(ContextMenu.Entry.of(
                     Component.translatable("menu.gathering.table.leave_practice"),
                     this::leaveTheTutorial));
-        } else if (!replay) {
+        } else if (!mode.isWatching()) {
             // The way back to the lesson, for somebody who skipped it or wants it again. It
             // opens a demonstration of its own and leaves this table exactly as it is: the
             // game here carries on without them for the minute they are gone, because nothing
@@ -5211,7 +5202,7 @@ public final class TableScreen extends Screen {
      */
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
-        if (replay) {
+        if (mode.isWatching()) {
             return watcherPressed(key, scanCode, modifiers);
         }
         // Before everything, because while somebody is typing every other key is a letter.
@@ -5844,7 +5835,7 @@ public final class TableScreen extends Screen {
      * that moved it.
      */
     private void send(GameEvent event) {
-        if (replay) {
+        if (!mode.sendsMoves()) {
             // The last fence rather than the first. Every gesture that could reach here is
             // already refused above, and this is what makes that a belt rather than a hope:
             // a game that is over cannot be played, whatever a screen thinks it is doing.
@@ -5864,7 +5855,7 @@ public final class TableScreen extends Screen {
      * once. See {@link ClientTableActions#sendAll}.
      */
     private void sendAll(List<GameEvent> events) {
-        if (replay || events.isEmpty()) {
+        if (!mode.sendsMoves() || events.isEmpty()) {
             return;
         }
         long now = ClientCardFlights.now();
@@ -5985,7 +5976,7 @@ public final class TableScreen extends Screen {
     private void drawCard(
             GuiGraphics graphics, CardView card, dev.gathering.core.card.Sleeve sleeve,
             Rect where, int angle, boolean hovered, boolean onTheFelt) {
-        cardRenderer.draw(graphics, this.font, replay ? replayTable() : table,
+        cardRenderer.draw(graphics, this.font, mode.filedUnder(table),
                 card, sleeve, where, angle, hovered, onTheFelt);
     }
 
@@ -6157,7 +6148,7 @@ public final class TableScreen extends Screen {
      * would have to learn about a replay's scrubber one at a time.
      */
     private TableScreenLayout freshLayout() {
-        return replay
+        return mode.isWatching()
                 ? TableScreenLayout.watching(this.width, this.height)
                 : TableScreenLayout.of(this.width, this.height, mySeat().isPresent());
     }
@@ -6174,7 +6165,7 @@ public final class TableScreen extends Screen {
     /** Whether that card is ringed right now, for the scripted run. */
     boolean aCardIsBeingPointedAt(CardInstanceId card) {
         return ClientTableNews.pointedAtFor(
-                replay ? replayTable() : table, card, ClientCardFlights.now()) >= 0;
+                mode.filedUnder(table), card, ClientCardFlights.now()) >= 0;
     }
 
     /** What a key press or a palette row would act on right now, for the scripted run. */
@@ -6298,7 +6289,7 @@ public final class TableScreen extends Screen {
 
     @Override
     public void onClose() {
-        if (demo) {
+        if (mode.isLearning()) {
             // The door nothing on the screen leads to: Escape, and the world going away.
             // Without this a demonstration ran on with nobody looking at it, and the player
             // was recorded as having been offered a lesson they were in the middle of.
