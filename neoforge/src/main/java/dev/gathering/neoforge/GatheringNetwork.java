@@ -33,8 +33,10 @@ public final class GatheringNetwork {
      * payload cannot play at a server that does not know the payload.
      * <p>Four, for tokens by printing: a card summary now carries the printing of each token a
      * card makes, and a name that matches several tokens is answered with a choice.
+     * <p>Five, for card lookups that end without a name: a server now says whether a printing
+     * does not exist or could not be looked up, in a payload an older client cannot read.
      */
-    private static final String PROTOCOL_VERSION = "4";
+    private static final String PROTOCOL_VERSION = "5";
 
     private GatheringNetwork() {
     }

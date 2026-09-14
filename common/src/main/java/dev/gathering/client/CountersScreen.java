@@ -782,9 +782,10 @@ public final class CountersScreen extends ChildScreen {
                 return Component.translatable("screen.gathering.counters.somewhere_hidden");
             }
         }
-        return ClientCardCache.get().summary(known)
+        CardComponent asked = known;
+        return ClientCardCache.get().summary(asked)
                 .map(summary -> (Component) Component.literal(summary.name()))
-                .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
+                .orElseGet(() -> ClientCardCache.get().unnamed(asked));
     }
 
     /** Which printing each card on a row is, found once - it cannot change. */

@@ -533,6 +533,8 @@
   "screen.gathering.deck.hint_menu": "Right-click: command zone, or take a copy",
   "screen.gathering.deck.hint_move": "Left-click: move to deck or sideboard",
   "screen.gathering.deck.loading_card": "Loading",
+  "screen.gathering.deck.missing_card": "Unknown card",
+  "screen.gathering.deck.unavailable_card": "Card info unavailable",
   "screen.gathering.deck.mainboard": "Deck (%s)",
   "screen.gathering.deck.name": "Deck name",
   "screen.gathering.deck.name_hint": "Name this deck",

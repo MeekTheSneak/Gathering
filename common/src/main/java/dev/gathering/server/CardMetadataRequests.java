@@ -7,6 +7,7 @@ import dev.gathering.network.CardSummary;
 import dev.gathering.network.RequestCardMetadataPayload;
 import dev.gathering.service.CardDataService;
 import java.util.ArrayList;
+import dev.gathering.network.CardsUnresolvedPayload;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -171,18 +172,55 @@ public final class CardMetadataRequests {
                     BUSY.put(player.getUUID(), new Outstanding(connection, left));
                 }
             }
-            if (player.hasDisconnected() || failure != null || cards == null || cards.isEmpty()) {
+            if (player.hasDisconnected()) {
                 return;
             }
-            List<CardSummary> summaries = new ArrayList<>(cards.size());
-            for (CardMetadata card : cards) {
-                summaries.add(CardSummary.of(card));
-            }
+            Answer answer = answerFor(wanted, cards, failure);
             // A request may name a whole deck, which is more summaries than the game will
             // write in one payload - and one it refuses to write disconnects whoever asked.
-            for (CardMetadataPayload packet : CardMetadataPayload.inPackets(summaries)) {
+            for (CardMetadataPayload packet : CardMetadataPayload.inPackets(answer.found())) {
                 Sending.to(player, packet);
             }
+            if (!answer.unresolved().isEmpty()) {
+                Sending.to(player, answer.unresolved());
+            }
         }));
+    }
+
+    /**
+     * What a finished lookup tells the client: the names it found, and for every other
+     * printing asked about, whether it does not exist or could not be looked up.
+     *
+     * @param found      a summary for each printing that has one
+     * @param unresolved the rest, with a reason; empty when everything was found
+     */
+    public record Answer(List<CardSummary> found, CardsUnresolvedPayload unresolved) {
+    }
+
+    /**
+     * Sorts a completed lookup into found, missing and unavailable.
+     * <p>A lookup that failed - Scryfall unreachable, rate limited, a body that was not JSON -
+     * says every printing it was for is unavailable, and nothing is missing: an outage is not
+     * evidence a card does not exist, and a client told it was would stop asking. A lookup
+     * that succeeded says a printing it did not come back with is missing.
+     * <p>Public and free of the player, so the sorting can be checked without a network.
+     */
+    public static Answer answerFor(List<UUID> wanted, List<CardMetadata> cards, Throwable failure) {
+        if (failure != null) {
+            return new Answer(List.of(), new CardsUnresolvedPayload(List.of(), wanted));
+        }
+        List<CardSummary> summaries = new ArrayList<>();
+        java.util.Set<UUID> named = new java.util.HashSet<>();
+        for (CardMetadata card : cards == null ? List.<CardMetadata>of() : cards) {
+            summaries.add(CardSummary.of(card));
+            named.add(card.scryfallId());
+        }
+        List<UUID> missing = new ArrayList<>();
+        for (UUID printing : wanted) {
+            if (!named.contains(printing)) {
+                missing.add(printing);
+            }
+        }
+        return new Answer(List.copyOf(summaries), new CardsUnresolvedPayload(missing, List.of()));
     }
 }

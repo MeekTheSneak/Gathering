@@ -36,6 +36,14 @@ public final class ClientCardCache implements CardNameLookup {
      */
     private final Map<UUID, CardSummary> summaries = new ConcurrentHashMap<>();
 
+    /**
+     * Printings asked about that came back without a name, and why.
+     * <p>Guarded by this cache's own lock rather than made concurrent: it is only ever touched
+     * from the client thread today, and the lock costs nothing at a size this small.
+     */
+    private final dev.gathering.core.card.UnresolvedCards unresolved =
+            new dev.gathering.core.card.UnresolvedCards();
+
     private ClientCardCache() {
     }
 
@@ -46,7 +54,63 @@ public final class ClientCardCache implements CardNameLookup {
     public void accept(Collection<CardSummary> incoming) {
         for (CardSummary summary : incoming) {
             summaries.put(summary.scryfallId(), summary);
+            synchronized (unresolved) {
+                unresolved.found(summary.scryfallId());
+            }
         }
+    }
+
+    /** The server's answer for printings it has no name for. */
+    public void acceptUnresolved(dev.gathering.network.CardsUnresolvedPayload payload) {
+        acceptUnresolved(payload, System.currentTimeMillis());
+    }
+
+    /** The same, at a given moment, for a test that must not wait half an hour. */
+    public void acceptUnresolved(dev.gathering.network.CardsUnresolvedPayload payload, long now) {
+        synchronized (unresolved) {
+            unresolved.missing(payload.missing(), now);
+            unresolved.unavailable(payload.unavailable(), now);
+        }
+    }
+
+    /**
+     * Whether asking about this printing again would only get the same "no such card".
+     * <p>What the inventory sweep checks before asking, so a card that does not exist costs one
+     * lookup every half hour rather than one a minute.
+     */
+    public boolean alreadyAnsweredMissing(UUID printing, long now) {
+        synchronized (unresolved) {
+            return unresolved.alreadyAnswered(printing, now);
+        }
+    }
+
+    /**
+     * What a screen writes where a card's name would go when there is no name to write.
+     * <p>One answer for every screen, because there are three different things it can mean
+     * and each screen used to say the first one whatever was true: still being looked up; no
+     * such card; or the lookup could not be made just now.
+     */
+    public net.minecraft.network.chat.Component unnamed(UUID printing) {
+        return unnamed(printing, System.currentTimeMillis());
+    }
+
+    public net.minecraft.network.chat.Component unnamed(UUID printing, long now) {
+        dev.gathering.core.card.UnresolvedCards.Reason reason;
+        synchronized (unresolved) {
+            reason = unresolved.reasonFor(printing, now).orElse(null);
+        }
+        if (reason == dev.gathering.core.card.UnresolvedCards.Reason.MISSING) {
+            return net.minecraft.network.chat.Component.translatable("screen.gathering.deck.missing_card");
+        }
+        if (reason == dev.gathering.core.card.UnresolvedCards.Reason.UNAVAILABLE) {
+            return net.minecraft.network.chat.Component.translatable("screen.gathering.deck.unavailable_card");
+        }
+        return net.minecraft.network.chat.Component.translatable("screen.gathering.deck.loading_card");
+    }
+
+    /** The same for a card, which may carry no printing at all - and then it is still loading. */
+    public net.minecraft.network.chat.Component unnamed(CardComponent card) {
+        return unnamed(card == null ? null : card.scryfallId().orElse(null));
     }
 
     public Optional<CardSummary> summary(UUID scryfallId) {
@@ -65,6 +129,9 @@ public final class ClientCardCache implements CardNameLookup {
     /** Called on disconnect: what one server told us is not true of the next one. */
     public void clear() {
         summaries.clear();
+        synchronized (unresolved) {
+            unresolved.clear();
+        }
     }
 
     public int size() {

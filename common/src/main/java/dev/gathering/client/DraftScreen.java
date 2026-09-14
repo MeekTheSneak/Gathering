@@ -338,12 +338,12 @@ public final class DraftScreen extends ChildScreen implements CardPreviewHost {
         } else {
             // A card whose details have not arrived was an empty recess and nothing else, so
             // a pack that had not caught up was fifteen identical black boxes and a player
-            // being asked to pick one. Every other screen in the mod says it is waiting; this
-            // one is the screen where being unable to read a card actually costs something.
+            // being asked to pick one. Every other screen in the mod says it is waiting, or that
+            // the card could not be found; this one is the screen where being unable to read a card actually costs something.
             GatheringSprites.inset(
                     graphics, where.x(), where.y(), where.width(), where.height());
             GuiText.drawCentered(graphics, this.font,
-                    Component.translatable("screen.gathering.deck.loading_card"),
+                    ClientCardCache.get().unnamed(card.scryfallId()),
                     where.x() + where.width() / 2,
                     where.y() + where.height() / 2 - this.font.lineHeight / 2,
                     where.width() - 6, LABEL);

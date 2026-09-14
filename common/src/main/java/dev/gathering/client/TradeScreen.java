@@ -371,7 +371,7 @@ public final class TradeScreen extends Screen implements CardPreviewHost {
         return ClientCardCache.get().summary(card)
                 .map(CardSummary::front)
                 .<Component>map(face -> Component.literal(face.name()))
-                .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
+                .orElseGet(() -> ClientCardCache.get().unnamed(card));
     }
 
     /** How many of my rows are drawn. For the scene that photographs this screen. */

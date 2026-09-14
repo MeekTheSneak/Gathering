@@ -15,7 +15,7 @@ import net.minecraft.resources.ResourceLocation;
  * What this client does with each payload the server sends, written once.
  * <p>{@link GatheringProtocol} already says which payloads exist, which way they go and what the
  * server does with the ones it receives. The client half was still written twice: Fabric
- * registered twenty-two receivers and NeoForge repeated the same twenty-two behaviors as a chain
+ * registered a receiver per payload and NeoForge repeated the same behaviors as a chain
  * of type tests - which import screen gets a result, what a closed table does, how a sideboard
  * opens. They agreed, because somebody kept them agreeing, and the next screen-routing fix would
  * have been made in one of them.
@@ -53,6 +53,9 @@ public final class ClientPayloads {
             route(dev.gathering.network.CardMetadataPayload.TYPE,
                     dev.gathering.network.CardMetadataPayload.class,
                     metadata -> ClientCardCache.get().accept(metadata.cards())),
+            route(dev.gathering.network.CardsUnresolvedPayload.TYPE,
+                    dev.gathering.network.CardsUnresolvedPayload.class,
+                    ClientCardCache.get()::acceptUnresolved),
             route(dev.gathering.network.ImportResultPayload.TYPE,
                     dev.gathering.network.ImportResultPayload.class,
                     ClientPayloads::importFinished),

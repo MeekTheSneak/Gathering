@@ -392,7 +392,7 @@ public final class DeckContentsScreen extends Screen implements CardPreviewHost 
         Optional<CardSummary> summary = ClientCardCache.get().summary(row.card());
         Component name = summary
                 .<Component>map(found -> Component.literal(found.name()))
-                .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
+                .orElseGet(() -> ClientCardCache.get().unnamed(row.card()));
 
         Component foil = Component.translatable("tooltip." + Gathering.MOD_ID + ".foil")
                 .withStyle(ChatFormatting.AQUA);

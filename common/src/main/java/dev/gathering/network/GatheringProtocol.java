@@ -152,6 +152,7 @@ public final class GatheringProtocol {
     /** Everything the server may send. */
     public static final List<ToClient<?>> TO_CLIENT = List.of(
             toClient(CardMetadataPayload.TYPE, CardMetadataPayload.STREAM_CODEC),
+            toClient(CardsUnresolvedPayload.TYPE, CardsUnresolvedPayload.STREAM_CODEC),
             toClient(ImportResultPayload.TYPE, ImportResultPayload.STREAM_CODEC),
             toClient(OpenImportScreenPayload.TYPE, OpenImportScreenPayload.STREAM_CODEC),
             toClient(SetProgressPayload.TYPE, SetProgressPayload.STREAM_CODEC),

@@ -5165,7 +5165,8 @@ public final class TableScreen extends Screen {
         return summaryOf(card)
                 .map(summary -> Component.literal(summary.name()))
                 .map(Component.class::cast)
-                .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
+                .orElseGet(() -> ClientCardCache.get().unnamed(
+                        card instanceof CardView.Visible visible ? visible.identity().scryfallId() : null));
     }
 
     /**

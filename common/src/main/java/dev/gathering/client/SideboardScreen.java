@@ -307,7 +307,7 @@ public final class SideboardScreen extends ChildScreen implements CardPreviewHos
         return summaryOf(card)
                 .map(summary -> Component.literal(summary.name()))
                 .map(Component.class::cast)
-                .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
+                .orElseGet(() -> ClientCardCache.get().unnamed(card));
     }
 
     // ----------------------------------------------------------------- input

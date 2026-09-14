@@ -56,9 +56,13 @@ public final class ClientCardRequests {
         }
 
         List<UUID> held = heldPrintings(player);
+        long now = System.currentTimeMillis();
+        // Known, or known not to exist. An unavailable answer is not in here: that is exactly
+        // what the retry is for.
         List<UUID> wanted = REQUESTS.next(
-                held, printing -> ClientCardCache.get().summary(printing).isPresent(),
-                System.currentTimeMillis(), BATCH);
+                held, printing -> ClientCardCache.get().summary(printing).isPresent()
+                        || ClientCardCache.get().alreadyAnsweredMissing(printing, now),
+                now, BATCH);
         if (!wanted.isEmpty()) {
             ClientNetworking.send(new RequestCardMetadataPayload(wanted));
         }

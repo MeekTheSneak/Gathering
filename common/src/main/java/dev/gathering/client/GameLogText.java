@@ -126,9 +126,10 @@ public final class GameLogText {
             // board. Saying "a card" is both true and the safe direction to be wrong in.
             return Component.translatable("log.gathering.a_card");
         }
-        return ClientCardCache.get().summary(CardComponent.of(visible.identity()))
+        CardComponent card = CardComponent.of(visible.identity());
+        return ClientCardCache.get().summary(card)
                 .<Component>map(summary -> Component.literal(summary.name()))
-                .orElseGet(() -> Component.translatable("screen.gathering.deck.loading_card"));
+                .orElseGet(() -> ClientCardCache.get().unnamed(card));
     }
 
     /**
