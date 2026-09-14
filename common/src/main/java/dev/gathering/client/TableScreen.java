@@ -1126,7 +1126,7 @@ public final class TableScreen extends Screen {
             int verb = hovered == null ? verbSlotAt(mine, mouseX, mouseY) : -1;
             ClientTableHighlight.pointAtVerb(mine, verb);
             if (verb >= 0) {
-                tooltip = tipFor(VERB_NAMES[verb], verbKeyName(verb));
+                tooltip = verbTip(verb);
             } else if (hovered == null) {
                 List<Component> life = tipForLife(board, mouseX, mouseY);
                 if (life != null) {
@@ -1288,15 +1288,6 @@ public final class TableScreen extends Screen {
             if (sinceMyTurn >= 0) {
                 GuiText.drawCentered(graphics, this.font,
                         Component.translatable("screen.gathering.table.your_turn"),
-                        this.width / 2, layout().status().bottom() + 6,
-                        this.width / 2, ACCENT);
-            }
-            // After a mulligan, what the London mulligan still asks of this hand - until it is
-            // done. A reminder, not a rule: nothing stops play while it shows.
-            int owed = view().flatMap(shown -> mySeat().map(seat -> shown.seat(seat).owedToBottom())).orElse(0);
-            if (owed > 0 && sinceMyTurn < 0) {
-                GuiText.drawCentered(graphics, this.font,
-                        Component.translatable("screen.gathering.table.mulligan_owed", owed),
                         this.width / 2, layout().status().bottom() + 6,
                         this.width / 2, ACCENT);
             }
@@ -1780,7 +1771,14 @@ public final class TableScreen extends Screen {
                         where.x(), where.y(), where.width(), where.height());
             }
             if (hovered) {
-                tooltip = tipFor(VERB_NAMES[index], verbKeyName(index));
+                tooltip = verbTip(index);
+            }
+            // A reminder waiting on this button - cards owed to the bottom after a mulligan, or
+            // the first player's skipped draw - marked in its corner and said in its tooltip. On
+            // the button it is about rather than over the board, where a line of text lands on
+            // whatever the board has there: the first try covered the life counter.
+            if (reminderFor(verb) != null) {
+                graphics.fill(where.right() - 5, where.y() + 2, where.right() - 2, where.y() + 5, ACCENT);
             }
             // Inside the button's frame, not merely inside the button. Fitted to the width less
             // a pixel a side, the longest name ran to the very edge and the frame drawn round
@@ -2213,6 +2211,43 @@ public final class TableScreen extends Screen {
     private double guiScale() {
         Minecraft client = this.minecraft;
         return client == null ? 1.0 : client.getWindow().getGuiScale();
+    }
+
+    /** A mat button's tooltip: its name, its key, and any reminder waiting on it. */
+    private List<Component> verbTip(int index) {
+        List<Component> tip = new ArrayList<>(tipFor(VERB_NAMES[index], verbKeyName(index)));
+        Component reminder = index < 0 || index >= TableVerb.count() ? null : reminderFor(TableVerb.values()[index]);
+        if (reminder != null) {
+            tip.add(reminder.copy().withColor(ACCENT & 0xFFFFFF));
+        }
+        return tip;
+    }
+
+    /**
+     * What the rules still ask of this player that this button is about, or null.
+     * <p>Mulligan: the London mulligan's cards owed to the bottom (103.5). Draw: going first in a
+     * two-player game, the first turn's draw is skipped (103.8a). Reminders, never rules: the
+     * button does exactly what it always does.
+     */
+    private Component reminderFor(TableVerb verb) {
+        SeatId me = mySeat().orElse(null);
+        GameView shown = view().orElse(null);
+        if (me == null || shown == null || shown.ended()
+                || shown.seats().stream().noneMatch(each -> each.seat().equals(me))) {
+            return null;
+        }
+        return switch (verb) {
+            case MULLIGAN -> {
+                int owed = shown.seat(me).owedToBottom();
+                yield owed > 0 ? Component.translatable("screen.gathering.table.mulligan_owed", owed) : null;
+            }
+            case DRAW -> dev.gathering.core.game.FirstDraw.isSkippedBy(
+                    (int) shown.seats().stream().filter(each -> each.player() != null || each.lastPlayer() != null).count(),
+                    shown.turn(), me)
+                    ? Component.translatable("screen.gathering.table.first_turn_no_draw")
+                    : null;
+            default -> null;
+        };
     }
 
     /**

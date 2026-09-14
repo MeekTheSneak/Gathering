@@ -331,6 +331,14 @@ clean): the best-of-one concession (crashed the run), `thehigherseedplaysfirstin
   The tour now photographs them (`105a-settling-a-table`) and fails if any host button is too
   narrow for its label - the first photograph showed "1-0-1", "Drop 1st" and "Drop 2nd" clipped.
 
+- **Going first in a two-player game says "no draw this turn"** (rule 103.8a; nobody skips in
+  multiplayer, 103.8c) under the status row for that player's first turn. Nothing is drawn or
+  withheld: the table never draws for anybody.
+- **Choice screens go to one column when a name does not fit half the panel.** The dungeon
+  picker showed three names shrunk by different amounts beside "Undercity" at full size. The tour
+  now lists every button narrower than its label at each photograph (report only: icon buttons
+  carry narration labels and would all fail).
+
 **Checked and left alone:** five extra turns after time (MTR 2.4, the setting's default is right);
 tiebreakers and their 33% floors, byes as 2-0 and left out of opponents (Appendix C); top-8 bracket
 seeding; deck validation.
@@ -942,7 +950,12 @@ is still the owner's to make.
 
 ## Decisions needed from the owner
 
-1. **Are starter boosters a welcome grant or a completion reward?** `StarterBoosters` enforces
+1. **Should a drawn game use up one of a match's games?** MTR 2.1 plays on until a player has won
+   the games needed; `MatchState.afterDrawnGame` counts the draw as one of three. It is documented
+   as deliberate, and changing it changes when every table's match ends, so it was left.
+2. **Appendix E runs 9-16 players as five Swiss rounds and a top 4** unless the playoff is a
+   booster draft; the mod plays four, with the host choosing the cut.
+3. **Are starter boosters a welcome grant or a completion reward?** `StarterBoosters` enforces
    one grant per player per world but never checks that the tutorial was finished, and a valid
    `StarterPayload` can ask for them directly. Either answer is fine; the code should say which.
    Local tutorial progress must not be the proof either way.

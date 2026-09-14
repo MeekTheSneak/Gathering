@@ -1067,6 +1067,7 @@
   "screen.gathering.table.the_pot": "The pot (%s)",
   "screen.gathering.table.under_here": "Under the cursor",
   "screen.gathering.table.mulligan_owed": "Mulligan: put %s from your hand on the bottom",
+  "screen.gathering.table.first_turn_no_draw": "Going first: no draw this turn",
   "screen.gathering.table.your_turn": "Your turn",
   "screen.gathering.table.turn": "Turn %1$s - %2$s",
   "screen.gathering.token.hint": "Thrull, Treasure, Soldier, Beast",
