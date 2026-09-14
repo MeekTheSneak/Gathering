@@ -133,14 +133,16 @@ public final class PodCreateScreen extends Screen {
                 ROW_HEIGHT, Component.literal("+"), () -> packsEach = Math.min(PodSettings.MOST_PACKS_EACH, packsEach + 1)));
         packsAt = new int[] {controlsX() + step + GAP + 20, y + (ROW_HEIGHT - this.font.lineHeight) / 2 + 1};
         // The pick clock shares the row: off, or a number of seconds a pick may take.
-        Integer[] clocks = {0, 45, 90};
+        Integer[] clocks = {0, 45, 90, PodSettings.TOURNAMENT_TIMING};
         int clockX = controlsX() + step * 2 + GAP * 3 + 40 + 6;
         int clockWidth = (controlsX() + controlsWidth() - clockX - GAP * (clocks.length - 1)) / clocks.length;
         for (int index = 0; index < clocks.length; index++) {
             int seconds = clocks[index];
             addRenderableWidget(GatheringButtons.toggle(clockX + index * (clockWidth + GAP), y, clockWidth, ROW_HEIGHT,
                     seconds == 0 ? Component.translatable("screen.gathering.pod.clock.off")
-                            : Component.translatable("screen.gathering.pod.clock.seconds", seconds),
+                            : seconds == PodSettings.TOURNAMENT_TIMING
+                                    ? Component.translatable("screen.gathering.pod.clock.tournament")
+                                    : Component.translatable("screen.gathering.pod.clock.seconds", seconds),
                     () -> pickSeconds == seconds, () -> pickSeconds = kind == PodSettings.Kind.SEALED ? 0 : seconds));
         }
         y += ROW_HEIGHT + GAP;

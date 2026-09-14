@@ -88,6 +88,26 @@ class PickClockTest {
         assertThat(pod.state().poolOf(DrafterId.of(0))).hasSize(8);
     }
 
+    /** MTR Appendix B's draft timing, read by how many cards are left in the pack. */
+    @Test
+    void tournamentTimingFollowsTheTournamentRules() {
+        int[] fifteen = {40, 40, 35, 30, 25, 25, 20, 20, 15, 10, 10, 5, 5, 5, 5};
+        for (int pick = 0; pick < fifteen.length; pick++) {
+            assertThat(PickClock.tournamentSecondsFor(15 - pick)).as("pick %d of 15", pick + 1).isEqualTo(fifteen[pick]);
+        }
+        assertThat(PickClock.secondsFor(PodSettings.TOURNAMENT_TIMING, 11)).isEqualTo(25);
+        assertThat(PickClock.secondsFor(45, 11)).isEqualTo(45);
+        assertThat(PickClock.isOn(PodSettings.TOURNAMENT_TIMING)).isTrue();
+        assertThat(PickClock.isOn(0)).isFalse();
+        assertThat(PodSettings.usual(PodSettings.Kind.DRAFT).problem()).isEmpty();
+        assertThat(new PodSettings(PodSettings.Kind.DRAFT, PodSettings.Source.EACH_BRINGS, PodSettings.SetRule.ANY, 3, 0,
+                PodSettings.CardsGo.PLAYERS_KEEP, PodSettings.TOURNAMENT_TIMING).problem()).isEmpty();
+        assertThat(new PodSettings(PodSettings.Kind.SEALED, PodSettings.Source.EACH_BRINGS, PodSettings.SetRule.ANY, 6, 0,
+                PodSettings.CardsGo.PLAYERS_KEEP, PodSettings.TOURNAMENT_TIMING).problem()).isPresent();
+        assertThat(new PodSettings(PodSettings.Kind.DRAFT, PodSettings.Source.EACH_BRINGS, PodSettings.SetRule.ANY, 3, 0,
+                PodSettings.CardsGo.PLAYERS_KEEP, -2).problem()).isPresent();
+    }
+
     @Test
     void theClockCountsWholeSecondsFromTheTurn() {
         assertThat(PickClock.secondsLeft(45, 100, 100)).isEqualTo(45);

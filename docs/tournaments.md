@@ -93,8 +93,9 @@ pairing and the round clock floating over it.
 **Registration point.** The host can press *Register here* on the host tab; from then on signing
 up only works within 8 blocks of that spot, and anybody further away is pointed to it.
 
-**Pick clock.** Off, 45 or 90 seconds a pick (any value up to 300 is accepted by the server), for
-drafts only. When it runs out, everybody still to pick takes the first cards in their pack -
+**Pick clock.** Off, 45 or 90 seconds a pick (any value up to 300 is accepted by the server), or
+tournament timing - the Magic Tournament Rules' booster draft table (Appendix B), 40 seconds for a
+fresh pack down to 5 for the last cards - for drafts only. When it runs out, everybody still to pick takes the first cards in their pack -
 never a choice made for them on merit, and never a random one. The draft screen counts down, red
 for the last ten seconds. The turn's start is not saved: a restart gives everybody a full clock.
 

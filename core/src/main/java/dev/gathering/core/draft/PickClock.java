@@ -64,18 +64,64 @@ public final class PickClock {
     }
 
     /**
+     * Seconds a pick may take under the Magic Tournament Rules' booster draft timing, by how many
+     * cards are left in the pack: 40 seconds for a fresh fifteen, down to 5 for the last few
+     * (MTR Appendix B: 40, 40, 35, 30, 25, 25, 20, 20, 15, 10, 10, 5, 5, 5, 5). A pack of fourteen
+     * starts where fifteen's second pick does, which is how the table reads for smaller packs.
+     */
+    public static int tournamentSecondsFor(int cardsInPack) {
+        if (cardsInPack >= 14) {
+            return 40;
+        }
+        return switch (cardsInPack) {
+            case 13 -> 35;
+            case 12 -> 30;
+            case 11, 10 -> 25;
+            case 9, 8 -> 20;
+            case 7 -> 15;
+            case 6, 5 -> 10;
+            default -> 5;
+        };
+    }
+
+    /**
+     * Seconds this pick may take: the host's fixed number, or the tournament timing for a pack
+     * this size.
+     */
+    public static int secondsFor(int pickSeconds, int cardsInPack) {
+        return pickSeconds == PodSettings.TOURNAMENT_TIMING ? tournamentSecondsFor(cardsInPack) : pickSeconds;
+    }
+
+    /** Whether a clock is set at all. */
+    public static boolean isOn(int pickSeconds) {
+        return pickSeconds != 0;
+    }
+
+    /** The most cards in any pack in front of a drafter this turn: what the timing is read by. */
+    public static int cardsInPacks(DraftState state) {
+        int most = 0;
+        if (!state.isFinished()) {
+            for (DraftPack pack : state.holding()) {
+                most = Math.max(most, pack.size());
+            }
+        }
+        return most;
+    }
+
+    /**
      * How many whole seconds are left, never below zero.
      *
+     * @param seconds   what this pick may take, from {@link #secondsFor}
      * @param startedAt the game tick the turn began on
      * @param now       the game tick it is
      */
-    public static int secondsLeft(int pickSeconds, long startedAt, long now) {
-        long left = pickSeconds * 20L - Math.max(0, now - startedAt);
+    public static int secondsLeft(int seconds, long startedAt, long now) {
+        long left = seconds * 20L - Math.max(0, now - startedAt);
         return (int) Math.max(0, (left + 19) / 20);
     }
 
     /** Whether the clock has run out. */
-    public static boolean isUp(int pickSeconds, long startedAt, long now) {
-        return pickSeconds > 0 && now - startedAt >= pickSeconds * 20L;
+    public static boolean isUp(int seconds, long startedAt, long now) {
+        return seconds > 0 && now - startedAt >= seconds * 20L;
     }
 }

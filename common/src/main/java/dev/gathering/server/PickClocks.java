@@ -26,11 +26,12 @@ public final class PickClocks {
 
     /** Once a tick, from the table holding the pod. */
     public static void tick(ServerLevel level, BlockPos anchor, TableBlockEntity table) {
-        int seconds = clockOf(table);
+        int clock = clockOf(table);
         DraftPod pod = table.pod().orElse(null);
-        if (seconds <= 0 || pod == null || pod.isFinished()) {
+        if (!PickClock.isOn(clock) || pod == null || pod.isFinished()) {
             return;
         }
+        int seconds = PickClock.secondsFor(clock, PickClock.cardsInPacks(pod.state()));
         long now = level.getGameTime();
         long startedAt = startedAt(table, pod, now);
         if (!PickClock.isUp(seconds, startedAt, now)) {
@@ -60,10 +61,11 @@ public final class PickClocks {
      * and what the table counts from are the same moment.
      */
     public static int secondsLeft(ServerLevel level, BlockPos anchor, TableBlockEntity table, DraftPod pod) {
-        int seconds = clockOf(table);
-        if (seconds <= 0 || pod.isFinished()) {
+        int clock = clockOf(table);
+        if (!PickClock.isOn(clock) || pod.isFinished()) {
             return -1;
         }
+        int seconds = PickClock.secondsFor(clock, PickClock.cardsInPacks(pod.state()));
         long now = level.getGameTime();
         return PickClock.secondsLeft(seconds, startedAt(table, pod, now), now);
     }

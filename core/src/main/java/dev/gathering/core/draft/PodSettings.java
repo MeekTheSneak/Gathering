@@ -34,6 +34,13 @@ public record PodSettings(
     /** The longest a pick clock may be set to. */
     public static final int LONGEST_PICK_SECONDS = 300;
 
+    /**
+     * A pick clock that follows the Magic Tournament Rules' draft timing instead of a fixed
+     * number: more time for the first picks of a pack, less as it empties. See
+     * {@link PickClock#tournamentSecondsFor}.
+     */
+    public static final int TOURNAMENT_TIMING = -1;
+
     /** A draft or a sealed event. */
     public enum Kind {
         DRAFT, SEALED;
@@ -106,7 +113,8 @@ public record PodSettings(
         if (picksPerTurn < 0 || picksPerTurn > 2) {
             return Optional.of("message.gathering.pod.picks_per_turn");
         }
-        if (pickSeconds < 0 || pickSeconds > LONGEST_PICK_SECONDS || (pickSeconds > 0 && kind == Kind.SEALED)) {
+        if (pickSeconds < TOURNAMENT_TIMING || pickSeconds > LONGEST_PICK_SECONDS
+                || (pickSeconds != 0 && kind == Kind.SEALED)) {
             return Optional.of("message.gathering.pod.pick_clock");
         }
         if (kind == Kind.SEALED && picksPerTurn != 0) {

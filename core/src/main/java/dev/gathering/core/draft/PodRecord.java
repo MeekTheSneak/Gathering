@@ -42,7 +42,7 @@ public record PodRecord(
         if (host == null || cardsGo == null) {
             throw new IllegalArgumentException("A pod record needs a host and where the cards go");
         }
-        if (pickSeconds < 0 || pickSeconds > PodSettings.LONGEST_PICK_SECONDS) {
+        if (pickSeconds < PodSettings.TOURNAMENT_TIMING || pickSeconds > PodSettings.LONGEST_PICK_SECONDS) {
             throw new IllegalArgumentException("A pick clock is 0 to " + PodSettings.LONGEST_PICK_SECONDS + " seconds");
         }
         seated = List.copyOf(seated);
