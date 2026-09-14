@@ -28,6 +28,9 @@ public final class TutorialPanel {
     private static final int WIDEST = 260;
     private static final int NARROWEST = 150;
 
+    /** The narrowest the panel goes to keep off the board: its buttons still hold their words. */
+    private static final int SQUEEZED = 120;
+
     private static final int PADDING = 6;
     private static final int GAP = 3;
 
@@ -47,7 +50,25 @@ public final class TutorialPanel {
      * life totals are across the top.
      */
     public static Rect at(Font font, int screenWidth, int screenHeight, int topEdge) {
+        return at(font, screenWidth, screenHeight, topEdge, Integer.MAX_VALUE);
+    }
+
+    /**
+     * The same, kept left of a line the board needs.
+     * <p>The lesson frames the whole table, so both mats are on the screen - the card it asks
+     * somebody to read is on the far one - and a panel of its usual width lay over the near
+     * mat's own buttons. The scripted client photographed "Dr" and "Un" showing between the
+     * lesson's buttons: the Draw button, under the panel telling the player to draw. So the
+     * panel narrows to stop short of the mats, down to the narrowest it can still be read at,
+     * and only below that does it cover anything.
+     *
+     * @param rightLimit the leftmost x the panel must not reach, or {@code Integer.MAX_VALUE}
+     */
+    public static Rect at(Font font, int screenWidth, int screenHeight, int topEdge, int rightLimit) {
         int width = Math.clamp((int) (screenWidth * SHARE_OF_WIDTH), NARROWEST, WIDEST);
+        if (rightLimit != Integer.MAX_VALUE) {
+            width = Math.max(SQUEEZED, Math.min(width, rightLimit - PADDING * 2));
+        }
         int height = heightOf(font, width);
         return new Rect(PADDING, topEdge + PADDING,
                 Math.min(width, Math.max(NARROWEST, screenWidth - PADDING * 2)),

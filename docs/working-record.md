@@ -67,9 +67,31 @@ failures were already in the branch. Investigated from its log and the source, n
   then name and life, then life alone beside the seat's mark - and a free chair has a short form
   too. Nothing the short forms drop is lost; it is on the mat.
 
-**Not verified: the tour has not been rerun.** Both fixes compile, pass the gate and pass
-`scenecheck` (315 steps, 0 problems), but whether the tour now completes, and what the strip
-looks like at each width, needs the scripted client.
+### The scripted client, run on this machine (2026-09-13)
+
+The tour was run here on macOS (`./gradlew :neoforge:runClient -Pdevscene`, Gradle heap 1.5 GB
+and client heap 3 GB - the defaults ran the machine out of memory once). Seven runs; the last
+two reached **315 of 315 with zero failures**. What the runs and the screenshots found, all fixed:
+
+| Found | How | Fix |
+|---|---|---|
+| Scryfall was down for maintenance | first run: deck import HTTP 503, every later step empty | waited it out; not a mod defect |
+| Setup screen: "First time? Learn the controls." ran through Cancel and Start | screenshot | the sentence is the Learn button's tooltip |
+| Lesson strip read "(empty) - 40 life (away)" twice, turn "Seat 1" | screenshot | the lesson seats both chairs: this player by name, and "Demo" |
+| Lesson step 5 asked to read the card opposite, which was off the top of the window | screenshot; the script passed only by calling the read hook directly | the lesson frames the whole table, turned from the learner's chair |
+| Lesson panel covered the learner's own Draw and Untap buttons | screenshot | the panel narrows to stop short of the mats (to 120 wide) |
+| Back and Skip vanished under the panel from step 5 on | screenshot | the lesson buttons are re-placed under the panel every frame |
+| "Start over" crowded its button at the narrower width | screenshot | label is "Restart" |
+| A finished lesson reported as unfinished | tour FAIL: it closes itself after a 4 s linger | step checks the recorded completion once the lesson has gone |
+| Foil tilt steps saw no tilt when the machine was in use | tour FAIL on one run only | the tour turns off pause-on-lost-focus |
+| The lesson's play step dropped the card on the other chair's mat after the reframe | tour FAIL | drops on the learner's mat as the board reports it |
+| The pot drew over the top strip's text | screenshot | the pot is clipped between the strip and the hand |
+| "Mulligan" and "Shuffle" lost their last letter to the button frame | screenshot | verb labels fit inside a 3-pixel inset |
+
+Reviewed by eye: the setup screen, the seated board, the whole table, the card menu, counters,
+the pot, the replay strip, and every lesson frame. Not every one of the 153 screenshots has been
+looked at. **A scripted run is not a playtest**; nothing here says how the lesson feels to a
+person, only that it can be completed with the keys it names and now shows what it describes.
 
 ## Owner-approved requirements, and what they superseded
 
@@ -678,7 +700,7 @@ is still the owner's to make.
 
 ## Next concrete action
 
-1. **Rerun the scripted client tour** - its lesson section and the seat strip were fixed without being rerun - **and look at the pictures** (`./gradlew :neoforge:runClient -Pdevscene`
+1. **A person plays the lesson and a real game.** The scripted tour now completes cleanly on this machine (315/315) and its screenshots were reviewed; what is left is how it feels to somebody who has not read the code (`./gradlew :neoforge:runClient -Pdevscene`
    on macOS; `tools/shots.sh` under Xvfb). Every client-side change since the last clean run is
    unseen: the tutorial overlay, menu fitting, the arrange preview, pile and attachment drawing
    on both views, the replay strip, reading a card chosen from a pile, and a selection verb

@@ -403,7 +403,9 @@ public final class TableScreen extends Screen {
      * {@link #leaveTheTutorial()} deals with that rather than assuming it is still there.
      */
     public static TableScreen learning(BlockPos afterwards) {
-        TutorialDemo.begin();
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        TutorialDemo.begin(player == null ? null : new dev.gathering.core.game.PlayerRef(
+                player.getUUID(), player.getGameProfile().getName()));
         return new TableScreen(TutorialDemo.table(), false, true, afterwards);
     }
 
@@ -460,6 +462,24 @@ public final class TableScreen extends Screen {
     /** Measured once per screen: how much room the longest of each set needs. Nought is unasked. */
     private int longestZoneNameWidth;
     private int longestVerbNameWidth;
+
+    /**
+     * Where the leftmost mat starts on the screen, for anything that must not cover a mat.
+     * <p>Only in the lesson, where the panel beside the board would otherwise lie over the
+     * learner's own buttons; everywhere else the answer is "nowhere to keep off".
+     */
+    private int leftEdgeOfTheMats() {
+        if (!demo || geometry == null) {
+            return Integer.MAX_VALUE;
+        }
+        int left = Integer.MAX_VALUE;
+        for (SeatView seat : view().map(GameView::seats).orElse(List.of())) {
+            if (seat.hasABoard()) {
+                left = Math.min(left, geometry.matRect(seat.seat()).x());
+            }
+        }
+        return left;
+    }
 
     /** Frames the board on this seat's own mat, or on the whole table when there is no seat. */
     private void frameTheBoard(SeatId seat) {
@@ -660,7 +680,20 @@ public final class TableScreen extends Screen {
             // happened to be constructed with - which put the far player's zones off the top
             // of the window. Watching a game you are not in shows the whole table.
             framedFor = mySeat().orElse(null);
-            frameTheBoard(framedFor);
+            // The lesson shows the whole table. One of its steps is reading the card the other
+            // seat has face up, and framed on the learner's own mat that card was off the top of
+            // the window - the step asked for something nobody could see, and only a script
+            // that reads the card without pointing at it could do it.
+            if (demo && framedFor != null) {
+                // Turned for the learner first, so the whole table is shown from their chair:
+                // their mat nearest, the card they are asked to read across from them. Shown
+                // unturned, the scripted client photographed the learner's own mat at the top
+                // and "the card opposite" below it.
+                geometry.focusOn(framedFor);
+                geometry.showEverything();
+            } else {
+                frameTheBoard(framedFor);
+            }
         } else {
             geometry.reshape(anchors(), this.width, this.height,
                     layout.status().height(), layout.hand().height());
@@ -684,28 +717,55 @@ public final class TableScreen extends Screen {
      * exists to teach.
      */
     private void addTutorialButtons() {
-        Rect panel = TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom());
-        int wide = (panel.width() - 8) / 2;
-        int high = 14;
-        int left = panel.x() + 2;
-        int top = panel.bottom() + 2;
+        tutorialButtons = List.of();
         if (!Tutorial.runningAt(table)) {
             // The offer is not here. A table with no game on it has no board - this screen
             // closes itself the moment its view goes away - so the one place somebody who has
             // never done this before can be asked is the setup screen. See TableSetupScreen.
             return;
         }
-        this.addRenderableWidget(GatheringButtons.of(left, top, wide, high,
-                Component.translatable("tutorial.gathering.back"), Tutorial::back));
-        this.addRenderableWidget(GatheringButtons.of(left + wide + 4, top, wide, high,
-                Component.translatable("tutorial.gathering.next"), Tutorial::forward));
-        this.addRenderableWidget(GatheringButtons.of(left, top + high + 2, wide, high,
+        List<net.minecraft.client.gui.components.AbstractWidget> made = new ArrayList<>();
+        made.add(this.addRenderableWidget(GatheringButtons.of(0, 0, 1, 1,
+                Component.translatable("tutorial.gathering.back"), Tutorial::back)));
+        made.add(this.addRenderableWidget(GatheringButtons.of(0, 0, 1, 1,
+                Component.translatable("tutorial.gathering.next"), Tutorial::forward)));
+        made.add(this.addRenderableWidget(GatheringButtons.of(0, 0, 1, 1,
                 Component.translatable("tutorial.gathering.restart"),
                 // A new game rather than a rewound one, which is what makes it work once the
                 // library has been drawn empty.
-                TutorialDemo::restart));
-        this.addRenderableWidget(GatheringButtons.of(left + wide + 4, top + high + 2, wide, high,
-                Component.translatable("tutorial.gathering.exit"), this::leaveTheTutorial));
+                TutorialDemo::restart)));
+        made.add(this.addRenderableWidget(GatheringButtons.of(0, 0, 1, 1,
+                Component.translatable("tutorial.gathering.exit"), this::leaveTheTutorial)));
+        tutorialButtons = List.copyOf(made);
+        placeTheTutorialButtons();
+    }
+
+    /** The lesson's four buttons, in the order they are laid out: two rows of two. */
+    private List<net.minecraft.client.gui.components.AbstractWidget> tutorialButtons = List.of();
+
+    /**
+     * Puts the lesson's buttons under the panel as it is now.
+     * <p>Every frame, not once. The panel is as tall as the step on it, and the later steps say
+     * more: laid out once under the first step's panel, the buttons were drawn over by the
+     * fifth step's, and the scripted client photographed Back and Skip gone under a paragraph.
+     */
+    private void placeTheTutorialButtons() {
+        if (tutorialButtons.isEmpty()) {
+            return;
+        }
+        Rect panel = TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom(),
+                leftEdgeOfTheMats());
+        int wide = (panel.width() - 8) / 2;
+        int high = 14;
+        int left = panel.x() + 2;
+        int top = panel.bottom() + 2;
+        for (int index = 0; index < tutorialButtons.size(); index++) {
+            var button = tutorialButtons.get(index);
+            button.setX(left + (index % 2) * (wide + 4));
+            button.setY(top + (index / 2) * (high + 2));
+            button.setWidth(wide);
+            button.setHeight(high);
+        }
     }
 
     /**
@@ -1142,7 +1202,14 @@ public final class TableScreen extends Screen {
             // Under the cards in play, over the mats. The pot is on the table rather than in
             // the game, and it should read that way: something lying in the middle that the
             // game goes on on top of.
+            // Kept between the strip along the top and the hand. Framed on a player's own mat
+            // the pot, which sits past the far edge of it, lands partly under the top strip -
+            // and card art is drawn above plain text, so the scripted client photographed the
+            // staked cards lying over the library count and whose turn it is.
+            graphics.enableScissor(0, layout().status().bottom(), this.width,
+                    Math.max(layout().status().bottom(), layout().hand().y()));
             renderPot(graphics, mouseX, mouseY);
+            graphics.disableScissor();
 
             List<Placed> onTable = everythingOnTheTable(board);
             hovered = frontMostAt(onTable, mouseX, mouseY);
@@ -1202,6 +1269,7 @@ public final class TableScreen extends Screen {
                             net.minecraft.ChatFormatting.ITALIC)));
         }
 
+        placeTheTutorialButtons();
         super.render(graphics, mouseX, mouseY, partialTick);
 
         renderStatus(graphics, board, mouseX, mouseY);
@@ -1268,7 +1336,8 @@ public final class TableScreen extends Screen {
         view().ifPresent(shown -> renderArrangement(graphics, shown));
         if (Tutorial.runningAt(table)) {
             TutorialPanel.render(graphics, this.font,
-                    TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom()));
+                    TutorialPanel.at(this.font, this.width, this.height, layout().status().bottom(),
+                    leftEdgeOfTheMats()));
         }
 
         if (!tooltip.isEmpty() && !showingLog && !showingKeys && held == null
@@ -1745,11 +1814,14 @@ public final class TableScreen extends Screen {
             if (hovered) {
                 tooltip = tipFor(VERB_NAMES[index], verbKeyName(index));
             }
-            if (everyVerbNameFits(where.width() - 2)) {
+            // Inside the button's frame, not merely inside the button. Fitted to the width less
+            // a pixel a side, the longest name ran to the very edge and the frame drawn round
+            // it took the last letter: the scripted client photographed "Mulliga" and "Shuffl".
+            int writable = where.width() - VERB_LABEL_INSET * 2;
+            if (everyVerbNameFits(writable)) {
                 GuiText.drawCenteredAt(graphics, this.font, VERB_NAMES[index],
                         (int) where.centerX(), (int) where.centerY() - this.font.lineHeight / 2,
-                        GuiText.scaleForTheSet(
-                                this.font, longestOf(VERB_NAMES), where.width() - 2),
+                        GuiText.scaleForTheSet(this.font, longestOf(VERB_NAMES), writable),
                         hovered ? LABEL : ZONE_LABEL);
             }
         }
@@ -2238,6 +2310,9 @@ public final class TableScreen extends Screen {
             case MULLIGAN -> send(new GameEvent.Mulliganed(me, me, MULLIGAN_HAND));
         }
     }
+
+    /** Clear space between a verb button's frame and its name, on each side. */
+    private static final int VERB_LABEL_INSET = 3;
 
     private static final Component[] VERB_NAMES =
             java.util.Arrays.stream(TableVerb.values())

@@ -275,6 +275,12 @@ public final class DevScene {
                 // the loading overlay to clear, say what turned up, and put the title screen
                 // there ourselves.
                 if (client.getOverlay() == null && client.screen != null) {
+                    // Not paused by somebody using their own computer. A tour run on a desktop
+                    // shares the screen with whoever sat down at it, and a window that loses
+                    // focus opens the pause menu over the world - which stops the card being
+                    // read in the hand from being drawn, so the foil steps saw no tilt at all
+                    // on a run where the machine was in use, and passed on one where it was not.
+                    client.options.pauseOnLostFocus = false;
                     System.out.println("[devscene] first screen: " + client.screen.getClass().getName());
                     client.setScreen(new TitleScreen());
                     advance(SETTLE);
@@ -3134,6 +3140,12 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 300 -> {
+                // Neither finished nor skipped yet, as far as this run is concerned, so that
+                // "finished" at the end of this section is something this run wrote. The run
+                // directory keeps its settings between runs, and a lesson finished last time
+                // would otherwise answer for this one.
+                ClientSettings.tutorialFinished(false);
+                ClientSettings.tutorialSkipped(false);
                 expectScreen(client, "the table setup screen", TableSetupScreen.class);
                 press(client, "Learn the controls");
                 advance(SETTLE * 4);
@@ -3203,7 +3215,15 @@ public final class DevScene {
                 advance(SETTLE * 2);
             }
             case 309 -> {
-                if (!Tutorial.progress().map(p -> p.isFinished()).orElse(false)) {
+                // Finished and still lingering on the board, or finished and already gone: the
+                // lesson waits a few seconds on the board it was finished on and then closes
+                // itself, and this step can land either side of that. Closing writes down
+                // whether it was finished or left, so that record answers once it has gone.
+                // The first run on the local lesson asked only the running lesson, arrived
+                // after it had closed, and reported a finished lesson as unfinished.
+                boolean finished = Tutorial.progress().map(p -> p.isFinished())
+                        .orElseGet(() -> !Tutorial.running() && ClientSettings.tutorialFinished());
+                if (!finished) {
                     fail("the six steps were all done and the tutorial does not say it is finished:"
                             + " showing " + Tutorial.showing().map(Enum::name).orElse("nothing")
                             + ", done " + Tutorial.progress().map(p -> p.count()).orElse(-1));
@@ -6005,12 +6025,18 @@ public final class DevScene {
         int height = client.getWindow().getGuiScaledHeight();
         TableScreenLayout layout = TableScreenLayout.of(width, height);
         HandFan.Slot first = HandFan.slot(layout.hand(), inHand, 0, -1);
-        int[] onto = {width / 2, height / 4};
+        // The middle of the learner's own mat, asked of the board. A fixed point a quarter of
+        // the way down was the learner's mat while the lesson was framed on it; framed on the
+        // whole table, as it is now so the card opposite can be read, the same point is the
+        // other chair's mat - and a card dropped there is not a card played.
+        dev.gathering.core.ui.Rect mat = board.board().matRect(seat);
+        int[] onto = {(int) mat.centerX(), mat.y() + mat.height() / 2};
         board.mouseClicked(first.where().centerX(), first.where().centerY(), 0);
         board.mouseDragged(onto[0], onto[1], 0,
                 onto[0] - first.where().centerX(), onto[1] - first.where().centerY());
         board.mouseReleased(onto[0], onto[1], 0);
-        System.out.println("[devscene] played the one card in hand");
+        System.out.println("[devscene] played the one card in hand, onto the learner's mat at "
+                + onto[0] + "," + onto[1]);
     }
 
     /** Types a word into whatever is listening, one character at a time, as a keyboard does. */

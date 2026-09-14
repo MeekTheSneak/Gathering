@@ -4,6 +4,7 @@ import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.PaperStock;
 import dev.gathering.core.format.FormatPresets;
 import dev.gathering.core.game.GameSession;
+import dev.gathering.core.game.PlayerRef;
 import dev.gathering.core.game.SeatId;
 import dev.gathering.core.game.SessionSeed;
 import dev.gathering.core.game.UndoMode;
@@ -96,9 +97,25 @@ public final class TutorialDemo {
      * moment it is wanted is the moment a player has none of those.
      */
     public static void begin() {
+        begin(null);
+    }
+
+    /**
+     * Starts one with the learner's chair named for this player.
+     * <p>Handed in by the screen that opens the lesson rather than looked up here, because this
+     * class is also driven by in-world tests on a dedicated server, which has no client player
+     * to look up - and asking would load a class that server does not have.
+     *
+     * @param who this player, or null for a chair that just says "You"
+     */
+    public static void begin(PlayerRef who) {
+        learner = who;
         session = freshGame();
         Tutorial.beginAt(NOWHERE, board().orElse(null));
     }
+
+    /** Whose lesson this is, kept so Restart deals the same chairs. Null for a stand-in. */
+    private static PlayerRef learner;
 
     /**
      * Starts over, on a board rebuilt from nothing.
@@ -170,6 +187,7 @@ public final class TutorialDemo {
      */
     public static void clear() {
         session = null;
+        learner = null;
         shown = null;
         shownFrom = null;
         shownAt = -1;
@@ -192,6 +210,15 @@ public final class TutorialDemo {
                 // needs one, not because anything about this game is secret.
                 SessionSeed.random(),
                 UndoMode.shippedDefault());
+        // Both chairs named. Without it the strip along the top read "(empty) - 40 life (away)"
+        // twice and the turn belonged to "Seat 1": a lesson about a table that looked like one
+        // nobody was at. The learner is this player, by their own name; the other chair says
+        // what it is. Neither is sent anywhere - this whole game lives on this client.
+        fresh.submit(new GameEvent.SeatTaken(LEARNER, learner()));
+        fresh.submit(new GameEvent.SeatTaken(DEMONSTRATION, new PlayerRef(
+                java.util.UUID.nameUUIDFromBytes("gathering:tutorial-demonstration".getBytes(
+                        java.nio.charset.StandardCharsets.UTF_8)),
+                Component.translatable("tutorial.gathering.demonstration_seat").getString())));
         deal(fresh, LEARNER);
         deal(fresh, DEMONSTRATION);
         // One card face up in front of the seat nobody is in, so that "read a card somebody
@@ -201,6 +228,15 @@ public final class TutorialDemo {
         fresh.submit(new GameEvent.PaperCardCreated(DEMONSTRATION, DEMONSTRATION, PaperStock.BLANK,
                 Component.translatable("tutorial.gathering.demonstration_card").getString()));
         return fresh;
+    }
+
+    /** Who is learning: the player handed to {@link #begin(PlayerRef)}, or a stand-in. */
+    private static PlayerRef learner() {
+        PlayerRef who = learner;
+        return who != null
+                ? who
+                : new PlayerRef(new java.util.UUID(0L, 0L),
+                        Component.translatable("tutorial.gathering.learner_seat").getString());
     }
 
     /**
