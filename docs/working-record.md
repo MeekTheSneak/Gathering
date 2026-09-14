@@ -230,6 +230,11 @@ packet, both loaders, guard on each; the Fabric guard caught that Fabric loaded 
 config on the client only, so it now loads on both sides with the camera hooks still client-only). The first move budget (30/s, burst 256) dropped moves in
 the scripted tour's pile steps; raised to 60/s, burst 1,000.
 
+Gate 495/14 (`20a645df`). Tour after the fixes: 342 steps, 1 failure - a watcher's hover tooltip on
+a life counter, the same class of real-cursor hover step that has failed one at a time across runs
+(graveyard, Draw button, life counter) with no related change; the loaner, draft, ante and
+tournament steps all passed.
+
 Open, for the owner: seated players may draw, mill or shuffle another seat's library by design;
 pack and shuffle randomness is
 `SecureRandom`, an undocumented but stronger exception to the `level.getRandom()` rule.
