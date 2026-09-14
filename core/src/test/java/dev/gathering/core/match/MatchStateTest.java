@@ -51,6 +51,22 @@ class MatchStateTest {
         assertThat(afterOne.afterDrawnGame().startsNextGame(List.of(alice, bob))).isEmpty();
     }
 
+    /** MTR 2.2: after a drawn game, whoever chose for that game chooses again - not the last loser. */
+    @Test
+    void whoeverChoseForADrawnGameChoosesAgain() {
+        SeatId alice = SeatId.of(0);
+        SeatId bob = SeatId.of(1);
+        MatchState bobLostGameOne = MatchState.beginning(new MatchRules(FormatPresets.MODERN, 5)).afterGameWonBy(alice);
+        // Bob lost, so Bob chose for game two - and game two was drawn.
+        MatchState drawn = bobLostGameOne.afterDrawnGame(bob);
+        assertThat(drawn.startsNextGame(List.of(alice, bob))).contains(bob);
+        // And again after a second draw in a row.
+        assertThat(drawn.afterDrawnGame(bob).startsNextGame(List.of(alice, bob))).contains(bob);
+        // A won game after it goes back to the loser.
+        assertThat(drawn.afterGameWonBy(bob).startsNextGame(List.of(alice, bob))).contains(alice);
+        assertThat(drawn.startsNextGame(List.of(alice, bob, SeatId.of(2)))).isEmpty();
+    }
+
     @Test
     @DisplayName("best of three is won by two, not by three")
     void twoWinsTakeABestOfThree() {

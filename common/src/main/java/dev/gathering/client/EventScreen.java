@@ -123,26 +123,39 @@ public final class EventScreen extends Screen {
         EventViewPayload.Mine mine = view.mine();
         if (mine.table() > 0 && mine.confirmed().isEmpty()) {
             // The results a match of this length can end in, from this player's chair.
-            int[][] results = resultsFor(view.bestOf());
-            int width = (panel.width() - MARGIN * 2 - 4 * (results.length - 1)) / results.length;
-            int y = panel.y() + 26 + 16 + 6 + LINE * 4;
-            for (int index = 0; index < results.length; index++) {
-                int[] result = results[index];
-                String label = result[0] + "-" + result[1] + (result[2] > 0 ? "-" + result[2] : "");
-                addRenderableWidget(GatheringButtons.toggle(x + index * (width + 4), y, width, ROW, Component.literal(label),
+            List<dev.gathering.core.tournament.MatchResult> results = offeredResults();
+            int perRow = perResultRow(results.size());
+            int width = (panel.width() - MARGIN * 2 - 4 * (perRow - 1)) / perRow;
+            int top = panel.y() + 26 + 16 + 6 + LINE * 4;
+            for (int index = 0; index < results.size(); index++) {
+                dev.gathering.core.tournament.MatchResult result = results.get(index);
+                String label = result.label();
+                addRenderableWidget(GatheringButtons.toggle(x + index % perRow * (width + 4),
+                        top + index / perRow * (ROW + 3), width, ROW, Component.literal(label),
                         () -> label.equals(mine.myReport()), () -> send(EventActionPayload.Action.REPORT, 0,
-                                result[0], result[1], result[2], EventActionPayload.NONE)));
+                                result.winsA(), result.winsB(), result.draws(), EventActionPayload.NONE)));
             }
         }
     }
 
-    /** The results a match of this length can end in, from the first chair. */
-    static int[][] resultsFor(int bestOf) {
-        return bestOf == 1
-                ? new int[][] {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}
-                : bestOf == 3
-                        ? new int[][] {{2, 0, 0}, {2, 1, 0}, {1, 2, 0}, {0, 2, 0}, {1, 1, 1}, {1, 0, 1}, {0, 1, 1}}
-                        : new int[][] {{3, 0, 0}, {3, 1, 0}, {3, 2, 0}, {2, 3, 0}, {1, 3, 0}, {0, 3, 0}, {2, 2, 1}};
+    /** The results this event's matches can be reported as, from the first chair. */
+    private List<dev.gathering.core.tournament.MatchResult> offeredResults() {
+        return dev.gathering.core.tournament.MatchResult.offered(view.bestOf(), view.elimination());
+    }
+
+    /** How many result buttons go on a row: all of them when they fit, else two even rows. */
+    static int perResultRow(int results) {
+        return results <= 7 ? Math.max(1, results) : (results + 1) / 2;
+    }
+
+    /** How many rows of result buttons this player is shown under their match. */
+    private int resultRows() {
+        EventViewPayload.Mine mine = view.mine();
+        if (mine.table() <= 0 || !mine.confirmed().isEmpty()) {
+            return 1;
+        }
+        int results = offeredResults().size();
+        return (results + perResultRow(results) - 1) / perResultRow(results);
     }
 
     private void practice() {
@@ -201,21 +214,21 @@ public final class EventScreen extends Screen {
             EventViewPayload.Match chosen = view.pairings().stream().filter(match -> match.table() == selectedTable)
                     .findFirst().orElse(null);
             if (chosen != null) {
-                // The results a match of this length can end in, as the players' own buttons offer.
-                int[][] results = resultsFor(view.bestOf());
-                int sx = x + 56;
-                int room = panel.right() - MARGIN - 74 - sx - 48;
-                int each = Math.max(22, Math.min(34, room / results.length - 3));
-                for (int[] result : results) {
-                    String label = result[0] + "-" + result[1] + (result[2] > 0 ? "-" + result[2] : "");
-                    addRenderableWidget(GatheringButtons.of(sx, bottom, each, ROW, Component.literal(label),
-                            () -> send(EventActionPayload.Action.SETTLE, chosen.table(), result[0], result[1], result[2],
-                                    EventActionPayload.NONE)));
+                // The results a match of this length can end in, as the players' own buttons
+                // offer, on a row of their own above the page buttons: a dozen of them and the
+                // two drop buttons do not share one row with Done.
+                List<dev.gathering.core.tournament.MatchResult> results = offeredResults();
+                int each = (panel.width() - MARGIN * 2 - 3 * (results.size() - 1)) / results.size();
+                int sx = x;
+                for (dev.gathering.core.tournament.MatchResult result : results) {
+                    addRenderableWidget(GatheringButtons.of(sx, bottom - ROW - 3, each, ROW, Component.literal(result.label()),
+                            () -> send(EventActionPayload.Action.SETTLE, chosen.table(), result.winsA(), result.winsB(),
+                                    result.draws(), EventActionPayload.NONE)));
                     sx += each + 3;
                 }
-                addRenderableWidget(GatheringButtons.of(sx, bottom, 44, ROW, Component.translatable("screen.gathering.event.drop_a"),
+                addRenderableWidget(GatheringButtons.of(x + 56, bottom, 44, ROW, Component.translatable("screen.gathering.event.drop_a"),
                         () -> send(EventActionPayload.Action.DROP_PLAYER, 0, 0, 0, 0, chosen.idA())));
-                addRenderableWidget(GatheringButtons.of(sx + 47, bottom, 44, ROW, Component.translatable("screen.gathering.event.drop_b"),
+                addRenderableWidget(GatheringButtons.of(x + 103, bottom, 44, ROW, Component.translatable("screen.gathering.event.drop_b"),
                         () -> send(EventActionPayload.Action.DROP_PLAYER, 0, 0, 0, 0, chosen.idB())));
             }
         }
@@ -332,7 +345,7 @@ public final class EventScreen extends Screen {
                                                     : Component.translatable("screen.gathering.event.you.report");
             GuiText.draw(graphics, this.font, line, x, y, width, mine.confirmed().isEmpty() ? WARN : GOOD);
         }
-        int prizesTop = panel.y() + 26 + 16 + 6 + LINE * 4 + ROW + 6;
+        int prizesTop = panel.y() + 26 + 16 + 6 + LINE * 4 + resultRows() * (ROW + 3) + 3;
         if (!view.places().isEmpty()) {
             GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.event.places",
                     String.join(", ", view.places().subList(0, Math.min(4, view.places().size())))), x, prizesTop, width, GOOD);

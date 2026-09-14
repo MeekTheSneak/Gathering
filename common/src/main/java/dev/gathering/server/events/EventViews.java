@@ -231,7 +231,7 @@ public final class EventViews {
     }
 
     private static String said(MatchResult result) {
-        return result == null ? "" : result.winsA() + "-" + result.winsB() + (result.draws() > 0 ? "-" + result.draws() : "");
+        return result == null ? "" : result.label();
     }
 
     private static int tenths(double share) {

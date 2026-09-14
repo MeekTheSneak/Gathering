@@ -100,6 +100,17 @@ public final class TableSessions {
      */
     public static Outcome start(
             Level level, BlockPos tableOrigin, MatchRules rules, MatchState continuing) {
+        return start(level, tableOrigin, rules, continuing, null);
+    }
+
+    /**
+     * Starts a game with a player already owed the first turn: the higher Swiss seed in the
+     * first game of a cut match (MTR 2.2), which the tournament knows and the table does not.
+     *
+     * @param higherSeed the seat that plays first unless a lost game says otherwise, or null
+     */
+    public static Outcome start(
+            Level level, BlockPos tableOrigin, MatchRules rules, MatchState continuing, SeatId higherSeed) {
         BlockPos anchor = anchorOf(level, tableOrigin).orElse(null);
         if (anchor == null) {
             return Outcome.NO_TABLE;
@@ -162,15 +173,25 @@ public final class TableSessions {
             session.submit(new GameEvent.LibraryShuffled(seat, seat));
         });
 
-        // Who plays first. The loser of the last game of a two-player match; otherwise chosen at
-        // random with the level's randomness, the way a die would be rolled for it.
+        // Who plays first. The loser of the last game of a two-player match, or whoever chose for
+        // a game that was drawn; the higher seed in
+        // the first game of a cut match; otherwise chosen at random with the level's randomness,
+        // the way a die would be rolled for it.
         List<SeatId> playing = session.state().seats().stream()
                 .filter(seat -> session.state().seatState(seat).isOccupied()).toList();
         if (playing.size() > 1) {
             MatchState match = table.match().orElse(null);
             Optional<SeatId> loser = match == null ? Optional.empty() : match.startsNextGame(playing);
-            SeatId first = loser.orElseGet(() -> playing.get(level.getRandom().nextInt(playing.size())));
-            session.submit(new GameEvent.StartingPlayerChosen(first, loser.isPresent()));
+            if (loser.isPresent()) {
+                session.submit(new GameEvent.StartingPlayerChosen(loser.get(), match.lastGameWinner() == null
+                        ? GameEvent.StartingPlayerChosen.Why.CHOSE_FOR_THE_DRAWN_GAME
+                        : GameEvent.StartingPlayerChosen.Why.LOST_THE_LAST_GAME));
+            } else if (higherSeed != null && playing.contains(higherSeed)) {
+                session.submit(new GameEvent.StartingPlayerChosen(higherSeed, GameEvent.StartingPlayerChosen.Why.HIGHER_SEED));
+            } else {
+                session.submit(new GameEvent.StartingPlayerChosen(playing.get(level.getRandom().nextInt(playing.size())),
+                        GameEvent.StartingPlayerChosen.Why.RANDOM));
+            }
         }
         return Outcome.STARTED;
     }

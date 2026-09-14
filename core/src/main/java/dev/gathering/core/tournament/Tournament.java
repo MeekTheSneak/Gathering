@@ -101,6 +101,17 @@ public record Tournament(
         return Standings.of(entrants, swissRounds());
     }
 
+    /**
+     * Whether the first player of this pairing finished the Swiss rounds above the second: in a
+     * cut match, the one who chooses to play or draw in the first game (MTR 2.2).
+     */
+    public boolean firstSeededHigher(Pairing pairing) {
+        List<UUID> order = standings().stream().map(row -> row.player().id()).toList();
+        int first = order.indexOf(pairing.a());
+        int second = pairing.b() == null ? -1 : order.indexOf(pairing.b());
+        return second < 0 || (first >= 0 && first < second);
+    }
+
     public boolean isOver() {
         return phase == Phase.FINISHED || phase == Phase.CANCELLED;
     }
@@ -283,6 +294,18 @@ public record Tournament(
     }
 
     /**
+     * Records a match ended by time, with the life totals of the game in progress: in a cut match
+     * tied on games, the player with the higher life total wins that game (MTR 2.4). Tied on life
+     * too, nothing is recorded and the host decides.
+     */
+    public Tournament endAtTime(int table, int winsA, int winsB, boolean gameInProgress, int lifeA, int lifeB) {
+        if (playingRound().elimination() && gameInProgress && winsA == winsB && lifeA != lifeB) {
+            return endAtTime(table, lifeA > lifeB ? winsA + 1 : winsA, lifeB > lifeA ? winsB + 1 : winsB, false);
+        }
+        return endAtTime(table, winsA, winsB, gameInProgress);
+    }
+
+    /**
      * A player leaves. Their unfinished match this round is conceded; they are not paired again
      * and keep their record.
      */
@@ -300,7 +323,7 @@ public record Tournament(
         if (round != null) {
             Pairing pairing = round.pairingOf(player).orElse(null);
             if (pairing != null && !pairing.isConfirmed() && !pairing.isBye()) {
-                after = after.replace(round, pairing.settled(MatchResult.conceded(pairing.a().equals(player))));
+                after = after.replace(round, pairing.settled(MatchResult.conceded(pairing.a().equals(player), settings.bestOf())));
             }
         }
         int lastRound = after.currentRound().map(Round::number).orElse(0);

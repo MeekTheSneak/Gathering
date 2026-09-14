@@ -81,6 +81,39 @@ class TournamentTest {
         assertThat(lowest.opponentOf(player(7))).isEqualTo(player(3));
     }
 
+    /**
+     * Every result a player is offered is one the event takes, and the ones a real match ends in
+     * are all there: a win at time a game up, a drawn match, and a draw agreed before playing.
+     */
+    @Test
+    void everyOfferedResultIsAcceptedAndTheCommonOnesAreOffered() {
+        for (int bestOf : new int[] {1, 3, 5}) {
+            EventSettings base = constructed();
+            EventSettings settings = new EventSettings(base.kind(), base.formatId(), base.pod(), bestOf,
+                    base.roundMinutes(), base.buildMinutes(), base.extraTurns(), base.rounds(), base.topCut(),
+                    base.decks(), base.largeEvent());
+            Tournament tournament = readyWith(2, settings).startSwiss();
+            Pairing pairing = tournament.currentRound().orElseThrow().pairings().get(0);
+            List<MatchResult> swiss = MatchResult.offered(bestOf, false);
+            assertThat(swiss.stream().map(MatchResult::label).distinct().count()).isEqualTo(swiss.size());
+            for (MatchResult result : swiss) {
+                Tournament reported = tournament.report(pairing.a(), result).report(pairing.b(), result.flipped());
+                assertThat(reported.currentRound().orElseThrow().atTable(1).orElseThrow().result()).isEqualTo(result);
+                // Offered from both chairs: whatever one player can say, the other can say back.
+                assertThat(swiss).contains(result.flipped());
+            }
+            assertThat(swiss).contains(new MatchResult(0, 0, 0));
+            // A concession is a result of this length too, or settling one refuses it.
+            assertThat(MatchResult.conceded(true, bestOf).fits(bestOf)).isTrue();
+            assertThat(MatchResult.offered(bestOf, true)).contains(MatchResult.conceded(false, bestOf));
+            assertThat(MatchResult.offered(bestOf, true))
+                    .isNotEmpty()
+                    .isEqualTo(swiss.stream().filter(result -> !result.isDraw()).toList());
+        }
+        assertThat(MatchResult.offered(3, false))
+                .contains(new MatchResult(1, 0, 0), new MatchResult(1, 1, 0), new MatchResult(1, 0, 1));
+    }
+
     @Test
     void agreeingReportsConfirmAndDisagreeingOnesAreSettledByTheHost() {
         Tournament tournament = readyWith(4, constructed()).startSwiss();
@@ -184,6 +217,61 @@ class TournamentTest {
         UUID champion = finalMatch.result().firstWon() ? finalMatch.a() : finalMatch.b();
         assertThat(tournament.finalPlaces().get(0)).isEqualTo(champion);
         assertThat(tournament.finalPlaces()).hasSize(9).doesNotHaveDuplicates();
+    }
+
+    /**
+     * The higher Swiss seed chooses in the first game of a cut match (MTR 2.2) - and after an
+     * upset that is not always the first player of the pairing: the eighth seed who beat the first
+     * is paired ahead of the fourth in the semifinal.
+     */
+    @Test
+    void theHigherSwissSeedIsKnownForEveryCutMatch() {
+        EventSettings withCut = new EventSettings(EventSettings.Kind.CONSTRUCTED, "modern", null, 3, 50, 30, 5, 0, 8,
+                EventSettings.DeckRegistration.OFF, false);
+        Tournament tournament = readyWith(9, withCut).startSwiss();
+        Random random = new Random(7);
+        for (int round = 0; round < 4; round++) {
+            tournament = playRound(tournament, random).nextRound();
+        }
+        List<UUID> seeded = tournament.standings().stream().map(row -> row.player().id()).toList();
+        for (Pairing pairing : tournament.currentRound().orElseThrow().pairings()) {
+            assertThat(tournament.firstSeededHigher(pairing)).isTrue();
+            // The upset at the top table, and the favorite everywhere else.
+            MatchResult result = pairing.table() == 1 ? new MatchResult(0, 2, 0) : new MatchResult(2, 0, 0);
+            tournament = tournament.report(pairing.a(), result).report(pairing.b(), result.flipped());
+        }
+        tournament = tournament.nextRound();
+        Pairing semifinal = tournament.currentRound().orElseThrow().pairings().get(0);
+        assertThat(semifinal.a()).isEqualTo(seeded.get(7));
+        assertThat(semifinal.b()).isEqualTo(seeded.get(3));
+        assertThat(tournament.firstSeededHigher(semifinal)).isFalse();
+    }
+
+    /**
+     * Time in a cut match tied on games: the higher life total wins the game in progress (MTR 2.4).
+     * Tied on life as well, it is left for the host; in the Swiss rounds life never decides it.
+     */
+    @Test
+    void aCutMatchTiedAtTimeGoesToTheHigherLifeTotal() {
+        EventSettings withCut = new EventSettings(EventSettings.Kind.CONSTRUCTED, "modern", null, 3, 50, 30, 5, 0, 8,
+                EventSettings.DeckRegistration.OFF, false);
+        Tournament tournament = readyWith(9, withCut).startSwiss();
+        Random random = new Random(7);
+        for (int round = 0; round < 4; round++) {
+            tournament = playRound(tournament, random).nextRound();
+        }
+        Tournament cut = tournament.callTime();
+        assertThat(cut.endAtTime(1, 1, 1, true, 7, 12).currentRound().orElseThrow().atTable(1).orElseThrow().result())
+                .isEqualTo(new MatchResult(1, 2, 0));
+        assertThat(cut.endAtTime(1, 1, 1, true, 9, 9).currentRound().orElseThrow().atTable(1).orElseThrow().isConfirmed())
+                .isFalse();
+        // A game up is still decided on games, whatever the life totals say.
+        assertThat(cut.endAtTime(1, 1, 0, true, 1, 20).currentRound().orElseThrow().atTable(1).orElseThrow().result())
+                .isEqualTo(new MatchResult(1, 0, 1));
+
+        Tournament swiss = readyWith(4, constructed()).startSwiss().callTime();
+        assertThat(swiss.endAtTime(1, 1, 1, true, 20, 3).currentRound().orElseThrow().atTable(1).orElseThrow().result())
+                .isEqualTo(new MatchResult(1, 1, 1));
     }
 
     /** No cut below nine players, whatever the host set. */
@@ -398,5 +486,13 @@ class TournamentTest {
         assertThat(SwissRounds.forPlayers(9)).isEqualTo(4);
         assertThat(SwissRounds.forPlayers(32)).isEqualTo(5);
         assertThat(SwissRounds.forPlayers(33)).isEqualTo(6);
+        // Appendix E's large-event rows, which do not fall on powers of two.
+        assertThat(SwissRounds.forPlayers(128)).isEqualTo(7);
+        assertThat(SwissRounds.forPlayers(129)).isEqualTo(8);
+        assertThat(SwissRounds.forPlayers(226)).isEqualTo(8);
+        assertThat(SwissRounds.forPlayers(227)).isEqualTo(9);
+        assertThat(SwissRounds.forPlayers(409)).isEqualTo(9);
+        assertThat(SwissRounds.forPlayers(410)).isEqualTo(10);
+        assertThat(SwissRounds.forPlayers(2_000)).isEqualTo(10);
     }
 }

@@ -371,7 +371,7 @@ public final class MatchGameTest {
         startMatch(helper, origin, 3);
         var first = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
         boolean chosen = first.records().stream().anyMatch(record -> record instanceof dev.gathering.core.game.SessionRecord.EventRecord event
-                && event.event() instanceof GameEvent.StartingPlayerChosen starting && !starting.lostTheLastGame());
+                && event.event() instanceof GameEvent.StartingPlayerChosen starting && starting.why() == GameEvent.StartingPlayerChosen.Why.RANDOM);
         if (!chosen) {
             helper.fail("the first game of a match did not choose who plays first");
             return;
@@ -384,6 +384,46 @@ public final class MatchGameTest {
             return;
         }
         helper.succeed();
+    }
+
+    /**
+     * After a drawn game the player who was chosen for it goes first again (MTR 2.2), rather than
+     * the table choosing at random: the game is conceded by both at once, which is a draw.
+     */
+    @GameTest(template = "tables")
+    public static void whoeverWentFirstInADrawnGameGoesFirstAgain(GameTestHelper helper) {
+        BlockPos origin = seatedTable(helper);
+        startMatch(helper, origin, 3);
+        var first = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        SeatId chosen = startingPlayerOf(first).map(GameEvent.StartingPlayerChosen::actor).orElse(null);
+        if (chosen == null) {
+            helper.fail("the first game did not choose who plays first");
+            return;
+        }
+        for (SeatId seat : first.state().seats()) {
+            if (first.state().seatState(seat).isOccupied()) {
+                first.submit(new GameEvent.Conceded(seat));
+            }
+        }
+        TableMatch.settleIfFinished(helper.getLevel(), origin, first.state());
+        startNextGame(helper, origin);
+        var second = TableSessions.sessionAt(helper.getLevel(), origin).orElseThrow();
+        var again = startingPlayerOf(second).orElse(null);
+        if (again == null || again.why() != GameEvent.StartingPlayerChosen.Why.CHOSE_FOR_THE_DRAWN_GAME
+                || !again.actor().equals(chosen) || !second.state().turn().activeSeat().equals(chosen)) {
+            helper.fail("after a drawn game " + chosen + " should go first again, but the table said " + again);
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static Optional<GameEvent.StartingPlayerChosen> startingPlayerOf(dev.gathering.core.game.GameSession session) {
+        return session.records().stream()
+                .filter(record -> record instanceof dev.gathering.core.game.SessionRecord.EventRecord)
+                .map(record -> ((dev.gathering.core.game.SessionRecord.EventRecord) record).event())
+                .filter(GameEvent.StartingPlayerChosen.class::isInstance)
+                .map(GameEvent.StartingPlayerChosen.class::cast)
+                .findFirst();
     }
 
     private static long shelvedFor(UUID player) {

@@ -78,6 +78,72 @@ public final class EventsGameTest {
         helper.succeed();
     }
 
+    /**
+     * In the cut the higher Swiss seed plays first in the first game (MTR 2.2), even when an
+     * upset has put them in the second chair: the eighth seed beat the first, and the fourth seed
+     * they meet in the semifinal goes first.
+     */
+    @GameTest(template = "tables")
+    public static void theHigherSeedPlaysFirstInACutMatch(GameTestHelper helper) {
+        BlockPos first = place(helper, 1, 2, 1);
+        BlockPos second = place(helper, 3, 2, 1);
+        List<ServerPlayer> players = new ArrayList<>();
+        for (int index = 0; index < 9; index++) {
+            ServerPlayer player = helper.makeMockServerPlayerInLevel();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setPos(first.getX() + 1.0, first.getY(), first.getZ() + 1.0);
+            players.add(player);
+        }
+        EventSettings withCut = new EventSettings(EventSettings.Kind.CONSTRUCTED, "modern", null, 3, 50, 30, 5, 0, 8,
+                EventSettings.DeckRegistration.OFF, false);
+        Tournament tournament = Tournament.create(UUID.randomUUID(), "Cut", players.get(0).getUUID(), withCut);
+        for (int index = 0; index < 9; index++) {
+            tournament = tournament.register(Entrant.registering(players.get(index).getUUID(), "P" + index, 1500 - index));
+        }
+        tournament = tournament.beginPreparing();
+        for (ServerPlayer player : players) {
+            tournament = tournament.markReady(player.getUUID());
+        }
+        tournament = tournament.startSwiss();
+        while (tournament.phase() == Tournament.Phase.SWISS) {
+            for (Pairing pairing : tournament.currentRound().orElseThrow().pairings()) {
+                if (!pairing.isConfirmed()) {
+                    tournament = tournament.settle(pairing.table(), new MatchResult(2, 1, 0));
+                }
+            }
+            tournament = tournament.nextRound();
+        }
+        for (Pairing pairing : tournament.currentRound().orElseThrow().pairings()) {
+            tournament = tournament.settle(pairing.table(), pairing.table() == 1 ? new MatchResult(0, 2, 0) : new MatchResult(2, 0, 0));
+        }
+        tournament = tournament.nextRound();
+        List<UUID> seeded = tournament.standings().stream().map(row -> row.player().id()).toList();
+        Pairing semifinal = tournament.currentRound().orElseThrow().atTable(1).orElseThrow();
+        if (seeded.indexOf(semifinal.b()) >= seeded.indexOf(semifinal.a())) {
+            helper.fail("the semifinal was meant to have the higher seed in the second chair: " + semifinal);
+            return;
+        }
+        EventState state = Events.stateForTesting(tournament, helper.getLevel(), List.of(first, second));
+        Events.putForTesting(state);
+        TablesApart.set(helper.getLevel(), first, true);
+        Events.seatRoundForTesting(helper.getLevel().getServer(), state);
+
+        var session = TableSessions.sessionAt(helper.getLevel(), state.table(1).orElseThrow()).orElse(null);
+        if (session == null) {
+            helper.fail("no match was started at the semifinal table");
+            return;
+        }
+        boolean higherSeedFirst = session.records().stream().anyMatch(record -> record instanceof dev.gathering.core.game.SessionRecord.EventRecord event
+                && event.event() instanceof dev.gathering.core.game.event.GameEvent.StartingPlayerChosen starting
+                && starting.why() == dev.gathering.core.game.event.GameEvent.StartingPlayerChosen.Why.HIGHER_SEED
+                && starting.actor().equals(new SeatId(1)));
+        if (!higherSeedFirst || !session.state().turn().activeSeat().equals(new SeatId(1))) {
+            helper.fail("the higher seed, in the second chair, is not first: " + session.state().turn().activeSeat());
+            return;
+        }
+        helper.succeed();
+    }
+
     /** Time and the extra turns end a match on games won, with the game in progress a draw. */
     @GameTest(template = "tables")
     public static void theClockAndExtraTurnsEndAMatchOnGamesWon(GameTestHelper helper) {
@@ -123,6 +189,30 @@ public final class EventsGameTest {
             return;
         }
         Events.goneForTesting(pairing.a(), now);
+        helper.succeed();
+    }
+
+    /**
+     * The same in a best-of-one event, where a concession is one game to none. It was two to
+     * none, which is not a best-of-one result: settling it threw on the round clock, and the
+     * match stayed open with its player gone.
+     */
+    @GameTest(template = "tables")
+    public static void aplayerGoneFromABestOfOneConcedesOneGameToNone(GameTestHelper helper) {
+        EventSettings usual = EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern");
+        EventSettings bestOfOne = new EventSettings(usual.kind(), usual.formatId(), usual.pod(), 1, usual.roundMinutes(),
+                usual.buildMinutes(), usual.extraTurns(), usual.rounds(), usual.topCut(), usual.decks(), usual.largeEvent());
+        Fixture fixture = fourPlayersPlaying(helper, bestOfOne);
+        Pairing pairing = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        long now = Events.wallClockForTesting();
+        Events.goneForTesting(pairing.b(), now - 5L * 60_000L - 1);
+        Events.runClockForTesting(helper.getLevel().getServer(), fixture.state, 1);
+        Pairing after = fixture.state.tournament().currentRound().orElseThrow().atTable(1).orElseThrow();
+        Events.goneForTesting(pairing.a(), now);
+        if (!after.isConfirmed() || !new MatchResult(1, 0, 0).equals(after.result())) {
+            helper.fail("a player gone from a best-of-one did not concede it 1-0: " + after.result());
+            return;
+        }
         helper.succeed();
     }
 

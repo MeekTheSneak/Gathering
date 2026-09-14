@@ -12,22 +12,36 @@ import java.util.Optional;
  * currently on, which is precisely what it has to do.
  * <p>Nothing here is secret. Who has won how many is the most public fact at a table.
  */
-public record MatchState(MatchRules rules, Map<SeatId, Integer> wins, int gameNumber, SeatId lastGameWinner) {
+public record MatchState(
+        MatchRules rules, Map<SeatId, Integer> wins, int gameNumber, SeatId lastGameWinner, SeatId choseForDrawnGame) {
 
     /** A match that has not yet had a game won in it, or one read from before winners were kept. */
     public MatchState(MatchRules rules, Map<SeatId, Integer> wins, int gameNumber) {
-        this(rules, wins, gameNumber, null);
+        this(rules, wins, gameNumber, null, null);
+    }
+
+    /** A match read from before drawn games remembered who had chosen for them. */
+    public MatchState(MatchRules rules, Map<SeatId, Integer> wins, int gameNumber, SeatId lastGameWinner) {
+        this(rules, wins, gameNumber, lastGameWinner, null);
     }
 
     /**
-     * Who plays first in the next game of a two-player match: the player who lost the last one.
-     * <p>The tournament rules give the loser of the previous game the choice of playing or drawing
-     * (MTR 2.2), and playing first is what almost everybody chooses - so the table starts them,
-     * and they can pass the turn if they would rather draw. Empty for the first game, after a
-     * drawn game, or when it is not a two-player match: those start at random.
+     * Who plays first in the next game of a two-player match: the player who lost the last one,
+     * or after a drawn game whoever chose for that game.
+     * <p>The tournament rules give the loser of the previous game the choice of playing or drawing,
+     * and after a draw the player who chose at the start of the drawn game chooses again (MTR 2.2).
+     * Playing first is what almost everybody chooses - so the table starts them, and they can
+     * pass the turn if they would rather draw. Empty for the first game, or when it is not a
+     * two-player match: those start at random.
      */
     public Optional<SeatId> startsNextGame(java.util.Collection<SeatId> playing) {
-        if (lastGameWinner == null || playing.size() != 2 || !playing.contains(lastGameWinner)) {
+        if (playing.size() != 2) {
+            return Optional.empty();
+        }
+        if (lastGameWinner == null) {
+            return Optional.ofNullable(choseForDrawnGame).filter(playing::contains);
+        }
+        if (!playing.contains(lastGameWinner)) {
             return Optional.empty();
         }
         return playing.stream().filter(seat -> !seat.equals(lastGameWinner)).findFirst();
@@ -62,13 +76,23 @@ public record MatchState(MatchRules rules, Map<SeatId, Integer> wins, int gameNu
         Map<SeatId, Integer> updated = new LinkedHashMap<>(wins);
         updated.merge(winner, 1, Integer::sum);
 
-        MatchState next = new MatchState(rules, updated, gameNumber, winner);
-        return next.isDecided() ? next : new MatchState(rules, updated, gameNumber + 1, winner);
+        MatchState next = new MatchState(rules, updated, gameNumber, winner, null);
+        return next.isDecided() ? next : new MatchState(rules, updated, gameNumber + 1, winner, null);
     }
 
     /** A game nobody won - conceded by everyone, or abandoned - still uses one up. */
     public MatchState afterDrawnGame() {
-        return gameNumber >= rules.bestOf() ? this : new MatchState(rules, wins, gameNumber + 1, null);
+        return afterDrawnGame(null);
+    }
+
+    /**
+     * The same, remembering who chose to play or draw in the game that was drawn: they choose
+     * again for the next one.
+     *
+     * @param whoChose the player the drawn game's first turn went to, or null if nobody was named
+     */
+    public MatchState afterDrawnGame(SeatId whoChose) {
+        return gameNumber >= rules.bestOf() ? this : new MatchState(rules, wins, gameNumber + 1, null, whoChose);
     }
 
     public boolean isDecided() {

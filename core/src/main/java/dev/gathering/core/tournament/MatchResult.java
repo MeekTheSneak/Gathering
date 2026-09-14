@@ -40,12 +40,46 @@ public record MatchResult(int winsA, int winsB, int draws) {
         return winsA <= toWin && winsB <= toWin && !(winsA == toWin && winsB == toWin);
     }
 
+    /**
+     * The results a match of this length is offered as, from the first chair, most common first.
+     * <p>Every way a real match ends, not only the ones played out: won at time a game up with no
+     * game started (1-0), drawn at one game each, drawn with the first game unfinished (0-0-1),
+     * and 0-0 for a draw the players agreed before playing. A cut cannot end in a draw, so none
+     * is offered there - a button the server is only going to refuse is a dead end.
+     */
+    public static java.util.List<MatchResult> offered(int bestOf, boolean elimination) {
+        int[][] shapes = bestOf <= 1
+                ? new int[][] {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {0, 0, 0}}
+                : bestOf <= 3
+                        ? new int[][] {{2, 0, 0}, {2, 1, 0}, {1, 2, 0}, {0, 2, 0}, {1, 0, 0}, {0, 1, 0},
+                                {1, 0, 1}, {0, 1, 1}, {1, 1, 0}, {1, 1, 1}, {0, 0, 1}, {0, 0, 0}}
+                        : new int[][] {{3, 0, 0}, {3, 1, 0}, {3, 2, 0}, {2, 3, 0}, {1, 3, 0}, {0, 3, 0},
+                                {2, 1, 0}, {1, 2, 0}, {2, 2, 0}, {2, 2, 1}, {1, 1, 0}, {0, 0, 0}};
+        java.util.List<MatchResult> offered = new java.util.ArrayList<>();
+        for (int[] shape : shapes) {
+            MatchResult result = new MatchResult(shape[0], shape[1], shape[2]);
+            if (result.fits(bestOf) && !(elimination && result.isDraw())) {
+                offered.add(result);
+            }
+        }
+        return java.util.List.copyOf(offered);
+    }
+
+    /** How a result is written: games won each way, then drawn games when there were any. */
+    public String label() {
+        return winsA + "-" + winsB + (draws > 0 ? "-" + draws : "");
+    }
+
     /** What a bye is worth: a match won two games to none, against nobody. */
     public static final MatchResult BYE = new MatchResult(2, 0, 0);
 
-    /** What dropping mid-round concedes: the match, two games to none. */
-    public static MatchResult conceded(boolean firstPlayerConcedes) {
-        return firstPlayerConcedes ? new MatchResult(0, 2, 0) : new MatchResult(2, 0, 0);
+    /**
+     * What dropping mid-round concedes: the match, by as many games as it takes to win one of
+     * this length and none back - one in a best of one, which two to none is not a result of.
+     */
+    public static MatchResult conceded(boolean firstPlayerConcedes, int bestOf) {
+        int toWin = bestOf / 2 + 1;
+        return firstPlayerConcedes ? new MatchResult(0, toWin, 0) : new MatchResult(toWin, 0, 0);
     }
 
     public boolean firstWon() {

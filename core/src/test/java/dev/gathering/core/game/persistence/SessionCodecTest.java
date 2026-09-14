@@ -253,9 +253,36 @@ class SessionCodecTest {
                 new GameEvent.DiceRolled(a, 20, 17),
                 new GameEvent.CoinFlipped(a, true),
                 new GameEvent.HandShown(a, b, true),
-                new GameEvent.StartingPlayerChosen(a, true),
+                new GameEvent.StartingPlayerChosen(a, GameEvent.StartingPlayerChosen.Why.LOST_THE_LAST_GAME),
                 new GameEvent.PlanarRolled(
                         a, dev.gathering.core.game.event.PlanarFace.CHAOS));
+    }
+
+    /**
+     * Who went first used to be written as one boolean, "lost the last game". The reason that
+     * replaced it is one byte in the same place, so a log written the old way still says the
+     * same thing - and a byte past the last reason is refused rather than guessed at.
+     */
+    @Test
+    void aStartingPlayerWrittenAsABooleanReadsBackTheSame() throws IOException {
+        for (boolean lost : new boolean[] {false, true}) {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            java.io.DataOutputStream out = new java.io.DataOutputStream(bytes);
+            out.writeUTF("StartingPlayerChosen");
+            out.writeInt(1);
+            out.writeBoolean(lost);
+            GameEvent read = EventCodec.read(new java.io.DataInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray())));
+            assertThat(read).isEqualTo(new GameEvent.StartingPlayerChosen(new SeatId(1), lost
+                    ? GameEvent.StartingPlayerChosen.Why.LOST_THE_LAST_GAME
+                    : GameEvent.StartingPlayerChosen.Why.RANDOM));
+        }
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        java.io.DataOutputStream out = new java.io.DataOutputStream(bytes);
+        out.writeUTF("StartingPlayerChosen");
+        out.writeInt(1);
+        out.writeByte(9);
+        assertThatThrownBy(() -> EventCodec.read(new java.io.DataInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))))
+                .isInstanceOf(IOException.class);
     }
 
     @Provide

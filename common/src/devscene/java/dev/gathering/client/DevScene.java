@@ -3310,6 +3310,14 @@ public final class DevScene {
                         && !create.said().startsWith("Sealed · 1 per player")) {
                     fail("the new event screen says \"" + create.said() + "\" for a one-pack sealed event");
                 }
+                // A sealed event has no picks: the pick clock is there, grayed, not pressable.
+                String tourney = net.minecraft.network.chat.Component.translatable("screen.gathering.pod.clock.tournament").getString();
+                for (var child : client.screen.children()) {
+                    if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget
+                            && widget.getMessage().getString().equals(tourney) && widget.active) {
+                        fail("the pick clock can still be pressed for a sealed event");
+                    }
+                }
                 shoot(client, "98-a-new-event");
                 press(client, net.minecraft.network.chat.Component.translatable(
                         "screen.gathering.pod.create_button").getString());

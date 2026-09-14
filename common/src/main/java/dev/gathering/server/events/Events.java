@@ -618,8 +618,13 @@ public final class Events {
             }
             seatAt(level, table, 0, pairing.a(), false);
             seatAt(level, table, 1, pairing.b(), false);
+            // In the cut the higher Swiss seed chooses for the first game (MTR 2.2); in the Swiss
+            // rounds it is left to chance.
+            SeatId higherSeed = round.elimination()
+                    ? new SeatId(state.tournament.firstSeededHigher(pairing) ? 0 : 1)
+                    : null;
             TableSessions.Outcome outcome = TableSessions.start(level, table,
-                    new MatchRules(format, state.tournament.settings().bestOf()));
+                    new MatchRules(format, state.tournament.settings().bestOf()), null, higherSeed);
             if (outcome == TableSessions.Outcome.STARTED) {
                 TableBlock.entityAt(level, table).ifPresent(entity -> entity.formatWasChosen(true));
                 dev.gathering.server.TableBroadcast.sendToTable(level, table);
@@ -890,7 +895,7 @@ public final class Events {
                 Long gone = goneSince.get(player);
                 if (gone != null && now - gone >= GRACE_MILLIS && state.tournament.currentRound().flatMap(r -> r.pairingOf(player))
                         .map(p -> !p.isConfirmed()).orElse(false)) {
-                    state.tournament = state.tournament.settle(pairing.table(), MatchResult.conceded(pairing.a().equals(player)));
+                    state.tournament = state.tournament.settle(pairing.table(), MatchResult.conceded(pairing.a().equals(player), state.tournament.settings().bestOf()));
                     state.log(null, "gone", nameOf(state, player));
                     tell(server, pairing.opponentOf(player), Component.translatable("message.gathering.event.opponent_gone"));
                     afterResult(server, state);
@@ -923,8 +928,15 @@ public final class Events {
         int allowed = state.tournament.settings().extraTurns();
         if (state.tournament.extraTurnsAreOver(table)) {
             int[] wins = winsAt(level, origin, pairing);
-            state.tournament = state.tournament.endAtTime(table, wins[0], wins[1], TableSessions.hasSession(level, origin));
-            dev.gathering.server.TableBroadcast.tell(level, origin, Component.translatable("message.gathering.event.match_over_at_time"));
+            var session = TableSessions.sessionAt(level, origin).orElse(null);
+            int[] life = session == null ? new int[] {0, 0}
+                    : new int[] {lifeOf(session.state(), new SeatId(0)), lifeOf(session.state(), new SeatId(1))};
+            state.tournament = state.tournament.endAtTime(table, wins[0], wins[1], session != null, life[0], life[1]);
+            boolean recorded = state.tournament.currentRound().flatMap(r -> r.atTable(table)).map(Pairing::isConfirmed).orElse(false);
+            // A cut match still tied on games and life is left open for the host, and saying it
+            // was recorded would send both players away from a match nobody has decided.
+            dev.gathering.server.TableBroadcast.tell(level, origin, Component.translatable(recorded
+                    ? "message.gathering.event.match_over_at_time" : "message.gathering.event.cut_tied_at_time"));
             afterResult(level.getServer(), state);
         } else {
             dev.gathering.server.TableBroadcast.tell(level, origin, taken == 0
@@ -959,6 +971,10 @@ public final class Events {
     public static Optional<MatchResult> suggested(EventState state, int table) {
         int[] seen = state.seen.get(table);
         return seen == null ? Optional.empty() : Optional.of(new MatchResult(seen[0], seen[1], 0));
+    }
+
+    private static int lifeOf(dev.gathering.core.game.GameState game, SeatId seat) {
+        return game.hasSeat(seat) ? game.seatState(seat).life() : 0;
     }
 
     private static int[] winsAt(ServerLevel level, BlockPos origin, Pairing pairing) {

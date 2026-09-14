@@ -29,6 +29,20 @@ public final class TableMatch {
     private TableMatch() {
     }
 
+    /** Who the game on this table named as going first, or null if it named nobody. */
+    private static SeatId whoChoseFor(ServerLevel level, BlockPos tableOrigin) {
+        return TableSessions.sessionAt(level, tableOrigin).map(session -> {
+            SeatId chosen = null;
+            for (var record : session.records()) {
+                if (record instanceof dev.gathering.core.game.SessionRecord.EventRecord event
+                        && event.event() instanceof dev.gathering.core.game.event.GameEvent.StartingPlayerChosen starting) {
+                    chosen = starting.actor();
+                }
+            }
+            return chosen;
+        }).orElse(null);
+    }
+
     /**
      * Called after every accepted move: settles the game if that move ended it.
      * <p>Here rather than at the end of the game because there is no end of the game to hook -
@@ -56,7 +70,7 @@ public final class TableMatch {
         }
 
         Optional<SeatId> winner = GameOutcome.winnerOf(state);
-        MatchState next = winner.map(match::afterGameWonBy).orElseGet(match::afterDrawnGame);
+        MatchState next = winner.map(match::afterGameWonBy).orElseGet(() -> match.afterDrawnGame(whoChoseFor(level, tableOrigin)));
         table.recordMatch(next);
         // What a tournament table saw, to suggest the result its players confirm.
         dev.gathering.server.events.Events.gameEnded(level, table.getBlockPos(), next);

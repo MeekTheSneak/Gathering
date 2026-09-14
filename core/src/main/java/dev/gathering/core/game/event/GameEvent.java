@@ -825,18 +825,31 @@ public sealed interface GameEvent {
     }
 
     /**
-     * Who plays first, chosen by the server when a game begins: at random for a first game, or
-     * the loser of the last game in a match.
+     * Who plays first, chosen by the server when a game begins: at random for a first game, the
+     * loser of the last game in a match or whoever chose for a drawn one, or the higher Swiss seed
+     * in the first game of a cut match (MTR 2.2).
      * <p>The server's to write, like a die roll: a client that could send this would always go
      * first. Nothing about it is enforced afterwards - the player it names can pass the turn.
      *
-     * @param lostTheLastGame whether it went to them as the loser of the previous game
+     * @param why how it came to them
      */
-    record StartingPlayerChosen(SeatId actor, boolean lostTheLastGame) implements GameEvent {
+    record StartingPlayerChosen(SeatId actor, Why why) implements GameEvent {
+
+        /**
+         * How the first player was chosen. Written as its ordinal in one byte, where a boolean
+         * for "lost the last game" was written before, so the first two keep those values.
+         */
+        public enum Why {
+            RANDOM, LOST_THE_LAST_GAME, HIGHER_SEED, CHOSE_FOR_THE_DRAWN_GAME
+        }
+
+        public StartingPlayerChosen {
+            why = why == null ? Why.RANDOM : why;
+        }
+
         @Override
         public LogLine describe(GameState before) {
-            return LogLine.of(lostTheLastGame ? "log.gathering.goes_first.lost_last_game" : "log.gathering.goes_first.random",
-                    actor);
+            return LogLine.of("log.gathering.goes_first." + why.name().toLowerCase(java.util.Locale.ROOT), actor);
         }
     }
 

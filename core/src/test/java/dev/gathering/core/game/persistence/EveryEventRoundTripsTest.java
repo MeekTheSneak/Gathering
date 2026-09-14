@@ -135,6 +135,11 @@ class EveryEventRoundTripsTest {
         if (type == PlanarFace.class) {
             return PlanarFace.values()[0];
         }
+        if (type == dev.gathering.core.game.event.GameEvent.StartingPlayerChosen.Why.class) {
+            // The last, so the byte written is not one a boolean could also have been.
+            var every = dev.gathering.core.game.event.GameEvent.StartingPlayerChosen.Why.values();
+            return every[every.length - 1];
+        }
         if (type == List.class) {
             return listFor(part);
         }

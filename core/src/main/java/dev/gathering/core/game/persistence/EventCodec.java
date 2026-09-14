@@ -237,7 +237,7 @@ public final class EventCodec {
             }
             case GameEvent.StartingPlayerChosen e -> {
                 seat(out, e.actor());
-                out.writeBoolean(e.lostTheLastGame());
+                out.writeByte(e.why().ordinal());
             }
             case GameEvent.DiceRolled e -> {
                 seat(out, e.actor());
@@ -350,7 +350,7 @@ public final class EventCodec {
             }
             case "TurnPassed" -> new GameEvent.TurnPassed(seat(in), seat(in));
             case "DiceRolled" -> new GameEvent.DiceRolled(seat(in), in.readInt(), in.readInt());
-            case "StartingPlayerChosen" -> new GameEvent.StartingPlayerChosen(seat(in), in.readBoolean());
+            case "StartingPlayerChosen" -> new GameEvent.StartingPlayerChosen(seat(in), startingWhy(in.readUnsignedByte()));
             case "CoinFlipped" -> new GameEvent.CoinFlipped(seat(in), in.readBoolean());
             case "PlanarRolled" -> new GameEvent.PlanarRolled(
                     seat(in), dev.gathering.core.game.event.PlanarFace.valueOf(in.readUTF()));
@@ -367,6 +367,14 @@ public final class EventCodec {
 
     private static SeatId seat(DataInput in) throws IOException {
         return new SeatId(in.readInt());
+    }
+
+    private static GameEvent.StartingPlayerChosen.Why startingWhy(int ordinal) throws IOException {
+        GameEvent.StartingPlayerChosen.Why[] all = GameEvent.StartingPlayerChosen.Why.values();
+        if (ordinal >= all.length) {
+            throw new IOException("Unknown way of choosing who goes first: " + ordinal);
+        }
+        return all[ordinal];
     }
 
     private static void card(DataOutput out, CardInstanceId card) throws IOException {

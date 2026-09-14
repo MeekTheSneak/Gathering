@@ -55,6 +55,8 @@ public final class PodCreateScreen extends Screen {
     private String setsTyped = "";
     private Rect panel = Rect.NONE;
     private final List<int[]> headings = new ArrayList<>();
+    /** The controls that only mean anything in a draft, grayed out while Sealed is chosen. */
+    private final List<net.minecraft.client.gui.components.AbstractWidget> draftOnly = new ArrayList<>();
     private final List<Component> headingText = new ArrayList<>();
     private String saidLastFrame = "";
 
@@ -91,6 +93,7 @@ public final class PodCreateScreen extends Screen {
     protected void init() {
         headings.clear();
         headingText.clear();
+        draftOnly.clear();
         int rows = 7;
         int height = MARGIN + ROW_HEIGHT + rows * (ROW_HEIGHT + GAP) + GAP + this.font.lineHeight + GAP * 2
                 + ROW_HEIGHT + MARGIN;
@@ -105,6 +108,7 @@ public final class PodCreateScreen extends Screen {
                     packsEach = value == PodSettings.Kind.SEALED ? PodSettings.USUAL_SEALED_PACKS : PodSettings.USUAL_DRAFT_PACKS;
                     if (value == PodSettings.Kind.SEALED) {
                         picks = 0;
+                        pickSeconds = 0;
                     }
                 }, value -> "screen.gathering.pod.kind." + value.key());
         y = row(y, "screen.gathering.pod.source", PodSettings.Source.values(),
@@ -138,19 +142,25 @@ public final class PodCreateScreen extends Screen {
         int clockWidth = (controlsX() + controlsWidth() - clockX - GAP * (clocks.length - 1)) / clocks.length;
         for (int index = 0; index < clocks.length; index++) {
             int seconds = clocks[index];
-            addRenderableWidget(GatheringButtons.toggle(clockX + index * (clockWidth + GAP), y, clockWidth, ROW_HEIGHT,
+            draftOnly.add(addRenderableWidget(GatheringButtons.toggle(clockX + index * (clockWidth + GAP), y, clockWidth, ROW_HEIGHT,
                     seconds == 0 ? Component.translatable("screen.gathering.pod.clock.off")
                             : seconds == PodSettings.TOURNAMENT_TIMING
                                     ? Component.translatable("screen.gathering.pod.clock.tournament")
                                     : Component.translatable("screen.gathering.pod.clock.seconds", seconds),
-                    () -> pickSeconds == seconds, () -> pickSeconds = kind == PodSettings.Kind.SEALED ? 0 : seconds));
+                    () -> pickSeconds == seconds, () -> pickSeconds = kind == PodSettings.Kind.SEALED ? 0 : seconds)));
         }
         y += ROW_HEIGHT + GAP;
 
         Integer[] pickChoices = {0, 1, 2};
+        int picksFrom = children().size();
         y = row(y, "screen.gathering.pod.picks", pickChoices, value -> picks == value,
                 value -> picks = kind == PodSettings.Kind.SEALED ? 0 : value,
                 value -> value == 0 ? "screen.gathering.pod.picks.auto" : "screen.gathering.pod.picks." + value);
+        for (var child : children().subList(picksFrom, children().size())) {
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
+                draftOnly.add(widget);
+            }
+        }
         y = row(y, "screen.gathering.pod.cards_go", PodSettings.CardsGo.values(),
                 value -> cardsGo == value, value -> cardsGo = value,
                 value -> "screen.gathering.pod.cards_go." + value.key());
@@ -246,6 +256,12 @@ public final class PodCreateScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // A sealed event has no picks to time or to take two at once: those buttons stay where
+        // they are, so the screen does not jump, and gray out rather than take a press that
+        // does nothing.
+        for (var widget : draftOnly) {
+            widget.active = kind != PodSettings.Kind.SEALED;
+        }
         super.render(graphics, mouseX, mouseY, partialTick);
         GuiText.drawCentered(graphics, this.font, this.title,
                 panel.x() + panel.width() / 2, panel.y() + 4, panel.width() - MARGIN * 2, LABEL);

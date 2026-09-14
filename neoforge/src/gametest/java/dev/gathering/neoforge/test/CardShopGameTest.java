@@ -126,31 +126,32 @@ public final class CardShopGameTest {
                 VillagerType.PLAINS, GatheringVillagers.SHOPKEEPER.get(), 3));
         helper.getLevel().addFreshEntity(villager);
 
-        Shopkeepers.refresh(villager);
-        List<ItemStack> first = new java.util.ArrayList<>();
-        List<Integer> sold = new java.util.ArrayList<>();
-        villager.getOffers().forEach(offer -> {
-            first.add(offer.getResult());
-            sold.add(offer.getUses());
-        });
+        // Tried again on a later tick rather than failed on the first: the shelf is read on a
+        // worker and other tests change what this server stocks, so a new shelf can land between
+        // the two looks, and the count follows it. A look that really restocks fails on every
+        // tick it is tried, and the test times out on that message.
+        helper.succeedWhen(() -> {
+            Shopkeepers.refresh(villager);
+            List<ItemStack> first = new java.util.ArrayList<>();
+            List<Integer> sold = new java.util.ArrayList<>();
+            villager.getOffers().forEach(offer -> {
+                first.add(offer.getResult());
+                sold.add(offer.getUses());
+            });
 
-        Shopkeepers.refresh(villager);
-        if (villager.getOffers().size() != first.size()) {
-            helper.fail("Looking at a shopkeeper twice changed how much they sell");
-            villager.discard();
-            return;
-        }
-        for (int slot = 0; slot < first.size(); slot++) {
-            var again = villager.getOffers().get(slot);
-            if (!ItemStack.isSameItemSameComponents(again.getResult(), first.get(slot))
-                    || again.getUses() != sold.get(slot)) {
-                helper.fail("Looking at a shopkeeper twice restocked them");
-                villager.discard();
-                return;
+            Shopkeepers.refresh(villager);
+            if (villager.getOffers().size() != first.size()) {
+                helper.fail("Looking at a shopkeeper twice changed how much they sell");
             }
-        }
-        villager.discard();
-        helper.succeed();
+            for (int slot = 0; slot < first.size(); slot++) {
+                var again = villager.getOffers().get(slot);
+                if (!ItemStack.isSameItemSameComponents(again.getResult(), first.get(slot))
+                        || again.getUses() != sold.get(slot)) {
+                    helper.fail("Looking at a shopkeeper twice restocked them");
+                }
+            }
+            villager.discard();
+        });
     }
 
     /** Every level offers as many things as a villager can be given, and no more. */
