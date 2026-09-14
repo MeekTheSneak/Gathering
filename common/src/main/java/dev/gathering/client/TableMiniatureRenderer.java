@@ -997,6 +997,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         poseStack.popPose();
     }
 
+    /** Closer than this to a table's middle, in blocks, and its event label is not drawn. */
+    private static final double NEAR_ENOUGH_TO_BE_SEATED = 3.0;
+
     /**
      * A tournament table's number floating over it, with who is playing and the time left.
      * <p>Text rather than a sprite, so it needs no artwork; turned to face whoever is looking,
@@ -1015,6 +1018,16 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             lines.add(net.minecraft.network.chat.Component.literal(
                     String.format(java.util.Locale.ROOT, "%d:%02d", left / 60, left % 60)));
         }
+        // Not for the people sitting at it. The label is how a table is found across a hall; a
+        // player already at the table has found it, and from a chair the label is a banner
+        // across the top of their view.
+        net.minecraft.world.phys.Vec3 eye = client.gameRenderer.getMainCamera().getPosition();
+        BlockPos at = table.getBlockPos();
+        double dx = eye.x - (at.getX() + 1.0);
+        double dz = eye.z - (at.getZ() + 1.0);
+        if (dx * dx + dz * dz < NEAR_ENOUGH_TO_BE_SEATED * NEAR_ENOUGH_TO_BE_SEATED) {
+            return;
+        }
         poseStack.pushPose();
         poseStack.translate(1.0, 2.4, 1.0);
         poseStack.mulPose(client.getEntityRenderDispatcher().cameraOrientation());
@@ -1022,8 +1035,14 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         for (int index = 0; index < lines.size(); index++) {
             net.minecraft.network.chat.Component line = lines.get(index);
             float x = -font.width(line) / 2f;
-            font.drawInBatch(line, x, index * 10f, index == 0 ? 0xFFE0B15A : 0xFFFFFFFF, false,
+            // The backing first and the words over it with a polygon offset, the way a sign's
+            // text is drawn. In one pass the letters and their backing share a depth, and
+            // turned to face the camera half of each line lost to the backing.
+            font.drawInBatch(line, x, index * 10f, 0x00FFFFFF, false,
                     poseStack.last().pose(), buffers, net.minecraft.client.gui.Font.DisplayMode.NORMAL, 0x40000000,
+                    net.minecraft.client.renderer.LightTexture.FULL_BRIGHT);
+            font.drawInBatch(line, x, index * 10f, index == 0 ? 0xFFE0B15A : 0xFFFFFFFF, false,
+                    poseStack.last().pose(), buffers, net.minecraft.client.gui.Font.DisplayMode.POLYGON_OFFSET, 0,
                     net.minecraft.client.renderer.LightTexture.FULL_BRIGHT);
         }
         poseStack.popPose();

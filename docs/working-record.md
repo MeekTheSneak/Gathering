@@ -182,6 +182,16 @@ build order T1-T7 are in `docs/tournaments.md`. Progress:
   only that practice had started), and **a player moved into their seat faced away from the
   table** (north and south yaws swapped). Both fixed; the tour now counts the practice library
   and checks the facing. The event-kind buttons were still cramped; labels narrowed.
+- **Tour after `f87447c5`:** 341 steps, 1 failure (the same graveyard hover). Confirmed on screen:
+  practice deals the 23-card pool; the host is seated facing the table. Found: **the floating
+  table label was cut in half** (letters and their backing drawn at one depth, so turned to the
+  camera half of each line was lost) and, from a chair, filled the top of the view; "Draft" and
+  "Sealed" still touched their borders. Fixed: backing and words drawn in two passes (the words
+  with a polygon offset, as sign text is), the label hidden within 3 blocks of the table's
+  middle, a seated player looks down at the felt, and the create screen's left column is the
+  wider one. The tour now photographs the seat and then the label from 8 blocks back.
+  **Not yet seen on screen:** two tour runs of these fixes were killed by the machine for low
+  memory (other applications were using most of it), at roughly a third of the way.
 
 Still open: a sign-up locked by an opening that never completes stays locked until restart (the
 lock is not saved); prize descriptions use server-side item names.

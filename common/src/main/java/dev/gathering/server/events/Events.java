@@ -567,11 +567,14 @@ public final class Events {
         BlockPos stand = TableClusters.seatPos(table, seat);
         boolean near = online.serverLevel() == level && online.blockPosition().closerThan(table, 24);
         if (atThisLongTable || (bringFromNearby && near)) {
-            online.teleportTo(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, facingTheTable(seat.side()), 0f);
+            online.teleportTo(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, facingTheTable(seat.side()), LOOKING_AT_THE_TABLE);
         } else {
             EventPointers.pointTo(online, stand);
         }
     }
+
+    /** How far down a player moved into a seat looks, in degrees: at the felt, not the horizon. */
+    private static final float LOOKING_AT_THE_TABLE = 35f;
 
     /**
      * The yaw that looks across the table from a chair on this side. Minecraft's yaw is 0 for

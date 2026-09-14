@@ -174,7 +174,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 340;
+    private static final int LAST_STEP = 341;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -3479,13 +3479,35 @@ public final class DevScene {
                         fail("the host was moved into their seat facing away from the table");
                     }
                 }
-                shoot(client, "104-a-numbered-table");
+                shoot(client, "104-seated-at-table-one");
+                // Back a few steps, to where the table's number is for: finding it from across a room.
+                MinecraftServer server = client.getSingleplayerServer();
+                java.util.UUID who = client.player == null ? null : client.player.getUUID();
+                if (server != null && who != null && practiceTable != null) {
+                    BlockPos table = practiceTable;
+                    server.execute(() -> {
+                        ServerPlayer player = server.getPlayerList().getPlayer(who);
+                        if (player != null) {
+                            player.teleportTo(server.overworld(), table.getX() + 1.0, table.getY(), table.getZ() + 8.0, 180f, -8f);
+                        }
+                    });
+                }
+                advance(SETTLE);
+            }
+            case 336 -> {
+                boolean numbered = practiceTable != null && client.level != null
+                        && client.level.getBlockEntity(practiceTable) instanceof dev.gathering.block.TableBlockEntity entity
+                        && entity.eventTable() == 1;
+                if (!numbered) {
+                    fail("the event's table does not carry its number to draw");
+                }
+                shoot(client, "104a-a-numbered-table");
                 if (client.player != null && client.player.connection != null) {
                     client.player.connection.sendCommand("gathering events");
                 }
                 advance(SETTLE);
             }
-            case 336 -> {
+            case 337 -> {
                 expectScreen(client, "the tournaments list again", EventListScreen.class);
                 if (client.screen instanceof EventListScreen list && !list.events().isEmpty()) {
                     ClientNetworking.send(dev.gathering.network.EventActionPayload.of(list.events().get(0).id(),
@@ -3493,24 +3515,24 @@ public final class DevScene {
                 }
                 advance(SETTLE);
             }
-            case 337 -> {
+            case 338 -> {
                 expectScreen(client, "opening the tournament", EventScreen.class);
                 if (client.screen instanceof EventScreen event) {
                     event.showTab(EventScreen.Tab.PAIRINGS);
                 }
                 advance(SETTLE / 4);
             }
-            case 338 -> {
+            case 339 -> {
                 shoot(client, "105-pairings");
                 settleTableOne(client, 2);
                 advance(20 * 18);
             }
-            case 339 -> {
+            case 340 -> {
                 // No round two: the opponent was never online, so the next round drops them, as
                 // anybody still gone at the next round is, and one player left finishes the event.
                 advance(SETTLE / 4);
             }
-            case 340 -> {
+            case 341 -> {
                 if (client.screen instanceof EventScreen event) {
                     event.showTab(EventScreen.Tab.STANDINGS);
                     if (!"finished".equals(event.view().phase()) || event.view().places().isEmpty()) {

@@ -71,7 +71,11 @@ public final class EventCreateScreen extends Screen {
         int height = MARGIN + 14 + 6 * (ROW + GAP) + 12 + ROW + MARGIN;
         int width = Math.min(PANEL_WIDTH, this.width - 12);
         panel = new Rect((this.width - width) / 2, Math.max(4, (this.height - height) / 2), width, Math.min(height, this.height - 8));
-        int column = (panel.width() - MARGIN * 3) / 2;
+        // The left column is the wider one: "Constructed" sits in it beside two other kinds,
+        // while the right column's choices are all short.
+        int both = panel.width() - MARGIN * 3;
+        int column = both * 11 / 20;
+        int rightColumn = both - column;
         int left = panel.x() + MARGIN;
         int right = left + column + MARGIN;
         int top = panel.y() + MARGIN + 14;
@@ -114,25 +118,24 @@ public final class EventCreateScreen extends Screen {
 
         // Right column.
         y = top;
-        y = stepper(right, y, column, "screen.gathering.event.rounds", () -> rounds,
+        y = stepper(right, y, rightColumn, "screen.gathering.event.rounds", () -> rounds,
                 () -> rounds = Math.max(0, rounds - 1), () -> rounds = Math.min(EventSettings.MOST_ROUNDS, rounds + 1));
-        y = choices(right, y, column, "screen.gathering.event.top_cut", new Integer[] {0, 4, 8}, value -> topCut == value,
+        y = choices(right, y, rightColumn, "screen.gathering.event.top_cut", new Integer[] {0, 4, 8}, value -> topCut == value,
                 value -> topCut = value, value -> "screen.gathering.event.top_cut." + value);
-        y = choices(right, y, column, "screen.gathering.event.decks", EventSettings.DeckRegistration.values(),
+        y = choices(right, y, rightColumn, "screen.gathering.event.decks", EventSettings.DeckRegistration.values(),
                 value -> decks == value, value -> decks = value, value -> "screen.gathering.event.decks." + value.key());
-        y = choices(right, y, column, "screen.gathering.event.check_in", new Boolean[] {false, true}, value -> large == value,
+        y = choices(right, y, rightColumn, "screen.gathering.event.check_in", new Boolean[] {false, true}, value -> large == value,
                 value -> large = value, value -> value ? "screen.gathering.event.check_in.yes" : "screen.gathering.event.check_in.no");
         label(right, y, "screen.gathering.event.packs");
-        var packs = GatheringButtons.of(right + LABEL_WIDTH, y, column - LABEL_WIDTH, ROW,
+        var packs = GatheringButtons.of(right + LABEL_WIDTH, y, rightColumn - LABEL_WIDTH, ROW,
                 Component.translatable("screen.gathering.event.packs_button"),
                 () -> this.minecraft.setScreen(new PodCreateScreen(this, pod, chosen -> pod = chosen)));
         packs.active = kind.isLimited();
         addRenderableWidget(packs);
 
-        int half = (panel.width() - MARGIN * 3) / 2;
         int decide = panel.bottom() - MARGIN - ROW;
-        addRenderableWidget(GatheringButtons.of(left, decide, half, ROW, Component.translatable("gui.cancel"), this::onClose));
-        var create = GatheringButtons.of(right, decide, half, ROW, Component.translatable("screen.gathering.event.create_button"),
+        addRenderableWidget(GatheringButtons.of(left, decide, column, ROW, Component.translatable("gui.cancel"), this::onClose));
+        var create = GatheringButtons.of(right, decide, rightColumn, ROW, Component.translatable("screen.gathering.event.create_button"),
                 this::create);
         create.active = table != null;
         addRenderableWidget(create);
