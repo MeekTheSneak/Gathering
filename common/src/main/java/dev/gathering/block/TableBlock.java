@@ -271,9 +271,15 @@ public class TableBlock extends BaseEntityBlock {
             }
             TableSessions.returnDecks(level, origin, table);
             TableSessions.settlePot(level, origin, table, null);
-            // And the packs held for an event that now has nowhere to happen.
-            if (level instanceof net.minecraft.server.level.ServerLevel gone && table.hasSignup()) {
-                dev.gathering.server.PodSignups.handBackEverything(gone, origin, table, "pod_signup_table_gone");
+            // And the packs held for an event that now has nowhere to happen, or the cards of
+            // one whose draft cannot finish.
+            if (level instanceof net.minecraft.server.level.ServerLevel gone) {
+                if (table.hasSignup()) {
+                    dev.gathering.server.PodSignups.handBackEverything(gone, origin, table, "pod_signup_table_gone");
+                }
+                if (table.hasPod()) {
+                    dev.gathering.server.PodEvents.tableGoneMidDraft(gone, origin, table);
+                }
             }
         });
     }

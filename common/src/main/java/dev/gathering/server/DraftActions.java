@@ -110,6 +110,9 @@ public final class DraftActions {
             // out until everybody can take theirs, and opening the table tries again.
             return;
         }
+        // An event whose cards go to the sponsor or back to whoever put the packs in hands
+        // them over here; its drafters' own pools are empty, and the loop below tells them so.
+        PodEvents.handOutFinishedDraft(level, tableOrigin, pod);
         for (int index = 0; index < pod.drafters().size(); index++) {
             DrafterId place = DrafterId.of(index);
             ServerPlayer drafter = level.getServer().getPlayerList()

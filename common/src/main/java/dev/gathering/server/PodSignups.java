@@ -93,6 +93,10 @@ public final class PodSignups {
         if (signup == null) {
             return 0;
         }
+        if (table.isOpening()) {
+            player.sendSystemMessage(Component.translatable("message.gathering.pod.opening"));
+            return 0;
+        }
         PackComponent about = stack.get(GatheringComponents.PACK.get());
         if (about == null) {
             return 0;
@@ -129,7 +133,7 @@ public final class PodSignups {
     public static int withdraw(ServerLevel level, BlockPos tableOrigin, UUID player) {
         TableBlockEntity table = anchorTable(level, tableOrigin).orElse(null);
         PodSignup signup = table == null ? null : table.signup().orElse(null);
-        if (signup == null) {
+        if (signup == null || table.isOpening()) {
             return 0;
         }
         List<PodSignup.Held> theirs = signup.heldFor(player);
@@ -156,6 +160,10 @@ public final class PodSignups {
         TableBlockEntity table = anchorTable(level, tableOrigin).orElse(null);
         PodSignup signup = table == null ? null : table.signup().orElse(null);
         if (signup == null) {
+            return false;
+        }
+        if (table.isOpening()) {
+            asking.sendSystemMessage(Component.translatable("message.gathering.pod.opening"));
             return false;
         }
         boolean operator = asking.hasPermissions(2);

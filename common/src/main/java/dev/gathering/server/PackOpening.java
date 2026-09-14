@@ -179,6 +179,40 @@ public final class PackOpening {
     }
 
     /**
+     * What one pack of this set holds, drawn for nobody in particular.
+     * <p>For a draft or sealed event opening every pack at once, where the cards go into a pod
+     * rather than into anybody's hands, so none of the ceremony, receipts or achievements that
+     * belong to opening a pack yourself apply. The same collation and the same fallback for a
+     * set nobody published, so a pack drafted is the same object as a pack opened.
+     *
+     * @return completes with every card the pack drew, named or not; empty when the set has
+     *         nothing to open; exceptionally when the card pipeline is not running
+     */
+    public static java.util.concurrent.CompletableFuture<List<CardIdentity>> draw(
+            String setCode, String kind, String color) {
+        CollationService collation = CollationService.active().orElse(null);
+        CardDataService cards = CardDataService.active().orElse(null);
+        if (collation == null || cards == null) {
+            return java.util.concurrent.CompletableFuture.failedFuture(
+                    new IllegalStateException("The card pipeline is not running"));
+        }
+        String set = setCode == null ? "" : setCode.trim().toLowerCase(Locale.ROOT);
+        if (Archive.SET.equals(set)) {
+            // The archive pack draws from this server's own collections rather than a set, and
+            // has no meaning passed round a ring.
+            return java.util.concurrent.CompletableFuture.completedFuture(List.of());
+        }
+        return collation.collationFor(set)
+                .thenComposeAsync(reading -> {
+                    BoosterConfig config = narrowed(pick(reading, kind), color);
+                    return config == null
+                            ? madeUpPack(cards, reading, set, kind)
+                            : openAndName(cards, reading, config, false);
+                }, collation.worker())
+                .thenApply(opened -> opened.pack() == null ? List.<CardIdentity>of() : opened.pack().cards());
+    }
+
+    /**
      * Strikes the receipt off first, and hands the property over only if that worked.
      * <p>The receipt is a promise of one pack. Handing the cards over and then settling reads
      * as the safe order - if the settling fails the player still got their cards - and it is

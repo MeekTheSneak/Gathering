@@ -54,6 +54,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String SESSION_OPEN_KEY = "session_open";
     private static final String POD_KEY = "draft_pod";
     private static final String SIGNUP_KEY = "pod_signup";
+    private static final String POD_RECORD_KEY = "pod_record";
     private static final String SESSION_SEALED_KEY = "session_sealed";
     private static final String STARTING_LIFE_KEY = "starting_life";
     private static final String FORMAT_KEY = "format";
@@ -295,7 +296,40 @@ public class TableBlockEntity extends BlockEntity {
     /** Ends the draft and forgets it, which is what handing the pools out means. */
     public void endPod() {
         this.pod = null;
+        this.podRecord = null;
         setChanged();
+    }
+
+    /**
+     * What an event's packs held and whose they were, from opening until the cards are handed
+     * out. Null for a cube draft, whose cards belong to nobody.
+     */
+    private dev.gathering.core.draft.PodRecord podRecord;
+
+    public Optional<dev.gathering.core.draft.PodRecord> podRecord() {
+        return Optional.ofNullable(podRecord);
+    }
+
+    public void setPodRecord(dev.gathering.core.draft.PodRecord record) {
+        this.podRecord = record;
+        setChanged();
+    }
+
+    /**
+     * Whether an event's packs are being opened right now.
+     * <p>Not saved. Opening waits on the card pipeline, and nothing is taken out of the signup
+     * until it has finished - so a restart in the middle simply leaves the signup as it was,
+     * packs and all, and the host starts again. What this stops is anybody changing the signup
+     * while the opening is under way.
+     */
+    private boolean opening;
+
+    public boolean isOpening() {
+        return opening;
+    }
+
+    public void setOpening(boolean now) {
+        this.opening = now;
     }
 
     /**
@@ -876,6 +910,15 @@ public class TableBlockEntity extends BlockEntity {
         // a session: a session's bytes are somebody's whole game and might open on the next
         // start with the right key, but a pod that does not add up will never add up, and
         // leaving it would leave a cluster permanently unable to start anything.
+        podRecord = null;
+        if (tag.contains(POD_RECORD_KEY)) {
+            try {
+                podRecord = dev.gathering.core.draft.PodRecord.read(tag.getByteArray(POD_RECORD_KEY));
+            } catch (IOException broken) {
+                LOGGER.error("The record of an event's packs at {} will not load: {}",
+                        worldPosition, broken.getMessage());
+            }
+        }
         pod = null;
         if (tag.contains(POD_KEY)) {
             try {
@@ -996,6 +1039,9 @@ public class TableBlockEntity extends BlockEntity {
         }
         if (signup != null) {
             tag.put(SIGNUP_KEY, signup.write(registries));
+        }
+        if (podRecord != null) {
+            tag.putByteArray(POD_RECORD_KEY, dev.gathering.core.draft.PodRecord.write(podRecord));
         }
         ListTag seats = new ListTag();
         claims.forEach((side, player) -> {

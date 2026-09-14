@@ -22,7 +22,7 @@ public final class PodShares {
     }
 
     /**
-     * What each person is owed.
+     * What each person is owed, from a lobby and the plan its packs were opened by.
      *
      * @param lobby   the event as it was when the packs were opened
      * @param seated  the players, in the seat order the plan was made with
@@ -36,8 +36,32 @@ public final class PodShares {
     public static Map<UUID, List<CardIdentity>> owed(
             PodLobby lobby, List<UUID> seated, PodLobby.Plan plan,
             List<List<List<CardIdentity>>> opened, List<List<CardIdentity>> pools) {
+        return PodRecord.of(lobby, seated, plan, opened, "").owed(pools);
+    }
+
+    /**
+     * What each person is owed, from who opened what and whose packs they were.
+     *
+     * @param contributors per seat, per pack, who put it in; null for a pack the server made
+     */
+    public static Map<UUID, List<CardIdentity>> owed(
+            UUID host, PodSettings.CardsGo cardsGo, List<UUID> seated, List<List<UUID>> contributors,
+            List<List<List<CardIdentity>>> opened, List<List<CardIdentity>> pools) {
+        return owed(host, cardsGo, seated, contributors, opened, pools, false);
+    }
+
+    /**
+     * @param madePacksGoNowhere whether a pack the server made is owed to nobody. False
+     *                           gives it to the host, as cards going back to contributors
+     *                           always has; true is for an event that could not finish, where
+     *                           nobody put those cards in and nobody should get them
+     */
+    static Map<UUID, List<CardIdentity>> owed(
+            UUID host, PodSettings.CardsGo cardsGo, List<UUID> seated, List<List<UUID>> contributors,
+            List<List<List<CardIdentity>>> opened, List<List<CardIdentity>> pools,
+            boolean madePacksGoNowhere) {
         Map<UUID, List<CardIdentity>> owed = new LinkedHashMap<>();
-        switch (lobby.settings().cardsGo()) {
+        switch (cardsGo) {
             case PLAYERS_KEEP -> {
                 for (int seat = 0; seat < seated.size(); seat++) {
                     add(owed, seated.get(seat), pools.get(seat));
@@ -45,19 +69,21 @@ public final class PodShares {
             }
             case TO_SPONSOR -> {
                 for (List<CardIdentity> pool : pools) {
-                    add(owed, lobby.host(), pool);
+                    add(owed, host, pool);
                 }
             }
             case TO_CONTRIBUTORS -> {
                 // By what went in rather than by who drafted what: nobody keeps anything, so
                 // all that matters is that each contributor gets back exactly what their own
                 // packs held, whoever those cards were passed to.
-                for (int seat = 0; seat < plan.bySeat().size(); seat++) {
-                    List<PodLobby.Entry> packs = plan.bySeat().get(seat);
-                    for (int index = 0; index < packs.size(); index++) {
-                        UUID contributor = packs.get(index).contributor();
-                        add(owed, contributor == null ? lobby.host() : contributor,
-                                opened.get(seat).get(index));
+                for (int seat = 0; seat < contributors.size(); seat++) {
+                    List<UUID> whose = contributors.get(seat);
+                    for (int index = 0; index < whose.size(); index++) {
+                        UUID contributor = whose.get(index);
+                        if (contributor == null && madePacksGoNowhere) {
+                            continue;
+                        }
+                        add(owed, contributor == null ? host : contributor, opened.get(seat).get(index));
                     }
                 }
             }
