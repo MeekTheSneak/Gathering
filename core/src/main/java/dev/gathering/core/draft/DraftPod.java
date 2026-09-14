@@ -55,8 +55,19 @@ public record DraftPod(List<PlayerRef> drafters, DraftState state, boolean pools
      */
     public static DraftPod opening(
             List<PlayerRef> drafters, List<List<DraftPack>> opening, boolean poolsAreKept) {
+        return opening(drafters, opening, poolsAreKept, 0);
+    }
+
+    /**
+     * The same, with the host's choice of how many cards a drafter takes at a time.
+     *
+     * @param picksPerTurn 1 or 2, or 0 for the pod size to decide
+     */
+    public static DraftPod opening(
+            List<PlayerRef> drafters, List<List<DraftPack>> opening, boolean poolsAreKept,
+            int picksPerTurn) {
         int size = drafters == null ? 0 : drafters.size();
-        return new DraftPod(drafters, DraftState.opening(size, opening), poolsAreKept);
+        return new DraftPod(drafters, DraftState.opening(size, opening, picksPerTurn), poolsAreKept);
     }
 
     /** Where this player is sitting in the ring, if they are in this pod at all. */

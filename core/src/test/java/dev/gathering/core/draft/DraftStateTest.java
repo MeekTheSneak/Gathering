@@ -283,6 +283,21 @@ class DraftStateTest {
                 .hasMessageContaining("empty pack");
     }
 
+    /** A host who chose picks two at a time gets two at a time, whatever the pod's size. */
+    @Test
+    void aChosenPickCountOverridesThePodSize() {
+        DraftState six = DraftState.opening(6, openingFor(6, 8), 2);
+        assertThat(six.picksDueFrom(DrafterId.of(0))).isEqualTo(2);
+        DraftState four = DraftState.opening(4, openingFor(4, 8), 1);
+        assertThat(four.picksDueFrom(DrafterId.of(0))).isEqualTo(1);
+        DraftState after = four;
+        for (int drafter = 0; drafter < 4; drafter++) {
+            after = after.declare(DrafterId.of(drafter), List.of(0));
+        }
+        assertThat(after.picksPerTurn()).isEqualTo(1);
+        assertThat(after.picksDueFrom(DrafterId.of(0))).isEqualTo(1);
+    }
+
     // --- helpers ---
 
     private static DraftState podOf(int drafters, int packSize) {

@@ -26,7 +26,11 @@ import java.util.Map;
  */
 public final class DraftPodCodec {
 
-    public static final int VERSION = 1;
+    /**
+     * Two, for the host's pick count. One is still read: a pod saved before hosts could
+     * choose took as many at a time as its size said, which is what 0 means.
+     */
+    public static final int VERSION = 2;
 
     private DraftPodCodec() {
     }
@@ -36,6 +40,7 @@ public final class DraftPodCodec {
         try (DataOutputStream out = new DataOutputStream(bytes)) {
             out.writeInt(VERSION);
             out.writeBoolean(pod.poolsAreKept());
+            out.writeInt(pod.state().picksPerTurn());
 
             out.writeInt(pod.drafters().size());
             for (PlayerRef drafter : pod.drafters()) {
@@ -80,10 +85,11 @@ public final class DraftPodCodec {
     public static DraftPod read(byte[] written) throws IOException {
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(written))) {
             int version = in.readInt();
-            if (version != VERSION) {
-                throw new IOException("A pod is version " + version + ", this reads " + VERSION);
+            if (version != 1 && version != VERSION) {
+                throw new IOException("A pod is version " + version + ", this reads 1 and " + VERSION);
             }
             boolean poolsAreKept = in.readBoolean();
+            int picksPerTurn = version >= 2 ? in.readInt() : 0;
 
             int drafterCount = DraftBytes.place(in.readInt());
             List<PlayerRef> drafters = new ArrayList<>(drafterCount);
@@ -121,7 +127,8 @@ public final class DraftPodCodec {
 
             return new DraftPod(
                     drafters,
-                    new DraftState(drafterCount, round, opening, holding, declared, pools),
+                    new DraftState(drafterCount, round, opening, holding, declared, pools,
+                            picksPerTurn),
                     poolsAreKept);
         } catch (IllegalArgumentException malformed) {
             // A pod that does not add up is a pod that cannot be restored, and the caller has

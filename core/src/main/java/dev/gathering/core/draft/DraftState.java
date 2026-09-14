@@ -21,6 +21,10 @@ import java.util.Optional;
  * which is also the whole of the privacy rule: an undeclared pack cannot leak a pick that
  * has not been made, and a declared one cannot leak it either, because declarations never
  * reach another drafter's view.
+ *
+ * @param picksPerTurn how many cards a drafter takes at a time: 1 or 2 when the host chose,
+ *                     or 0 for the pod size to decide, which is what every pod did before
+ *                     hosts could choose
  */
 public record DraftState(
         int drafters,
@@ -28,13 +32,17 @@ public record DraftState(
         List<List<DraftPack>> opening,
         List<DraftPack> holding,
         Map<DrafterId, List<Integer>> declared,
-        List<List<CardIdentity>> pools) {
+        List<List<CardIdentity>> pools,
+        int picksPerTurn) {
 
     public DraftState {
         if (!DraftRules.isAPodSize(drafters)) {
             throw new IllegalArgumentException(
                     "A pod is " + DraftRules.SMALLEST_POD + " to " + DraftRules.LARGEST_POD
                             + " drafters, not " + drafters);
+        }
+        if (picksPerTurn < 0 || picksPerTurn > 2) {
+            throw new IllegalArgumentException("A drafter takes 1 or 2 at a time, not " + picksPerTurn);
         }
         opening = deepCopy(opening);
         holding = holding == null ? List.of() : List.copyOf(holding);
@@ -57,7 +65,24 @@ public record DraftState(
      *                whole of the randomness in a draft, decided before anybody picks so the
      *                pod is reproducible from its opening packs and its picks alone
      */
+    public DraftState(
+            int drafters, int round, List<List<DraftPack>> opening, List<DraftPack> holding,
+            Map<DrafterId, List<Integer>> declared, List<List<CardIdentity>> pools) {
+        this(drafters, round, opening, holding, declared, pools, 0);
+    }
+
+    /** A pod about to open its first pack, taking as many at a time as its size says. */
     public static DraftState opening(int drafters, List<List<DraftPack>> opening) {
+        return opening(drafters, opening, 0);
+    }
+
+    /**
+     * The same, taking this many at a time.
+     *
+     * @param picksPerTurn 1 or 2, or 0 for the pod size to decide
+     */
+    public static DraftState opening(
+            int drafters, List<List<DraftPack>> opening, int picksPerTurn) {
         if (opening == null || opening.isEmpty()) {
             throw new IllegalArgumentException("A pod needs at least one round of packs");
         }
@@ -81,7 +106,7 @@ public record DraftState(
         for (int index = 0; index < drafters; index++) {
             pools.add(List.of());
         }
-        return new DraftState(drafters, 0, opening, opening.get(0), Map.of(), pools);
+        return new DraftState(drafters, 0, opening, opening.get(0), Map.of(), pools, picksPerTurn);
     }
 
     /** Whether every pack has been emptied and every round played. */
@@ -94,7 +119,8 @@ public record DraftState(
         if (isFinished()) {
             return 0;
         }
-        return Math.min(DraftRules.picksPerTurn(drafters), packHeldBy(drafter).size());
+        int perTurn = picksPerTurn == 0 ? DraftRules.picksPerTurn(drafters) : picksPerTurn;
+        return Math.min(perTurn, packHeldBy(drafter).size());
     }
 
     public DraftPack packHeldBy(DrafterId drafter) {
@@ -188,7 +214,7 @@ public record DraftState(
 
         Map<DrafterId, List<Integer>> now = new LinkedHashMap<>(declared);
         now.put(drafter, chosen);
-        DraftState waiting = new DraftState(drafters, round, opening, holding, now, pools);
+        DraftState waiting = new DraftState(drafters, round, opening, holding, now, pools, picksPerTurn);
         return waiting.stillToPick().isEmpty() ? waiting.resolve() : waiting;
     }
 
@@ -224,8 +250,9 @@ public record DraftState(
             // all several times before the next round opened.
             int next = round + 1;
             return next >= opening.size()
-                    ? new DraftState(drafters, next, opening, List.of(), Map.of(), grown)
-                    : new DraftState(drafters, next, opening, opening.get(next), Map.of(), grown);
+                    ? new DraftState(drafters, next, opening, List.of(), Map.of(), grown, picksPerTurn)
+                    : new DraftState(drafters, next, opening, opening.get(next), Map.of(), grown,
+                            picksPerTurn);
         }
 
         // Round nought goes left, round one goes right, and so on: a pod that always passed
@@ -236,7 +263,7 @@ public record DraftState(
         for (int index = 0; index < drafters; index++) {
             passed.set(Math.floorMod(index + way, drafters), left.get(index));
         }
-        return new DraftState(drafters, round, opening, passed, Map.of(), grown);
+        return new DraftState(drafters, round, opening, passed, Map.of(), grown, picksPerTurn);
     }
 
     private void require(DrafterId drafter) {

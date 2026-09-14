@@ -128,6 +128,39 @@ class DraftPodCodecTest {
 
     // --- helpers ---
 
+    /** A host's pick count survives a save. */
+    @org.junit.jupiter.api.Test
+    void aChosenPickCountSurvivesASave() throws Exception {
+        DraftPod chosen = new DraftPod(pod(6, 8).drafters(),
+                DraftState.opening(6, pod(6, 8).state().opening(), 2), true);
+        DraftPod back = DraftPodCodec.read(DraftPodCodec.write(chosen));
+        org.assertj.core.api.Assertions.assertThat(back.state().picksPerTurn()).isEqualTo(2);
+        org.assertj.core.api.Assertions.assertThat(back.state().picksDueFrom(DrafterId.of(0))).isEqualTo(2);
+    }
+
+    /**
+     * A pod saved before hosts could choose still loads, taking what its size says.
+     * <p>Written as the first version wrote it: the version, whether pools are kept, and then
+     * straight on to the drafters with no pick count between.
+     */
+    @org.junit.jupiter.api.Test
+    void aPodSavedBeforePickCountsStillLoads() throws Exception {
+        DraftPod before = pod(6, 8);
+        byte[] now = DraftPodCodec.write(before);
+        java.io.ByteArrayOutputStream old = new java.io.ByteArrayOutputStream();
+        java.io.DataOutputStream out = new java.io.DataOutputStream(old);
+        out.writeInt(1);
+        out.write(now, 4, 1);
+        out.write(now, 9, now.length - 9);
+        out.flush();
+
+        DraftPod back = DraftPodCodec.read(old.toByteArray());
+        org.assertj.core.api.Assertions.assertThat(back.state().picksPerTurn()).isZero();
+        org.assertj.core.api.Assertions.assertThat(back.state().picksDueFrom(DrafterId.of(0))).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(back.drafters()).isEqualTo(before.drafters());
+        org.assertj.core.api.Assertions.assertThat(back.state().opening()).isEqualTo(before.state().opening());
+    }
+
     private static DraftPod pod(int drafters, int packSize) {
         return pod(drafters, packSize, true);
     }
