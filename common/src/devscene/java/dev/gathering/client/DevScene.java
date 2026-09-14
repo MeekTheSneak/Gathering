@@ -7585,6 +7585,17 @@ public final class DevScene {
             fail("there was no screen to type into");
             return;
         }
+        // Into the field, focused first. Letters go to whatever has focus, and a prompt that
+        // opens with nothing focused - or loses it to anything else on a desktop in use - took
+        // the typing nowhere and then submitted an empty name: a run failed at "naming a
+        // token" twice, both times with the letters sent and none of them arriving.
+        for (var child : client.screen.children()) {
+            if (child instanceof net.minecraft.client.gui.components.EditBox field) {
+                client.screen.setFocused(field);
+                field.setFocused(true);
+                break;
+            }
+        }
         for (char letter : text.toCharArray()) {
             client.screen.charTyped(letter, 0);
         }

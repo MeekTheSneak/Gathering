@@ -1195,8 +1195,21 @@ public final class TableScreen extends Screen {
                 }
             }
         } else {
+            // The felt and everything fixed to it, clipped at the strip along the top. Nothing
+            // on the table follows the camera any more - hands, life counters and the pot all
+            // sit where they are on the felt and move with it - so the camera can carry any of
+            // them up under the strip, and the strip is the one thing here that belongs to the
+            // screen rather than to the table. Card art is drawn above plain text, so without
+            // this a mat, a counter or a card slid under the strip would cover what it says.
+            graphics.enableScissor(0, layout().status().bottom(), this.width, this.height);
             renderMats(graphics, board);
+            // Kept between the strip along the top and your own hand, for the reason the pot
+            // is: a fan fixed to the table can be carried under either by the camera, and
+            // card art is drawn over plain text.
+            graphics.enableScissor(0, layout().status().bottom(), this.width,
+                    Math.max(layout().status().bottom(), layout().hand().y()));
             renderOtherHands(graphics, board);
+            graphics.disableScissor();
             renderVerbs(graphics, mouseX, mouseY);
             renderPiles(graphics, board, mouseX, mouseY);
             // Under the cards in play, over the mats. The pot is on the table rather than in
@@ -1240,6 +1253,7 @@ public final class TableScreen extends Screen {
             renderPileBadges(graphics, board, onTable);
             renderOwnerBadges(graphics, onTable);
             renderFlights(graphics, board);
+            graphics.disableScissor();
             if (hovered == null && tooltip.isEmpty()) {
                 List<Component> life = tipForLife(board, mouseX, mouseY);
                 if (life != null) {
@@ -1487,19 +1501,13 @@ public final class TableScreen extends Screen {
             if (edge.isEmpty()) {
                 continue;
             }
-            // Held down out of the status bar. That edge is wholly outside the near side of
-            // its own mat, which for the seat across the table is the top of the screen - so
-            // the fan for the one player it exists to show was drawn under the row of life
-            // totals with only its bottom corner visible.
-            //
-            // Before the off-screen test, not after. The hand sits a full card clear of the
-            // mat, which at the top of the window is often above the window, and testing
-            // first threw the fan away instead of pulling it down - so the rival's hand
-            // simply stopped being drawn. A screenshot caught it; nothing else would have.
-            int floor = layout().status().bottom() + 2;
-            if (edge.y() < floor) {
-                edge = new Rect(edge.x(), floor, edge.width(), edge.height());
-            }
+            // Where the player is sitting, and nowhere else. This used to be held down out of
+            // the status bar whenever the seat's edge rose above it, which kept the far
+            // player's fan on screen - and which meant zooming or panning slid the hand along
+            // the top of the window instead of carrying it with the table, a hand chasing the
+            // camera rather than sitting in front of its player. Now it moves with the felt,
+            // passes under the strip the way a card does, and goes off the edge when the view
+            // does. The caller clips it between the strip and your own hand.
             if (isOffScreen(edge)) {
                 continue;
             }
@@ -1644,31 +1652,32 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * A seat's life counter, held clear of the writing along the top of the window.
-     * <p>Its place on the surface is just past the far edge of its own board, which for the
-     * seat across the table is above the top of the screen's own board - so the far player's
-     * life total was drawn under the strip along the top. While that strip was an opaque
-     * panel this was invisible rather than wrong-looking: the number the game is played to,
-     * for one of the two players, painted over every frame and never seen. Taking the panel
-     * off is what showed it.
-     * <p>Asked here rather than clamped where it is drawn, because this rectangle is also
-     * what says whether a click landed on the plus or the minus. A drawing pushed down and a
-     * hit test left where it was is two controls, one you can see and one you can press.
-     * <p>Only on the screen's board. The board lying on the block has no strip along its top
-     * and is measured in surface units, where this number would mean nothing.
+     * A seat's life counter, where it sits on the table.
+     * <p>Just past the far edge of its own board, and nowhere else. It used to be held down
+     * out of the strip along the top whenever the camera carried it up there, which kept the
+     * far player's total readable and made it slide along the top of the window as the view
+     * zoomed and panned - a counter chasing the camera instead of lying on the table in front
+     * of its player. It moves with the felt now, and goes under the strip, and off the screen,
+     * when the view does; the felt is clipped at the strip so it is covered rather than drawn
+     * over the writing.
+     * <p>This rectangle is also what says whether a click landed on the plus or the minus, so
+     * the drawing and the hit test cannot come apart. A press on the strip itself never reaches
+     * a counter lying under it - see {@link #lifeWayUnder}.
      * <p>Package-private for the scripted harness, which has to check the rectangle this
-     * screen really draws and reads rather than the one the surface would have put there.
+     * screen really draws and reads rather than the one it guesses.
      */
     Rect lifeBoxOf(SeatId seat) {
-        Rect box = board().lifeRect(seat);
-        int floor = layout().status().bottom();
-        return playingOnTheBlock || box.isEmpty() || box.y() >= floor
-                ? box
-                : new Rect(box.x(), floor, box.width(), box.height());
+        return board().lifeRect(seat);
     }
 
     /** Which way a press at this screen point on a seat's counter would go: -1, 1, or 0. */
     private int lifeWayUnder(SeatId seat, int x, int y) {
+        // Not through the strip along the top. A counter the camera has carried under it is
+        // covered there, and a control that can be pressed where it cannot be seen is two
+        // controls.
+        if (!playingOnTheBlock && y < layout().status().bottom()) {
+            return 0;
+        }
         double[] at = pointer(x, y);
         // The board's own rectangle and the board's own pointer, so the answer is in one
         // space. Asked of absolute surface units it would name the wrong end of the counter
