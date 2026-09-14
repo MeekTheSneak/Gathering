@@ -7,7 +7,39 @@ this says where it has got to.
 Everything here is a lead to verify, not proof.** Test counts are pasted from the run that
 produced them and from nowhere else.
 
-Last updated 2026-09-13, after the cleanup roadmap. The quality backlog is 20 of 28 done and the cleanup roadmap 12 of 14 rows done; everything still open on either needs a person, a graphical client run, or another mod's files - see "What is left, and why each one needs you".
+Last updated 2026-09-13, after the cleanup roadmap and table presentation refactor. The quality backlog is 20 of 28 done and the cleanup roadmap 12 of 14 rows done; everything still open on either needs a person, a graphical client run, or another mod's files - see "What is left, and why each one needs you".
+
+## Table presentation refactor on the finished cleanup baseline
+
+Based on `690753b8cf51bbcad31eb50819b2eaabff1f75eb`, preserving the completed cleanup work.
+`TableScreen` is now 6,101 lines instead of 6,469. `TableCardRenderer` owns painting and
+`TableReplayControls` owns transport input/painting using the existing `ReplayStrip`.
+`CardCounterLabels` prepares text for immutable view identities, bounded by both retained
+entries and per-card counter/name limits. Font widths and wrapping remain live. No server
+protocol, save format, game rule, texture or sound changed.
+
+See `docs/refactoring/table-presentation.md` for the boundaries, cache contracts and commands.
+The final canonical gate passed: 1,645 core tests reported (one dataset-dependent skip,
+no failures), 427 NeoForge and 10 Fabric in-world tests, and all fourteen static checks.
+Nine of the NeoForge tests cover the new cache.
+The focused client probe matched the baseline's wide-card, narrow-card and replay frames
+exactly (1,708 by 960, zero changed pixels in each). Replay keys, bar dragging/release and
+modal closing produced the same requests as before. The final allocation experiment measured
+2,440–2,536 bytes/card for uncached text preparation and zero for warm-cache lookup;
+continuous misses measured 2,472–2,648. This measures preparation, not FPS or all rendering.
+
+**The full graphical tour is not green, including on the untouched baseline.** Both clean
+runs reached step 303 of 315 and reported the same distinct failures: initial setup/tutorial
+interference, the late lesson waiting for PLAY when the script expects TAP, and an existing
+`screen.gathering.table.seat_marked` truncation. The repeated failure count was 731 in each
+run because a stuck step repeats its assertion; it is not 731 separate defects. A first
+refactor run stopped earlier at token input; a clean repeat with passive prompt logging
+accepted “Treasure,” opened AmountScreen and passed the remembered-token menu. Its original
+cause was not established. Do not turn these results into a claim of a clean full playtest.
+
+The full-tour comparison preceded the final cache-retention limits; the final focused probe
+was rerun afterward. These limits have dedicated tests and leave oversized cards drawable.
+This pass does not close the remaining graphical/modpack work or CL-08's DevScene relocation.
 
 ## Owner-approved requirements, and what they superseded
 

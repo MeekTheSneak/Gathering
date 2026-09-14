@@ -1,7 +1,5 @@
 package dev.gathering.client;
 
-import dev.gathering.core.ui.CounterText;
-import com.mojang.math.Axis;
 import dev.gathering.SeatNames;
 import dev.gathering.block.TableBlockEntity;
 import dev.gathering.client.GatheringSprites.Element;
@@ -28,7 +26,6 @@ import dev.gathering.core.ui.BoardGeometry;
 import dev.gathering.core.ui.BulkLimit;
 import dev.gathering.core.ui.BoardPlacement;
 import dev.gathering.core.ui.CardShape;
-import dev.gathering.core.ui.CardText;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Legibility;
 import dev.gathering.core.ui.Rect;
@@ -84,6 +81,9 @@ import net.minecraft.network.chat.Component;
  */
 public final class TableScreen extends Screen {
 
+    private final TableCardRenderer cardRenderer = new TableCardRenderer();
+    private final TableReplayControls replayControls = new TableReplayControls();
+
     /**
      * What each board this screen draws looks like before it is put anywhere: piles,
      * attachments and cards by id, worked out once per view rather than per frame. Two, for a
@@ -124,22 +124,11 @@ public final class TableScreen extends Screen {
     /** What the log panel wrote the last time it drew, so a check can read it back. */
     private String logSaid = "";
 
-    private static final int COUNTER_TEXT = 0xFFFFE9A8;
-
     /** Zone names printed on the felt: quieter than a card, loud enough to read. */
     private static final int ZONE_LABEL = 0xFFB9C4C0;
 
-    /**
-     * The color of the ring around a card somebody is pointing at.
-     * <p>Warm and not any of the seat colors, so "look at this" is never mistaken for "this
-     * is whose card it is".
-     */
-    private static final int POINTED_AT_RING = 0xFFE8B24A;
-
     /** How solid a free chair's outline is: there, and clearly not a board in play. */
     private static final int FREE_SEAT_EDGE = 0x44;
-
-    private static final int SHADOW_OFFSET = 1;
 
     private static final int EXPOSED_TEXT = 0xFFFFD98A;
 
@@ -284,9 +273,6 @@ public final class TableScreen extends Screen {
      * remembered rather than derived. Null for every other mode.
      */
     private final BlockPos afterwards;
-
-    /** Where the scrubber was grabbed, so a drag along the bar keeps scrubbing. */
-    private boolean scrubbing;
 
     private TableScreenLayout layout;
 
@@ -3465,8 +3451,8 @@ public final class TableScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (scrubbing) {
-            ClientReplay.scrubTo(stepUnder((int) mouseX));
+        if (replayControls.dragging()) {
+            replayControls.drag(replayStrip(), (int) mouseX);
             return true;
         }
         if (panFrom != null && button == 2) {
@@ -3484,8 +3470,7 @@ public final class TableScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (scrubbing) {
-            scrubbing = false;
+        if (replayControls.release()) {
             return true;
         }
         if (panFrom != null && button == 2) {
@@ -5796,237 +5781,12 @@ public final class TableScreen extends Screen {
                 tray.x() + tray.width() / 2, area.bottom() + 2, tray.width() - 4, POT_LABEL);
     }
 
-    /**
-     * A card: its picture, turned to its own angle, and nothing drawn round it.
-     * <p>No border, anywhere. The art has its own printed one, so a second is somebody else's
-     * idea of a card drawn over the real one - and a frame round every card turns a hand into
-     * a row of lines with slivers of art between them.
-     * <p>What is left is feedback rather than decoration: a shadow under a card on the felt so
-     * a stack reads as a stack, a tint on a tapped one, a ring on the one under the cursor.
-     * <p>The sleeve is handed in rather than looked up, because a face-down card carries no
-     * owner - that is the visibility rule. Whose card it is is a fact about the zone it lies
-     * in, so it is known where the zones are walked and nowhere else.
-     *
-     * @param onTheFelt whether this is a card lying on the table, which is what earns it a
-     *     shadow and a tapped tint - a card in a hand or in a list has neither
-     */
+    /** Geometry and input stay in the screen; painting receives only the filtered card. */
     private void drawCard(
             GuiGraphics graphics, CardView card, dev.gathering.core.card.Sleeve sleeve,
             Rect where, int angle, boolean hovered, boolean onTheFelt) {
-        if (where.isEmpty()) {
-            return;
-        }
-        boolean turned = Math.floorMod(angle, 360) != 0;
-        if (turned) {
-            graphics.pose().pushPose();
-            graphics.pose().translate((float) where.centerX(), (float) where.centerY(), 0f);
-            graphics.pose().mulPose(Axis.ZP.rotationDegrees(angle));
-            graphics.pose().translate((float) -where.centerX(), (float) -where.centerY(), 0f);
-        }
-        if (onTheFelt) {
-            // Cast first, under everything, so the card above reads as being above. Only the
-            // two edges that would show: filling the whole card again and moving it is the
-            // same picture with far more of it hidden under the card, and the part that is
-            // not hidden is the part that made it look airborne.
-            GatheringSprites.draw(graphics, Element.CARD_SHADOW,
-                    where.x() + SHADOW_OFFSET, where.bottom(), where.width(), SHADOW_OFFSET);
-            GatheringSprites.draw(graphics, Element.CARD_SHADOW,
-                    where.right(), where.y() + SHADOW_OFFSET,
-                    SHADOW_OFFSET, where.height() - SHADOW_OFFSET);
-        }
-        if (card.isFaceDown()) {
-            // Even to the player who knows what it is. Their board has to look to them the
-            // way it looks to everyone else, or they cannot tell what they have given away.
-            CardSleeves.draw(graphics, sleeve,
-                    where.x(), where.y(), where.width(), where.height());
-        } else {
-            summaryOf(card).ifPresentOrElse(
-                    summary -> CardInspectPanel.renderArt(
-                            graphics, summary, card.turnedOver(),
-                            where.x(), where.y(), where.width(), where.height()),
-                    () -> PaperFace.drawOrInset(graphics, this.font, card, where));
-        }
-        if (onTheFelt && card.tapped()) {
-            // A tapped card is already lying sideways; the tint is what tells it apart from
-            // one somebody turned by hand, without a word of text over the art.
-            GatheringSprites.draw(graphics, Element.TAPPED_TINT,
-                    where.x(), where.y(), where.width(), where.height());
-        }
-        if (onTheFelt && card.frozen()) {
-            // A frozen card looks frozen. Everything about this feature happens on a press
-            // made next turn, without looking, so a freeze that is only in the log is a
-            // freeze that gets untapped by habit and argued about afterwards.
-            drawFrost(graphics, where);
-        }
-        drawWriting(graphics, card, where);
-        // The numbers first, because they sit in the corner and the counters stack up off
-        // the top of them. A power and toughness under a pile of counters is a card whose
-        // most important number is the one you cannot see.
-        drawCounters(graphics, card, where, drawStrength(graphics, card, where));
-        if (hovered) {
-            GatheringSprites.draw(graphics, Element.FOCUS_RING,
-                    where.x(), where.y(), where.width(), where.height());
-        }
-        // Last, over everything, because it is the one mark on a card that is somebody at the
-        // table talking rather than a fact about the card.
-        drawPointedAt(graphics, card, where);
-        if (turned) {
-            graphics.pose().popPose();
-        }
-    }
-
-    /**
-     * The ring around a card somebody has just pointed at.
-     * <p>"In response to that" needs a "that", and until now pointing did nothing whatsoever:
-     * the event's own description promised it "highlights a public card for everyone for a few
-     * seconds", and what it actually did was write a line in the log - which is the one place
-     * nobody is looking while somebody is pointing at something.
-     * <p>Drawn rather than painted, four bars around the edge, because there is no ring texture
-     * and the artwork is somebody else's to make.
-     * <p>Only ever a card this client can already identify. What is rung comes out of the log
-     * line, which names a card only when the whole table may see it - see
-     * {@link ClientTableNews}. A face-down card carries no id and gets no ring, which is the
-     * right outcome rather than a gap: a ring would be this client saying which one it is.
-     */
-    private void drawPointedAt(GuiGraphics graphics, CardView card, Rect where) {
-        if (!(card instanceof CardView.Visible visible)) {
-            return;
-        }
-        long since = ClientTableNews.pointedAtFor(
-                replay ? replayTable() : table, visible.id(), ClientCardFlights.now());
-        int thick = dev.gathering.core.ui.Pointing.thickness(
-                Math.min(where.width(), where.height()), since);
-        if (thick <= 0) {
-            return;
-        }
-        int color = dev.gathering.core.ui.Pointing.color(POINTED_AT_RING, since);
-        // Around the card rather than over it. Inside its edge the ring covers the art, and
-        // on a card the cursor happens to be on it blends with the hover ring into a third
-        // color that is neither - which a screenshot of this caught.
-        int left = where.x() - thick;
-        int top = where.y() - thick;
-        int right = where.right() + thick;
-        int bottom = where.bottom() + thick;
-        graphics.fill(left, top, right, top + thick, color);
-        graphics.fill(left, bottom - thick, right, bottom, color);
-        graphics.fill(left, top + thick, left + thick, bottom - thick, color);
-        graphics.fill(right - thick, top + thick, right, bottom - thick, color);
-    }
-
-    /**
-     * What somebody wrote on the card, across the top of it.
-     * <p>At the top because the counters are along the bottom, and a card carrying both is
-     * one somebody is keeping track of - exactly when both must be readable at once.
-     * <p>Over the name rather than the art: the name is the one thing on a card its owner
-     * already knows, and the art is what makes a board readable from across the table.
-     */
-    private void drawWriting(GuiGraphics graphics, CardView card, Rect art) {
-        // Not on blank stock. There the writing is the card - drawn across the whole of it by
-        // PaperFace - and a band repeating the first few words of it over the top would be
-        // the same sentence twice, the second copy covering the first.
-        if (PaperFace.isPaper(card)) {
-            return;
-        }
-        CardInspectPanel.drawNote(graphics, this.font, card.writtenOn().orElse(null), art);
-    }
-
-    /**
-     * The power and toughness somebody wrote on it, in the corner where the printed ones are.
-     * <p>Where the card already puts them, so a board reads the same printed or written:
-     * right-hand corner, one line, on a badge dark enough to read over whatever the art is
-     * doing. Nothing is worked out - what is drawn is exactly what somebody typed. See
-     * {@link dev.gathering.core.game.CardStrength}, and section 16 of the brief.
-     *
-     * @return the line the counters may stack up from, which is above this when there is one
-     */
-    private int drawStrength(GuiGraphics graphics, CardView card, Rect art) {
-        return CardInspectPanel.drawStrength(
-                graphics, this.font, CounterText.cornerNumber(card), art);
-    }
-
-
-    /**
-     * What a frozen card looks like: a rime along its edges.
-     * <p>Round the outside rather than over the art: a card may already carry a note across
-     * its top, counters up its bottom and numbers in its corner, so the frame is the last
-     * piece nothing else has claimed - and it reads at any size, which a corner mark does not.
-     * <p>Cold against the warm gold of a written power and toughness and the cursor's cyan:
-     * three marks on one card have to be three colors or they read as one.
-     */
-    private void drawFrost(GuiGraphics graphics, Rect where) {
-        GatheringSprites.draw(graphics, Element.FROZEN_TINT,
-                where.x(), where.y(), where.width(), where.height());
-        // Caked along the top and bottom rather than ringing the card. A full outline is what
-        // the cursor draws, in a blue close enough to this one that a frozen card under the
-        // cursor had two rings nobody could tell apart - and the one that matters is the one
-        // that is still there when you look away.
-        int rime = Math.max(1, where.height() / 16);
-        GatheringSprites.draw(graphics, Element.FROZEN_EDGE,
-                where.x(), where.y(), where.width(), rime);
-        GatheringSprites.draw(graphics, Element.FROZEN_EDGE,
-                where.x(), where.bottom() - rime, where.width(), rime);
-    }
-
-    /**
-     * The counters on a card, along its bottom edge.
-     * <p>On the card rather than beside it, because a counter that lives next to a card stops
-     * being on that card the moment somebody moves either of them.
-     */
-    private void drawCounters(GuiGraphics graphics, CardView card, Rect art, int floor) {
-        if (card.counters().isEmpty()) {
-            return;
-        }
-        int room = Math.max(1, art.width() - 4);
-        // Against the card rather than against the screen, the same as the note across its
-        // top - see CardText. A counter pinned to the font's own size took a third of a card
-        // on a board zoomed out, and three of them took the card.
-        float scale = CardText.scaleFor(art.height(), CardText.COUNTER, this.font.lineHeight);
-        // Everything measured below is measured at the size it will be drawn at.
-        int roomInLetters = Math.max(1, Math.round(room / scale));
-        List<Component> lines = new ArrayList<>();
-        // The count that goes flush right on the line at the same index, or null. Parallel to
-        // the lines rather than folded into them, because the count must never be the part
-        // that gets trimmed off - it is written separately so it is fitted separately.
-        List<Component> counts = new ArrayList<>();
-        for (CounterText.Line counter : CounterText.linesOn(card)) {
-            Component name = Component.literal(counter.name());
-            if (counter.count() == null) {
-                lines.add(name);
-                counts.add(null);
-                continue;
-            }
-            Component amount = Component.literal(counter.count());
-            if (this.font.width(name) <= roomInLetters - this.font.width(amount) - 3) {
-                lines.add(name);
-                counts.add(amount);
-            } else {
-                // A card on a crowded table is narrower than "+1/+1 x2", and a name squeezed
-                // into what is left of it comes out as "+" - which in Magic is a different
-                // thing entirely, and is the whole reason this stopped being one string. So
-                // the count drops to its own line rather than the name losing its end.
-                lines.add(name);
-                counts.add(null);
-                lines.add(amount);
-                counts.add(null);
-            }
-        }
-        int high = CardText.lineAt(scale, this.font.lineHeight);
-        int line = floor - high * lines.size();
-        for (int index = 0; index < lines.size(); index++) {
-            Component amount = counts.get(index);
-            int amountRoom = amount == null
-                    ? 0 : Math.round(this.font.width(amount) * scale) + 3;
-            GatheringSprites.draw(graphics, Element.COUNTER_BAND,
-                    art.x(), line - 1, art.width(), high);
-            GuiText.drawTrimmedAt(graphics, this.font, lines.get(index),
-                    art.x() + 2, line, room - amountRoom, 1, scale, COUNTER_TEXT);
-            if (amount != null) {
-                GuiText.drawTrimmedAt(graphics, this.font, amount,
-                        art.right() - 1 - Math.round(this.font.width(amount) * scale), line,
-                        amountRoom, 1, scale, COUNTER_TEXT);
-            }
-            line += high;
-        }
+        cardRenderer.draw(graphics, this.font, replay ? replayTable() : table,
+                card, sleeve, where, angle, hovered, onTheFelt);
     }
 
     /** The angle a card was left at, ignoring whatever tapping is doing on top of it. */
@@ -6047,10 +5807,7 @@ public final class TableScreen extends Screen {
 
     /** What this client knows about the card, which for an anonymous one is nothing at all. */
     private Optional<CardSummary> summaryOf(CardView card) {
-        if (!(card instanceof CardView.Visible visible)) {
-            return Optional.empty();
-        }
-        return ClientCardCache.get().summary(CardComponent.of(visible.identity()));
+        return TableCardRenderer.summary(card);
     }
 
     /** Lets the read key show this card, exactly as it does over an inventory slot. */
@@ -6107,66 +5864,22 @@ public final class TableScreen extends Screen {
 
     // --------------------------------------------------------------- replay
 
-    private static final int SCRUB_TRACK = 0xFF3A3A3A;
-    private static final int SCRUB_FILL = 0xFF6FD3E8;
-    private static final int SCRUB_HEAD = 0xFFF2EEE6;
-
-    /** The transport, laid along the strip this screen gives it. */
+    /** Shared geometry remains the source for both transport drawing and pointer input. */
     private ReplayStrip replayStrip() {
-        return new ReplayStrip(layout().hand(), countWidth());
+        return TableReplayControls.layout(layout().hand(), this.font);
     }
 
-    /**
-     * Room for "Replay 128 / 340", measured rather than guessed so the bar never runs under it.
-     * <p>The word is in the line rather than off in a banner of its own because this strip is
-     * the one piece of furniture a replay has that a game does not, and somebody who opened it
-     * by accident should be able to read what they are looking at without pressing anything.
-     */
-    private int countWidth() {
-        return this.font.width(Component.translatable(
-                "screen.gathering.replay.at", "0000", "0000")) + 4;
-    }
-
-    /** Which step a point along the bar means. Clamped, so a drag off either end holds. */
-    private int stepUnder(int x) {
-        return replayStrip().stepUnder(x, ClientReplay.steps());
-    }
-
-    /**
-     * A watcher's click. Three buttons, a bar, and nothing else on the whole screen.
-     * <p>Everything is swallowed rather than passed on, which is the point: a finished game
-     * has no verbs, and a click that fell through to the board would be looking for one.
-     */
+    /** Replay clicks cannot reach the live board; middle-drag remains a camera gesture. */
     private boolean watcherClicked(int x, int y, int button) {
         if (button == 2) {
-            // Panning is looking, not playing, and a replay is entirely for looking.
             panFrom = new int[] {x, y};
-            return true;
-        }
-        if (button != 0) {
-            return true;
-        }
-        switch (replayStrip().at(x, y)) {
-            case START -> ClientReplay.scrubTo(0);
-            case BACK -> ClientReplay.nudge(-1);
-            case PLAY_PAUSE -> ClientReplay.playPause();
-            case ON -> ClientReplay.nudge(1);
-            case BAR -> {
-                scrubbing = true;
-                ClientReplay.scrubTo(stepUnder(x));
-            }
-            case NOTHING -> {
-            }
+        } else if (button == 0) {
+            replayControls.click(replayStrip(), x, y);
         }
         return true;
     }
 
-    /**
-     * A watcher's key. The panels that read the game, the transport, and the way out.
-     * <p>Space, the arrows and Home and End, because that is what every video scrubber in the
-     * world uses and nobody should have to be told. L still opens the log - a replay is mostly
-     * read alongside it - and F1 still lists the keys.
-     */
+    /** Modal panels and the screen lifecycle stay here; transport keys stay together. */
     private boolean watcherPressed(int key, int scanCode, int modifiers) {
         switch (key) {
             case org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> {
@@ -6178,41 +5891,12 @@ public final class TableScreen extends Screen {
                 }
                 return true;
             }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE -> {
-                ClientReplay.playPause();
-                return true;
-            }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT -> {
-                ClientReplay.nudge(-1);
-                return true;
-            }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT -> {
-                ClientReplay.nudge(1);
-                return true;
-            }
-            // keycheck: HOME is the start of the recording here, not the table's framing
-            // verb. Watching is a mode where show_everything is not offered at all - there is
-            // no seat, no mat and nothing to frame on - so the two never both mean something
-            // at once, and Home going to the beginning is what every other player in the game
-            // does with it.
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> {
-                ClientReplay.scrubTo(0);
-                return true;
-            }
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> {
-                ClientReplay.scrubTo(ClientReplay.steps());
-                return true;
-            }
             case org.lwjgl.glfw.GLFW.GLFW_KEY_F1 -> {
                 showingKeys = !showingKeys;
                 return true;
             }
             default -> {
-                // The log is the same verb on the same catalogue key as it is at a table, so
-                // it is asked for the same way. It was a literal L here too, which meant a
-                // player who moved the log key could open the log of a game they were playing
-                // and not of one they were watching - with this panel telling them L either
-                // way.
+                if (replayControls.keyPressed(key, scanCode)) return true;
                 if (TableShortcuts.matches("show_log", key, scanCode)) {
                     showingLog = !showingLog;
                     return true;
@@ -6222,62 +5906,10 @@ public final class TableScreen extends Screen {
         }
     }
 
-    /**
-     * The strip along the bottom of a replay: where you are in the game, and the way about it.
-     * <p>Drawn last, over the felt, because the board is fitted to the window above it and
-     * anything that reached down here would be a card half under a control.
-     */
     private void renderScrubber(GuiGraphics graphics) {
-        Rect strip = layout().hand();
-        if (strip.isEmpty()) {
-            return;
-        }
-        panel(graphics, strip);
-        ReplayStrip transport = replayStrip();
-
-        drawScrubButton(graphics, transport.button(0), "|<", "start");
-        drawScrubButton(graphics, transport.button(1), "<<", "back");
-        drawScrubButton(graphics, transport.button(2),
-                ClientReplay.playing() ? "||" : ">",
-                ClientReplay.playing() ? "pause" : "play");
-        drawScrubButton(graphics, transport.button(3), ">>", "on");
-
-        Rect bar = transport.bar();
-        graphics.fill(bar.x(), bar.y(), bar.right(), bar.bottom(), SCRUB_TRACK);
-        int steps = ClientReplay.steps();
-        int filled = transport.filled(ClientReplay.step(), steps);
-        if (filled > 0) {
-            graphics.fill(bar.x(), bar.y(), bar.x() + filled, bar.bottom(), SCRUB_FILL);
-        }
-        // The head, so a paused replay says where it is even when the fill is a hairline.
-        int head = bar.x() + Math.clamp(filled, 0, Math.max(0, bar.width() - 2));
-        graphics.fill(head, bar.y() - 2, head + 2, bar.bottom() + 2, SCRUB_HEAD);
-
-        GuiText.draw(graphics, this.font,
-                Component.translatable("screen.gathering.replay.at",
-                        String.valueOf(ClientReplay.step()), String.valueOf(steps)),
-                transport.countX(),
-                strip.y() + (strip.height() - this.font.lineHeight) / 2,
-                countWidth(), LABEL);
-    }
-
-    /**
-     * One transport button, and what it says when the cursor rests on it.
-     * <p>Four arrows eighteen pixels wide can only be told apart by somebody who already
-     * knows what they do, and the moment anybody wants to know is the moment they are already
-     * pointing at one. So the name and the key are on the tooltip, exactly as the mat buttons
-     * carry theirs.
-     */
-    private void drawScrubButton(GuiGraphics graphics, Rect where, String face, String name) {
-        panel(graphics, where);
-        GuiText.drawCentered(graphics, this.font, Component.literal(face),
-                (int) where.centerX(), where.y() + (where.height() - this.font.lineHeight) / 2,
-                where.width(), LABEL);
-        if (where.contains(cursorX, cursorY)) {
-            tooltip = tipFor(
-                    Component.translatable("screen.gathering.replay." + name),
-                    Component.translatable("screen.gathering.replay." + name + ".key"));
-        }
+        List<Component> hint = replayControls.render(
+                graphics, this.font, replayStrip(), cursorX, cursorY);
+        if (!hint.isEmpty()) tooltip = hint;
     }
 
     private TableScreenLayout layout() {

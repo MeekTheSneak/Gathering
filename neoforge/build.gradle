@@ -39,6 +39,10 @@ neoForge {
     runs {
         client {
             client()
+            // Opt-in rendering characterization; only development runs include the probe.
+            if (project.hasProperty('screenRefactorScene')) {
+                systemProperty 'gathering.screenRefactorScene', project.property('screenRefactorScene')
+            }
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             // Armed only when asked for: -Pdevscene drives the client through a scripted
             // session and photographs it. See DevScene.
