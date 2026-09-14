@@ -265,6 +265,7 @@ notes below are what a status line cannot hold.
 | CL-09 | Done | Below |
 | CL-05b | Done | Below |
 | CL-06 | Done, not seen | Below |
+| CL-10 | Partial, not seen | Below |
 
 **CL-09.** `PracticeTable` now holds only what production needs: `retire`, the answers to an
 old client's START and STOP, `isPracticeAt` and the demonstration seat. Creation lives in
@@ -333,6 +334,27 @@ defeated the memo. It is now rebuilt only when the demonstration's `GameSession.
 recorded spot, which the seated board stopped doing because it made a lone creature with an aura
 read as a pile. Both now use the seated rule, so a card dropped on an aura's old spot no longer
 leans on the block. `BoardPresentationTest` pins the rule; nobody has looked at it.
+
+**CL-10, partly.** Three pieces, one per responsibility, as the audit asked:
+
+- *Presentation*: CL-06 above.
+- *The replay transport*: `ReplayStrip` in core now owns where the four buttons, the bar and
+  the count go and what a click on the strip means. The screen drew it, hit-tested it and
+  scrubbed with it, working the rectangles out separately each time. `ReplayStripTest` checks
+  that each button answers for itself, nothing overlaps, the whole strip height answers for the
+  bar, drags clamp, and a click on the bar fills it back to the click within a step.
+- *Inspecting a card picked from a pile*: the audit's one behavior change. Choosing a card from
+  "Others here" opened its menu over the pile's top card, and the read key read whatever was
+  under the cursor - the top card - so the chosen card could not be read. While a card menu is
+  open the read key now reads that menu's card, looked up in the current board so a card that
+  has left or turned face down is not read from a stale picture.
+
+**Not done, and why it stopped here.** A mode context for live/demo/replay, a pointer controller
+and one action binding shared by menu, palette and keys. Nothing automated exercises
+`TableScreen` - client classes cannot load in the game-test server - so every extraction is
+verified by the compiler and by reading. The three above are small enough for that. The
+remaining ones move input handling, and should be paired with a scripted client run.
+**All three pieces above are graphically unverified.**
 
 The audit also measured the bulk-broadcast cost independently and agrees with the number
 recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views

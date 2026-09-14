@@ -32,6 +32,7 @@ import dev.gathering.core.ui.CardText;
 import dev.gathering.core.ui.HandFan;
 import dev.gathering.core.ui.Legibility;
 import dev.gathering.core.ui.Rect;
+import dev.gathering.core.ui.ReplayStrip;
 import dev.gathering.core.ui.SeatColor;
 import dev.gathering.core.ui.SeatMark;
 import dev.gathering.core.ui.Shaking;
@@ -347,6 +348,20 @@ public final class TableScreen extends Screen {
     private List<CardInstanceId> attaching = List.of();
 
     private ContextMenu menu;
+
+    /**
+     * The card a card menu was opened for, and the menu that was opened for it.
+     * <p>So the read key reads the card the menu is about, not whatever happens to be on top
+     * where the cursor is. The two are the same card for an ordinary right click, and
+     * different in exactly the case that matters: a card picked out of the list of what is
+     * under a pile, whose menu opens over the pile's top card. Reading that card was
+     * impossible - the key showed the top one every time.
+     * <p>Kept against the menu object rather than cleared at every place a menu closes or
+     * another opens, of which there are several: once {@link #menu} is anything else, this
+     * says nothing.
+     */
+    private ContextMenu subjectMenu;
+    private CardInstanceId menuSubject;
 
     /**
      * The search box for verbs, when it is open.
@@ -1179,8 +1194,13 @@ public final class TableScreen extends Screen {
             }
         }
         hoveringSomething = hovered != null;
-        if (hovered != null) {
+        Optional<CardView> menuCard = theCardTheMenuIsAbout(board);
+        if (menuCard.isPresent()) {
+            offerToInspector(menuCard.get());
+        } else if (hovered != null) {
             offerToInspector(hovered.card());
+        }
+        if (hovered != null) {
             // A note is longer than a card is wide, so the card carries the beginning of it
             // and resting on the card reads the rest. Both views: the board on the block has
             // no room to write on a card at all, and the seated one trims a long note to a
@@ -3904,6 +3924,21 @@ public final class TableScreen extends Screen {
     private void openCardMenu(GameView board, CardView.Visible card, boolean fromHand, int x, int y) {
         menu = ContextMenu.at(this.font, x, y, this.width, this.height,
                 layout().status().bottom() + 2, cardMenuEntries(board, card, fromHand));
+        subjectMenu = menu;
+        menuSubject = card.id();
+    }
+
+    /**
+     * The card an open card menu is about, while that menu is still the one open.
+     * <p>Looked up again in the board being drawn rather than kept as the card itself, so a
+     * card that has since left the table, or been turned face down, is not read from a
+     * picture of how it was.
+     */
+    private Optional<CardView> theCardTheMenuIsAbout(GameView board) {
+        if (menu == null || menu != subjectMenu || menuSubject == null) {
+            return Optional.empty();
+        }
+        return findCard(board, menuSubject);
     }
 
     /**
@@ -6045,35 +6080,13 @@ public final class TableScreen extends Screen {
 
     // --------------------------------------------------------------- replay
 
-    /** The scrubber's buttons: back to the start, a step back, play or pause, a step on. */
-    private static final int SCRUB_BUTTONS = 4;
-
-    private static final int SCRUB_BUTTON = 18;
-
-    private static final int SCRUB_GAP = 4;
-
-    /** How tall the bar itself is inside its strip. Thin: it is a ruler, not a trough. */
-    private static final int SCRUB_BAR = 6;
-
     private static final int SCRUB_TRACK = 0xFF3A3A3A;
     private static final int SCRUB_FILL = 0xFF6FD3E8;
     private static final int SCRUB_HEAD = 0xFFF2EEE6;
 
-    /** Where the nth scrubber button is, from the left of the strip. */
-    private Rect scrubButton(int index) {
-        Rect strip = layout().hand();
-        int top = strip.y() + (strip.height() - SCRUB_BUTTON) / 2;
-        return new Rect(SCRUB_GAP + index * (SCRUB_BUTTON + SCRUB_GAP), top,
-                SCRUB_BUTTON, SCRUB_BUTTON);
-    }
-
-    /** The bar between the buttons and the count at the right-hand end. */
-    private Rect scrubBar() {
-        Rect strip = layout().hand();
-        int left = scrubButton(SCRUB_BUTTONS - 1).right() + SCRUB_GAP * 2;
-        int right = strip.right() - SCRUB_GAP * 2 - countWidth();
-        return new Rect(left, strip.y() + (strip.height() - SCRUB_BAR) / 2,
-                Math.max(1, right - left), SCRUB_BAR);
+    /** The transport, laid along the strip this screen gives it. */
+    private ReplayStrip replayStrip() {
+        return new ReplayStrip(layout().hand(), countWidth());
     }
 
     /**
@@ -6089,13 +6102,7 @@ public final class TableScreen extends Screen {
 
     /** Which step a point along the bar means. Clamped, so a drag off either end holds. */
     private int stepUnder(int x) {
-        Rect bar = scrubBar();
-        int steps = ClientReplay.steps();
-        if (steps <= 0 || bar.width() <= 1) {
-            return 0;
-        }
-        double along = (x - bar.x()) / (double) bar.width();
-        return (int) Math.round(Math.clamp(along, 0, 1) * steps);
+        return replayStrip().stepUnder(x, ClientReplay.steps());
     }
 
     /**
@@ -6112,28 +6119,17 @@ public final class TableScreen extends Screen {
         if (button != 0) {
             return true;
         }
-        if (scrubButton(0).contains(x, y)) {
-            ClientReplay.scrubTo(0);
-            return true;
-        }
-        if (scrubButton(1).contains(x, y)) {
-            ClientReplay.nudge(-1);
-            return true;
-        }
-        if (scrubButton(2).contains(x, y)) {
-            ClientReplay.playPause();
-            return true;
-        }
-        if (scrubButton(3).contains(x, y)) {
-            ClientReplay.nudge(1);
-            return true;
-        }
-        // The whole strip answers, not the six pixels of bar: a ruler you have to hit exactly
-        // is a ruler nobody uses.
-        if (layout().hand().contains(x, y) && x >= scrubBar().x()) {
-            scrubbing = true;
-            ClientReplay.scrubTo(stepUnder(x));
-            return true;
+        switch (replayStrip().at(x, y)) {
+            case START -> ClientReplay.scrubTo(0);
+            case BACK -> ClientReplay.nudge(-1);
+            case PLAY_PAUSE -> ClientReplay.playPause();
+            case ON -> ClientReplay.nudge(1);
+            case BAR -> {
+                scrubbing = true;
+                ClientReplay.scrubTo(stepUnder(x));
+            }
+            case NOTHING -> {
+            }
         }
         return true;
     }
@@ -6210,19 +6206,19 @@ public final class TableScreen extends Screen {
             return;
         }
         panel(graphics, strip);
+        ReplayStrip transport = replayStrip();
 
-        drawScrubButton(graphics, scrubButton(0), "|<", "start");
-        drawScrubButton(graphics, scrubButton(1), "<<", "back");
-        drawScrubButton(graphics, scrubButton(2),
+        drawScrubButton(graphics, transport.button(0), "|<", "start");
+        drawScrubButton(graphics, transport.button(1), "<<", "back");
+        drawScrubButton(graphics, transport.button(2),
                 ClientReplay.playing() ? "||" : ">",
                 ClientReplay.playing() ? "pause" : "play");
-        drawScrubButton(graphics, scrubButton(3), ">>", "on");
+        drawScrubButton(graphics, transport.button(3), ">>", "on");
 
-        Rect bar = scrubBar();
+        Rect bar = transport.bar();
         graphics.fill(bar.x(), bar.y(), bar.right(), bar.bottom(), SCRUB_TRACK);
         int steps = ClientReplay.steps();
-        int filled = steps <= 0 ? bar.width()
-                : (int) Math.round(bar.width() * (ClientReplay.step() / (double) steps));
+        int filled = transport.filled(ClientReplay.step(), steps);
         if (filled > 0) {
             graphics.fill(bar.x(), bar.y(), bar.x() + filled, bar.bottom(), SCRUB_FILL);
         }
@@ -6233,7 +6229,7 @@ public final class TableScreen extends Screen {
         GuiText.draw(graphics, this.font,
                 Component.translatable("screen.gathering.replay.at",
                         String.valueOf(ClientReplay.step()), String.valueOf(steps)),
-                bar.right() + SCRUB_GAP * 2,
+                transport.countX(),
                 strip.y() + (strip.height() - this.font.lineHeight) / 2,
                 countWidth(), LABEL);
     }
