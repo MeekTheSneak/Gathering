@@ -104,6 +104,16 @@ public final class GuiText {
                 centerX - width(font, text, maxWidth) / 2, y, maxWidth, color, NO_SHADOW);
     }
 
+    /**
+     * Whether this text can be drawn into this width without losing its tail.
+     * <p>Shrinking is allowed, down to the smallest size text is drawn at anywhere here; what
+     * this answers is whether the ellipsis would be needed. For a row that has a shorter way
+     * of saying the same thing, so it can choose one before it is cut rather than after.
+     */
+    public static boolean fitsWhole(Font font, Component text, int maxWidth) {
+        return maxWidth > 0 && font.width(text) * MINIMUM_SCALE <= maxWidth;
+    }
+
     /** How wide this text will actually be drawn, once fitted. */
     public static int width(Font font, Component text, int maxWidth) {
         return Math.min(Math.round(font.width(text) * askedScale()), Math.max(0, maxWidth));

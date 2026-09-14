@@ -288,6 +288,13 @@ public final class DevScene {
             case 2 -> {
                 if (client.level != null && client.player != null) {
                     shoot(client, "01-in-world");
+                    // Asked already, as far as this tour is concerned. A profile that has never
+                    // been offered the guided first game gets it the moment it sits down or asks
+                    // a table for a game - which is the design, and which turned every table
+                    // screen this tour expects into the lesson instead: a clean run on a fresh
+                    // profile failed at its first table and never reached the setup screen. The
+                    // lesson has its own section at the end, entered by its own button.
+                    ClientSettings.tutorialOffered(true);
                     setATableUp(client);
                     advance(SETTLE * 2);
                 }
@@ -3132,7 +3139,11 @@ public final class DevScene {
                 advance(SETTLE * 4);
             }
             case 301 -> {
-                if (!Tutorial.runningAt(practiceTable)) {
+                // At the demonstration's own position, not the table's. The lesson is played on
+                // this client at a place no table can be, which is how nothing done in it can
+                // reach a server - and asking the table's position whether it was running there
+                // was asking the retired design.
+                if (!Tutorial.runningAt(TutorialDemo.table())) {
                     fail("pressing Learn the controls did not start the guided first game");
                 }
                 if (!expectingStep(dev.gathering.core.tutorial.TutorialStep.DRAW)) {
@@ -3201,22 +3212,17 @@ public final class DevScene {
                 advance(SETTLE);
             }
             case 310 -> {
-                // Leaving first, which is the order the real flow goes in: the board takes the
-                // practice table down and only then opens the wheel, because the wheel is not
-                // a table screen and the practice game must not still be running behind it.
-                practiceLeavesNothingBehind(client);
-                advance(SETTLE * 2);
+                // Nothing pressed. A finished lesson lingers for a moment on the board it was
+                // finished on and then puts the color wheel up by itself - that is the arrival,
+                // and the tour used to press Leave and open the wheel by hand, which tested a
+                // way out nobody finishing takes. Waited out for longer than the linger.
+                advance(SETTLE * 3);
             }
             case 311 -> {
                 // Finishing earns two boosters, and picking their colors is the first thing
                 // this player has been asked to decide. The wheel is the back of a Magic card:
                 // white at the top, then blue, black, red and green clockwise.
-                //
-                // Opened here and photographed next step, not both here: a screen set this
-                // frame has not drawn yet, and shooting immediately photographs whatever was
-                // on screen before it - which is how a picture of a field ends up filed as a
-                // picture of the color wheel.
-                client.setScreen(new StarterColorsScreen(null));
+                expectScreen(client, "finishing the guided first game", StarterColorsScreen.class);
                 advance(SETTLE);
             }
             case 312 -> {
@@ -3233,8 +3239,11 @@ public final class DevScene {
             }
             case 314 -> {
                 if (Tutorial.running()) {
-                    fail("leaving the guided first game left it running");
+                    fail("finishing the guided first game left it running");
                 }
+                // And then the table, like normal. The lesson was offered at a table with no game
+                // on it, so what the colors hand back to is the screen that starts one.
+                expectScreen(client, "taking the two colors", TableSetupScreen.class);
                 nothingWasKeptFromPractice(client);
                 advance(SETTLE / 2);
             }
@@ -5981,12 +5990,10 @@ public final class DevScene {
             fail("no board to play a card onto");
             return;
         }
-        GameView view = practiceTable == null
-                ? null
-                : ClientTableState.viewOf(practiceTable).orElse(null);
-        SeatId seat = ClientTableState.seatAt(practiceTable).orElse(null);
+        GameView view = ClientTableState.viewOf(TutorialDemo.table()).orElse(null);
+        SeatId seat = ClientTableState.seatAt(TutorialDemo.table()).orElse(null);
         if (view == null || seat == null) {
-            fail("no practice board to read a hand off");
+            fail("no demonstration board to read a hand off");
             return;
         }
         int inHand = view.seat(seat).zone(Zone.HAND).count();
@@ -6070,12 +6077,10 @@ public final class DevScene {
             fail("no board to point at a card on");
             return;
         }
-        SeatId seat = ClientTableState.seatAt(practiceTable).orElse(null);
-        GameView view = practiceTable == null
-                ? null
-                : ClientTableState.viewOf(practiceTable).orElse(null);
+        SeatId seat = ClientTableState.seatAt(TutorialDemo.table()).orElse(null);
+        GameView view = ClientTableState.viewOf(TutorialDemo.table()).orElse(null);
         if (seat == null || view == null) {
-            fail("no practice board to find a permanent on");
+            fail("no demonstration board to find a permanent on");
             return;
         }
         for (CardView card : view.seat(seat).zone(Zone.BATTLEFIELD).cards()) {
@@ -6142,15 +6147,6 @@ public final class DevScene {
             return;
         }
         press(client, "Choose");
-    }
-
-    /** Leaves the guided first game the way its own button does. */
-    private static void practiceLeavesNothingBehind(Minecraft client) {
-        if (!(client.screen instanceof TableScreen)) {
-            fail("no board to leave the tutorial from");
-            return;
-        }
-        press(client, "Leave");
     }
 
     /**

@@ -41,6 +41,36 @@ The full-tour comparison preceded the final cache-retention limits; the final fo
 was rerun afterward. These limits have dedicated tests and leave oversized cards drawable.
 This pass does not close the remaining graphical/modpack work or CL-08's DevScene relocation.
 
+### Integrated, and what its tour found
+
+Applied to `claude/new-session-beye3i` as supplied (`b3592aea`, gate 427/10), then a second
+commit restoring the explanatory comments the move had cut down to one-liners and bringing the
+new classes into the repository's brace style (`016f2256`, gate 427/10).
+
+The bundle's full graphical tour failed identically on the untouched baseline, so those
+failures were already in the branch. Investigated from its log and the source, not rerun here:
+
+- **The tour predated the local lesson.** A fresh profile is offered the guided first game the
+  moment it sits down or asks a table for a game, so the tour's first table screen became the
+  lesson and every setup-screen check after it failed. The lesson section then asked whether the
+  lesson was running *at the practice table's position* and read the board from there - the
+  retired design - while the demonstration lives at its own position; the draw step passed, the
+  play step found no board, and the run stuck on PLAY at step 303. **Fixed in the script:** the
+  tour marks the lesson as offered when it enters the world, the lesson section reads the
+  demonstration's position, and the ending now waits for the color wheel to appear by itself
+  and checks it hands back to the table's setup screen - the real arrival - instead of pressing
+  Leave and opening the wheel by hand.
+- **A real text defect.** `screen.gathering.table.seat_marked` was cut to an ellipsis: on a
+  427-pixel window with several seats, each column in the top strip is about sixty pixels and
+  the full "name - life | hand | library" line cannot fit even at the smallest text size.
+  **Fixed:** the strip now picks the longest of three forms that fits whole - the full line,
+  then name and life, then life alone beside the seat's mark - and a free chair has a short form
+  too. Nothing the short forms drop is lost; it is on the mat.
+
+**Not verified: the tour has not been rerun.** Both fixes compile, pass the gate and pass
+`scenecheck` (315 steps, 0 problems), but whether the tour now completes, and what the strip
+looks like at each width, needs the scripted client.
+
 ## Owner-approved requirements, and what they superseded
 
 | Decision | State |
@@ -648,7 +678,7 @@ is still the owner's to make.
 
 ## Next concrete action
 
-1. **Run the scripted client and look at the pictures** (`./gradlew :neoforge:runClient -Pdevscene`
+1. **Rerun the scripted client tour** - its lesson section and the seat strip were fixed without being rerun - **and look at the pictures** (`./gradlew :neoforge:runClient -Pdevscene`
    on macOS; `tools/shots.sh` under Xvfb). Every client-side change since the last clean run is
    unseen: the tutorial overlay, menu fitting, the arrange preview, pile and attachment drawing
    on both views, the replay strip, reading a card chosen from a pile, and a selection verb

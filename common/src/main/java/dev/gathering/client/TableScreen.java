@@ -64,6 +64,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /**
  * The table, seen from above.
@@ -2621,29 +2622,11 @@ public final class TableScreen extends Screen {
             // and calling the whole column "free seat" hid a board in play behind an offer of
             // a chair. The chair genuinely is free, so the offer is not wrong; it is just not
             // the whole of what is there, and the name is the part that was missing.
-            Component text;
-            if (!seat.hasABoard()) {
-                text = Component.translatable("screen.gathering.table.free_seat");
-            } else {
-                text = Component.translatable(
-                        "screen.gathering.table.mat_line", SeatNames.of(seat).getString(),
-                        seat.life(), count(seat, Zone.HAND), count(seat, Zone.LIBRARY));
-                // And said plainly when nobody is in the chair, because a name in this row
-                // otherwise means somebody is sitting behind those cards and answering.
-                if (seat.occupant().isEmpty()) {
-                    text = text.copy().append(
-                            Component.translatable("screen.gathering.table.seat_away"));
-                }
-                if (!seat.counters().isEmpty()) {
-                    text = text.copy().append(Component.literal("  " + describeCounters(seat)));
-                }
-            }
             // The seat's own mark in front of its name, so the mark an owner badge shows is
             // a thing the board says somewhere else too. Colour and mark together, for the
             // same reason the badge carries both.
             GuiText.drawOverTheBoard(graphics, this.font,
-                    Component.translatable("screen.gathering.table.seat_marked",
-                            SeatMark.of(seat.seat().index()), text),
+                    seatLine(seat, column - gap),
                     area.x() + pad + index * column, line, column - gap,
                     SeatColor.at(seat.seat().index(), 0xFF));
         }
@@ -2665,6 +2648,58 @@ public final class TableScreen extends Screen {
                 Component.translatable("screen.gathering.table.turn",
                         board.turn().turnNumber(), who),
                 area.right() - pad - turnWidth, line, turnWidth, mine ? ACCENT : QUIET);
+    }
+
+    /**
+     * One seat's column in the strip along the top, said as fully as the column has room for.
+     * <p>Longest first: name, life, hand, library, counters. Then name and life. Then life alone
+     * beside the seat's mark (a free chair has a short form too), which the colour and the mark already tie to a mat. A four-seat
+     * table on a small window has columns about sixty pixels wide, and the full line cut to
+     * fit there read "Dev - 40 li..." - a label that has stopped saying what it was written to
+     * say, which the scripted run counts as a failure and a player counts as noise. Choosing a
+     * shorter sentence first means nothing here is ever an ellipsis unless even the shortest
+     * one is, which takes a name nobody could fit anywhere.
+     * <p>Everything the short forms leave out is still on the table: the hand and library on
+     * the mat's own piles, and the counters in the counters panel.
+     */
+    private Component seatLine(SeatView seat, int room) {
+        String mark = SeatMark.of(seat.seat().index());
+        if (!seat.hasABoard()) {
+            return firstThatFits(mark, room, List.of(
+                    Component.translatable("screen.gathering.table.free_seat"),
+                    Component.translatable("screen.gathering.table.free_seat_short")));
+        }
+        // Said plainly when nobody is in the chair, because a name in this row otherwise means
+        // somebody is sitting behind those cards and answering.
+        Component away = seat.occupant().isEmpty()
+                ? Component.translatable("screen.gathering.table.seat_away")
+                : Component.empty();
+        String name = SeatNames.of(seat).getString();
+
+        MutableComponent full = Component.translatable(
+                "screen.gathering.table.mat_line", name,
+                seat.life(), count(seat, Zone.HAND), count(seat, Zone.LIBRARY)).append(away);
+        if (!seat.counters().isEmpty()) {
+            full.append(Component.literal("  " + describeCounters(seat)));
+        }
+        List<Component> ways = List.of(
+                full,
+                Component.translatable("screen.gathering.table.mat_line_short", name, seat.life())
+                        .append(away),
+                Component.translatable("screen.gathering.table.mat_line_life", seat.life()));
+        return firstThatFits(mark, room, ways);
+    }
+
+    /** The first of these, behind the seat's mark, that fits whole; the last one if none does. */
+    private Component firstThatFits(String mark, int room, List<Component> ways) {
+        Component chosen = null;
+        for (Component way : ways) {
+            chosen = Component.translatable("screen.gathering.table.seat_marked", mark, way);
+            if (GuiText.fitsWhole(this.font, chosen, room)) {
+                break;
+            }
+        }
+        return chosen;
     }
 
     /**
