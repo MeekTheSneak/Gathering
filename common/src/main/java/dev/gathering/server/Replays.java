@@ -103,7 +103,9 @@ public final class Replays {
             return false;
         }
         try {
-            SessionCodec.Streams streams = SessionCodec.write(session.records());
+            // Once: records() hands back a copy of the whole log, and this used to ask twice.
+            List<dev.gathering.core.game.SessionRecord> records = session.records();
+            SessionCodec.Streams streams = SessionCodec.write(records);
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(bytes)) {
                 out.writeInt(VERSION);
@@ -111,7 +113,7 @@ public final class Replays {
                 out.writeInt(session.state().seats().size());
                 out.writeInt(session.state().turn().turnNumber());
                 out.writeInt(startingLife);
-                out.writeInt(session.records().size());
+                out.writeInt(records.size());
                 out.writeUTF(session.undoMode().name());
                 // The seed in plain. It is the one thing the live game guards hardest and the
                 // one thing a replay cannot do without - a shuffle is only reproducible from
@@ -134,8 +136,14 @@ public final class Replays {
             }
             Path folder = folder();
             Files.createDirectories(folder);
-            Files.write(folder.resolve(System.currentTimeMillis() + "-"
-                    + Integer.toHexString(session.hashCode()) + SUFFIX), bytes.toByteArray());
+            // Written under a name the shelf does not list and moved into place, so a replay
+            // on the shelf is always a whole one. A server stopped halfway through this used to
+            // leave a truncated file with the right suffix, which the list then tried to read.
+            Path kept = folder.resolve(System.currentTimeMillis() + "-"
+                    + Integer.toHexString(session.hashCode()) + SUFFIX);
+            Path writing = kept.resolveSibling(kept.getFileName() + ".writing");
+            Files.write(writing, bytes.toByteArray());
+            Files.move(writing, kept, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             forgetTheOldest();
             return true;
         } catch (IOException | RuntimeException couldNotWrite) {

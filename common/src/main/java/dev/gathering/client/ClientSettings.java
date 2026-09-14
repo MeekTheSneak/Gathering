@@ -395,9 +395,8 @@ public final class ClientSettings {
         if (++sinceChanged < TICKS_BEFORE_WRITING) {
             return;
         }
-        unsaved = false;
         sinceChanged = 0;
-        write();
+        unsaved = !write();
     }
 
     /**
@@ -406,9 +405,8 @@ public final class ClientSettings {
      */
     public static void flush() {
         if (unsaved) {
-            unsaved = false;
             sinceChanged = 0;
-            write();
+            unsaved = !write();
         }
     }
 
@@ -502,7 +500,9 @@ public final class ClientSettings {
         if (was < SCHEMA) {
             LOGGER.info("Growing {} from shape {} into shape {}, keeping what it said",
                     FILE_NAME, was, SCHEMA);
-            write();
+            if (!write()) {
+                unsaved = true;
+            }
         }
     }
 
@@ -599,12 +599,13 @@ public final class ClientSettings {
      * version has never heard of. A key with no line to replace is appended under its own
      * section, which is the case where there is nothing of theirs to lose.
      */
-    private static void write() {
+    private static boolean write() {
         Path where;
         try {
             where = file();
         } catch (RuntimeException noPlatform) {
-            return;
+            // Nowhere to write is not a failure to retry: there is no file to ever reach.
+            return true;
         }
         try {
             String text = Files.isRegularFile(where)
@@ -614,11 +615,30 @@ public final class ClientSettings {
                 text = replaced(text, entry.getKey(), entry.getValue());
             }
             Files.createDirectories(where.getParent());
-            Files.writeString(where, text, StandardCharsets.UTF_8);
-        } catch (IOException couldNotWrite) {
-            LOGGER.warn("Could not save {}: {}", FILE_NAME, couldNotWrite.getMessage());
+            // Written beside and moved into place, as the recents file already is, so a game
+            // closed or crashing halfway through a write leaves the old settings rather than
+            // half of the new ones - which the reader would then refuse, and fall back to the
+            // defaults, and write back over everything the player had chosen.
+            Path writing = where.resolveSibling(where.getFileName() + ".writing");
+            Files.writeString(writing, text, StandardCharsets.UTF_8);
+            Files.move(writing, where, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            failing = false;
+            return true;
+        } catch (IOException | RuntimeException couldNotWrite) {
+            // Kept unsaved, so the next tick tries again: a disk that was briefly full or a
+            // folder that was briefly locked used to lose the change for good, because it was
+            // marked saved before the write was attempted. Said once, not once a second.
+            if (!failing) {
+                LOGGER.warn("Could not save {}: {}. Will keep trying.",
+                        FILE_NAME, couldNotWrite.getMessage());
+            }
+            failing = true;
+            return false;
         }
     }
+
+    /** Whether the last write failed, so a disk that stays full is reported once. */
+    private static boolean failing;
 
     /** Every setting, as the dotted key it lives under and the text of its value. */
     private static Map<String, String> lines() {
@@ -701,5 +721,6 @@ public final class ClientSettings {
         loaded = false;
         unsaved = false;
         sinceChanged = 0;
+        failing = false;
     }
 }

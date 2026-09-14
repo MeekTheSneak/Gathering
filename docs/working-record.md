@@ -269,6 +269,7 @@ notes below are what a status line cannot hold.
 | CL-11b | Done | Below |
 | CL-03 | Done, not timed live | Below; supersedes "Why the bulk broadcast was measured and left alone" |
 | CL-07 | Done, profiled | Below |
+| CL-12 | Done, profiled, no threads | Below |
 
 **CL-09.** `PracticeTable` now holds only what production needs: `retire`, the answers to an
 old client's START and STOP, `isPracticeAt` and the demonstration seat. Creation lives in
@@ -436,6 +437,31 @@ changing it afterwards changes no state (**shown to fail** with `of` adopting a 
 insertion order is kept. No location index was added - nothing measured asked for one.
 
 These are core microbenchmark numbers, not server tick times.
+
+**CL-12, profiled first, and the profile said no worker.** Measured on this machine: saving a
+12,000-event session (`StoredSession.of`, encoding and sealing) about 1.3 ms, 2.4 MB; writing a
+400 KB replay 0.4 ms mean, 0.6 ms worst over 35 writes; listing a 40-replay shelf 0.1 ms. A game
+ends once and a table saves on the autosave, so a background writer - with its own shutdown
+drain, stale-destination and "recorded before it was" risks, all of which the audit listed -
+would buy about two milliseconds once per game. Not done, on purpose.
+
+What the profiling turned up instead were two write-safety defects, both fixed synchronously:
+
+- **A settings change that failed to write was lost.** `ClientSettings` marked itself saved
+  before trying to write, so a briefly unwritable folder - a full disk, a sync client's lock -
+  dropped the change for good. It now stays unsaved until a write succeeds, warns once rather
+  than every second, and a failed schema migration is retried the same way. The new check in
+  `ClientPreferencesGameTest` blocks the folder, changes a setting, unblocks it and expects the
+  change on disk; **shown to fail** on the old code.
+- **An interrupted write left half a file.** Settings and replays are now written beside the
+  target and moved into place, as `RecentThings` already did. A half-written settings file used
+  to be refused on the next launch, fall back to defaults and be written back over everything
+  the player had chosen; a half-written replay sat on the shelf under the real suffix. The
+  interruption itself is not tested - it would need killing a process mid-write.
+
+`Replays.keep` also copied the whole record list twice and now copies it once.
+
+Not measured: close and save latency of a long session on a real server with a real disk.
 
 The audit also measured the bulk-broadcast cost independently and agrees with the number
 recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views

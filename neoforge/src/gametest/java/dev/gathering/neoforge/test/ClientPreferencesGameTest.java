@@ -42,7 +42,53 @@ public final class ClientPreferencesGameTest {
         asimilarlynamedlineisleftalone(helper);
         thesamenameunderanotherheadingisleftalone(helper);
         skippingisnotfinishing(helper);
+        afailedwriteistriedagain(helper);
         helper.succeed();
+    }
+
+    /**
+     * A change that could not be written is written when the disk lets it, not lost.
+     * <p>The file used to be marked saved before the write was tried, so a folder that was
+     * briefly unwritable - a full disk, a sync client holding a lock - threw the change away
+     * for good: nothing was left unsaved to try again. Blocked here by putting a plain file
+     * where the settings folder should be, then unblocked.
+     */
+    private static void afailedwriteistriedagain(GameTestHelper helper) throws Exception {
+        Path root = Files.createTempDirectory("gathering-settings-blocked-");
+        Path blocker = root.resolve("config");
+        Files.writeString(blocker, "not a folder", StandardCharsets.UTF_8);
+        Path where = blocker.resolve("gathering-client.toml");
+        boolean was = ClientSettings.reducedMotion();
+        try {
+            ClientSettings.fileForTesting(where);
+            ClientSettings.reducedMotion(!was);
+            ClientSettings.flush();
+            if (Files.exists(where)) {
+                helper.fail("the fixture did not block the write, so this proves nothing");
+                return;
+            }
+
+            Files.delete(blocker);
+            ClientSettings.flush();
+
+            if (!Files.isRegularFile(where)) {
+                helper.fail("a change that could not be written was never written once it could be");
+                return;
+            }
+            String written = Files.readString(where, StandardCharsets.UTF_8);
+            if (!written.contains("reduced_motion = " + !was)) {
+                helper.fail("the retried write did not carry the change: " + written);
+                return;
+            }
+            if (Files.exists(where.resolveSibling(where.getFileName() + ".writing"))) {
+                helper.fail("a finished write left its half-written twin behind");
+            }
+        } finally {
+            ClientSettings.fileForTesting(null);
+            Files.deleteIfExists(where);
+            Files.deleteIfExists(blocker);
+            Files.deleteIfExists(root);
+        }
     }
 
     /**
