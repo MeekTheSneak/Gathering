@@ -45,7 +45,8 @@ import java.util.UUID;
  */
 public final class ViewCodec {
 
-    public static final int VERSION = 3;
+    /** Four: a seat's mulligans and the cards it owes to the bottom for them. */
+    public static final int VERSION = 4;
 
     /** A ceiling on any length read from the wire, checked before it sizes anything. */
     public static final int MAX_ENTRIES = 20_000;
@@ -260,6 +261,9 @@ public final class ViewCodec {
             out.writeUTF(entry.getKey().name());
             zone(out, entry.getValue());
         }
+
+        out.writeInt(seat.mulligans());
+        out.writeInt(seat.owedToBottom());
     }
 
     private static SeatView seat(DataInput in) throws IOException {
@@ -313,9 +317,11 @@ public final class ViewCodec {
             Zone zone = Zone.valueOf(in.readUTF());
             zones.put(zone, zone(in));
         }
+        int mulligans = in.readInt();
+        int owedToBottom = in.readInt();
         return new SeatView(
                 id, player, lastPlayer, life, damage, tax, commanders, counters, conceded,
-                handShownTo, sleeve, zones);
+                handShownTo, sleeve, zones, mulligans, owedToBottom);
     }
 
     private static PlayerRef readPlayer(DataInput in) throws IOException {

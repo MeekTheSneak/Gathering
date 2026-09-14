@@ -41,8 +41,9 @@ public final class GatheringNetwork {
      * <p>Nine, for the pick clock and registration points: pack settings carry a clock, a draft
      * view carries the seconds left, and a host can mark where players register.
      * <p>Ten, for loaner decks: a deck on the wire carries whether it was lent.
+     * <p>Eleven, for the London mulligan: a seat on the board carries its mulligans.
      */
-    private static final String PROTOCOL_VERSION = "10";
+    private static final String PROTOCOL_VERSION = "11";
 
     private GatheringNetwork() {
     }

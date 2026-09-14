@@ -1288,6 +1288,15 @@ public final class TableScreen extends Screen {
                         this.width / 2, layout().status().bottom() + 6,
                         this.width / 2, ACCENT);
             }
+            // After a mulligan, what the London mulligan still asks of this hand - until it is
+            // done. A reminder, not a rule: nothing stops play while it shows.
+            int owed = view().flatMap(shown -> mySeat().map(seat -> shown.seat(seat).owedToBottom())).orElse(0);
+            if (owed > 0 && sinceMyTurn < 0) {
+                GuiText.drawCentered(graphics, this.font,
+                        Component.translatable("screen.gathering.table.mulligan_owed", owed),
+                        this.width / 2, layout().status().bottom() + 6,
+                        this.width / 2, ACCENT);
+            }
         }
         view().ifPresent(shown -> renderArrangement(graphics, shown));
         if (Tutorial.runningAt(table)) {

@@ -100,7 +100,10 @@ public final class VisibilityRules {
                 seatState.conceded(),
                 seatState.handShownTo(),
                 seatState.sleeve(),
-                zones);
+                zones,
+                // Public, like a mulligan is: the table saw the hand go back.
+                seatState.mulligans(),
+                seatState.owedToBottom());
     }
 
     private static ZoneView zoneView(GameState state, ZoneRef ref, Viewer viewer) {

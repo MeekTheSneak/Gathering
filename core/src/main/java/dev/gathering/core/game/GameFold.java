@@ -285,6 +285,14 @@ public final class GameFold {
         if (from != null && from.zone() == Zone.LIBRARY && !from.equals(moved.to())) {
             updated = updated.withRevealed(from.seat(), 0);
         }
+        if (from != null && from.zone() == Zone.HAND && moved.to().zone() == Zone.LIBRARY
+                && moved.to().seat().equals(from.seat()) && moved.placement() instanceof Placement.Bottom) {
+            // A card from a hand to the bottom of its own library: what a mulligan owes.
+            SeatState seat = updated.seatState(from.seat());
+            if (seat.owedToBottom() > 0) {
+                updated = updated.withSeatState(seat.oneWentToTheBottom());
+            }
+        }
         return arrivingOnTop(updated, moved.to(), moved.placement());
     }
 
@@ -454,7 +462,23 @@ public final class GameFold {
             updated = updated.place(id, library, Placement.BOTTOM);
         }
         updated = shuffleLibrary(updated, seat, seed);
+        updated = updated.withSeatState(updated.seatState(seat).mulliganed(isMultiplayer(updated)));
         return draw(updated, seat, event.newHandSize());
+    }
+
+    /**
+     * Whether more than two players are in this game, which is what makes a first mulligan
+     * free (rule 103.5c). Counted by boards rather than chairs: a player who stood up is still
+     * in the game their cards are in.
+     */
+    public static boolean isMultiplayer(GameState state) {
+        int players = 0;
+        for (SeatId seat : state.seats()) {
+            if (state.seatState(seat).whoseBoard().isPresent()) {
+                players++;
+            }
+        }
+        return players > 2;
     }
 
     // ------------------------------------------------------------ pile verbs

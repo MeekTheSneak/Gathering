@@ -3,6 +3,7 @@ package dev.gathering.core.game.event;
 import dev.gathering.core.card.CardIdentity;
 import dev.gathering.core.card.PaperStock;
 import dev.gathering.core.game.CardNote;
+import dev.gathering.core.game.SeatState;
 import dev.gathering.core.game.CardInstance;
 import dev.gathering.core.game.CardInstanceId;
 import dev.gathering.core.game.Facing;
@@ -403,7 +404,10 @@ public sealed interface GameEvent {
     record Mulliganed(SeatId actor, SeatId seat, int newHandSize) implements GameEvent {
         @Override
         public LogLine describe(GameState before) {
-            return LogLine.of("log.gathering.mulliganed", actor, seat, newHandSize);
+            // What the London mulligan asks for, worked out from the board before it: how many
+            // this is, and how many cards go to the bottom. See SeatState#mulliganed.
+            SeatState after = before.seatState(seat).mulliganed(dev.gathering.core.game.GameFold.isMultiplayer(before));
+            return LogLine.of("log.gathering.mulliganed", actor, seat, newHandSize, after.owedToBottom());
         }
 
         @Override

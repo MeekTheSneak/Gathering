@@ -30,7 +30,19 @@ public record SeatView(
         boolean conceded,
         java.util.Set<SeatId> handShownTo,
         dev.gathering.core.card.Sleeve sleeve,
-        Map<Zone, ZoneView> zones) {
+        Map<Zone, ZoneView> zones,
+        int mulligans,
+        int owedToBottom) {
+
+    /** A seat that has taken no mulligan and owes nothing to the bottom. */
+    public SeatView(
+            SeatId seat, PlayerRef player, PlayerRef lastPlayer, int life,
+            Map<CardInstanceId, Integer> commanderDamage, Map<CardInstanceId, Integer> commanderTax,
+            java.util.List<CardInstanceId> commanders, Map<String, Integer> counters, boolean conceded,
+            java.util.Set<SeatId> handShownTo, dev.gathering.core.card.Sleeve sleeve, Map<Zone, ZoneView> zones) {
+        this(seat, player, lastPlayer, life, commanderDamage, commanderTax, commanders, counters, conceded,
+                handShownTo, sleeve, zones, 0, 0);
+    }
 
     public SeatView {
         // Kept in order, like the counters below and for a related reason: these are written
