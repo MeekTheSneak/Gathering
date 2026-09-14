@@ -411,7 +411,6 @@ public final class EventRecords {
         return record.ratedMatches < 10 ? 40.0 : 20.0;
     }
 
-    /** Whether this meeting of two players may move ratings, recording it if so. */
     /**
      * Forgets meetings that no longer count toward anything: older than the window, and pairs
      * with none left. Each pair used to keep its list for ever, saved with the records, however
@@ -422,6 +421,7 @@ public final class EventRecords {
         meetings.values().removeIf(List::isEmpty);
     }
 
+    /** Whether this meeting of two players may move ratings, recording it if so. */
     private static boolean meetingCounts(UUID a, UUID b, long now) {
         String key = a.compareTo(b) < 0 ? a + "|" + b : b + "|" + a;
         List<Long> times = meetings.computeIfAbsent(key, ignored -> new ArrayList<>());
