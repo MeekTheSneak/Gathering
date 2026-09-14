@@ -215,6 +215,20 @@ Still open: a sign-up locked by an opening that never completes stays locked unt
 lock is not saved); prize descriptions use server-side item names; no two-process restart,
 socket disconnect or load test; one pod per event.
 
+## Security review (2026-09-14)
+
+Asked for by the owner. Full record, finding by finding, with what was not fixed and why:
+`docs/reviews/security-review-2026-09-14.md`. Two critical ways to create unlimited cards (loaner
+decks; cube drafts), an absent player's deck and stake left on the table for others, a replay
+showing an opponent's deck mid-match, an uncapped game log and card-lookup queue a client could
+use to lag the server, and a set of medium and low items - all fixed. 10 new in-world guards and
+7 new core tests, each in-world guard shown to fail with its fix removed; one existing test
+rewritten because it asserted the theft path. Protocol 10.
+
+Open, for the owner: seated players may draw, mill or shuffle another seat's library by design;
+creative mode can wipe a deck (redacted copy sent back); pack and shuffle randomness is
+`SecureRandom`, an undocumented but stronger exception to the `level.getRandom()` rule.
+
 ## Owner-approved requirements, and what they superseded
 
 | Decision | State |

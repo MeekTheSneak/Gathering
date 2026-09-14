@@ -16,6 +16,27 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class DecklistParserTest {
 
+    /**
+     * A pasted list is read off the server's card workers, and every player shares them. One line
+     * built to make the patterns backtrack took each of them seconds, and a long dotted line
+     * overflowed the stack; neither may cost more than a moment now.
+     */
+    @Nested
+    @DisplayName("hostile lines")
+    class HostileLines {
+
+        @ParameterizedTest
+        @ValueSource(strings = {" ", "[", "^", "a.", "(", "*"})
+        void aLineBuiltToBacktrackIsRefusedQuickly(String repeated) {
+            String line = "1 " + repeated.repeat(64_000 / repeated.length()) + "x";
+            ParsedDecklist parsed = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                    java.time.Duration.ofSeconds(1), () -> DecklistParser.parse(line + "\n4 Lightning Bolt"));
+            assertThat(parsed.problems()).hasSize(1);
+            assertThat(parsed.problems().get(0).sourceLine().length()).isLessThan(100);
+            assertThat(parsed.entries()).extracting(DecklistEntry::name).containsExactly("Lightning Bolt");
+        }
+    }
+
     @Nested
     @DisplayName("quantities")
     class Quantities {

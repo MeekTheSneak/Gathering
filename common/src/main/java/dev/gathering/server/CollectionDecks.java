@@ -223,7 +223,10 @@ public final class CollectionDecks {
             }
             CardIdentity given = free.get(key(line.name()));
             if (given != null) {
-                CardComponent one = CardComponent.of(given);
+                // Free, so never foil, whatever the list said: see CollectionView#claim.
+                CardComponent one = given.printing()
+                        .map(printing -> CardComponent.of(CardIdentity.ofPrinting(printing, false)))
+                        .orElse(CardComponent.of(given));
                 for (int copy = 0; copy < line.free(); copy++) {
                     if (placed >= DeckComponent.MAX_CARDS) {
                         leftBehind++;

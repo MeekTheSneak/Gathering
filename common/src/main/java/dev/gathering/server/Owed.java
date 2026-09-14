@@ -175,6 +175,32 @@ public final class Owed {
         return add(player, linesFor(cards));
     }
 
+    /**
+     * Writes down a whole item this player is owed - a deck handed back from a table while they
+     * were away - exactly as it is, name, sleeves, pool and all.
+     * <p>Dropping it on the table for whoever came past was the alternative, and it was the one
+     * this used to take.
+     *
+     * @return whether it is safely on disk, with the same warning as {@link #aPack}
+     */
+    public static boolean anItem(UUID player, ItemStack stack) {
+        if (player == null || stack == null || stack.isEmpty()) {
+            return false;
+        }
+        var registries = ServerRun.server().map(server -> server.registryAccess()).orElse(null);
+        if (registries == null) {
+            return false;
+        }
+        try {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            net.minecraft.nbt.NbtIo.writeCompressed((net.minecraft.nbt.CompoundTag) stack.save(registries), bytes);
+            return add(player, List.of("item " + java.util.Base64.getEncoder().encodeToString(bytes.toByteArray())));
+        } catch (java.io.IOException | RuntimeException unwritable) {
+            LOGGER.error("Could not write down an item owed to {}: {}", player, unwritable.toString());
+            return false;
+        }
+    }
+
     /** Cards as lines of this file, skipping anything that names no printing at all. */
     private static List<String> linesFor(List<CardIdentity> cards) {
         if (cards == null || cards.isEmpty()) {
@@ -286,6 +312,16 @@ public final class Owed {
                         java.util.Optional.of(UUID.fromString(parts[1])),
                         parts.length > 2 && Boolean.parseBoolean(parts[2]),
                         java.util.Optional.empty(), false));
+                case "item" -> ServerRun.server().map(server -> server.registryAccess()).flatMap(registries -> {
+                    try {
+                        var tag = net.minecraft.nbt.NbtIo.readCompressed(
+                                new java.io.ByteArrayInputStream(java.util.Base64.getDecoder().decode(parts[1])),
+                                net.minecraft.nbt.NbtAccounter.create(16L << 20));
+                        return ItemStack.parse(registries, tag);
+                    } catch (java.io.IOException unreadable) {
+                        return java.util.Optional.empty();
+                    }
+                }).orElse(null);
                 case "custom" -> CardItem.of(new CardComponent(
                         java.util.Optional.empty(),
                         parts.length > 2 && Boolean.parseBoolean(parts[2]),

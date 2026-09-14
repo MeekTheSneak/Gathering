@@ -215,7 +215,8 @@ public class DeckItem extends Item {
     }
 
     private static int roomFor(ItemStack deck, ItemStack cards) {
-        if (!insertable(cards)) {
+        if (!insertable(cards) || deckOf(deck).map(DeckComponent::loaner).orElse(false)) {
+            // Nothing goes into a loaner: a real card in it could never come out again.
             return 0;
         }
         int free = DeckComponent.MAX_CARDS - deckOf(deck).map(DeckComponent::totalCards).orElse(0);

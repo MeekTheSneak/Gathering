@@ -143,6 +143,14 @@ public final class GameSession {
      * the mod has no opinion about that.
      */
     public Result submit(GameEvent event) {
+        if (records.size() >= MOST_RECORDS && !(event instanceof GameEvent.SessionEnded)
+                && !(event instanceof GameEvent.SeatTaken) && !(event instanceof GameEvent.SeatReleased)) {
+            // A game this long is a client writing moves in a loop, not people playing: the
+            // longest real game is a few thousand. Past this the table stops taking moves, and
+            // the saved game stays one that reads back - the reader refuses anything past
+            // twice this, and a table whose game would not read was a table nobody could use.
+            return new Result.Rejected("This game's record is full. End the game to play on.");
+        }
         Optional<String> denial = Authorization.denialFor(state, event);
         if (denial.isPresent()) {
             return new Result.Rejected(denial.get());
@@ -211,12 +219,18 @@ public final class GameSession {
                 : UndoDecision.needsUnanimousConsent("That rewind would undo somebody else's action.");
     }
 
+    /** The most records a game takes. Half of what a saved game may hold when it is read back. */
+    public static final int MOST_RECORDS = 50_000;
+
     /**
      * Performs a rewind.
      *
      * @param consents the seats that have agreed, needed only when the decision asks for it
      */
     public Result undo(SeatId requester, int actionCount, Collection<SeatId> consents) {
+        if (records.size() >= MOST_RECORDS) {
+            return new Result.Rejected("This game's record is full. End the game to play on.");
+        }
         UndoDecision decision = evaluateUndo(requester, actionCount);
 
         boolean unanimous = false;

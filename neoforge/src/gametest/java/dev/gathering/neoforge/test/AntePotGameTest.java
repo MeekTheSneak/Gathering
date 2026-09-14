@@ -138,6 +138,71 @@ public final class AntePotGameTest {
         helper.succeed();
     }
 
+    /** A loaner deck cannot be played for keeps: its staked cards would be paid out as real ones. */
+    @GameTest(template = "tables")
+    public static void aLoanerIsNotPlayedForKeeps(GameTestHelper helper) {
+        TableFixture fixture = seatedWithAGame(helper, true);
+        TableBlock.putDown(fixture.level(), fixture.origin(), fixture.player(),
+                dev.gathering.item.DeckItem.of(fourCards(fixture.player()).lent()));
+        if (!fixture.table().pot().isEmpty() || !fixture.table().heldDecks().isEmpty()) {
+            helper.fail("a loaner deck went down at a table playing for keeps");
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A seat whose library has run out still has its deck in the table's keeping, and a second
+     * deck put down there used to replace it there - the first deck gone for good.
+     */
+    @GameTest(template = "tables")
+    public static void asecondDeckDoesNotReplaceTheOneTheTableHolds(GameTestHelper helper) {
+        TableFixture fixture = seatedWithAGame(helper, false);
+        dev.gathering.item.DeckComponent first = fourCards(fixture.player());
+        TableBlock.putDown(fixture.level(), fixture.origin(), fixture.player(), dev.gathering.item.DeckItem.of(first));
+        var session = dev.gathering.block.TableSessions.sessionAt(fixture.level(), fixture.origin()).orElseThrow();
+        session.submit(new dev.gathering.core.game.event.GameEvent.LibraryExiled(new SeatId(0), new SeatId(0), 60));
+        dev.gathering.item.DeckComponent second = new dev.gathering.item.DeckComponent(
+                "Second", "", java.util.Optional.of(fixture.player().getUUID()),
+                List.of(dev.gathering.item.CardComponent.of(card(BOLT))), List.of(), List.of());
+        TableBlock.putDown(fixture.level(), fixture.origin(), fixture.player(), dev.gathering.item.DeckItem.of(second));
+        dev.gathering.item.DeckComponent held = fixture.table().heldDecks().get(new SeatId(0));
+        if (held == null || !held.name().equals(first.name())) {
+            helper.fail("the table is now holding " + (held == null ? "nothing" : held.name())
+                    + ", not the first deck put down at that seat");
+            return;
+        }
+        helper.succeed();
+    }
+
+    private record TableFixture(ServerLevel level, BlockPos origin, ServerPlayer player, TableBlockEntity table) {
+    }
+
+    private static TableFixture seatedWithAGame(GameTestHelper helper, boolean forKeeps) {
+        BlockPos origin = helper.absolutePos(new BlockPos(1, 1, 1));
+        ServerLevel level = helper.getLevel();
+        for (TablePart part : TablePart.values()) {
+            level.setBlock(part.offsetFrom(origin),
+                    GatheringContent.TABLE.get().defaultBlockState().setValue(TableBlock.PART, part), 3);
+        }
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setPos(origin.getCenter());
+        SeatAnchor anchor = TableClusters.at(level, origin).seats().get(0);
+        TableSeats.take(level, origin, anchor.cell(), anchor.side(), player.getUUID());
+        dev.gathering.block.TableSessions.start(level, origin,
+                dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.COMMANDER));
+        TableBlockEntity table = TableBlock.entityAt(level, origin).orElseThrow();
+        table.playForKeeps(forKeeps);
+        return new TableFixture(level, origin, player, table);
+    }
+
+    private static dev.gathering.item.DeckComponent fourCards(ServerPlayer owner) {
+        return new dev.gathering.item.DeckComponent("First", "", java.util.Optional.of(owner.getUUID()),
+                List.of(dev.gathering.item.CardComponent.of(card(RING)), dev.gathering.item.CardComponent.of(card(RING)),
+                        dev.gathering.item.CardComponent.of(card(RING)), dev.gathering.item.CardComponent.of(card(RING))),
+                List.of(), List.of());
+    }
+
     /**
      * Breaking the table does not take the pot out of the world with it.
      * <p>The pot lives on the block entity and nowhere else. The break path hands back every
@@ -259,6 +324,37 @@ public final class AntePotGameTest {
             return;
         }
         helper.succeed();
+    }
+
+    /**
+     * A pot for somebody who is not here is kept for them, not dropped on the table for whoever
+     * ended the game to pick up. A security review reproduced exactly that: an absent player's
+     * stake, and their deck, left on the table.
+     */
+    @GameTest(template = "tables")
+    public static void aPotForSomebodyAwayIsKeptForThemNotLeftOnTheTable(GameTestHelper helper) {
+        BlockPos origin = seatedTable(helper, 0);
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        ServerPlayer away = helper.makeMockServerPlayerInLevel();
+        helper.getLevel().removePlayerImmediately(away, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        dev.gathering.server.Owed.forget(away.getUUID());
+        try {
+            table.stake(new SeatId(0), List.of(card(RING)), away.getUUID());
+            TableSessions.settlePot(helper.getLevel(), origin, table, null);
+            var dropped = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                    new net.minecraft.world.phys.AABB(origin).inflate(3));
+            if (!dropped.isEmpty()) {
+                helper.fail("an absent player's staked card was left on the table");
+                return;
+            }
+            if (dev.gathering.server.Owed.waitingFor(away.getUUID()) != 1) {
+                helper.fail("an absent player's staked card was not kept for them");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            dev.gathering.server.Owed.forget(away.getUUID());
+        }
     }
 
     /** Card items this player is carrying. */

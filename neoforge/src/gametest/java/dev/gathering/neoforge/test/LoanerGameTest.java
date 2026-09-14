@@ -50,6 +50,55 @@ public final class LoanerGameTest {
 
     private static final String NAME = "House Deck";
 
+    /**
+     * A loaner is for playing, never for keeping: a second one cannot be taken while holding one,
+     * no card can be taken out of it, and its mark survives the trip into a player's hands.
+     * Without these a player could take deck after deck of free cards and pour them into a
+     * collection or trade them, which a security review reproduced.
+     */
+    @GameTest(template = "empty")
+    public static void aLoanerIsForPlayingNotKeeping(GameTestHelper helper) {
+        LoanerDecks.clear();
+        LoanerDecks.stock(NAME, sixtyForests());
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+
+        Lending.handle(player, new TakeLoanerPayload(null, NAME));
+        Lending.handle(player, new TakeLoanerPayload(null, NAME));
+        if (decksCarried(player) != 1) {
+            helper.fail("Asking twice handed over " + decksCarried(player) + " loaner decks");
+            return;
+        }
+        int slot = -1;
+        for (int index = 0; index < player.getInventory().items.size(); index++) {
+            if (DeckItem.deckOf(player.getInventory().items.get(index)).isPresent()) {
+                slot = index;
+            }
+        }
+        DeckComponent lent = DeckItem.deckOf(player.getInventory().items.get(slot)).orElseThrow();
+        if (!lent.loaner()) {
+            helper.fail("A borrowed deck did not carry the loaner mark");
+            return;
+        }
+        player.getInventory().selected = slot < 9 ? slot : 0;
+        if (slot >= 9) {
+            player.getInventory().setItem(0, player.getInventory().removeItemNoUpdate(slot));
+        }
+        dev.gathering.server.DeckEdits.handle(player, new dev.gathering.network.DeckEditPayload(
+                false, dev.gathering.network.DeckEditPayload.Action.TAKE, DeckComponent.Section.MAINBOARD,
+                DeckComponent.Section.MAINBOARD, lent.entries().get(0)));
+        for (ItemStack stack : player.getInventory().items) {
+            if (dev.gathering.item.CardItem.cardOf(stack).isPresent()) {
+                helper.fail("A card was taken out of a loaner deck");
+                return;
+            }
+        }
+        if (DeckItem.deckOf(player.getMainHandItem()).map(DeckComponent::totalCards).orElse(0) != 60) {
+            helper.fail("Taking a card out of a loaner changed the deck");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** Borrowing at a table you are sitting at puts the deck down, not in your pockets. */
     @GameTest(template = "empty")
     public static void aBorrowedDeckGoesStraightDown(GameTestHelper helper) {

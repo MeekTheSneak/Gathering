@@ -161,6 +161,50 @@ public final class SeatGameTest {
         helper.succeed();
     }
 
+    /**
+     * Somebody else's board is not taken over by whoever sits in its empty chair. Its hand,
+     * library and face-down cards would be theirs to read; a security review reproduced a
+     * friend of the opponent doing exactly that. The chair is theirs to sit in and watch from,
+     * and the seat comes back to the player whose cards are on it.
+     */
+    @GameTest(template = "empty")
+    public static void astrangerInAnEmptyChairDoesNotTakeOverItsBoard(GameTestHelper helper) {
+        BlockPos origin = table(helper);
+        ServerLevel level = helper.getLevel();
+        List<SeatAnchor> seats = TableClusters.at(level, origin).seats();
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        ServerPlayer stranger = helper.makeMockServerPlayerInLevel();
+        TableSeats.take(level, origin, seats.get(0).cell(), seats.get(0).side(), new UUID(31L, 9L));
+        TableSeats.take(level, origin, seats.get(1).cell(), seats.get(1).side(), owner.getUUID());
+        TableSessions.start(level, origin, MatchRules.single(FormatPresets.COMMANDER));
+        TableSessions.seatingChanged(level, origin);
+        GameSession session = TableSessions.sessionAt(level, origin).orElseThrow();
+        if (session.state().seatState(new SeatId(1)).occupant() == null) {
+            helper.fail("the owner was not seated to begin with");
+            return;
+        }
+
+        TableSeats.leave(level, origin, owner.getUUID());
+        TableSessions.seatingChanged(level, origin);
+        TableSeats.take(level, origin, seats.get(1).cell(), seats.get(1).side(), stranger.getUUID());
+        TableSessions.seatingChanged(level, origin);
+        PlayerRef holding = session.state().seatState(new SeatId(1)).occupant();
+        if (holding != null && holding.id().equals(stranger.getUUID())) {
+            helper.fail("a stranger who sat in an empty chair took over the board of the player who left it");
+            return;
+        }
+
+        TableSeats.leave(level, origin, stranger.getUUID());
+        TableSeats.take(level, origin, seats.get(1).cell(), seats.get(1).side(), owner.getUUID());
+        TableSessions.seatingChanged(level, origin);
+        holding = session.state().seatState(new SeatId(1)).occupant();
+        if (holding == null || !holding.id().equals(owner.getUUID())) {
+            helper.fail("the player whose board it is could not take their seat back");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static BlockPos table(GameTestHelper helper) {
         BlockPos origin = helper.absolutePos(new BlockPos(1, 2, 1));
         ServerLevel level = helper.getLevel();

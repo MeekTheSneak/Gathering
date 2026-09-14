@@ -29,6 +29,16 @@ public final class DecklistParser {
     /** Above this, a line is far likelier to be a typo than an intent. */
     public static final int MAX_QUANTITY = 1000;
 
+    /**
+     * The longest line read as a card. The longest real card name with a quantity, a set, a
+     * collector number and tags is well under a hundred and fifty characters.
+     * <p>A bound for safety as much as sense: several of the patterns below are searched for
+     * anywhere in a line, and one line of sixty thousand spaces or brackets cost each of them
+     * seconds, and a long dotted line overflowed the stack. A pasted list is sixty-four
+     * kilobytes at most; nothing past this is looked at.
+     */
+    public static final int LONGEST_LINE = 256;
+
     private static final Pattern TRAILING_ARCHIDEKT_TAGS = Pattern.compile("\\s*\\^[^^]*\\^\\s*$");
     private static final Pattern TRAILING_CATEGORY = Pattern.compile("\\s*\\[[^\\]]*\\]\\s*$");
     private static final Pattern FINISH_MARKER =
@@ -88,6 +98,12 @@ public final class DecklistParser {
 
             if (line.isEmpty()) {
                 previousLineWasBlank = true;
+                continue;
+            }
+            if (line.length() > LONGEST_LINE) {
+                problems.add(new ParseProblem(lineNumber, line.substring(0, 60) + "...",
+                        "This line is too long to be a card."));
+                previousLineWasBlank = false;
                 continue;
             }
             // Before the block tracking, and leaving previousLineWasBlank alone: a comment

@@ -40,8 +40,9 @@ public final class GatheringNetwork {
      * <p>Eight, for tournaments: creating, acting in and being shown one, and being pointed to a seat.
      * <p>Nine, for the pick clock and registration points: pack settings carry a clock, a draft
      * view carries the seconds left, and a host can mark where players register.
+     * <p>Ten, for loaner decks: a deck on the wire carries whether it was lent.
      */
-    private static final String PROTOCOL_VERSION = "9";
+    private static final String PROTOCOL_VERSION = "10";
 
     private GatheringNetwork() {
     }

@@ -66,12 +66,9 @@ public final class ClientCardImages {
     private static final ClientCardImages INSTANCE = new ClientCardImages();
 
     private final ExecutorService fetchers = Executors.newFixedThreadPool(2, daemonThreads("gathering-card-art"));
-    // Redirects followed on purpose: a CDN that moves an image should not look like a
-    // missing card. The JDK client never follows them by default.
-    private final HttpClient http = HttpClient.newBuilder()
-            .connectTimeout(TIMEOUT)
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
+    // Redirects followed on purpose - a CDN that moves an image should not look like a missing
+    // card - but by hand, and only to allowed addresses: see AllowedFetch.
+    private final HttpClient http = AllowedFetch.client(TIMEOUT);
 
     /**
      * One texture that is on the card, and how much of the graphics card it is holding.
@@ -377,14 +374,7 @@ public final class ClientCardImages {
 
     private Fetched download(String url) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(TIMEOUT)
-                    .header("User-Agent", userAgent)
-                    .header("Accept", "image/*")
-                    .GET()
-                    .build();
-            HttpResponse<java.io.InputStream> response =
-                    http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<java.io.InputStream> response = AllowedFetch.get(http, url, userAgent, "image/*", TIMEOUT);
             // The body is closed on every way out of here, not only the one that reads it. A
             // missing or rate-limited picture used to return with its stream still open, and
             // a wall of packs whose art is all 404 is a wall of connections nobody closed.

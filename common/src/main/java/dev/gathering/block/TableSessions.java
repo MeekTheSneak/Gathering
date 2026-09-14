@@ -198,7 +198,10 @@ public final class TableSessions {
             session.submit(new GameEvent.SessionEnded(actor, reason));
             // Written down before the table forgets it. A session is an event log and a seed,
             // so a finished game reproduces exactly - and every one of them used to be thrown
-            // away at exactly this line.
+            // away at exactly this line. The set is over, so its earlier games go first.
+            for (GameSession held : table.releaseHeldReplays()) {
+                rememberTheGame(level, tableOrigin, held);
+            }
             rememberTheGame(level, tableOrigin, session);
         });
         creditEverybodyWhoPlayed(level, tableOrigin);
@@ -347,6 +350,11 @@ public final class TableSessions {
         // where the table was is a deck somebody can find, and a player who is not here has no
         // feet to drop it at. Handing#give is the room test - Inventory#add reports success on
         // a creative player with a full bag and empties the stack doing it.
+        if (owner == null && held.owner() != null && dev.gathering.server.Owed.anItem(held.owner(), stack)) {
+            // Away, and their deck is kept for them until they join - never left on the table
+            // for whoever comes past.
+            return;
+        }
         if (owner == null || !dev.gathering.server.Handing.hasRoomFor(owner, stack)) {
             Containers.dropItemStack(level,
                     tableOrigin.getX() + 0.5, tableOrigin.getY() + 1.0, tableOrigin.getZ() + 0.5, stack);
@@ -362,8 +370,9 @@ public final class TableSessions {
      * resolutions the pot was built to tell apart, and passing null for the winner is how the
      * second one says so.
      * <p>The pot is emptied by the release, before any card is handed anywhere, so a settle
-     * that runs twice pays out once. Cards go to the player if they are still here and onto
-     * the table if they are not - never nowhere, exactly as a deck does.
+     * that runs twice pays out once. Cards go to the player if they are here, are kept for them
+     * in the owed ledger if they are not, and go onto the table only when nobody can be named
+     * or the ledger cannot be written - never nowhere, exactly as a deck does.
      */
     public static void settlePot(
             Level level, BlockPos tableOrigin, TableBlockEntity table, SeatId winner) {
@@ -385,13 +394,20 @@ public final class TableSessions {
             //
             // A pot going to a winner is different and stays as it was: the winner is whoever
             // just won, which is whoever is in that chair now.
-            Player owner = winner == null
-                    ? table.stakerOf(seat).map(level::getPlayerByUUID).orElse(null)
-                    : null;
-            if (owner == null) {
+            // The person who played this seat - who staked into the pot from it - whether the
+            // cards are coming back to them or they won them. Not whoever is in the chair now:
+            // somebody who sat down in a vacated chair did not stake anything and did not win.
+            // The chair stands in only for a table saved before stakes remembered their staker.
+            java.util.UUID staker = table.stakerOf(seat).orElse(null);
+            Player owner = staker == null ? null : level.getPlayerByUUID(staker);
+            if (owner == null && staker == null) {
                 owner = seat.index() < anchors.size()
                         ? occupantOf(level, tableOrigin, anchors.get(seat.index())).orElse(null)
                         : null;
+            }
+            if (owner == null && staker != null && dev.gathering.server.Owed.cards(staker, cards)) {
+                // Away. Their cards are kept for them, not left on the table for the next person.
+                return;
             }
             for (dev.gathering.core.card.CardIdentity card : cards) {
                 ItemStack stack = dev.gathering.item.CardItem.of(
@@ -490,6 +506,14 @@ public final class TableSessions {
             // happening rather than one player silently becoming another.
             if (inTheSession != null) {
                 session.submit(new GameEvent.SeatReleased(seat));
+            }
+            PlayerRef whoseBoard = session.state().seatState(seat).whoseBoard().orElse(null);
+            if (sittingThere != null && whoseBoard != null && !whoseBoard.id().equals(sittingThere.id())) {
+                // Somebody else's board, mid-game: its hand, its library and its face-down
+                // cards. Taking the seat would show all of them to whoever sat in the chair,
+                // so they sit and watch instead; the seat is played by the person whose cards
+                // are on it, and comes back to them when they return.
+                continue;
             }
             if (sittingThere != null) {
                 session.submit(new GameEvent.SeatTaken(seat, sittingThere));

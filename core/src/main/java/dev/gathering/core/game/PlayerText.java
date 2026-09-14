@@ -22,6 +22,29 @@ public final class PlayerText {
     }
 
     /**
+     * Text that may run over several lines, such as a deck's description: the same cleaning as
+     * {@link #oneLine} - no formatting codes, no control characters - with line breaks kept and
+     * at most this many characters. Never null; empty for nothing.
+     * <p>Formatting codes matter because this text is drawn for other players: a description
+     * or a name carrying them can recolor, hide or scramble what is drawn after it, and pass
+     * itself off as the game or the server speaking.
+     */
+    public static String lines(String written, int longest) {
+        if (written == null || longest <= 0) {
+            return "";
+        }
+        StringBuilder tidy = new StringBuilder(Math.min(written.length(), longest));
+        for (int index = 0; index < written.length() && tidy.length() < longest; index++) {
+            char letter = written.charAt(index);
+            if (letter == FORMATTING || (Character.isISOControl(letter) && letter != '\n')) {
+                continue;
+            }
+            tidy.append(letter);
+        }
+        return tidy.toString().strip();
+    }
+
+    /**
      * The line as it will be stored and shown, or null for nothing worth showing.
      * <p>Null rather than an empty string, so "they typed nothing" and "they typed spaces" are
      * the same answer everywhere - and so a caller can tell whether there is anything to draw

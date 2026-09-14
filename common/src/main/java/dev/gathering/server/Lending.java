@@ -68,6 +68,10 @@ public final class Lending {
             // request up, and both get the same nothing.
             return;
         }
+        if (!mayBorrowNow(player)) {
+            player.sendSystemMessage(Component.translatable("message.gathering.loaner_one_at_a_time"));
+            return;
+        }
         DeckComponent deck = LoanerDecks.borrow(asked.name(), player.getUUID()).orElse(null);
         if (deck == null) {
             player.sendSystemMessage(Component.translatable("message.gathering.no_such_loaner"));
@@ -89,6 +93,39 @@ public final class Lending {
             return;
         }
         give(player, stack);
+    }
+
+    /** How long after one loaner another may be borrowed. */
+    private static final long BETWEEN_LOANS_MILLIS = 5_000L;
+
+    private static final java.util.Map<java.util.UUID, Long> LAST_LOAN = new java.util.HashMap<>();
+
+    /** Forgets when everybody last borrowed, for a server that is stopping. */
+    public static void clear() {
+        LAST_LOAN.clear();
+    }
+
+    /**
+     * Whether this player may borrow another deck now: not while carrying a loaner already, and
+     * not again within a few seconds. A loaner costs nothing, so without a bound every request
+     * was another sixty-card item, and a full inventory drops them on the ground.
+     */
+    private static boolean mayBorrowNow(ServerPlayer player) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            if (DeckItem.deckOf(player.getInventory().getItem(slot)).map(DeckComponent::loaner).orElse(false)) {
+                return false;
+            }
+        }
+        long now = System.currentTimeMillis();
+        Long last = LAST_LOAN.get(player.getUUID());
+        if (last != null && now - last < BETWEEN_LOANS_MILLIS) {
+            return false;
+        }
+        if (LAST_LOAN.size() > 512) {
+            LAST_LOAN.clear();
+        }
+        LAST_LOAN.put(player.getUUID(), now);
+        return true;
     }
 
     private static void give(ServerPlayer player, ItemStack stack) {

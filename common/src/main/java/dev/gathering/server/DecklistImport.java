@@ -280,7 +280,7 @@ public final class DecklistImport {
         String chosen = typed != null ? typed : named != null ? named : "Imported Deck";
         return new DeckComponent(
                 chosen,
-                description == null ? "" : description.strip(),
+                dev.gathering.core.game.PlayerText.lines(description, ImportDecklistPayload.MAX_DESCRIPTION_LENGTH),
                 java.util.Optional.of(owner),
                 flatten(deck, DeckSection.MAINBOARD),
                 flatten(deck, DeckSection.COMMANDER),

@@ -37,6 +37,11 @@ public final class PocketCards {
             // taken out of the inventory either - the two have to happen together or not.
             return;
         }
+        if (deck.loaner()) {
+            // Real cards put into a loaner could never come out again.
+            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("message.gathering.loaner_not_kept"));
+            return;
+        }
 
         int went = 0;
         int missed = 0;

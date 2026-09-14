@@ -128,6 +128,9 @@ public final class Antes {
             return;
         }
         ServerLevel level = player.serverLevel();
+        if (!TableReach.within(player, tableOrigin)) {
+            return;
+        }
         Where where = Where.of(level, tableOrigin);
         Asking asking = ASKING.get(where);
         if (asking == null) {

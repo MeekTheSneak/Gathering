@@ -77,6 +77,14 @@ public final class TablesApart {
             return;
         }
         BlockPos origin = TableBlock.originOf(level.getBlockState(clicked), clicked);
+        // Somebody sitting at this long table, or an operator: a passer-by rearranging a room
+        // other people set up is not a setting, it is a prank.
+        boolean seatedHere = tablesTouching(level, origin).stream()
+                .anyMatch(table -> dev.gathering.block.TableSeats.seatOf(level, table.getBlockPos(), player.getUUID()).isPresent());
+        if (!seatedHere && !player.hasPermissions(2)) {
+            player.sendSystemMessage(Component.translatable("message.gathering.tables.sit_first"));
+            return;
+        }
         Result result = set(level, origin, payload.apart());
         player.sendSystemMessage(Component.translatable(switch (result) {
             case DONE -> payload.apart() ? "message.gathering.tables.apart" : "message.gathering.tables.together";

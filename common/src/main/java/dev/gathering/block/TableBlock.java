@@ -797,7 +797,13 @@ public class TableBlock extends BaseEntityBlock {
         }
 
         GameView view = VisibilityRules.viewFor(session.state(), new Viewer.Seated(seat));
-        if (view.seat(seat).zone(Zone.LIBRARY).count() > 0) {
+        boolean tableHoldsOne = TableSessions.anchorOf(level, tableOrigin)
+                .flatMap(anchor -> entityAt(level, anchor))
+                .map(table -> table.heldDecks().containsKey(seat)).orElse(false);
+        if (view.seat(seat).zone(Zone.LIBRARY).count() > 0 || tableHoldsOne) {
+            // A seat whose library has run out still has its deck in the table's keeping, and a
+            // second deck put down there replaced the first one in that keeping - which is the
+            // first deck gone. One deck to a seat until the table hands it back.
             player.sendSystemMessage(Component.translatable("message.gathering.deck_already_down"));
             return;
         }
@@ -821,6 +827,11 @@ public class TableBlock extends BaseEntityBlock {
         TableBlockEntity holding = TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
                 .orElse(null);
+        if (holding != null && holding.playingForKeeps() && deck.loaner()) {
+            // A staked card is paid out as a real card, and a loaner's cards are not real.
+            player.sendSystemMessage(Component.translatable("message.gathering.loaner_not_for_keeps"));
+            return;
+        }
         if (holding != null && holding.playingForKeeps()
                 && level instanceof net.minecraft.server.level.ServerLevel forKeeps) {
             dev.gathering.server.Staking.Stake stake =

@@ -322,6 +322,49 @@ public final class MatchGameTest {
         }
     }
 
+    /**
+     * A set's games are not on the replay shelf until the set is over. A replay shows every
+     * library in order, and between games the same decks go back down: the first game of a
+     * best of three, watched before the second, was the opponent's whole deck.
+     */
+    @GameTest(template = "tables")
+    public static void aSetsGamesWaitForTheSetToEndBeforeTheyCanBeWatched(GameTestHelper helper) {
+        var before = dev.gathering.service.ServerSettings.get().modes().replays();
+        boolean switchOn = before != dev.gathering.core.config.GatheringConfig.Replays.PUBLIC;
+        try {
+            if (switchOn) {
+                dev.gathering.server.Settings.set("modes.replays", "public");
+            }
+            // Players of its own, so no other test's games on the shelf are counted as this one's.
+            BlockPos origin = place(helper);
+            List<SeatAnchor> anchors = dev.gathering.block.TableClusters.at(helper.getLevel(), origin).seats();
+            UUID first = UUID.randomUUID();
+            TableSeats.take(helper.getLevel(), origin, anchors.get(0).cell(), anchors.get(0).side(), first);
+            TableSeats.take(helper.getLevel(), origin, anchors.get(1).cell(), anchors.get(1).side(), UUID.randomUUID());
+            startMatch(helper, origin, 3);
+            winGame(helper, origin, new SeatId(0));
+            if (shelvedFor(first) != 0) {
+                helper.fail("The first game of a set was on the replay shelf while the set was still being played");
+                return;
+            }
+            startNextGame(helper, origin);
+            winGame(helper, origin, new SeatId(0));
+            if (shelvedFor(first) != 2) {
+                helper.fail("Once the set was over, " + shelvedFor(first) + " of its 2 games were on the shelf");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            if (switchOn) {
+                dev.gathering.server.Settings.set("modes.replays", before.toString());
+            }
+        }
+    }
+
+    private static long shelvedFor(UUID player) {
+        return dev.gathering.server.Replays.kept().stream().filter(kept -> kept.wasPlayedBy(player)).count();
+    }
+
     private static void startMatch(GameTestHelper helper, BlockPos origin, int bestOf) {
         TableSessions.start(helper.getLevel(), origin,
                 new MatchRules(FormatPresets.COMMANDER, bestOf));

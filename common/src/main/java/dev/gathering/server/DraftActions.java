@@ -107,12 +107,16 @@ public final class DraftActions {
         // not read as the same pool, and this is what a deck check says it is checking
         // against. Never the session seed, which is the one value that never leaves the
         // server - the pod's own place in the world is enough to tell two drafts apart.
-        String podName = dev.gathering.block.TableSessions.anchorOf(level, tableOrigin)
+        var record = dev.gathering.block.TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> TableBlock.entityAt(level, anchor))
                 .flatMap(table -> table.podRecord())
-                .map(dev.gathering.core.draft.PodRecord::podName)
-                .filter(name -> !name.isEmpty())
-                .orElse(tableOrigin.toShortString());
+                .orElse(null);
+        String podName = record == null || record.podName().isEmpty() ? tableOrigin.toShortString() : record.podName();
+        // A cube draft opened no packs: the cube is still in its owner's hands, whole. Pools
+        // cut from it are for playing, like a loaner, never cards to keep - kept, every cube
+        // drafted was every card in it twice. An event's pools came out of packs that were used
+        // up, and are the players' own.
+        boolean fromACube = record == null;
         if (!everybodyIsHere(level, pod)) {
             // Somebody left between their own last pick and the last one in the pod. Their
             // pool is still in it, and the pod is saved with the world - so nothing is handed
@@ -144,6 +148,10 @@ public final class DraftActions {
                     List.of(),
                     cards)
                     .colored(dev.gathering.core.card.DeckColors.pick(level.getRandom().nextLong())));
+            if (fromACube) {
+                stack.set(dev.gathering.registry.GatheringComponents.DECK.get(),
+                        DeckItem.deckOf(stack).orElseThrow().lent());
+            }
             // And what it may be built from, which never changes while the deck inside it
             // changes constantly. Limited is "play what you opened", and this is the record
             // of what was opened - so it travels with the deck rather than living at the

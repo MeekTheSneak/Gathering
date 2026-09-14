@@ -239,11 +239,9 @@ public final class Events {
     }
 
     private static String cleanName(String name, ServerPlayer host) {
-        String trimmed = name == null ? "" : name.strip();
-        if (trimmed.isEmpty()) {
-            return host.getGameProfile().getName() + "'s tournament";
-        }
-        return trimmed.length() > 40 ? trimmed.substring(0, 40) : trimmed;
+        // Drawn in everybody's event list, so cleaned as any text one player shows another is.
+        String cleaned = dev.gathering.core.game.PlayerText.oneLine(name, 40);
+        return cleaned == null ? host.getGameProfile().getName() + "'s tournament" : cleaned;
     }
 
     /**

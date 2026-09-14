@@ -36,7 +36,26 @@ public final class TableActions {
     private TableActions() {
     }
 
+    /**
+     * Moves each player may make. Thirty a second sustained, two full selections at once: far
+     * beyond anybody playing, and a ceiling on a client that sends moves as fast as it can - each
+     * accepted one is folded, logged, saved and sent as a board to everybody at the table.
+     */
+    static final ActionBudget MOVES = new ActionBudget(30, 256);
+
+    /** Undos: each one refolds the whole game, so fewer. */
+    static final ActionBudget UNDOS = new ActionBudget(2, 6);
+
+    /** Forgets every player's budget, for a server that is stopping. */
+    public static void clear() {
+        MOVES.clear();
+        UNDOS.clear();
+    }
+
     public static void handle(ServerPlayer player, TableActionPayload payload) {
+        if (!MOVES.spend(player.getUUID(), 1)) {
+            return;
+        }
         ServerLevel level = player.serverLevel();
         BlockPos origin = TableReach.originFor(player, payload.table()).orElse(null);
         if (origin == null) {
@@ -65,6 +84,9 @@ public final class TableActions {
             return;
         }
         int limit = Math.min(payload.events().size(), dev.gathering.core.ui.BulkLimit.MOST_AT_ONCE);
+        if (!MOVES.spend(player.getUUID(), limit)) {
+            return;
+        }
         boolean unshown = false;
         for (int index = 0; index < limit; index++) {
             if (!apply(level, origin, player, payload.events().get(index))) {
@@ -201,6 +223,9 @@ public final class TableActions {
      * table allows and a reason when it does not.
      */
     public static void handleUndo(ServerPlayer player, UndoPayload payload) {
+        if (!UNDOS.spend(player.getUUID(), 1)) {
+            return;
+        }
         ServerLevel level = player.serverLevel();
         BlockPos clicked = payload.table();
         BlockPos origin = TableReach.originFor(player, clicked).orElse(null);

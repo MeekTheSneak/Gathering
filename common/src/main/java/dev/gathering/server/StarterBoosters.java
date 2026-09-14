@@ -233,13 +233,24 @@ public final class StarterBoosters {
     }
 
     /**
+     * Asks each player may make. Every ask reads the list from disk on the server thread, so a
+     * client sending them in a loop was a disk read and a chat line a tick.
+     */
+    private static final ActionBudget ASKS = new ActionBudget(0.5, 2);
+
+    /** Forgets every player's asks, for a server that is stopping. The list itself is on disk. */
+    public static void clear() {
+        ASKS.clear();
+    }
+
+    /**
      * Answers a client that has picked its two colors.
      * <p>The colors are letters on the wire and are looked up here, so a client cannot send a
      * sixth color, and nothing a client sends decides which cards come out - it decides which
      * ninth of the product the seed picks from, and the seed is the server's.
      */
     public static void handle(ServerPlayer player, dev.gathering.network.StarterPayload asked) {
-        if (player == null || asked == null) {
+        if (player == null || asked == null || !ASKS.spend(player.getUUID(), 1)) {
             return;
         }
         List<MagicColor> picked = asked.colors().stream()

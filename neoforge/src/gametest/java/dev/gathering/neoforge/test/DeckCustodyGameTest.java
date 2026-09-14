@@ -427,19 +427,40 @@ public final class DeckCustodyGameTest {
         SeatAnchor seat = TableClusters.at(helper.getLevel(), origin).seats().get(0);
         TableSeats.take(helper.getLevel(), origin, seat.cell(), seat.side(), squatter.getUUID());
 
+        // The owner is somebody who has left the world: not the squatter, and not anybody here.
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        helper.getLevel().removePlayerImmediately(owner, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        dev.gathering.server.Owed.forget(owner.getUUID());
         TableBlockEntity table = tableAt(helper, origin);
-        table.holdDeck(new SeatId(0), deck(), null, new UUID(92L, 1L));
+        table.holdDeck(new SeatId(0), deck(), null, owner.getUUID());
         TableSessions.returnDecks(helper.getLevel(), origin, table);
 
-        if (deckInInventory(squatter).isPresent()) {
-            helper.fail("an absent player's deck was handed to whoever sat in their chair");
-            return;
+        try {
+            if (deckInInventory(squatter).isPresent()) {
+                helper.fail("an absent player's deck was handed to whoever sat in their chair");
+                return;
+            }
+            // Not left on the table either, which is where anybody passing could pick it up:
+            // kept for them, and handed over when they join. Leaving it on the table was the
+            // behavior this test used to expect; a security review showed it let whoever
+            // ended the game walk off with an absent player's deck.
+            if (deckOnTheFloor(helper, origin).isPresent()) {
+                helper.fail("an absent player's deck was left on the table for anybody to take");
+                return;
+            }
+            if (dev.gathering.server.Owed.waitingFor(owner.getUUID()) != 1) {
+                helper.fail("an absent player's deck was not kept for them");
+                return;
+            }
+            dev.gathering.server.Owed.deliver(owner);
+            if (deckInInventory(owner).map(kept -> kept.entries().equals(deck().entries()) && kept.sideboard().equals(deck().sideboard())).orElse(false) == false) {
+                helper.fail("the kept deck did not come back to its owner whole when they joined");
+                return;
+            }
+            helper.succeed();
+        } finally {
+            dev.gathering.server.Owed.forget(owner.getUUID());
         }
-        if (deckOnTheFloor(helper, origin).isEmpty()) {
-            helper.fail("an absent player's deck was not left on the table for them");
-            return;
-        }
-        helper.succeed();
     }
 
     /** A deck from before decks knew their owner still goes to the chair it was put down at. */

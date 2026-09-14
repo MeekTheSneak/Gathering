@@ -474,6 +474,17 @@ public final class GatheringCommands {
             seat = new dev.gathering.core.game.SeatId(0);
         }
 
+        // A pot changes the answer. Ending a game hands every stake back, so a player about to
+        // lose a game played for keeps could type this and keep their card. Conceding is how a
+        // game for keeps ends early; clearing a stuck one is an operator's call.
+        boolean potHeld = dev.gathering.block.TableSessions.anchorOf(player.level(), origin)
+                .flatMap(anchor -> dev.gathering.block.TableBlock.entityAt(player.level(), anchor))
+                .map(table -> !table.pot().isEmpty()).orElse(false);
+        if (potHeld && !source.hasPermission(2)) {
+            source.sendFailure(net.minecraft.network.chat.Component.translatable("message.gathering.ante_concede_instead"));
+            return 0;
+        }
+
         dev.gathering.block.TableSessions.Outcome outcome = dev.gathering.block.TableSessions.end(
                 player.level(), origin, seat, "ended by " + player.getGameProfile().getName());
         source.sendSuccess(() -> net.minecraft.network.chat.Component.translatable(

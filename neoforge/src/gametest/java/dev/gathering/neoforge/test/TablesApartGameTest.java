@@ -147,6 +147,27 @@ public final class TablesApartGameTest {
         helper.succeed();
     }
 
+    /** Somebody walking past cannot rearrange a long table; somebody sitting at it can. */
+    @GameTest(template = "tables")
+    public static void onlySomebodySeatedChangesHowTablesArePlayed(GameTestHelper helper) {
+        BlockPos first = place(helper, 1, 2, 1);
+        place(helper, 3, 2, 1);
+        var passerBy = helper.makeMockServerPlayerInLevel();
+        passerBy.setPos(first.getX() + 1.0, first.getY(), first.getZ() + 1.0);
+        TablesApart.handle(passerBy, new dev.gathering.network.TablesApartPayload(first, true));
+        if (TableBlock.entityAt(helper.getLevel(), first).orElseThrow().playsApart()) {
+            helper.fail("a player not sitting at the tables split them");
+            return;
+        }
+        TableSeats.take(helper.getLevel(), first, new TableCell(0, 0), Side.NORTH, passerBy.getUUID());
+        TablesApart.handle(passerBy, new dev.gathering.network.TablesApartPayload(first, true));
+        if (!TableBlock.entityAt(helper.getLevel(), first).orElseThrow().playsApart()) {
+            helper.fail("a player sitting at the tables could not split them");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static BlockPos place(GameTestHelper helper, int x, int y, int z) {
         BlockPos origin = helper.absolutePos(new BlockPos(x, y, z));
         var table = GatheringContent.TABLE.get().defaultBlockState();

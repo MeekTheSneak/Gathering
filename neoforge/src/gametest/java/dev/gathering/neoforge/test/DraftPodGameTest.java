@@ -64,6 +64,61 @@ public final class DraftPodGameTest {
         helper.succeed();
     }
 
+    /**
+     * A cube draft's pools are for playing and not for keeping. The cube stays whole in its
+     * owner's hands, so pools kept as real cards made every card in it twice, every time it was
+     * drafted - which a security review reproduced.
+     */
+    @GameTest(template = "tables", timeoutTicks = 200)
+    public static void acubeDraftsPoolsAreLoanersNotNewCards(GameTestHelper helper) {
+        BlockPos origin = twoTables(helper);
+        List<net.minecraft.server.level.ServerPlayer> drafters = new ArrayList<>();
+        TableCell[] cells = {new TableCell(0, 0), new TableCell(0, 0), new TableCell(1, 0), new TableCell(1, 0)};
+        Side[] sides = {Side.NORTH, Side.SOUTH, Side.NORTH, Side.SOUTH};
+        for (int index = 0; index < 4; index++) {
+            var player = helper.makeMockServerPlayerInLevel();
+            player.setPos(origin.getX() + 1.0, origin.getY(), origin.getZ() + 1.0);
+            TableSeats.take(helper.getLevel(), origin, cells[index], sides[index], player.getUUID());
+            drafters.add(player);
+        }
+        if (DraftPods.start(helper.getLevel(), origin, cubeOf(200), true) != DraftPods.Outcome.STARTED) {
+            helper.fail("the cube draft did not start");
+            return;
+        }
+        for (int turn = 0; turn < 200 && DraftPods.podAt(helper.getLevel(), origin).isPresent(); turn++) {
+            DraftPod pod = DraftPods.podAt(helper.getLevel(), origin).orElseThrow();
+            for (var player : drafters) {
+                DrafterId place = pod.placeOf(player.getUUID()).orElseThrow();
+                int due = pod.state().picksDueFrom(place);
+                if (due > 0 && !pod.state().hasDeclared(place)) {
+                    List<Integer> first = new ArrayList<>();
+                    for (int position = 0; position < due; position++) {
+                        first.add(position);
+                    }
+                    dev.gathering.server.DraftActions.handle(player, origin, first);
+                    pod = DraftPods.podAt(helper.getLevel(), origin).orElse(pod);
+                }
+            }
+        }
+        if (DraftPods.podAt(helper.getLevel(), origin).isPresent()) {
+            helper.fail("the cube draft did not finish");
+            return;
+        }
+        for (var player : drafters) {
+            var pool = player.getInventory().items.stream()
+                    .map(dev.gathering.item.DeckItem::deckOf).flatMap(java.util.Optional::stream).findFirst().orElse(null);
+            if (pool == null) {
+                helper.fail("a drafter was handed no pool");
+                return;
+            }
+            if (!pool.loaner()) {
+                helper.fail("a cube draft's pool was handed out as cards to keep");
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
     /** Three people is not a pod, and being told so is better than a draft that plays badly. */
     @GameTest(template = "tables")
     public static void threePeopleAreNotAPod(GameTestHelper helper) {

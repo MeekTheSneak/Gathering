@@ -41,7 +41,32 @@ public record DeckComponent(
         List<CardComponent> sideboard,
         Optional<Integer> color,
         dev.gathering.core.card.Sleeve sleeve,
-        List<DeckComponent.Kept> stories) {
+        List<DeckComponent.Kept> stories,
+        boolean loaner) {
+
+    /**
+     * A deck with no loaner mark: every deck but one borrowed from the server's shelf.
+     */
+    public DeckComponent(
+            String name, String description, Optional<UUID> owner,
+            List<CardComponent> entries, List<CardComponent> commanders,
+            List<CardComponent> sideboard, Optional<Integer> color,
+            dev.gathering.core.card.Sleeve sleeve, List<DeckComponent.Kept> stories) {
+        this(name, description, owner, entries, commanders, sideboard, color, sleeve, stories, false);
+    }
+
+    /**
+     * The same deck, lent from the server's shelf.
+     * <p>A loaner is cards to play with, not cards to keep. It is made out of nothing - that is
+     * what lets somebody with no cards sit down and play - so nothing may turn it into cards
+     * that exist: it cannot be poured into a collection, have cards taken out of it, take cards
+     * in, or be staked at a table playing for keeps. The mark is part of the deck, so it goes
+     * wherever the deck goes: into a table's keeping and back, through sideboarding, renaming
+     * and sleeving.
+     */
+    public DeckComponent lent() {
+        return new DeckComponent(name, description, owner, entries, commanders, sideboard, color, sleeve, stories, true);
+    }
 
     /**
      * Where a card in this deck has been, kept beside the deck rather than on the card.
@@ -112,7 +137,8 @@ public record DeckComponent(
             Codec.STRING.optionalFieldOf("sleeve", dev.gathering.core.card.Sleeve.DEFAULT.name())
                     .xmap(dev.gathering.core.card.Sleeve::named, dev.gathering.core.card.Sleeve::name)
                     .forGetter(DeckComponent::sleeve),
-            KEPT.listOf().optionalFieldOf("stories", List.of()).forGetter(DeckComponent::stories))
+            KEPT.listOf().optionalFieldOf("stories", List.of()).forGetter(DeckComponent::stories),
+            Codec.BOOL.optionalFieldOf("loaner", false).forGetter(DeckComponent::loaner))
             .apply(instance, DeckComponent::new));
 
 
@@ -156,6 +182,7 @@ public record DeckComponent(
         COLOR.encode(out, deck.color());
         SLEEVE.encode(out, deck.sleeve());
         KEPT_STREAM.encode(out, deck.stories());
+        ByteBufCodecs.BOOL.encode(out, deck.loaner());
     }
 
     /** The histories a deck is keeping, bounded like every other list that crosses. */
@@ -176,7 +203,8 @@ public record DeckComponent(
                 SECTION.decode(in),
                 COLOR.decode(in),
                 SLEEVE.decode(in),
-                KEPT_STREAM.decode(in));
+                KEPT_STREAM.decode(in),
+                ByteBufCodecs.BOOL.decode(in));
     }
 
     /**
@@ -204,6 +232,7 @@ public record DeckComponent(
         ByteBufCodecs.VAR_INT.encode(out, Math.min(MAX_CARDS, deck.sideboard().size()));
         COLOR.encode(out, deck.color());
         SLEEVE.encode(out, deck.sleeve());
+        ByteBufCodecs.BOOL.encode(out, deck.loaner());
     }
 
     private static DeckComponent publicFromNetwork(RegistryFriendlyByteBuf in) {
@@ -213,9 +242,11 @@ public record DeckComponent(
         List<CardComponent> entries = hidden(ByteBufCodecs.VAR_INT.decode(in));
         List<CardComponent> commanders = SECTION.decode(in);
         List<CardComponent> sideboard = hidden(ByteBufCodecs.VAR_INT.decode(in));
+        Optional<Integer> color = COLOR.decode(in);
+        dev.gathering.core.card.Sleeve sleeve = SLEEVE.decode(in);
         return new DeckComponent(
-                name, description, owner, entries, commanders, sideboard,
-                COLOR.decode(in), SLEEVE.decode(in));
+                name, description, owner, entries, commanders, sideboard, color, sleeve, List.of(),
+                ByteBufCodecs.BOOL.decode(in));
     }
 
     /** That many cards, each of them a card this client is not being told the name of. */
@@ -254,7 +285,7 @@ public record DeckComponent(
         List<Kept> kept = new ArrayList<>(stories);
         kept.add(new Kept(card.faceUp(), story));
         return new DeckComponent(
-                name, description, owner, entries, commanders, sideboard, color, sleeve, kept);
+                name, description, owner, entries, commanders, sideboard, color, sleeve, kept, loaner);
     }
 
     /** Whatever history this deck was keeping for a copy of that card, if it was keeping one. */
@@ -274,7 +305,7 @@ public record DeckComponent(
             if (kept.get(at).card().equals(wanted)) {
                 kept.remove(at);
                 return new DeckComponent(
-                        name, description, owner, entries, commanders, sideboard, color, sleeve, kept);
+                        name, description, owner, entries, commanders, sideboard, color, sleeve, kept, loaner);
             }
         }
         return this;
@@ -288,7 +319,7 @@ public record DeckComponent(
     public DeckComponent named(String newName) {
         return new DeckComponent(
                 newName == null ? "" : newName.strip(),
-                description, owner, entries, commanders, sideboard, color, sleeve, stories);
+                description, owner, entries, commanders, sideboard, color, sleeve, stories, loaner);
     }
 
     /**
@@ -300,7 +331,7 @@ public record DeckComponent(
     public DeckComponent colored(int argb) {
         return new DeckComponent(
                 name, description, owner, entries, commanders, sideboard,
-                Optional.of(0xFF000000 | argb), sleeve, stories);
+                Optional.of(0xFF000000 | argb), sleeve, stories, loaner);
     }
 
     /**
@@ -311,7 +342,7 @@ public record DeckComponent(
     public DeckComponent sleeved(dev.gathering.core.card.Sleeve chosen) {
         return new DeckComponent(
                 name, description, owner, entries, commanders, sideboard, color,
-                chosen == null ? dev.gathering.core.card.Sleeve.DEFAULT : chosen, stories);
+                chosen == null ? dev.gathering.core.card.Sleeve.DEFAULT : chosen, stories, loaner);
     }
 
     /** Physical cards in the deck proper - mainboard plus command zone, never the sideboard. */
@@ -416,11 +447,11 @@ public record DeckComponent(
     private DeckComponent withSection(Section section, List<CardComponent> cards) {
         return switch (section) {
             case COMMANDERS -> new DeckComponent(
-                    name, description, owner, entries, cards, sideboard, color, sleeve, stories);
+                    name, description, owner, entries, cards, sideboard, color, sleeve, stories, loaner);
             case MAINBOARD -> new DeckComponent(
-                    name, description, owner, cards, commanders, sideboard, color, sleeve, stories);
+                    name, description, owner, cards, commanders, sideboard, color, sleeve, stories, loaner);
             case SIDEBOARD -> new DeckComponent(
-                    name, description, owner, entries, commanders, cards, color, sleeve, stories);
+                    name, description, owner, entries, commanders, cards, color, sleeve, stories, loaner);
         };
     }
 

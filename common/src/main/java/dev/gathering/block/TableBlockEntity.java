@@ -770,6 +770,32 @@ public class TableBlockEntity extends BlockEntity {
     }
 
     /**
+     * Games of a set still being played, not yet written down for replay.
+     * <p>A replay shows every card, including each library in order - and between games of a
+     * set the same decks go straight back down. Written the moment a game ended, the first game
+     * of a best of three showed the opponent's whole deck to anybody who opened it before the
+     * second. So a set's games are held here and written when the set is over. Not saved: a
+     * restart part-way through a set loses those replays, which is the safe way to be wrong.
+     */
+    private final java.util.List<dev.gathering.core.game.GameSession> replaysHeld = new java.util.ArrayList<>();
+
+    /** The most games of one set held for writing; a best of five is five. */
+    private static final int MOST_HELD_REPLAYS = 8;
+
+    public void holdReplay(dev.gathering.core.game.GameSession finished) {
+        if (replaysHeld.size() < MOST_HELD_REPLAYS) {
+            replaysHeld.add(finished);
+        }
+    }
+
+    /** The held games, handed over once and forgotten. */
+    public java.util.List<dev.gathering.core.game.GameSession> releaseHeldReplays() {
+        java.util.List<dev.gathering.core.game.GameSession> held = java.util.List.copyOf(replaysHeld);
+        replaysHeld.clear();
+        return held;
+    }
+
+    /**
      * Ends the game and the match, keeping nothing.
      * <p>Does not hand the decks back on its own - the caller has players to hand them to and
      * this does not. It does drop them, so a caller that forgets loses them loudly at the next

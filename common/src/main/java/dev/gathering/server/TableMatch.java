@@ -76,7 +76,15 @@ public final class TableMatch {
             // ended, and the shelf refuses one whose last line is not the end.
             session.submit(new dev.gathering.core.game.event.GameEvent.SessionEnded(
                     winner.orElse(session.state().seats().get(0)), "conceded"));
-            TableSessions.rememberTheGame(level, tableOrigin, session);
+            if (next.hasGameToPlay()) {
+                // Not yet: the same decks go back down for the next game. See holdReplay.
+                table.holdReplay(session);
+            } else {
+                for (var held : table.releaseHeldReplays()) {
+                    TableSessions.rememberTheGame(level, tableOrigin, held);
+                }
+                TableSessions.rememberTheGame(level, tableOrigin, session);
+            }
         });
 
         if (next.hasGameToPlay()) {

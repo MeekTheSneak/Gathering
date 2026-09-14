@@ -57,7 +57,11 @@ public final class CardDataService implements AutoCloseable {
     private final DeckImporter importer;
 
     private CardDataService(Path cacheRoot, String userAgent) throws IOException {
-        this.executor = Executors.newSingleThreadExecutor(ServiceThreads.named("gathering-scryfall"));
+        // One worker, and a bounded queue in front of it. Unbounded, a queue of lookups could grow
+        // faster than Scryfall's rate lets it drain - every request waiting behind the rest, and
+        // memory growing with it. Past the bound a lookup fails at once, and says so.
+        this.executor = new java.util.concurrent.ThreadPoolExecutor(1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
+                new java.util.concurrent.LinkedBlockingQueue<>(MOST_QUEUED), ServiceThreads.named("gathering-scryfall"));
         this.store = new DiskCardMetadataStore(cacheRoot);
         this.client = new ScryfallClient(new JdkHttpTransport(), RateLimiter.defaultLimiter(), userAgent);
         this.source = new CachingCardSource(store, client);
@@ -328,14 +332,21 @@ public final class CardDataService implements AutoCloseable {
         }
     }
 
+    /** The most lookups waiting for the card worker at once. */
+    static final int MOST_QUEUED = 4096;
+
     private <T> CompletableFuture<T> supply(IoSupplier<T> work) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return work.get();
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }, executor);
+        try {
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    return work.get();
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }, executor);
+        } catch (java.util.concurrent.RejectedExecutionException full) {
+            return CompletableFuture.failedFuture(new IOException("The card lookup queue is full; try again shortly", full));
+        }
     }
 
 

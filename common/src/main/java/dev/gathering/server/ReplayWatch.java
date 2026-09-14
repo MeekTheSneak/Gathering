@@ -78,6 +78,13 @@ public final class ReplayWatch {
      * question they are usually answering is somebody else's complaint.
      */
     public static boolean mayWatch(ServerPlayer player, Replays.Record kept) {
+        if (!player.hasPermissions(2) && kept.players().stream()
+                .anyMatch(played -> dev.gathering.server.events.Events.of(played.id()).isPresent())) {
+            // A tournament's players bring the same deck to every round. A game one of them
+            // played is not shown to anybody but an operator until their event is over, or it
+            // is next round's opponent reading their list.
+            return false;
+        }
         return switch (ServerSettings.get().modes().replays()) {
             case PUBLIC -> true;
             case PARTICIPANTS -> kept.wasPlayedBy(player.getUUID())
@@ -96,7 +103,10 @@ public final class ReplayWatch {
             return;
         }
         if (asked.id().isBlank()) {
-            sendList(player);
+            // Listing reads the replay folder; asked in a loop it is a folder read a tick.
+            if (ActionBudget.TABLE_REQUESTS.spend(player.getUUID(), 1)) {
+                sendList(player);
+            }
             return;
         }
         sendFrame(player, asked.id(), asked.step());

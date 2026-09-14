@@ -59,6 +59,21 @@ public final class GatheringProtocol {
         return new ToServer<>(type, codec, handler);
     }
 
+    /**
+     * The same handler, answered only while the player has budget left for it.
+     * <p>For the requests that cost the server more than the packet: a card lookup queued behind
+     * everybody else's on the one card worker, or a board sent to everybody at a table. A person
+     * never runs one of these dry; a client sending them in a loop does, and is dropped.
+     */
+    private static <T> BiConsumer<ServerPlayer, T> budgeted(
+            dev.gathering.server.ActionBudget budget, BiConsumer<ServerPlayer, T> handler) {
+        return (player, payload) -> {
+            if (budget.spend(player.getUUID(), 1)) {
+                handler.accept(player, payload);
+            }
+        };
+    }
+
     private static <T extends CustomPacketPayload> ToClient<T> toClient(
             CustomPacketPayload.Type<T> type, StreamCodec<? super RegistryFriendlyByteBuf, T> codec) {
         return new ToClient<>(type, codec);
@@ -102,48 +117,48 @@ public final class GatheringProtocol {
             toServer(SideboardEditPayload.TYPE, SideboardEditPayload.STREAM_CODEC,
                     dev.gathering.server.Sideboarding::handle),
             toServer(CreateTokenPayload.TYPE, CreateTokenPayload.STREAM_CODEC,
-                    (player, payload) -> CardDataService.active().ifPresent(service ->
-                            dev.gathering.server.TokenCreation.handle(player, service, payload))),
+                    budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS, (player, payload) -> CardDataService.active().ifPresent(service ->
+                            dev.gathering.server.TokenCreation.handle(player, service, payload)))),
             toServer(MakeTokenPayload.TYPE, MakeTokenPayload.STREAM_CODEC,
-                    (player, payload) -> CardDataService.active().ifPresent(service ->
-                            dev.gathering.server.TokenCreation.handleChosen(player, service, payload))),
+                    budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS, (player, payload) -> CardDataService.active().ifPresent(service ->
+                            dev.gathering.server.TokenCreation.handleChosen(player, service, payload)))),
             toServer(StarterPayload.TYPE, StarterPayload.STREAM_CODEC,
                     dev.gathering.server.StarterBoosters::handle),
             toServer(PracticePayload.TYPE, PracticePayload.STREAM_CODEC,
                     dev.gathering.server.PracticeTable::handle),
             toServer(BringInDungeonPayload.TYPE, BringInDungeonPayload.STREAM_CODEC,
-                    (player, payload) -> CardDataService.active().ifPresent(service ->
-                            dev.gathering.server.Dungeons.handle(player, service, payload))),
+                    budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS, (player, payload) -> CardDataService.active().ifPresent(service ->
+                            dev.gathering.server.Dungeons.handle(player, service, payload)))),
             toServer(AskSetProgressPayload.TYPE, AskSetProgressPayload.STREAM_CODEC,
-                    (player, payload) -> dev.gathering.server.CollectionSets.progress(
-                            player, payload.collection())),
+                    budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS, (player, payload) -> dev.gathering.server.CollectionSets.progress(
+                            player, payload.collection()))),
             toServer(MarkWantedPayload.TYPE, MarkWantedPayload.STREAM_CODEC,
                     (player, payload) -> dev.gathering.server.Wants.mark(
                             player, payload.printing(), payload.wanted())),
             toServer(AskSetMissingPayload.TYPE, AskSetMissingPayload.STREAM_CODEC,
-                    (player, payload) -> dev.gathering.server.CollectionSets.missing(
-                            player, payload.collection(), payload.setCode())),
+                    budgeted(dev.gathering.server.ActionBudget.WHOLE_SETS, (player, payload) -> dev.gathering.server.CollectionSets.missing(
+                            player, payload.collection(), payload.setCode()))),
             toServer(TableChatPayload.TYPE, TableChatPayload.STREAM_CODEC,
                     dev.gathering.server.TableTalk::handle),
             toServer(RollDicePayload.TYPE, RollDicePayload.STREAM_CODEC,
-                    dev.gathering.server.DiceRolls::roll),
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS, dev.gathering.server.DiceRolls::roll)),
             toServer(RollPlanarPayload.TYPE, RollPlanarPayload.STREAM_CODEC,
-                    dev.gathering.server.DiceRolls::planar),
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS, dev.gathering.server.DiceRolls::planar)),
             toServer(FlipCoinPayload.TYPE, FlipCoinPayload.STREAM_CODEC,
-                    dev.gathering.server.DiceRolls::flip),
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS, dev.gathering.server.DiceRolls::flip)),
             toServer(FetchBasicPayload.TYPE, FetchBasicPayload.STREAM_CODEC,
-                    dev.gathering.server.BasicLandFetch::handle),
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS, dev.gathering.server.BasicLandFetch::handle)),
             toServer(RevealUntilPayload.TYPE, RevealUntilPayload.STREAM_CODEC,
-                    dev.gathering.server.LibraryReveals::handle),
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS, dev.gathering.server.LibraryReveals::handle)),
             toServer(DiscardAtRandomPayload.TYPE, DiscardAtRandomPayload.STREAM_CODEC,
-                    dev.gathering.server.RandomDiscards::handle),
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS, dev.gathering.server.RandomDiscards::handle)),
             toServer(ToBottomAtRandomPayload.TYPE, ToBottomAtRandomPayload.STREAM_CODEC,
-                    dev.gathering.server.RandomReturns::handle),
+                    budgeted(dev.gathering.server.ActionBudget.TABLE_REQUESTS, dev.gathering.server.RandomReturns::handle)),
             toServer(DraftPickPayload.TYPE, DraftPickPayload.STREAM_CODEC,
                     (player, payload) -> dev.gathering.server.DraftActions.handle(
                             player, payload.pod(), payload.positions())),
             toServer(AddBasicsPayload.TYPE, AddBasicsPayload.STREAM_CODEC,
-                    dev.gathering.server.BasicLands::handle),
+                    budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS, dev.gathering.server.BasicLands::handle)),
             toServer(PocketCardsPayload.TYPE, PocketCardsPayload.STREAM_CODEC,
                     dev.gathering.server.PocketCards::handle),
             toServer(CollectionSearchPayload.TYPE, CollectionSearchPayload.STREAM_CODEC,

@@ -443,6 +443,23 @@ class GameSessionTest {
     }
 
     @Test
+    @DisplayName("a game's record stops growing long before it could no longer be read back, and can still be ended")
+    void aRecordFullOfMovesStopsTakingMoves() throws Exception {
+        GameSession session = GameSession.sandbox(40);
+        SeatId solo = SeatId.of(0);
+        session.submit(new GameEvent.SeatTaken(solo, new PlayerRef(UUID.randomUUID(), "Chris")));
+        while (session.records().size() < GameSession.MOST_RECORDS) {
+            session.submit(new GameEvent.LifeChanged(solo, solo, 1));
+        }
+        assertThat(session.submit(new GameEvent.LifeChanged(solo, solo, 1)))
+                .isInstanceOf(GameSession.Result.Rejected.class);
+        assertThat(session.undo(solo, 1, List.of())).isInstanceOf(GameSession.Result.Rejected.class);
+        assertThat(session.submit(new GameEvent.SessionEnded(solo, "full")))
+                .isInstanceOf(GameSession.Result.Accepted.class);
+        assertThat(session.records().size()).isLessThanOrEqualTo(dev.gathering.core.game.persistence.SessionCodec.MAX_LIST);
+    }
+
+    @Test
     @DisplayName("a solo table needs no other humans, which is what goldfishing on a weeknight requires")
     void sandboxSessionsWork() {
         GameSession session = GameSession.sandbox(40);

@@ -58,10 +58,7 @@ public final class ClientSetSymbols {
 
     private final ExecutorService fetchers =
             Executors.newFixedThreadPool(1, daemonThreads("gathering-set-symbols"));
-    private final HttpClient http = HttpClient.newBuilder()
-            .connectTimeout(TIMEOUT)
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
+    private final HttpClient http = AllowedFetch.client(TIMEOUT);
 
     /** The outlines, once read. Written from a fetcher, read from the render thread. */
     private final Map<String, SetSymbol> outlines = new ConcurrentHashMap<>();
@@ -159,19 +156,22 @@ public final class ClientSetSymbols {
 
     private String download(String code) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(SYMBOLS + code + ".svg"))
-                    .timeout(TIMEOUT)
-                    .header("User-Agent", userAgent)
-                    .header("Accept", "image/svg+xml")
-                    .GET()
-                    .build();
-            HttpResponse<String> response =
-                    http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() != 200) {
-                LOGGER.warn("The symbol for {} came back as HTTP {}", code, response.statusCode());
-                return null;
+            HttpResponse<java.io.InputStream> response =
+                    AllowedFetch.get(http, SYMBOLS + code + ".svg", userAgent, "image/svg+xml", TIMEOUT);
+            String body;
+            try (java.io.InputStream in = response.body()) {
+                if (response.statusCode() != 200) {
+                    LOGGER.warn("The symbol for {} came back as HTTP {}", code, response.statusCode());
+                    return null;
+                }
+                // Read up to a symbol's worth, never a body with no end to it.
+                byte[] bytes = in.readNBytes(MOST_BYTES + 1);
+                if (bytes.length > MOST_BYTES) {
+                    LOGGER.warn("The symbol for {} came back far too large to be one", code);
+                    return null;
+                }
+                body = new String(bytes, StandardCharsets.UTF_8);
             }
-            String body = response.body();
             if (body == null || body.isBlank()) {
                 // Not written to the cache: an empty file there was read back as the symbol
                 // on every later launch, and the set stayed blank for good.

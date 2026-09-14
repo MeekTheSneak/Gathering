@@ -114,7 +114,9 @@ public final class LoanerDecks {
                 deck.entries(), deck.commanders(), deck.sideboard())
                 // The shelf's own, not the borrower's: two people who took the same deck
                 // should be able to see at a glance that they did.
-                .colored(dev.gathering.core.card.DeckColors.pick(deck.name().hashCode())));
+                .colored(dev.gathering.core.card.DeckColors.pick(deck.name().hashCode()))
+                // Marked as lent, so these cards can be played with and never kept: see lent().
+                .lent());
     }
 
     /**

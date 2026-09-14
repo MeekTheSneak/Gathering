@@ -447,27 +447,49 @@ public final class CollectionView {
                     Component.translatable("message.gathering.collection_may_not_take"));
         }
 
+        if (!mayBuildNow(player)) {
+            Sending.to(player, new dev.gathering.network.ImportResultPayload(
+                    asked.name(), 0, List.of(Component.translatable("message.gathering.build_too_soon").getString()),
+                    asked.request()));
+            return;
+        }
         CardDataService service = CardDataService.active().orElse(null);
         List<CardComponent> got = new ArrayList<>();
         List<CardComponent> commanders = new ArrayList<>();
         int missed = 0;
         for (CardComponent wanted : asked.commander().map(List::of).orElse(List.of())) {
-            if (claim(service, player, mayTake ? collection : null, wanted)) {
-                commanders.add(wanted.faceUp());
+            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted);
+            if (claimed != null) {
+                commanders.add(claimed);
             } else {
                 missed++;
             }
         }
         for (CardComponent wanted : asked.cards()) {
-            if (claim(service, player, mayTake ? collection : null, wanted)) {
-                got.add(wanted.faceUp());
+            CardComponent claimed = claim(service, player, mayTake ? collection : null, wanted);
+            if (claimed != null) {
+                got.add(claimed);
             } else {
                 missed++;
             }
         }
+        if (got.isEmpty() && commanders.isEmpty()) {
+            // Nothing was found. An empty deck is not a thing to hand over, and handing one over
+            // for every request filled an inventory and then the ground around it.
+            Component nothing = Component.translatable("message.gathering.collection_deck_nothing");
+            player.sendSystemMessage(nothing);
+            Sending.to(player, new dev.gathering.network.ImportResultPayload(
+                    asked.name(), 0, List.of(nothing.getString()), asked.request()));
+            return;
+        }
 
+        // Both drawn for other players - the name on the item, the description in its tooltip -
+        // so cleaned the way any text one player shows another is.
+        String name = dev.gathering.core.game.PlayerText.oneLine(asked.name(), BuildDeckPayload.LONGEST_NAME);
         DeckComponent deck = new DeckComponent(
-                asked.name(), asked.description(), Optional.of(player.getUUID()),
+                name == null ? "" : name,
+                dev.gathering.core.game.PlayerText.lines(asked.description(), BuildDeckPayload.LONGEST_DESCRIPTION),
+                Optional.of(player.getUUID()),
                 List.copyOf(got), List.copyOf(commanders), List.of())
                 .colored(dev.gathering.core.card.DeckColors.pick(player.level().getRandom().nextLong()))
                 // In whatever the builder was showing when Finish was pressed. The server
@@ -504,19 +526,39 @@ public final class CollectionView {
      *
      * @param collection the box to take from, or null where this player may not take from it
      */
-    private static boolean claim(CardDataService service, ServerPlayer player,
+    private static CardComponent claim(CardDataService service, ServerPlayer player,
             CollectionBlockEntity collection, CardComponent wanted) {
         if (wanted == null) {
-            return false;
+            return null;
         }
         CardIdentity identity = wanted.faceUp().toIdentity();
         if (isBasic(service, identity)) {
-            return true;
+            // Free, and so never foil: a free basic is the land a deck needs, not a foil to
+            // pour into a collection or trade.
+            return identity.printing()
+                    .map(printing -> CardComponent.of(CardIdentity.ofPrinting(printing, false)))
+                    .orElse(null);
         }
         if (collection != null && collection.take(identity, 1) > 0) {
-            return true;
+            return wanted.faceUp();
         }
-        return PocketCards.take(player, wanted);
+        return PocketCards.take(player, wanted) ? wanted.faceUp() : null;
+    }
+
+    /** The last build each player asked for, so one cannot be asked for every tick. */
+    private static final Map<UUID, Long> LAST_BUILD = new java.util.HashMap<>();
+
+    private static boolean mayBuildNow(ServerPlayer player) {
+        long now = System.currentTimeMillis();
+        Long last = LAST_BUILD.get(player.getUUID());
+        if (last != null && now - last < 1_000L) {
+            return false;
+        }
+        if (LAST_BUILD.size() > 512) {
+            LAST_BUILD.clear();
+        }
+        LAST_BUILD.put(player.getUUID(), now);
+        return true;
     }
 
     /**
@@ -578,6 +620,11 @@ public final class CollectionView {
         DeckComponent deck = DeckItem.deckOf(held).orElse(null);
         if (collection == null || deck == null) {
             return false;
+        }
+        if (deck.loaner()) {
+            // A loaner was made out of nothing; pouring it in would make its cards real.
+            player.sendSystemMessage(Component.translatable("message.gathering.loaner_not_kept"));
+            return true;
         }
         if (!collection.rights().mayAdd(player.getUUID())) {
             player.sendSystemMessage(
@@ -641,6 +688,7 @@ public final class CollectionView {
 
     /** Forgets everybody's, for a server that is stopping. */
     public static void clear() {
+        LAST_BUILD.clear();
         LAST_SEARCH.clear();
         ORDERED.clear();
     }

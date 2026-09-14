@@ -83,6 +83,11 @@ public final class DeckEdits {
             return;
         }
         DeckComponent deck = held.get();
+        if (deck.loaner() && edit.action() == DeckEditPayload.Action.TAKE) {
+            // A card taken out of a loaner would be a card made out of nothing.
+            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("message.gathering.loaner_not_kept"));
+            return;
+        }
 
         Optional<DeckComponent> updated = switch (edit.action()) {
             case TAKE -> take(player, deck, edit.from(), edit.card());
