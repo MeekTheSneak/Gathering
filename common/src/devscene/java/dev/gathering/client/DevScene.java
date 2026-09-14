@@ -1993,6 +1993,12 @@ public final class DevScene {
                 }
                 System.out.println(
                         "[devscene] a card left the hand at random and landed in the graveyard");
+                // Back onto the written card, whose tooltip the next step reads. It was pointed
+                // at five steps ago, and any real movement over the window in between - the
+                // discard's question opening and closing is a long stretch - carried the
+                // game's cursor off it. The hover checks elsewhere read the step after they
+                // point; this one now does too.
+                restOnTheWrittenCard(client);
                 advance(SETTLE / 2);
             }
             case 172 -> {
