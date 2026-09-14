@@ -81,6 +81,9 @@ public final class DraftPods {
         if (table.hasPod()) {
             return Outcome.ALREADY_DRAFTING;
         }
+        if (table.hasSignup()) {
+            return Outcome.SIGNING_UP;
+        }
         if (table.hasSession()) {
             // A cluster runs one thing. Drafting on top of a game in progress would put two
             // screens on the same tables with no way to say which one anybody meant.
@@ -120,6 +123,7 @@ public final class DraftPods {
     public enum Outcome {
         STARTED,
         ALREADY_DRAFTING,
+        SIGNING_UP,
         GAME_RUNNING,
         TOO_FEW,
         TOO_MANY,

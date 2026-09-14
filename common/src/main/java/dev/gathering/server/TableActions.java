@@ -117,6 +117,7 @@ public final class TableActions {
             // took, not the game.
             TableSessions.returnDeckTo(level, origin, released.actor());
             Antes.seatsChanged(level, origin);
+            PodSignups.seatReleased(level, origin, player.getUUID());
         }
         TableSessions.markDirty(level, origin);
         return true;

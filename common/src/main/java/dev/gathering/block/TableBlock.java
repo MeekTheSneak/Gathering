@@ -271,6 +271,10 @@ public class TableBlock extends BaseEntityBlock {
             }
             TableSessions.returnDecks(level, origin, table);
             TableSessions.settlePot(level, origin, table, null);
+            // And the packs held for an event that now has nowhere to happen.
+            if (level instanceof net.minecraft.server.level.ServerLevel gone && table.hasSignup()) {
+                dev.gathering.server.PodSignups.handBackEverything(gone, origin, table, "pod_signup_table_gone");
+            }
         });
     }
 
@@ -382,6 +386,14 @@ public class TableBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
 
+        // A pack in hand at a table signing up for an event is a pack being put in.
+        if (player instanceof net.minecraft.server.level.ServerPlayer bringing
+                && stack.has(dev.gathering.registry.GatheringComponents.PACK.get())
+                && entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
+            dev.gathering.server.PodSignups.putIn(bringing, tableOrigin, stack);
+            return ItemInteractionResult.SUCCESS;
+        }
+
         // A draft running here means you came to pick from your pack.
         if (player instanceof net.minecraft.server.level.ServerPlayer drafting
                 && level instanceof net.minecraft.server.level.ServerLevel draftLevel
@@ -488,6 +500,7 @@ public class TableBlock extends BaseEntityBlock {
             tellTheTableWhoIsSittingAtIt(level, tableOrigin);
             if (level instanceof net.minecraft.server.level.ServerLevel stood) {
                 dev.gathering.server.Antes.seatsChanged(stood, tableOrigin);
+                dev.gathering.server.PodSignups.seatReleased(stood, tableOrigin, player.getUUID());
             }
             return ItemInteractionResult.SUCCESS;
         }

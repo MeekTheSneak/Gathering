@@ -111,6 +111,11 @@ public final class TableSessions {
         if (table.hasSession()) {
             return Outcome.ALREADY_RUNNING;
         }
+        // One thing at a time on a cluster. A game started over an event being signed up for
+        // would leave the packs held for something the tables are no longer free to run.
+        if (table.hasSignup() || table.hasPod()) {
+            return Outcome.EVENT_HERE;
+        }
 
         TableCluster cluster = TableClusters.at(level, tableOrigin);
         List<SeatAnchor> anchors = cluster.seats();
@@ -515,6 +520,7 @@ public final class TableSessions {
         ALREADY_RUNNING,
         NOT_RUNNING,
         NOBODY_SEATED,
+        EVENT_HERE,
         NO_TABLE;
 
         public String messageKey() {

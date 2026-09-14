@@ -21,6 +21,7 @@ check is the pre-game deck check the brief already allows.
 | Leaving | 5 minutes' grace, then a match loss; still gone at the next round, dropped. Dropping mid-round concedes the current match |
 | Pack entry | As customizable as possible at creation: who brings packs (each player / host sponsor / generated where config allows / cube), which packs count (any / one set / set per round), how many (draft 3, sealed 6), pick 1 or 2, optional pick clock, who keeps the cards (each player / all to sponsor / back to whoever brought the pack) |
 | Formats | Draft, sealed, constructed in any preset |
+| Constructed deck registration | Host setting. When on, signing up submits a deck, which is checked against the event's format (the pre-game deck check the brief allows); the passing list is registered to that player, and during the event the table refuses any deck that is not the registered list. The host chooses: registration off, checked only, or checked and locked to the list |
 | Hosting | Any player may host an event and create a venue |
 | Scale | Large events: advance sign-up from anywhere, a registration point in the venue, check-in, numbered tables with floating text labels |
 | Top cut | Off by default; top 4 or 8 for events of 9 or more |
@@ -61,8 +62,9 @@ Each phase is usable when it lands and goes through the gate and graphical runs 
 3. **T3 - Tournament engine (pure).** States, Swiss pairing, byes, drops, standings,
    tiebreakers, clocks, extra-turn counting, persistence. Proof: exhaustive and randomized tests.
 4. **T4 - Running an event in the world.** Hosting, joining, automatic seating, pairing slips,
-   result confirmation and disputes, private building with Ready, constructed deck registration,
-   restarts. Proof: a scripted 8-player draft event in the graphical client.
+   result confirmation and disputes, private building with Ready, constructed deck registration
+   (format check at sign-up, list registered to the player, other decks refused at the table,
+   host-configurable), restarts. Proof: a scripted 8-player draft event in the graphical client.
 5. **T5 - Venues and large events.** Numbered tables with floating labels, advance sign-up,
    registration points, check-in, seating at scale. Proof: a scripted 16-player constructed event.
 6. **T6 - Records, ratings and admin tools.** World-saved records, private rating, the abuse

@@ -53,6 +53,7 @@ public class TableBlockEntity extends BlockEntity {
     private static final String SEATS_KEY = "seats";
     private static final String SESSION_OPEN_KEY = "session_open";
     private static final String POD_KEY = "draft_pod";
+    private static final String SIGNUP_KEY = "pod_signup";
     private static final String SESSION_SEALED_KEY = "session_sealed";
     private static final String STARTING_LIFE_KEY = "starting_life";
     private static final String FORMAT_KEY = "format";
@@ -295,6 +296,51 @@ public class TableBlockEntity extends BlockEntity {
     public void endPod() {
         this.pod = null;
         setChanged();
+    }
+
+    /**
+     * A draft or sealed event being signed up for here, and the packs it is holding.
+     * <p>On the anchor, beside the pod it will become, for the same reason the pod is: one
+     * cluster runs one thing, and every table in it agrees where that is.
+     */
+    private PodSignup signup;
+
+    /**
+     * Whether a signup read back from the save could not be kept, so its packs are to be
+     * handed back on the next tick - when there is a world to hand them back in.
+     */
+    private boolean signupToHandBack;
+
+    public Optional<PodSignup> signup() {
+        return Optional.ofNullable(signup);
+    }
+
+    public boolean hasSignup() {
+        return signup != null;
+    }
+
+    /** Opens a signup here, or records a pack going in or coming out of the one open. */
+    public void setSignup(PodSignup open) {
+        this.signup = open;
+        setChanged();
+    }
+
+    /**
+     * Closes the signup and hands over every pack it was holding, for the caller to return.
+     * <p>One call rather than a read and a clear: packs read off a signup that was then not
+     * cleared are packs that can be handed back twice.
+     */
+    public java.util.List<PodSignup.Held> closeSignup() {
+        java.util.List<PodSignup.Held> held = signup == null ? java.util.List.of() : signup.held();
+        this.signup = null;
+        this.signupToHandBack = false;
+        setChanged();
+        return held;
+    }
+
+    /** Whether the saved signup could not be kept and is waiting to hand its packs back. */
+    public boolean signupIsToBeHandedBack() {
+        return signupToHandBack && signup != null;
     }
 
     /**
@@ -661,6 +707,9 @@ public class TableBlockEntity extends BlockEntity {
      */
     public static void serverTick(
             net.minecraft.world.level.Level level, BlockPos pos, BlockState state, TableBlockEntity table) {
+        if (table.signupIsToBeHandedBack() && level instanceof net.minecraft.server.level.ServerLevel handing) {
+            dev.gathering.server.PodSignups.handBackEverything(handing, pos, table, "pod_signup_unreadable");
+        }
         if (++table.ambientCountdown < AMBIENT_INTERVAL_TICKS) {
             return;
         }
@@ -836,6 +885,22 @@ public class TableBlockEntity extends BlockEntity {
             }
         }
 
+        // Every pack that reads is kept, and a signup whose settings no longer make sense is
+        // kept too, only to be handed back: the packs in it are people's packs.
+        signup = null;
+        signupToHandBack = false;
+        if (tag.contains(SIGNUP_KEY)) {
+            try {
+                PodSignup.Loaded loaded = PodSignup.read(tag.getCompound(SIGNUP_KEY), registries,
+                        contributor -> LOGGER.error("A pack held at {} for {} will not load",
+                                worldPosition, contributor));
+                signup = loaded.signup();
+                signupToHandBack = loaded.settingsBroken();
+            } catch (RuntimeException unreadable) {
+                LOGGER.error("The signup at {} will not load: {}", worldPosition, unreadable.toString());
+            }
+        }
+
         held.clear();
         ListTag heldDecks = tag.getList(DECKS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < heldDecks.size(); index++) {
@@ -928,6 +993,9 @@ public class TableBlockEntity extends BlockEntity {
         // fresh each time, and there is no path from these bytes to a client.
         if (pod != null) {
             tag.putByteArray(POD_KEY, DraftPodCodec.write(pod));
+        }
+        if (signup != null) {
+            tag.put(SIGNUP_KEY, signup.write(registries));
         }
         ListTag seats = new ListTag();
         claims.forEach((side, player) -> {
