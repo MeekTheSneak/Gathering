@@ -81,11 +81,27 @@ public record CardMetadata(
     }
 
     /**
-     * The tokens and emblems this card makes, named once each, in Scryfall's order.
-     * <p>Names rather than ids, because that is what the token search takes and what a player
-     * would otherwise have typed. Deduplicated because a card that makes two Thrulls lists
-     * the Thrull once per printing it could use, and a menu with the same row twice reads as
-     * a bug.
+     * The tokens and emblems this card makes, each printing once, in Scryfall's order.
+     * <p>By printing rather than by name, because the printing is the token. Making a card's
+     * token used to look its name up afresh and put down whichever token of that name was
+     * printed most recently - so a card that makes a 2/2 green Cat could put down somebody
+     * else's 1/1 white one. Scryfall links the exact printing; this keeps it.
+     */
+    public List<RelatedCard> tokenParts() {
+        java.util.LinkedHashMap<UUID, RelatedCard> made = new java.util.LinkedHashMap<>();
+        for (RelatedCard part : related) {
+            if (part.isMade() && !part.name().isBlank() && !part.id().equals(scryfallId)) {
+                made.putIfAbsent(part.id(), part);
+            }
+        }
+        return List.copyOf(made.values());
+    }
+
+    /**
+     * The same, by name only, named once each.
+     * <p>For anything that only needs to say what a card makes. Making one should go by
+     * {@link #tokenParts}: two different tokens can share a name - a card that makes a 1/1 Cat
+     * and a 2/2 Cat lists two Cats - and a name is not enough to put the right one down.
      */
     public List<String> tokensMade() {
         java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();

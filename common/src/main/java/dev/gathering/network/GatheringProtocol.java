@@ -94,6 +94,9 @@ public final class GatheringProtocol {
             toServer(CreateTokenPayload.TYPE, CreateTokenPayload.STREAM_CODEC,
                     (player, payload) -> CardDataService.active().ifPresent(service ->
                             dev.gathering.server.TokenCreation.handle(player, service, payload))),
+            toServer(MakeTokenPayload.TYPE, MakeTokenPayload.STREAM_CODEC,
+                    (player, payload) -> CardDataService.active().ifPresent(service ->
+                            dev.gathering.server.TokenCreation.handleChosen(player, service, payload))),
             toServer(StarterPayload.TYPE, StarterPayload.STREAM_CODEC,
                     dev.gathering.server.StarterBoosters::handle),
             toServer(PracticePayload.TYPE, PracticePayload.STREAM_CODEC,
@@ -169,7 +172,8 @@ public final class GatheringProtocol {
             toClient(AnteConsentPayload.TYPE, AnteConsentPayload.STREAM_CODEC),
             toClient(ReplayListPayload.TYPE, ReplayListPayload.STREAM_CODEC),
             toClient(ReplayFramePayload.TYPE, ReplayFramePayload.STREAM_CODEC),
-            toClient(OpenSideboardPayload.TYPE, OpenSideboardPayload.STREAM_CODEC));
+            toClient(OpenSideboardPayload.TYPE, OpenSideboardPayload.STREAM_CODEC),
+            toClient(TokenChoicesPayload.TYPE, TokenChoicesPayload.STREAM_CODEC));
 
     /**
      * A decklist to import, handed to the card pipeline's own executor.

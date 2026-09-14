@@ -31,12 +31,15 @@ public final class RelatedTokenGameTest {
     @GameTest(template = "empty")
     public static void theTokensACardMakesReachTheClient(GameTestHelper helper) {
         UUID id = UUID.randomUUID();
+        UUID thrull = UUID.randomUUID();
         CardSummary summary = CardSummary.of(cardMaking(id,
-                new RelatedCard(UUID.randomUUID(), "Thrull", "Token Creature - Thrull", "token"),
+                new RelatedCard(thrull, "Thrull", "Token Creature - Thrull", "token"),
                 new RelatedCard(id, "Tevesh Szat", "Legendary Planeswalker - Szat",
                         "combo_piece")));
 
-        if (!summary.makes().equals(List.of("Thrull"))) {
+        // The printing as well as the name: the menu row makes this exact Thrull, not the
+        // newest token that happens to be called Thrull.
+        if (!summary.makes().equals(List.of(new CardSummary.MadeToken("Thrull", thrull)))) {
             helper.fail("the summary offers " + summary.makes() + " rather than just the Thrull");
             return;
         }

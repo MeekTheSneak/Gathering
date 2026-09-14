@@ -78,4 +78,21 @@ class RelatedCardTest {
                 "1", Rarity.MYTHIC, false, true, true, false, false, List.of("paper"),
                 java.util.Map.of(), java.util.Map.of(), "", List.of(parts));
     }
+
+    @Test
+    @DisplayName("two different tokens with one name are both kept, by printing")
+    void twoCatsAreTwoTokens() {
+        // A card that makes a 1/1 Cat and a 2/2 Cat. By name they are one row; by printing
+        // they are the two tokens the card actually makes, and making one has to know which.
+        UUID card = UUID.randomUUID();
+        UUID smallCat = UUID.randomUUID();
+        UUID bigCat = UUID.randomUUID();
+        CardMetadata maker = withParts(card,
+                new RelatedCard(smallCat, "Cat", "Token Creature - Cat", "token"),
+                new RelatedCard(bigCat, "Cat", "Token Creature - Cat", "token"),
+                new RelatedCard(smallCat, "Cat", "Token Creature - Cat", "token"));
+
+        assertThat(maker.tokensMade()).containsExactly("Cat");
+        assertThat(maker.tokenParts()).extracting(RelatedCard::id).containsExactly(smallCat, bigCat);
+    }
 }

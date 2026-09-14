@@ -20,11 +20,14 @@ import java.util.Map;
  * not known in advance: there is one line per server this player has been to, and the settings
  * file is a fixed set of named options with a schema. Two files with two shapes, each simple,
  * beats one file that is both.
- * <p><b>Names, never identities.</b> What is written is the word somebody typed. An instance id
- * is a handle on one particular card in one particular game; putting one in a file on disk
- * would keep a pointer to something that stopped existing when the game ended, and would make
- * a settings file into a record of what was in somebody's game. {@link Recents} is where the
- * bound and the packing live, and it has never heard of a card.
+ * <p><b>Names, never game identities.</b> What is written is the word somebody typed. An
+ * instance id is a handle on one particular card in one particular game; putting one in a file
+ * on disk would keep a pointer to something that stopped existing when the game ended, and
+ * would make a settings file into a record of what was in somebody's game. {@link Recents} is
+ * where the bound and the packing live, and it has never heard of a card.
+ * <p>The one id written here is a token's <em>printing</em> - Scryfall's public catalog id, the
+ * same for everybody - beside the name it was picked under, because "Cat" names several tokens
+ * and the remembered row has to make the one that was picked. See {@link #rememberTokenVariant}.
  * <p>Client-only.
  */
 public final class RecentThings {
@@ -43,6 +46,9 @@ public final class RecentThings {
      * a recent name could silently unpin it.
      */
     private static final String PINNED_TOKENS = "tokens_pinned";
+
+    /** Which token was picked under each name, as "printing name", most recent first. */
+    private static final String TOKEN_VARIANTS = "tokens_variants";
     private static final String PINNED_COUNTERS = "counters_pinned";
 
     /**
@@ -145,6 +151,41 @@ public final class RecentThings {
     /** Remembers a token name, at the front. */
     public static void rememberToken(String name) {
         remember(keyFor(TOKENS), name);
+    }
+
+    /**
+     * Remembers which token was picked under a name, so the remembered row makes that one.
+     * <p>A name that fits beside its printing in one entry; a longer one is simply not
+     * remembered this way, and its row asks again, which is a question rather than a wrong
+     * token.
+     */
+    public static void rememberTokenVariant(String name, java.util.UUID printing) {
+        if (name == null || printing == null) {
+            return;
+        }
+        String entry = printing + " " + name.strip();
+        if (entry.length() <= Recents.LONGEST_NAME) {
+            remember(keyFor(TOKEN_VARIANTS), entry);
+        }
+    }
+
+    /** The token last picked under this name on this server, if one was. */
+    public static java.util.Optional<java.util.UUID> tokenVariantOf(String name) {
+        if (name == null) {
+            return java.util.Optional.empty();
+        }
+        for (String entry : read(keyFor(TOKEN_VARIANTS))) {
+            int space = entry.indexOf(' ');
+            if (space > 0 && entry.substring(space + 1).equalsIgnoreCase(name.strip())) {
+                try {
+                    return java.util.Optional.of(java.util.UUID.fromString(entry.substring(0, space)));
+                } catch (IllegalArgumentException edited) {
+                    // A file somebody edited by hand. The row asks again rather than guessing.
+                    return java.util.Optional.empty();
+                }
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     /** Remembers a counter name, at the front. */

@@ -781,6 +781,7 @@
   "screen.gathering.table.turn": "Turn %1$s - %2$s",
   "screen.gathering.token.hint": "Thrull, Treasure, Soldier, Beast",
   "screen.gathering.token.name": "Token",
+  "screen.gathering.token.which": "Which %s?",
   "screen.gathering.trade": "Trading with %s",
   "screen.gathering.trade.agree": "Agree",
   "screen.gathering.trade.how": "Click to put up · right-click to take back",

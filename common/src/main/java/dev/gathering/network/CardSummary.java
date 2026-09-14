@@ -25,7 +25,19 @@ import net.minecraft.network.codec.StreamCodec;
  */
 public record CardSummary(
         UUID scryfallId, UUID oracleId, CardFaceSummary front, Optional<CardFaceSummary> back,
-        Rarity rarity, double manaValue, Set<String> colorIdentity, List<String> makes) {
+        Rarity rarity, double manaValue, Set<String> colorIdentity, List<CardSummary.MadeToken> makes) {
+
+    /**
+     * One token or emblem a card makes: what it is called, and exactly which printing it is.
+     * <p>The printing as well as the name, because a name does not pick a token. A card that
+     * makes a 2/2 green Cat has to put down that Cat and not the most recent token of the same
+     * name, which is what looking the name up again did.
+     */
+    public record MadeToken(String name, UUID printing) {
+        public MadeToken {
+            name = name == null ? "" : name;
+        }
+    }
 
     /**
      * The same card with nothing listed under it.
@@ -87,7 +99,10 @@ public record CardSummary(
                         buffer.writeVarInt(card.colorIdentity().size());
                         card.colorIdentity().forEach(buffer::writeUtf);
                         buffer.writeVarInt(card.makes().size());
-                        card.makes().forEach(name -> buffer.writeUtf(name, LONGEST_TOKEN_NAME));
+                        card.makes().forEach(made -> {
+                            buffer.writeUtf(made.name(), LONGEST_TOKEN_NAME);
+                            UUIDUtil.STREAM_CODEC.encode(buffer, made.printing());
+                        });
                     },
                     buffer -> {
                         UUID printing = UUIDUtil.STREAM_CODEC.decode(buffer);
@@ -106,9 +121,10 @@ public record CardSummary(
                             identity.add(buffer.readUtf(LONGEST_COLOR));
                         }
                         int tokens = Math.min(buffer.readVarInt(), MOST_TOKENS);
-                        List<String> makes = new java.util.ArrayList<>();
+                        List<MadeToken> makes = new java.util.ArrayList<>();
                         for (int index = 0; index < tokens; index++) {
-                            makes.add(buffer.readUtf(LONGEST_TOKEN_NAME));
+                            String name = buffer.readUtf(LONGEST_TOKEN_NAME);
+                            makes.add(new MadeToken(name, UUIDUtil.STREAM_CODEC.decode(buffer)));
                         }
                         return new CardSummary(
                                 printing, oracle, front, back, rarity, manaValue, identity, makes);
@@ -127,6 +143,15 @@ public record CardSummary(
         makes = makes == null
                 ? List.of()
                 : List.copyOf(makes.subList(0, Math.min(makes.size(), MOST_TOKENS)));
+    }
+
+    /** What this card makes, by printing. See {@link CardMetadata#tokenParts}. */
+    private static List<MadeToken> madeBy(CardMetadata card) {
+        List<MadeToken> made = new java.util.ArrayList<>();
+        for (dev.gathering.core.card.RelatedCard part : card.tokenParts()) {
+            made.add(new MadeToken(part.name(), part.id()));
+        }
+        return made;
     }
 
     public static final StreamCodec<RegistryFriendlyByteBuf, List<CardSummary>> LIST_STREAM_CODEC =
@@ -152,7 +177,7 @@ public record CardSummary(
                     card.rarity(),
                     card.cmc(),
                     card.colorIdentity(),
-                    card.tokensMade());
+                    madeBy(card));
         }
         return new CardSummary(
                 card.scryfallId(),
@@ -162,7 +187,7 @@ public record CardSummary(
                 card.rarity(),
                 card.cmc(),
                 card.colorIdentity(),
-                card.tokensMade());
+                madeBy(card));
     }
 
     public String name() {

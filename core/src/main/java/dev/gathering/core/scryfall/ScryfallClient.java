@@ -154,16 +154,25 @@ public final class ScryfallClient {
      * deliberately prefers real cards: asking it for "Thrull" returns the creature from Fallen
      * Empires, not the token Tevesh Szat makes. Tokens live in their own layout on Scryfall and
      * this asks for that layout by name.
-     * <p>A prefix search rather than an exact one. Nobody types "Thrull Token" and half the
-     * tokens anybody wants are called something like "Beast" with six different printings, so
-     * the useful answer is a short list to pick from rather than one guess.
+     * <p>The exact name first, and only when nothing has exactly that name a looser search.
+     * Asked loosely every time, "Cat" answered with every token whose name contains the word -
+     * a Cat Warrior, a Cat Dragon - and whichever was printed last was the one made. Exactly,
+     * it answers with the tokens that are called Cat: which still differ, and that is the
+     * point. Half the tokens anybody wants are called something like "Beast" with several
+     * different bodies, so the answer is a short list to pick from, not one guess - and the
+     * caller asks the player when the list has more than one token on it.
+     * <p>One printing per distinct token ({@code unique=cards}), newest first.
      */
     public List<CardMetadata> tokensNamed(String name) throws IOException {
         String cleaned = name == null ? "" : name.replace("\"", "").trim();
         if (cleaned.isEmpty()) {
             return List.of();
         }
-        String query = "t:token " + '"' + cleaned + '"';
+        List<CardMetadata> exactly = tokenSearch("t:token !" + '"' + cleaned + '"');
+        return exactly.isEmpty() ? tokenSearch("t:token " + '"' + cleaned + '"') : exactly;
+    }
+
+    private List<CardMetadata> tokenSearch(String query) throws IOException {
         JsonObject json = getJson("/cards/search?unique=cards&order=released&dir=desc&q=" + encode(query));
         return json == null ? List.of() : List.copyOf(ScryfallCardCodec.parseCollection(json));
     }

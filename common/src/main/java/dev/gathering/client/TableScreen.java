@@ -4166,10 +4166,23 @@ public final class TableScreen extends Screen {
             // guess at the spelling and a lookup that comes back with nothing. One press is
             // one token: a card that makes two wants the row twice, which is still fewer
             // steps than typing the name once.
-            for (String token : tokensMadeBy(card)) {
+            // By the exact printing the card links to, not by name: a name looked up again
+            // put down the newest token of that name, which for a card that makes a 2/2 Cat
+            // could be somebody else's 1/1 one. A card making two tokens that share a name
+            // gets two rows, numbered, since the name alone cannot tell them apart.
+            List<CardSummary.MadeToken> made = tokensMadeBy(card);
+            for (int index = 0; index < made.size(); index++) {
+                CardSummary.MadeToken token = made.get(index);
+                String label = token.name();
+                long sameName = made.stream().filter(other -> other.name().equals(token.name())).count();
+                if (sameName > 1) {
+                    long before = made.subList(0, index).stream()
+                            .filter(other -> other.name().equals(token.name())).count();
+                    label = token.name() + " (" + (before + 1) + ")";
+                }
                 entries.add(ContextMenu.Entry.of(
-                        Component.translatable("menu.gathering.table.make_this_token", token),
-                        () -> makeToken(token, 1)));
+                        Component.translatable("menu.gathering.table.make_this_token", label),
+                        () -> TokenChoices.make(table, token.name(), token.printing(), 1)));
             }
             if (card.token()) {
                 entries.add(entry("remove_token", () -> eachCard(board, targets, seen ->
@@ -4466,6 +4479,17 @@ public final class TableScreen extends Screen {
     }
 
     /**
+     * A remembered token: the exact one last picked under that name, or the name when none was.
+     * <p>So a player who chose the 2/2 Cat once gets the 2/2 Cat from the row, rather than being
+     * asked again every time - and a name nobody ever had to choose for still goes by name.
+     */
+    private void makeRememberedToken(String name) {
+        RecentThings.tokenVariantOf(name).ifPresentOrElse(
+                printing -> TokenChoices.make(table, name, printing, 1),
+                () -> makeToken(name, 1));
+    }
+
+    /**
      * Makes a token, and remembers what it was called.
      * <p>One body, because there are three ways to ask for one - typing a name, the tokens a
      * card says it makes, and the row of what this player keeps making - and a name that was
@@ -4663,7 +4687,7 @@ public final class TableScreen extends Screen {
         for (String token : RecentThings.tokenOffers()) {
             entries.add(ContextMenu.Entry.of(
                     Component.translatable("menu.gathering.table.make_this_token", token),
-                    () -> makeToken(token, 1)));
+                    () -> makeRememberedToken(token)));
         }
         // Recency is a good guess and a poor promise: the token a deck makes every turn needs
         // no help staying on the row, and the one it makes twice a game has fallen off the end
@@ -5941,7 +5965,7 @@ public final class TableScreen extends Screen {
      * draws no name. The server does the lookup when a row is pressed, so what ends up on the
      * table is still a real printing rather than a name a client chose.
      */
-    private List<String> tokensMadeBy(CardView card) {
+    private List<CardSummary.MadeToken> tokensMadeBy(CardView card) {
         return summaryOf(card).map(CardSummary::makes).orElse(List.of());
     }
 

@@ -31,8 +31,10 @@ public final class GatheringNetwork {
      * what a different number here buys.
      * <p>Three, for the batched table action: a client that sends a selection's verbs as one
      * payload cannot play at a server that does not know the payload.
+     * <p>Four, for tokens by printing: a card summary now carries the printing of each token a
+     * card makes, and a name that matches several tokens is answered with a choice.
      */
-    private static final String PROTOCOL_VERSION = "3";
+    private static final String PROTOCOL_VERSION = "4";
 
     private GatheringNetwork() {
     }
