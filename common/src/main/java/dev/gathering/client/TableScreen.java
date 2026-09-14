@@ -2740,9 +2740,15 @@ public final class TableScreen extends Screen {
     private Component seatLine(SeatView seat, int room) {
         String mark = SeatMark.of(seat.seat().index());
         if (!seat.hasABoard()) {
-            return firstThatFits(mark, room, List.of(
-                    Component.translatable("screen.gathering.table.free_seat"),
-                    Component.translatable("screen.gathering.table.free_seat_short")));
+            // Not an offer to sit down in a replay: nobody watching a finished game can take a
+            // chair in it, and the scripted client photographed the first frame of one offering
+            // two of them.
+            return replay
+                    ? Component.translatable("screen.gathering.table.seat_marked", mark,
+                            Component.translatable("screen.gathering.table.free_seat_short"))
+                    : firstThatFits(mark, room, List.of(
+                            Component.translatable("screen.gathering.table.free_seat"),
+                            Component.translatable("screen.gathering.table.free_seat_short")));
         }
         // Said plainly when nobody is in the chair, because a name in this row otherwise means
         // somebody is sitting behind those cards and answering.

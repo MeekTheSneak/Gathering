@@ -27,6 +27,7 @@ public final class ClientState {
         ClientTableChat.clear();
         ClientTableHighlight.clear();
         ClientTableNews.clear();
+        ClientTableRolls.clear();
         ClientTableState.clear();
         ClientWants.clear();
         PendingWork.clear();

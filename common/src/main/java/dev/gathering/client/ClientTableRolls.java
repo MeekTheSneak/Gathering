@@ -39,6 +39,27 @@ public final class ClientTableRolls {
 
     private static Shown showing;
 
+    /**
+     * The last roll each table has announced, kept past the board screen closing.
+     * <p>A roll is announced once. This used to be only {@link #showing}, which a closing board
+     * forgets - and a board closes every time a dialog opens over it. Coming back, the newest
+     * roll in the log looked new again and was announced again: the scripted client photographed
+     * one coin flip across the middle of the felt through an emblem prompt, a written card and
+     * both steps of showing a hand, each time a player came back to the table.
+     * <p>The whole entry, not only its sequence number, because sequence numbers start again with
+     * each game, and a table's next game can roll at a number the last one already did.
+     * <p>A handful of tables at most; the oldest is let go past that.
+     */
+    private static final java.util.Map<BlockPos, LogEntry> ANNOUNCED =
+            new java.util.LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<BlockPos, LogEntry> eldest) {
+                    return size() > MOST_TABLES;
+                }
+            };
+
+    private static final int MOST_TABLES = 32;
+
     private ClientTableRolls() {
     }
 
@@ -64,11 +85,10 @@ public final class ClientTableRolls {
         if (newest == null) {
             return;
         }
-        Shown current = showing;
-        if (current != null && current.table().equals(table)
-                && current.entry().sequence() == newest.sequence()) {
+        if (newest.equals(ANNOUNCED.get(table))) {
             return;
         }
+        ANNOUNCED.put(table.immutable(), newest);
         showing = new Shown(table, newest, now);
     }
 
@@ -87,8 +107,17 @@ public final class ClientTableRolls {
         return Math.max(0f, Math.min(1f, (now - shown.at()) / (float) SHOWN_MILLIS));
     }
 
-    /** Forgotten when a board closes, so the next table does not open wearing this one's roll. */
+    /**
+     * Takes the announcement down when a board closes, so the next table does not open wearing
+     * this one's roll. Which rolls have been announced is kept: see {@link #ANNOUNCED}.
+     */
     public static void forget() {
         showing = null;
+    }
+
+    /** Forgets everything, for a client leaving the server these rolls happened on. */
+    public static void clear() {
+        showing = null;
+        ANNOUNCED.clear();
     }
 }

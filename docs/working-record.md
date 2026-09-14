@@ -87,10 +87,20 @@ two reached **315 of 315 with zero failures**. What the runs and the screenshots
 | The lesson's play step dropped the card on the other chair's mat after the reframe | tour FAIL | drops on the learner's mat as the board reports it |
 | The pot drew over the top strip's text | screenshot | the pot is clipped between the strip and the hand |
 | "Mulligan" and "Shuffle" lost their last letter to the button frame | screenshot | verb labels fit inside a 3-pixel inset |
+| One coin flip was re-announced across the felt every time a dialog closed | contact sheet: the same flip in four later shots | each table remembers the last roll it announced; `RollAnnouncementGameTest`, **shown to fail** on the old logic |
+| A replay's first frame offered "Free seat - sit down with a deck" | contact sheet | replays say "Free seat" |
 
-Reviewed by eye: the setup screen, the seated board, the whole table, the card menu, counters,
-the pot, the replay strip, and every lesson frame. Not every one of the 153 screenshots has been
-looked at. **A scripted run is not a playtest**; nothing here says how the lesson feels to a
+All 153 screenshots were reviewed, the lesson and the changed screens at full size and the rest
+as contact sheets. Eight runs in all; the last four reached 315/315 with zero failures.
+
+Seen and **not fixed**, recorded here instead:
+
+- A card the server cannot find stays "Loading" on every screen for good. The tour's draft uses
+  invented printings, so every draft slot said it; real cards resolve. The fix needs the server
+  to answer "not found" for a metadata request, which is a protocol change.
+- A table-talk line in the HUD is drawn over the card-reading panel in the world.
+- On the board drawn on the block, the life box and near cards can sit under the top strip's
+  text; the world cannot be clipped the way the seated screen's pot now is. **A scripted run is not a playtest**; nothing here says how the lesson feels to a
 person, only that it can be completed with the keys it names and now shows what it describes.
 
 ## Owner-approved requirements, and what they superseded
