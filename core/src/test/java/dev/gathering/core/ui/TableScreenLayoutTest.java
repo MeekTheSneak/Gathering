@@ -99,4 +99,27 @@ class TableScreenLayoutTest {
         assertThat(layout.hand().height()).isGreaterThan(40);
         assertThat(layout.hand().overlaps(layout.status())).isFalse();
     }
+    /**
+     * The band the table is drawn into has room in it for players, watchers and replays alike,
+     * and runs from the strip to the hand - or to the foot of the window when there is no hand.
+     * <p>For a watcher it had no height: the top of a hand that is not there is zero, so every
+     * other player's hand and the pot were clipped away for exactly the people who came to
+     * look at them.
+     */
+    @Property(tries = 1000)
+    void theTableAreaHasRoomWhetherOrNotThereIsAHand(
+            @ForAll @IntRange(min = 320, max = 3840) int width,
+            @ForAll @IntRange(min = 240, max = 2160) int height,
+            @ForAll boolean seated) {
+        TableScreenLayout layout = TableScreenLayout.of(width, height, seated);
+        Rect area = layout.tableArea();
+
+        assertThat(area.y()).isEqualTo(layout.status().bottom());
+        assertThat(area.height()).isGreaterThan(height / 3);
+        assertThat(area.bottom()).isEqualTo(seated ? layout.hand().y() : height);
+        assertThat(area.overlaps(layout.hand())).isFalse();
+
+        Rect replay = TableScreenLayout.watching(width, height).tableArea();
+        assertThat(replay.bottom()).isEqualTo(TableScreenLayout.watching(width, height).hand().y());
+    }
 }

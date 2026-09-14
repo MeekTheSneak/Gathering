@@ -4742,6 +4742,14 @@ public final class DevScene {
             fail("showing the whole table left the pot off the screen: " + where
                     + " in " + width + "x" + height);
         }
+        // On the screen is not the same as drawn. The pot is clipped to the band between the
+        // strip and the hand, and for somebody not seated that band once had no height at
+        // all: this check passed and the photograph beside it had no pot in it.
+        Rect band = board.tableArea();
+        if (!band.contains(where.x(), where.y())
+                || !band.contains(where.right() - 1, where.bottom() - 1)) {
+            fail("the pot " + where + " is outside the band the table is drawn into " + band);
+        }
         GameView view = ClientTableState.viewOf(table).orElse(null);
         if (view == null) {
             fail("there was no game to lay a pot beside");

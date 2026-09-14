@@ -1206,8 +1206,8 @@ public final class TableScreen extends Screen {
             // Kept between the strip along the top and your own hand, for the reason the pot
             // is: a fan fixed to the table can be carried under either by the camera, and
             // card art is drawn over plain text.
-            graphics.enableScissor(0, layout().status().bottom(), this.width,
-                    Math.max(layout().status().bottom(), layout().hand().y()));
+            graphics.enableScissor(tableArea().x(), tableArea().y(),
+                    tableArea().right(), tableArea().bottom());
             renderOtherHands(graphics, board);
             graphics.disableScissor();
             renderVerbs(graphics, mouseX, mouseY);
@@ -1217,8 +1217,8 @@ public final class TableScreen extends Screen {
             // Kept between the strip along the top and the hand: panned or zoomed, the column
             // can be carried under either, and card art is drawn above plain text, so the
             // scripted client once photographed staked cards over whose turn it is.
-            graphics.enableScissor(0, layout().status().bottom(), this.width,
-                    Math.max(layout().status().bottom(), layout().hand().y()));
+            graphics.enableScissor(tableArea().x(), tableArea().y(),
+                    tableArea().right(), tableArea().bottom());
             renderPot(graphics, mouseX, mouseY);
             graphics.disableScissor();
 
@@ -1381,12 +1381,15 @@ public final class TableScreen extends Screen {
             return;
         }
         int line = this.font.lineHeight + 2;
-        int left = layout().hand().x() + 2;
-        int room = Math.max(40, layout().hand().width() - 4);
+        int left = tableArea().x() + 2;
+        int room = Math.max(40, tableArea().width() - 4);
         // Stacked upwards from just above the hand, so the newest line is always in the same
         // place and the older ones climb away from it. A list that grew downwards would move
         // the line somebody is reading every time somebody else spoke.
-        int bottom = layout().hand().y() - 2 - (saying == null ? 0 : line + 2);
+        // Above the hand, or the foot of the window for somebody watching, who has none: from
+        // the top of a hand that is not there, every line started above the window and nothing
+        // anybody said at the table was shown to them.
+        int bottom = tableArea().bottom() - 2 - (saying == null ? 0 : line + 2);
         for (int index = recent.size() - 1; index >= 0; index--) {
             ClientTableChat.Said said = recent.get(index);
             int top = bottom - line * (recent.size() - index);
@@ -6127,6 +6130,14 @@ public final class TableScreen extends Screen {
         if (!hint.isEmpty()) {
             tooltip = hint;
         }
+    }
+
+    /**
+     * Where the table shows between the strip and the hand. Package-visible for the scene,
+     * which checks that what the board says it drew is inside what it let itself draw into.
+     */
+    Rect tableArea() {
+        return layout().tableArea();
     }
 
     private TableScreenLayout layout() {

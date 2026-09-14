@@ -92,6 +92,21 @@ public record TableScreenLayout(Rect felt, Rect hand, Rect status) {
     }
 
     /**
+     * The band of the window where the table can be seen: under the strip along the top, and
+     * over the hand along the bottom when there is one.
+     * <p>Said once, because the one thing that differs between a player and somebody watching
+     * is exactly the part a caller gets wrong. Somebody watching has no hand, and the top of a
+     * hand that is not there reads as zero - so a band from the strip "down to the hand" came
+     * out with no height, and everything clipped to it, every other player's hand and the pot,
+     * was drawn for players and silently not for anybody watching.
+     */
+    public Rect tableArea() {
+        int top = status.bottom();
+        int bottom = hand.isEmpty() ? felt.bottom() : hand.y();
+        return new Rect(felt.x(), top, felt.width(), Math.max(0, bottom - top));
+    }
+
+    /**
      * Whether a point is on the table rather than on the hand.
      * <p>The strip along the top counts as table. It did not while it was a panel, because a
      * panel is something in the way and a click on it is a click on it - but there is no
