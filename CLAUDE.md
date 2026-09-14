@@ -27,12 +27,14 @@ not confirmed.**
 tools/gate.sh
 ```
 
-Sixteen stages. `./gradlew verify` first — both loaders built, `:core:test`, the architecture
+Seventeen stages. `./gradlew verify` first — both loaders built, `:core:test`, the architecture
 fences, data generation, and **both** loaders' in-world tests — then the fourteen static
 checks: `langcheck`, `doccheck`, `scenecheck`, `plotcheck`, `gesturecheck`, `spritecheck`,
 `statecheck`, `savecheck`, `runcheck`, `texturecheck`, `artcheck`, `tablecheck`, `keycheck`,
 `prefcheck`. Last, a check that the in-world tests **discovered** anything: both loaders have
-to report a nonzero count, because a suite that finds no tests passes.
+to report a nonzero count, because a suite that finds no tests passes. And a check that the run
+logged no failure a table's tick or a tournament's clock kept to itself: those no longer crash
+the server, so they no longer stop a test run either.
 
 `tools/gate.sh --quick` is the build and the static checks only, for iterating. It says so
 when it finishes, because it is **not** the gate.

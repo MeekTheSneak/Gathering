@@ -82,6 +82,21 @@ if [ "$QUICK" = 0 ]; then
     else
         printf 'ok (%s)\n' "$(printf '%s' "$counts" | tr '\n' '/')"
     fi
+
+    # A table's tick and a tournament's clock keep their failures to themselves rather than
+    # crashing the server, which also means a failure in them no longer stops an in-world test
+    # run. So the gate reads the run for them instead. The one exception is the test that
+    # breaks a clock on purpose, and it names its tournament so.
+    printf '%-34s' "no failures kept out of a tick"
+    quiet=$(grep -E 'went wrong in its tick|could not run its clock this tick' "$GRADLE_LOG" \
+        | grep -v 'DELIBERATELY BROKEN' || true)
+    if [ -n "$quiet" ]; then
+        printf 'FAILED\n'
+        failed+=("no failures kept out of a tick")
+        printf '%s\n' "$quiet" | head -6
+    else
+        printf 'ok\n'
+    fi
 fi
 
 echo

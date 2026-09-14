@@ -129,6 +129,8 @@ public class TableBlockEntity extends BlockEntity {
     private boolean restoreFailed;
 
     private int ambientCountdown;
+    /** What last went wrong in this table's tick, so it is logged once rather than every tick. */
+    private String lastTickFailure;
 
     /**
      * The set of games this table is playing, if any.
@@ -844,6 +846,23 @@ public class TableBlockEntity extends BlockEntity {
      */
     public static void serverTick(
             net.minecraft.world.level.Level level, BlockPos pos, BlockState state, TableBlockEntity table) {
+        // Kept to this table. A block entity that throws in its tick crashes the whole server,
+        // and a pick clock or a signup going wrong at one table is not worth every other table
+        // in the world. Logged once while the same thing keeps going wrong.
+        try {
+            tickContained(level, pos, table);
+            table.lastTickFailure = null;
+        } catch (RuntimeException wentWrong) {
+            String what = String.valueOf(wentWrong);
+            if (!what.equals(table.lastTickFailure)) {
+                table.lastTickFailure = what;
+                LOGGER.error("The table at {} went wrong in its tick", pos, wentWrong);
+            }
+        }
+    }
+
+    private static void tickContained(
+            net.minecraft.world.level.Level level, BlockPos pos, TableBlockEntity table) {
         if (table.signupIsToBeHandedBack() && level instanceof net.minecraft.server.level.ServerLevel handing) {
             dev.gathering.server.PodSignups.handBackEverything(handing, pos, table, "pod_signup_unreadable");
         }

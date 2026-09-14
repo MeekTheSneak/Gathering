@@ -52,7 +52,7 @@ public final class EventsIntegrityGameTest {
      */
     @GameTest(template = "empty")
     public static void aFailingEventClockDoesNotStopTheServer(GameTestHelper helper) {
-        EventState state = Events.stateForTesting(Tournament.create(UUID.randomUUID(), "Broken", UUID.randomUUID(),
+        EventState state = Events.stateForTesting(Tournament.create(UUID.randomUUID(), "DELIBERATELY BROKEN", UUID.randomUUID(),
                 EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern")), helper.getLevel(), List.of());
         var server = helper.getLevel().getServer();
         try {

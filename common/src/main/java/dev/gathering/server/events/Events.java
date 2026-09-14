@@ -823,7 +823,8 @@ public final class Events {
             String what = String.valueOf(wentWrong);
             if (!what.equals(state.lastFailure)) {
                 state.lastFailure = what;
-                LOGGER.error("The tournament {} could not run its clock this tick", state.tournament.id(), wentWrong);
+                LOGGER.error("The tournament {} ({}) could not run its clock this tick", state.tournament.name(),
+                        state.tournament.id(), wentWrong);
                 tell(server, state.tournament.host(), Component.translatable("message.gathering.event.clock_failed",
                         state.tournament.name()));
             }

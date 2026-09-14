@@ -311,7 +311,11 @@ concession is now the games it takes to win a match of the event's length. Guard
 `EventsGameTest.aplayerGoneFromABestOfOneConcedesOneGameToNone`. And because one tournament's clock
 should never be able to do that, each event's tick now runs contained: a failure is logged and told
 to the host once, and the server and every other event carry on
-(`EventsIntegrityGameTest.aFailingEventClockDoesNotStopTheServer`).
+(`EventsIntegrityGameTest.aFailingEventClockDoesNotStopTheServer`, proved failing without the
+catch). A table's own tick (pick clock, signup hand-back, ambient board) is contained the same way;
+that one has no reproduced failure behind it and no test of its own. Because contained failures no
+longer stop an in-world run, the gate gained a stage that fails on any logged in the run, except the
+test that breaks a clock on purpose.
 
 **Guards proved to fail without their fixes** (sources mutated, run, restored, tree confirmed
 clean): the best-of-one concession (crashed the run), `thehigherseedplaysfirstinacutmatch` and
