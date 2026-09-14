@@ -665,8 +665,13 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         float lineHeight = (bottom - top) * LIFE_WRITING;
         // In what the two ends leave, from the same rule the seated board uses.
         Rect middle = TableSurface.lifeMiddle(box);
+        Component life = Component.literal(Integer.toString(seat.life()));
+        if (dev.gathering.core.game.LossReminders.lifeIsAtALoss(seat.life())) {
+            // Red at zero and below, as on the seated board.
+            life = life.copy().withColor(0xE06C6C);
+        }
         writing(poseStack, buffers, packedLight,
-                Component.literal(Integer.toString(seat.life())),
+                life,
                 onSurface(middle.centerX(), span), (top + bottom) / 2f, lineHeight,
                 onSurface(middle.width(), span), angle, 0);
         // The same minus and plus the seated board prints, because the ends are buttons here

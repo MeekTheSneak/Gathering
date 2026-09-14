@@ -97,6 +97,9 @@ public final class TableScreen extends Screen {
     private static final int DIM = 0xFF9A9690;
     private static final int ACCENT = 0xFF6FD3E8;
 
+    /** A life total the rules count a loss at. The same red the counters screen uses. */
+    private static final int LIFE_AT_A_LOSS = 0xFFE06C6C;
+
     /**
      * The same quiet grey as {@link #DIM}, lifted for writing that sits on the board.
      * <p>A mid grey reads as quiet on a painted panel and reads as barely there on felt with
@@ -1573,8 +1576,10 @@ public final class TableScreen extends Screen {
         // into both signs.
         Rect middle = TableSurface.lifeMiddle(box);
         Component total = Component.literal(Integer.toString(seat.life()));
+        // Red at zero and below, the way a life pad would be: a reminder, never a loss.
         GuiText.drawCenteredAt(graphics, this.font, total, (int) middle.centerX(),
-                (int) box.centerY() - this.font.lineHeight / 2, scale, LABEL);
+                (int) box.centerY() - this.font.lineHeight / 2, scale,
+                dev.gathering.core.game.LossReminders.lifeIsAtALoss(seat.life()) ? LIFE_AT_A_LOSS : LABEL);
         // A minus over the end that takes one off and a plus over the end that puts one on,
         // asked of the same function the press is, so the two cannot end up disagreeing.
         drawLifeEnd(graphics, seat.seat(), box, -1, way, scale);

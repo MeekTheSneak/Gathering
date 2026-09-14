@@ -78,14 +78,6 @@ public final class CountersScreen extends ChildScreen {
     /** A counter name long enough for anything real and short enough not to be a payload. */
     private static final int MAX_NAME = 24;
 
-    /**
-     * The number at which one commander's damage has killed somebody.
-     * <p>Shown, never enforced. The mod does not end games and does not intend to; what it
-     * does is what a life pad does, which is stop you counting to twenty-one in your head
-     * three times a turn.
-     */
-    private static final int LETHAL_COMMANDER_DAMAGE = 21;
-
     private static final int LETHAL = 0xFFE06C6C;
 
     private final BlockPos table;
@@ -673,8 +665,10 @@ public final class CountersScreen extends ChildScreen {
             Rect row = layout.counterRow(index);
             GuiText.draw(graphics, this.font, Component.literal(entry.getKey()),
                     row.x(), row.y() + 5, row.width() - 60, LABEL);
+            boolean atALoss = subject instanceof Subject.Seat
+                    && dev.gathering.core.game.LossReminders.counterIsAtALoss(entry.getKey(), entry.getValue());
             GuiText.draw(graphics, this.font, Component.literal(Integer.toString(entry.getValue())),
-                    row.right() - STEP_WIDTH * 2 - GAP - 24, row.y() + 5, 22, VALUE);
+                    row.right() - STEP_WIDTH * 2 - GAP - 24, row.y() + 5, 22, atALoss ? LETHAL : VALUE);
             index++;
         }
         Rect under = layout.counterFooter();
@@ -710,7 +704,7 @@ public final class CountersScreen extends ChildScreen {
             // Twenty-one is a fact about the number, not a thing the mod does about it.
             GuiText.draw(graphics, this.font, Component.literal(Integer.toString(taken)),
                     at.right() - STEP_WIDTH * 2 - GAP - 24, at.y() + 5, 22,
-                    taken >= LETHAL_COMMANDER_DAMAGE ? LETHAL : VALUE);
+                    dev.gathering.core.game.LossReminders.commanderDamageIsAtALoss(taken) ? LETHAL : VALUE);
         }
     }
 
