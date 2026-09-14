@@ -644,28 +644,40 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
     }
 
     /**
-     * How tall an ante card is drawn, as a share of the whole surface.
+     * How tall an ante card is drawn, as a share of one table.
      * <p>Smaller than a card in play: the pot is looked at rather than reached into, so it
-     * reads as an object on the table rather than competing with the board.
+     * reads as an object beside the table rather than competing with the board. A share of one
+     * table rather than of the surface, so a cluster two tables deep does not stake cards twice
+     * the size of the ones being played.
      */
     private static final double POT_CARD_HEIGHT = 0.15;
 
-    /** The gap between cards in the pot, as a share of one card's width. */
-    private static final double POT_GAP = 0.12;
+    /** The gap between cards in the pot, as a share of one card's height. */
+    private static final double POT_GAP = 0.08;
 
-    /** The most of the table's width the pot may take before its cards start overlapping. */
-    private static final double POT_ACROSS = 0.6;
+    /** The most of the table's depth the pot may run down before its cards start overlapping. */
+    private static final double POT_DOWN = 0.8;
 
     /** How much taller the pot's tray is than the cards in it, for the label under them. */
     private static final double POT_LABEL = 0.34;
 
+    /** How far the pot stands off the edge of the table, in card widths. */
+    private static final double POT_STANDOFF = 0.5;
+
+    /** How far the tray reaches past the cards at each side, as a share of one card's width. */
+    private static final double POT_TRAY_PAD = 0.2;
+
     /**
-     * Where the pot sits: a row of cards across the middle of the table.
-     * <p>The middle, because it is the one thing on the surface belonging to nobody - every
-     * other rectangle here is somebody's mat, zone or life box.
-     * <p>The middle is not empty, though: the life boxes sit on that same strip, so a pot
-     * drawn centered lands on one. It takes the widest clear span instead, which is usually
-     * still the middle and never on top of a number somebody has to read.
+     * Where the pot sits: a column of cards just off the east edge of the whole table.
+     * <p>Off the table rather than on it. It used to take the widest clear run across the
+     * middle, where the mats meet - which is where the life totals are, and where the cards
+     * played toward the middle of the table go, so the pot was always somewhere somebody wanted
+     * to put something. Off the side there is nothing to cover: mats are always laid out wider
+     * than deep and every hand is held along a mat's top or bottom, so nothing a seat owns is
+     * ever drawn past the surface's side edges.
+     * <p>Measured from the surface's own width, which is every table in the cluster, so pushing
+     * another table against the east side moves the pot out with it instead of putting a mat
+     * under it.
      * <p>Empty when there is nothing in it, so a table not playing for keeps has no space set
      * aside for a thing that will never appear.
      */
@@ -673,105 +685,55 @@ public record TableSurface(List<Rect> mats, List<Boolean> turned, int width, int
         if (howMany <= 0 || width <= 0 || height <= 0) {
             return Rect.NONE;
         }
-        int cardHeight = Math.max(1, (int) Math.round(height * POT_CARD_HEIGHT));
+        int cardHeight = Math.max(1, (int) Math.round(SPAN * POT_CARD_HEIGHT));
         int cardWidth = Math.max(1, CardShape.widthFor(cardHeight));
-        int gap = Math.max(1, (int) Math.round(cardWidth * POT_GAP));
+        int gap = Math.max(1, (int) Math.round(cardHeight * POT_GAP));
 
-        int wanted = howMany * cardWidth + (howMany - 1) * gap;
-        int room = Math.max(cardWidth, (int) Math.round(width * POT_ACROSS));
-        // Too many to lay out side by side, so they lean instead: the row keeps its width and
-        // the cards overlap, the way a pile pushed together on a table does.
-        int across = Math.min(wanted, room);
+        int wanted = howMany * cardHeight + (howMany - 1) * gap;
+        int room = Math.max(cardHeight, (int) Math.round(height * POT_DOWN));
+        // Too many to lay out one under another, so they lean instead: the column keeps its
+        // length and the cards overlap, the way a pile pushed together on a table does.
+        int down = Math.min(wanted, room);
 
-        int trayHeight = cardHeight + (int) Math.round(cardHeight * POT_LABEL);
+        int trayHeight = down + (int) Math.round(cardHeight * POT_LABEL);
         int top = (height - trayHeight) / 2;
-        Span clear = widestClearSpan(top, trayHeight);
-        if (clear.width() < cardWidth) {
-            // Nowhere on this table the pot could go without covering something somebody has
-            // to read. Nothing is drawn rather than something drawn over a life total.
-            return Rect.NONE;
-        }
-        across = Math.min(across, clear.width());
-        return new Rect(clear.from() + (clear.width() - across) / 2, top, across, cardHeight);
+        int left = width + Math.max(1, (int) Math.round(cardWidth * POT_STANDOFF));
+        return new Rect(left, top, cardWidth, down);
     }
 
     /**
      * The whole space the pot takes, cards and the label under them.
-     * <p>What is checked for room is what is drawn: a tray checked at the size of its cards
-     * and then drawn taller is a tray that overlaps something nobody tested against.
+     * <p>What is framed is what is drawn: a tray worked out again by whatever draws it is a
+     * tray that the view showing the whole table leaves half off the screen.
      */
     public static Rect potTray(Rect pot) {
         if (pot.isEmpty()) {
             return Rect.NONE;
         }
-        int trayHeight = pot.height() + (int) Math.round(pot.height() * POT_LABEL);
-        return new Rect(pot.x(), pot.y(), pot.width(), trayHeight);
-    }
-
-    /** A run of table with nothing drawn on it. */
-    private record Span(int from, int to) {
-
-        int width() {
-            return Math.max(0, to - from);
-        }
-    }
-
-    /**
-     * The widest stretch of a horizontal band with none of the mats' furniture on it.
-     * <p>Life boxes, zone columns and verb runs: everything a mat puts near its own edges,
-     * which is where a band across the middle of the table meets them.
-     */
-    private Span widestClearSpan(int top, int tall) {
-        Rect band = new Rect(0, top, width, tall);
-        List<Rect> blockers = new java.util.ArrayList<>();
-        for (int seat = 0; seat < mats.size(); seat++) {
-            add(blockers, band, lifeBox(seat));
-            add(blockers, band, verbGroup(seat, TableVerb.count()));
-            for (int count = Zone.PILES.size(); count >= 1; count--) {
-                add(blockers, band, pileGroup(seat, 0, count - 1, count));
-                add(blockers, band, pileLabel(seat, 0, count));
-            }
-        }
-        blockers.sort(java.util.Comparator.comparingInt(Rect::x));
-
-        Span best = new Span(0, 0);
-        int from = 0;
-        for (Rect blocked : blockers) {
-            if (blocked.x() - from > best.width()) {
-                best = new Span(from, blocked.x());
-            }
-            from = Math.max(from, blocked.right());
-        }
-        if (width - from > best.width()) {
-            best = new Span(from, width);
-        }
-        return best;
-    }
-
-    private static void add(List<Rect> blockers, Rect band, Rect what) {
-        if (!what.isEmpty() && what.overlaps(band)) {
-            blockers.add(what);
-        }
+        int cardHeight = CardShape.heightFor(pot.width());
+        int pad = Math.max(1, (int) Math.round(pot.width() * POT_TRAY_PAD));
+        int trayHeight = pot.height() + (int) Math.round(cardHeight * POT_LABEL);
+        return new Rect(pot.x() - pad, pot.y(), pot.width() + pad * 2, trayHeight);
     }
 
     /**
      * Where one card of the pot goes.
      * <p>Spread when there is room and leaning when there is not, which falls out of dividing
-     * the row by the gaps between cards rather than by the cards: with one card there are no
-     * gaps and it takes the whole row, and with twenty the step is smaller than a card and
-     * they overlap.
+     * the column by the gaps between cards rather than by the cards: with one card there are
+     * no gaps and it sits in the middle, and with twenty the step is smaller than a card and
+     * they overlap, each one's name still showing above the next.
      */
     public static Rect potSlot(Rect pot, int index, int howMany) {
         if (pot.isEmpty() || howMany <= 0 || index < 0 || index >= howMany) {
             return Rect.NONE;
         }
-        int cardWidth = Math.max(1, CardShape.widthFor(pot.height()));
+        int cardHeight = Math.max(1, Math.min(pot.height(), CardShape.heightFor(pot.width())));
         if (howMany == 1) {
-            return new Rect(pot.x() + (pot.width() - cardWidth) / 2, pot.y(),
-                    cardWidth, pot.height());
+            return new Rect(pot.x(), pot.y() + (pot.height() - cardHeight) / 2,
+                    pot.width(), cardHeight);
         }
-        int step = Math.max(1, (pot.width() - cardWidth) / (howMany - 1));
-        return new Rect(pot.x() + index * step, pot.y(), cardWidth, pot.height());
+        int step = Math.max(1, (pot.height() - cardHeight) / (howMany - 1));
+        return new Rect(pot.x(), pot.y() + index * step, pot.width(), cardHeight);
     }
 
     /**

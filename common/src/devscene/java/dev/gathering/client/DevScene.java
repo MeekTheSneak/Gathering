@@ -1802,7 +1802,11 @@ public final class DevScene {
             case 154 -> {
                 expectScreen(client, "looking at a table with a pot on it",
                         TableScreen.class);
-                thePotIsDrawnInTheMiddle(client);
+                // Home, the key a player presses to see the whole table, rather than a hook.
+                if (client.screen != null) {
+                    client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_HOME, 0, 0);
+                }
+                thePotIsDrawnBesideTheTable(client);
                 shoot(client, "49-the-pot");
                 advance(SETTLE / 2);
             }
@@ -4705,8 +4709,14 @@ public final class DevScene {
         });
     }
 
-    /** A pot that has been sent is a pot that is drawn, in the middle, on the table. */
-    private static void thePotIsDrawnInTheMiddle(Minecraft client) {
+    /**
+     * A pot that has been sent is a pot that is drawn - beside the table, clear of every mat,
+     * and on screen once the whole table is shown.
+     * <p>Asked after "show everything" rather than at the framing the board opened at: the pot
+     * lies off the east edge of the table, so a player's own mat filling the window leaves it
+     * off to the side, and the view somebody reaches for to find it is the whole table.
+     */
+    private static void thePotIsDrawnBesideTheTable(Minecraft client) {
         if (table == null) {
             fail("there was no table to look for a pot on");
             return;
@@ -4729,7 +4739,20 @@ public final class DevScene {
         int height = client.getWindow().getGuiScaledHeight();
         if (where.x() < 0 || where.y() < 0 || where.right() > width
                 || where.bottom() > height) {
-            fail("the pot was drawn off the screen: " + where + " in " + width + "x" + height);
+            fail("showing the whole table left the pot off the screen: " + where
+                    + " in " + width + "x" + height);
+        }
+        GameView view = ClientTableState.viewOf(table).orElse(null);
+        if (view == null) {
+            fail("there was no game to lay a pot beside");
+            return;
+        }
+        for (dev.gathering.core.game.visibility.SeatView seat : view.seats()) {
+            Rect mat = board.board().matRect(seat.seat());
+            if (!mat.isEmpty() && mat.overlaps(where)) {
+                fail("the pot " + where + " was drawn over seat " + seat.seat().index()
+                        + "'s mat " + mat);
+            }
         }
     }
 

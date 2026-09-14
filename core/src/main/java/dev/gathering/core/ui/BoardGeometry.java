@@ -217,7 +217,15 @@ public final class BoardGeometry implements BoardPlacement {
     }
 
     public void showEverything() {
-        camera = TableCamera.showingAll(surface.width(), surface.height(), width, visible())
+        showEverything(Rect.NONE);
+    }
+
+    /**
+     * The whole table, and something lying beside it - the pot, which sits off the edge of
+     * the table and would otherwise be the one thing "everything" left out.
+     */
+    public void showEverything(Rect beside) {
+        camera = TableCamera.showingAll(surface.width(), surface.height(), beside, width, visible())
                 .seenFrom(turned);
     }
 

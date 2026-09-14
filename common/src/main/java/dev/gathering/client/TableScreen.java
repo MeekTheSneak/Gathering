@@ -484,7 +484,7 @@ public final class TableScreen extends Screen {
     /** Frames the board on this seat's own mat, or on the whole table when there is no seat. */
     private void frameTheBoard(SeatId seat) {
         if (seat == null) {
-            geometry.showEverything();
+            geometry.showEverything(potTray());
         } else {
             geometry.focusOn(seat);
         }
@@ -690,7 +690,7 @@ public final class TableScreen extends Screen {
                 // unturned, the scripted client photographed the learner's own mat at the top
                 // and "the card opposite" below it.
                 geometry.focusOn(framedFor);
-                geometry.showEverything();
+                geometry.showEverything(potTray());
             } else {
                 frameTheBoard(framedFor);
             }
@@ -1212,13 +1212,11 @@ public final class TableScreen extends Screen {
             graphics.disableScissor();
             renderVerbs(graphics, mouseX, mouseY);
             renderPiles(graphics, board, mouseX, mouseY);
-            // Under the cards in play, over the mats. The pot is on the table rather than in
-            // the game, and it should read that way: something lying in the middle that the
-            // game goes on on top of.
-            // Kept between the strip along the top and the hand. Framed on a player's own mat
-            // the pot, which sits past the far edge of it, lands partly under the top strip -
-            // and card art is drawn above plain text, so the scripted client photographed the
-            // staked cards lying over the library count and whose turn it is.
+            // Under the cards in play. The pot is beside the table rather than in the game, and
+            // a card dragged off the east edge should pass over it rather than under.
+            // Kept between the strip along the top and the hand: panned or zoomed, the column
+            // can be carried under either, and card art is drawn above plain text, so the
+            // scripted client once photographed staked cards over whose turn it is.
             graphics.enableScissor(0, layout().status().bottom(), this.width,
                     Math.max(layout().status().bottom(), layout().hand().y()));
             renderPot(graphics, mouseX, mouseY);
@@ -5359,7 +5357,7 @@ public final class TableScreen extends Screen {
         if (playingOnTheBlock) {
             TableCameraView.showEverything();
         } else {
-            geometry.showEverything();
+            geometry.showEverything(potTray());
         }
     }
 
@@ -5883,26 +5881,52 @@ public final class TableScreen extends Screen {
     }
 
     /**
-     * The pot, face up in the middle of the table.
-     * <p>The one thing on the felt that belongs to nobody, which is why it sits where the
-     * mats meet rather than on anybody's side. Drawn whenever there is one and taking no room
-     * at all when there is not, so a table not playing for keeps looks exactly as it did.
+     * The pot's whole tray on the surface, or nothing when there is no pot.
+     * <p>What showing the whole table frames besides the table itself: the pot lies off the
+     * edge, and a view of "everything" that left out the cards being played for would be
+     * the one view somebody reaches for to find them.
+     */
+    private Rect potTray() {
+        if (geometry == null) {
+            return Rect.NONE;
+        }
+        int staked = ClientTableState.potOf(this.table).size();
+        return TableSurface.potTray(geometry.surface().pot(staked));
+    }
+
+    /**
+     * The pot, face up in a column beside the table.
+     * <p>The one thing on the felt that belongs to nobody, so it sits on nobody's side and in
+     * nobody's way: off the east edge of the whole table, where no mat, life total or hand is
+     * ever drawn. Drawn whenever there is one and taking no room at all when there is not, so a
+     * table not playing for keeps looks exactly as it did.
      * <p>Face up, always, with no face-down case to get wrong: a pot everybody agreed to play
      * for is a pot everybody can see, and that is the whole drama of the thing.
      */
     private void renderPot(GuiGraphics graphics, int mouseX, int mouseY) {
         List<CardComponent> pot = ClientTableState.potOf(this.table);
         Rect area = potOnScreen();
-        if (pot.isEmpty() || area.isEmpty()) {
+        if (pot.isEmpty() || area.isEmpty() || isOffScreen(area)) {
             return;
         }
         Rect where = board().surface().pot(pot.size());
-        // The tray the surface reserved, drawn at exactly the size it was checked for room
-        // at. Working one out here instead is how a thing that fits in the layout ends up
-        // drawn over somebody's life total.
+        // The tray the surface reserved, drawn at exactly the size the whole-table view frames.
+        // Working one out here instead is how a thing that fits in the framing ends up drawn
+        // half off the screen.
         Rect tray = board().fromSurface(TableSurface.potTray(where));
         GatheringSprites.inset(graphics, tray.x(), tray.y(), tray.width(), tray.height());
 
+        // Front-most card under the cursor only. The column leans once it is long, and every
+        // slot the cursor is inside used to light up, so a pointer over two overlapping cards
+        // ringed both and read out whichever came last.
+        int hovered = -1;
+        for (int index = 0; index < pot.size(); index++) {
+            Rect slot = board().fromSurface(TableSurface.potSlot(where, index, pot.size()));
+            if (!slot.isEmpty() && mouseX >= slot.x() && mouseX < slot.right()
+                    && mouseY >= slot.y() && mouseY < slot.bottom()) {
+                hovered = index;
+            }
+        }
         for (int index = 0; index < pot.size(); index++) {
             Rect slot = board().fromSurface(
                     TableSurface.potSlot(where, index, pot.size()));
@@ -5915,19 +5939,24 @@ public final class TableScreen extends Screen {
                             graphics, summary, slot.x(), slot.y(), slot.width(), slot.height()),
                     () -> GatheringSprites.inset(
                             graphics, slot.x(), slot.y(), slot.width(), slot.height()));
-            if (mouseX >= slot.x() && mouseX < slot.right()
-                    && mouseY >= slot.y() && mouseY < slot.bottom()) {
+            if (index == hovered) {
                 ClientHoverState.setHovered(CardItem.of(card));
                 GatheringSprites.draw(graphics, Element.FOCUS_RING,
                         slot.x(), slot.y(), slot.width(), slot.height());
             }
         }
-        // Said rather than assumed, and inside the tray. A row of cards in the middle of a
-        // table is not obviously a pot, and somebody who missed the message when it was
-        // staked has nothing else to tell them what they are looking at or what it is for.
+        // Said rather than assumed, under the cards. A column of cards beside a table is
+        // not obviously a pot, and somebody who missed the message when it was staked has
+        // nothing else to tell them what they are looking at or what it is for.
+        // Under the cards on screen, which is above them in surface terms for somebody sitting
+        // on the far side: their view is turned, so the tray's label room comes out on top.
+        boolean roomAbove = area.y() > tray.y();
+        int labelY = roomAbove ? tray.y() + 2 : area.bottom() + 2;
+        // Wider than the tray is allowed: the column is one card across, and nothing lies to
+        // either side of it but the gap to the table and empty floor.
         GuiText.drawCentered(graphics, this.font,
                 Component.translatable("screen.gathering.table.the_pot", pot.size()),
-                tray.x() + tray.width() / 2, area.bottom() + 2, tray.width() - 4, POT_LABEL);
+                tray.x() + tray.width() / 2, labelY, tray.width() * 2, POT_LABEL);
     }
 
     /**

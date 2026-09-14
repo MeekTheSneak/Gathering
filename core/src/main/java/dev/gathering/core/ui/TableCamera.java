@@ -129,6 +129,30 @@ public record TableCamera(
         return new TableCamera(across / 2.0, down / 2.0, fit, across, down, false);
     }
 
+    /**
+     * A camera showing the whole surface and something lying beside it, such as the pot.
+     * <p>Framed on the two together, and still bounded by the surface: what lies beside the
+     * table is shown, but panning stays measured against the table itself.
+     *
+     * @param beside a rectangle in surface units, usually just past one edge; empty for none
+     */
+    public static TableCamera showingAll(
+            int surfaceWidth, int surfaceHeight, Rect beside, int viewportWidth, int viewportHeight) {
+        if (beside.isEmpty()) {
+            return showingAll(surfaceWidth, surfaceHeight, viewportWidth, viewportHeight);
+        }
+        int spanX = Math.max(1, surfaceWidth);
+        int spanY = Math.max(1, surfaceHeight);
+        int left = Math.min(0, beside.x());
+        int top = Math.min(0, beside.y());
+        int right = Math.max(spanX, beside.right());
+        int bottom = Math.max(spanY, beside.bottom());
+        double fit = Math.min(
+                Math.max(1, viewportWidth) * (1 - EDGE * 2) / Math.max(1, right - left),
+                Math.max(1, viewportHeight) * (1 - EDGE * 2) / Math.max(1, bottom - top));
+        return new TableCamera((left + right) / 2.0, (top + bottom) / 2.0, fit, spanX, spanY, false);
+    }
+
     // ------------------------------------------------------------- the math
 
     public double toScreenX(double tableX, int viewportWidth) {
