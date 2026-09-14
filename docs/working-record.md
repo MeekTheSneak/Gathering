@@ -268,6 +268,7 @@ notes below are what a status line cannot hold.
 | CL-10 | Partial, not seen | Below |
 | CL-11b | Done | Below |
 | CL-03 | Done, not timed live | Below; supersedes "Why the bulk broadcast was measured and left alone" |
+| CL-07 | Done, profiled | Below |
 
 **CL-09.** `PracticeTable` now holds only what production needs: `retire`, the answers to an
 old client's START and STOP, `isPracticeAt` and the demonstration seat. Creation lives in
@@ -410,6 +411,31 @@ Not verified: the client half. `ClientTableActions.sendAll` and the screen's fou
 compiled and read, not run - no automated check loads client classes - and nobody has watched a
 selection animate after the change. Card flights are worked out from the difference between
 boards, so one board should still move every card; that is reasoning, not observation.
+
+**CL-07, profiled first.** The roadmap said to measure before touching state copying, so the
+measurement came first: a core benchmark folding 128 ordinary events - 64 taps and 64 moves on a
+four-seat table with 80% of each library on the battlefield - best of seven trials after warmup,
+with thread allocation counters.
+
+| Cards | Before | After |
+|---:|---|---|
+| 400 | 2.40 ms, 8.70 MB | 1.81 ms, 3.95 MB |
+| 1,600 | 6.65 ms, 32.23 MB | 3.09 ms, 14.64 MB |
+
+The cause was the record's constructor copying every map it was given, every time, including
+maps the previous state had built a line earlier and maps it was passing on unchanged -
+changing whose turn it is copied the whole card map. `FrozenMap` lets a state keep a map it owns
+outright: `of` copies anything it has not seen before, `adopt` (package-private) takes a map
+built on the line before without copying, and neither hands out anything writable. Nothing about
+the event-sourced model changes; undo, restore and refold go through the same transitions and the
+whole core suite passes untouched.
+
+`FrozenMapTest`: an earlier state is unchanged by every later one; nothing a state hands out can
+be written to, down to an entry's `setValue` and a zone's list; a caller's map is copied, so
+changing it afterwards changes no state (**shown to fail** with `of` adopting a caller's map);
+insertion order is kept. No location index was added - nothing measured asked for one.
+
+These are core microbenchmark numbers, not server tick times.
 
 The audit also measured the bulk-broadcast cost independently and agrees with the number
 recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views

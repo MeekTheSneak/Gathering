@@ -1,7 +1,6 @@
 package dev.gathering.core.game;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -44,11 +43,13 @@ public record GameState(
 
     public GameState {
         seats = List.copyOf(seats);
-        cards = Collections.unmodifiableMap(new LinkedHashMap<>(cards));
-        zones = deepImmutable(zones);
-        seatStates = Collections.unmodifiableMap(new LinkedHashMap<>(seatStates));
-        peeks = peeks == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(peeks));
-        revealed = revealed == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(revealed));
+        // Copied unless the state before this one already owns it immutably - see FrozenMap,
+        // which is where the argument for sharing lives.
+        cards = FrozenMap.of(cards);
+        zones = zones instanceof FrozenMap ? zones : deepImmutable(zones);
+        seatStates = FrozenMap.of(seatStates);
+        peeks = FrozenMap.of(peeks);
+        revealed = FrozenMap.of(revealed);
     }
 
     /** An empty table with the given seats, before any card has entered. */
@@ -177,10 +178,10 @@ public record GameState(
     // ------------------------------------------------------------ transitions
 
     public GameState withCard(CardInstance card) {
-        Map<CardInstanceId, CardInstance> updated = new LinkedHashMap<>(cards);
+        LinkedHashMap<CardInstanceId, CardInstance> updated = new LinkedHashMap<>(cards);
         updated.put(card.id(), card);
         return new GameState(
-                seats, updated, zones, seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, FrozenMap.adopt(updated), zones, seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
     /** Adds a card to the session and drops it into a zone in one step. */
@@ -205,7 +206,7 @@ public record GameState(
         if (!cards.containsKey(id)) {
             return this;
         }
-        Map<ZoneRef, List<CardInstanceId>> updated = new LinkedHashMap<>();
+        LinkedHashMap<ZoneRef, List<CardInstanceId>> updated = new LinkedHashMap<>();
         for (Map.Entry<ZoneRef, List<CardInstanceId>> entry : zones.entrySet()) {
             List<CardInstanceId> contents = entry.getValue();
             updated.put(entry.getKey(), contents.contains(id) ? without(contents, id) : contents);
@@ -219,7 +220,7 @@ public record GameState(
         updated.put(into, List.copyOf(destination));
 
         GameState moved = new GameState(
-                seats, cards, updated, seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, cards, FrozenMap.adopt(updated), seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
         return moved.settlePosition(id, into, placement).withAttachmentsFollowing(id, into);
     }
 
@@ -341,10 +342,10 @@ public record GameState(
 
     /** Replaces a zone's contents wholesale. How a shuffle, a scry, and a reorder all land. */
     public GameState withZone(ZoneRef ref, List<CardInstanceId> contents) {
-        Map<ZoneRef, List<CardInstanceId>> updated = new LinkedHashMap<>(zones);
+        LinkedHashMap<ZoneRef, List<CardInstanceId>> updated = new LinkedHashMap<>(zones);
         updated.put(ref, List.copyOf(contents));
         return new GameState(
-                seats, cards, updated, seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, cards, FrozenMap.adopt(updated), seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
     /**
@@ -357,30 +358,30 @@ public record GameState(
     }
 
     private GameState forgetCard(CardInstanceId id) {
-        Map<CardInstanceId, CardInstance> updatedCards = new LinkedHashMap<>(cards);
+        LinkedHashMap<CardInstanceId, CardInstance> updatedCards = new LinkedHashMap<>(cards);
         updatedCards.remove(id);
-        Map<ZoneRef, List<CardInstanceId>> updatedZones = new LinkedHashMap<>();
+        LinkedHashMap<ZoneRef, List<CardInstanceId>> updatedZones = new LinkedHashMap<>();
         for (Map.Entry<ZoneRef, List<CardInstanceId>> entry : zones.entrySet()) {
             List<CardInstanceId> contents = entry.getValue();
             updatedZones.put(entry.getKey(), contents.contains(id) ? without(contents, id) : contents);
         }
         return new GameState(
-                seats, updatedCards, updatedZones, seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, FrozenMap.adopt(updatedCards), FrozenMap.adopt(updatedZones), seatStates, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
     public GameState withSeatState(SeatState state) {
-        Map<SeatId, SeatState> updated = new LinkedHashMap<>(seatStates);
+        LinkedHashMap<SeatId, SeatState> updated = new LinkedHashMap<>(seatStates);
         updated.put(state.seat(), state);
         return new GameState(
-                seats, cards, zones, updated, peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
+                seats, cards, zones, FrozenMap.adopt(updated), peeks, revealed, turn, nextCardId, shuffleOrdinal, markerOrdinal, ended);
     }
 
     /** Opens a library to one seat. A seat looks at one library at a time, like a person. */
     public GameState withPeek(SeatId looker, Peek peek) {
-        Map<SeatId, Peek> updated = new LinkedHashMap<>(peeks);
+        LinkedHashMap<SeatId, Peek> updated = new LinkedHashMap<>(peeks);
         updated.put(looker, peek);
         return new GameState(
-                seats, cards, zones, seatStates, updated, revealed, turn, nextCardId,
+                seats, cards, zones, seatStates, FrozenMap.adopt(updated), revealed, turn, nextCardId,
                 shuffleOrdinal, markerOrdinal, ended);
     }
 
@@ -389,10 +390,10 @@ public record GameState(
         if (!peeks.containsKey(looker)) {
             return this;
         }
-        Map<SeatId, Peek> updated = new LinkedHashMap<>(peeks);
+        LinkedHashMap<SeatId, Peek> updated = new LinkedHashMap<>(peeks);
         updated.remove(looker);
         return new GameState(
-                seats, cards, zones, seatStates, updated, revealed, turn, nextCardId,
+                seats, cards, zones, seatStates, FrozenMap.adopt(updated), revealed, turn, nextCardId,
                 shuffleOrdinal, markerOrdinal, ended);
     }
 
@@ -402,7 +403,7 @@ public record GameState(
      * them, and leaving it open would show them a library they are no longer looking at.
      */
     public GameState withoutPeeksAt(SeatId library) {
-        Map<SeatId, Peek> updated = new LinkedHashMap<>();
+        LinkedHashMap<SeatId, Peek> updated = new LinkedHashMap<>();
         peeks.forEach((looker, peek) -> {
             if (!peek.at().equals(library)) {
                 updated.put(looker, peek);
@@ -412,20 +413,20 @@ public record GameState(
             return this;
         }
         return new GameState(
-                seats, cards, zones, seatStates, updated, revealed, turn, nextCardId,
+                seats, cards, zones, seatStates, FrozenMap.adopt(updated), revealed, turn, nextCardId,
                 shuffleOrdinal, markerOrdinal, ended);
     }
 
     /** Turns the top of a library face up to everybody, or face down again at zero. */
     public GameState withRevealed(SeatId library, int count) {
-        Map<SeatId, Integer> updated = new LinkedHashMap<>(revealed);
+        LinkedHashMap<SeatId, Integer> updated = new LinkedHashMap<>(revealed);
         if (count <= 0) {
             updated.remove(library);
         } else {
             updated.put(library, count);
         }
         return new GameState(
-                seats, cards, zones, seatStates, peeks, updated, turn, nextCardId, shuffleOrdinal,
+                seats, cards, zones, seatStates, peeks, FrozenMap.adopt(updated), turn, nextCardId, shuffleOrdinal,
                 markerOrdinal, ended);
     }
 
@@ -465,8 +466,8 @@ public record GameState(
     }
 
     private static Map<ZoneRef, List<CardInstanceId>> deepImmutable(Map<ZoneRef, List<CardInstanceId>> source) {
-        Map<ZoneRef, List<CardInstanceId>> copy = new LinkedHashMap<>();
+        LinkedHashMap<ZoneRef, List<CardInstanceId>> copy = new LinkedHashMap<>();
         source.forEach((ref, contents) -> copy.put(ref, List.copyOf(contents)));
-        return Collections.unmodifiableMap(copy);
+        return FrozenMap.adopt(copy);
     }
 }
