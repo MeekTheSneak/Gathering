@@ -204,7 +204,9 @@ An external audit of `63bd0410` (`docs/reviews/tournament-audit-2026-09-14/`) re
 defects with failing guards. All ten confirmed in the source and fixed; the response, finding by
 finding, is `RESPONSE.md` beside the audit. The audit's 2 core and 9 in-world guards pass; 6 more
 in-world guards (`EventsIntegrityGameTest`) and 5 core tests cover the cases it asked for, and
-each in-world one was shown to fail with its fix removed. In-world run: **486/486**. The two
+each in-world one was shown to fail with its fix removed. Gate 486/13 (`2860be8a`). Tour after
+the fixes: **342 steps, 0 failures**, the tournament created, played through a round, advanced by
+the round clock and finished. The two
 guards that first still failed after the fix (advancement after withdrawal and after reload) did
 so because the test server ticks faster than real time, and the pause between rounds had been
 moved to real time; it is counted in ticks again.
