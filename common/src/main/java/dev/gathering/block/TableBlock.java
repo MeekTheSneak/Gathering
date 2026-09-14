@@ -920,6 +920,15 @@ public class TableBlock extends BaseEntityBlock {
         TableBlockEntity table = TableSessions.anchorOf(level, tableOrigin)
                 .flatMap(anchor -> entityAt(level, anchor))
                 .orElse(null);
+        // A tournament that locked this player's deck plays that deck and no other.
+        if (level instanceof net.minecraft.server.level.ServerLevel eventLevel && table != null) {
+            java.util.Optional<Component> refused = dev.gathering.server.events.Events.refusesDeck(
+                    eventLevel, table.getBlockPos(), player.getUUID(), deck, pool);
+            if (refused.isPresent()) {
+                player.sendSystemMessage(refused.get());
+                return false;
+            }
+        }
         FormatPreset format = table == null ? null : table.match()
                 .map(match -> match.rules().format())
                 .orElse(null);

@@ -28,6 +28,7 @@ public final class GatheringCommands {
 
     public static LiteralArgumentBuilder<CommandSourceStack> root() {
         return Commands.literal("gathering")
+                .then(EventCommands.events())
                 .then(Commands.literal("import")
                         .executes(context -> openImportScreen(context.getSource()))
                         .then(Commands.argument("decklist", StringArgumentType.greedyString())

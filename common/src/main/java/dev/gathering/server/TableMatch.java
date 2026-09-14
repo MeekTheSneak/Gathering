@@ -58,6 +58,8 @@ public final class TableMatch {
         Optional<SeatId> winner = GameOutcome.winnerOf(state);
         MatchState next = winner.map(match::afterGameWonBy).orElseGet(match::afterDrawnGame);
         table.recordMatch(next);
+        // What a tournament table saw, to suggest the result its players confirm.
+        dev.gathering.server.events.Events.gameEnded(level, table.getBlockPos(), next);
 
         // Written before anything is put away, in both branches. The sentence names whoever
         // won and the only place a seat's name lives is the session, so a line built after

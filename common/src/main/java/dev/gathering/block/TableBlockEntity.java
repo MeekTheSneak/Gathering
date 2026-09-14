@@ -56,6 +56,9 @@ public class TableBlockEntity extends BlockEntity {
     private static final String SIGNUP_KEY = "pod_signup";
     private static final String POD_RECORD_KEY = "pod_record";
     private static final String APART_KEY = "plays_apart";
+    private static final String LABEL_NUMBER_KEY = "event_table";
+    private static final String LABEL_LINE_KEY = "event_line";
+    private static final String LABEL_ENDS_KEY = "event_ends";
     private static final String SESSION_SEALED_KEY = "session_sealed";
     private static final String STARTING_LIFE_KEY = "starting_life";
     private static final String FORMAT_KEY = "format";
@@ -343,6 +346,37 @@ public class TableBlockEntity extends BlockEntity {
 
     public boolean playsApart() {
         return playsApart;
+    }
+
+    /**
+     * The number an event gave this table, who is playing at it, and the game time the round ends,
+     * for the label drawn over it. Zero when no event is using it. Sent to clients; not saved,
+     * because the event puts it back when it next changes.
+     */
+    private int eventTable;
+    private String eventLine = "";
+    private long eventEnds;
+
+    public int eventTable() {
+        return eventTable;
+    }
+
+    public String eventLine() {
+        return eventLine;
+    }
+
+    public long eventEnds() {
+        return eventEnds;
+    }
+
+    public void setEventLabel(int number, String line, long endsAt) {
+        String cleaned = line == null ? "" : line;
+        if (eventTable != number || !eventLine.equals(cleaned) || eventEnds != endsAt) {
+            eventTable = number;
+            eventLine = cleaned;
+            eventEnds = endsAt;
+            tellClients();
+        }
     }
 
     public void setPlaysApart(boolean apart) {
@@ -899,6 +933,9 @@ public class TableBlockEntity extends BlockEntity {
         // about anybody's cards - the client needs it to know whether to draw the box.
         tag.putBoolean(COMMAND_ZONE_KEY, hasCommandZone());
         tag.putBoolean(APART_KEY, playsApart);
+        tag.putInt(LABEL_NUMBER_KEY, eventTable);
+        tag.putString(LABEL_LINE_KEY, eventLine);
+        tag.putLong(LABEL_ENDS_KEY, eventEnds);
         return tag;
     }
 
@@ -919,6 +956,11 @@ public class TableBlockEntity extends BlockEntity {
         commandZone = tag.getBoolean(COMMAND_ZONE_KEY);
         formatChosen = tag.getBoolean(FORMAT_CHOSEN_KEY);
         playsApart = tag.getBoolean(APART_KEY);
+        if (tag.contains(LABEL_NUMBER_KEY)) {
+            eventTable = tag.getInt(LABEL_NUMBER_KEY);
+            eventLine = tag.getString(LABEL_LINE_KEY);
+            eventEnds = tag.getLong(LABEL_ENDS_KEY);
+        }
 
         session = null;
         forgetWhatTheRoomWasTold();

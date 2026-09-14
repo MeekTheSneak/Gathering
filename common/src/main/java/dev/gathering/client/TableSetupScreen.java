@@ -140,10 +140,16 @@ public final class TableSetupScreen extends Screen {
         // Not a game at all: a draft or sealed event, which this table can host instead. Here
         // because this is the screen a table asks "what will it be" on.
         int eventTop = learnTop + ROW_HEIGHT + GAP;
+        int halfRow = (panel.width() - MARGIN * 2 - GAP) / 2;
         addRenderableWidget(GatheringButtons.of(
-                panel.x() + MARGIN, eventTop, panel.width() - MARGIN * 2, ROW_HEIGHT,
+                panel.x() + MARGIN, eventTop, halfRow, ROW_HEIGHT,
                 Component.translatable("screen.gathering.setup.event"),
                 () -> this.minecraft.setScreen(new PodCreateScreen(table))));
+        // Tournaments beside it: the list of them, and hosting one at this table.
+        addRenderableWidget(GatheringButtons.of(
+                panel.right() - MARGIN - halfRow, eventTop, halfRow, ROW_HEIGHT,
+                Component.translatable("screen.gathering.setup.tournaments"),
+                () -> EventListScreen.openFrom(table)));
 
         // A long table can be one surface or several tables side by side. Offered only where
         // there is more than one table to split, and said as what pressing it does.

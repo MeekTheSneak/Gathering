@@ -37,8 +37,9 @@ public final class GatheringNetwork {
      * does not exist or could not be looked up, in a payload an older client cannot read.
      * <p>Six, for draft and sealed signups: creating one, acting at one, and being shown one.
      * <p>Seven, for playing a long table apart.
+     * <p>Eight, for tournaments: creating, acting in and being shown one, and being pointed to a seat.
      */
-    private static final String PROTOCOL_VERSION = "7";
+    private static final String PROTOCOL_VERSION = "8";
 
     private GatheringNetwork() {
     }

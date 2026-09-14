@@ -173,6 +173,9 @@ public final class GatheringNeoForgeClient {
         if (Minecraft.getInstance().screen != null) {
             return;
         }
+        dev.gathering.client.EventHud.render(event.getGuiGraphics(),
+                Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+                Minecraft.getInstance().getWindow().getGuiScaledHeight());
         CardZoomOverlay.render(
                 event.getGuiGraphics(),
                 Minecraft.getInstance().getWindow().getGuiScaledWidth(),

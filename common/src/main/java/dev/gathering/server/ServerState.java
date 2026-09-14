@@ -34,5 +34,7 @@ public final class ServerState {
         SealedLoot.clear();
         ServerTicks.clear();
         TradeSessions.clear();
+        dev.gathering.server.events.Events.clear();
+        dev.gathering.server.events.EventRecords.clear();
     }
 }

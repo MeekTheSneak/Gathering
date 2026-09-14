@@ -222,6 +222,9 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
             TableBlockEntity table, float partialTick, PoseStack poseStack,
             MultiBufferSource buffers, int packedLight, int packedOverlay) {
         BlockPos pos = table.getBlockPos();
+        if (table.eventTable() > 0) {
+            drawEventLabel(table, poseStack, buffers, packedLight);
+        }
         GameView board = ClientTableState.viewOf(pos).orElse(null);
         if (board == null || board.seats().isEmpty()) {
             return;
@@ -991,6 +994,38 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
         flat(consumer, poseStack.last().pose(),
                 -width / 2f - grow, -depth / 2f - grow,
                 width / 2f + grow, depth / 2f + grow, RING_COLOR);
+        poseStack.popPose();
+    }
+
+    /**
+     * A tournament table's number floating over it, with who is playing and the time left.
+     * <p>Text rather than a sprite, so it needs no artwork; turned to face whoever is looking,
+     * so a hall of numbered tables reads from anywhere in it.
+     */
+    private void drawEventLabel(TableBlockEntity table, PoseStack poseStack, MultiBufferSource buffers, int packedLight) {
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+        net.minecraft.client.gui.Font font = client.font;
+        List<net.minecraft.network.chat.Component> lines = new java.util.ArrayList<>();
+        lines.add(net.minecraft.network.chat.Component.translatable("label.gathering.event.table", table.eventTable()));
+        if (!table.eventLine().isEmpty()) {
+            lines.add(net.minecraft.network.chat.Component.literal(table.eventLine()));
+        }
+        if (table.eventEnds() > 0 && client.level != null) {
+            long left = Math.max(0, table.eventEnds() - client.level.getGameTime()) / 20;
+            lines.add(net.minecraft.network.chat.Component.literal(
+                    String.format(java.util.Locale.ROOT, "%d:%02d", left / 60, left % 60)));
+        }
+        poseStack.pushPose();
+        poseStack.translate(1.0, 2.4, 1.0);
+        poseStack.mulPose(client.getEntityRenderDispatcher().cameraOrientation());
+        poseStack.scale(0.025f, -0.025f, 0.025f);
+        for (int index = 0; index < lines.size(); index++) {
+            net.minecraft.network.chat.Component line = lines.get(index);
+            float x = -font.width(line) / 2f;
+            font.drawInBatch(line, x, index * 10f, index == 0 ? 0xFFE0B15A : 0xFFFFFFFF, false,
+                    poseStack.last().pose(), buffers, net.minecraft.client.gui.Font.DisplayMode.NORMAL, 0x40000000,
+                    net.minecraft.client.renderer.LightTexture.FULL_BRIGHT);
+        }
         poseStack.popPose();
     }
 

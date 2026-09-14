@@ -143,6 +143,9 @@ public final class GatheringFabricClient implements ClientModInitializer {
             if (Minecraft.getInstance().screen != null) {
                 return;
             }
+            dev.gathering.client.EventHud.render(graphics,
+                    Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+                    Minecraft.getInstance().getWindow().getGuiScaledHeight());
             CardZoomOverlay.render(
                     graphics,
                     Minecraft.getInstance().getWindow().getGuiScaledWidth(),

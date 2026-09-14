@@ -86,7 +86,12 @@ public final class ServerTicks {
      * retry.
      */
     public static void tick(MinecraftServer server) {
-        if (server == null || WAITING.isEmpty()) {
+        if (server == null) {
+            return;
+        }
+        // Tournaments' clocks, on the same one real tick both loaders already call here.
+        dev.gathering.server.events.Events.tick(server);
+        if (WAITING.isEmpty()) {
             return;
         }
         int now = server.getTickCount();

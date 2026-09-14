@@ -28,6 +28,7 @@ public final class PlayerGone {
         }
         Wants.joined(player);
         Owed.deliver(player);
+        dev.gathering.server.events.Events.arrived(player);
     }
 
     /** Called from both loaders' disconnect hooks and nowhere else. */
@@ -36,6 +37,7 @@ public final class PlayerGone {
             return;
         }
         Wants.left(player);
+        dev.gathering.server.events.Events.left(player, player.getServer() == null ? 0 : player.getServer().getTickCount());
         ReplayWatch.forget(player.getUUID());
         // The trade goes with them, and whoever is across the table is told rather than left
         // agreeing with an empty chair.

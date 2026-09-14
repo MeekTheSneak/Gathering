@@ -42,6 +42,7 @@ public final class PodCreateScreen extends Screen {
 
     private final BlockPos table;
 
+
     private PodSettings.Kind kind = PodSettings.Kind.DRAFT;
     private PodSettings.Source source = PodSettings.Source.EACH_BRINGS;
     private PodSettings.SetRule.Mode setMode = PodSettings.SetRule.Mode.ANY;
@@ -59,6 +60,29 @@ public final class PodCreateScreen extends Screen {
     public PodCreateScreen(BlockPos table) {
         super(Component.translatable("screen.gathering.pod.create"));
         this.table = table;
+        this.parent = null;
+        this.chosen = null;
+    }
+
+    /** The screen to go back to, when the settings are chosen for a tournament rather than a pod. */
+    private final Screen parent;
+
+    /** Where chosen settings go instead of creating a sign-up. */
+    private final java.util.function.Consumer<PodSettings> chosen;
+
+    /** The same screen, choosing a tournament's pack settings and handing them back. */
+    public PodCreateScreen(Screen parent, PodSettings initial, java.util.function.Consumer<PodSettings> chosen) {
+        super(Component.translatable("screen.gathering.pod.for_event"));
+        this.table = null;
+        this.parent = parent;
+        this.chosen = chosen;
+        this.kind = initial.kind();
+        this.source = initial.source();
+        this.setMode = initial.sets().mode();
+        this.setsTyped = String.join(", ", initial.sets().sets());
+        this.packsEach = initial.packsEach();
+        this.picks = initial.picksPerTurn();
+        this.cardsGo = initial.cardsGo();
     }
 
     @Override
@@ -121,7 +145,7 @@ public final class PodCreateScreen extends Screen {
         addRenderableWidget(GatheringButtons.of(panel.x() + MARGIN, decide, half, ROW_HEIGHT,
                 Component.translatable("gui.cancel"), this::onClose));
         addRenderableWidget(GatheringButtons.of(panel.right() - MARGIN - half, decide, half, ROW_HEIGHT,
-                Component.translatable("screen.gathering.pod.create_button"), this::create));
+                Component.translatable(chosen != null ? "gui.done" : "screen.gathering.pod.create_button"), this::create));
     }
 
     private int[] packsAt = {0, 0};
@@ -175,8 +199,22 @@ public final class PodCreateScreen extends Screen {
         if (settings == null || settings.problem().isPresent()) {
             return;
         }
+        if (chosen != null) {
+            chosen.accept(settings);
+            this.minecraft.setScreen(parent);
+            return;
+        }
         ClientNetworking.send(new CreatePodPayload(table, settings));
         this.onClose();
+    }
+
+    @Override
+    public void onClose() {
+        if (parent != null) {
+            this.minecraft.setScreen(parent);
+            return;
+        }
+        super.onClose();
     }
 
     /** What the line under the choices said last frame. For the scripted harness. */

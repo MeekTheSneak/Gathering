@@ -107,6 +107,10 @@ public final class TableActions {
         // has just updated, and the block's record of who is sitting where, which is what
         // decides whose chair is free for the next player. Leaving either behind is a player
         // who has stood up in one of them and is still sitting down in the other.
+        // A turn passing at a tournament table counts toward its extra turns once time is called.
+        if (event instanceof GameEvent.TurnPassed) {
+            dev.gathering.server.events.Events.turnPassed(level, origin);
+        }
         if (event instanceof GameEvent.SeatReleased released) {
             TableSeats.leave(level, origin, player.getUUID());
             // And their deck comes with them. Leaving the table is the moment a player means
