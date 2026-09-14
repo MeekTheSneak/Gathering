@@ -23,6 +23,16 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
     private final Map<String, UUID> byNameInSet = new ConcurrentHashMap<>();
 
     /**
+     * How many times anything has been stored, so a caller holding answers built from
+     * {@link #inMemory} can tell whether they might now be different.
+     * <p>A count rather than a timestamp, and bumped after the write rather than before: a
+     * reader that notes the count and then reads the map can only ever be told "maybe stale"
+     * about something it already saw, never "fresh" about something it missed.
+     */
+    private final java.util.concurrent.atomic.AtomicLong generation =
+            new java.util.concurrent.atomic.AtomicLong();
+
+    /**
      * What is already in memory for this printing, and never anything else.
      * <p>Deliberately not {@link #find}: the disk-backed subclass overrides that and will read
      * a file, which is why this class says nothing here may be called from a game thread.
@@ -33,6 +43,11 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
      */
     public final Optional<CardMetadata> inMemory(UUID scryfallId) {
         return scryfallId == null ? Optional.empty() : Optional.ofNullable(byId.get(scryfallId));
+    }
+
+    /** Which generation of what is known this store is on. See {@link #generation}. */
+    public final long generation() {
+        return generation.get();
     }
 
     @Override
@@ -69,6 +84,7 @@ public class InMemoryCardMetadataStore implements CardMetadataStore {
         for (var face : card.faces()) {
             indexName(face.name(), card);
         }
+        generation.incrementAndGet();
     }
 
     /**

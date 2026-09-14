@@ -263,6 +263,7 @@ notes below are what a status line cannot hold.
 | CL-04 | Done for the board | A quiet table sends nothing after its first push, keyed on `GameSession.revision()` and the audience. `AmbientBoardGameTest` checks both halves: silence, and that a changed board and a newly arrived spectator are still sent one. **The first commit of this (`a3bd7b69`) went in with the gate red** - a pipeline read `tail`'s exit code rather than the gate's - and was fixed in the next commit. Commits now check the gate's own exit code |
 | CL-11a | Done | `Prompts` and core `ListScroll`; four panels and two lists |
 | CL-09 | Done | Below |
+| CL-05b | Done | Below |
 
 **CL-09.** `PracticeTable` now holds only what production needs: `retire`, the answers to an
 old client's START and STOP, `isPracticeAt` and the demonstration seat. Creation lives in
@@ -288,6 +289,23 @@ Two things went with creation, and are recorded rather than quietly dropped:
 
 Six `message.gathering.practice_*` strings only the old start's outcomes used were removed;
 `practice_retired` stays.
+
+**CL-05b.** Paging a collection used to search it again for every page. `CollectionView` now
+keeps each player's last ordered answer and reads it back only when everything it was built
+from is unchanged: the same box object, the same revision of its counts (new,
+`CollectionBlockEntity.revision()`, moved by every count change and by a load), the same cards
+loose in that player's pockets, the same card service at the same generation of what it knows
+(new, `InMemoryCardMetadataStore.generation()`, moved by every store), and the same question.
+The generation is read before any card is looked up, so a name landing mid-build files the
+answer as already stale.
+
+`CollectionResultsGameTest` has one test per input plus the saving itself (three pages, one
+search). **All six safety tests were shown to fail** against a deliberately weak cache keyed on
+the box position and shared between players; only those six failed. The page is built by a
+new `pageFor` so a test can read what a stand-in player cannot receive.
+
+Not measured: the saving per page flip. CL-05a measured the search it skips at about 2 ms for
+ten thousand distinct cards; what a page flip now costs on a real server is inferred, not timed.
 
 The audit also measured the bulk-broadcast cost independently and agrees with the number
 recorded above: 128 changes across 400 cards cost 43.60 ms and 95 MB where six final views

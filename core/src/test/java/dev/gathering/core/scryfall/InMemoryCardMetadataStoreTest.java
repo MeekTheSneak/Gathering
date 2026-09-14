@@ -33,6 +33,25 @@ class InMemoryCardMetadataStoreTest {
         assertThat(store.find(CardQuery.byNameInSet("Sol Ring", "who"))).isEmpty();
     }
 
+    @Test
+    @DisplayName("every store moves the generation, so an answer built before it reads as stale")
+    void storingMovesTheGeneration() {
+        // A collection page read back from before a name arrived would go on showing the card
+        // unnamed. The page cache keys on this number, so a store that did not move it - a
+        // refresh replacing a printing already known, say - would be exactly that bug.
+        InMemoryCardMetadataStore store = new InMemoryCardMetadataStore();
+        long empty = store.generation();
+        CardMetadata ring = printing("Sol Ring", "cmr", "1.00");
+        store.store(ring, null);
+        long once = store.generation();
+        store.store(ring, null);
+
+        assertThat(once).isGreaterThan(empty);
+        assertThat(store.generation()).as("storing the same printing again").isGreaterThan(once);
+        store.store(null, null);
+        assertThat(store.generation()).as("a store that stored nothing").isEqualTo(once + 1);
+    }
+
     private static CardMetadata printing(String name, String setCode, String usd) {
         return new CardMetadata(UUID.randomUUID(), UUID.randomUUID(), name, "{1}", 1,
                 "Artifact", null, null, null, null, "normal", setCode, setCode, "1",

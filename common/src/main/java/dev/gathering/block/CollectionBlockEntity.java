@@ -93,9 +93,22 @@ public class CollectionBlockEntity extends BlockEntity {
         return built;
     }
 
+    /**
+     * Which version of the counts this is, for anything that keeps answers built from them.
+     * <p>Moves on every change to what is counted, and on a load. Stories do not move it: a
+     * search reads counts, and a history attached to one copy changes no count.
+     */
+    private long revision;
+
+    /** Which version of the counts this is. See {@link #revision}. */
+    public long revision() {
+        return revision;
+    }
+
     /** Says the value form is out of date, which the next reader rebuilds. */
     private void countsChanged() {
         cards = null;
+        revision++;
         setChanged();
     }
 
@@ -309,6 +322,7 @@ public class CollectionBlockEntity extends BlockEntity {
         counts.clear();
         counts.putAll(readCards(tag).counts());
         cards = null;
+        revision++;
         storied = readStoried(tag);
         label = tag.getString(LABEL_KEY);
         UUID owner = tag.hasUUID(OWNER_KEY) ? tag.getUUID(OWNER_KEY) : null;

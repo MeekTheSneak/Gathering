@@ -69,6 +69,46 @@ public final class CollectionView {
     private static final int MOST_REMEMBERED = 512;
     private static final Map<UUID, Integer> LAST_SEARCH = new java.util.HashMap<>();
 
+    /**
+     * The ordered answer each player was last given, so turning a page is not a new search.
+     * <p>A search is a pass over every row and a sort of what matched - measured at about two
+     * milliseconds for ten thousand distinct cards - and paging through a result used to pay
+     * that again for every page, to cut a different slice out of the same list.
+     * <p>Kept per player, never shared: two people at one box can be asking different things,
+     * and one of them may be counting their own pockets in. An answer is used again only when
+     * everything it was built from is provably unchanged - the same box by identity, the same
+     * revision of its counts, the same cards loose in this player's pockets, the same card
+     * service at the same generation of what it knows, and the same question. Anything else is
+     * a new search, so a card taken, a card put in, a name that arrived from the cache or a
+     * card picked up off the floor shows on the very next page.
+     * <p>This is only ever reading. Taking a card still goes through the box and its rights
+     * every time; nothing here can hand anybody anything.
+     * <p>At most a server's handful, least recently asked dropped first, and forgotten on
+     * disconnect. Server thread only.
+     */
+    private static final int MOST_ORDERINGS_KEPT = 64;
+    private static final Map<UUID, Ordering> ORDERED =
+            new java.util.LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<UUID, Ordering> eldest) {
+                    return size() > MOST_ORDERINGS_KEPT;
+                }
+            };
+
+    /** Everything an ordered answer was built from. Equal only when all of it is. */
+    private record Asked(
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
+            BlockPos where, CollectionBlockEntity box, long boxRevision, CardTally carried,
+            CardDataService service, long knownGeneration, CollectionSearch.Query query) {
+    }
+
+    /** One ordered answer, and the pool it was taken from. */
+    private record Ordering(Asked asked, CardTally pool, List<CollectionSearch.Row> found) {
+    }
+
+    /** How many times a search actually ran rather than being read back. For a test. */
+    private static int orderingsBuilt;
+
     private CollectionView() {
     }
 
@@ -131,16 +171,43 @@ public final class CollectionView {
     /** The search itself, once the throttle has let it through. Server thread only. */
     private static void searchNow(ServerPlayer player, BlockPos where, CollectionQuery query,
             boolean descending, int page, int rowsThatFit, boolean pockets, int revision) {
-        CollectionBlockEntity collection = at(player, where);
-        if (collection == null) {
+        CollectionPagePayload answer =
+                pageFor(player, where, query, descending, page, rowsThatFit, pockets, revision);
+        if (answer == null) {
             return;
         }
+        Sending.to(player, answer);
+
+        // Whatever this page could not name is looked up now, so a second look at the same
+        // page has it. Only this page: a collection of ten thousand cards nobody has ever
+        // fetched is not worth ten thousand requests, and the cards a player actually looks
+        // at are the ones worth having.
+        List<UUID> unnamed = new ArrayList<>();
+        for (CollectionPagePayload.Row row : answer.rows()) {
+            if (row.about().isEmpty()) {
+                row.card().faceUp().toIdentity().printing().ifPresent(unnamed::add);
+            }
+        }
+        fetchLater(unnamed);
+    }
+
+    /**
+     * The page one search would send, or null where this player is not at a collection.
+     * <p>Split from the sending so a test can read what a player would be shown: a stand-in
+     * player cannot receive a payload. Public for that reason only.
+     */
+    public static CollectionPagePayload pageFor(ServerPlayer player, BlockPos where,
+            CollectionQuery query, boolean descending, int page, int rowsThatFit,
+            boolean pockets, int revision) {
+        CollectionBlockEntity collection = at(player, where);
+        if (collection == null || query == null) {
+            return null;
+        }
         CardTally carried = pockets ? PocketCards.loose(player) : CardTally.EMPTY;
-        CardTally pool = carried.isEmpty()
-                ? collection.cards()
-                : collection.cards().plus(carried);
-        List<CollectionSearch.Row> rows = rowsOf(pool);
-        List<CollectionSearch.Row> found = CollectionSearch.run(rows, query.asSearch(descending));
+        Ordering ordering = orderingFor(player, where, collection, carried,
+                query.asSearch(descending));
+        CardTally pool = ordering.pool();
+        List<CollectionSearch.Row> found = ordering.found();
 
         // As many as the window asking has room for, and never more than a page holds. A
         // page larger than the box is rows nobody can see and rows somebody can click on
@@ -152,7 +219,6 @@ public final class CollectionView {
         int to = Math.min(found.size(), from + perPage);
 
         List<CollectionPagePayload.Row> sending = new ArrayList<>();
-        List<UUID> unnamed = new ArrayList<>();
         for (CollectionSearch.Row row : found.subList(from, to)) {
             sending.add(new CollectionPagePayload.Row(
                     CardComponent.of(row.card()),
@@ -160,20 +226,47 @@ public final class CollectionView {
                     Optional.ofNullable(row.about())
                             .map(dev.gathering.network.CardSummary::of),
                     carried.of(row.card())));
-            if (row.about() == null) {
-                row.card().printing().ifPresent(unnamed::add);
-            }
         }
-        Sending.to(player, new CollectionPagePayload(
+        return new CollectionPagePayload(
                 where, showing, pages,
                 new CollectionPagePayload.Counts(pool.total(), pool.distinct(), found.size()),
-                sending, revision));
+                sending, revision);
+    }
 
-        // Whatever this page could not name is looked up now, so a second look at the same
-        // page has it. Only this page: a collection of ten thousand cards nobody has ever
-        // fetched is not worth ten thousand requests, and the cards a player actually looks
-        // at are the ones worth having.
-        fetchLater(unnamed);
+    /**
+     * The ordered answer to this question, read back where nothing it depends on has moved.
+     * <p>The generation is read before a single card is looked up. A name arriving while the
+     * rows are being built then leaves this answer filed under the older number, which the
+     * next page sees as stale and builds again - the safe way round.
+     */
+    private static Ordering orderingFor(ServerPlayer player, BlockPos where,
+            CollectionBlockEntity collection, CardTally carried, CollectionSearch.Query search) {
+        CardDataService service = CardDataService.active().orElse(null);
+        Asked asked = new Asked(player.level().dimension(), where.immutable(), collection,
+                collection.revision(), carried, service,
+                service == null ? 0 : service.knownGeneration(), search);
+        Ordering kept = ORDERED.get(player.getUUID());
+        if (kept != null && kept.asked().equals(asked)) {
+            return kept;
+        }
+        CardTally pool = carried.isEmpty()
+                ? collection.cards()
+                : collection.cards().plus(carried);
+        Ordering built = new Ordering(asked, pool,
+                CollectionSearch.run(rowsOf(service, pool), search));
+        orderingsBuilt++;
+        ORDERED.put(player.getUUID(), built);
+        return built;
+    }
+
+    /** How many searches have actually run since the count was last forgotten. */
+    public static int orderingsBuilt() {
+        return orderingsBuilt;
+    }
+
+    /** Starts the count again. */
+    public static void forgetTheCount() {
+        orderingsBuilt = 0;
     }
 
     /**
@@ -543,11 +636,13 @@ public final class CollectionView {
     public static void forget(UUID player) {
         ServerTicks.forget(waitingKey(player));
         LAST_SEARCH.remove(player);
+        ORDERED.remove(player);
     }
 
     /** Forgets everybody's, for a server that is stopping. */
     public static void clear() {
         LAST_SEARCH.clear();
+        ORDERED.clear();
     }
 
     /**
@@ -595,8 +690,7 @@ public final class CollectionView {
     }
 
     /** The collection as rows, with whatever the cache already knows about each card. */
-    private static List<CollectionSearch.Row> rowsOf(CardTally cards) {
-        CardDataService service = CardDataService.active().orElse(null);
+    private static List<CollectionSearch.Row> rowsOf(CardDataService service, CardTally cards) {
         List<CollectionSearch.Row> rows = new ArrayList<>(cards.distinct());
         for (Map.Entry<CardIdentity, Integer> entry : cards.counts().entrySet()) {
             rows.add(new CollectionSearch.Row(

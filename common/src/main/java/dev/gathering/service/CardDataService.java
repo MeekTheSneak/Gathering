@@ -135,6 +135,15 @@ public final class CardDataService implements AutoCloseable {
     }
 
     /**
+     * A number that changes whenever what {@link #peek} could answer might have changed.
+     * <p>Read it <em>before</em> peeking, and anything built from those answers is current for
+     * as long as this still returns the same number.
+     */
+    public long knownGeneration() {
+        return store.generation();
+    }
+
+    /**
      * Several printings at once, cache first.
      * <p>What answers a client opening a deck: one batched resolution rather than a hundred
      * separate ones, and usually zero network at all.
