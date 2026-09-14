@@ -215,20 +215,28 @@ public final class EventScreen extends Screen {
                     .findFirst().orElse(null);
             if (chosen != null) {
                 // The results a match of this length can end in, as the players' own buttons
-                // offer, on a row of their own above the page buttons: a dozen of them and the
-                // two drop buttons do not share one row with Done.
+                // offer, laid out the same way on rows of their own above the page buttons: a
+                // dozen on one row left "1-0-1" too narrow to read, and with the two drop buttons
+                // they ran on under Done.
                 List<dev.gathering.core.tournament.MatchResult> results = offeredResults();
-                int each = (panel.width() - MARGIN * 2 - 3 * (results.size() - 1)) / results.size();
-                int sx = x;
-                for (dev.gathering.core.tournament.MatchResult result : results) {
-                    addRenderableWidget(GatheringButtons.of(sx, bottom - ROW - 3, each, ROW, Component.literal(result.label()),
+                int perRow = perResultRow(results.size());
+                int rows = (results.size() + perRow - 1) / perRow;
+                int each = (panel.width() - MARGIN * 2 - 3 * (perRow - 1)) / perRow;
+                for (int index = 0; index < results.size(); index++) {
+                    dev.gathering.core.tournament.MatchResult result = results.get(index);
+                    int row = index / perRow;
+                    addRenderableWidget(GatheringButtons.of(x + index % perRow * (each + 3),
+                            bottom - (rows - row) * (ROW + 3), each, ROW, Component.literal(result.label()),
                             () -> send(EventActionPayload.Action.SETTLE, chosen.table(), result.winsA(), result.winsB(),
                                     result.draws(), EventActionPayload.NONE)));
-                    sx += each + 3;
                 }
-                addRenderableWidget(GatheringButtons.of(x + 56, bottom, 44, ROW, Component.translatable("screen.gathering.event.drop_a"),
+                Component dropA = Component.translatable("screen.gathering.event.drop_a");
+                Component dropB = Component.translatable("screen.gathering.event.drop_b");
+                int dropAWidth = Math.max(44, this.font.width(dropA) + 10);
+                int dropBWidth = Math.max(44, this.font.width(dropB) + 10);
+                addRenderableWidget(GatheringButtons.of(x + 56, bottom, dropAWidth, ROW, dropA,
                         () -> send(EventActionPayload.Action.DROP_PLAYER, 0, 0, 0, 0, chosen.idA())));
-                addRenderableWidget(GatheringButtons.of(x + 103, bottom, 44, ROW, Component.translatable("screen.gathering.event.drop_b"),
+                addRenderableWidget(GatheringButtons.of(x + 56 + dropAWidth + 3, bottom, dropBWidth, ROW, dropB,
                         () -> send(EventActionPayload.Action.DROP_PLAYER, 0, 0, 0, 0, chosen.idB())));
             }
         }

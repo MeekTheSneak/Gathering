@@ -92,6 +92,11 @@ public final class EventCreateScreen extends Screen {
         y += ROW + GAP;
         y = choices(left, y, column, "screen.gathering.event.kind", EventSettings.Kind.values(), value -> kind == value,
                 value -> {
+                    // Follows the kind while the host has left it alone, and stays where they put it
+                    // once they have not.
+                    if (buildMinutes == EventSettings.usualBuildMinutes(kind)) {
+                        buildMinutes = EventSettings.usualBuildMinutes(value);
+                    }
                     kind = value;
                     if (value.isLimited()) {
                         pod = PodSettings.usual(value == EventSettings.Kind.SEALED ? PodSettings.Kind.SEALED : PodSettings.Kind.DRAFT);

@@ -274,6 +274,14 @@ class TournamentTest {
                 .isEqualTo(new MatchResult(1, 1, 1));
     }
 
+    /** Appendix B's building times: 25 minutes after a draft, 30 for sealed. */
+    @Test
+    void buildingTimeFollowsTheTournamentRules() {
+        assertThat(EventSettings.usual(EventSettings.Kind.DRAFT, "").buildMinutes()).isEqualTo(25);
+        assertThat(EventSettings.usual(EventSettings.Kind.SEALED, "").buildMinutes()).isEqualTo(30);
+        assertThat(EventSettings.usual(EventSettings.Kind.DRAFT, "").problem()).isEmpty();
+    }
+
     /** No cut below nine players, whatever the host set. */
     @Test
     void anEventOfEightHasNoCut() {

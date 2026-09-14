@@ -294,6 +294,33 @@ public final class TableGameTest {
         helper.succeed();
     }
 
+    /**
+     * Commander damage is Commander's rule and not Oathbreaker's, though both have a command zone:
+     * a joining client is told which, so the counters panel does not offer 21 damage from a
+     * signature spell.
+     */
+    @GameTest(template = "tables")
+    public static void onlyCommanderCountsCommanderDamage(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        TableBlockEntity table = TableBlock.entityAt(helper.getLevel(), origin).orElseThrow();
+        TableSeats.take(helper.getLevel(), origin, new TableCell(0, 0), Side.NORTH, new UUID(0L, 92L));
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.COMMANDER));
+        if (!table.getUpdateTag(helper.getLevel().registryAccess()).getBoolean("commander_damage")) {
+            helper.fail("A joining client is not told a game of Commander counts commander damage");
+            return;
+        }
+        TableSessions.end(helper.getLevel(), origin, new SeatId(0), "test");
+        TableSessions.start(helper.getLevel(), origin,
+                dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.OATHBREAKER));
+        CompoundTag update = table.getUpdateTag(helper.getLevel().registryAccess());
+        if (!update.getBoolean("command_zone") || update.getBoolean("commander_damage")) {
+            helper.fail("A game of Oathbreaker should have a command zone and no commander damage: " + update);
+            return;
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "tables")
     public static void aGameNeedsSomebodySittingAtTheTable(GameTestHelper helper) {
         BlockPos origin = place(helper, 1, 2, 1);

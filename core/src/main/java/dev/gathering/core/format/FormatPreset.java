@@ -61,4 +61,13 @@ public record FormatPreset(
     public boolean hasCommandZone() {
         return commanderRules.inUse();
     }
+
+    /**
+     * Whether damage from a commander is counted on its own in this format, to be shown beside
+     * the seats. Commander's 21 (rule 903.10a); Oathbreaker has a command zone and no such rule,
+     * and its signature spell is an instant or sorcery that could never deal combat damage.
+     */
+    public boolean countsCommanderDamage() {
+        return commanderRules == CommanderRules.COMMANDER;
+    }
 }

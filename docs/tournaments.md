@@ -33,7 +33,7 @@ Swiss: 3 match points for a win, 1 for a draw. Round 1 pairs the top half of the
 the bottom half; later rounds pair within records, never a rematch. A bye is a 2-0 win for the
 lowest-ranked player without one. Rounds: 3 for 5-8 players, 4 for 9-16, 5 for 17-32 (host may
 change). Tiebreakers: opponents' match-win %, game-win %, opponents' game-win %, with the 33%
-floor. Round clock 50 minutes, build clock 30, best of 3 - all host settings. Clocks run on real
+floor. Round clock 50 minutes, build clock 25 after a draft and 30 for sealed (MTR Appendix B), best of 3 - all host settings. Clocks run on real
 time and pause while the server is stopped.
 
 Building after a draft or sealed opening happens in the player's own seat on a board that exists

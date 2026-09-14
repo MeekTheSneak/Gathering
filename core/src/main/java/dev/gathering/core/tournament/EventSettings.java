@@ -70,9 +70,19 @@ public record EventSettings(
         }
     }
 
+    /**
+     * How long players have to build, for this kind of event, when the host changes nothing: the
+     * Magic Tournament Rules' times (Appendix B) - 25 minutes to build after a draft, 30 for a
+     * sealed pool. Their extra 20 minutes for sealed is for registering a pool on paper, which a
+     * pool handed out here already is. A constructed event has no build.
+     */
+    public static int usualBuildMinutes(Kind kind) {
+        return kind == Kind.DRAFT ? 25 : USUAL_BUILD_MINUTES;
+    }
+
     /** An event as it runs when the host changes nothing. */
     public static EventSettings usual(Kind kind, String formatId) {
-        return new EventSettings(kind, formatId, null, 3, USUAL_ROUND_MINUTES, USUAL_BUILD_MINUTES,
+        return new EventSettings(kind, formatId, null, 3, USUAL_ROUND_MINUTES, usualBuildMinutes(kind),
                 USUAL_EXTRA_TURNS, 0, 0, DeckRegistration.LOCKED, false);
     }
 

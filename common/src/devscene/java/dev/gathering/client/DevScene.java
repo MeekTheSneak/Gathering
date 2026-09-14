@@ -174,7 +174,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 342;
+    private static final int LAST_STEP = 343;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -3532,15 +3532,23 @@ public final class DevScene {
             }
             case 339 -> {
                 shoot(client, "105-pairings");
-                settleTableOne(client, 2);
-                advance(20 * 18);
+                pickTableOne(client);
+                advance(SETTLE / 4);
             }
             case 340 -> {
+                // The settle buttons, a frame after the table was picked: every result a match can
+                // end in, none of them under the page buttons or Done.
+                settleRowFits(client);
+                shoot(client, "105a-settling-a-table");
+                press(client, "2-0");
+                advance(20 * 18);
+            }
+            case 341 -> {
                 // No round two: the opponent was never online, so the next round drops them, as
                 // anybody still gone at the next round is, and one player left finishes the event.
                 advance(SETTLE / 4);
             }
-            case 341 -> {
+            case 342 -> {
                 if (client.screen instanceof EventScreen event) {
                     event.showTab(EventScreen.Tab.STANDINGS);
                     if (!"finished".equals(event.view().phase()) || event.view().places().isEmpty()) {
@@ -3553,7 +3561,7 @@ public final class DevScene {
                 }
                 advance(SETTLE / 2);
             }
-            case 342 -> {
+            case 343 -> {
                 // A frame after the tab changed, so the picture is of the standings and not the tab before.
                 shoot(client, "106-final-standings");
                 advance(SETTLE / 2);
@@ -6625,25 +6633,53 @@ public final class DevScene {
                         () -> fail("the hosted tournament was not there to add an opponent to")));
     }
 
-    /** Picks table 1 on the pairings tab and settles it for its first player. */
-    private static void settleTableOne(Minecraft client, int wins) {
+    /** Picks table 1 on the pairings tab, which brings up the host's settle buttons for it. */
+    private static void pickTableOne(Minecraft client) {
         if (!(client.screen instanceof EventScreen event)) {
             fail("there was no tournament screen to settle a table on");
             return;
         }
         event.showTab(EventScreen.Tab.PAIRINGS);
-        String pick = net.minecraft.network.chat.Component.translatable("screen.gathering.event.select").getString();
-        boolean hasSettle = false;
+        press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.event.select").getString());
+    }
+
+    /**
+     * The host's settle buttons offer a drawn and an agreed result, and none of them overlaps
+     * another button: a dozen of them used to run on under the drop buttons and Done.
+     */
+    private static void settleRowFits(Minecraft client) {
+        if (!(client.screen instanceof EventScreen event)) {
+            fail("the tournament screen closed before a table could be settled");
+            return;
+        }
+        List<net.minecraft.client.gui.components.AbstractWidget> results = new ArrayList<>();
+        List<net.minecraft.client.gui.components.AbstractWidget> others = new ArrayList<>();
         for (var child : event.children()) {
-            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget
-                    && widget.getMessage().getString().equals(wins + "-0")) {
-                hasSettle = true;
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
+                (widget.getMessage().getString().matches("\\d-\\d(-\\d)?") ? results : others).add(widget);
             }
         }
-        if (!hasSettle) {
-            press(client, pick);
+        if (results.stream().noneMatch(widget -> widget.getMessage().getString().equals("0-0"))
+                || results.stream().noneMatch(widget -> widget.getMessage().getString().equals("1-1"))) {
+            fail("the settle buttons do not offer a drawn match: " + results.size() + " of them");
         }
-        press(client, wins + "-0");
+        var font = client.font;
+        for (var widget : event.children()) {
+            if (widget instanceof net.minecraft.client.gui.components.AbstractWidget button
+                    && font.width(button.getMessage()) + 4 > button.getWidth()) {
+                fail("the host's \"" + button.getMessage().getString() + "\" is too narrow to read: "
+                        + font.width(button.getMessage()) + " wide in " + button.getWidth());
+            }
+        }
+        for (var result : results) {
+            for (var other : others) {
+                if (result.getX() < other.getX() + other.getWidth() && other.getX() < result.getX() + result.getWidth()
+                        && result.getY() < other.getY() + other.getHeight() && other.getY() < result.getY() + result.getHeight()) {
+                    fail("the settle button " + result.getMessage().getString() + " overlaps "
+                            + other.getMessage().getString());
+                }
+            }
+        }
     }
 
     /**

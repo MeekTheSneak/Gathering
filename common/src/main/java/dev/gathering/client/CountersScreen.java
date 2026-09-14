@@ -385,7 +385,7 @@ public final class CountersScreen extends ChildScreen {
      * playing Modern gets no grid rather than a grid of zeroes nobody can use.
      */
     private List<CardInstanceId> commanderDamageFrom() {
-        if (!(subject instanceof Subject.Seat mine) || !tableHasACommandZone()) {
+        if (!(subject instanceof Subject.Seat mine) || !tableCountsCommanderDamage()) {
             return List.of();
         }
         GameView board = ClientTableState.viewOf(table).orElse(null);
@@ -407,6 +407,14 @@ public final class CountersScreen extends ChildScreen {
                 && net.minecraft.client.Minecraft.getInstance().level
                         .getBlockEntity(table) instanceof dev.gathering.block.TableBlockEntity entity
                 && entity.hasCommandZone();
+    }
+
+    /** Whether the game on the table counts commander damage - Commander does, Oathbreaker does not. */
+    private boolean tableCountsCommanderDamage() {
+        return net.minecraft.client.Minecraft.getInstance().level != null
+                && net.minecraft.client.Minecraft.getInstance().level
+                        .getBlockEntity(table) instanceof dev.gathering.block.TableBlockEntity entity
+                && entity.countsCommanderDamage();
     }
 
     /** How much commander damage this seat has taken from that commander. */

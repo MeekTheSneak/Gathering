@@ -314,12 +314,22 @@ to the host once, and the server and every other event carry on
 (`EventsIntegrityGameTest.aFailingEventClockDoesNotStopTheServer`, proved failing without the
 catch). A table's own tick (pick clock, signup hand-back, ambient board) is contained the same way;
 that one has no reproduced failure behind it and no test of its own. Because contained failures no
-longer stop an in-world run, the gate gained a stage that fails on any logged in the run, except the
+longer stop an in-world run, the gate gained a stage that fails on any such failure logged in the run, except the
 test that breaks a clock on purpose.
 
 **Guards proved to fail without their fixes** (sources mutated, run, restored, tree confirmed
 clean): the best-of-one concession (crashed the run), `thehigherseedplaysfirstinacutmatch` and
 `whoeverwentfirstinadrawngamegoesfirstagain` (2 required tests failed, exactly those).
+
+- **Building time follows Appendix B:** 25 minutes after a draft, 30 for sealed (it was 30 for
+  both). The create screen follows the kind until the host sets their own.
+- **Oathbreaker has no commander damage** (oathbreakermtg.org's rules have no such rule, and a
+  signature spell never deals combat damage). The counters panel offered a 21-damage row for every
+  opposing oathbreaker and signature spell; it now shows those rows in Commander only. Guard
+  `TableGameTest.onlyCommanderCountsCommanderDamage`, proved failing without the fix.
+- **The host's settle buttons are two rows**, and the drop buttons are as wide as their labels.
+  The tour now photographs them (`105a-settling-a-table`) and fails if any host button is too
+  narrow for its label - the first photograph showed "1-0-1", "Drop 1st" and "Drop 2nd" clipped.
 
 **Checked and left alone:** five extra turns after time (MTR 2.4, the setting's default is right);
 tiebreakers and their 33% floors, byes as 2-0 and left out of opponents (Appendix C); top-8 bracket

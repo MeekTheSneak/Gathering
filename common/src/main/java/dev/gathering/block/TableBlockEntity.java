@@ -49,6 +49,7 @@ public class TableBlockEntity extends BlockEntity {
 
     private static final String FELT_KEY = "felt";
     private static final String COMMAND_ZONE_KEY = "command_zone";
+    private static final String COMMANDER_DAMAGE_KEY = "commander_damage";
     private static final String FORMAT_CHOSEN_KEY = "format_chosen";
     private static final String SEATS_KEY = "seats";
     private static final String SESSION_OPEN_KEY = "session_open";
@@ -492,6 +493,14 @@ public class TableBlockEntity extends BlockEntity {
      * has started - and then it is false either way.
      */
     private boolean commandZone;
+
+    /** Whether this game counts commander damage. Told to clients the same way as the above. */
+    public boolean countsCommanderDamage() {
+        return match != null ? match.rules().format().countsCommanderDamage() : commanderDamage;
+    }
+
+    /** What a client was told about the above. */
+    private boolean commanderDamage;
 
     public void beginSession(GameSession newSession, int life, MatchState newMatch) {
         this.session = newSession;
@@ -1002,6 +1011,7 @@ public class TableBlockEntity extends BlockEntity {
         // And whether this game has a command zone, which is a fact about the format and not
         // about anybody's cards - the client needs it to know whether to draw the box.
         tag.putBoolean(COMMAND_ZONE_KEY, hasCommandZone());
+        tag.putBoolean(COMMANDER_DAMAGE_KEY, countsCommanderDamage());
         tag.putBoolean(APART_KEY, playsApart);
         tag.putInt(LABEL_NUMBER_KEY, eventTable);
         tag.putString(LABEL_LINE_KEY, eventLine);
@@ -1024,6 +1034,7 @@ public class TableBlockEntity extends BlockEntity {
             redrawTheFelt();
         }
         commandZone = tag.getBoolean(COMMAND_ZONE_KEY);
+        commanderDamage = tag.getBoolean(COMMANDER_DAMAGE_KEY);
         formatChosen = tag.getBoolean(FORMAT_CHOSEN_KEY);
         playsApart = tag.getBoolean(APART_KEY);
         if (tag.contains(LABEL_NUMBER_KEY)) {
