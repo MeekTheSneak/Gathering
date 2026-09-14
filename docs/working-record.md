@@ -136,6 +136,22 @@ An external review of `10960959` proposed six items (RF-01..RF-06). Progress, ne
 - The machine repeatedly killed tour runs for low memory while other applications were open.
   Tours need roughly 5 GB free (1-1.5 GB Gradle, 3 GB client).
 
+## Tournaments (design in `docs/tournaments.md`)
+
+The owner reviewed and approved a tournament design on 2026-09-14; decisions, abuse rules and the
+build order T1-T7 are in `docs/tournaments.md`. Progress:
+
+| Step | State | Evidence |
+|---|---|---|
+| T1a pure event rules (`PodSettings`, `PodLobby`, `PodShares`, host pick count) | **Done** (`c41a8caa`) | Core tests incl. a conservation property; set-named-twice guard shown to fail; pod codec v2 reads v1. Gate 440/10 |
+| T1b packs held by a sign-up (`PodSignup`, `PodSignups`) | **Done** (`7519a00e`) | 9 in-world tests following each pack through put-in, refusal, standing up, cancel, owner away (owed), restart, unreadable settings, broken table, nothing else starting; broken-table guard shown to fail. Creative players now lose the pack they put in, like a deck. Gate 449/10 |
+| T1c opening into a draft or sealed pools (`PodEvents`, `PodRecord`, `PackOpening.draw`) | **Done** (`39fbeb68`) | 6 in-world tests with supplied pack contents (no pipeline in tests), cards followed by identity; three guards shown to fail. Real drawing only exercised by the graphical client. Gate 455/10 |
+| T1d screens (create, sign-up) and payloads, protocol 6 | **Committed** (`4b8845f1`), graphical run pending | Tour steps 315-321 create a one-pack sealed event through the screens and check the pool. Gate 455/10 |
+
+Not yet done in T1: an optional pick clock (deferred to T4 with the other clocks); Fabric in-world
+tests of the event path; a sign-up locked by an opening that never completes stays locked until
+restart (the lock is not saved).
+
 ## Owner-approved requirements, and what they superseded
 
 | Decision | State |
