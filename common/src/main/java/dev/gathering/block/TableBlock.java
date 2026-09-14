@@ -431,8 +431,17 @@ public class TableBlock extends BaseEntityBlock {
                 // rest could agree without them and stake a card of theirs.
                 if (level instanceof net.minecraft.server.level.ServerLevel joined) {
                     dev.gathering.server.Antes.seatsChanged(joined, tableOrigin);
+                    // And sitting down at an event being signed up for is joining it: they are
+                    // shown it, and everybody already there sees them arrive.
+                    if (entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
+                        dev.gathering.server.PodLobbies.changed(joined, tableOrigin, sat.getUUID());
+                    }
                 }
-                dev.gathering.server.Lending.offerIfEmptyHanded(sat, tableOrigin);
+                // Not over an event's signup, which has just been shown to them and is what
+                // they sat down for: a loaner offer on top of it would hide it.
+                if (!entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
+                    dev.gathering.server.Lending.offerIfEmptyHanded(sat, tableOrigin);
+                }
             }
             return ItemInteractionResult.SUCCESS;
         }
@@ -548,6 +557,12 @@ public class TableBlock extends BaseEntityBlock {
         }
         if (dev.gathering.server.TableMatch.isBetweenGames(server, tableOrigin)) {
             dev.gathering.server.TableMatch.startNextGame(server, tableOrigin, asking);
+            return;
+        }
+        // An event being signed up for here is what this table is doing, so that is what
+        // crouching on it shows.
+        if (entityAt(level, tableOrigin).map(TableBlockEntity::hasSignup).orElse(false)) {
+            dev.gathering.server.PodLobbies.show(asking, tableOrigin);
             return;
         }
         dev.gathering.server.TableSetup.ask(asking, tableOrigin);

@@ -97,6 +97,7 @@ public final class PodEvents {
             TableBlockEntity now = anchorTable(level, tableOrigin).orElse(null);
             if (now != null) {
                 now.setOpening(false);
+                PodLobbies.changed(level, tableOrigin, null);
             }
             if (failure != null) {
                 LOGGER.warn("Opening an event's packs at {} failed", tableOrigin, failure);
@@ -159,7 +160,9 @@ public final class PodEvents {
         PodRecord record = PodRecord.of(signup.lobby(), seated, plan, opened, podName);
         // The packs are used up here and nowhere else: the signup closes, and what it was
         // holding is either opened into the record or handed back unused.
+        List<UUID> concerned = PodLobbies.concerned(level, tableOrigin);
         List<PodSignup.Held> held = table.closeSignup();
+        PodLobbies.closed(level, tableOrigin, concerned);
         handBackUnused(level, tableOrigin, held, plan);
 
         if (settings.kind() == PodSettings.Kind.SEALED) {

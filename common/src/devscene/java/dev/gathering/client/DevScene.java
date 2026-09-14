@@ -174,7 +174,7 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 314;
+    private static final int LAST_STEP = 321;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -3287,6 +3287,87 @@ public final class DevScene {
                 nothingWasKeptFromPractice(client);
                 advance(SETTLE / 2);
             }
+            case 315 -> {
+                // A sealed event, set up from the same screen a game is. The player sits at the
+                // table and is handed one booster to put in - a one-pack sealed event for one
+                // player is the smallest real event there is, and goes through every part of it.
+                seatAndHandAPack(client, practiceTable);
+                press(client, net.minecraft.network.chat.Component.translatable(
+                        "screen.gathering.setup.event").getString());
+                advance(SETTLE);
+            }
+            case 316 -> {
+                expectScreen(client, "asking for a draft or sealed event", PodCreateScreen.class);
+                press(client, net.minecraft.network.chat.Component.translatable(
+                        "screen.gathering.pod.kind.sealed").getString());
+                for (int fewer = 0; fewer < 5; fewer++) {
+                    press(client, "-");
+                }
+                advance(SETTLE / 2);
+            }
+            case 317 -> {
+                if (client.screen instanceof PodCreateScreen create
+                        && !create.said().startsWith("Sealed, 1 packs each")) {
+                    fail("the new event screen says \"" + create.said() + "\" for a one-pack sealed event");
+                }
+                shoot(client, "98-a-new-event");
+                press(client, net.minecraft.network.chat.Component.translatable(
+                        "screen.gathering.pod.create_button").getString());
+                advance(SETTLE);
+            }
+            case 318 -> {
+                expectScreen(client, "creating a sealed event", PodLobbyScreen.class);
+                if (client.screen instanceof PodLobbyScreen lobby && lobby.view().players().stream()
+                        .noneMatch(player -> player.owed() == 1)) {
+                    fail("the sign-up does not say a pack is still owed: " + lobby.view().players());
+                }
+                shoot(client, "99-an-event-signing-up");
+                press(client, net.minecraft.network.chat.Component.translatable(
+                        "screen.gathering.pod.put_in").getString());
+                advance(SETTLE);
+            }
+            case 319 -> {
+                if (!(client.screen instanceof PodLobbyScreen lobby)) {
+                    fail("the sign-up closed when a pack was put in");
+                    advance(SETTLE / 2);
+                    return;
+                }
+                if (!"message.gathering.pod.ready".equals(lobby.view().status())) {
+                    fail("with its one pack in, the sign-up says \"" + lobby.statusSaid() + "\"");
+                }
+                shoot(client, "99a-packs-in");
+                press(client, net.minecraft.network.chat.Component.translatable(
+                        "screen.gathering.pod.start").getString());
+                advance(SETTLE);
+            }
+            case 320 -> {
+                // Opening goes through the real card pipeline, which may be fetching.
+                advance(SETTLE * 6);
+            }
+            case 321 -> {
+                if (client.screen instanceof PodLobbyScreen) {
+                    fail("the sign-up was still open after the event started");
+                }
+                int pools = 0;
+                if (client.player != null) {
+                    for (int slot = 0; slot < client.player.getInventory().getContainerSize(); slot++) {
+                        var stack = client.player.getInventory().getItem(slot);
+                        if (stack.has(dev.gathering.registry.GatheringComponents.POOL.get())
+                                && dev.gathering.item.DeckItem.deckOf(stack)
+                                        .map(deck -> deck.name().equals(net.minecraft.network.chat.Component
+                                                .translatable("item.gathering.sealed_pool").getString()))
+                                        .orElse(false)) {
+                            pools++;
+                        }
+                    }
+                }
+                if (pools != 1) {
+                    fail("starting a one-player sealed event left " + pools + " sealed pools in the bag");
+                } else {
+                    System.out.println("[devscene] a sealed event opened its pack into a pool");
+                }
+                advance(SETTLE / 2);
+            }
             default -> {
                 // A step number nobody wrote is not the end of the scene, it is a hole in the
                 // middle of it. Java's switch cannot tell the two apart, so falling off the
@@ -6309,6 +6390,36 @@ public final class DevScene {
         if (Tutorial.running()) {
             fail("the guided first game is still running after Leave");
         }
+    }
+
+    /**
+     * Sits this player at the table and hands them one booster, on the server.
+     * <p>The event takes its packs from the server's idea of the inventory, so the pack has to be
+     * put there rather than into this client's copy.
+     */
+    private static void seatAndHandAPack(Minecraft client, BlockPos where) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null || where == null) {
+            fail("there was no table to set an event up at");
+            return;
+        }
+        java.util.UUID who = client.player.getUUID();
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player == null) {
+                return;
+            }
+            // Beside the table: the server only takes an event's buttons from somebody who can
+            // reach it, and the tour opened this table's screen from wherever it was standing.
+            player.teleportTo(where.getX() + 1.0, where.getY() + 1.0, where.getZ() - 1.0);
+            var seats = dev.gathering.block.TableClusters.at(server.overworld(), where).seats();
+            if (!seats.isEmpty() && dev.gathering.block.TableSeats.seatOf(server.overworld(), where, who).isEmpty()) {
+                dev.gathering.block.TableSeats.take(server.overworld(), where, seats.get(0).cell(),
+                        seats.get(0).side(), who);
+            }
+            player.getInventory().add(dev.gathering.item.PackItem.of(
+                    new dev.gathering.item.PackComponent("blb", "play")));
+        });
     }
 
     /** Where the row of stone tables was stood up, so the camera can be pointed at it. */

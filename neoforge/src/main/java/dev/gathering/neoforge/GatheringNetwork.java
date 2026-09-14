@@ -35,8 +35,9 @@ public final class GatheringNetwork {
      * card makes, and a name that matches several tokens is answered with a choice.
      * <p>Five, for card lookups that end without a name: a server now says whether a printing
      * does not exist or could not be looked up, in a payload an older client cannot read.
+     * <p>Six, for draft and sealed signups: creating one, acting at one, and being shown one.
      */
-    private static final String PROTOCOL_VERSION = "5";
+    private static final String PROTOCOL_VERSION = "6";
 
     private GatheringNetwork() {
     }

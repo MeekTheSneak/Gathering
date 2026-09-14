@@ -87,6 +87,16 @@ public final class PodSignups {
      * @return how many went in
      */
     public static int putIn(ServerPlayer player, BlockPos tableOrigin, ItemStack stack) {
+        int in = putIn(player, tableOrigin, stack, false);
+        PodLobbies.changed(player.serverLevel(), tableOrigin, null);
+        return in;
+    }
+
+    /**
+     * The same, saying nothing when {@code quietly}: for putting in several stacks at once,
+     * which says what happened once, at the end.
+     */
+    static int putIn(ServerPlayer player, BlockPos tableOrigin, ItemStack stack, boolean quietly) {
         ServerLevel level = player.serverLevel();
         TableBlockEntity table = anchorTable(level, tableOrigin).orElse(null);
         PodSignup signup = table == null ? null : table.signup().orElse(null);
@@ -94,7 +104,9 @@ public final class PodSignups {
             return 0;
         }
         if (table.isOpening()) {
-            player.sendSystemMessage(Component.translatable("message.gathering.pod.opening"));
+            if (!quietly) {
+                player.sendSystemMessage(Component.translatable("message.gathering.pod.opening"));
+            }
             return 0;
         }
         PackComponent about = stack.get(GatheringComponents.PACK.get());
@@ -120,6 +132,11 @@ public final class PodSignups {
         }
         if (putIn > 0) {
             table.setSignup(signup);
+        }
+        if (quietly) {
+            return putIn;
+        }
+        if (putIn > 0) {
             player.sendSystemMessage(Component.translatable(
                     "message.gathering.pod.packs_in", putIn,
                     signup.lobby().stillOwedBy(player.getUUID(), seated)));
@@ -185,7 +202,9 @@ public final class PodSignups {
     public static void handBackEverything(
             ServerLevel level, BlockPos tableOrigin, TableBlockEntity table, String why) {
         UUID host = table.signup().map(PodSignup::host).orElse(null);
+        List<UUID> concerned = table.signup().isPresent() ? PodLobbies.concerned(level, tableOrigin) : List.of();
         List<PodSignup.Held> held = table.closeSignup();
+        PodLobbies.closed(level, tableOrigin, concerned);
         for (PodSignup.Held pack : held) {
             handBack(level, tableOrigin, pack);
         }
@@ -227,6 +246,7 @@ public final class PodSignups {
         if (back > 0 && leaving != null) {
             leaving.sendSystemMessage(Component.translatable("message.gathering.pod.packs_back", back));
         }
+        PodLobbies.changed(level, tableOrigin, null);
     }
 
     /**

@@ -57,7 +57,7 @@ public final class TableSetupScreen extends Screen {
         // the panel is a button on the felt.
         int height = MARGIN * 2 + ROW_HEIGHT * 3 + GAP * 3
                 + rowsFor(formats.size() + 1) * (ROW_HEIGHT + GAP)
-                + (ROW_HEIGHT + GAP) * 2
+                + (ROW_HEIGHT + GAP) * 3
                 + ROW_HEIGHT + GAP * 3;
         panel = new Rect(
                 (this.width - PANEL_WIDTH) / 2,
@@ -136,6 +136,14 @@ public final class TableSetupScreen extends Screen {
         learnButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.translatable("tutorial.gathering.offer")));
         addRenderableWidget(learnButton);
+
+        // Not a game at all: a draft or sealed event, which this table can host instead. Here
+        // because this is the screen a table asks "what will it be" on.
+        int eventTop = learnTop + ROW_HEIGHT + GAP;
+        addRenderableWidget(GatheringButtons.of(
+                panel.x() + MARGIN, eventTop, panel.width() - MARGIN * 2, ROW_HEIGHT,
+                Component.translatable("screen.gathering.setup.event"),
+                () -> this.minecraft.setScreen(new PodCreateScreen(table))));
     }
 
     /**
