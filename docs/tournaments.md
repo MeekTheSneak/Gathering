@@ -106,6 +106,16 @@ higher life total (MTR 2.4); tied on life as well, the host decides it.
 **Registration point.** The host can press *Register here* on the host tab; from then on signing
 up only works within 8 blocks of that spot, and anybody further away is pointed to it.
 
+**Scorekeeper's Desk.** A block to run a tournament from (paper, book, paper over three planks and
+two legs of planks). The host uses it while hosting and it becomes that tournament's desk and its
+registration point, in one click. Anybody else using it is shown the tournament it runs - to sign
+up, check in, see pairings and standings. A desk already running an unfinished tournament is taken
+over only by sneaking, so no stray click moves somebody else's event; a finished or cancelled
+tournament's desk is free. Breaking the desk takes signing up off that spot. With Create, a Display
+Link against the desk reads the tournament onto a board, set in the link to show the standings,
+this round's pairings, the round and clock, the final places, the prizes, or who has signed up.
+Its look borrows vanilla's lectern until it has one of its own.
+
 **Pick clock.** Off, 45 or 90 seconds a pick (any value up to 300 is accepted by the server), or
 tournament timing - the Magic Tournament Rules' booster draft table (Appendix B), 40 seconds for a
 fresh pack down to 5 for the last cards - for drafts only. When it runs out, everybody still to pick takes the first cards in their pack -

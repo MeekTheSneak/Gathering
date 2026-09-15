@@ -43,6 +43,7 @@ public final class GatheringContent {
     public static final String COLLECTION_ID = "collection";
     public static final String SEALED_ID = "sealed";
     public static final String SHOP_COUNTER_ID = "shop_counter";
+    public static final String SCOREKEEPERS_DESK_ID = "scorekeepers_desk";
 
     public static final Registered<Item> CARD = new Registered<>(CARD_ID);
     public static final Registered<Item> DECK = new Registered<>(DECK_ID);
@@ -79,6 +80,10 @@ public final class GatheringContent {
     public static final Registered<BlockEntityType<dev.gathering.block.CollectionBlockEntity>>
             COLLECTION_ENTITY = new Registered<>(
                     dev.gathering.block.CollectionBlockEntity.ID);
+    public static final Registered<Block> SCOREKEEPERS_DESK = new Registered<>(SCOREKEEPERS_DESK_ID);
+    public static final Registered<Item> SCOREKEEPERS_DESK_ITEM = new Registered<>(SCOREKEEPERS_DESK_ID);
+    public static final Registered<BlockEntityType<dev.gathering.block.ScorekeepersDeskBlockEntity>>
+            SCOREKEEPERS_DESK_ENTITY = new Registered<>(dev.gathering.block.ScorekeepersDeskBlockEntity.ID);
 
     private GatheringContent() {
     }
@@ -236,5 +241,22 @@ public final class GatheringContent {
     public static dev.gathering.block.CollectionBlockEntity createCollectionEntity(
             BlockPos pos, BlockState state) {
         return new dev.gathering.block.CollectionBlockEntity(pos, state);
+    }
+
+    /** Wood, like the lectern it borrows its look from, and as easy to move. */
+    public static Block createScorekeepersDesk() {
+        return new dev.gathering.block.ScorekeepersDeskBlock(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.WOOD)
+                .strength(2.5f)
+                .sound(SoundType.WOOD));
+    }
+
+    public static Item createScorekeepersDeskItem() {
+        return new net.minecraft.world.item.BlockItem(SCOREKEEPERS_DESK.get(), new Item.Properties());
+    }
+
+    public static dev.gathering.block.ScorekeepersDeskBlockEntity createScorekeepersDeskEntity(
+            BlockPos pos, BlockState state) {
+        return new dev.gathering.block.ScorekeepersDeskBlockEntity(pos, state);
     }
 }

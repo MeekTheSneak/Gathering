@@ -41,15 +41,14 @@ EXPECTED_UNREFERENCED = {
     "block.gathering.cobblestone_table",
     "block.gathering.blackstone_table",
     "block.gathering.crying_obsidian_table",
+    "block.gathering.scorekeepers_desk",
     # Vanilla builds this one from the profession's registry id, with the namespace in the
     # middle because the profession is not minecraft's.
     "entity.minecraft.villager.gathering.shopkeeper",
     "key.categories.gathering",
     # Create builds a display source's name as "<namespace>.display_source.<path>" from its
     # registry id, so nothing here asks for these by name. See compat/create/CreateCompat.
-    "gathering.display_source.tournament_standings",
-    "gathering.display_source.tournament_pairings",
-    "gathering.display_source.tournament_round",
+    "gathering.display_source.tournament",
     "gathering.display_source.table_match",
     "gathering.display_source.table_life",
 }

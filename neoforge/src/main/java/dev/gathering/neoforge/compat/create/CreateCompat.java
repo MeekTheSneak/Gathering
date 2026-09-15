@@ -14,8 +14,9 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  * Everything this mod does with Create, installed only when Create is.
  * <p>Loaded by name from the entry point after asking whether Create is there, so none of Create's
  * classes are ever touched on a server without it.
- * <p>Display sources, for a Display Link placed against any table: a tournament's standings, its
- * pairings, its round and clock, the match at that table, and the life totals of the game on it.
+ * <p>Display sources: against a Scorekeeper's Desk, its tournament - standings, pairings, round and
+ * clock, final places, prizes or sign-ups, as the link is set; against a table, the match being
+ * played at it and the life totals of its game.
  * <p>And boosters opened by Deployers: see {@link DeployerPacks}.
  */
 public final class CreateCompat {
@@ -23,18 +24,21 @@ public final class CreateCompat {
     private static final DeferredRegister<DisplaySource> SOURCES =
             DeferredRegister.create(CreateRegistries.DISPLAY_SOURCE, Gathering.MOD_ID);
 
-    static final Supplier<DisplaySource> STANDINGS = SOURCES.register("tournament_standings", TournamentStandingsSource::new);
-    static final Supplier<DisplaySource> PAIRINGS = SOURCES.register("tournament_pairings", TournamentPairingsSource::new);
-    static final Supplier<DisplaySource> ROUND = SOURCES.register("tournament_round", TournamentRoundSource::new);
+    static final Supplier<DisplaySource> TOURNAMENT = SOURCES.register("tournament", TournamentDisplaySource::new);
     static final Supplier<DisplaySource> TABLE_MATCH = SOURCES.register("table_match", TableMatchSource::new);
     static final Supplier<DisplaySource> TABLE_LIFE = SOURCES.register("table_life", TableLifeSource::new);
 
     private CreateCompat() {
     }
 
-    /** The standings source, for a development scene that links a board by hand. */
-    public static DisplaySource standingsForScenes() {
-        return STANDINGS.get();
+    /** The tournament source, for a development scene that links a board by hand. */
+    public static DisplaySource tournamentForScenes() {
+        return TOURNAMENT.get();
+    }
+
+    /** The table's match source, for the same scene. */
+    public static DisplaySource tableMatchForScenes() {
+        return TABLE_MATCH.get();
     }
 
     public static void init(IEventBus modBus) {
@@ -48,13 +52,15 @@ public final class CreateCompat {
                 (net.neoforged.neoforge.event.server.ServerStoppedEvent event) -> DeployerPacks.clear());
     }
 
-    /** Every table offers every source: a Display Link against any of its blocks reads that table. */
+    /**
+     * A tournament is read off its Scorekeeper's Desk, set to show whichever part of it a board wants.
+     * A table offers what is its own: the match being played at it, and the life totals of its game.
+     */
     private static void attachToTables() {
-        List<Supplier<DisplaySource>> sources = List.of(STANDINGS, PAIRINGS, ROUND, TABLE_MATCH, TABLE_LIFE);
+        DisplaySource.BY_BLOCK.add(GatheringContent.SCOREKEEPERS_DESK.get(), TOURNAMENT.get());
         for (var table : GatheringContent.tables()) {
-            for (Supplier<DisplaySource> source : sources) {
-                DisplaySource.BY_BLOCK.add(table.get(), source.get());
-            }
+            DisplaySource.BY_BLOCK.add(table.get(), TABLE_MATCH.get());
+            DisplaySource.BY_BLOCK.add(table.get(), TABLE_LIFE.get());
         }
     }
 }

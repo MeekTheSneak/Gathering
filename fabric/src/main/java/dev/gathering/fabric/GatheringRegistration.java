@@ -141,6 +141,20 @@ final class GatheringRegistration {
                         .create(GatheringContent::createCollectionEntity, collection)
                         .build()));
 
+        net.minecraft.world.level.block.Block desk = Registry.register(
+                BuiltInRegistries.BLOCK, Gathering.id(GatheringContent.SCOREKEEPERS_DESK_ID),
+                GatheringContent.createScorekeepersDesk());
+        GatheringContent.SCOREKEEPERS_DESK.bindValue(desk);
+        GatheringContent.SCOREKEEPERS_DESK_ITEM.bindValue(Registry.register(
+                BuiltInRegistries.ITEM, Gathering.id(GatheringContent.SCOREKEEPERS_DESK_ID),
+                GatheringContent.createScorekeepersDeskItem()));
+        GatheringContent.SCOREKEEPERS_DESK_ENTITY.bindValue(Registry.register(
+                BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Gathering.id(dev.gathering.block.ScorekeepersDeskBlockEntity.ID),
+                net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                        .create(GatheringContent::createScorekeepersDeskEntity, desk)
+                        .build()));
+
         // The counter, then somewhere to work at it, then the job. Fabric's helper registers
         // the point of interest and puts every one of the block's states into the map
         // villagers search, which is the part vanilla keeps to itself.
@@ -194,6 +208,8 @@ final class GatheringRegistration {
                                     GatheringContent.CRYING_OBSIDIAN_TABLE_ITEM.get()));
                             output.accept(
                                     new ItemStack(GatheringContent.COLLECTION_ITEM.get()));
+                            output.accept(
+                                    new ItemStack(GatheringContent.SCOREKEEPERS_DESK_ITEM.get()));
                         })
                         .build());
     }

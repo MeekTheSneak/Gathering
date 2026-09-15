@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 
-/** What the display sources share: finding the table a link reads, and saying a clock. */
+/** What the display sources share: finding the table or desk a link reads, and saying a clock. */
 final class Boards {
 
     private Boards() {
@@ -18,6 +18,13 @@ final class Boards {
     static Optional<EventBoard.Board> event(DisplayLinkContext context) {
         return context.level() instanceof ServerLevel level && context.getSourcePos() != null
                 ? EventBoard.at(level, context.getSourcePos())
+                : Optional.empty();
+    }
+
+    /** The tournament the Scorekeeper's Desk a link reads runs. */
+    static Optional<EventBoard.Board> desk(DisplayLinkContext context) {
+        return context.level() instanceof ServerLevel level && context.getSourcePos() != null
+                ? EventBoard.atDesk(level, context.getSourcePos())
                 : Optional.empty();
     }
 

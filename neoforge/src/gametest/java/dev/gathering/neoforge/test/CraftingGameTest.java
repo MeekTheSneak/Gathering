@@ -55,6 +55,15 @@ public final class CraftingGameTest {
                 new ItemStack(Items.COBBLESTONE), ItemStack.EMPTY, new ItemStack(Items.COBBLESTONE)));
     }
 
+    @GameTest(template = "empty")
+    public static void aScorekeepersDeskCanBeCrafted(GameTestHelper helper) {
+        crafts(helper, GatheringContent.SCOREKEEPERS_DESK_ITEM.get(), List.of(
+                new ItemStack(Items.PAPER), new ItemStack(Items.BOOK), new ItemStack(Items.PAPER),
+                new ItemStack(Items.SPRUCE_PLANKS), new ItemStack(Items.SPRUCE_PLANKS),
+                new ItemStack(Items.SPRUCE_PLANKS),
+                new ItemStack(Items.SPRUCE_PLANKS), ItemStack.EMPTY, new ItemStack(Items.SPRUCE_PLANKS)));
+    }
+
     /** Lays the nine stacks out on a bench and checks what comes off it. */
     private static void crafts(GameTestHelper helper, Item wanted, List<ItemStack> grid) {
         NonNullList<ItemStack> slots = NonNullList.withSize(9, ItemStack.EMPTY);

@@ -69,6 +69,8 @@ public final class PackScene {
     private static final List<String> FAILURES = new ArrayList<>();
 
     private static BlockPos boardTable;
+    private static BlockPos desk;
+    private static BlockPos boardLink;
     private static BlockPos structureTable;
     private static EventState event;
 
@@ -121,15 +123,29 @@ public final class PackScene {
                     }
                 });
                 shoot(client, "p01-standings-on-a-display-board");
+                // The same board, set to this round's pairings the way a player sets the link.
+                onTheServer(client, (server, player) -> {
+                    if (server.overworld().getBlockEntity(boardLink) instanceof DisplayLinkBlockEntity link) {
+                        link.getSourceConfig().putInt("Show",
+                                dev.gathering.neoforge.compat.create.TournamentDisplaySource.Show.PAIRINGS.ordinal());
+                        link.updateGatheredData();
+                    } else {
+                        fail("the board's Display Link is gone");
+                    }
+                });
+                advance(SETTLE * 2);
+            }
+            case 4 -> {
+                shoot(client, "p01b-pairings-on-the-same-board");
                 onTheServer(client, PackScene::buildTheStructure);
                 advance(SETTLE * 3);
             }
-            case 4 -> {
+            case 5 -> {
                 shoot(client, "p02-a-table-on-a-structure");
                 onTheServer(client, PackScene::sitAtTheStructure);
                 advance(SETTLE * 2);
             }
-            case 5 -> {
+            case 6 -> {
                 if (!(client.screen instanceof TableScreen)) {
                     fail("sitting at the table on the structure opened " + client.screen);
                     finish(client);
@@ -139,7 +155,7 @@ public final class PackScene {
                 client.screen.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_V, 0, 0);
                 advance(SETTLE * 2);
             }
-            case 6 -> {
+            case 7 -> {
 
                 TableCameraView.wanted().ifPresentOrElse(placement -> {
                     Vec3 table = WorldSpace.get().centerInWorld(client.level, structureTable);
@@ -156,7 +172,7 @@ public final class PackScene {
         }
     }
 
-    /** A flat world, a table with a tournament on it, and a powered display board linked to the table. */
+    /** A flat world, a table with a tournament on it, its Scorekeeper's Desk, and a powered display board linked to the desk. */
     private static void buildTheBoard(MinecraftServer server, ServerPlayer player) {
         ServerLevel level = server.overworld();
         BlockPos stand = player.blockPosition();
@@ -199,21 +215,31 @@ public final class PackScene {
             }
         }
         BlockPos topLeft = boardLeft.offset(0, 2, 0);
-        link(level, boardTable.above(), Direction.UP, topLeft, "the board");
+        // The board reads the tournament off its Scorekeeper's Desk, beside the table, set to standings.
+        desk = boardTable.offset(-2, 0, 0);
+        level.setBlock(desk, GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState()
+                .setValue(dev.gathering.block.ScorekeepersDeskBlock.FACING, Direction.SOUTH), 3);
+        if (level.getBlockEntity(desk) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity entity) {
+            entity.runs(tournament.id());
+        }
+        boardLink = link(level, desk.above(), Direction.UP, topLeft, "the board",
+                dev.gathering.neoforge.compat.create.CreateCompat.tournamentForScenes());
 
-        // And a sign, which needs no power: the same lines, on the simplest thing a link writes to. The
-        // link sits on the table's east side facing east, so the table is the block it reads.
+        // And a sign, which needs no power, reading the match at the table. The link sits on the table's
+        // east side facing east, so the table is the block it reads.
         BlockPos sign = boardTable.offset(3, 0, 1);
         level.setBlock(sign, Blocks.OAK_SIGN.defaultBlockState(), 3);
-        link(level, boardTable.offset(2, 0, 0), Direction.EAST, sign, "the sign");
+        link(level, boardTable.offset(2, 0, 0), Direction.EAST, sign, "the sign",
+                dev.gathering.neoforge.compat.create.CreateCompat.tableMatchForScenes());
         player.teleportTo(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 3.5, 180f, 5f);
     }
 
-    private static void link(ServerLevel level, BlockPos link, Direction facing, BlockPos target, String what) {
+    private static BlockPos link(ServerLevel level, BlockPos link, Direction facing, BlockPos target, String what,
+            com.simibubi.create.api.behaviour.display.DisplaySource source) {
         level.setBlock(link, AllBlocks.DISPLAY_LINK.getDefaultState().setValue(DisplayLinkBlock.FACING, facing), 3);
         if (level.getBlockEntity(link) instanceof DisplayLinkBlockEntity be) {
             be.target(target);
-            be.activeSource = dev.gathering.neoforge.compat.create.CreateCompat.standingsForScenes();
+            be.activeSource = source;
             be.targetLine = 0;
             be.updateGatheredData();
             System.out.println("[packscene] linked " + be.getSourcePosition() + " to " + what + " at " + target
@@ -221,6 +247,7 @@ public final class PackScene {
         } else {
             fail("no Display Link was placed for " + what);
         }
+        return link;
     }
 
     /** A second table on a platform, carried off by Sable into a structure of its own and turned. */

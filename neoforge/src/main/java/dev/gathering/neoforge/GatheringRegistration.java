@@ -95,6 +95,16 @@ final class GatheringRegistration {
                             .of(GatheringContent::createCollectionEntity, COLLECTION.get())
                             .build(null));
 
+    private static final Supplier<Block> SCOREKEEPERS_DESK =
+            BLOCKS.register(GatheringContent.SCOREKEEPERS_DESK_ID, GatheringContent::createScorekeepersDesk);
+    private static final Supplier<Item> SCOREKEEPERS_DESK_ITEM =
+            ITEMS.register(GatheringContent.SCOREKEEPERS_DESK_ID, GatheringContent::createScorekeepersDeskItem);
+    private static final Supplier<BlockEntityType<dev.gathering.block.ScorekeepersDeskBlockEntity>>
+            SCOREKEEPERS_DESK_ENTITY = BLOCK_ENTITIES.register(
+                    dev.gathering.block.ScorekeepersDeskBlockEntity.ID, () -> BlockEntityType.Builder
+                            .of(GatheringContent::createScorekeepersDeskEntity, SCOREKEEPERS_DESK.get())
+                            .build(null));
+
     private static final Supplier<Block> TABLE =
             BLOCKS.register(GatheringContent.TABLE_ID, GatheringContent::createTable);
     private static final Supplier<Item> TABLE_ITEM =
@@ -177,6 +187,7 @@ final class GatheringRegistration {
                 output.accept(new ItemStack(BLACKSTONE_TABLE_ITEM.get()));
                 output.accept(new ItemStack(CRYING_OBSIDIAN_TABLE_ITEM.get()));
                 output.accept(new ItemStack(COLLECTION_ITEM.get()));
+                output.accept(new ItemStack(SCOREKEEPERS_DESK_ITEM.get()));
             })
             .build());
 
@@ -234,6 +245,9 @@ final class GatheringRegistration {
         GatheringContent.COLLECTION.bind(COLLECTION);
         GatheringContent.COLLECTION_ITEM.bind(COLLECTION_ITEM);
         GatheringContent.COLLECTION_ENTITY.bind(COLLECTION_ENTITY);
+        GatheringContent.SCOREKEEPERS_DESK.bind(SCOREKEEPERS_DESK);
+        GatheringContent.SCOREKEEPERS_DESK_ITEM.bind(SCOREKEEPERS_DESK_ITEM);
+        GatheringContent.SCOREKEEPERS_DESK_ENTITY.bind(SCOREKEEPERS_DESK_ENTITY);
     }
 
     static Supplier<CreativeModeTab> creativeTab() {

@@ -3,6 +3,7 @@
   "values": [
     "gathering:table",
     "gathering:shop_counter",
-    "gathering:collection"
+    "gathering:collection",
+    "gathering:scorekeepers_desk"
   ]
 }

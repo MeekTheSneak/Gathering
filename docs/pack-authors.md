@@ -92,9 +92,11 @@ Stated plainly, because a compatibility claim nobody has run is worse than none:
   `neoforge/runs/pack-tests/mods`. What those tests cannot reach is a real client on a moving
   airship: the camera follows the structure's logical pose rather than its interpolated one, so a
   fast vehicle may show some judder under the seated view.
-- **Create (6.0.10) display boards:** a Display Link against any table offers Tournament Standings,
-  Tournament Pairings, Tournament Round, This Table's Match and Life Totals. In-world tested with
-  Create installed; how they look on each kind of board has not been seen in a real client yet.
+- **Create (6.0.10) display boards:** a Display Link against a Scorekeeper's Desk offers
+  *Tournament*, set in the link's own settings to show the standings, pairings, round and clock,
+  final places, prizes or sign-ups of the tournament the desk runs. Against a table it offers
+  This Table's Match and Life Totals. In-world tested with Create installed; standings and pairings
+  on a powered display board and a table's match on a sign have been seen in a real client.
 - **Create Deployers open boosters:** an empty-handed Deployer opens a booster lying loose on the
   ground (facing any way) or on a Depot or belt it faces sideways, turning it into its cards there.
   Facing *down* onto a Depot or belt does not work: Create gives that press to its belt processing,

@@ -295,14 +295,27 @@ a table into a structure and check where it is, which side a player at a turned 
 a chair is - each shown to fail with the conversion removed (and one fixed after it passed anyway,
 because it compared against the same conversion). **Not verified:** a real client on a moving vehicle.
 
-**Create display boards.** A Display Link against any table offers five sources: Tournament
-Standings (final places once finished), Tournament Pairings, Tournament Round (round and clock),
-This Table's Match, and Life Totals of the game on the table. They read `EventBoard` and `TableBoard`
-in common - public results only, as the event screen shows them - and are registered only when Create
-is installed (`CreateCompat`, loaded by name after asking). `EventBoardGameTest` (in the gate) checks the
-data; `CreateDisplayGameTest` (pack tests, Create installed) places a real Display Link on a table and
-reads every source, and fails when the sources are not attached to tables. **Not verified:** how the
-lines look on a display board, a Flap Display or a lectern in a real client.
+**Create display boards.** The owner asked for the tournament to be read off a host block, with what
+is shown chosen. A Display Link against a **Scorekeeper's Desk** offers one source, *Tournament*
+(`TournamentDisplaySource`), with a *Show* setting in the link's screen: Standings (the record left
+out on a display board, which is too narrow for it), Pairings, Round and clock, Final places, Prizes,
+Signed up. Against a table it offers This Table's Match and Life Totals; a table no longer offers the
+whole tournament. They read `EventBoard` and `TableBoard` in common - public results only, as the
+event screen shows them - and are registered only when Create is installed (`CreateCompat`).
+`EventBoardGameTest` (gate) checks the data; `CreateDisplayGameTest` (pack tests) places real Display
+Links on a table and on a desk and reads every choice of *Show*, and was proved failing with the
+setting ignored and with the tournament attached to tables.
+
+**Scorekeeper's Desk** (`ScorekeepersDeskBlock`, both loaders). The host's click on a free desk links
+their unfinished tournament and makes the desk its registration point; anybody else's click shows the
+tournament; another host takes a desk over only by sneaking, and the tournament that loses it loses
+its registration point; a finished or cancelled tournament's desk is free; breaking the desk clears the
+registration point. Crafted paper-book-paper over planks. Model borrows vanilla's lectern (no texture
+of its own - the owner's to draw). `ScorekeepersDeskGameTest` (5, gate) goes through the block's real
+use: linking, look-only for a passer-by, sneak takeover, a free finished desk, breaking, save and load;
+plus `CraftingGameTest.aScorekeepersDeskCanBeCrafted`. Each proved failing with its code broken.
+**Not verified:** the Display Link's *Show* selector clicked by hand in a real client (the scene sets
+it the way the screen stores it); Fabric has the block and recipe but no Create.
 
 **Deployers open boosters.** An empty-handed Deployer tears a booster open (`DeployerPacks`) when it
 presses a booster lying loose on the ground, facing any way, or a booster on a Depot or belt it faces
@@ -327,8 +340,9 @@ here - in the archive pack's path too, which had the same check. Guard
 and timed out in the gate when Scryfall rate limited the run; it asks the question directly now.)
 
 **Seen in a real client with the pack** (`runPackClient -Ppackscene`, Create + Aeronautics + Sable):
-the client starts and plays with all three; a Display Link on a table writes Tournament Standings to
-an oak sign and to a powered 4x3 Create display board; a table assembled into a Sable structure and
+the client starts and plays with all three; a Display Link on a Scorekeeper's Desk writes the standings
+to a powered 4x3 Create display board, and set to pairings rewrites it; a link on a table writes its
+match to an oak sign; a table assembled into a Sable structure and
 turned 25 degrees renders on its platform; sitting at it opens the seated board, and the board on the
 block puts its camera half a block from the table's real position. On a display board the standings
 leave out the win-loss-draw record, which a four-wide board cut off mid-bracket. One start-up crashed

@@ -345,6 +345,59 @@ public final class Events {
         });
     }
 
+    /**
+     * Somebody uses a Scorekeeper's Desk.
+     * <p>The host of a tournament that has no desk yet makes this its desk, and the place signing up
+     * happens - and a desk already running a tournament is taken over only by sneaking, so a desk is
+     * not lost to another host by a stray click. Anybody else is shown the tournament the desk runs,
+     * and a desk running nothing says how it comes to, and shows what tournaments there are.
+     */
+    public static void useDesk(ServerPlayer player, BlockPos deskPos) {
+        ServerLevel level = player.serverLevel();
+        if (!(level.getBlockEntity(deskPos) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity desk)) {
+            return;
+        }
+        String dimension = level.dimension().location().toString();
+        EventState running = desk.event().flatMap(Events::get).filter(state -> dimension.equals(state.dimension)).orElse(null);
+        EventState hosting = events().values().stream()
+                .filter(state -> !state.tournament.isOver() && dimension.equals(state.dimension)
+                        && state.tournament.host().equals(player.getUUID()))
+                .findFirst().orElse(null);
+        boolean free = running == null || running.tournament.isOver();
+        if (hosting != null && hosting != running && (free || player.isShiftKeyDown())) {
+            if (running != null && deskPos.equals(running.registrationPoint)) {
+                running.registrationPoint = null;
+                changed(player.getServer(), running);
+            }
+            desk.runs(hosting.tournament.id());
+            hosting.registrationPoint = deskPos.immutable();
+            changed(player.getServer(), hosting);
+            player.sendSystemMessage(Component.translatable("message.gathering.desk.runs", hosting.tournament.name()));
+            EventViews.show(player, hosting, true);
+            return;
+        }
+        if (running != null) {
+            if (hosting != null && hosting != running) {
+                player.sendSystemMessage(Component.translatable("message.gathering.desk.taken", running.tournament.name()));
+            }
+            EventViews.show(player, running, true);
+            return;
+        }
+        player.sendSystemMessage(Component.translatable("message.gathering.desk.idle"));
+        EventViews.list(player, true);
+    }
+
+    /** A desk is gone: signing up is no longer tied to where it stood. */
+    public static void deskRemoved(ServerLevel level, BlockPos deskPos) {
+        String dimension = level.dimension().location().toString();
+        for (EventState state : events().values()) {
+            if (dimension.equals(state.dimension) && deskPos.equals(state.registrationPoint)) {
+                state.registrationPoint = null;
+                changed(level.getServer(), state);
+            }
+        }
+    }
+
     public static void openCheckIn(ServerPlayer host, UUID eventId) {
         hosted(host, eventId).ifPresent(state -> apply(host, state, Tournament::openCheckIn));
     }

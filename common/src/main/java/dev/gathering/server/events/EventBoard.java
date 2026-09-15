@@ -44,9 +44,12 @@ public final class EventBoard {
      * @param secondsLeft   on the round or build clock, or -1 when no clock is running
      * @param places        final places, best first, once the event has finished
      * @param thisTable     this table's number in the event, or zero if it has none
+     * @param prizes        what is put up, one place a line, best place first
+     * @param players       how many have signed up
      */
     public record Board(String name, Tournament.Phase phase, int round, int plannedRounds, boolean elimination,
-            long secondsLeft, List<Standing> standings, List<Match> pairings, List<String> places, int thisTable) {
+            long secondsLeft, List<Standing> standings, List<Match> pairings, List<String> places, int thisTable,
+            List<String> prizes, int players) {
 
         /** This table's match in the round, if it has one. */
         public Optional<Match> match() {
@@ -64,6 +67,16 @@ public final class EventBoard {
             return Optional.empty();
         }
         return eventUsing(level, origin).map(state -> boardOf(state, origin));
+    }
+
+    /** The tournament a Scorekeeper's Desk runs, as a board shows it. */
+    public static Optional<Board> atDesk(ServerLevel level, BlockPos desk) {
+        if (!(level.getBlockEntity(desk) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity entity)) {
+            return Optional.empty();
+        }
+        String dimension = level.dimension().location().toString();
+        return entity.event().flatMap(Events::get).filter(state -> dimension.equals(state.dimension))
+                .map(state -> boardOf(state, null));
     }
 
     private static Optional<EventState> eventUsing(ServerLevel level, BlockPos origin) {
@@ -112,6 +125,7 @@ public final class EventBoard {
         };
         return new Board(tournament.name(), tournament.phase(), round == null ? 0 : round.number(),
                 tournament.plannedRounds(), round != null && round.elimination(), Math.max(-1, millisLeft / 1000),
-                List.copyOf(standings), List.copyOf(pairings), List.copyOf(places), state.numberOf(origin));
+                List.copyOf(standings), List.copyOf(pairings), List.copyOf(places), origin == null ? 0 : state.numberOf(origin),
+                List.copyOf(EventPrizes.describe(state)), tournament.entrants().size());
     }
 }
