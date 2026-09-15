@@ -11,6 +11,7 @@ it is needed to build the mod, and none of it ships in the jar.
 | `smoke.sh` | Boots every target the mod claims to run on and says whether it did. Also runs every check below. |
 | `../gradlew verify` | The gate: build, unit tests, data generation, and both loaders' in-world tests. |
 | `shots.sh` | Drives a real client through the scripted session in `DevScene` and leaves the pictures in `neoforge/run/screenshots`. |
+| `quietly.sh` | Runs a scripted client without taking the screen or the speakers: `tools/quietly.sh neoforge/run ./gradlew :neoforge:runClient -Pdevscene`. Mutes the game directory's master volume before the game reads it (and puts it back afterwards), and on a Mac hands focus back to whatever app was in front each time the game window comes forward. Every scripted client run on a machine somebody is using goes through this. |
 | `langcheck.py` | Every translation key the mod asks for exists, and every entry is asked for. |
 | `doccheck.py` | No javadoc block sits directly above another, which is how a comment ends up describing nothing. |
 | `scenecheck.py` | The scripted session's step numbers run 0, 1, 2 … with no holes. |

@@ -16,5 +16,17 @@
     "sounds": [
       "gathering:scry"
     ]
+  },
+  "pass_turn": {
+    "subtitle": "subtitles.gathering.pass_turn",
+    "sounds": [
+      "gathering:pass_turn"
+    ]
+  },
+  "your_turn": {
+    "subtitle": "subtitles.gathering.your_turn",
+    "sounds": [
+      "gathering:your_turn"
+    ]
   }
 }

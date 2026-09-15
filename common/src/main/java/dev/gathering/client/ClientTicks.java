@@ -37,4 +37,16 @@ public final class ClientTicks {
         // so nothing here names it and a release jar has nothing to name. It was called from
         // here until it was, which is what kept a ten-thousand-line test driver in every copy.
     }
+
+    /**
+     * The game is closing: whatever is still waiting for its tick is written now.
+     * <p>Both files are written a second after the last change, and quitting leaves no second. A
+     * setting changed just before closing the game was lost, found when the scripted accessibility
+     * check put the sizes back as its last act and the file still held the ones it had set. Each
+     * loader calls this from its own shutdown hook.
+     */
+    public static void stopping() {
+        ClientSettings.flush();
+        RecentThings.flush();
+    }
 }

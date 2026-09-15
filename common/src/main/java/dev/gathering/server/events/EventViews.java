@@ -222,7 +222,20 @@ public final class EventViews {
                 ticksLeft < 0 ? -1 : (int) Math.max(0, ticksLeft / 20), round != null && round.timeCalled(),
                 round != null && round.elimination(), me != null, tournament.checkedIn().contains(viewer),
                 tournament.ready().contains(viewer), me != null && me.isDropped(), tournament.entrants().size(), rows, matches,
-                mine, EventPrizes.describe(state), places, show);
+                mine, EventPrizes.describe(state), places, hostRefusals(server, viewer, state), show);
+    }
+
+    /** Why each host control does not apply now, for the host alone. See EventViewPayload.hostRefusals. */
+    private static List<String> hostRefusals(MinecraftServer server, UUID viewer, EventState state) {
+        if (!state.tournament.host().equals(viewer)) {
+            return List.of();
+        }
+        boolean packsOut = Events.packsStillOut(server, state);
+        List<String> refusals = new ArrayList<>();
+        for (dev.gathering.core.tournament.HostActions.Action action : dev.gathering.core.tournament.HostActions.Action.values()) {
+            refusals.add(dev.gathering.core.tournament.HostActions.refusal(action, state.tournament, packsOut).orElse(""));
+        }
+        return refusals;
     }
 
     /** A result kept from the first player's chair, as the viewer sees it. */

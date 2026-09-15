@@ -146,6 +146,8 @@ public final class GatheringFabricClient implements ClientModInitializer {
                 (client, screen, width, height) -> GuiThemeOption.addTo(screen));
 
         ClientTickEvents.END_CLIENT_TICK.register(dev.gathering.client.ClientTicks::tick);
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(
+                client -> dev.gathering.client.ClientTicks.stopping());
 
         HudRenderCallback.EVENT.register((graphics, tickDelta) -> {
             // With a screen open the screen hook draws it. The HUD still renders under an

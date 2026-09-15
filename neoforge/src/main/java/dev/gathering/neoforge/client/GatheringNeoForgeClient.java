@@ -158,6 +158,8 @@ public final class GatheringNeoForgeClient {
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onScreenInit);
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onRenderScreen);
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onClientTick);
+            NeoForge.EVENT_BUS.addListener(
+                    (net.neoforged.neoforge.event.GameShuttingDownEvent closing) -> dev.gathering.client.ClientTicks.stopping());
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onRenderTooltip);
             NeoForge.EVENT_BUS.addListener(GatheringNeoForgeClient::onLoggingOut);
         });

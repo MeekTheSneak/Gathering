@@ -188,6 +188,27 @@ public final class GuiText {
         return Math.max(MINIMUM_SCALE, (float) room / width);
     }
 
+    /**
+     * The scale {@link #draw} and {@link #drawCentered} would give this text in this width,
+     * before any trimming.
+     * <p>For a row of buttons that has to agree on one size: each label is asked what it would
+     * be drawn at alone, and the row takes the smallest.
+     */
+    public static float fittedScale(Font font, Component text, int maxWidth) {
+        int width = font.width(text);
+        if (width <= 0 || maxWidth <= 0) {
+            return askedScale();
+        }
+        float asked = askedScale();
+        if (width * asked <= maxWidth) {
+            return asked;
+        }
+        if (width <= maxWidth) {
+            return 1f;
+        }
+        return Math.max(MINIMUM_SCALE, (float) maxWidth / width);
+    }
+
     /** Draws centered on {@code centerX} at exactly this scale, whatever the text's own width. */
     public static void drawCenteredAt(
             GuiGraphics graphics, Font font, Component text, int centerX, int y,

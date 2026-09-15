@@ -608,6 +608,23 @@ A theme is a file in a resource pack rather than a class, so `spritecheck` reads
 element is, and the elements most worth a template — the tints and the washes — are exactly the
 ones that are see-through everywhere else. [`docs/themes.md`](docs/themes.md) is the guide.
 
+The screens' accessibility has its own scripted client, quicker than the tour (about half a
+minute) and without a world: it opens the settings and tournament screens at every control and
+text size, at the smallest window, as a host in each phase, and fails on a control outside its
+panel, on top of another, shorter than its writing, a row of labels drawn at different sizes,
+focus lost by a refresh, or a host control live where the event would refuse it.
+
+```bash
+tools/quietly.sh neoforge/run ./gradlew :neoforge:runClient -Paccessibilityprobe   # read "[accessibility] failures:"
+```
+
+It changes the sizes as it goes and puts them back as its last act, right before closing the game -
+so afterwards `neoforge/run/config/gathering-client.toml` should hold the sizes its log says it put
+back. That is also the check that closing the game writes a setting changed a moment before.
+
+Any scripted client on a machine somebody is using goes through `tools/quietly.sh`: the game is
+muted before it reads its options, and the window is sent back behind whatever was in front.
+
 `verify` runs both loaders' in-world tests. NeoForge's are the game: every rule that lives in
 `:common` is checked once, there, because running the same assertions against the same code on
 a second loader proves nothing the first run did not. Fabric's cover only what is that loader's

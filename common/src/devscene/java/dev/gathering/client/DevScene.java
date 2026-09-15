@@ -283,6 +283,12 @@ public final class DevScene {
                     // read in the hand from being drawn, so the foil steps saw no tilt at all
                     // on a run where the machine was in use, and passed on one where it was not.
                     client.options.pauseOnLostFocus = false;
+                    // The player's own settings change what several steps can see - reduced motion
+                    // puts no card in the air - and this directory's are whatever the last scripted
+                    // run left. Said at the start, so a run failing on them says why.
+                    System.out.println("[devscene] running with reduced motion " + (ClientSettings.reducedMotion() ? "on" : "off")
+                            + ", text " + ClientSettings.textScale() + "%, controls " + ClientSettings.controlScale()
+                            + "%, table sounds " + (ClientSettings.tableSounds() ? "on" : "off"));
                     System.out.println("[devscene] first screen: " + client.screen.getClass().getName());
                     client.setScreen(new TitleScreen());
                     advance(SETTLE);
@@ -437,6 +443,7 @@ public final class DevScene {
                 // it on has to work: it is the whole of the turn structure now that the phase
                 // is gone.
                 wasOnTurn = turnNow();
+                listenForSounds(client);
                 passTheTurn(client);
                 advance(SETTLE);
             }
@@ -444,6 +451,7 @@ public final class DevScene {
                 if (turnNow() <= wasOnTurn) {
                     fail("the turn was passed and the marker is still on turn " + wasOnTurn);
                 }
+                heard("pass_turn", "passing the turn");
                 advance(0);
             }
             case 19 -> {
@@ -1180,14 +1188,26 @@ public final class DevScene {
             case 81 -> {
                 aCardIsInTheAir(client, "a rival sliding a card across their mat");
                 shoot(client, "23a-a-rivals-card-on-the-move");
+                // The turn goes over to the rival here and comes back in the next step - two
+                // updates, because the turn coming round is a change, and one update holding both
+                // passes shows none.
+                HEARD.clear();
+                theTurnPasses(client, new SeatId(0), new SeatId(1));
                 advance(SETTLE);
             }
             case 82 -> {
+                heard("pass_turn", "the turn going over to the rival");
+                HEARD.clear();
+                theTurnPasses(client, new SeatId(1), new SeatId(0));
                 openMyCounters(client);
                 advance(SETTLE / 2);
             }
             case 83 -> {
                 expectScreen(client, "asking for my own counters", CountersScreen.class);
+                heard("your_turn", "the rival handing the turn back");
+                if (HEARD.contains("pass_turn")) {
+                    fail("the turn coming back made the pass sound as well as the your-turn sound");
+                }
                 shoot(client, "24-commander-damage");
                 tookCommanderDamage = damageTaken(client);
                 // One row per enemy commander, and the rival brought partners - so two rows,
@@ -8630,6 +8650,55 @@ public final class DevScene {
         });
     }
 
+    /** The mod's sounds the client has been asked to play since listening started, by path. */
+    private static final java.util.Set<String> HEARD = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    private static boolean listening;
+
+    /**
+     * Listens to the client's sound engine for the mod's own sounds.
+     * <p>Listeners are told before the engine drops a sound for being silent, so this hears them in
+     * a muted run too - and a sound with no file behind it is dropped before, so a sound registered
+     * but missing from the resource pack is not heard.
+     */
+    private static void listenForSounds(Minecraft client) {
+        if (listening) {
+            return;
+        }
+        listening = true;
+        client.getSoundManager().addListener((sound, events, range) -> {
+            if (sound.getLocation().getNamespace().equals(dev.gathering.Gathering.MOD_ID)) {
+                HEARD.add(sound.getLocation().getPath());
+            }
+        });
+    }
+
+    private static void heard(String sound, String after) {
+        if (!HEARD.contains(sound)) {
+            fail("no " + sound + " sound after " + after + "; heard " + HEARD);
+        } else {
+            System.out.println("[devscene] heard " + sound + " after " + after);
+        }
+    }
+
+    /** Hands the turn from one seat to another at the server, as a player's pass would. */
+    private static void theTurnPasses(Minecraft client, SeatId from, SeatId to) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || table == null) {
+            fail("no server to pass the turn on");
+            return;
+        }
+        BlockPos where = table;
+        server.execute(() -> {
+            GameSession session = TableSessions.sessionAt(server.overworld(), where).orElse(null);
+            if (session == null) {
+                return;
+            }
+            session.submit(new GameEvent.TurnPassed(from, to));
+            TableBroadcast.sendToTable(server.overworld(), where);
+        });
+    }
+
     /** Opens this player's own counters, which is where commander damage is written down. */
     private static void openMyCounters(Minecraft client) {
         SeatId me = ClientTableState.seatAt(table).orElse(null);
@@ -10344,6 +10413,61 @@ public final class DevScene {
         Screenshot.grab(
                 client.gameDirectory, name + ".png", client.getMainRenderTarget(), message -> { });
         TAKEN.add(name);
+        atEveryGuiScale(client, name);
+    }
+
+    /** Screens already laid out at every interface size, so each is checked once rather than at every photograph of it. */
+    private static final java.util.Set<String> SWEPT = new java.util.HashSet<>();
+
+    /**
+     * The same checks with the screen laid out again at every interface size the window allows.
+     * <p>Asked for by the owner: every screen has to work at every GUI scale, and the tour only
+     * ever saw one. Minecraft offers one through the largest that still leaves 320 by 240, and the
+     * largest is the smallest room a screen is ever given - which is where panels built for a
+     * roomier window put buttons off the edge or on top of each other. Each screen is laid out the
+     * way a player's resize lays it out, checked, and put back at the size it was photographed at.
+     * <p>Geometry only: this lays out, it does not draw, so a label cut short at one size is found by
+     * the pictures rather than here.
+     * <p>The mod's own screens, and not the table's own board (see below).
+     */
+    private static void atEveryGuiScale(Minecraft client, String name) {
+        Screen screen = client.screen;
+        if (screen == null || !screen.getClass().getName().startsWith("dev.gathering.")
+                || !SWEPT.add(screen.getClass().getName() + ":" + stateOf(screen))) {
+            return;
+        }
+        if (screen instanceof TableScreen) {
+            // The board keeps a camera through a resize - zoom and pan clamped to each size in turn -
+            // so laying it out at four sizes and back leaves it framed somewhere else, and every step
+            // after that aimed at a card that had moved. Its resizes are checked on their own, where
+            // the framing afterwards is what is asserted: see resizeTo and theBoardIsStillFramed.
+            return;
+        }
+        int was = client.options.guiScale().get();
+        int largest = client.getWindow().calculateScale(0, client.isEnforceUnicode());
+        try {
+            for (int scale = 1; scale <= largest; scale++) {
+                client.options.guiScale().set(scale);
+                client.resizeDisplay();
+                if (client.screen != screen) {
+                    fail(name + ": " + screen.getClass().getSimpleName() + " closed when the interface became size " + scale);
+                    return;
+                }
+                nothingOverlapsAnythingElse(client, name + " at GUI scale " + scale);
+            }
+            System.out.println("[devscene] laid out " + screen.getClass().getSimpleName() + " at GUI scales 1 to " + largest);
+        } finally {
+            client.options.guiScale().set(was);
+            client.resizeDisplay();
+        }
+    }
+
+    /** Which of its faces a screen is showing, where one screen class shows several - a tab, a mode. */
+    private static String stateOf(Screen screen) {
+        return screen.children().stream()
+                .filter(child -> child instanceof AbstractWidget widget && widget.visible)
+                .map(child -> ((AbstractWidget) child).getMessage().getString())
+                .sorted().collect(java.util.stream.Collectors.joining("|"));
     }
 
     /**

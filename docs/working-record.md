@@ -1237,6 +1237,88 @@ a second time is still told "already" by the same ledger.
 **This is a statement about the code, not a decision.** Whether it *should* be a welcome grant
 is still the owner's to make.
 
+## Polish audit (2026-09-15), slice 1: PQ-01 to PQ-04
+
+Response: `docs/reviews/polish-audit-2026-09-15/RESPONSE.md`. The tournament screen now follows
+control size and text size (`EventScreenLayout`), and pages what a small window cannot hold instead
+of shrinking it. Buttons in a row share one label size. Focus survives rebuilds by action name
+(`FocusKeeper`). Host controls are grayed with reasons from `HostActions`, the rule the server also
+refuses by (protocol 13). Call off asks first.
+
+Verified: gate green (525/16). `AccessibilityProbe` reports `failures: 0`, and every guard was shown
+failing with its fix removed. The in-world guard `ahostsStaleOrForgedControlsAreRefused` also fails
+without the server refusal. Core tests: `HostActionsTest` 6, `EventScreenLayoutTest` 5.
+
+Owner requests the same day:
+- Every screen at every GUI scale: DevScene now re-lays each photographed screen at GUI scales 1
+  up to the largest and checks the geometry.
+- Scripted clients muted and in the background: `tools/quietly.sh`.
+
+The first quiet tours failed their animation checks (card in flight, library shaking). This looked
+like the hidden window, but the game ran at 54 fps behind other windows. The real cause: a probe run
+that had lost keyboard focus pressed "Reduced motion" on and could not press it off again, and the
+dev run kept it. The probe now restores reduced motion along with the sizes. `quietly.sh` also turns
+off Minecraft's spoken first-launch narrator prompt for good: that uses the system voice, which the
+game's volume doesn't touch.
+
+The first quiet tour, run after a probe that had crashed partway through, inherited 200/200 sizes
+at GUI scale 4. That exposed two real problems:
+- The host tab's fixed three columns cut "Prize: place N" short and had no room in a small window.
+  It is now a grid with as many columns as its longest label allows, paged beside Done. The probe
+  checks every host control is reachable at 427x240 at 200/200.
+- The probe did not restore sizes when a run ended early. It now restores them however it ends, and
+  writes them before stopping.
+
+The turn sounds are the owner's recordings (2026-09-15), converted from MP3 to mono Ogg Vorbis and
+signed into `docs/art-hashes.txt`:
+- `your_turn` replaces the vanilla bell when the turn comes to your seat.
+- `pass_turn` plays on the table log's turn-passed line, and is skipped when `your_turn` plays.
+DevScene listens to the sound engine and asserts both.
+
+Fixed: `ClientSettings` and `RecentThings` write a change 20 ticks after it is made, and nothing
+wrote them when the game closed, so a change made less than a second before quitting was lost. The
+evidence was a probe run that restored its sizes as its last act and left the file at 200/200.
+`ClientTicks.stopping()` now runs from NeoForge's `GameShuttingDownEvent` and Fabric's
+`CLIENT_STOPPING`. The probe no longer writes the file itself, and afterwards the file held the
+restored sizes. Fabric's hook was not run in a client.
+
+Tour, 2026-09-15, run quietly: `failures: 0`, reached step 344 of 344, all three sound checks heard.
+The GUI-scale sweep laid out 27 screens at scales 1 to 4 with no failures. Not swept: SettingsScreen
+and DecklistImportScreen, which the tour never photographs, and TableScreen, whose camera makes a
+sweep move later steps (its resizes are checked by their own steps). Gate green, 525/16.
+
+Not verified: a person using it by keyboard, longer translations, the event screen on Fabric in a
+real client.
+
+## Owner request (2026-09-15): what to borrow from Charta
+
+The owner asked for everything worth borrowing from Charta (lucaargolo/charta, MPL-2.0; ideas only,
+no code), polished rather than thrown on. A stair stands in for the chair model unless a better
+one is worth making. In order, each committed on its own after the gate and a tour run:
+
+1. **Decks look like decks in the world.** A pile on the table in the world is as tall as the cards
+   in it, with its edges showing and the top card on top.
+   - Must preserve: hidden information (a library is sleeves, the count is already public), the
+     screen board, and aiming at a pile.
+   - Must still work: cards flying in and out of the stack, and a shuffle's rattle.
+2. **Player strip.** Each seat's column in the board's top row shows the player's face beside their
+   seat mark and name, and marks whose turn it is. Faces come from the game's own skins, so no new
+   art. A free chair or an absent player shows no face.
+3. **Where something changed.** A pile or mat briefly glows in the acting seat's color when cards
+   arrive in it, on the screen and in the world. Reduced motion keeps a steady mark and drops the
+   fade.
+4. **Table settings in view.** The board says the format and match length, with a marker when a
+   table plays for keeps or differs from standard, so somebody sitting down sees what they are
+   joining.
+5. **How to play.** A "?" on the board opens a page per topic, written as Markdown in the language
+   folder, with the player's own key bindings filled in. Resource packs and translators can replace
+   it.
+6. **Chairs.** A chair placed at a table's seat edge lets a player sit.
+   - Sitting takes that seat, faces the table, and puts them at the board.
+   - Standing up (sneak) gives up the seat as the board's Stand up does.
+   - Breaking the chair, a restart, or the table changing shape ends the sit without losing cards.
+   - Model: vanilla stair pieces.
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

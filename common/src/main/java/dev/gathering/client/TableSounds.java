@@ -67,8 +67,8 @@ final class TableSounds {
 
     /**
      * The same, for one of the game's own sounds rather than one of the mod's.
-     * <p>The mod has three sounds and they are audio files in its resource pack, which is the
-     * owner's to add to. A gesture that wants a noise the mod has not got uses vanilla's,
+     * <p>The mod's own sounds are audio files in its resource pack, which is the owner's to add
+     * to. A gesture that wants a noise the mod has not got uses vanilla's,
      * which needs nothing added and is already a sound every player knows.
      */
     static void vanillaAt(BlockPos table, SoundEvent sound) {
@@ -84,6 +84,29 @@ final class TableSounds {
             if (client.level != null) {
                 client.level.playLocalSound(
                         table, sound, SoundSource.PLAYERS, volume, 1f, false);
+            }
+        });
+    }
+
+    /**
+     * One of the turn's sounds, at the table: the turn passing, or coming round to you.
+     * <p>Louder than a draw and never varied in pitch. A draw is quiet because it happens forty
+     * times a turn; these happen once, they are how a player not looking at the board learns it
+     * is time to act, and the recordings are quieter to begin with. Still under the table's own
+     * switch and slider, and the players' category, like every other table noise.
+     */
+    static void turnAt(BlockPos table, Registered<SoundEvent> sound) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || table == null || !sound.isBound()) {
+            return;
+        }
+        float volume = wantedVolume() / VOLUME;
+        if (volume <= 0f) {
+            return;
+        }
+        client.execute(() -> {
+            if (client.level != null) {
+                client.level.playLocalSound(table, sound.get(), SoundSource.PLAYERS, volume, 1f, false);
             }
         });
     }

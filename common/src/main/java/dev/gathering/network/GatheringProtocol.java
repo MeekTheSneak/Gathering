@@ -57,11 +57,12 @@ public final class GatheringProtocol {
      * <p>Eleven, for the London mulligan: a seat on the board carries its mulligans.
      * <p>Twelve, for choosing to draw: a move an older server cannot read, and a turn marker on
      * the board that says the choice has been made.
+     * <p>Thirteen, for a host's controls: an event's view carries why each of them does not apply.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 12;
+    public static final int VERSION = 13;
 
     private GatheringProtocol() {
     }

@@ -47,6 +47,11 @@ neoForge {
                 systemProperty 'gathering.screenRefactorScene', project.property('screenRefactorScene')
             }
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            // -Paccessibilityprobe opens the event and settings screens at every text and control
+            // size, checks their widgets, focus and host controls, photographs them, and exits.
+            if (project.hasProperty('accessibilityprobe')) {
+                systemProperty 'gathering.accessibilityprobe', '1'
+            }
             // Armed only when asked for: -Pdevscene drives the client through a scripted
             // session and photographs it. See DevScene.
             if (project.hasProperty('devscene')) {
@@ -195,7 +200,7 @@ tasks.matching { it.name == 'runPackGameTestServer' }.configureEach {
 // tour inherited the last run's tournaments and decks, and failed steps that expected a new world.
 tasks.matching { it.name == 'runClient' }.configureEach {
     doFirst {
-        if (project.hasProperty('devscene')) {
+        if (project.hasProperty('devscene') || project.hasProperty('accessibilityprobe')) {
             delete file('run/saves/GatheringDevScene')
         }
     }

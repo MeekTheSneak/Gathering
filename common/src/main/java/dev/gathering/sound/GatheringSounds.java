@@ -8,9 +8,9 @@ import net.minecraft.sounds.SoundEvent;
 
 /**
  * The noises a table makes.
- * <p>Three, and each is the sound of a thing a player does often enough to learn by ear:
- * cards drawn off a deck, a deck shuffled, and a card coming off the top to be looked at or
- * binned. A table you can follow without watching it is worth as much as one you can follow
+ * <p>Each is the sound of a thing that happens often enough to learn by ear: cards drawn off a
+ * deck, a deck shuffled, a card coming off the top to be looked at or binned, the turn passing,
+ * and the turn coming round to you. The two turn sounds are the owner's recordings. A table you can follow without watching it is worth as much as one you can follow
  * without reading it, and in a game of four, three of the boards are always somewhere other
  * than where you are looking.
  * <p>Made at the table rather than in the listener's ear, so a game two rooms away is quiet
@@ -23,6 +23,8 @@ public final class GatheringSounds {
     public static final String DRAW_ID = "draw_card";
     public static final String SHUFFLE_ID = "shuffle";
     public static final String SCRY_ID = "scry";
+    public static final String PASS_TURN_ID = "pass_turn";
+    public static final String YOUR_TURN_ID = "your_turn";
 
     /** A card coming off the top of a library into somebody's hand. */
     public static final Registered<SoundEvent> DRAW = new Registered<>(DRAW_ID);
@@ -33,17 +35,23 @@ public final class GatheringSounds {
     /** A card coming off the top to be looked at, milled, or revealed. */
     public static final Registered<SoundEvent> SCRY = new Registered<>(SCRY_ID);
 
+    /** The turn moving on from one player to the next, heard by the table. */
+    public static final Registered<SoundEvent> PASS_TURN = new Registered<>(PASS_TURN_ID);
+
+    /** The turn coming round to the player who hears it. */
+    public static final Registered<SoundEvent> YOUR_TURN = new Registered<>(YOUR_TURN_ID);
+
     private GatheringSounds() {
     }
 
     /**
      * All of them, in one list, so a loader registers them by walking it.
-     * <p>Both loaders register the same three under the same names because they read the
+     * <p>Both loaders register the same sounds under the same names because they read the
      * same list; a second list in the second loader is how one of them ends up with a sound
      * the other has not got.
      */
     public static List<Registered<SoundEvent>> all() {
-        return List.of(DRAW, SHUFFLE, SCRY);
+        return List.of(DRAW, SHUFFLE, SCRY, PASS_TURN, YOUR_TURN);
     }
 
     /** The event to register for one of these, built the same way on either loader. */

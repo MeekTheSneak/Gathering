@@ -16,6 +16,7 @@ import dev.gathering.core.table.SeatAnchor;
 import dev.gathering.core.table.TableCell;
 import dev.gathering.core.tournament.Entrant;
 import dev.gathering.core.tournament.EventSettings;
+import dev.gathering.core.tournament.HostActions;
 import dev.gathering.core.tournament.MatchResult;
 import dev.gathering.core.tournament.Pairing;
 import dev.gathering.core.tournament.Round;
@@ -199,8 +200,7 @@ public final class Events {
         if (state == null || !level.dimension().location().toString().equals(state.dimension)) {
             return;
         }
-        if (state.tournament.isOver()) {
-            host.sendSystemMessage(Component.translatable("message.gathering.event.already_over"));
+        if (refused(host, state, HostActions.Action.ADD_TABLES)) {
             return;
         }
         BlockPos origin = nearestTable(level, clicked).orElse(null);
@@ -339,7 +339,8 @@ public final class Events {
     /** The host marks where they are standing as the place registrations are taken. */
     public static void markRegistration(ServerPlayer host, UUID eventId) {
         hosted(host, eventId).ifPresent(state -> {
-            if (!host.serverLevel().dimension().location().toString().equals(state.dimension)) {
+            if (!host.serverLevel().dimension().location().toString().equals(state.dimension)
+                    || refused(host, state, HostActions.Action.MARK_REGISTRATION)) {
                 return;
             }
             state.registrationPoint = host.blockPosition();
@@ -471,7 +472,8 @@ public final class Events {
     }
 
     public static void openCheckIn(ServerPlayer host, UUID eventId) {
-        hosted(host, eventId).ifPresent(state -> apply(host, state, Tournament::openCheckIn));
+        hosted(host, eventId).filter(state -> !refused(host, state, HostActions.Action.OPEN_CHECK_IN))
+                .ifPresent(state -> apply(host, state, Tournament::openCheckIn));
     }
 
     /**
@@ -480,7 +482,7 @@ public final class Events {
      */
     public static void begin(ServerPlayer host, UUID eventId) {
         EventState state = hosted(host, eventId).orElse(null);
-        if (state == null) {
+        if (state == null || refused(host, state, HostActions.Action.BEGIN)) {
             return;
         }
         MinecraftServer server = host.getServer();
@@ -593,14 +595,10 @@ public final class Events {
     /** The host starts play now, whoever is not ready. Also what the build clock does at time. */
     public static void startNow(ServerPlayer host, UUID eventId) {
         hosted(host, eventId).ifPresent(state -> {
-            if (state.tournament.phase() != Tournament.Phase.PREPARING) {
-                return;
-            }
-            ServerLevel level = levelOf(host.getServer(), state).orElse(null);
-            if (level != null && podStillRunning(level, state)) {
-                // Starting now skips the building, never the packs: they are still in a sign-up
-                // or a draft, and play cannot begin at a table they are on.
-                host.sendSystemMessage(Component.translatable("message.gathering.event.pod_still_running"));
+            // Starting now skips the building, never the packs: while they are still in a sign-up or
+            // a draft, play cannot begin at a table they are on. Refused with the reason the host's
+            // screen was already showing.
+            if (refused(host, state, HostActions.Action.START_NOW)) {
                 return;
             }
             state.log(host.getUUID(), "start_now", "");
@@ -662,15 +660,31 @@ public final class Events {
             host.sendSystemMessage(Component.translatable("message.gathering.event.host_only"));
             return;
         }
-        if (state.tournament.isOver()) {
-            // An event that has ended has nothing left to call off - and its tables may be a
-            // newer event's by now, which a second clean-up would tear down.
-            host.sendSystemMessage(Component.translatable("message.gathering.event.already_over"));
+        // An event that has ended has nothing left to call off - and its tables may be a newer
+        // event's by now, which a second clean-up would tear down.
+        if (refused(host, state, HostActions.Action.CANCEL)) {
             return;
         }
         state.tournament = state.tournament.cancel();
         state.log(host.getUUID(), "cancel", "");
         finishUp(host.getServer(), state);
+    }
+
+    /**
+     * Whether a host's action does not apply to the event as it stands - said to the host if so. The
+     * same answer the host's screen is sent (HostActions), so a control grayed there is refused here,
+     * and one that was not grayed when the screen was drawn but has gone stale is refused all the same.
+     */
+    static boolean refused(ServerPlayer host, EventState state, HostActions.Action action) {
+        Optional<String> why = HostActions.refusal(action, state.tournament, packsStillOut(host.getServer(), state));
+        why.ifPresent(key -> host.sendSystemMessage(Component.translatable(key)));
+        return why.isPresent();
+    }
+
+    /** Whether an event's packs are still out, for the host's controls. False where the world cannot say. */
+    static boolean packsStillOut(MinecraftServer server, EventState state) {
+        return state.tournament.phase() == Tournament.Phase.PREPARING
+                && levelOf(server, state).map(level -> podStillRunning(level, state)).orElse(false);
     }
 
     private static Optional<EventState> hosted(ServerPlayer host, UUID eventId) {

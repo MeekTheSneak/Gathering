@@ -125,12 +125,76 @@ public final class GatheringButtons {
             graphics.pose().popPose();
         }
 
+        /** The size every button in its row agreed on, or zero to fit this label alone. */
+        float rowScale;
+
         @Override
         public void renderString(GuiGraphics graphics, Font font, int color) {
-            GuiText.drawCentered(graphics, font, getMessage(),
-                    getX() + getWidth() / 2,
-                    getY() + (getHeight() - font.lineHeight) / 2 + 1,
-                    getWidth() - TEXT_MARGIN * 2, color);
+            int centerX = getX() + getWidth() / 2;
+            int y = getY() + (getHeight() - font.lineHeight) / 2 + 1;
+            int room = getWidth() - TEXT_MARGIN * 2;
+            if (keepsRowScale(font)) {
+                GuiText.drawCenteredAt(graphics, font, getMessage(), centerX, y, rowScale, color);
+                return;
+            }
+            GuiText.drawCentered(graphics, font, getMessage(), centerX, y, room, color);
+        }
+
+        /** Whether the row's size is used - it is, unless even that would not fit this label. */
+        private boolean keepsRowScale(Font font) {
+            return rowScale > 0f && font.width(getMessage()) * rowScale <= getWidth() - TEXT_MARGIN * 2;
+        }
+
+        /** The size this label would be drawn at on its own. */
+        float aloneScale(Font font) {
+            return GuiText.fittedScale(font, getMessage(), getWidth() - TEXT_MARGIN * 2);
+        }
+
+        /** The size this label is drawn at. */
+        float labelScale(Font font) {
+            return keepsRowScale(font) ? rowScale : aloneScale(font);
+        }
+    }
+
+    /**
+     * The size a worded button draws its label at, or zero for a button whose face is a symbol.
+     * <p>For the scripted accessibility check, which has to see what is drawn rather than what
+     * a row asked for.
+     */
+    static float labelScale(Button button) {
+        return button instanceof Fitting fitting && worded(button)
+                ? fitting.labelScale(Minecraft.getInstance().font) : 0f;
+    }
+
+    private static boolean worded(Button button) {
+        return button instanceof Fitting && !(button instanceof Marked) && !(button instanceof Pointing);
+    }
+
+    /**
+     * Makes a row of buttons draw their labels at one size.
+     * <p>Each label fitted on its own gives a row in as many sizes as it has lengths: an audit
+     * photographed "Overview" at full size beside a squeezed "Standings" in the same row of
+     * tabs, at enlarged text in a small window. The row takes the smallest size any of its
+     * labels needs, so a label is never drawn larger than its neighbors only because it is
+     * shorter. Buttons that are not this kind - an arrow, a glyph - keep their own faces.
+     * <p>Measured once, when the row is built; a screen rebuilds its buttons when the text
+     * size changes.
+     */
+    public static void matchLabels(java.util.Collection<? extends Button> row) {
+        Font font = Minecraft.getInstance().font;
+        float least = Float.MAX_VALUE;
+        for (Button button : row) {
+            if (worded(button) && button instanceof Fitting fitting) {
+                least = Math.min(least, fitting.aloneScale(font));
+            }
+        }
+        if (least == Float.MAX_VALUE) {
+            return;
+        }
+        for (Button button : row) {
+            if (worded(button) && button instanceof Fitting fitting) {
+                fitting.rowScale = least;
+            }
         }
     }
 

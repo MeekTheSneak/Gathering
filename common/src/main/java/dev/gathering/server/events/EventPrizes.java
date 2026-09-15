@@ -38,7 +38,7 @@ public final class EventPrizes {
             host.sendSystemMessage(Component.translatable("message.gathering.event.host_only"));
             return;
         }
-        if (state.tournament.isOver()) {
+        if (Events.refused(host, state, dev.gathering.core.tournament.HostActions.Action.ADD_PRIZE)) {
             return;
         }
         if (place < 1 || place > LOWEST_PLACE) {

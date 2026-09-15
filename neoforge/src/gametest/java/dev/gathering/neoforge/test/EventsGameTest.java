@@ -17,9 +17,11 @@ import dev.gathering.core.tournament.Round;
 import dev.gathering.core.tournament.Tournament;
 import dev.gathering.item.CardComponent;
 import dev.gathering.item.DeckComponent;
+import dev.gathering.network.EventActionPayload;
 import dev.gathering.server.TablesApart;
 import dev.gathering.server.events.EventRecords;
 import dev.gathering.server.events.EventState;
+import dev.gathering.server.events.EventViews;
 import dev.gathering.server.events.Events;
 import java.util.ArrayList;
 import java.util.List;
@@ -317,16 +319,31 @@ public final class EventsGameTest {
         Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
         Events.registerDeckForTesting(fixture.state, fixture.players.get(0).getUUID(), deck(List.of(card(0)), List.of()));
         Events.runClockForTesting(helper.getLevel().getServer(), fixture.state, 40);
-        Events.markRegistration(fixture.players.get(0), fixture.state.tournament().id());
-        if (fixture.state.registrationPoint().isEmpty()) {
-            helper.fail("the host marking a registration point did not mark one");
-            return;
-        }
         EventState back = Events.roundTripForTesting(fixture.state);
         if (!back.tournament().equals(fixture.state.tournament()) || !back.tables().equals(fixture.state.tables())
                 || back.roundTicks() != fixture.state.roundTicks() || !back.decks().equals(fixture.state.decks())
                 || !back.registrationPoint().equals(fixture.state.registrationPoint())) {
             helper.fail("the event did not come back as it was saved");
+            return;
+        }
+        Events.removeForTesting(fixture.state);
+        // A registration point is marked while players are signing up - the only time it is used, and
+        // the only time the host may mark one - so it is saved from an event that is still signing up.
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        Tournament signup = Tournament.create(UUID.randomUUID(), "Signing up", host.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        EventState signingUp = Events.stateForTesting(signup, helper.getLevel(), List.of(place(helper, 5, 2, 1)));
+        Events.putForTesting(signingUp);
+        Events.markRegistration(host, signup.id());
+        if (signingUp.registrationPoint().isEmpty()) {
+            Events.removeForTesting(signingUp);
+            helper.fail("the host marking a registration point during sign-up did not mark one");
+            return;
+        }
+        EventState pointBack = Events.roundTripForTesting(signingUp);
+        Events.removeForTesting(signingUp);
+        if (!pointBack.registrationPoint().equals(signingUp.registrationPoint())) {
+            helper.fail("the registration point did not come back as it was saved: " + pointBack.registrationPoint());
             return;
         }
         helper.succeed();
@@ -589,6 +606,58 @@ public final class EventsGameTest {
             return;
         }
         Events.removeForTesting(state);
+        helper.succeed();
+    }
+
+    /**
+     * A host's controls are refused by the server when they do not apply, whatever the client sent.
+     * <p>The screen grays them, but a screen is a picture: a control pressed on a copy drawn before the
+     * phase changed, or sent by a client that never drew one, arrives all the same. Sent through the
+     * same entry point the screen's buttons use. During Swiss, beginning, opening check-in, starting
+     * now and moving the registration point all leave the event as it was; a player who is not the
+     * host cannot call it off; and it cannot be begun with fewer players than it needs.
+     */
+    @GameTest(template = "tables")
+    public static void ahostsStaleOrForgedControlsAreRefused(GameTestHelper helper) {
+        Fixture fixture = fourPlayersPlaying(helper, EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"));
+        ServerPlayer host = fixture.players().get(0);
+        UUID id = fixture.state().tournament().id();
+        Tournament before = fixture.state().tournament();
+        Optional<BlockPos> pointBefore = fixture.state().registrationPoint();
+        host.setPos(host.getX() + 3.0, host.getY(), host.getZ());
+        for (EventActionPayload.Action action : List.of(EventActionPayload.Action.BEGIN,
+                EventActionPayload.Action.OPEN_CHECK_IN, EventActionPayload.Action.START_NOW,
+                EventActionPayload.Action.MARK_REGISTRATION)) {
+            EventViews.act(host, EventActionPayload.of(id, action));
+            if (fixture.state().tournament() != before) {
+                helper.fail(action + " sent during Swiss changed the event: now " + fixture.state().tournament().phase()
+                        + " round " + fixture.state().tournament().currentRound().map(Round::number).orElse(0));
+                return;
+            }
+            if (!fixture.state().registrationPoint().equals(pointBefore)) {
+                helper.fail(action + " sent during Swiss moved the registration point to " + fixture.state().registrationPoint());
+                return;
+            }
+        }
+        EventViews.act(fixture.players().get(1), EventActionPayload.of(id, EventActionPayload.Action.CANCEL));
+        if (fixture.state().tournament().isOver()) {
+            helper.fail("a player who is not the host called the event off");
+            return;
+        }
+        Events.removeForTesting(fixture.state());
+
+        ServerPlayer lonely = helper.makeMockServerPlayerInLevel();
+        Tournament signup = Tournament.create(UUID.randomUUID(), "Too few", lonely.getUUID(),
+                EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern"))
+                .register(Entrant.registering(lonely.getUUID(), "Only", 1500));
+        EventState few = Events.stateForTesting(signup, helper.getLevel(), List.of(place(helper, 5, 2, 1)));
+        Events.putForTesting(few);
+        EventViews.act(lonely, EventActionPayload.of(signup.id(), EventActionPayload.Action.BEGIN));
+        if (few.tournament().phase() != Tournament.Phase.SIGNUP) {
+            helper.fail("an event of one player was begun: now " + few.tournament().phase());
+            return;
+        }
+        Events.removeForTesting(few);
         helper.succeed();
     }
 

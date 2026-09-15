@@ -65,6 +65,9 @@ public final class ClientTableNews {
     /** Which log keys mean what, in one table so a new line cannot be given two meanings. */
     private static final String SHUFFLED = "log.gathering.library_shuffled";
 
+    /** The turn handed on - to the next seat, or back to the only one. */
+    private static final String PASSED = "log.gathering.turn_passed";
+
     /**
      * Somebody pointing at a card.
      * <p>Taken from the log like everything else here, and that is what makes it safe: the
@@ -103,10 +106,11 @@ public final class ClientTableNews {
         // One of each at most: eight cards drawn in one update is a hand being dealt, and
         // eight copies of the same noise on top of one another is a bang.
         java.util.Set<Registered<SoundEvent>> heard = new java.util.LinkedHashSet<>();
-        // Vanilla's, not the mod's: the mod's three sounds are its own audio files and those
+        // Vanilla's, not the mod's: the mod's sounds are its own audio files and those
         // are the owner's to make. A pling is what every game uses to mean "look here", and
         // it needs nothing added to the resource pack.
         boolean pointed = false;
+        boolean passed = false;
         synchronized (ClientTableNews.class) {
             Long readTo = READ_UP_TO.get(key);
             long highest = readTo == null ? -1 : readTo;
@@ -128,6 +132,8 @@ public final class ClientTableNews {
                     heard.add(GatheringSounds.DRAW);
                 } else if (startsWithAny(entry.key(), OFF_THE_TOP)) {
                     heard.add(GatheringSounds.SCRY);
+                } else if (entry.key().startsWith(PASSED)) {
+                    passed = true;
                 } else if (entry.key().startsWith(POINTED_AT)) {
                     cardOf(entry).ifPresent(card -> POINTING.put(new Pointed(key, card), now));
                     pointed = true;
@@ -138,7 +144,10 @@ public final class ClientTableNews {
             POINTING.entrySet().removeIf(
                     entry -> now - entry.getValue() >= dev.gathering.core.ui.Pointing.LASTS);
         }
-        noticeTheTurn(key, board, now);
+        // The turn coming to you says so in its own sound; any other pass is the table's.
+        if (!noticeTheTurn(key, board, now) && passed) {
+            TableSounds.turnAt(key, GatheringSounds.PASS_TURN);
+        }
         for (Registered<SoundEvent> sound : heard) {
             TableSounds.at(key, sound);
         }
@@ -148,18 +157,19 @@ public final class ClientTableNews {
     }
 
     /**
-     * Notices the turn coming round to this player, once, when it does.
+     * Notices the turn coming round to this player, once, when it does, and says whether it did.
      * <p>In a game of four, three of the boards are always somewhere other than where you are
      * looking, and the turn passing to you is the one event you have to act on. The status row
      * has always said whose turn it is; what it could not do is get your attention when that
      * changed, because a row that is always on screen is a row nobody reads on the frame it
      * changes.
-     * <p>Only your own turn, only the moment it arrives, and only at a table you are sitting
-     * at - a spectator has no turn to be told about. A board that arrives with the turn
-     * already yours because you have only just walked up says nothing: there was no change,
-     * and the first board of a table is not news.
+     * <p>Only your own turn, only the moment it arrives, and only at a table you are sitting at -
+     * a spectator has no turn to be told about. Its sound is the owner's own; any other pass is the
+     * table's pass sound, played by the caller from the log, and never both on one moment. A board
+     * that arrives with the turn already yours because you have only just walked up says nothing:
+     * there was no change, and the first board of a table is not news.
      */
-    private static void noticeTheTurn(BlockPos table, GameView board, long now) {
+    private static boolean noticeTheTurn(BlockPos table, GameView board, long now) {
         SeatId mine = board.viewer() instanceof dev.gathering.core.game.visibility.Viewer.Seated seated
                 ? seated.seat()
                 : null;
@@ -169,18 +179,18 @@ public final class ClientTableNews {
             before = WAS_ACTIVE.put(table, active);
         }
         if (mine == null || active == null || before == null || before.equals(active)) {
-            return;
+            return false;
         }
         if (!active.equals(mine) || !ClientSettings.turnNotification()) {
-            return;
+            return false;
         }
         synchronized (ClientTableNews.class) {
             CAME_ROUND.put(table, now);
         }
-        // Vanilla's bell, which is what every game uses to mean "look here" and needs nothing
-        // added to the resource pack. Through TableSounds, so somebody who has turned the
-        // table's noises down is not shouted at by this one.
-        TableSounds.vanillaAt(table, net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL.value());
+        // Through TableSounds, so somebody who has turned the table's noises down is not
+        // shouted at by this one.
+        TableSounds.turnAt(table, GatheringSounds.YOUR_TURN);
+        return true;
     }
 
     /**

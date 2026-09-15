@@ -17,8 +17,22 @@ public record EventViewPayload(
         int bestOf, int roundMinutes, int buildMinutes, int topCut, String decks, boolean largeEvent,
         int round, int plannedRounds, int secondsLeft, boolean timeCalled, boolean elimination,
         boolean registered, boolean checkedIn, boolean ready, boolean dropped, int players,
-        List<Row> standings, List<Match> pairings, Mine mine, List<String> prizes, List<String> places, boolean show)
+        List<Row> standings, List<Match> pairings, Mine mine, List<String> prizes, List<String> places,
+        List<String> hostRefusals, boolean show)
         implements CustomPacketPayload {
+
+    /**
+     * For the host: why each of their controls does not apply now, in {@code HostActions.Action}
+     * order, blank for a control that does. Empty for anybody else. Worked out on the server by the
+     * rules it refuses those actions with, so the screen can gray a control rather than offer it.
+     */
+    public java.util.Optional<String> refusalOf(dev.gathering.core.tournament.HostActions.Action action) {
+        if (action.ordinal() >= hostRefusals.size()) {
+            return java.util.Optional.of("message.gathering.event.host_only");
+        }
+        String why = hostRefusals.get(action.ordinal());
+        return why.isEmpty() ? java.util.Optional.empty() : java.util.Optional.of(why);
+    }
 
     /** A line of the standings. Percentages in tenths of a percent. */
     public record Row(int rank, String name, int points, int wins, int losses, int draws, int omw, int gw, int ogw,
@@ -128,6 +142,7 @@ public record EventViewPayload(
                 Mine.CODEC.encode(buffer, view.mine());
                 ByteBufCodecs.stringUtf8(96).apply(ByteBufCodecs.list(32)).encode(buffer, view.prizes());
                 ByteBufCodecs.stringUtf8(64).apply(ByteBufCodecs.list(16)).encode(buffer, view.places());
+                ByteBufCodecs.stringUtf8(96).apply(ByteBufCodecs.list(16)).encode(buffer, view.hostRefusals());
                 buffer.writeBoolean(view.show());
             },
             buffer -> new EventViewPayload(buffer.readUUID(), buffer.readUtf(64), buffer.readUtf(64), buffer.readBoolean(),
@@ -141,6 +156,7 @@ public record EventViewPayload(
                     Mine.CODEC.decode(buffer),
                     ByteBufCodecs.stringUtf8(96).apply(ByteBufCodecs.list(32)).decode(buffer),
                     ByteBufCodecs.stringUtf8(64).apply(ByteBufCodecs.list(16)).decode(buffer),
+                    ByteBufCodecs.stringUtf8(96).apply(ByteBufCodecs.list(16)).decode(buffer),
                     buffer.readBoolean()));
 
     public EventViewPayload {
@@ -148,6 +164,7 @@ public record EventViewPayload(
         pairings = List.copyOf(pairings);
         prizes = List.copyOf(prizes);
         places = List.copyOf(places);
+        hostRefusals = List.copyOf(hostRefusals);
     }
 
     @Override

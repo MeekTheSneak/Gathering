@@ -42,6 +42,9 @@ public final class SettingsScreen extends ChildScreen {
     /** Whether a row changed and the panel has to be laid out again. See the press above. */
     private boolean rebuildWanted;
 
+    /** Keeps the keyboard on the row just pressed, through the rebuild that pressing it causes. */
+    private final FocusKeeper focus = new FocusKeeper();
+
     public SettingsScreen(Screen back) {
         super(Component.translatable("screen.gathering.settings"), back);
     }
@@ -128,7 +131,7 @@ public final class SettingsScreen extends ChildScreen {
         for (int index = 0; index < rows.size(); index++) {
             Row row = rows.get(index);
             Rect where = layout.row(index);
-            addRenderableWidget(GatheringButtons.of(
+            addRenderableWidget(focus.named("row:" + row.labelKey(), GatheringButtons.of(
                     where.x(), where.y(), where.width(), where.height(),
                     labelFor(row),
                     () -> {
@@ -142,12 +145,12 @@ public final class SettingsScreen extends ChildScreen {
                         // or a scroll for the same reason. One tick is fifty milliseconds and
                         // nobody can see it.
                         rebuildWanted = true;
-                    }));
+                    })));
         }
 
         Rect out = layout.wayOut();
-        addRenderableWidget(GatheringButtons.of(out.x(), out.y(), out.width(), out.height(),
-                Component.translatable("gui.done"), this::onClose));
+        addRenderableWidget(focus.named("done", GatheringButtons.of(out.x(), out.y(), out.width(), out.height(),
+                Component.translatable("gui.done"), this::onClose)));
     }
 
     /** "Text size: 125%", as one line, so a narrator reads the setting and its value together. */
@@ -162,7 +165,7 @@ public final class SettingsScreen extends ChildScreen {
         super.tick();
         if (rebuildWanted) {
             rebuildWanted = false;
-            rebuildWidgets();
+            focus.rebuild(this, this::rebuildWidgets, () -> "done");
         }
     }
 
