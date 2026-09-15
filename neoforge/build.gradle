@@ -163,12 +163,12 @@ repositories {
 dependencies {
     sharedModules.each { compileOnly project(it) }
 
-    // Sable's companion: tables on Create Aeronautics' moving structures. Bundled, as Sable asks,
-    // because it answers with plain world positions when Sable is not installed - so the
-    // integration costs nothing on a server without it. MIT licensed.
-    jarJar(implementation("dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:[${sable_companion_version},)")) {
-        version { prefer sable_companion_version }
-    }
+    // Sable's companion: tables on Create Aeronautics' moving structures. Compiled against and never
+    // shipped: Sable carries the companion in its own jar, and Gathering only reaches for it when it is
+    // installed (see GatheringNeoForge), so this jar holds none of anybody else's code. It used to be
+    // bundled, which the companion allows; the owner chose not to redistribute another author's library
+    // where the mod that needs it already brings it.
+    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:${sable_companion_version}") { transitive = false }
 
     // Create, for display sources and the deployer. Compiled against and never shipped: nothing
     // of Create's is touched unless Create is installed. The versions are the ones Create

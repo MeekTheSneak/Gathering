@@ -1,6 +1,5 @@
 package dev.gathering.platform;
 
-import java.util.ServiceLoader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -65,11 +64,20 @@ public interface WorldSpace {
     }
 
     static WorldSpace get() {
-        return Holder.INSTANCE;
+        return Holder.current;
+    }
+
+    /**
+     * Uses this one from now on. For a loader that has found a mod with moving structures installed; everything
+     * else keeps {@link #FLAT}. Chosen by the loader at startup rather than looked up, so the classes that name
+     * another mod's library are only ever loaded where that library is.
+     */
+    static void use(WorldSpace space) {
+        Holder.current = space == null ? FLAT : space;
     }
 
     final class Holder {
-        private static final WorldSpace INSTANCE = ServiceLoader.load(WorldSpace.class).findFirst().orElse(FLAT);
+        private static volatile WorldSpace current = FLAT;
 
         private Holder() {
         }

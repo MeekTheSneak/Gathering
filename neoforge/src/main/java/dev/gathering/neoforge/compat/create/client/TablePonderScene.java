@@ -90,7 +90,7 @@ final class TablePonderScene {
         scene.idle(10);
         scene.overlay().showText(80)
                 .attachKeyFrame()
-                .text("Right-click the table from your chair to choose a game, then with a deck to put it down")
+                .text("Right-click the table from your chair to choose a game, then choose one of your decks to play")
                 .pointAt(util.vector().topOf(middle))
                 .placeNearTarget();
         scene.idle(90);

@@ -77,7 +77,7 @@ running. Both loaders are built and game-tested in this repository.
 
 The aim is that Gathering can go into any 1.21.1 pack. What that rests on, and how each part was checked:
 
-- **Loaders.** NeoForge 21.1.80 or later (every in-world test run on 21.1.80, and the tour's opening in a
+- **Loaders.** NeoForge 21.1.1 or later (every in-world test run on 21.1.1, and the tour's opening in a
   client), and Fabric Loader 0.15.11 with Fabric API 0.102.0 or later (the Fabric in-world tests and a client
   boot run on exactly those). The metadata asks for those floors, not for the versions the mod was built on.
 - **Nothing of the game's is replaced.** Tags it adds to (`mineable`, `acquirable_job_site`) say
@@ -94,8 +94,9 @@ The aim is that Gathering can go into any 1.21.1 pack. What that rests on, and h
   Drop, the command line and the first hotbar slot from the game (found and fixed with `:fabric:runKeyScene`).
   Fabric's Controls screen may still mark those keys red, because it compares every mapping there; nothing is
   actually taken.
-- **Create, Create Aeronautics and Sable** are supported and tested (below). No other mod is required, and a
-  reward file naming a mod that is not installed loads quietly and is not granted.
+- **Create, Create Aeronautics and Sable** are supported and tested (below), and none of them is bundled or
+  required: Gathering reaches for Create's or Sable's code only when that mod is installed. No other mod is
+  required, and a reward file naming a mod that is not installed loads quietly and is not granted.
 - **Cataclysm needs nothing.** Gathering has no Cataclysm code: the only thing it can do with Cataclysm, or any
   boss mod, is what a pack author's reward file asks - a card pack as a boss reward - which uses the same
   contract as every other mod and is tested against an absent mod. What has not been run is an example file
@@ -114,8 +115,9 @@ Stated plainly, because a compatibility claim nobody has run is worse than none:
   Sable keeps a moving structure's blocks in a region of their own, so everything that compared a
   table's block position with the world - which side a player clicked from, where a tournament
   seats a player, the pointer to a seat, the camera over the board and clicks on the board -
-  goes through Sable's companion library, bundled in this mod's jar (MIT; plain world positions
-  when Sable is not installed). In-world tests assemble a real table into a Sable structure, turn
+  goes through Sable's companion library - not bundled: Sable carries it in its own jar, and
+  Gathering uses it only when it is installed, so without Sable tables work at plain world positions
+  and Gathering's jar holds none of Sable's code. In-world tests assemble a real table into a Sable structure, turn
   it, and check each; they run with `./gradlew runPackGameTestServer` and the Sable jar in
   `neoforge/runs/pack-tests/mods`. What those tests cannot reach is a real client on a moving
   airship. On a client the seated camera, the pointer on the felt and the seat marker follow where

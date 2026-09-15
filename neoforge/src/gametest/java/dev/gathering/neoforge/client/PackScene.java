@@ -356,7 +356,9 @@ public final class PackScene {
             }
         });
         System.out.println("[packscene] the Ponder scenes have " + lines[0] + " lines, all in the lang file");
-        if (lines[0] < 15) {
+        // Fourteen since the table's scene shows one table: tables became three by three, and two do not fit on
+        // Create's five-block plate.
+        if (lines[0] < 14) {
             fail("the Ponder scenes gave " + lines[0] + " lines to check");
         }
         net.minecraft.resources.ResourceLocation table = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
@@ -421,11 +423,13 @@ public final class PackScene {
                 .setValue(net.minecraft.world.level.block.ComparatorBlock.FACING, Direction.EAST), 3);
         level.setBlock(desk.west(2), Blocks.REDSTONE_LAMP.defaultBlockState(), 3);
 
-        // And a sign, which needs no power, reading the match at the table. The link sits on the table's
-        // east side facing east, so the table is the block it reads.
-        BlockPos sign = boardTable.offset(3, 0, 1);
+        // And a sign, which needs no power, reading the match at the table. The link sits against the table's
+        // east side facing east, so the table is the block it reads. Three blocks across since tables became
+        // three by three: placed where it was, at the second block across, the link went into the table and took
+        // it down, and the board and the sign had no table to read.
+        BlockPos sign = boardTable.offset(4, 0, 1);
         level.setBlock(sign, Blocks.OAK_SIGN.defaultBlockState(), 3);
-        link(level, boardTable.offset(2, 0, 0), Direction.EAST, sign, "the sign",
+        link(level, boardTable.offset(3, 0, 1), Direction.EAST, sign, "the sign",
                 dev.gathering.neoforge.compat.create.CreateCompat.tableMatchForScenes());
         player.teleportTo(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 3.5, 180f, 5f);
     }

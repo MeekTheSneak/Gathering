@@ -1832,6 +1832,29 @@ Verified: gate green (564/16); tour steps 0-40 on NeoForge 21.1.248 (the table's
 **Not verified:** a real pack with many mods at once; Fabric's Controls screen still colors shared keys red
 (nothing is taken); NeoForge 21.1.0-21.1.79 (below the Sable companion's floor, so no longer admitted).
 
+### Thirteenth batch: Sable's companion no longer ships inside Gathering (2026-09-15)
+
+The owner did not want another author's library redistributed in Gathering. Sable carries its companion
+library (1.6.0) in its own jar, so Gathering no longer bundles a copy:
+
+- The companion is `compileOnly`; the `META-INF/services` entry that always loaded `SableWorldSpace` is gone,
+  and `GatheringNeoForge` installs it (`WorldSpace.use`, through a static method on the class, so nothing naming
+  the library is loaded before asking) only when `sablecompanion` is loaded. Without it tables use plain world
+  positions, as the companion's own default did.
+- **The NeoForge floor drops to 21.1.1**: the 21.1.80 floor was the bundled companion's. Every in-world test
+  (564) passes on NeoForge 21.1.1, and the tour's opening ran in a 21.1.1 client.
+- **With Sable:** `runPackGameTestServer` - the Sable table tests pass; with the install switched off six of them
+  fail ("the world-space service in use is ... not Sable's"), so they are what checks it. The remaining 232
+  failures are the known harness problem (Sable sending its own payload to stand-in players), identical with
+  and without the switch. `runPackClient -Ppackscene` ran clean (0 failures): a table on a turned Sable
+  structure, seated at it, the camera within 1.0 block of the table in the world.
+- The pack scene had three stale failures of its own from earlier batches, fixed here: its sign's Display Link
+  was placed inside the now three-block table (breaking it, so there was no table renderer and no source); the
+  two Ponder lines the owner's flow changed in the lang file had not been changed in the scenes themselves; and
+  its line-count floor still expected the two-table scene.
+- Docs: pack-authors and TESTING.md say what is bundled (nothing) and the 21.1.1 floor.
+- Verified: gate green (564/16); the built NeoForge jar has no `META-INF/jarjar` and asks for NeoForge [21.1.1,21.2).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

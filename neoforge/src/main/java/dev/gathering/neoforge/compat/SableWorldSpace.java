@@ -11,10 +11,15 @@ import org.joml.Vector3d;
 
 /**
  * Tables on Sable's moving structures - Create Aeronautics' vehicles and physics objects.
- * <p>Through Sable's companion library, which is bundled and answers with plain world positions
- * when Sable itself is not installed, so this is the right answer on every NeoForge server.
+ * <p>Through Sable's companion library, which Sable carries in its own jar. Only made when that library is
+ * installed - see GatheringNeoForge - so a server without Sable never loads this class or anything it names.
  */
 public final class SableWorldSpace implements WorldSpace {
+
+    /** Makes this the world space in use. Called only once the companion library is known to be installed. */
+    public static void install() {
+        WorldSpace.use(new SableWorldSpace());
+    }
 
     @Override
     public Vec3 toWorld(Level level, Vec3 point) {

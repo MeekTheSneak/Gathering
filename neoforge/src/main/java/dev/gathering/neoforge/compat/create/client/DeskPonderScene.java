@@ -59,7 +59,7 @@ final class DeskPonderScene {
                 new ScorekeepersDeskBlockEntity.Label("Friday Night", "signup", 0, 0, "")));
         scene.overlay().showText(90)
                 .attachKeyFrame()
-                .text("Use it while hosting one: players sign up at the desk, and its name floats over it")
+                .text("Use it to host one, played at the tables near it: players sign up at the desk, and its name floats over it")
                 .pointAt(util.vector().topOf(deskPos))
                 .placeNearTarget();
         scene.idle(100);

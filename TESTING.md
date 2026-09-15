@@ -585,7 +585,7 @@ Two checks need more than one process, or another mod's jars, and are run by han
 ./gradlew :fabric:runKeyScene                             # the log says "[keyscene] vanilla keys taken: 0"
 # The oldest loaders the metadata admits (gradle.properties says which), run for real before changing them.
 ./gradlew :fabric:runGametest -Pfabric_loader_version=0.15.11 -Pfabric_api_version=0.102.0+1.21.1
-./gradlew :neoforge:runGameTestServer -Pneo_version=21.1.80
+./gradlew :neoforge:runGameTestServer -Pneo_version=21.1.1
 # Create, Create Aeronautics and Sable: jars in neoforge/runs/pack/mods and neoforge/runs/pack-tests/mods.
 ./gradlew :neoforge:runPackGameTestServer                # the in-world tests with the pack loaded
 ./gradlew :neoforge:runPackClient -Ppackscene            # photographs the integrations in a real client

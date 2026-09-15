@@ -49,6 +49,13 @@ public final class GatheringNeoForge {
             }
         }
 
+        // Tables on Sable's moving structures, only where Sable's companion library is installed - Sable brings it.
+        // Named after asking, like Create above, so without it no class naming the library is ever loaded.
+        if (net.neoforged.fml.ModList.get().isLoaded("sablecompanion")) {
+            dev.gathering.neoforge.compat.SableWorldSpace.install();
+            LOGGER.info("Tables follow Sable's moving structures");
+        }
+
         // Game bus: these are things happening in the game, not mod setup.
         NeoForge.EVENT_BUS.addListener(this::onServerStarting);
         NeoForge.EVENT_BUS.addListener(this::onServerStopped);
