@@ -7,7 +7,7 @@ this says where it has got to.
 Everything here is a lead to verify, not proof.** Test counts are pasted from the run that
 produced them and from nowhere else.
 
-Last updated 2026-09-13, after the cleanup roadmap and table presentation refactor. The quality backlog is 20 of 28 done and the cleanup roadmap 12 of 14 rows done; everything still open on either needs a person, a graphical client run, or another mod's files - see "What is left, and why each one needs you".
+Last updated 2026-09-14, after the security review, memory audit and a rules and tournament pass (see "Rules and tournament pass"). The gate is green at 503 NeoForge and 14 Fabric in-world tests. The quality backlog is 20 of 28 done and the cleanup roadmap 12 of 14 rows done; everything still open on either needs a person, a graphical client run, or another mod's files - see "What is left, and why each one needs you".
 
 ## Table presentation refactor on the finished cleanup baseline
 
@@ -1016,6 +1016,11 @@ is still the owner's to make.
    Local tutorial progress must not be the proof either way.
 
 ## Next concrete action
+
+0. **Fabric has no protocol handshake.** NeoForge refuses a client on a different protocol number
+   (now 12); Fabric registers the same payloads with no version check, so a mismatched client
+   connects and fails on the first payload it cannot read. Needs a configuration-phase check, and a
+   run with two real processes to verify it - not something the in-world tests can reach.
 
 1. **A person plays the lesson and a real game.** The scripted tour now completes cleanly on this machine (315/315) and its screenshots were reviewed; what is left is how it feels to somebody who has not read the code (`./gradlew :neoforge:runClient -Pdevscene`
    on macOS; `tools/shots.sh` under Xvfb). Every client-side change since the last clean run is
