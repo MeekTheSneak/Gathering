@@ -88,6 +88,45 @@ public final class SableTablesGameTest {
         helper.succeed();
     }
 
+    /**
+     * A game being played at a table goes with the table when it is carried off: the table on the
+     * structure has the game, with everything that had happened in it, and none is left where it stood.
+     */
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    public static void aGameInProgressGoesOnAboardTheStructure(GameTestHelper helper) {
+        BlockPos placed = place(helper, 2, 2, 2);
+        var seats = TableClusters.at(helper.getLevel(), placed).seats();
+        dev.gathering.block.TableSeats.take(helper.getLevel(), placed, seats.get(0).cell(), seats.get(0).side(), new java.util.UUID(8L, 1L));
+        dev.gathering.block.TableSeats.take(helper.getLevel(), placed, seats.get(1).cell(), seats.get(1).side(), new java.util.UUID(8L, 2L));
+        var started = dev.gathering.block.TableSessions.start(helper.getLevel(), placed,
+                dev.gathering.core.match.MatchRules.single(dev.gathering.core.format.FormatPresets.MODERN));
+        var session = dev.gathering.block.TableSessions.sessionAt(helper.getLevel(), placed).orElse(null);
+        if (session == null) {
+            helper.fail("no game started to carry: " + started);
+            return;
+        }
+        int logged = session.log().size();
+        Assembled assembled = assemble(helper, placed);
+        if (assembled == null) {
+            return;
+        }
+        var aboard = dev.gathering.block.TableSessions.sessionAt(helper.getLevel(), assembled.table()).orElse(null);
+        System.out.println("[sable] a game carried aboard: " + (aboard == null ? "gone" : aboard.log().size() + " log lines, was " + logged));
+        if (aboard == null) {
+            helper.fail("the game at a table carried into a structure did not go with it");
+            return;
+        }
+        if (aboard.log().size() < logged) {
+            helper.fail("the game carried aboard has " + aboard.log().size() + " log lines, not the " + logged + " it had");
+            return;
+        }
+        if (dev.gathering.block.TableSessions.sessionAt(helper.getLevel(), placed).isPresent()) {
+            helper.fail("a game is still being played where the table stood");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** A Scorekeeper's Desk carried into a structure takes signing up with it, to where it went. */
     @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
     public static void aDeskCarriedOffTakesSigningUpWithIt(GameTestHelper helper) {

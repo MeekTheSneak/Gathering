@@ -386,7 +386,9 @@ ground.
 broken desk does. A desk now notes, when a copy is loaded from its save made this tick, where the copy
 went; if the old desk goes that same tick it was carried, and signing up follows. A copy whose original
 stays moves nothing. Gate test `aCarriedDeskTakesSigningUpWithIt` (copy then carry), proved failing;
-pack test `aDeskCarriedOffTakesSigningUpWithIt` with a real Sable assembly.
+pack test `aDeskCarriedOffTakesSigningUpWithIt` with a real Sable assembly. And a game in progress: pack test
+`aGameInProgressGoesOnAboardTheStructure` starts one, carries the table, and finds it aboard with its
+whole log (3 lines before, 3 after) and none left where the table stood. Not checked: a move made aboard.
 
 **Independent review of the custody fix** found it had introduced a loss: any copy sharing the
 identity - a creative pick with data, `/clone`, a pasted structure - made breaking the original hand
