@@ -54,6 +54,28 @@ class LondonMulliganTest {
     }
 
     @Test
+    @DisplayName("somebody who sat down and left before their deck went down is not a third player")
+    void aChairWithANameAndNoDeckIsNotAPlayer() {
+        GameSession session = sitting(2);
+        SeatId passerBy = SeatId.of(2);
+        List<SeatId> seats = new ArrayList<>(session.state().seats());
+        if (!seats.contains(passerBy)) {
+            session = GameSession.create(List.of(SeatId.of(0), SeatId.of(1), passerBy), 20, SessionSeed.random(),
+                    UndoMode.shippedDefault());
+            for (SeatId seat : List.of(SeatId.of(0), SeatId.of(1))) {
+                session.submit(new GameEvent.SeatTaken(seat, new PlayerRef(UUID.randomUUID(), "P" + seat.index())));
+                session.submit(new GameEvent.DeckLoaded(seat, GameFixtures.deck(40), List.of()));
+                session.submit(new GameEvent.CardsDrawn(seat, seat, 7));
+            }
+        }
+        session.submit(new GameEvent.SeatTaken(passerBy, new PlayerRef(UUID.randomUUID(), "Passer-by")));
+        session.submit(new GameEvent.SeatReleased(passerBy));
+        SeatId me = SeatId.of(0);
+        session.submit(new GameEvent.Mulliganed(me, me, 7));
+        assertThat(session.state().seatState(me).owedToBottom()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("a card from the hand to the bottom pays one off; to the top, or somebody else's, does not")
     void onlyTheBottomOfYourOwnLibraryPaysItOff() {
         GameSession session = sitting(2);

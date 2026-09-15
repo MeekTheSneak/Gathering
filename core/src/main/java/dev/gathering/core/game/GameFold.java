@@ -473,16 +473,26 @@ public final class GameFold {
     /**
      * Whether more than two players are in this game, which is what makes a first mulligan
      * free (rule 103.5c). Counted by boards rather than chairs: a player who stood up is still
-     * in the game their cards are in.
+     * in the game their cards are in - and somebody who sat down and left before putting a deck
+     * down never was, though their name stays on the chair.
      */
     public static boolean isMultiplayer(GameState state) {
         int players = 0;
         for (SeatId seat : state.seats()) {
-            if (state.seatState(seat).whoseBoard().isPresent()) {
+            if (state.seatState(seat).whoseBoard().isPresent() && hasCards(state, seat)) {
                 players++;
             }
         }
         return players > 2;
+    }
+
+    private static boolean hasCards(GameState state, SeatId seat) {
+        for (Zone zone : Zone.values()) {
+            if (state.count(ZoneRef.of(seat, zone)) > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ------------------------------------------------------------ pile verbs

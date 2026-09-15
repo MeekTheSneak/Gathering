@@ -356,10 +356,14 @@ only). Nine findings; checked, and these fixed:
   falls back to two across when one column will not fit.
 - Switching an event to Sealed and back to Draft lost the pick clock.
 
-Left, and why: the first-draw reminder counts a seat whose player left before the game as a
-player, and a first player who passes the turn to draw leaves the opponent starting on turn two
+Left, and why: a first player who passes the turn to draw leaves the opponent starting on turn two
 unreminded (reminders only); a cut game restarted by hand rather than by the event starts at
 random.
+
+**A chair somebody sat in and left before their deck went down is not a player.** It kept the name,
+so a two-player game counted three: the first mulligan went free (103.5c) and the first-draw
+reminder never showed. Players are now boards with a name and cards. Guard
+`LondonMulliganTest.aChairWithANameAndNoDeckIsNotAPlayer`, proved failing.
 
 **Results follow players, not chairs.** A tournament table read wins and life by chair - the first
 player in chair 0 - so a pair who swapped chairs were suggested, timed out and tie-broken with each

@@ -24,6 +24,17 @@ public record GameView(
         log = log == null ? List.of() : List.copyOf(log);
     }
 
+    /**
+     * How many players are in this game: boards with a name on them and cards on them. A chair
+     * somebody sat in and left before their deck went down keeps the name and was never a player.
+     */
+    public int players() {
+        return (int) seats.stream()
+                .filter(seat -> seat.player() != null || seat.lastPlayer() != null)
+                .filter(seat -> seat.zones().values().stream().anyMatch(zone -> zone.count() > 0))
+                .count();
+    }
+
     public SeatView seat(SeatId id) {
         return seats.stream()
                 .filter(view -> view.seat().equals(id))

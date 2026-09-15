@@ -2241,9 +2241,7 @@ public final class TableScreen extends Screen {
                 int owed = shown.seat(me).owedToBottom();
                 yield owed > 0 ? Component.translatable("screen.gathering.table.mulligan_owed", owed) : null;
             }
-            case DRAW -> dev.gathering.core.game.FirstDraw.isSkippedBy(
-                    (int) shown.seats().stream().filter(each -> each.player() != null || each.lastPlayer() != null).count(),
-                    shown.turn(), me)
+            case DRAW -> dev.gathering.core.game.FirstDraw.isSkippedBy(shown.players(), shown.turn(), me)
                     ? Component.translatable("screen.gathering.table.first_turn_no_draw")
                     : null;
             default -> null;
