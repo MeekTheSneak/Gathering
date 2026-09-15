@@ -1778,7 +1778,8 @@ public final class TableScreen extends Screen {
             // the button it is about rather than over the board, where a line of text lands on
             // whatever the board has there: the first try covered the life counter.
             if (reminderFor(verb) != null) {
-                graphics.fill(where.right() - 5, where.y() + 2, where.right() - 2, where.y() + 5, ACCENT);
+                // A lit pip: the theme's own mark for something that is on, not a painted square.
+                GatheringSprites.draw(graphics, Element.PIP_FULL, where.right() - 6, where.y() + 2, 3, 6);
             }
             // Inside the button's frame, not merely inside the button. Fitted to the width less
             // a pixel a side, the longest name ran to the very edge and the frame drawn round

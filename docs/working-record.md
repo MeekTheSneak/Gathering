@@ -360,7 +360,10 @@ clock buttons sharing the "Packs each" row say what they are on hover. Two more 
 others like the highlight: the action palette's picked row (now `ROW_HIGHLIGHT`) and the replay ruler's
 track, fill and head (now the theme's scroll track and thumb, sliced thin enough for a 6-pixel ruler);
 both photographed in a later tour, which passed. Left as they are: the card pointing ring and `GuiGlow`'s
-disc, which tint by meaning - the design brief's exception for color that is information. Rerun tour: failures 0, and the
+disc, which tint by meaning - the design brief's exception for color that is information. `tools/spritecheck.py`
+now fails on any `graphics.fill(` in a client class other than those two (proved by putting the
+highlight's fill back), and its first run found a fourth, the verb button's reminder mark, now the
+theme's lit pip - **not photographed**: the tour reaches no verb reminder. Rerun tour: failures 0, and the
 Settle row, footer and highlight photographed and looked at. The tooltip and grayed arrows were not
 photographed.
 

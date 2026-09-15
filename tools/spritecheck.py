@@ -352,6 +352,24 @@ def main():
                     f"{name} is left off when cramped and {theme} draws it as "
                     f"{scaling.get('type')!r} rather than nine_slice, which never is")
 
+    # "Nothing in the mod draws a colored rectangle" (docs/design-brief.md): every tint is a
+    # sprite a theme can repaint. A fill with a literal color is invisible to every other part of
+    # this check, and three had crept in - a row highlight, a palette's picked row, a replay's
+    # ruler - before this looked for them. The design brief's exception is color that is
+    # information rather than decoration, which tints by meaning: those files are named here.
+    painted_on_purpose = {
+        "TableCardRenderer.java": "the pointing ring, tinted by how long ago it was pointed at",
+        "GuiGlow.java": "a rarity's glow, the color of the rarity",
+    }
+    for name in sorted(os.listdir(JAVA)):
+        if not name.endswith(".java") or name in painted_on_purpose:
+            continue
+        for number, line in enumerate(open(os.path.join(JAVA, name)), 1):
+            code = line.split("//", 1)[0]
+            if re.search(r"\bgraphics\.fill\(", code):
+                problems.append(
+                    f"{name}:{number} paints a colored rectangle; draw a sprite a theme can change")
+
     for note in notes:
         print(f"note: {note}")
     for problem in problems:

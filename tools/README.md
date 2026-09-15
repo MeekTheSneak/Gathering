@@ -16,7 +16,7 @@ it is needed to build the mod, and none of it ships in the jar.
 | `scenecheck.py` | The scripted session's step numbers run 0, 1, 2 … with no holes. |
 | `plotcheck.py` | No game test writes blocks outside the plot it was given. |
 | `gesturecheck.py` | One gesture per verb, across the context menus, the mat buttons and the keys. |
-| `spritecheck.py` | Every element the mod draws has art, in every look. |
+| `spritecheck.py` | Every element the mod draws has art, in every look - and no client class paints a colored rectangle a theme could not change, but for the two that tint by meaning. |
 | `statecheck.py` | Every in-memory holder is emptied when the thing that filled it goes away. |
 | `texturecheck.py` | Every texture a model names exists, and every texture that ships is named by something. |
 
