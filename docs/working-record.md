@@ -1740,15 +1740,15 @@ Verified: gate green (559/16); tour steps 0-30, no failures. **Not verified with
    because the game number stayed on the last game; it now ends the match, drawn.
 2. **Appendix E runs 9-16 players as five Swiss rounds and a top 4** unless the playoff is a
    booster draft; the mod plays four, with the host choosing the cut.
+3. **Are starter boosters a welcome grant or a completion reward?** `StarterBoosters` enforces
+   one grant per player per world but never checks that the tutorial was finished, and a valid
+   `StarterPayload` can ask for them directly. Either answer is fine; the code should say which.
+   Local tutorial progress must not be the proof either way.
 4. **A seat freed while its player was away: take it with the board, or clear it?** Today the next
    player to sit there plays the board as it is, hand included. The other choice is to put that board's
    cards away when the seat is freed.
 5. **Left-clicking a card out of a collection with a deck in hand puts it in the deck** (the owner's
    item 8). It is intentional and the footer says so; say if it should go to the inventory instead.
-3. **Are starter boosters a welcome grant or a completion reward?** `StarterBoosters` enforces
-   one grant per player per world but never checks that the tutorial was finished, and a valid
-   `StarterPayload` can ask for them directly. Either answer is fine; the code should say which.
-   Local tutorial progress must not be the proof either way.
 
 ## Next concrete action
 
@@ -1761,7 +1761,10 @@ Verified: gate green (559/16); tour steps 0-30, no failures. **Not verified with
    test `aClientOnAnotherProtocolIsTurnedAway` (registration and rule), shown failing with the check
    unregistered; the same class now also checks the desk's block, item and block entity on Fabric.
 
-1. **A person plays the lesson, a real game, and a tournament run from a Scorekeeper's Desk.** The
+1. **A person plays the lesson, a real game, and a tournament run from a Scorekeeper's Desk** - and, with
+   a second player, the new table flows: Join or Watch from a chair, the list of decks, a deck not legal
+   played anyway, and getting up mid-game (the kept seat, sitting back down, the vote at four players).
+   Those are covered by in-world tests and single-player photos only. The
    scripted tour passes on this machine (`[devscene] failures: 0`, 2026-09-15, after the renderer,
    label, Settle, footer and sprite changes) and its screenshots were looked at; how it feels to
    somebody who has not read the code is still unknown. The pick clock tooltips are now asserted by
