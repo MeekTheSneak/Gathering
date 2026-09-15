@@ -367,6 +367,21 @@ theme's lit pip - **not photographed**: the tour reaches no verb reminder. Rerun
 Settle row, footer and highlight photographed and looked at. The tooltip and grayed arrows were not
 photographed.
 
+**Found and fixed: a table carried onto a Sable ship doubled its decks (2026-09-15).** A new pack test
+held a deck on a table and assembled it into a Sable structure: the copy on the ship held the deck
+and one more lay on the ground where the table stood. Sable writes a block entity down, loads the copy
+in the ship's region, then clears the old blocks - and clearing a table ends its game and hands back
+its decks and pot, while the copy still held them (and a live copy of the game). Staked cards the same.
+A table now carries an identity in its saved data (`TableCustody`, a random UUID - it names, it decides
+nothing); removed while a loaded copy with that identity stands elsewhere, it was carried, and hands
+nothing back; anyone looking at its board is told it has gone. Sable loads the copy into the level
+before its data, so a table is counted only once its identity is read or written. Pack test
+`aDeckOnATableCarriedOffIsNeitherLostNorDoubled` (failed 1+1 before, 1+0 after); gate test
+`aCarriedTableTakesItsDeckWithItOnce` copies a table's data the way any mover does, proved failing with
+the check off, and breaks the copy afterwards to see the deck come back once. **Not covered:** a live
+session's seated players and per-position server state at the old spot, and Sable disassembling a ship
+back onto the ground (the same mechanism should apply; not run).
+
 **Fabric tour (2026-09-15).** `:fabric:runClient -Pdevscene` after tonight's client changes: reached step
 344 of 344, `[devscene] failures: 0`. Its world is now cleared before each run as NeoForge's is.
 

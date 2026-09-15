@@ -38,6 +38,38 @@ public final class SableTablesGameTest {
     private SableTablesGameTest() {
     }
 
+    /**
+     * A table holding a deck, carried into a structure, still holds it - once. The deck is either
+     * on the table where it went or handed back where it was, and never both: a copy of the table's
+     * keeping on the structure beside a deck spilled from the table it replaced would be a deck made
+     * out of nothing.
+     */
+    @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
+    public static void aDeckOnATableCarriedOffIsNeitherLostNorDoubled(GameTestHelper helper) {
+        BlockPos placed = place(helper, 2, 2, 2);
+        var deck = new dev.gathering.item.DeckComponent("Carried", "", java.util.Optional.empty(),
+                List.of(dev.gathering.item.CardComponent.of(dev.gathering.core.card.CardIdentity.ofPrinting(new java.util.UUID(5L, 5L)))),
+                List.of(), List.of());
+        TableBlock.entityAt(helper.getLevel(), placed).orElseThrow()
+                .holdDeck(new dev.gathering.core.game.SeatId(0), deck, null, null);
+        Assembled assembled = assemble(helper, placed);
+        if (assembled == null) {
+            return;
+        }
+        int onTheTable = TableBlock.entityAt(helper.getLevel(), assembled.table())
+                .map(entity -> entity.heldDecks().size()).orElse(0);
+        long spilled = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                        new net.minecraft.world.phys.AABB(placed).inflate(8.0d)).stream()
+                .filter(item -> dev.gathering.item.DeckItem.deckOf(item.getItem()).isPresent()).count();
+        System.out.println("[sable] a carried table holds " + onTheTable + " deck(s); " + spilled + " spilled where it was");
+        if (onTheTable + spilled != 1) {
+            helper.fail("a table holding one deck, carried into a structure, left " + onTheTable
+                    + " on the table and " + spilled + " on the ground");
+            return;
+        }
+        helper.succeed();
+    }
+
     /** A table carried into a structure is still where it was, in the world. */
     @GameTest(templateNamespace = Gathering.MOD_ID, template = "empty")
     public static void aTableOnAStructureIsWhereItWasInTheWorld(GameTestHelper helper) {

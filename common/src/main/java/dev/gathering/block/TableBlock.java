@@ -240,6 +240,17 @@ public class TableBlock extends BaseEntityBlock {
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock()) && !level.isClientSide()) {
+            if (tearingDown(level, pos, state).filter(dev.gathering.server.TableCustody::carriedElsewhere).isPresent()) {
+                // Carried off whole - a Sable ship assembled around it - with its game, decks and pot
+                // already loaded on the copy where it went. Handing them back here as well would make
+                // every one of them twice, and the mover clears the rest of the table itself. Anybody
+                // looking at the board where it stood is told it has gone.
+                if (level instanceof net.minecraft.server.level.ServerLevel server) {
+                    dev.gathering.server.TableBroadcast.closeAtTable(server, originOf(state, pos));
+                }
+                super.onRemove(state, level, pos, newState, moved);
+                return;
+            }
             spillDecks(level, pos, state);
             removeRestOfTable(level, pos, state);
         }

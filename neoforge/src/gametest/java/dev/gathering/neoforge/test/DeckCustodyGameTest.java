@@ -112,6 +112,40 @@ public final class DeckCustodyGameTest {
         helper.succeed();
     }
 
+    /**
+     * A table carried somewhere else - its data written down, loaded into a table where it went, and
+     * then the blocks where it stood cleared, which is how Sable carries one onto a ship - keeps its
+     * deck on the copy and hands nothing back where it stood. Breaking the copy afterwards hands the
+     * deck back, once.
+     */
+    @GameTest(template = "tables")
+    public static void aCarriedTableTakesItsDeckWithItOnce(GameTestHelper helper) {
+        BlockPos origin = place(helper, 1, 2, 1);
+        clearItems(helper, origin);
+        tableAt(helper, origin).holdDeck(new SeatId(0), deck(), null, null);
+        net.minecraft.nbt.CompoundTag carried = tableAt(helper, origin).saveWithFullMetadata(helper.getLevel().registryAccess());
+
+        BlockPos there = place(helper, 5, 2, 5);
+        tableAt(helper, there).loadWithComponents(carried, helper.getLevel().registryAccess());
+        for (TablePart part : TablePart.values()) {
+            helper.getLevel().setBlock(part.offsetFrom(origin), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+        }
+        if (deckOnTheFloor(helper, origin).isPresent()) {
+            helper.fail("A table carried elsewhere with its deck still handed the deck back where it stood");
+            return;
+        }
+        if (tableAt(helper, there).heldDecks().size() != 1) {
+            helper.fail("The carried table holds " + tableAt(helper, there).heldDecks().size() + " decks, not the one it was carrying");
+            return;
+        }
+        helper.getLevel().destroyBlock(TablePart.SOUTH_EAST.offsetFrom(there), false);
+        if (deckOnTheFloor(helper, there).isEmpty()) {
+            helper.fail("Breaking the table the deck was carried to ate it");
+            return;
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "tables")
     public static void aHeldDeckSurvivesBeingWrittenDownAndReadBack(GameTestHelper helper) {
         // A server restart mid-match must not eat four decks.

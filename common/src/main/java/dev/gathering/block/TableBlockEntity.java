@@ -1029,6 +1029,12 @@ public class TableBlockEntity extends BlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
+        if (tag.hasUUID(CUSTODY_KEY)) {
+            custody = tag.getUUID(CUSTODY_KEY);
+            if (level != null && !level.isClientSide()) {
+                dev.gathering.server.TableCustody.loaded(this);
+            }
+        }
         DyeColor was = felt;
         felt = tag.contains(FELT_KEY) ? DyeColor.byName(tag.getString(FELT_KEY), null) : null;
         if (was != felt) {
@@ -1158,9 +1164,48 @@ public class TableBlockEntity extends BlockEntity {
         }
     }
 
+    /**
+     * This table's identity, kept in its saved data so it travels with it. Unguessable rather than
+     * from the level's random: it names the table, it decides nothing in play - see TableCustody.
+     */
+    private UUID custody;
+    private static final String CUSTODY_KEY = "custody";
+
+    public UUID custody() {
+        if (custody == null) {
+            custody = UUID.randomUUID();
+            if (level != null && !level.isClientSide()) {
+                dev.gathering.server.TableCustody.loaded(this);
+            }
+        }
+        return custody;
+    }
+
+    /**
+     * Put into a level - loaded with its chunk, placed, or carried there. Counted by its identity
+     * only once it has one: a mover may put a table into its new place before reading its saved data
+     * into it (Sable does), and an identity made up here would be a stranger's.
+     */
+    @Override
+    public void setLevel(net.minecraft.world.level.Level into) {
+        super.setLevel(into);
+        if (!into.isClientSide() && custody != null) {
+            dev.gathering.server.TableCustody.loaded(this);
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        if (level != null && !level.isClientSide()) {
+            dev.gathering.server.TableCustody.gone(this);
+        }
+        super.setRemoved();
+    }
+
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
+        tag.putUUID(CUSTODY_KEY, custody());
         if (felt != null) {
             // By name, like the seat sides and for the same reason: this is a save file.
             tag.putString(FELT_KEY, felt.getSerializedName());
