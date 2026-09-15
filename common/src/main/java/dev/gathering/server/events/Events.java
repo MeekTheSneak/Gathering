@@ -952,7 +952,8 @@ public final class Events {
             int[] wins = winsAt(level, origin, pairing);
             var session = TableSessions.sessionAt(level, origin).orElse(null);
             int[] life = session == null ? new int[] {0, 0}
-                    : new int[] {lifeOf(session.state(), new SeatId(0)), lifeOf(session.state(), new SeatId(1))};
+                    : new int[] {lifeOf(session.state(), chairOf(level, origin, pairing.a(), 0)),
+                            lifeOf(session.state(), chairOf(level, origin, pairing.b(), 1))};
             state.tournament = state.tournament.endAtTime(table, wins[0], wins[1], session != null, life[0], life[1]);
             boolean recorded = state.tournament.currentRound().flatMap(r -> r.atTable(table)).map(Pairing::isConfirmed).orElse(false);
             // A cut match still tied on games and life is left open for the host, and saying it
@@ -979,7 +980,8 @@ public final class Events {
         if (pairing == null) {
             return;
         }
-        state.seen.put(table, new int[] {match.winsFor(new SeatId(0)), match.winsFor(new SeatId(1))});
+        state.seen.put(table, new int[] {match.winsFor(chairOf(level, origin, pairing.a(), 0)),
+                match.winsFor(chairOf(level, origin, pairing.b(), 1))});
         state.tournament.currentRound().ifPresent(round -> state.playedAtTable.add(round.number() + ":" + table));
         if (match.isDecided() || !match.hasGameToPlay()) {
             for (UUID player : new UUID[] {pairing.a(), pairing.b()}) {
@@ -1004,7 +1006,34 @@ public final class Events {
         if (match == null) {
             return new int[] {0, 0};
         }
-        return new int[] {match.winsFor(new SeatId(0)), match.winsFor(new SeatId(1))};
+        return new int[] {match.winsFor(chairOf(level, origin, pairing.a(), 0)),
+                match.winsFor(chairOf(level, origin, pairing.b(), 1))};
+    }
+
+    /**
+     * The chair a player of this pairing is playing from at this table.
+     * <p>A round seats the first player in chair 0 and the second in chair 1, and that is where
+     * they usually stay - but nothing keeps them there, and results read by chair credited a
+     * pair who had swapped with each other's games. The game in progress says who is where:
+     * whoever is sitting in a chair, or failing that whose board it is. With no game, or no
+     * sign of them in it, the chair the round gave them.
+     */
+    private static SeatId chairOf(ServerLevel level, BlockPos origin, UUID player, int seatedAt) {
+        var session = TableSessions.sessionAt(level, origin).orElse(null);
+        if (session != null && player != null) {
+            var game = session.state();
+            for (SeatId seat : game.seats()) {
+                if (game.seatState(seat).player().map(ref -> ref.id().equals(player)).orElse(false)) {
+                    return seat;
+                }
+            }
+            for (SeatId seat : game.seats()) {
+                if (game.seatState(seat).whoseBoard().map(ref -> ref.id().equals(player)).orElse(false)) {
+                    return seat;
+                }
+            }
+        }
+        return new SeatId(seatedAt);
     }
 
     /**

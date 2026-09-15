@@ -358,9 +358,14 @@ only). Nine findings; checked, and these fixed:
 
 Left, and why: the first-draw reminder counts a seat whose player left before the game as a
 player, and a first player who passes the turn to draw leaves the opponent starting on turn two
-unreminded (reminders only); life and wins are read by chair, which assumes nobody swapped chairs
-(the pattern predates this pass); a cut game restarted by hand rather than by the event starts at
+unreminded (reminders only); a cut game restarted by hand rather than by the event starts at
 random.
+
+**Results follow players, not chairs.** A tournament table read wins and life by chair - the first
+player in chair 0 - so a pair who swapped chairs were suggested, timed out and tie-broken with each
+other's games. They are now found in the game by who is sitting where. Guard
+`EventsGameTest.theSuggestedResultFollowsPlayersWhoSwapChairs`, proved failing. A match's running
+score is still kept by chair between games, so swapping chairs between games still swaps it.
 
 **Checked and left alone:** five extra turns after time (MTR 2.4, the setting's default is right);
 tiebreakers and their 33% floors, byes as 2-0 and left out of opponents (Appendix C); top-8 bracket
