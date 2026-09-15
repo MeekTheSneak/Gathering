@@ -3532,12 +3532,16 @@ public final class DevScene {
                 advance(SETTLE / 2);
             }
             case 322 -> {
-                // A tournament, hosted at the same table from its setup screen's list.
-                EventListScreen.openFrom(practiceTable);
+                // A tournament, hosted at a Scorekeeper's Desk beside the same table: a free desk lists
+                // the tournaments and offers hosting one there.
+                useADeskBesideThePracticeTable(client);
                 advance(SETTLE);
             }
             case 323 -> {
                 expectScreen(client, "opening the tournaments list", EventListScreen.class);
+                if (client.screen instanceof EventListScreen list && list.desk() == null) {
+                    fail("a free desk's list offers no desk to host at");
+                }
                 shoot(client, "100-tournaments");
                 press(client, net.minecraft.network.chat.Component.translatable("screen.gathering.events.host").getString());
                 advance(SETTLE / 2);
@@ -7036,6 +7040,25 @@ public final class DevScene {
                 level.setBlock(part.offsetFrom(where), state.setValue(TableBlock.PART, part), 3);
             }
             System.out.println("[devscene] a second table, with no game on it");
+        });
+    }
+
+    /** Stands a Scorekeeper's Desk up beside the practice table and uses it, as a right-click on it does. */
+    private static void useADeskBesideThePracticeTable(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        java.util.UUID who = client.player == null ? null : client.player.getUUID();
+        if (practiceTable == null || server == null || who == null) {
+            fail("there is no practice table to put a desk beside");
+            return;
+        }
+        BlockPos desk = practiceTable.offset(-2, 0, 1);
+        server.execute(() -> {
+            ServerLevel level = server.overworld();
+            level.setBlock(desk, GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState(), 3);
+            ServerPlayer player = server.getPlayerList().getPlayer(who);
+            if (player != null) {
+                dev.gathering.server.events.Events.useDesk(player, desk);
+            }
         });
     }
 

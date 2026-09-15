@@ -1626,6 +1626,29 @@ and an away-from-board hold on an empty seat are the next batch.
 Verified for this batch: gate green (549/16); tour steps 363-368 passed in survival and creative. Not
 run since: the full tour.
 
+### Sixth batch: tournaments are hosted at the Scorekeeper's Desk (2026-09-15)
+
+The owner's item 4 from the fifth batch's playtest: hosting belongs to the desk, not the table.
+
+- A free desk (running nothing, or a tournament that is over) opens the tournament list with **Host
+  one**; the list opened by `/gathering events` grays it out and says to use a desk. The create screen
+  names the desk (`CreateEventPayload.desk`, protocol 17), and `Events.hostAtDesk` plays the tournament
+  at the free tables within 16 blocks across and 4 up or down, nearest long table first (the first is
+  where a draft or sealed event opens its packs), and makes the desk its desk and registration point.
+  A desk running an unfinished tournament hosts nothing more. No free table nearby still creates it;
+  the host adds tables standing at them. A host with a tournament elsewhere still takes a free desk in
+  one click, as before.
+- The table's setup screen no longer offers Tournaments. Its draft or sealed pod stays: that is a
+  game at the table, not a tournament. `Events.create` from a table is gone (nothing called it but the
+  removed route).
+- Guide page, desk tooltip, ponder text and `docs/tournaments.md` say the new route.
+- `ScorekeepersDeskGameTest.aDeskHostsATournamentAtTheTablesNearIt` goes through the payload's handler;
+  shown failing with the filter that leaves out another tournament's table removed. The tour's
+  tournament section now uses a desk beside the practice table (steps 296-369 ran with no failures;
+  photo `100-tournaments` shows Host one active).
+
+Verified: gate green (550/16).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

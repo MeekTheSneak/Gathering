@@ -62,11 +62,13 @@ public final class GatheringProtocol {
      * board.
      * <p>Fifteen, for a pack's cards waiting under its wrapper until it is torn.
      * <p>Sixteen, for the cards a creative click put into a deck.
+     * <p>Seventeen, for hosting a tournament at a Scorekeeper's Desk rather than a table: the list
+     * says which desk it was opened at, and creating one names the desk.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 16;
+    public static final int VERSION = 17;
 
     private GatheringProtocol() {
     }

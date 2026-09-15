@@ -149,39 +149,84 @@ public final class Events {
 
     // ------------------------------------------------------------------ hosting and joining
 
+    /** How far from a Scorekeeper's Desk, across, a table is one of the tournament hosted there. */
+    public static final int DESK_TABLES_ACROSS = 16;
+    /** And how far above or below it. */
+    public static final int DESK_TABLES_UP = 4;
+
     /**
-     * Creates an event at the long table this player is standing at, which becomes its tables.
+     * Hosts a tournament at a Scorekeeper's Desk, which is how a player hosts one: its tables are
+     * the free tables near the desk, nearest long table first - the first is where a draft or sealed
+     * event opens its packs - and the desk runs it, so signing up happens there from the start.
+     * <p>A desk running a tournament that is not over is refused rather than taken: taking one over
+     * is using it twice while hosting, and a sign-up screen is no place for a stray click to move an
+     * event. No free table nearby is not refused; the host adds tables later, standing at them.
      *
      * @return the event, or empty with the host told why
      */
-    public static Optional<EventState> create(ServerPlayer host, BlockPos clicked, String name, EventSettings settings) {
+    public static Optional<EventState> hostAtDesk(ServerPlayer host, BlockPos deskPos, String name, EventSettings settings) {
         ServerLevel level = host.serverLevel();
-        String problem = settings.problem().orElse(null);
-        if (problem != null) {
-            host.sendSystemMessage(Component.translatable(problem));
+        if (!(level.getBlockEntity(deskPos) instanceof dev.gathering.block.ScorekeepersDeskBlockEntity desk)) {
+            host.sendSystemMessage(Component.translatable("message.gathering.event.at_a_desk"));
             return Optional.empty();
         }
-        if (settings.kind() == EventSettings.Kind.CONSTRUCTED && FormatPresets.byId(settings.formatId()).isEmpty()) {
-            host.sendSystemMessage(Component.translatable("message.gathering.event.needs_a_format"));
+        String dimension = level.dimension().location().toString();
+        if (desk.event().flatMap(Events::get)
+                .filter(state -> dimension.equals(state.dimension) && !state.tournament.isOver()).isPresent()) {
+            host.sendSystemMessage(Component.translatable("message.gathering.event.desk_busy"));
             return Optional.empty();
         }
-        Optional<String> hosting = EventRecords.whyNotHost(host.getUUID());
-        if (hosting.isPresent()) {
-            host.sendSystemMessage(Component.translatable(hosting.get()));
+        Optional<String> refused = whyNotCreate(host, settings);
+        if (refused.isPresent()) {
+            host.sendSystemMessage(Component.translatable(refused.get()));
             return Optional.empty();
         }
-        BlockPos origin = TableBlock.entityAt(level, clicked).map(TableBlockEntity::getBlockPos).orElse(null);
-        if (origin == null) {
-            host.sendSystemMessage(Component.translatable("message.gathering.event.at_a_table"));
-            return Optional.empty();
-        }
-        List<BlockPos> tables = orderedTables(level, origin);
-        for (BlockPos table : tables) {
-            if (atTable(level, table).isPresent()) {
-                host.sendSystemMessage(Component.translatable("message.gathering.event.tables_taken"));
-                return Optional.empty();
+        List<BlockPos> tables = freeTablesNear(level, deskPos);
+        EventState state = open(host, level, name, settings, tables);
+        host.sendSystemMessage(tables.isEmpty()
+                ? Component.translatable("message.gathering.event.created_no_tables", state.tournament.name())
+                : Component.translatable("message.gathering.event.created", state.tournament.name(), tables.size()));
+        runFromDesk(host, desk, state, false);
+        return Optional.of(state);
+    }
+
+    /** Every table near a desk that no tournament plays at, a long table at a time, nearest first. */
+    static List<BlockPos> freeTablesNear(ServerLevel level, BlockPos deskPos) {
+        List<List<BlockPos>> lines = new ArrayList<>();
+        java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+        for (BlockPos pos : BlockPos.betweenClosed(deskPos.offset(-DESK_TABLES_ACROSS, -DESK_TABLES_UP, -DESK_TABLES_ACROSS),
+                deskPos.offset(DESK_TABLES_ACROSS, DESK_TABLES_UP, DESK_TABLES_ACROSS))) {
+            if (!(level.getBlockState(pos).getBlock() instanceof TableBlock)) {
+                continue;
+            }
+            BlockPos origin = TableBlock.entityAt(level, pos).map(TableBlockEntity::getBlockPos).orElse(null);
+            if (origin == null || seen.contains(origin)) {
+                continue;
+            }
+            List<BlockPos> line = orderedTables(level, origin);
+            seen.addAll(line);
+            List<BlockPos> free = line.stream().filter(table -> atTable(level, table).isEmpty()).toList();
+            if (!free.isEmpty()) {
+                lines.add(free);
             }
         }
+        lines.sort(Comparator.comparingDouble(line -> line.stream().mapToDouble(table -> table.distSqr(deskPos)).min().orElse(0)));
+        return lines.stream().flatMap(List::stream).toList();
+    }
+
+    /** Whatever refuses a tournament before where it is played is asked: its settings, and its host. */
+    private static Optional<String> whyNotCreate(ServerPlayer host, EventSettings settings) {
+        Optional<String> problem = settings.problem();
+        if (problem.isPresent()) {
+            return problem;
+        }
+        if (settings.kind() == EventSettings.Kind.CONSTRUCTED && FormatPresets.byId(settings.formatId()).isEmpty()) {
+            return Optional.of("message.gathering.event.needs_a_format");
+        }
+        return EventRecords.whyNotHost(host.getUUID());
+    }
+
+    private static EventState open(ServerPlayer host, ServerLevel level, String name, EventSettings settings, List<BlockPos> tables) {
         Tournament tournament = Tournament.create(UUID.randomUUID(), cleanName(name, host), host.getUUID(), settings);
         EventState state = new EventState(tournament, level.dimension().location().toString());
         state.tables.addAll(tables);
@@ -189,8 +234,7 @@ public final class Events {
         state.log(host.getUUID(), "create", tournament.name());
         EventRecords.hosted(host.getUUID());
         changed(level.getServer(), state);
-        host.sendSystemMessage(Component.translatable("message.gathering.event.created", tournament.name(), tables.size()));
-        return Optional.of(state);
+        return state;
     }
 
     /** Adds the long table this table is part of to an event's tables. Host only. */
@@ -205,7 +249,7 @@ public final class Events {
         }
         BlockPos origin = nearestTable(level, clicked).orElse(null);
         if (origin == null) {
-            host.sendSystemMessage(Component.translatable("message.gathering.event.at_a_table"));
+            host.sendSystemMessage(Component.translatable("message.gathering.event.stand_at_a_table"));
             return;
         }
         int added = 0;
@@ -364,8 +408,8 @@ public final class Events {
      * running a tournament already is taken over by another of the host's tournaments, or another
      * host's, only with a second use soon after the first - which said whose desk it is - so no stray
      * click moves an event. A host's own desk that signing up has moved away from takes it back.
-     * Anybody else is shown the tournament the desk runs, and a desk running nothing says how it comes
-     * to, and shows what tournaments there are.
+     * Anybody else is shown the tournament the desk runs; a desk running nothing, or a tournament that
+     * is over, shows what tournaments there are and offers hosting one here ({@link #hostAtDesk}).
      */
     public static void useDesk(ServerPlayer player, BlockPos deskPos) {
         ServerLevel level = player.serverLevel();
@@ -402,7 +446,7 @@ public final class Events {
             runFromDesk(player, desk, running);
             return;
         }
-        if (running != null) {
+        if (running != null && !running.tournament.isOver()) {
             if (hosting != null) {
                 lastDeskUse.put(player.getUUID(), new DeskUse(dimension, deskPos.immutable(), now));
                 player.sendSystemMessage(Component.translatable("message.gathering.desk.taken", running.tournament.name(),
@@ -411,18 +455,26 @@ public final class Events {
             EventViews.show(player, running, true);
             return;
         }
-        player.sendSystemMessage(Component.translatable("message.gathering.desk.idle"));
-        EventViews.list(player, true);
+        // A free desk: the tournaments there are, finished ones included, and hosting a new one here.
+        EventViews.list(player, true, deskPos);
     }
 
     private static void runFromDesk(ServerPlayer player, dev.gathering.block.ScorekeepersDeskBlockEntity desk, EventState state) {
+        runFromDesk(player, desk, state, true);
+    }
+
+    /** The desk runs this tournament; said in the chat unless the host was just told it was created here. */
+    private static void runFromDesk(ServerPlayer player, dev.gathering.block.ScorekeepersDeskBlockEntity desk, EventState state,
+            boolean say) {
         state.registrationPoint = desk.getBlockPos().immutable();
         desk.runs(state.tournament.id());
         changed(player.getServer(), state);
         // The lectern's page turning: a desk taken on is heard, not only read about in the chat.
         player.serverLevel().playSound(null, desk.getBlockPos(), net.minecraft.sounds.SoundEvents.BOOK_PAGE_TURN,
                 net.minecraft.sounds.SoundSource.BLOCKS, 1.0f, 1.0f);
-        player.sendSystemMessage(Component.translatable("message.gathering.desk.runs", state.tournament.name()));
+        if (say) {
+            player.sendSystemMessage(Component.translatable("message.gathering.desk.runs", state.tournament.name()));
+        }
         EventViews.show(player, state, true);
     }
 
@@ -488,7 +540,7 @@ public final class Events {
         MinecraftServer server = host.getServer();
         ServerLevel level = levelOf(server, state).orElse(null);
         if (level == null || state.tables.isEmpty()) {
-            host.sendSystemMessage(Component.translatable("message.gathering.event.at_a_table"));
+            host.sendSystemMessage(Component.translatable("message.gathering.event.no_tables"));
             return;
         }
         if (state.tournament.settings().kind().isLimited()) {

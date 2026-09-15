@@ -20,7 +20,6 @@ public final class ClientState {
     public static void forgetTheServer() {
         CardZoomOverlay.clear();
         EventHud.clear();
-        EventListScreen.clear();
         ClientCardCache.get().clear();
         ClientCardFlights.clear();
         ClientCardRequests.clear();

@@ -1,14 +1,21 @@
 package dev.gathering.network;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
-/** Server to client: the tournaments on this server, running and recently finished. */
-public record EventListPayload(List<Summary> events, boolean show) implements CustomPacketPayload {
+/**
+ * Server to client: the tournaments on this server, running and recently finished.
+ *
+ * @param hostAt the Scorekeeper's Desk the list was opened at, where a new one may be hosted; empty
+ *               when opened anywhere else
+ */
+public record EventListPayload(List<Summary> events, boolean show, Optional<BlockPos> hostAt) implements CustomPacketPayload {
 
     /**
      * @param phase   a phase key
@@ -44,6 +51,7 @@ public record EventListPayload(List<Summary> events, boolean show) implements Cu
     public static final StreamCodec<RegistryFriendlyByteBuf, EventListPayload> STREAM_CODEC = StreamCodec.composite(
             Summary.CODEC.apply(ByteBufCodecs.list(MOST)), EventListPayload::events,
             ByteBufCodecs.BOOL, EventListPayload::show,
+            ByteBufCodecs.optional(BlockPos.STREAM_CODEC), EventListPayload::hostAt,
             EventListPayload::new);
 
     public EventListPayload {

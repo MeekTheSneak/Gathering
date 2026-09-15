@@ -76,8 +76,8 @@ Each phase is usable when it lands and goes through the gate and graphical runs 
 All seven phases are implemented. What each part does, where the build differs from the plan
 above, and what is still limited. `docs/working-record.md` carries the evidence.
 
-**Playing.** `/gathering events` (or *Tournaments* on a table's setup screen) lists current and
-past events. *Host one* opens the create screen: event kind, format, best of, round and build
+**Playing.** `/gathering events`, or a free Scorekeeper's Desk, lists current and past events.
+At a desk, *Host one* opens the create screen (from the command it is grayed out): event kind, format, best of, round and build
 minutes, rounds (auto or fixed), top cut, deck registration (any / checked / locked), check-in,
 and for draft or sealed the full pack settings. The event screen has four tabs: overview (your
 table, opponent, result buttons, practice), standings (records and rates, never a seed),
@@ -107,8 +107,12 @@ higher life total (MTR 2.4); tied on life as well, the host decides it.
 up only works within 8 blocks of that spot, and anybody further away is pointed to it.
 
 **Scorekeeper's Desk.** A block to run a tournament from (paper, book, paper over three planks and
-two legs of planks). The host uses it while hosting and it becomes that tournament's desk and its
-registration point, in one click. Anybody else using it is shown the tournament it runs - to sign
+two legs of planks), and the one place a tournament is hosted: a free desk lists the tournaments
+and offers *Host one*, which plays at the free tables within 16 blocks across and 4 up or down of the
+desk, nearest long table first (the first is where a draft or sealed event opens its packs), and
+makes the desk that tournament's desk and registration point. A desk running an unfinished
+tournament refuses to host another. A host of a tournament elsewhere uses a free desk and it becomes
+that tournament's desk and its registration point, in one click. Anybody else using it is shown the tournament it runs - to sign
 up, check in, see pairings and standings. A desk already running an unfinished tournament is taken
 over only by using it a second time within ten seconds of the first, which says whose desk it is,
 so no stray click moves somebody else's event; a host's own desk takes signing up back if it was

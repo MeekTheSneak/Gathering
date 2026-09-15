@@ -35,6 +35,60 @@ public final class ScorekeepersDeskGameTest {
     private ScorekeepersDeskGameTest() {
     }
 
+    /**
+     * Hosting is done at a desk: the tournament plays at the free tables near it, leaving out one another
+     * tournament plays at, and the desk runs it from the start. A desk running a tournament that is not
+     * over hosts nothing more.
+     */
+    @GameTest(template = "tables")
+    public static void aDeskHostsATournamentAtTheTablesNearIt(GameTestHelper helper) {
+        BlockPos desk = placeDesk(helper);
+        BlockPos near = EventBoardGameTest.place(helper, 4, 2, 4);
+        BlockPos taken = EventBoardGameTest.place(helper, 4, 2, 9);
+        ServerPlayer other = helper.makeMockServerPlayerInLevel();
+        EventState elsewhere = hostedBy(helper, other, "Elsewhere", List.of(taken));
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        host.moveTo(Vec3.atCenterOf(desk).add(0, 0, 1.5));
+        ServerPlayer second = helper.makeMockServerPlayerInLevel();
+        second.moveTo(Vec3.atCenterOf(desk).add(0, 0, 1.5));
+        EventState[] hosted = new EventState[2];
+        try {
+            EventViews.create(host, new dev.gathering.network.CreateEventPayload(desk, "Friday Night",
+                    EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern")));
+            hosted[0] = Events.all().stream().filter(state -> state.tournament.host().equals(host.getUUID()))
+                    .findFirst().orElse(null);
+            if (hosted[0] == null) {
+                helper.fail("hosting at a desk created no tournament");
+                return;
+            }
+            if (!hosted[0].tables.equals(List.of(near))) {
+                helper.fail("a tournament hosted at a desk plays at " + hosted[0].tables + ", not the free table " + near);
+                return;
+            }
+            if (!runs(helper, desk, hosted[0]) || !desk.equals(hosted[0].registrationPoint)) {
+                helper.fail("the desk a tournament was hosted at does not run it: " + deskOf(helper, desk).event()
+                        + ", signing up at " + hosted[0].registrationPoint);
+                return;
+            }
+            EventViews.create(second, new dev.gathering.network.CreateEventPayload(desk, "Saturday",
+                    EventSettings.usual(EventSettings.Kind.CONSTRUCTED, "modern")));
+            hosted[1] = Events.all().stream().filter(state -> state.tournament.host().equals(second.getUUID()))
+                    .findFirst().orElse(null);
+            if (hosted[1] != null || !runs(helper, desk, hosted[0])) {
+                helper.fail("a desk running a tournament hosted another at it");
+                return;
+            }
+        } finally {
+            Events.removeForTesting(elsewhere);
+            for (EventState state : hosted) {
+                if (state != null) {
+                    Events.removeForTesting(state);
+                }
+            }
+        }
+        helper.succeed();
+    }
+
     /** A host's click on a free desk makes it their tournament's, and signing up moves to it. */
     @GameTest(template = "empty")
     public static void aHostsClickMakesADeskTheirs(GameTestHelper helper) {

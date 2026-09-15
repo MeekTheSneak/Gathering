@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -34,11 +35,11 @@ public final class EventViews {
     }
 
     public static void create(ServerPlayer player, CreateEventPayload payload) {
-        if (!dev.gathering.server.TableReach.within(player, payload.table())) {
+        if (!dev.gathering.server.TableReach.within(player, payload.desk())) {
             return;
         }
-        Events.create(player, payload.table(), payload.name(), payload.settings())
-                .ifPresent(state -> show(player, state, true));
+        // Shown by the desk taking it on.
+        Events.hostAtDesk(player, payload.desk(), payload.name(), payload.settings());
     }
 
     public static void act(ServerPlayer player, EventActionPayload payload) {
@@ -127,6 +128,11 @@ public final class EventViews {
 
     /** The list of events, running first, then the most recently finished. */
     public static void list(ServerPlayer player, boolean show) {
+        list(player, show, null);
+    }
+
+    /** The list, offering to host a tournament at this desk; anywhere else, with no desk, it offers nothing. */
+    public static void list(ServerPlayer player, boolean show, BlockPos desk) {
         List<EventListPayload.Summary> summaries = new ArrayList<>();
         List<EventState> all = new ArrayList<>(Events.all());
         all.sort(java.util.Comparator.comparing((EventState state) -> state.tournament.isOver()));
@@ -140,7 +146,7 @@ public final class EventViews {
                     tournament.entrants().size(), tournament.isRegistered(player.getUUID()),
                     tournament.host().equals(player.getUUID())));
         }
-        Sending.to(player, new EventListPayload(summaries, show));
+        Sending.to(player, new EventListPayload(summaries, show, java.util.Optional.ofNullable(desk).map(BlockPos::immutable)));
     }
 
     /** Sends a player the event as they see it. */

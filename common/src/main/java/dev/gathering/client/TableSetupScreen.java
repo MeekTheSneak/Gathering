@@ -136,12 +136,10 @@ public final class TableSetupScreen extends Screen {
         // wanted. Always offered, not only the first time: somebody who said no a month ago
         // and now wants to know which key taps a card has nowhere else to go.
         int learnTop = decideTop + ROW_HEIGHT + GAP * 2;
-        int third = (panel.width() - MARGIN * 2 - GAP * 2) / 3;
-        net.minecraft.client.gui.components.Button learnButton = sharedLearnRow
-                ? GatheringButtons.of(panel.x() + MARGIN, learnTop, third, ROW_HEIGHT,
-                        Component.translatable("tutorial.gathering.offer.yes"), this::learn)
-                : GatheringButtons.of(panel.x() + MARGIN, learnTop, panel.width() - MARGIN * 2, ROW_HEIGHT,
-                        Component.translatable("tutorial.gathering.offer.yes"), this::learn);
+        int whole = panel.width() - MARGIN * 2;
+        net.minecraft.client.gui.components.Button learnButton = GatheringButtons.of(panel.x() + MARGIN, learnTop,
+                sharedLearnRow ? half : whole, ROW_HEIGHT,
+                Component.translatable("tutorial.gathering.offer.yes"), this::learn);
         // What it is for, on the button rather than above it. It was a line drawn in the eight
         // pixels between this row and Cancel and Start, which is a pixel less than a line of
         // text: the scripted client photographed it running through the bottom of both
@@ -153,19 +151,14 @@ public final class TableSetupScreen extends Screen {
         addRenderableWidget(learnButton);
 
         // Not a game at all: a draft or sealed event, which this table can host instead. Here
-        // because this is the screen a table asks "what will it be" on.
+        // because this is the screen a table asks "what will it be" on. Tournaments are not: they
+        // are hosted at a Scorekeeper's Desk, which runs them.
         int eventTop = sharedLearnRow ? learnTop : learnTop + ROW_HEIGHT + GAP;
-        int halfRow = sharedLearnRow ? third : (panel.width() - MARGIN * 2 - GAP) / 2;
-        int eventLeft = sharedLearnRow ? panel.x() + MARGIN + third + GAP : panel.x() + MARGIN;
         addRenderableWidget(GatheringButtons.of(
-                eventLeft, eventTop, halfRow, ROW_HEIGHT,
+                sharedLearnRow ? panel.right() - MARGIN - half : panel.x() + MARGIN, eventTop,
+                sharedLearnRow ? half : whole, ROW_HEIGHT,
                 Component.translatable("screen.gathering.setup.event"),
                 () -> this.minecraft.setScreen(new PodCreateScreen(table))));
-        // Tournaments beside it: the list of them, and hosting one at this table.
-        addRenderableWidget(GatheringButtons.of(
-                panel.right() - MARGIN - halfRow, eventTop, halfRow, ROW_HEIGHT,
-                Component.translatable("screen.gathering.setup.tournaments"),
-                () -> EventListScreen.openFrom(table)));
 
         // A long table can be one surface or several tables side by side. Offered only where
         // there is more than one table to split, and said as what pressing it does.

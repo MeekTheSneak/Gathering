@@ -2,9 +2,11 @@
 
 ## Hosting one
 
-1. Crouch and right-click a table, and choose **Tournaments**.
-2. Choose **Host one**, set the format and rounds, and create it.
-3. Use a Scorekeeper's Desk while hosting, and players sign up there. Its name floats over it.
+1. Place a Scorekeeper's Desk near the tables you will play at, and right-click it.
+2. Choose **Host one**, set the format and rounds, and create it. The free tables within 16 blocks of the desk are its tables.
+3. Players sign up at the desk. Its name floats over it.
+
+To add tables further off, stand at one and press **Add tables** on the host's tab.
 
 The host's tab on the tournament screen has what comes next, and grays out whatever does not apply yet with the reason.
 

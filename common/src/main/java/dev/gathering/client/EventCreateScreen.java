@@ -15,7 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 /**
- * Hosting a tournament at this table: its name and every setting, in two columns so a small
+ * Hosting a tournament at a Scorekeeper's Desk: its name and every setting, in two columns so a small
  * window holds them all, and a line saying what is chosen or why it cannot run - the same check
  * the server makes.
  * <p>Client-only.
@@ -31,7 +31,7 @@ public final class EventCreateScreen extends Screen {
     private static final int GAP = 3;
     private static final int LABEL_WIDTH = 52;
 
-    private final BlockPos table;
+    private final BlockPos desk;
     private String name = "";
     private EventSettings.Kind kind = EventSettings.Kind.CONSTRUCTED;
     private int format;
@@ -53,9 +53,9 @@ public final class EventCreateScreen extends Screen {
     private final List<java.util.function.IntSupplier> numbers = new ArrayList<>();
     private String said = "";
 
-    public EventCreateScreen(BlockPos table) {
+    public EventCreateScreen(BlockPos desk) {
         super(Component.translatable("screen.gathering.event.create"));
-        this.table = table;
+        this.desk = desk;
         List<FormatPreset> formats = FormatPresets.all();
         for (int index = 0; index < formats.size(); index++) {
             if (formats.get(index).id().equals("modern")) {
@@ -154,7 +154,7 @@ public final class EventCreateScreen extends Screen {
         addRenderableWidget(GatheringButtons.of(left, decide, column, ROW, Component.translatable("gui.cancel"), this::onClose));
         var create = GatheringButtons.of(right, decide, rightColumn, ROW, Component.translatable("screen.gathering.event.create_button"),
                 this::create);
-        create.active = table != null;
+        create.active = desk != null;
         addRenderableWidget(create);
     }
 
@@ -217,10 +217,10 @@ public final class EventCreateScreen extends Screen {
 
     private void create() {
         EventSettings settings = settings();
-        if (settings.problem().isPresent() || table == null) {
+        if (settings.problem().isPresent() || desk == null) {
             return;
         }
-        ClientNetworking.send(new CreateEventPayload(table, name, settings));
+        ClientNetworking.send(new CreateEventPayload(desk, name, settings));
         this.onClose();
     }
 
@@ -246,7 +246,7 @@ public final class EventCreateScreen extends Screen {
                     unused ? DIM : LABEL);
         }
         EventSettings settings = settings();
-        String problem = table == null ? "screen.gathering.events.host_at_a_table" : settings.problem().orElse(null);
+        String problem = desk == null ? "screen.gathering.events.host_at_a_desk" : settings.problem().orElse(null);
         Component line = problem != null ? Component.translatable(problem)
                 : Component.translatable("screen.gathering.event.chosen",
                         Component.translatable("screen.gathering.event.kind." + kind.key()),

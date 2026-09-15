@@ -12,8 +12,8 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The tournaments on this server: running ones first, then the most recently finished, each a row
- * to open. Hosting a new one is offered when the list was opened from a table, which is where an
- * event has to be created.
+ * to open. Hosting a new one is offered when the list was opened at a Scorekeeper's Desk, which is
+ * where a tournament is hosted and run from.
  * <p>Client-only.
  */
 public final class EventListScreen extends Screen {
@@ -26,37 +26,32 @@ public final class EventListScreen extends Screen {
     private static final int ROW = 22;
     private static final int PER_PAGE = 6;
 
-    /** The table the list was opened from, for hosting; null when opened by command. */
-    private static BlockPos lastTable;
-
     private List<EventListPayload.Summary> events;
+    /** The desk the list was opened at, for hosting; null when opened by command. */
+    private BlockPos desk;
     private Rect panel = Rect.NONE;
     private int page;
 
-    private EventListScreen(List<EventListPayload.Summary> events) {
+    private EventListScreen(EventListPayload payload) {
         super(Component.translatable("screen.gathering.events"));
-        this.events = events;
-    }
-
-    /** Asks the server for the list, remembering this table for hosting. */
-    public static void openFrom(BlockPos table) {
-        lastTable = table;
-        ClientNetworking.send(EventActionPayload.of(EventActionPayload.NONE, EventActionPayload.Action.LIST));
+        this.events = payload.events();
+        this.desk = payload.hostAt().orElse(null);
     }
 
     public static void accept(EventListPayload payload) {
         Minecraft client = Minecraft.getInstance();
         if (client.screen instanceof EventListScreen open) {
             open.events = payload.events();
+            open.desk = payload.hostAt().orElse(null);
             open.rebuildWidgets();
         } else if (payload.show()) {
-            client.setScreen(new EventListScreen(payload.events()));
+            client.setScreen(new EventListScreen(payload));
         }
     }
 
-    /** Forgets the table, for a disconnect. */
-    public static void clear() {
-        lastTable = null;
+    /** The desk hosting from this list would be at, for the scripted client. */
+    BlockPos desk() {
+        return desk;
     }
 
     List<EventListPayload.Summary> events() {
@@ -98,11 +93,11 @@ public final class EventListScreen extends Screen {
         addRenderableWidget(forward);
         var host = GatheringButtons.of(panel.x() + MARGIN + (quarter + 4) * 2, bottom, quarter, 18,
                 Component.translatable("screen.gathering.events.host"),
-                () -> this.minecraft.setScreen(new EventCreateScreen(lastTable)));
-        host.active = lastTable != null;
-        if (lastTable == null) {
+                () -> this.minecraft.setScreen(new EventCreateScreen(desk)));
+        host.active = desk != null;
+        if (desk == null) {
             host.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                    Component.translatable("screen.gathering.events.host_at_a_table")));
+                    Component.translatable("screen.gathering.events.host_at_a_desk")));
         }
         addRenderableWidget(host);
         addRenderableWidget(GatheringButtons.of(panel.x() + MARGIN + (quarter + 4) * 3, bottom, quarter, 18,
