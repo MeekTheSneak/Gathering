@@ -220,7 +220,51 @@ public final class PackScene {
                 shoot(client, "p07-the-board-on-a-table-on-a-structure");
                 advance(SETTLE);
             }
+            case 12 -> {
+                client.setScreen(null);
+                checkTheDeskIsTaught();
+                client.setScreen(net.createmod.ponder.foundation.ui.PonderUI.of(
+                        new net.minecraft.world.item.ItemStack(GatheringContent.SCOREKEEPERS_DESK_ITEM.get())));
+                // Far enough in that the board is up and showing the standings.
+                advance(20 * 30);
+            }
+            case 13 -> {
+                if (!(client.screen instanceof net.createmod.ponder.foundation.ui.PonderUI)) {
+                    fail("holding W over the desk opened " + client.screen + " rather than its scene");
+                }
+                shoot(client, "p08-the-desk-taught-in-ponder");
+                advance(SETTLE);
+            }
             default -> finish(client);
+        }
+    }
+
+    /**
+     * The desk has a Ponder scene, is listed among Create's sources for Display Links, and every line
+     * the scene says is in the lang file as the scene says it: Ponder shows the lang file's words,
+     * so a line changed in one place and not the other would teach something the scene does not show.
+     */
+    private static void checkTheDeskIsTaught() {
+        net.minecraft.resources.ResourceLocation desk = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                dev.gathering.Gathering.MOD_ID, GatheringContent.SCOREKEEPERS_DESK_ID);
+        if (!net.createmod.ponder.foundation.PonderIndex.getSceneAccess().doScenesExistForId(desk)) {
+            fail("the desk has no Ponder scene");
+        }
+        if (!net.createmod.ponder.foundation.PonderIndex.getTagAccess()
+                .getItems(com.simibubi.create.infrastructure.ponder.AllCreatePonderTags.DISPLAY_SOURCES).contains(desk)) {
+            fail("the desk is not among Create's sources for Display Links");
+        }
+        int[] lines = {0};
+        net.createmod.ponder.foundation.PonderIndex.getLangAccess().provideLang(dev.gathering.Gathering.MOD_ID, (key, said) -> {
+            lines[0]++;
+            String written = net.minecraft.client.resources.language.I18n.get(key);
+            if (!written.equals(said)) {
+                fail("the Ponder line " + key + " says \"" + said + "\" in the scene and \"" + written + "\" in the lang file");
+            }
+        });
+        System.out.println("[packscene] the desk's Ponder scene has " + lines[0] + " lines, all in the lang file");
+        if (lines[0] < 7) {
+            fail("the desk's Ponder scene gave " + lines[0] + " lines to check");
         }
     }
 

@@ -57,10 +57,15 @@ line would fade behind it - the desk's messages are these), deck legality lists 
 everything a player needs to read later. Not verified in a client.
 
 **6. Ponder scenes.** Both projects teach their blocks with Ponder (Create 86 schematics, Aeronautics
-57 across its modules), shown by holding W over an item. With Create installed, Gathering could
-register scenes for the table and the desk - the most Create-native way to teach them. It needs
-schematic files built for each scene and a scene script per block; worthwhile, and larger than
-anything above.
+57 across its modules), shown by holding W over an item. **Done for the desk:** with Create installed,
+W over a Scorekeeper's Desk plays a scene - what it is for, what using it does and who may, a Display
+Link on it filling a board with standings and then pairings - and the desk is listed among Create's
+sources for Display Links. It is built on Create's own Display Link schematic with the depot made a
+desk, read from Create's jar at runtime, so this mod ships no schematic and the scene matches the one
+beside it. Its words are in the lang file, where Ponder reads them; the pack scene checks every line
+agrees with what the scene records, that the scene and the tag entry exist, and photographs it. The
+desk's floating label faces the way the desk does inside Ponder, whose camera is not the player's.
+**Not yet:** a scene for the table.
 
 **7. Mechanical conventions.** Create has an `.editorconfig` (spaces, LF, final newline; JSON at 2);
 Gathering has none. Create imports what it names; Gathering's main sources name about 620 classes

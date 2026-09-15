@@ -7,6 +7,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.network.chat.Component;
+import org.joml.Quaternionf;
 
 /**
  * Lines of text floating over a block, turned to face whoever is looking: a tournament table's
@@ -22,13 +23,19 @@ public final class FloatingLabel {
     private FloatingLabel() {
     }
 
-    /** Draws the lines centered on a point, given in the block's own coordinates. */
+    /** Draws the lines centered on a point, given in the block's own coordinates, facing the camera. */
     public static void draw(PoseStack poseStack, MultiBufferSource buffers, List<Component> lines, double x, double y, double z) {
+        draw(poseStack, buffers, lines, x, y, z, Minecraft.getInstance().getEntityRenderDispatcher().cameraOrientation());
+    }
+
+    /** The same, turned a fixed way rather than to the camera. */
+    public static void draw(PoseStack poseStack, MultiBufferSource buffers, List<Component> lines, double x, double y, double z,
+            Quaternionf turned) {
         Minecraft client = Minecraft.getInstance();
         Font font = client.font;
         poseStack.pushPose();
         poseStack.translate(x, y, z);
-        poseStack.mulPose(client.getEntityRenderDispatcher().cameraOrientation());
+        poseStack.mulPose(turned);
         poseStack.scale(0.025f, -0.025f, 0.025f);
         for (int index = 0; index < lines.size(); index++) {
             Component line = lines.get(index);

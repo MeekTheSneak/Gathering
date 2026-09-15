@@ -328,6 +328,13 @@ by its own once-a-second tick and sent as the label only (guard `aLinkedDeskLabe
 proved failing both with the tick removed and with the event id in the client tag); linking turns a
 lectern's page. Seen in the pack scene: "Friday Night / Round 1 of 2" over the desk.
 
+**Ponder scene for the desk** (`compat/create/client`, NeoForge with Create, client only): W over the
+desk teaches it on Create's Display Link schematic. Pack scene checks the scene exists, the desk is in
+Create's Display Link sources tag, every recorded line equals the lang file's (7 lines), and photographs
+it mid-scene: the board shows standings and the desk's label "Friday Night / Round 3 of 4". A client scene
+run, not a gate test. Its first run found the
+label invisible (faced to the player's camera, not Ponder's) and that was fixed. The line check was shown failing with one lang line changed.
+
 **Independent review of the desk** (a reviewer agent, given the requirements and the diff) found, all
 fixed: (1) a host's own desk could never take signing up back once it moved elsewhere - after *Register
 here*, a second desk, or a Create contraption carrying the desk, whose removal clears the point - now

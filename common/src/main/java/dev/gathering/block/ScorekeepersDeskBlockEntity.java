@@ -81,6 +81,11 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
         return label;
     }
 
+    /** A label shown without a tournament behind it, for a scene that teaches the desk. Client side only. */
+    public void showLabel(Label shown) {
+        label = shown == null ? Label.NONE : shown;
+    }
+
     public void runs(UUID tournament) {
         if (tournament == null ? event != null : !tournament.equals(event)) {
             event = tournament;

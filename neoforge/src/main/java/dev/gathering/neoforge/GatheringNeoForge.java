@@ -34,6 +34,10 @@ public final class GatheringNeoForge {
         // after asking, so a server without Create never touches a class of Create's.
         if (net.neoforged.fml.ModList.get().isLoaded("create")) {
             dev.gathering.neoforge.compat.create.CreateCompat.init(modBus);
+            // And its Ponder scene, on a client: added before Ponder gathers its plugins.
+            if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
+                dev.gathering.neoforge.compat.create.client.GatheringPonderPlugin.register();
+            }
         }
 
         // Game bus: these are things happening in the game, not mod setup.
