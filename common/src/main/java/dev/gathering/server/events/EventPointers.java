@@ -20,8 +20,11 @@ public final class EventPointers {
         int table = Events.of(player.getUUID())
                 .flatMap(state -> state.tournament.currentRound().flatMap(round -> round.pairingOf(player.getUUID())))
                 .map(pairing -> pairing.table()).orElse(0);
+        // The coordinates a player can walk to, which for a table on a moving structure are not its
+        // block's. The pointer is sent the block, and follows the structure as it moves.
+        BlockPos there = BlockPos.containing(dev.gathering.platform.WorldSpace.get().centerInWorld(player.serverLevel(), seat));
         player.sendSystemMessage(Component.translatable("message.gathering.event.go_to_table", table,
-                seat.getX(), seat.getY(), seat.getZ()));
+                there.getX(), there.getY(), there.getZ()));
         Sending.to(player, new EventPointerPayload(seat, Math.max(1, table)));
     }
 }

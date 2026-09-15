@@ -449,11 +449,14 @@ public final class TableCameraView {
         }
         TableTop top = surfaceOf(corner);
         double lift = lift(height);
-        return Optional.of(new Placement(
+        // Worked out over the table's own surface, then put where that surface is in the world -
+        // which on an airship is not where its blocks' coordinates say. See WorldSpace.
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        var space = dev.gathering.platform.WorldSpace.get();
+        net.minecraft.world.phys.Vec3 eye = space.toWorld(level, new net.minecraft.world.phys.Vec3(
                 top.worldX(top.surfaceWidth() / 2.0) + offsetX,
                 top.topY() + height,
-                top.worldZ(top.surfaceDepth() / 2.0) + offsetZ + lift,
-                facing,
-                LOOKING_DOWN));
+                top.worldZ(top.surfaceDepth() / 2.0) + offsetZ + lift));
+        return Optional.of(new Placement(eye.x, eye.y, eye.z, facing + space.yawOf(level, corner), LOOKING_DOWN));
     }
 }

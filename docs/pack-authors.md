@@ -82,8 +82,16 @@ Stated plainly, because a compatibility claim nobody has run is worse than none:
   absent mod — but no example has been run against the actual Cataclysm or Create artifacts at
   any specific version, so no claim is made about their advancement ids, loot table paths or
   recipe types.
-- **Create: Aeronautics is separately unverified.** Do not infer anything about moving
-  structures from ordinary Create support; nothing here has been tested with it at all.
+- **Create Aeronautics (1.3.2, on Sable 2.0.5):** tables work on its vehicles and physics objects.
+  Sable keeps a moving structure's blocks in a region of their own, so everything that compared a
+  table's block position with the world - which side a player clicked from, where a tournament
+  seats a player, the pointer to a seat, the camera over the board and clicks on the board -
+  goes through Sable's companion library, bundled in this mod's jar (MIT; plain world positions
+  when Sable is not installed). In-world tests assemble a real table into a Sable structure, turn
+  it, and check each; they run with `./gradlew runPackGameTestServer` and the Sable jar in
+  `neoforge/runs/pack-tests/mods`. What those tests cannot reach is a real client on a moving
+  airship: the camera follows the structure's logical pose rather than its interpolated one, so a
+  fast vehicle may show some judder under the seated view.
 - The contract has not been exercised in a real modpack. What is tested is the loading,
   bounding, reload and absent-mod behavior described above.
 

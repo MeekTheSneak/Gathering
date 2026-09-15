@@ -67,6 +67,26 @@ neoForge {
             type = 'gameTestServer'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
+        // Modpack qualification (CL-14): the same client, server and game tests with other mods'
+        // jars loaded beside this one. Put the jars in runs/pack/mods, or runs/pack-tests/mods
+        // for the tests. Nothing here downloads or ships them, and the gate never looks in these
+        // directories - they are for answering "does it still work in the pack".
+        packClient {
+            client()
+            gameDirectory = project.file('runs/pack')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        packServer {
+            server()
+            programArgument '--nogui'
+            gameDirectory = project.file('runs/pack')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        packGameTestServer {
+            type = 'gameTestServer'
+            gameDirectory = project.file('runs/pack-tests')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
         data {
             data()
             // Generated assets land in :common alongside the hand-authored ones.
@@ -97,8 +117,51 @@ sharedModules.each {
     sourceSets.gametest.runtimeClasspath += project(it).sourceSets.main.output
 }
 
+// Other mods this one works alongside. Each group comes only from its own repository, so a
+// typo in one coordinate cannot pull a same-named artifact from somewhere else.
+repositories {
+    exclusiveContent {
+        forRepository { maven { url = 'https://maven.ryanhcode.dev/releases' } }
+        filter {
+            includeGroup 'dev.ryanhcode.sable-companion'
+            includeGroup 'dev.ryanhcode.sable'
+        }
+    }
+    exclusiveContent {
+        forRepository { maven { url = 'https://maven.createmod.net' } }
+        filter {
+            includeGroup 'com.simibubi.create'
+            includeGroup 'net.createmod.ponder'
+            includeGroup 'dev.engine-room.flywheel'
+        }
+    }
+    exclusiveContent {
+        forRepository { maven { url = 'https://maven.ithundxr.dev/snapshots' } }
+        filter { includeGroup 'com.tterrag.registrate' }
+    }
+}
+
 dependencies {
     sharedModules.each { compileOnly project(it) }
+
+    // Sable's companion: tables on Create Aeronautics' moving structures. Bundled, as Sable asks,
+    // because it answers with plain world positions when Sable is not installed - so the
+    // integration costs nothing on a server without it. MIT licensed.
+    jarJar(implementation("dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:[${sable_companion_version},)")) {
+        version { prefer sable_companion_version }
+    }
+
+    // Create, for display sources and the deployer. Compiled against and never shipped: nothing
+    // of Create's is touched unless Create is installed. The versions are the ones Create
+    // 6.0.10 itself builds with.
+    compileOnly("com.simibubi.create:create-1.21.1:${create_version}:slim") { transitive = false }
+    compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc1.21.1") { transitive = false }
+    compileOnly("com.tterrag.registrate:Registrate:${registrate_version}") { transitive = false }
+    compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-1.21.1:${flywheel_version}") { transitive = false }
+
+    // Sable itself, for the in-world tests that build a moving structure. The tests only, and
+    // only registered when Sable is installed - see PackGameTests.
+    gametestCompileOnly("dev.ryanhcode.sable:sable-neoforge-1.21.1:${sable_version}") { transitive = false }
 }
 
 // The loader jars carry :common and :core, since neither is published. Taking the
@@ -117,6 +180,11 @@ tasks.matching { it.name == 'runGameTestServer' }.configureEach {
         delete file('run/world')
     }
 }
+tasks.matching { it.name == 'runPackGameTestServer' }.configureEach {
+    doFirst {
+        delete file('runs/pack-tests/world')
+    }
+}
 
 tasks.named('compileJava') {
     dependsOn ':common:classes', ':core:classes'
@@ -128,7 +196,7 @@ tasks.named('compileGametestJava') {
 
 // The tests have to be compiled for a run to find them, and `build` does not compile a source
 // set nothing depends on. Without this the gate would run against whatever was last compiled.
-tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+tasks.matching { it.name == 'runGameTestServer' || it.name == 'runPackGameTestServer' }.configureEach {
     dependsOn tasks.named('gametestClasses')
 }
 

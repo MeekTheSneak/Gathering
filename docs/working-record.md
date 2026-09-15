@@ -273,6 +273,28 @@ bound.
 Not changed: image URLs are still six strings per card face (about a fifth of what remains),
 because each is distinct and shortening them would change the saved cache format.
 
+## Create, Create Aeronautics and Sable (2026-09-14, CL-14)
+
+The owner supplied the pack's jars: Create 1.21.1-6.0.10, Create Aeronautics bundled 1.3.2, Sable
+2.0.5. Opt-in runs `runPackClient`, `runPackServer` and `runPackGameTestServer` load whatever jars are
+in `neoforge/runs/pack/mods` and `neoforge/runs/pack-tests/mods`; the gate never uses them.
+
+**All in-world tests with the pack loaded.** With Sable (alone or with Aeronautics) every test that
+makes a stand-in player fails, 186 of them, on "Payload sable:dimension_physics / simulated:end_sea
+may not be sent to the client": those mods send every player a payload the test server's embedded
+connection has not negotiated. Every other test passes. That is a limit of the harness, not a
+failure of this mod, and it is why the structure tests below use no player.
+
+**Tables on moving structures.** `WorldSpace` (common, a service) converts between a table's block
+coordinates and the world; NeoForge implements it with Sable's companion library, bundled via jarJar.
+Used for the clicked side (`TableBlock`), tournament seating (`Events.chairInWorld`), the registration
+distance and nearby check (entity distances, which Sable corrects), the seat pointer (`EventHud`,
+`EventPointers`), the seated camera (`TableCameraView`) and board picking (`TablePointer`). Three
+in-world tests registered only when Sable is installed (`PackGameTests`, `SableTablesGameTest`) assemble
+a table into a structure and check where it is, which side a player at a turned table is at, and where
+a chair is - each shown to fail with the conversion removed (and one fixed after it passed anyway,
+because it compared against the same conversion). **Not verified:** a real client on a moving vehicle.
+
 ## Rules and tournament pass (2026-09-14, while the owner was away)
 
 Checked against the Comprehensive Rules and the Magic Tournament Rules. The MTR sections were

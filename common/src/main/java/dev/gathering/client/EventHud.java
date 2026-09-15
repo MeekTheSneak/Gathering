@@ -48,8 +48,10 @@ public final class EventHud {
         if (seat == null || client.player == null) {
             return;
         }
-        double dx = seat.getX() + 0.5 - client.player.getX();
-        double dz = seat.getZ() + 0.5 - client.player.getZ();
+        // Where the seat is now, which moves with the structure it is on. See WorldSpace.
+        net.minecraft.world.phys.Vec3 there = dev.gathering.platform.WorldSpace.get().centerInWorld(client.level, seat);
+        double dx = there.x - client.player.getX();
+        double dz = there.z - client.player.getZ();
         double distance = Math.sqrt(dx * dx + dz * dz);
         if (distance < ARRIVED) {
             clear();

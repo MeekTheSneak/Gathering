@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -258,8 +259,12 @@ public final class Events {
             return;
         }
         if (state.registrationPoint != null && (!player.serverLevel().dimension().location().toString().equals(state.dimension)
-                || !player.blockPosition().closerThan(state.registrationPoint, EventState.AT_REGISTRATION))) {
-            BlockPos at = state.registrationPoint;
+                // An entity's own distance, which Sable corrects for a point on a moving structure;
+                // comparing block positions does not.
+                || player.distanceToSqr(Vec3.atCenterOf(state.registrationPoint))
+                        >= EventState.AT_REGISTRATION * EventState.AT_REGISTRATION)) {
+            BlockPos at = BlockPos.containing(dev.gathering.platform.WorldSpace.get()
+                    .centerInWorld(player.serverLevel(), state.registrationPoint));
             player.sendSystemMessage(Component.translatable("message.gathering.event.go_to_registration",
                     at.getX(), at.getY(), at.getZ()));
             EventPointers.pointTo(player, at);
@@ -667,12 +672,30 @@ public final class Events {
             return;
         }
         BlockPos stand = TableClusters.seatPos(table, seat);
-        boolean near = online.serverLevel() == level && online.blockPosition().closerThan(table, 24);
+        boolean near = online.serverLevel() == level && online.distanceToSqr(Vec3.atCenterOf(table)) < 24 * 24;
         if (atThisLongTable || (bringFromNearby && near)) {
-            online.teleportTo(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, facingTheTable(seat.side()), LOOKING_AT_THE_TABLE);
+            Chair chair = chairInWorld(level, table, seat);
+            online.teleportTo(level, chair.where().x, chair.where().y, chair.where().z, chair.yaw(), LOOKING_AT_THE_TABLE);
         } else {
             EventPointers.pointTo(online, stand);
         }
+    }
+
+    /** Where a player moved into a seat stands, and which way they face. */
+    record Chair(Vec3 where, float yaw) {
+    }
+
+    /**
+     * Where a seat at this table is in the world, facing the table.
+     * <p>In the world, not at the seat's block position: a table on a Create Aeronautics vehicle
+     * keeps its blocks out in Sable's own region, and teleporting to those coordinates put the
+     * player there instead of beside the table. See WorldSpace.
+     */
+    static Chair chairInWorld(ServerLevel level, BlockPos table, SeatAnchor seat) {
+        BlockPos stand = TableClusters.seatPos(table, seat);
+        var space = dev.gathering.platform.WorldSpace.get();
+        return new Chair(space.toWorld(level, new Vec3(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5)),
+                facingTheTable(seat.side()) + space.yawOf(level, table));
     }
 
     /** How far down a player moved into a seat looks, in degrees: at the felt, not the horizon. */

@@ -100,11 +100,15 @@ public final class TablePointer {
         int pixelsHigh = Math.max(1, client.getWindow().getHeight());
 
         Matrix4f viewProjection = new Matrix4f(projection).mul(view);
-        // Camera-relative, because that is the space the world was drawn in.
+        // Where that place on the felt is in the world - the surface's coordinates are the table's
+        // own, which a moving structure carries somewhere else - and then camera-relative,
+        // because that is the space the world was drawn in.
+        net.minecraft.world.phys.Vec3 inWorld = dev.gathering.platform.WorldSpace.get().toWorld(client.level,
+                new net.minecraft.world.phys.Vec3(top.worldX(surfaceX), top.topY(), top.worldZ(surfaceY)));
         Vector3f point = new Vector3f(
-                (float) (top.worldX(surfaceX) - eye.x),
-                (float) (top.topY() - eye.y),
-                (float) (top.worldZ(surfaceY) - eye.z));
+                (float) (inWorld.x - eye.x),
+                (float) (inWorld.y - eye.y),
+                (float) (inWorld.z - eye.z));
         Vector3f window = viewProjection.project(
                 point.x(), point.y(), point.z(),
                 new int[] {0, 0, pixelsWide, pixelsHigh}, new Vector3f());
@@ -149,9 +153,16 @@ public final class TablePointer {
                 new int[] {0, 0, pixelsWide, pixelsHigh},
                 from, along);
 
-        // Camera-relative, because that is how the world was drawn; the eye puts it back.
-        return top.hit(
-                eye.x + from.x(), eye.y + from.y(), eye.z + from.z(),
-                along.x(), along.y(), along.z());
+        // Camera-relative, because that is how the world was drawn; the eye puts it back. Then into
+        // the table's own coordinates, where its surface is described - the same place in the world
+        // for a table standing still, and the only way to hit one on an airship. See WorldSpace.
+        var space = dev.gathering.platform.WorldSpace.get();
+        net.minecraft.core.BlockPos anchor = net.minecraft.core.BlockPos.containing(
+                top.worldX(0.0), top.topY() - 0.5, top.worldZ(0.0));
+        net.minecraft.world.phys.Vec3 origin = space.toLocalOf(client.level, anchor,
+                new net.minecraft.world.phys.Vec3(eye.x + from.x(), eye.y + from.y(), eye.z + from.z()));
+        net.minecraft.world.phys.Vec3 direction = space.directionToLocalOf(client.level, anchor,
+                new net.minecraft.world.phys.Vec3(along.x(), along.y(), along.z()));
+        return top.hit(origin.x, origin.y, origin.z, direction.x, direction.y, direction.z);
     }
 }

@@ -372,7 +372,10 @@ public class TableBlock extends BaseEntityBlock {
         // clicked is the edge meant.
         TableCluster cluster = TableClusters.at(level, tableOrigin);
         TableCell cell = new TableCell(0, 0);
-        Side side = TableClusters.sideFrom(hit.getDirection(), player.position(), tableOrigin);
+        // Where the player stands, in the table's own coordinates: on an airship those are not the
+        // world's, and comparing the two picked a side from somewhere far off. See WorldSpace.
+        Side side = TableClusters.sideFrom(hit.getDirection(),
+                dev.gathering.platform.WorldSpace.get().toLocalOf(level, tableOrigin, player.position()), tableOrigin);
 
         // What is in your hand decides what a click means, before where you clicked does.
         // A deck in hand and a table in front of you is one thing and only one thing, and it
