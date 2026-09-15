@@ -189,15 +189,15 @@ public final class EventScreen extends Screen {
             rebuildWidgets();
         }));
         addRenderableWidget(GatheringButtons.of(x + 28, bottom, 24, ROW, Component.literal(">"), () -> {
-            if ((page + 1) * PER_PAGE < count) {
+            if ((page + 1) * perPage() < count) {
                 page++;
                 rebuildWidgets();
             }
         }));
         if (tab == Tab.PAIRINGS && view.youHost()) {
-            int from = page * PER_PAGE;
+            int from = page * perPage();
             int y = listTop();
-            for (int index = from; index < Math.min(view.pairings().size(), from + PER_PAGE); index++) {
+            for (int index = from; index < Math.min(view.pairings().size(), from + perPage()); index++) {
                 EventViewPayload.Match match = view.pairings().get(index);
                 if (match.table() > 0) {
                     Component settle = Component.translatable("screen.gathering.event.select");
@@ -271,6 +271,23 @@ public final class EventScreen extends Screen {
         y += ROW + 6;
         addRenderableWidget(GatheringButtons.of(x, y, width, ROW, Component.translatable("screen.gathering.event.mark_registration"),
                 () -> send(EventActionPayload.Action.MARK_REGISTRATION)));
+    }
+
+    /**
+     * How many rows a page of standings or pairings holds: ten, or as many as fit above the page
+     * buttons - and above the host's settle buttons while a table is picked. A short window
+     * used to lay those buttons over the last pairings and their Settle toggles.
+     */
+    private int perPage() {
+        int bottom = panel.bottom() - MARGIN - ROW;
+        int floor = bottom - 3;
+        if (tab == Tab.PAIRINGS && view.youHost()
+                && view.pairings().stream().anyMatch(match -> match.table() > 0 && match.table() == selectedTable)) {
+            int results = offeredResults().size();
+            int perRow = perResultRow(results);
+            floor = bottom - (results + perRow - 1) / perRow * (ROW + 3);
+        }
+        return Math.max(1, Math.min(PER_PAGE, (floor - listTop()) / LINE));
     }
 
     private int listTop() {
@@ -378,8 +395,8 @@ public final class EventScreen extends Screen {
             cell(graphics, Component.translatable("screen.gathering.event.standings." + heads[column]), column, rightEdges, x, y, DIM);
         }
         y += LINE;
-        int from = page * PER_PAGE;
-        for (int index = from; index < Math.min(view.standings().size(), from + PER_PAGE); index++) {
+        int from = page * perPage();
+        for (int index = from; index < Math.min(view.standings().size(), from + perPage()); index++) {
             EventViewPayload.Row row = view.standings().get(index);
             int color = row.dropped() ? DIM : LABEL;
             String[] cells = {
@@ -428,8 +445,8 @@ public final class EventScreen extends Screen {
     private void renderPairings(GuiGraphics graphics, int x, int y, int width) {
         GuiText.draw(graphics, this.font, Component.translatable("screen.gathering.event.pairings_head"), x, y, width, DIM);
         y += LINE;
-        int from = page * PER_PAGE;
-        for (int index = from; index < Math.min(view.pairings().size(), from + PER_PAGE); index++) {
+        int from = page * perPage();
+        for (int index = from; index < Math.min(view.pairings().size(), from + perPage()); index++) {
             EventViewPayload.Match match = view.pairings().get(index);
             Component line = match.table() == 0
                     ? Component.translatable("screen.gathering.event.pairing_bye", match.a())

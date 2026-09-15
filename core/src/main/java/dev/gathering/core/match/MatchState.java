@@ -92,7 +92,10 @@ public record MatchState(
      * @param whoChose the player the drawn game's first turn went to, or null if nobody was named
      */
     public MatchState afterDrawnGame(SeatId whoChose) {
-        return gameNumber >= rules.bestOf() ? this : new MatchState(rules, wins, gameNumber + 1, null, whoChose);
+        // The last game drawn is played again rather than used up, so the number stays - but who
+        // chose for it still changes hands, or a drawn game three went first to game two's loser
+        // for the wrong reason and a drawn best of one went back to chance.
+        return new MatchState(rules, wins, gameNumber >= rules.bestOf() ? gameNumber : gameNumber + 1, null, whoChose);
     }
 
     public boolean isDecided() {

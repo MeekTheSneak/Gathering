@@ -43,8 +43,10 @@ public record MatchResult(int winsA, int winsB, int draws) {
     /**
      * The results a match of this length is offered as, from the first chair, most common first.
      * <p>Every way a real match ends, not only the ones played out: won at time a game up with no
-     * game started (1-0), drawn at one game each, drawn with the first game unfinished (0-0-1),
-     * and 0-0 for a draw the players agreed before playing. A cut cannot end in a draw, so none
+     * game started (1-0) or with one unfinished (2-1-1), drawn at games apiece, drawn with the
+     * first game unfinished (0-0-1), and 0-0 for a draw the players agreed before playing. A best
+     * of five at time with a game unfinished and somebody ahead is offered without the unfinished
+     * game: the grid would be thirty buttons, and the game count only moves game-win percentage. A cut cannot end in a draw, so none
      * is offered there - a button the server is only going to refuse is a dead end.
      */
     public static java.util.List<MatchResult> offered(int bestOf, boolean elimination) {
@@ -52,9 +54,11 @@ public record MatchResult(int winsA, int winsB, int draws) {
                 ? new int[][] {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {0, 0, 0}}
                 : bestOf <= 3
                         ? new int[][] {{2, 0, 0}, {2, 1, 0}, {1, 2, 0}, {0, 2, 0}, {1, 0, 0}, {0, 1, 0},
-                                {1, 0, 1}, {0, 1, 1}, {1, 1, 0}, {1, 1, 1}, {0, 0, 1}, {0, 0, 0}}
+                                {2, 0, 1}, {2, 1, 1}, {1, 2, 1}, {0, 2, 1}, {1, 0, 1}, {0, 1, 1},
+                                {1, 1, 0}, {1, 1, 1}, {0, 0, 1}, {0, 0, 0}}
                         : new int[][] {{3, 0, 0}, {3, 1, 0}, {3, 2, 0}, {2, 3, 0}, {1, 3, 0}, {0, 3, 0},
-                                {2, 1, 0}, {1, 2, 0}, {2, 2, 0}, {2, 2, 1}, {1, 1, 0}, {0, 0, 0}};
+                                {2, 0, 0}, {2, 1, 0}, {1, 0, 0}, {0, 1, 0}, {1, 2, 0}, {0, 2, 0},
+                                {2, 2, 0}, {2, 2, 1}, {1, 1, 0}, {1, 1, 1}, {0, 0, 1}, {0, 0, 0}};
         java.util.List<MatchResult> offered = new java.util.ArrayList<>();
         for (int[] shape : shapes) {
             MatchResult result = new MatchResult(shape[0], shape[1], shape[2]);

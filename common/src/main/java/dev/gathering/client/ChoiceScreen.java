@@ -50,6 +50,11 @@ public final class ChoiceScreen extends ChildScreen {
     @Override
     protected void init() {
         int across = acrossFor(options.stream().mapToInt(option -> this.font.width(option.label())).toArray());
+        // One to a row is taller. When that would push Cancel off the screen, two across with
+        // shrunk names is the better of the two.
+        if (across == 1 && MARGIN * 2 + ROW * 2 + GAP * 2 + options.size() * (ROW + GAP) > this.height - MARGIN * 2) {
+            across = ACROSS;
+        }
         int rows = (options.size() + across - 1) / across;
         int height = MARGIN * 2 + ROW * 2 + GAP * 2 + rows * (ROW + GAP);
         panel = new Rect(

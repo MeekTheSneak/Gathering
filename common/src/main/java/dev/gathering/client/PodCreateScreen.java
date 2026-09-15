@@ -108,7 +108,6 @@ public final class PodCreateScreen extends Screen {
                     packsEach = value == PodSettings.Kind.SEALED ? PodSettings.USUAL_SEALED_PACKS : PodSettings.USUAL_DRAFT_PACKS;
                     if (value == PodSettings.Kind.SEALED) {
                         picks = 0;
-                        pickSeconds = 0;
                     }
                 }, value -> "screen.gathering.pod.kind." + value.key());
         y = row(y, "screen.gathering.pod.source", PodSettings.Source.values(),
@@ -147,7 +146,9 @@ public final class PodCreateScreen extends Screen {
                             : seconds == PodSettings.TOURNAMENT_TIMING
                                     ? Component.translatable("screen.gathering.pod.clock.tournament")
                                     : Component.translatable("screen.gathering.pod.clock.seconds", seconds),
-                    () -> pickSeconds == seconds, () -> pickSeconds = kind == PodSettings.Kind.SEALED ? 0 : seconds)));
+                    // Sealed shows Off without forgetting the draft's clock, so switching back finds it.
+                    () -> (kind == PodSettings.Kind.SEALED ? 0 : pickSeconds) == seconds,
+                    () -> pickSeconds = kind == PodSettings.Kind.SEALED ? pickSeconds : seconds)));
         }
         y += ROW_HEIGHT + GAP;
 

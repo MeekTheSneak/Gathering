@@ -339,6 +339,29 @@ clean): the best-of-one concession (crashed the run), `thehigherseedplaysfirstin
   now lists every button narrower than its label at each photograph (report only: icon buttons
   carry narration labels and would all fail).
 
+**Independent review of this pass** (a reviewer agent given the requirements and the diff, read
+only). Nine findings; checked, and these fixed:
+- The "lost the last game" log line showed its raw key: the reason's name had changed and the
+  key is built from it, where langcheck cannot see. Guard `StartingPlayerTextTest`, proved failing.
+- A drawn best of one, or a drawn last game, threw away who had chosen for it, so the replay went
+  to chance or gave the wrong reason. Guard in `MatchStateTest`, proved failing.
+- Result grids lacked 2-0-1 and 2-1-1 in a best of three, and 2-0, 1-0 and 0-0-1 in a best of five.
+  A best of five with a game unfinished and somebody ahead is still offered only without the
+  unfinished game (thirty buttons otherwise; the count only moves game-win percentage).
+- A cut match tied on games and life said "the host decides" while the next turn pass could record
+  it. MTR 2.4's sudden death is what that already did, so the message now says to play on.
+- On a window shorter than the panel, the host's settle buttons covered the last pairings. Pages
+  now hold as many rows as fit above them.
+- A choice screen with many long names went one to a row and pushed Cancel off a short screen; it
+  falls back to two across when one column will not fit.
+- Switching an event to Sealed and back to Draft lost the pick clock.
+
+Left, and why: the first-draw reminder counts a seat whose player left before the game as a
+player, and a first player who passes the turn to draw leaves the opponent starting on turn two
+unreminded (reminders only); life and wins are read by chair, which assumes nobody swapped chairs
+(the pattern predates this pass); a cut game restarted by hand rather than by the event starts at
+random.
+
 **Checked and left alone:** five extra turns after time (MTR 2.4, the setting's default is right);
 tiebreakers and their 33% floors, byes as 2-0 and left out of opponents (Appendix C); top-8 bracket
 seeding; deck validation.
