@@ -141,14 +141,21 @@ public final class PodCreateScreen extends Screen {
         int clockWidth = (controlsX() + controlsWidth() - clockX - GAP * (clocks.length - 1)) / clocks.length;
         for (int index = 0; index < clocks.length; index++) {
             int seconds = clocks[index];
-            draftOnly.add(addRenderableWidget(GatheringButtons.toggle(clockX + index * (clockWidth + GAP), y, clockWidth, ROW_HEIGHT,
+            // The row is headed "Packs each", so each clock says what it is on hover: otherwise "Off"
+            // and "Tourney" beside a pack count are a riddle.
+            String says = seconds == 0 ? "screen.gathering.pod.clock.off.tip"
+                    : seconds == PodSettings.TOURNAMENT_TIMING ? "screen.gathering.pod.clock.tournament.tip"
+                    : "screen.gathering.pod.clock.seconds.tip";
+            net.minecraft.client.gui.components.Button clock = GatheringButtons.toggle(clockX + index * (clockWidth + GAP), y, clockWidth, ROW_HEIGHT,
                     seconds == 0 ? Component.translatable("screen.gathering.pod.clock.off")
                             : seconds == PodSettings.TOURNAMENT_TIMING
                                     ? Component.translatable("screen.gathering.pod.clock.tournament")
                                     : Component.translatable("screen.gathering.pod.clock.seconds", seconds),
                     // Sealed shows Off without forgetting the draft's clock, so switching back finds it.
                     () -> (kind == PodSettings.Kind.SEALED ? 0 : pickSeconds) == seconds,
-                    () -> pickSeconds = kind == PodSettings.Kind.SEALED ? pickSeconds : seconds)));
+                    () -> pickSeconds = kind == PodSettings.Kind.SEALED ? pickSeconds : seconds);
+            clock.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable(says, seconds)));
+            draftOnly.add(addRenderableWidget(clock));
         }
         y += ROW_HEIGHT + GAP;
 
