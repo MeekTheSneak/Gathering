@@ -75,6 +75,10 @@ neoForge {
             client()
             gameDirectory = project.file('runs/pack')
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            // -Ppackscene photographs the pack's integrations in a real client. See PackScene.
+            if (project.hasProperty('packscene')) {
+                systemProperty 'gathering.packscene', '1'
+            }
         }
         packServer {
             server()

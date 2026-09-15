@@ -322,7 +322,17 @@ when a rate-limited draw failed, which tested nothing. Each guard fails when its
 **Found on the way: a removed opener lost their cards.** A player who opened a booster and died before
 the cards arrived was handed them as the old, removed entity - nowhere. So was a Deployer's stand-in
 broken with the Deployer. Cards for a removed opener are now owed and handed over when they are next
-here. Guard `PackOpenGameTest.aPackWhoseOpenerIsGoneIsOwedToThem`, proved failing.
+here - in the archive pack's path too, which had the same check. Guard
+`PackOpenGameTest.aRemovedOpenerCountsAsGone`, proved failing. (A first version waited on a real pack
+and timed out in the gate when Scryfall rate limited the run; it asks the question directly now.)
+
+**Seen in a real client with the pack** (`runPackClient -Ppackscene`, Create + Aeronautics + Sable):
+the client starts and plays with all three; a Display Link on a table writes Tournament Standings to
+an oak sign and to a powered 4x3 Create display board; a table assembled into a Sable structure and
+turned 25 degrees renders on its platform; sitting at it opens the seated board, and the board on the
+block puts its camera half a block from the table's real position. On a display board the standings
+leave out the win-loss-draw record, which a four-wide board cut off mid-bracket. One start-up crashed
+inside Veil (bundled with Sable, no Gathering frame on the stack) and the rerun started cleanly.
 
 ## Rules and tournament pass (2026-09-14, while the owner was away)
 

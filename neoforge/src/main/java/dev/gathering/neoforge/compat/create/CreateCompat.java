@@ -32,6 +32,11 @@ public final class CreateCompat {
     private CreateCompat() {
     }
 
+    /** The standings source, for a development scene that links a board by hand. */
+    public static DisplaySource standingsForScenes() {
+        return STANDINGS.get();
+    }
+
     public static void init(IEventBus modBus) {
         SOURCES.register(modBus);
         modBus.addListener((FMLCommonSetupEvent event) -> event.enqueueWork(CreateCompat::attachToTables));

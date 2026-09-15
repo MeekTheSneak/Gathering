@@ -15,6 +15,8 @@ import net.minecraft.network.chat.MutableComponent;
  * A tournament's standings, one player a line with their match points: "1. Alice (3-0-0)  9".
  * <p>Once the event has finished, its final places in order - the cut decides the top of those,
  * not the Swiss points - still with each player's points beside them.
+ * <p>On a display board, without the record: its lines are as wide as the board and no wider, and
+ * a four-block board cut "(3-0-0)" off halfway through while the name was the part worth reading.
  */
 public class TournamentStandingsSource extends ValueListDisplaySource {
 
@@ -24,6 +26,7 @@ public class TournamentStandingsSource extends ValueListDisplaySource {
         if (board == null) {
             return Stream.of(IntAttached.with(0, Boards.noEvent()));
         }
+        boolean narrow = context.getTargetBlockEntity() instanceof com.simibubi.create.content.trains.display.FlapDisplayBlockEntity;
         List<IntAttached<MutableComponent>> lines = new ArrayList<>();
         if (board.phase() == Tournament.Phase.FINISHED && !board.places().isEmpty()) {
             for (int index = 0; index < board.places().size(); index++) {
@@ -35,7 +38,7 @@ public class TournamentStandingsSource extends ValueListDisplaySource {
         } else {
             for (EventBoard.Standing row : board.standings()) {
                 lines.add(IntAttached.with(row.points(), Component.literal(row.rank() + ". " + row.name()
-                        + " (" + row.wins() + "-" + row.losses() + "-" + row.draws() + ") ")));
+                        + (narrow ? " " : " (" + row.wins() + "-" + row.losses() + "-" + row.draws() + ") "))));
             }
         }
         return lines.stream().limit(Math.max(1, maxRows));
