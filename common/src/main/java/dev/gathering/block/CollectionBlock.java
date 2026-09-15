@@ -96,8 +96,11 @@ public class CollectionBlock extends BaseEntityBlock {
             return ItemInteractionResult.SUCCESS;
         }
         if (!collection.rights().mayAdd(player.getUUID())) {
-            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                    "message.gathering.collection_may_not_add"));
+            // Over the hotbar rather than in the chat, like the rest of what a click on a block in the
+            // world says back: a player putting cards in one after another is answered each time, and
+            // thirty answers in the chat bury whatever was said there.
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.gathering.collection_may_not_add"), true);
             return ItemInteractionResult.SUCCESS;
         }
         int howMany = stack.getCount();
@@ -114,8 +117,8 @@ public class CollectionBlock extends BaseEntityBlock {
             }
         }
         stack.setCount(0);
-        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                "message.gathering.collection_added", howMany, collection.cards().total()));
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                "message.gathering.collection_added", howMany, collection.cards().total()), true);
         return ItemInteractionResult.SUCCESS;
     }
 

@@ -291,8 +291,8 @@ public final class CollectionView {
             return 0;
         }
         if (!collection.rights().mayAdd(player.getUUID())) {
-            player.sendSystemMessage(
-                    Component.translatable("message.gathering.collection_may_not_add"));
+            player.displayClientMessage(
+                    Component.translatable("message.gathering.collection_may_not_add"), true);
             return 0;
         }
 
@@ -309,8 +309,8 @@ public final class CollectionView {
             swept += gather(stack, plain, withStories);
         }
         if (swept == 0) {
-            player.sendSystemMessage(
-                    Component.translatable("message.gathering.collection_nothing_loose"));
+            player.displayClientMessage(
+                    Component.translatable("message.gathering.collection_nothing_loose"), true);
             return 0;
         }
 
@@ -319,8 +319,8 @@ public final class CollectionView {
             collection.putStoried(one.card(), one.story());
         }
         DeckItem.playAssembleSound(player);
-        player.sendSystemMessage(Component.translatable(
-                "message.gathering.collection_swept", swept, collection.cards().total()));
+        player.displayClientMessage(Component.translatable(
+                "message.gathering.collection_swept", swept, collection.cards().total()), true);
         return swept;
     }
 

@@ -49,8 +49,12 @@ chat and 2 to the action bar. Much of that is right for Gathering - results, wha
 inventory, announcements to a table - and a board screen covers the action bar, so a blanket switch
 would hide refusals from seated players. But refusals from clicking a block in the world, with no
 screen opening (a collection you may not add to, a table that will not fit), are what the action
-bar is for. **Next:** classify the messages sent from block-use paths that open no screen, move
-those, and keep the rest.
+bar is for. **Done, for what is certain:** the messages from clicks that open no screen and can
+repeat - putting a card into a collection (yes or no), sweeping loose cards in, and a table that
+will not fit where it is being placed, which holding the button asks again every few ticks - now
+go over the hotbar. Left in chat: anything followed by a screen (a screen covers the hotbar and the
+line would fade behind it - the desk's messages are these), deck legality lists (many lines), and
+everything a player needs to read later. Not verified in a client.
 
 **6. Ponder scenes.** Both projects teach their blocks with Ponder (Create 86 schematics, Aeronautics
 57 across its modules), shown by holding W over an item. With Create installed, Gathering could

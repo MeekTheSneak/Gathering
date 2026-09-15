@@ -38,7 +38,9 @@ public class TableBlockItem extends BlockItem {
             String why = TableClusters.whyItWouldNotFit(context.getLevel(), origin);
             if (!why.isEmpty() && context.getPlayer() != null
                     && !context.getLevel().isClientSide()) {
-                context.getPlayer().sendSystemMessage(Component.translatable(why));
+                // Over the hotbar: holding the button down asks again every few ticks, and each answer
+                // in the chat would push the last off it.
+                context.getPlayer().displayClientMessage(Component.translatable(why), true);
             }
             return false;
         }
