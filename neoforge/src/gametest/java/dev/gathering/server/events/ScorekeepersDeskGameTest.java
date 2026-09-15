@@ -110,7 +110,7 @@ public final class ScorekeepersDeskGameTest {
             helper.fail("a desk just linked is labeled " + label);
             return;
         }
-        java.util.List<String> phases = new java.util.ArrayList<>(java.util.List.of("signup_elsewhere", "over"));
+        java.util.List<String> phases = new java.util.ArrayList<>(java.util.List.of("signup_elsewhere", "over", "time"));
         for (Tournament.Phase phase : Tournament.Phase.values()) {
             if (phase != Tournament.Phase.CANCELLED) {
                 phases.add(phase.name().toLowerCase(java.util.Locale.ROOT));
@@ -148,6 +148,51 @@ public final class ScorekeepersDeskGameTest {
                 return;
             }
             helper.succeed();
+        });
+    }
+
+    /**
+     * A comparator beside a desk is lit while the round has had time called, and dark before and after:
+     * the round's own clock calls it, the desk's tick notices, and the comparator is told.
+     */
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void aDeskSignalsWhenTimeIsCalled(GameTestHelper helper) {
+        BlockPos table = EventBoardGameTest.place(helper, 4, 2, 4);
+        EventState state = EventBoardGameTest.fourPlayerEvent(helper, table);
+        BlockPos desk = placeDesk(helper);
+        deskOf(helper, desk).runs(state.tournament.id());
+        BlockPos comparator = desk.east();
+        helper.getLevel().setBlock(comparator, net.minecraft.world.level.block.Blocks.COMPARATOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.ComparatorBlock.FACING, Direction.WEST), 3);
+        if (helper.getLevel().getBlockState(desk).getAnalogOutputSignal(helper.getLevel(), desk) != 0) {
+            Events.removeForTesting(state);
+            helper.fail("a desk signals before time has been called");
+            return;
+        }
+        // The round's whole clock, run through: time is called the way the event calls it.
+        Events.runClockForTesting(helper.getLevel().getServer(), state,
+                state.tournament.settings().roundMinutes() * Events.MINUTE_MILLIS / 50 + 20);
+        helper.runAfterDelay(25, () -> {
+            try {
+                if (!state.tournament.currentRound().orElseThrow().timeCalled()) {
+                    helper.fail("the round's clock did not call time");
+                    return;
+                }
+                int strength = helper.getLevel().getBlockState(desk).getAnalogOutputSignal(helper.getLevel(), desk);
+                int reading = helper.getLevel().getBlockEntity(comparator)
+                        instanceof net.minecraft.world.level.block.entity.ComparatorBlockEntity read ? read.getOutputSignal() : -1;
+                if (strength != 15 || reading != 15) {
+                    helper.fail("with time called the desk gives " + strength + " and the comparator reads " + reading);
+                    return;
+                }
+                if (!deskOf(helper, desk).label().phase().equals("time")) {
+                    helper.fail("with time called the desk is labeled " + deskOf(helper, desk).label());
+                    return;
+                }
+                helper.succeed();
+            } finally {
+                Events.removeForTesting(state);
+            }
         });
     }
 

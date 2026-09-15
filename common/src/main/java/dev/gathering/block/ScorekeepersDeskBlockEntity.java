@@ -52,6 +52,9 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
             if (event.phase() == dev.gathering.core.tournament.Tournament.Phase.SIGNUP && !event.signsUpHere()) {
                 phase = "signup_elsewhere";
             }
+            if (event.timeCalled()) {
+                phase = "time";
+            }
             return new Label(event.name(), phase, event.round(), event.rounds(), event.winner());
         }
 
@@ -73,6 +76,7 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
 
     private UUID event;
     private Label label = Label.NONE;
+    private boolean timeCalled;
     private Label drawnLabel;
     private Object drawnLines;
 
@@ -86,6 +90,11 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
 
     public Label label() {
         return label;
+    }
+
+    /** Whether the round its tournament is playing has had time called. What a comparator reads. Server side. */
+    public boolean timeCalled() {
+        return timeCalled;
     }
 
     /** A label shown without a tournament behind it, for a scene that teaches the desk. Client side only. */
@@ -111,6 +120,11 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
     }
 
     void refreshLabel(ServerLevel level) {
+        boolean called = EventBoard.labelAtDesk(level, worldPosition).map(EventBoard.DeskLabel::timeCalled).orElse(false);
+        if (called != timeCalled) {
+            timeCalled = called;
+            level.updateNeighbourForOutputSignal(worldPosition, getBlockState().getBlock());
+        }
         Label now = labelNow(level);
         if (!now.equals(label)) {
             label = now;

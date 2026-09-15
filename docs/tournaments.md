@@ -116,7 +116,10 @@ moved elsewhere; a finished or cancelled
 tournament's desk is free. Breaking the desk takes signing up off that spot. With Create, a Display
 Link against the desk reads the tournament onto a board, set in the link to show the standings,
 this round's pairings, the round and clock, the final places, the prizes, or who has signed up.
-Its look borrows vanilla's lectern until it has one of its own.
+A linked desk floats the tournament's name over itself with where it has got to - "Sign up here" (or
+"Signing up" once sign-up has moved elsewhere), the round, "Time: extra turns", the winner. A
+comparator beside it gives full strength while the round being played has had time called, so a
+bell or a lamp can tell the hall. Its look borrows vanilla's lectern until it has one of its own.
 
 **Pick clock.** Off, 45 or 90 seconds a pick (any value up to 300 is accepted by the server), or
 tournament timing - the Magic Tournament Rules' booster draft table (Appendix B), 40 seconds for a

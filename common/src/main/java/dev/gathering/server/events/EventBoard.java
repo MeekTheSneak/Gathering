@@ -84,8 +84,10 @@ public final class EventBoard {
      * round, the winner, and whether signing up happens at this desk.
      *
      * @param signsUpHere whether this desk is the tournament's registration point
+     * @param timeCalled  whether the round being played has run out of time and is in its extra turns
      */
-    public record DeskLabel(String name, Tournament.Phase phase, int round, int rounds, String winner, boolean signsUpHere) {
+    public record DeskLabel(String name, Tournament.Phase phase, int round, int rounds, String winner, boolean signsUpHere,
+            boolean timeCalled) {
     }
 
     /** What the label over a Scorekeeper's Desk says, if it runs a tournament here. Cheap enough to ask once a second. */
@@ -99,9 +101,11 @@ public final class EventBoard {
             String winner = tournament.phase() == Tournament.Phase.FINISHED && !tournament.finalPlaces().isEmpty()
                     ? Events.nameOf(state, tournament.finalPlaces().get(0))
                     : "";
+            boolean playing = tournament.phase() == Tournament.Phase.SWISS || tournament.phase() == Tournament.Phase.CUT;
             return new DeskLabel(tournament.name(), tournament.phase(),
                     tournament.currentRound().map(Round::number).orElse(0), tournament.plannedRounds(), winner,
-                    desk.equals(state.registrationPoint));
+                    desk.equals(state.registrationPoint),
+                    playing && tournament.currentRound().map(Round::timeCalled).orElse(false));
         });
     }
 

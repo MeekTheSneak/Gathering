@@ -114,6 +114,21 @@ public class ScorekeepersDeskBlock extends HorizontalDirectionalBlock implements
         };
     }
 
+    /**
+     * A comparator beside the desk gives full strength while the round its tournament is playing has
+     * had time called, and nothing otherwise - so a bell, a lamp, or with Create anything at all, can
+     * say "time" across the hall as the clock runs out. Checked when the desk refreshes, once a second.
+     */
+    @Override
+    protected boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        return level.getBlockEntity(pos) instanceof ScorekeepersDeskBlockEntity desk && desk.timeCalled() ? 15 : 0;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (player instanceof ServerPlayer server) {

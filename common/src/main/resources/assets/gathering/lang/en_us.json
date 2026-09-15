@@ -345,6 +345,7 @@
   "label.gathering.desk.preparing": "Building decks",
   "label.gathering.desk.swiss": "Round %s of %s",
   "label.gathering.desk.cut": "Top cut",
+  "label.gathering.desk.time": "Time: extra turns",
   "label.gathering.desk.finished": "Won by %s",
   "label.gathering.desk.over": "Finished",
   "message.gathering.event.at_a_table": "Host a tournament from a table.",

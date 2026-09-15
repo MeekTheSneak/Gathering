@@ -191,6 +191,15 @@ tasks.matching { it.name == 'runPackGameTestServer' }.configureEach {
 }
 // The pack scene makes its world fresh, but a world made under a name already in use keeps the old
 // one's folders - its tournaments among them, which a later step then found in place of its own.
+// Likewise the scripted tour's world, as tools/shots.sh already does: run straight from Gradle, the
+// tour inherited the last run's tournaments and decks, and failed steps that expected a new world.
+tasks.matching { it.name == 'runClient' }.configureEach {
+    doFirst {
+        if (project.hasProperty('devscene')) {
+            delete file('run/saves/GatheringDevScene')
+        }
+    }
+}
 tasks.matching { it.name == 'runPackClient' }.configureEach {
     doFirst {
         if (project.hasProperty('packscene')) {
