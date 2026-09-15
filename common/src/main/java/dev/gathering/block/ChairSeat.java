@@ -24,6 +24,25 @@ public final class ChairSeat extends Entity {
 
     public static final String ID = "chair_seat";
 
+    /**
+     * How far above a standing player's feet the hip joint is drawn, in blocks: legs twelve model
+     * pixels long, and the player drawn at fifteen sixteenths.
+     */
+    public static final double HIP_HEIGHT = 12.0 / 16.0 * 15.0 / 16.0;
+
+    /** Half a thigh's thickness, in blocks: a sitter's hip joint is this far above what they sit on. */
+    public static final double HALF_A_THIGH = 2.0 / 16.0 * 15.0 / 16.0;
+
+    /**
+     * How high in the chair's block this seat is, so the sitter's thighs lie on the seat.
+     * <p>A rider is put with their feet {@link net.minecraft.world.entity.player.Player#DEFAULT_VEHICLE_ATTACHMENT}
+     * below what they ride, and drawn with their legs out in front from the hip. The seat was
+     * first at the seat's height less a guess, which put the hips a quarter of a block down
+     * inside the chair: the owner saw a player sunk into it.
+     */
+    public static final double RIDDEN_AT = ChairBlock.SEAT_HEIGHT + HALF_A_THIGH - HIP_HEIGHT
+            + net.minecraft.world.entity.player.Player.DEFAULT_VEHICLE_ATTACHMENT.y;
+
     /** The table whose seat this chair took, or null for a chair that is only a chair. */
     private BlockPos tableOrigin;
 
@@ -35,7 +54,7 @@ public final class ChairSeat extends Entity {
     /** A seat in the chair at this position, for a table's seat or none. */
     public static ChairSeat in(Level level, BlockPos chair, BlockPos tableOrigin) {
         ChairSeat seat = new ChairSeat(dev.gathering.item.GatheringContent.CHAIR_SEAT.get(), level);
-        seat.setPos(chair.getX() + 0.5, chair.getY() + ChairBlock.SEAT_HEIGHT - 0.35, chair.getZ() + 0.5);
+        seat.setPos(chair.getX() + 0.5, chair.getY() + RIDDEN_AT, chair.getZ() + 0.5);
         seat.tableOrigin = tableOrigin == null ? null : tableOrigin.immutable();
         return seat;
     }
@@ -47,7 +66,7 @@ public final class ChairSeat extends Entity {
 
     /** The chair this seat is in. */
     public BlockPos chair() {
-        return BlockPos.containing(getX(), getY() + 0.35, getZ());
+        return BlockPos.containing(getX(), getY() - RIDDEN_AT + 0.5, getZ());
     }
 
     @Override

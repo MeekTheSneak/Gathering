@@ -23,9 +23,10 @@ import net.minecraft.network.chat.Component;
  * and light comes out of the tear before a single card is shown, yellow for a rare inside and
  * orange for a mythic. That moment is what a booster is for, and everything here exists to
  * put it before the cards rather than after them.
- * <p>Nothing on this screen decides anything. The cards were in the inventory before it
- * opened, so closing it early, disconnecting, or never finishing the tear costs nobody a
- * card. What it does is let you find out.
+ * <p>Nothing on this screen decides anything. The cards were drawn and written down as the
+ * player's before it opened, and come out into the inventory as the wrapper comes off - or when
+ * the screen closes, or on the next join after a disconnect - so nothing done here costs anybody
+ * a card. What it does is let you find out.
  * <p>Client-only.
  */
 public final class PackOpeningScreen extends Screen {
@@ -41,6 +42,15 @@ public final class PackOpeningScreen extends Screen {
 
     /** How the cards are laid out once the wrapper is off. */
     private static final int GAP = 4;
+
+    /** Done, centered under everything else, in a strip of its own the cards are laid out above. */
+    private static final int DONE_WIDTH = 80;
+    private static final int DONE_HEIGHT = 20;
+
+    /** How much of the bottom of the window is kept for the count line and Done. */
+    private static final int BELOW_THE_CARDS = DONE_HEIGHT + 30;
+
+    private net.minecraft.client.gui.components.Button doneButton;
     private static final int MARGIN_PIXELS = 16;
 
     /**
@@ -117,7 +127,17 @@ public final class PackOpeningScreen extends Screen {
     private int gridTop;
 
     public PackOpeningScreen(String setCode, String kind, List<CardComponent> cards) {
+        this(setCode, kind, cards, "");
+    }
+
+    /**
+     * The same, for a pack whose cards wait under its wrapper until it is torn.
+     *
+     * @param wrapper the server's token for them, or blank when they were handed over already
+     */
+    public PackOpeningScreen(String setCode, String kind, List<CardComponent> cards, String wrapper) {
         super(Component.translatable("screen.gathering.pack_opening"));
+        this.wrapper = wrapper == null ? "" : wrapper;
         this.setCode = setCode == null ? "" : setCode;
         this.kind = kind == null ? "" : kind;
         this.cards = cards == null ? List.of() : List.copyOf(cards);
@@ -147,11 +167,11 @@ public final class PackOpeningScreen extends Screen {
         // half torn, and starting it again would be the window eating their progress.
         this.tear = new PackTear(this.packWidth, seed(), this.tear.gripped(), this.tear.torn());
 
-        // A way out somebody can see. The cards are already in the inventory the moment the
-        // pack opens, so leaving loses nothing at any stage - but the only exit was the
+        // A way out somebody can see. Leaving loses nothing at any stage - closing the screen
+        // tells the server the pack is open, and the cards come - but the only exit was the
         // escape key, which is a rule nobody was told.
-        addRenderableWidget(GatheringButtons.of(
-                this.width() - 66, this.height() - 28, 56, 18,
+        doneButton = addRenderableWidget(GatheringButtons.of(
+                (this.width() - DONE_WIDTH) / 2, this.height() - DONE_HEIGHT - 8, DONE_WIDTH, DONE_HEIGHT,
                 net.minecraft.network.chat.Component.translatable("gui.done"), this::onClose));
     }
 
@@ -184,13 +204,31 @@ public final class PackOpeningScreen extends Screen {
         // The background first, and only once. Drawing the pack and then calling up to the
         // superclass paints the menu background straight over it - which came out as a pack
         // behind frosted glass, and was only ever going to be found by looking at a picture.
-        // The backing lives in renderBackground now, so the Done button is not behind it.
-        super.render(graphics, mouseX, mouseY, partialTick);
-
+        // The backing lives in renderBackground now; the buttons go down last, over the cards, so
+        // Done is never behind the pack or anything that came out of it.
+        renderBackground(graphics, mouseX, mouseY, partialTick);
         if (tear.isOpen()) {
+            // Torn: the cards come out now, into the inventory, as the wrapper comes off.
+            tellTheServerItIsOpen();
             drawWhatWasInIt(graphics, mouseX, mouseY);
-            return;
+        } else {
+            drawThePack(graphics, mouseX, mouseY);
         }
+        for (net.minecraft.client.gui.components.events.GuiEventListener child : children()) {
+            if (child instanceof net.minecraft.client.gui.components.Renderable renderable) {
+                if (child == doneButton) {
+                    // Lit from behind, because the backdrop is nearly black and a button in the
+                    // look's own dark face on it was a button nobody could find.
+                    GuiGlow.around(graphics, doneButton.getX(), doneButton.getY(), doneButton.getWidth(),
+                            doneButton.getHeight(), 5, 0x70E8E4DC);
+                }
+                renderable.render(graphics, mouseX, mouseY, partialTick);
+            }
+        }
+    }
+
+    /** The sealed pack, torn as far as it has been. */
+    private void drawThePack(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!glowSettled) {
             settleGlow();
         }
@@ -245,14 +283,14 @@ public final class PackOpeningScreen extends Screen {
         // cards drawn to fill a window is silly - and that is the one worth having: the cards
         // come out the size of the wrapper that was holding them a second ago, so a small
         // pack reads as a handful rather than as four posters.
+        int above = 18;
         PackLayout laid = PackLayout.fit(
-                Math.max(1, revealed.size()), room, height() - 40, GAP, packHeight);
+                Math.max(1, revealed.size()), room, height() - above - BELOW_THE_CARDS, GAP, packHeight);
         int gridWidth = laid.width(GAP);
         int gridHeight = laid.height(GAP);
         int gridLeft = (width() - gridWidth) / 2;
-        int gridTop = (height() - gridHeight) / 2;
-
-        GatheringSprites.draw(graphics, Element.PACK_BACKDROP, 0, 0, width(), height());
+        int gridTop = above + (height() - above - BELOW_THE_CARDS - gridHeight) / 2;
+        long now = net.minecraft.Util.getMillis();
         this.grid = laid;
         this.gridLeft = gridLeft;
         this.gridTop = gridTop;
@@ -280,6 +318,17 @@ public final class PackOpeningScreen extends Screen {
                     * CARD_YAW * toward;
             float cardPitch = across(mouseY, y + laid.cardHeight() / 2f, laid.cardHeight())
                     * CARD_PITCH * toward;
+            // Every rare and mythic lit from behind, and a special version - showcase, borderless,
+            // extended art - in its own purple, pulsing slowly. Behind the card rather than a
+            // border round it: a border is a frame drawn on the card, a glow is the card being
+            // the one worth looking at. Steady for somebody who asked for less motion.
+            int lit = RevealGlow.colorFor(ClientCardCache.get().summary(card).orElse(null));
+            if (lit != 0) {
+                float strength = RevealGlow.pulse(now, index, ClientSettings.reducedMotion());
+                GuiGlow.around(graphics, x, y, laid.cardWidth(), laid.cardHeight(),
+                        Math.max(4, laid.cardWidth() / 5),
+                        (Math.round(0xD0 * strength) << 24) | (lit & 0x00FFFFFF));
+            }
             ClientCardCache.get().summary(card).ifPresentOrElse(
                     summary -> CardInspectPanel.renderArtTurned(
                             graphics, summary, card.flipped(),
@@ -293,11 +342,6 @@ public final class PackOpeningScreen extends Screen {
             if (mouseX >= x && mouseX < x + laid.cardWidth()
                     && mouseY >= y && mouseY < y + laid.cardHeight()) {
                 over = card;
-            }
-            // The one the pack was opened for, ringed in its own color.
-            if (index == revealed.size() - 1 && glow != PackGlow.NO_LIGHT) {
-                GatheringSprites.draw(graphics, Element.RARITY_RING,
-                        x - 1, y - 1, laid.cardWidth() + 2, laid.cardHeight() + 2, glow);
             }
             // And one somebody has been chasing, marked in the corner. This is the moment a
             // wants list is for: a pack is a handful of names, and the one you have been
@@ -609,8 +653,40 @@ public final class PackOpeningScreen extends Screen {
         return glow;
     }
 
+    /** Where the revealed cards were last drawn, together, or an empty rectangle before they were. */
+    dev.gathering.core.ui.Rect cardsDrawn() {
+        return grid == null ? dev.gathering.core.ui.Rect.NONE
+                : new dev.gathering.core.ui.Rect(gridLeft, gridTop, grid.width(GAP), grid.height(GAP));
+    }
+
+    /** Where Done is. */
+    dev.gathering.core.ui.Rect done() {
+        return doneButton == null ? dev.gathering.core.ui.Rect.NONE
+                : new dev.gathering.core.ui.Rect(doneButton.getX(), doneButton.getY(), doneButton.getWidth(), doneButton.getHeight());
+    }
+
+    /** The token the cards wait under, or blank. */
+    private final String wrapper;
+
+    /** Whether the server has been told this pack is open. Once is all it takes, and all it tears. */
+    private boolean told;
+
+    /**
+     * Tells the server the wrapper is off, so the cards waiting under it are handed over. On the tear
+     * finishing, or on the screen closing first: leaving a pack unopened on the screen is still having
+     * opened it.
+     */
+    private void tellTheServerItIsOpen() {
+        if (told || wrapper.isEmpty()) {
+            return;
+        }
+        told = true;
+        ClientNetworking.send(new dev.gathering.network.PackTornPayload(wrapper));
+    }
+
     @Override
     public void removed() {
+        tellTheServerItIsOpen();
         // The grid is gone, so nothing is under the cursor any more. Left set, the read-a-card
         // key would keep showing the last card of a pack that is no longer on screen.
         ClientHoverState.clear();

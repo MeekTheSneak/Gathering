@@ -34,6 +34,7 @@ public final class ServerState {
         ReplayWatch.clear();
         SealedLoot.clear();
         ServerTicks.clear();
+        PackWrappers.clear();
         TradeSessions.clear();
         TableActions.clear();
         Lending.clear();

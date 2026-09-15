@@ -124,6 +124,9 @@ public final class TableScreen extends Screen {
     /** What the hand strip wrote in itself last frame, when it wrote instead of dealing. */
     private String handSaid = "";
 
+    /** The bands drawn over the hand on the last frame, top first: for the scripted client. */
+    final List<String> handBands = new ArrayList<>();
+
     /** How many seats had a zone column drawn for them last frame. */
     private int boardsDrawn;
 
@@ -1842,14 +1845,6 @@ public final class TableScreen extends Screen {
             if (hovered) {
                 tooltip = verbTip(index);
             }
-            // A reminder waiting on this button - cards owed to the bottom after a mulligan, or
-            // the first player's skipped draw - marked in its corner and said in its tooltip. On
-            // the button it is about rather than over the board, where a line of text lands on
-            // whatever the board has there: the first try covered the life counter.
-            if (reminderFor(verb) != null) {
-                // A lit pip: the theme's own mark for something that is on, not a painted square.
-                GatheringSprites.draw(graphics, Element.PIP_FULL, where.right() - 6, where.y() + 2, 3, 6);
-            }
             // Inside the button's frame, not merely inside the button. Fitted to the width less
             // a pixel a side, the longest name ran to the very edge and the frame drawn round
             // it took the last letter: the scripted client photographed "Mulliga" and "Shuffl".
@@ -2626,6 +2621,7 @@ public final class TableScreen extends Screen {
      */
     private void renderHand(GuiGraphics graphics, GameView board, int mouseX, int mouseY) {
         Rect area = layout().hand();
+        handBands.clear();
         SeatId seat = mySeat().orElse(null);
         if (seat == null) {
             handSaid = Component.translatable("screen.gathering.table.spectating").getString();
@@ -2645,7 +2641,7 @@ public final class TableScreen extends Screen {
             GuiText.drawCentered(graphics, this.font,
                     Component.translatable("screen.gathering.table.hand_empty"),
                     area.x() + area.width() / 2, area.bottom() - 14, area.width(), DIM);
-            drawHandExposure(graphics, board, seat, area);
+            drawHandBands(graphics, board, seat, area);
             return;
         }
         // Carrying one of these cards: nothing rises, and the rest part where it would land.
@@ -2668,14 +2664,15 @@ public final class TableScreen extends Screen {
         // Over the cards, last, because it is the one thing here that has to be seen. Drawn
         // under them it was a band of color behind a row of cards - which is exactly the way
         // a warning fails: it was there, and nobody could read it.
-        drawHandExposure(graphics, board, seat, area);
+        drawHandBands(graphics, board, seat, area);
         if (lifted >= 0 && lifted < hand.size()) {
             offerToInspector(hand.get(lifted));
         }
     }
 
     /**
-     * Says so, across the top of your own hand, while your hand is face up to somebody.
+     * Says so, across the top of your own hand, while your hand is face up to somebody - under
+     * any reminder the rules have for you, each a band of its own.
      * <p>The whole feature turns on this line existing. Showing a hand is a state rather than
      * a moment - it stays until it is taken back - so the one way it goes wrong is a player
      * who showed it during somebody's turn and has forgotten by their own. A log line
@@ -2683,9 +2680,24 @@ public final class TableScreen extends Screen {
      * <p>Warm, like the numbers somebody typed on a card, because it is the same kind of
      * fact: a thing a person did on purpose rather than something the game worked out.
      */
-    private void drawHandExposure(GuiGraphics graphics, GameView board, SeatId me, Rect area) {
+    private void drawHandBands(GuiGraphics graphics, GameView board, SeatId me, Rect area) {
         SeatView mine = board.seat(me);
-        if (!mine.handIsShown() || area.height() < this.font.lineHeight + 4) {
+        int high = this.font.lineHeight + 2;
+        if (area.height() < high + 2) {
+            return;
+        }
+        int row = 0;
+        // What the rules still ask of this player - cards a mulligan owes the bottom, the draw
+        // going first skips - said in words over the hand. Each was a lit pip in the corner of
+        // the button it is about, and a player who had just mulliganed saw a mark appear and
+        // could not tell what it wanted of them. Reminders, never rules.
+        for (TableVerb verb : TableVerb.values()) {
+            Component reminder = reminderFor(verb);
+            if (reminder != null && area.height() >= high * (row + 1) + 2) {
+                drawHandBand(graphics, area, row++, reminder);
+            }
+        }
+        if (!mine.handIsShown() || area.height() < high * (row + 1) + 2) {
             return;
         }
         List<Component> names = new ArrayList<>();
@@ -2704,11 +2716,17 @@ public final class TableScreen extends Screen {
                 ? Component.translatable("screen.gathering.hand.open_to_table")
                 : Component.translatable("screen.gathering.hand.open_to",
                         net.minecraft.network.chat.ComponentUtils.formatList(names, Component.literal(", ")));
+        drawHandBand(graphics, area, row, said);
+    }
+
+    /** One band of words across the top of the hand, the {@code row}th down. */
+    private void drawHandBand(GuiGraphics graphics, Rect area, int row, Component said) {
         int high = this.font.lineHeight + 2;
-        GatheringSprites.draw(graphics, Element.EXPOSED_BAND,
-                area.x(), area.y(), area.width(), high);
+        int top = area.y() + row * high;
+        GatheringSprites.draw(graphics, Element.EXPOSED_BAND, area.x(), top, area.width(), high);
         GuiText.drawCentered(graphics, this.font, said,
-                area.x() + area.width() / 2, area.y() + 1, area.width() - 4, EXPOSED_TEXT);
+                area.x() + area.width() / 2, top + 1, area.width() - 4, EXPOSED_TEXT);
+        handBands.add(said.getString());
     }
 
     /**
@@ -2903,7 +2921,8 @@ public final class TableScreen extends Screen {
             // Everything about the seat on a rest, whatever the column had room for: with eight at
             // a table a column holds a face and a life total, and the rest is one move away.
             if (index == hovered) {
-                setTooltipForNextRenderPass(seatDetails(seat).stream().map(Component::getVisualOrderText).toList());
+                setTooltipForNextRenderPass(seatDetails(seat).stream().map(Component::getVisualOrderText).toList(),
+                        underTheStrip(cell.x(), area, cell.width()), true);
             }
         }
 
@@ -2946,12 +2965,23 @@ public final class TableScreen extends Screen {
         if (terms != null && mouseX >= turnAt.x() && mouseX < turnAt.right()
                 && mouseY >= area.y() && mouseY < area.bottom()) {
             setTooltipForNextRenderPass(TableTermsText.tooltip(terms).stream()
-                    .map(Component::getVisualOrderText).toList());
+                    .map(Component::getVisualOrderText).toList(), underTheStrip(turnAt.x(), area, turnAt.width()), true);
         }
     }
 
     /** The strip as it was last drawn, for the scripted run to rest the pointer on a seat. */
     dev.gathering.core.ui.SeatStrip lastStrip;
+
+    /**
+     * Where a tooltip about something in the top row goes: under the row, beside what it is about.
+     * <p>The default puts a tooltip above and to the right of the cursor, and the cursor on the top row
+     * is already at the top of the window - so the first lines of it were off the screen.
+     */
+    private static net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner underTheStrip(
+            int x, Rect strip, int width) {
+        return new net.minecraft.client.gui.screens.inventory.tooltip.BelowOrAboveWidgetTooltipPositioner(
+                new net.minecraft.client.gui.navigation.ScreenRectangle(x, strip.y(), Math.max(1, width), strip.height()));
+    }
 
     /** The first of these that fits this width at the text size asked, or the last. */
     private Component fitting(List<Component> ways, int width) {

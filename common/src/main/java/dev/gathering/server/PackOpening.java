@@ -174,7 +174,13 @@ public final class PackOpening {
                         handedBack.run();
                         return;
                     }
-                    settleThenHandOver(player, receipt, () -> deliver(player, opened, ceremony));
+                    if (ceremony) {
+                        // By hand: the cards go under the wrapper, which replaces the receipt in the
+                        // same write - see handOver.
+                        deliver(player, opened, receipt, true);
+                    } else {
+                        settleThenHandOver(player, receipt, () -> deliver(player, opened, null, false));
+                    }
                 }));
     }
 
@@ -530,14 +536,14 @@ public final class PackOpening {
     }
 
     /** Server thread only. */
-    private static void deliver(ServerPlayer player, Opened opened, boolean ceremony) {
+    private static void deliver(ServerPlayer player, Opened opened, String receipt, boolean ceremony) {
         // What was actually opened, not what was asked for. Asking for a set and no kind is
         // the ordinary way to open one from a console, and telling the screen the empty
         // string it was given draws a play booster in the draft booster's black.
         String set = opened.config().setCode();
         String kind = opened.config().kind();
         Delivery delivery = whatToGive(opened.pack(), opened.cards());
-        handOver(player, delivery.giving(), opened.cards(), set, kind, ceremony);
+        handOver(player, delivery.giving(), opened.cards(), set, kind, receipt, ceremony);
         // A card the pipeline could not name yet is still a card this pack produced. It is
         // kept rather than dropped from the delivery: metadata comes back, and when it does
         // the player is handed the card they opened rather than a pack one short for good.
@@ -575,7 +581,7 @@ public final class PackOpening {
      */
     private static void handOver(
             ServerPlayer player, List<CardIdentity> giving, List<CardMetadata> named,
-            String set, String kind, boolean ceremony) {
+            String set, String kind, String receipt, boolean ceremony) {
         // Everything the client is about to hold, in one go rather than a packet a card:
         // a client told about a card before it holds one never renders a blank.
         List<CardSummary> summaries = new ArrayList<>();
@@ -594,6 +600,24 @@ public final class PackOpening {
         if (holdsAMythic(giving, named)) {
             Achievements.award(player, Achievements.FIRST_MYTHIC);
         }
+        if (ceremony) {
+            // Opened by hand: the cards are found by opening it. They wait under the wrapper - the
+            // player's already, written down in place of the receipt - and are handed over when it is
+            // torn. Written down or handed over now; never neither. See PackWrappers.
+            String token = PackWrappers.hold(player, receipt, set, best, giving);
+            if (token != null) {
+                List<dev.gathering.item.CardComponent> shown = new ArrayList<>();
+                for (CardIdentity card : giving) {
+                    shown.add(dev.gathering.item.CardComponent.of(card));
+                }
+                Sending.to(player, new dev.gathering.network.PackOpenedPayload(set, kind, shown, token));
+                return;
+            }
+            if (receipt != null && !Owed.settled(player.getUUID(), receipt, List.of())) {
+                player.sendSystemMessage(Component.translatable("message.gathering.pack_not_settled"));
+                return;
+            }
+        }
         for (CardIdentity card : giving) {
             ItemStack stack = CardItem.of(CardComponent.of(card));
             if (card.equals(best)) {
@@ -610,8 +634,10 @@ public final class PackOpening {
             for (CardIdentity card : giving) {
                 shown.add(dev.gathering.item.CardComponent.of(card));
             }
+            // Nowhere to write the wrapper down, so the cards were handed over first; the reveal still
+            // shows them, with nothing left to tear for.
             Sending.to(player,
-                    new dev.gathering.network.PackOpenedPayload(set, kind, shown));
+                    new dev.gathering.network.PackOpenedPayload(set, kind, shown, ""));
         } else {
             // Quick opened, so there is no screen to say it on.
             player.sendSystemMessage(Component.translatable(
@@ -663,9 +689,12 @@ public final class PackOpening {
             // A card the server could not name is still a card. The archive's whole point is
             // the long tail, which is exactly the part of a collection least likely to be in
             // a cache already - refusing to hand it over would refuse it most of the time.
-            settleThenHandOver(player, receipt, () ->
-                    handOver(player, giving, failure == null && named != null ? named : List.of(),
-                            Archive.SET, "", ceremony));
+            List<CardMetadata> about = failure == null && named != null ? named : List.of();
+            if (ceremony) {
+                handOver(player, giving, about, Archive.SET, "", receipt, true);
+            } else {
+                settleThenHandOver(player, receipt, () -> handOver(player, giving, about, Archive.SET, "", null, false));
+            }
         }));
     }
 

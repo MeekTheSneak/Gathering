@@ -25,7 +25,15 @@ import net.minecraft.network.codec.StreamCodec;
  */
 public record CardSummary(
         UUID scryfallId, UUID oracleId, CardFaceSummary front, Optional<CardFaceSummary> back,
-        Rarity rarity, double manaValue, Set<String> colorIdentity, List<CardSummary.MadeToken> makes) {
+        Rarity rarity, double manaValue, Set<String> colorIdentity, List<CardSummary.MadeToken> makes,
+        boolean special) {
+
+    /** The same card, not one of a set's special versions - or read before that was kept. */
+    public CardSummary(
+            UUID scryfallId, UUID oracleId, CardFaceSummary front, Optional<CardFaceSummary> back,
+            Rarity rarity, double manaValue, Set<String> colorIdentity, List<CardSummary.MadeToken> makes) {
+        this(scryfallId, oracleId, front, back, rarity, manaValue, colorIdentity, makes, false);
+    }
 
     /**
      * One token or emblem a card makes: what it is called, and exactly which printing it is.
@@ -83,7 +91,7 @@ public record CardSummary(
 
     /**
      * Written out by hand rather than composed, for the reason {@link CardFaceSummary}'s is.
-     * <p>Eight components and {@link StreamCodec#composite} stops at six. The order below is
+     * <p>Nine components and {@link StreamCodec#composite} stops at six. The order below is
      * the record's own, top to bottom, which is the only thing to keep right.
      */
     public static final StreamCodec<RegistryFriendlyByteBuf, CardSummary> STREAM_CODEC =
@@ -103,6 +111,7 @@ public record CardSummary(
                             buffer.writeUtf(made.name(), LONGEST_TOKEN_NAME);
                             UUIDUtil.STREAM_CODEC.encode(buffer, made.printing());
                         });
+                        buffer.writeBoolean(card.special());
                     },
                     buffer -> {
                         UUID printing = UUIDUtil.STREAM_CODEC.decode(buffer);
@@ -127,7 +136,8 @@ public record CardSummary(
                             makes.add(new MadeToken(name, UUIDUtil.STREAM_CODEC.decode(buffer)));
                         }
                         return new CardSummary(
-                                printing, oracle, front, back, rarity, manaValue, identity, makes);
+                                printing, oracle, front, back, rarity, manaValue, identity, makes,
+                                buffer.readBoolean());
                     });
 
     public CardSummary {
@@ -177,7 +187,8 @@ public record CardSummary(
                     card.rarity(),
                     card.cmc(),
                     card.colorIdentity(),
-                    madeBy(card));
+                    madeBy(card),
+                    card.specialTreatment());
         }
         return new CardSummary(
                 card.scryfallId(),
@@ -187,7 +198,8 @@ public record CardSummary(
                 card.rarity(),
                 card.cmc(),
                 card.colorIdentity(),
-                madeBy(card));
+                madeBy(card),
+                card.specialTreatment());
     }
 
     public String name() {

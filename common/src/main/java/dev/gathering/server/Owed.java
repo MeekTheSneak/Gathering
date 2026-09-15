@@ -135,6 +135,40 @@ public final class Owed {
      * @return whether the list is now correct on disk
      */
     public static boolean settled(UUID player, String receipt, List<CardIdentity> cards) {
+        return settledAs(player, receipt, linesFor(cards));
+    }
+
+    /**
+     * The opening is over and its cards are drawn, but still in the wrapper: the receipt goes and
+     * the cards take its place under this token, in one write. They are this player's from here -
+     * a disconnect or a crash hands them over on the next join like anything else owed - and
+     * {@link #unwrap} hands them over when the pack is torn open.
+     * <p>A receipt already settled does nothing and says it worked, as {@link #settled} does.
+     *
+     * @return whether the list is now correct on disk
+     */
+    public static boolean settledInWrapper(UUID player, String receipt, String token, List<CardIdentity> cards) {
+        return token != null && !token.isBlank() && settledAs(player, receipt, wrappedLines(token, cards));
+    }
+
+    /** The same, for cards drawn with no receipt behind them - nothing was taken to open them. */
+    public static boolean wrapped(UUID player, String token, List<CardIdentity> cards) {
+        if (player == null || token == null || token.isBlank() || cards == null || cards.isEmpty()) {
+            return false;
+        }
+        List<String> lines = wrappedLines(token, cards);
+        return !lines.isEmpty() && add(player, lines);
+    }
+
+    private static List<String> wrappedLines(String token, List<CardIdentity> cards) {
+        List<String> lines = new ArrayList<>();
+        for (String line : linesFor(cards)) {
+            lines.add("wrapped " + token + " " + line);
+        }
+        return lines;
+    }
+
+    private static boolean settledAs(UUID player, String receipt, List<String> replacing) {
         if (player == null || receipt == null || receipt.isBlank()) {
             return false;
         }
@@ -144,8 +178,50 @@ public final class Owed {
         if (!found) {
             return true;
         }
-        lines.addAll(linesFor(cards));
+        lines.addAll(replacing);
         return write(player, lines);
+    }
+
+    /**
+     * Tears a wrapper: hands over the cards waiting under this token, struck off the list first
+     * exactly as {@link #deliver} does, so a write that fails hands over nothing and the cards
+     * still wait.
+     *
+     * @param dressed what each card is given as - the one the pack was opened for remembers it
+     * @return how many were handed over; zero if nothing was waiting under the token (already
+     *     handed over, by a join or an earlier tear), or -1 if the list could not be shortened
+     */
+    public static int unwrap(ServerPlayer player, String token, java.util.function.UnaryOperator<ItemStack> dressed) {
+        if (player == null || token == null || token.isBlank()) {
+            return 0;
+        }
+        String prefix = "wrapped " + token + " ";
+        List<String> keeping = new ArrayList<>();
+        List<ItemStack> giving = new ArrayList<>();
+        for (String line : read(player.getUUID())) {
+            ItemStack stack = line.startsWith(prefix) ? itemFor(line) : null;
+            if (stack != null && !stack.isEmpty()) {
+                giving.add(stack);
+            } else {
+                // Everything else, and a wrapped line this version cannot read, which stays owed.
+                keeping.add(line);
+            }
+        }
+        if (giving.isEmpty()) {
+            return 0;
+        }
+        boolean struckOff = keeping.isEmpty() ? forget(player.getUUID()) : write(player.getUUID(), keeping);
+        if (!struckOff) {
+            LOGGER.error("Could not strike a torn wrapper off what is owed to {}, so nothing was handed over."
+                    + " The cards wait and come next join.", player.getUUID());
+            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.gathering.owed_could_not_be_paid"));
+            return -1;
+        }
+        for (ItemStack stack : giving) {
+            Handing.give(player, dressed == null ? stack : dressed.apply(stack));
+        }
+        return giving.size();
     }
 
     /**
@@ -308,6 +384,10 @@ public final class Owed {
                 // words and reads back as no color, which is what it meant.
                 case "opening" -> parts.length < 3 ? null : PackItem.of(new PackComponent(
                         parts[2], wordBack(parts, 3), wordBack(parts, 4)));
+                // Cards still in a torn-open-later wrapper: the cards themselves, handed over by a join
+                // like anything else owed when nobody tore it first.
+                case "wrapped" -> parts.length < 4 ? null
+                        : itemFor(String.join(" ", java.util.Arrays.copyOfRange(parts, 2, parts.length)));
                 case "card" -> CardItem.of(new CardComponent(
                         java.util.Optional.of(UUID.fromString(parts[1])),
                         parts.length > 2 && Boolean.parseBoolean(parts[2]),

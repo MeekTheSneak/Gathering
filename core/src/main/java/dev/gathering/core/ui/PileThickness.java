@@ -40,6 +40,60 @@ public final class PileThickness {
         return Math.min(cards, TALLEST) * PER_CARD * cardWidth;
     }
 
+    /** How many upright sides a pile has. */
+    public static final int SIDES = 4;
+
+    /**
+     * The corners of one upright side of a pile centered on the origin, as {x, y, z} each, in the
+     * order that faces them outward: counterclockwise seen from outside the pile.
+     * <p>The order is the whole point. The world culls a face seen from behind, and the sides were
+     * first wound the other way round - so the four walls facing the camera were dropped and the
+     * inside of the far ones drawn through them, and a deck on the table looked hollow, as though
+     * the cards under the top one were see-through.
+     *
+     * @param side 0 toward -z, 1 toward +z, 2 toward +x, 3 toward -x
+     */
+    public static double[][] sideCorners(int side, double halfWidth, double halfDepth, double bottom, double top) {
+        double[] from;
+        double[] to;
+        switch (side) {
+            case 0 -> {
+                from = new double[] {halfWidth, -halfDepth};
+                to = new double[] {-halfWidth, -halfDepth};
+            }
+            case 1 -> {
+                from = new double[] {-halfWidth, halfDepth};
+                to = new double[] {halfWidth, halfDepth};
+            }
+            case 2 -> {
+                from = new double[] {halfWidth, halfDepth};
+                to = new double[] {halfWidth, -halfDepth};
+            }
+            case 3 -> {
+                from = new double[] {-halfWidth, -halfDepth};
+                to = new double[] {-halfWidth, halfDepth};
+            }
+            default -> throw new IllegalArgumentException("a pile has no side " + side);
+        }
+        return new double[][] {
+                {from[0], bottom, from[1]},
+                {to[0], bottom, to[1]},
+                {to[0], top, to[1]},
+                {from[0], top, from[1]},
+        };
+    }
+
+    /** Which way one side of a pile faces, as {x, z}. */
+    public static int[] sideNormal(int side) {
+        return switch (side) {
+            case 0 -> new int[] {0, -1};
+            case 1 -> new int[] {0, 1};
+            case 2 -> new int[] {1, 0};
+            case 3 -> new int[] {-1, 0};
+            default -> throw new IllegalArgumentException("a pile has no side " + side);
+        };
+    }
+
     /**
      * How many bands a pile's side is drawn in: a line every few cards, and none for a pile too
      * thin to hold two, where a line would be all there is and read as an outline.

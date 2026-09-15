@@ -53,4 +53,31 @@ class PileThicknessTest {
         assertThat(PileThickness.bands(60)).isEqualTo(12);
         assertThat(PileThickness.bands(500)).isEqualTo(PileThickness.TALLEST / PileThickness.CARDS_PER_BAND);
     }
+
+    @Test
+    @DisplayName("every side of a pile faces out of it, so the world does not cull the near walls")
+    void sidesFaceOutward() {
+        for (int side = 0; side < PileThickness.SIDES; side++) {
+            double[][] corners = PileThickness.sideCorners(side, 0.3, 0.4, 0.0, 0.1);
+            double[] along = minus(corners[1], corners[0]);
+            double[] up = minus(corners[2], corners[1]);
+            // Counterclockwise seen from outside is a cross product pointing out.
+            double[] facing = {
+                    along[1] * up[2] - along[2] * up[1],
+                    along[2] * up[0] - along[0] * up[2],
+                    along[0] * up[1] - along[1] * up[0]};
+            int[] normal = PileThickness.sideNormal(side);
+            assertThat(facing[0] * normal[0] + facing[2] * normal[1]).as("side %d", side).isPositive();
+            assertThat(facing[1]).as("side %d is upright", side).isZero();
+            // And it lies on the side it says: every corner out at that edge.
+            for (double[] corner : corners) {
+                assertThat(corner[0] * normal[0] + corner[2] * normal[1])
+                        .isEqualTo(normal[0] != 0 ? 0.3 : 0.4, within(1e-9));
+            }
+        }
+    }
+
+    private static double[] minus(double[] a, double[] b) {
+        return new double[] {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+    }
 }

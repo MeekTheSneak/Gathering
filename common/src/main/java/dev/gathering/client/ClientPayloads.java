@@ -86,7 +86,7 @@ public final class ClientPayloads {
             route(dev.gathering.network.PackOpenedPayload.TYPE,
                     dev.gathering.network.PackOpenedPayload.class,
                     opened -> Minecraft.getInstance().setScreen(new PackOpeningScreen(
-                            opened.setCode(), opened.kind(), opened.cards()))),
+                            opened.setCode(), opened.kind(), opened.cards(), opened.wrapper()))),
             route(dev.gathering.network.MyDeckPayload.TYPE,
                     dev.gathering.network.MyDeckPayload.class,
                     ClientHeldDeck::accept),

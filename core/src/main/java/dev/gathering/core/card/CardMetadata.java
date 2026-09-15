@@ -49,7 +49,27 @@ public record CardMetadata(
         Map<String, Legality> legalities,
         Map<String, String> prices,
         String scryfallUri,
-        List<RelatedCard> related) {
+        List<RelatedCard> related,
+        boolean specialTreatment) {
+
+    /**
+     * The same printing, read before its frame treatment was kept.
+     * <p>Whether a printing is a showcase, borderless, extended-art or full-art version arrived after
+     * everything that builds one of these by hand; a printing with none is the ordinary case.
+     */
+    public CardMetadata(
+            UUID scryfallId, UUID oracleId, String name, String manaCost, double cmc,
+            String typeLine, String oracleText, Set<String> colors, Set<String> colorIdentity,
+            List<CardFace> faces, String layout, String setCode, String setName,
+            String collectorNumber, Rarity rarity, boolean reserved, boolean foilAvailable,
+            boolean nonfoilAvailable, boolean digitalOnly, boolean oversized, List<String> games,
+            Map<String, Legality> legalities, Map<String, String> prices, String scryfallUri,
+            List<RelatedCard> related) {
+        this(scryfallId, oracleId, name, manaCost, cmc, typeLine, oracleText, colors,
+                colorIdentity, faces, layout, setCode, setName, collectorNumber, rarity,
+                reserved, foilAvailable, nonfoilAvailable, digitalOnly, oversized, games,
+                legalities, prices, scryfallUri, related, false);
+    }
 
     /**
      * The same printing with nothing related to it.

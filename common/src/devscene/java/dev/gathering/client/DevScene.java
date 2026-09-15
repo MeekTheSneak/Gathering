@@ -174,7 +174,10 @@ public final class DevScene {
      * so a scene that lost step 31 to a renumbering reported a clean run of a third of the mod.
      * Raise this when the last case number goes up.
      */
-    private static final int LAST_STEP = 347;
+    private static final int LAST_STEP = 351;
+
+    /** How many cards a library search showed before anything was typed. */
+    private static int librarySearched;
 
     /** How many notches of wheel the gallery pulls the board out by, and puts it back by. */
     private static final int GALLERY_ZOOM_OUT = 6;
@@ -286,6 +289,11 @@ public final class DevScene {
                     // The player's own settings change what several steps can see - reduced motion
                     // puts no card in the air - and this directory's are whatever the last scripted
                     // run left. Said at the start, so a run failing on them says why.
+                    // The lesson is played through below, which marks it done for good - in the same
+                    // settings file somebody playing this development game reads, who was then never
+                    // offered it. Kept to put back.
+                    lessonWas = new boolean[] {ClientSettings.tutorialOffered(), ClientSettings.tutorialFinished(),
+                            ClientSettings.tutorialSkipped()};
                     System.out.println("[devscene] running with reduced motion " + (ClientSettings.reducedMotion() ? "on" : "off")
                             + ", text " + ClientSettings.textScale() + "%, controls " + ClientSettings.controlScale()
                             + "%, table sounds " + (ClientSettings.tableSounds() ? "on" : "off"));
@@ -1681,6 +1689,14 @@ public final class DevScene {
             case 130 -> {
                 shoot(client, "41-what-was-in-it");
                 thePulledCardsLeanTowardTheCursor(client);
+                // Done in a strip of its own under the cards: it was drawn behind them, dark on dark.
+                if (client.screen instanceof PackOpeningScreen opened) {
+                    Rect cards = opened.cardsDrawn();
+                    Rect done = opened.done();
+                    if (cards.isEmpty() || done.isEmpty() || done.y() < cards.bottom()) {
+                        fail("Done on the pack reveal is at " + done + ", not clear of the cards at " + cards);
+                    }
+                }
                 advance(SETTLE);
             }
             case 131 -> {
@@ -3722,6 +3738,78 @@ public final class DevScene {
                 }
                 shoot(client, "107b-eight-in-a-wide-window");
                 resizeTo(client, 0, "the automatic interface again");
+                advance(SETTLE / 2);
+            }
+            case 348 -> {
+                // A mulligan owes cards to the bottom, and the board has to say so in words. It was a
+                // lit pip in the corner of the Mulligan button, and the owner, having just mulliganed,
+                // could not tell what the mark wanted.
+                // Twice: at a table of eight the first mulligan is free (103.5c), and owes nothing.
+                pressAVerbButton(client, TableVerb.MULLIGAN);
+                pressAVerbButton(client, TableVerb.MULLIGAN);
+                advance(SETTLE);
+            }
+            case 349 -> {
+                if (client.screen instanceof TableScreen owing) {
+                    String said = String.join(" / ", owing.handBands);
+                    System.out.println("[devscene] over the hand after a mulligan: " + said);
+                    if (owing.handBands.stream().noneMatch(band -> band.contains("bottom") && band.contains("1"))) {
+                        fail("a mulligan owed one card to the bottom and the hand said \"" + said + "\"");
+                    }
+                } else {
+                    fail("no board to mulligan at");
+                }
+                shoot(client, "107c-a-mulligan-owes-the-bottom");
+                // Searching a library is typing a name, and the box has to be there and listening
+                // the moment the library opens.
+                SeatId searcher = ClientTableState.seatAt(table).orElse(null);
+                if (searcher == null) {
+                    fail("no seat to search a library from");
+                } else {
+                    ClientTableActions.send(table, new GameEvent.LibrarySearched(searcher, searcher));
+                    client.setScreen(new PileScreen(table, searcher, Zone.LIBRARY, true, client.screen));
+                }
+                advance(SETTLE);
+            }
+            case 350 -> {
+                expectScreen(client, "searching a library", PileScreen.class);
+                if (client.screen instanceof PileScreen library) {
+                    librarySearched = library.shownCount();
+                    System.out.println("[devscene] a searched library shows " + librarySearched + " cards, "
+                            + (library.searchBox() == null ? "no search box" : "a search box"));
+                    if (library.searchBox() == null || !library.searchBox().isFocused()) {
+                        fail("a library opened to search has " + (library.searchBox() == null
+                                ? "no search box" : "a search box nobody can type into without clicking it"));
+                    }
+                    int inTheLibrary = ClientTableState.viewOf(table)
+                            .flatMap(board -> ClientTableState.seatAt(table).map(me -> board.seat(me).zone(Zone.LIBRARY).count()))
+                            .orElse(-1);
+                    if (librarySearched == 0 || librarySearched != inTheLibrary) {
+                        fail("a library of " + inTheLibrary + " being searched showed " + librarySearched + " cards");
+                    }
+                    shoot(client, "107d-a-library-to-search");
+                    for (char typedChar : "zqxj".toCharArray()) {
+                        library.charTyped(typedChar, 0);
+                    }
+                }
+                advance(SETTLE / 2);
+            }
+            case 351 -> {
+                if (client.screen instanceof PileScreen library) {
+                    if (library.shownCount() != 0) {
+                        fail("a search for \"zqxj\" still showed " + library.shownCount() + " cards");
+                    }
+                    shoot(client, "107e-a-search-that-matches-nothing");
+                    for (int letter = 0; letter < 4; letter++) {
+                        library.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE, 0, 0);
+                    }
+                    if (library.shownCount() != librarySearched) {
+                        fail("clearing the search showed " + library.shownCount() + " of " + librarySearched + " cards");
+                    }
+                    library.onClose();
+                } else {
+                    fail("the library search went away while it was being typed in");
+                }
                 advance(SETTLE / 2);
             }
             default -> {
@@ -10923,7 +11011,16 @@ public final class DevScene {
                 && two.getY() < one.getY() + one.getHeight();
     }
 
+    /** Whether the lesson had been offered, finished and skipped before the tour played it, or null. */
+    private static boolean[] lessonWas;
+
     private static void finish(Minecraft client, String why) {
+        if (lessonWas != null) {
+            ClientSettings.tutorialOffered(lessonWas[0]);
+            ClientSettings.tutorialFinished(lessonWas[1]);
+            ClientSettings.tutorialSkipped(lessonWas[2]);
+            ClientSettings.flush();
+        }
         // Anything drawn at a scale nobody asked for, anywhere in the whole run. A power and
         // toughness meant for the corner of a card was once drawn eighteen times too big,
         // covering the board in letterforms too large to read as letters - and the build was

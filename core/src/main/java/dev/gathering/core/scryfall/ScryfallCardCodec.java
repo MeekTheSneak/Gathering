@@ -115,7 +115,8 @@ public final class ScryfallCardCodec {
                 parseLegalities(json),
                 parsePrices(json),
                 string(json, "scryfall_uri"),
-                parseRelated(json)));
+                parseRelated(json),
+                specialTreatment(json)));
     }
 
     /**
@@ -297,6 +298,24 @@ public final class ScryfallCardCodec {
         } catch (IllegalArgumentException e) {
             return null;
         }
+    }
+
+    /**
+     * Whether a printing is one of the special versions a pack can hold beside its ordinary one: a
+     * showcase or extended-art frame, no border, full art, or a textured or serialized promo. Read
+     * from what Scryfall says about the frame, not guessed from a collector number.
+     */
+    static boolean specialTreatment(JsonObject json) {
+        List<String> effects = stringList(json, "frame_effects");
+        if (effects.contains("showcase") || effects.contains("extendedart") || effects.contains("inverted")) {
+            return true;
+        }
+        if ("borderless".equals(string(json, "border_color")) || bool(json, "full_art")) {
+            return true;
+        }
+        List<String> promos = stringList(json, "promo_types");
+        return promos.contains("textured") || promos.contains("serialized") || promos.contains("galaxyfoil")
+                || promos.contains("surgefoil");
     }
 
     private static double number(JsonObject json, String key) {

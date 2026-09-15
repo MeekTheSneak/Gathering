@@ -60,11 +60,12 @@ public final class GatheringProtocol {
      * <p>Thirteen, for a host's controls: an event's view carries why each of them does not apply.
      * <p>Fourteen, for a table's terms: the format, match length, game and stakes sent beside its
      * board.
+     * <p>Fifteen, for a pack's cards waiting under its wrapper until it is torn.
      * <p>Kept here, beside the payloads it numbers, since both loaders check it: NeoForge by
      * registering its payloads under it, Fabric by asking a joining client for its number while
      * the connection is configured.
      */
-    public static final int VERSION = 14;
+    public static final int VERSION = 15;
 
     private GatheringProtocol() {
     }
@@ -156,6 +157,8 @@ public final class GatheringProtocol {
             toServer(MakeTokenPayload.TYPE, MakeTokenPayload.STREAM_CODEC,
                     budgeted(dev.gathering.server.ActionBudget.CARD_LOOKUPS, (player, payload) -> CardDataService.active().ifPresent(service ->
                             dev.gathering.server.TokenCreation.handleChosen(player, service, payload)))),
+            toServer(PackTornPayload.TYPE, PackTornPayload.STREAM_CODEC,
+                    (player, payload) -> dev.gathering.server.PackWrappers.torn(player, payload.wrapper())),
             toServer(StarterPayload.TYPE, StarterPayload.STREAM_CODEC,
                     dev.gathering.server.StarterBoosters::handle),
             toServer(PracticePayload.TYPE, PracticePayload.STREAM_CODEC,

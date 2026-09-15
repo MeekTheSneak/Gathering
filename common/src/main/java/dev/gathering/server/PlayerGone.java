@@ -39,6 +39,8 @@ public final class PlayerGone {
         Wants.left(player);
         dev.gathering.server.events.Events.left(player);
         ReplayWatch.forget(player.getUUID());
+        // Wrappers they had not torn: their cards are on disk and come on the next join.
+        PackWrappers.forget(player.getUUID());
         // The trade goes with them, and whoever is across the table is told rather than left
         // agreeing with an empty chair.
         TradeSessions.leave(player);

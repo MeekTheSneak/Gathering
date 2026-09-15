@@ -1385,6 +1385,79 @@ Still open: the tour's side-on photo of a deck (`61b`) catches the seated board 
 world, because something reopens the board between aiming and shooting. An earlier run's photo did
 show the stack standing with its sides.
 
+## Owner playtest (2026-09-15), fourteen findings
+
+The owner played the build at `0c66c961` and reported:
+
+1. Tables become 3x3, for more board and a centered chair. Graveyard, exile and library slots are the
+   size of the cards. Tables still merge end to end. Old 2x2 tables in existing worlds need not work.
+2. Seats come only from chairs; clicking the table no longer seats anybody. The first player may sit
+   at any side; after that only the opposite side works. Merged tables seat along their long sides.
+3. The tutorial no longer plays.
+4. No walk-up game from right-clicking a table with a deck: free play is in the format menu.
+5. A confusing icon appears after a mulligan (the cards-owed-to-the-bottom mark).
+6. Stacking cards is unreliable: dropping onto a stack sometimes starts a new stack from its cards.
+7. Every stack on the table grows in height, not only the library; the library looked see-through
+   under its top card.
+8. The player does not sit properly in the chair.
+9. The top row's tooltip is cut off by the top of the screen.
+10. Searching the library needs typing, and smaller cards so more show at once.
+11. Stacked cards flicker on the table in the world.
+12. The mat buttons flicker on the table in the world.
+13. A pack's cards reach the inventory on right-click, before the pack is opened.
+14. The pack reveal highlights only the last rare and uses heavy borders: wanted a pulsing glow behind
+    every rare and mythic, and a different (purple) glow for showcase treatments. The Done button sits
+    behind the cards and is too dark to see.
+
+Order: the bugs first (3, 13, 14, 9, 5, 11, 12, 8), then stacking (6, 7), then search (10), then the
+table rework (4, 2, 1).
+
+### First batch: 3, 13, 14, 9, 5, 11, 12, 8, 10 and half of 7
+
+- **3, the tutorial.** It was not broken. The scripted tour finished the lesson in the shared dev
+  config, so the owner's run saw a finished lesson. `DevScene` now captures the lesson flags at its
+  first step and restores them at the end; the dev config was reset.
+- **13, pack cards early.** A pack opened with the ceremony is now held under a wrapper token
+  (`PackWrappers`), written to `Owed` as `wrapped` lines, and given only when the client says the
+  pack was torn (`PackTornPayload`, protocol 15) or after ninety seconds. `PackWrapperGameTest` (4)
+  was shown failing without the hold.
+- **14, the reveal.** A pulsing glow behind every rare (gold), mythic (orange) and special treatment
+  (purple: showcase, extended art, borderless, full art, textured, serialized, and similar), read from
+  Scryfall into `CardMetadata.specialTreatment` and `CardSummary.special`. The ring on the last card
+  is gone. Done sits centered under the cards with a glow behind it. Photo `41` looked at.
+- **9, the tooltip.** Seat and terms tooltips are placed under the strip. Photo `107a` looked at.
+- **5, the mulligan mark.** The pip in the Mulligan button's corner is gone. What the rules still ask
+  (cards owed to the bottom; going first, no draw) is a worded band over the hand, like the "hand face
+  up" band. The tour mulligans twice at the table of eight (the first is free there) and asserts the
+  band. The first tour run expected a band after one free mulligan, which was the check's mistake.
+- **11 and 12, flicker on the block.** Two causes. The mat buttons' recess was on exactly the plane
+  of the mat's felt, and their edge on the landing wash's plane. And every step between flat layers
+  was a fixed ten-thousandth of a block, under what the depth buffer resolves a few blocks away at a
+  shallow angle. `FlatLayers` now picks the step from the camera's distance (a hair up close, up to
+  0.004 blocks far off), every flat thing names its layer, cards start above everything on the mats,
+  counts draw their own backing a step under the digits (the font put its backing a hundred-thousandth
+  of a block behind), and notes and counters on a stacked card ride on that card rather than at a
+  fixed height under the cards on top of it. `FlatLayersTest` was shown failing with the old step.
+  **Flicker cannot be seen in a still photo; this is unverified until somebody looks.**
+- **7, the see-through library.** The pile's side walls were wound clockwise seen from outside, so
+  the world culled the walls facing the camera and drew the inside of the far ones. The winding is now
+  `PileThickness.sideCorners`, tested (shown failing with the old order). Every stack growing is still
+  to do.
+- **8, the chair.** A rider's feet are 0.6 below what they ride and the hip joint about 0.7 above the
+  feet; the seat entity sat at the seat's height less 0.35, which put the hips a quarter block into the
+  chair. It now sits where the thighs lie on the seat. `ChairGameTest.aSitterSitsOnTheSeat` was shown
+  failing (thighs at 0.261 against a seat at 0.625).
+- **10, search.** A pile being read with eight or more cards, and a searched library always, has a
+  search box focused on opening. Every word typed must appear in a name, type line, rules text or
+  note (`PileSearch`, tested). Cards on a reading screen are 60 high rather than 84, and the box may
+  take 86% of the window. The tour opens a library search at the table of eight, types a search
+  that matches nothing, checks the grid empties, and clears it.
+
+Verified for this batch: gate green (540/16) twice, the second time with search. One tour run reached
+the end with one failure, the free-mulligan expectation, since corrected; that run predates the search
+steps and the two-mulligan step, **which have not yet run**. Photos looked at: the pack reveal (`41`),
+a seat's tooltip (`107a`), the mulligan step (`107c`, before the fix).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,
@@ -1412,7 +1485,7 @@ show the stack standing with its sides.
    scripted tour passes on this machine (`[devscene] failures: 0`, 2026-09-15, after the renderer,
    label, Settle, footer and sprite changes) and its screenshots were looked at; how it feels to
    somebody who has not read the code is still unknown. The pick clock tooltips are now asserted by
-   the tour (proved failing with them removed). Not yet seen by anyone: the verb reminder's lit pip, Create's Show
+   the tour (proved failing with them removed). Not yet seen by anyone: Create's Show
    selector scrolled by hand, and a table on a moving Aeronautics ship.
 2. The rest of CL-10 (mode context, pointer controller, shared action binding), each extraction
    paired with a tour run. CL-08 is done (release jars inspected).

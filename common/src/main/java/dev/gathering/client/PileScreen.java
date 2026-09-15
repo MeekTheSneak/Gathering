@@ -56,8 +56,36 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     /** Room under the cards for the hint and the Done button, stacked. */
     private static final int FOOTER = 40;
 
-    /** Big enough to read the name off the art without opening the inspector. */
-    private static final int CARD_HEIGHT = 84;
+    /**
+     * A card on a decision, big enough to read the name off the art: a scry is two or three cards
+     * and each one is being weighed.
+     */
+    private static final int DECIDING_CARD_HEIGHT = 84;
+
+    /**
+     * A card in a pile being read or searched, smaller so more of the pile is on screen at once.
+     * The owner, searching a library, saw two rows of big cards and scrolled for everything else;
+     * the card under the pointer is shown whole beside the box anyway.
+     */
+    private static final int READING_CARD_HEIGHT = 60;
+
+    private int cardHeight() {
+        return decision == null ? READING_CARD_HEIGHT : DECIDING_CARD_HEIGHT;
+    }
+
+    /** A pile at least this big gets a search box over it; a library always does. */
+    private static final int SEARCH_FROM = 8;
+
+    /** The search box's height, and the gap under it. */
+    private static final int SEARCH_HEIGHT = 16;
+    private static final int SEARCH_GAP = 4;
+
+    /** The narrowest a search box is worth drawing. */
+    private static final int SEARCH_WIDTH = 140;
+
+    /** The box itself, while there is one, and what is typed in it - kept across a rebuild. */
+    private net.minecraft.client.gui.components.EditBox searchBox;
+    private String typed = "";
 
     private final BlockPos table;
     private final SeatId owner;
@@ -142,19 +170,24 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     @Override
     protected void init() {
-        header = HEADER + (decision == null ? 0 : this.font.lineHeight + 2);
-        int cardWidth = Math.max(8, CardShape.widthFor(CARD_HEIGHT));
+        boolean searchWasFocused = searchBox != null && searchBox.isFocused();
         sizedFor = cards().size();
+        boolean searching = searchable();
+        header = HEADER + (decision == null ? 0 : this.font.lineHeight + 2)
+                + (searching ? SEARCH_HEIGHT + SEARCH_GAP : 0);
+        int cardHeight = cardHeight();
+        int cardWidth = Math.max(8, CardShape.widthFor(cardHeight));
         int held = Math.max(1, sizedFor);
+        double most = decision == null ? MOST_OF_A_WINDOW_TO_READ : MOST_OF_THE_WINDOW;
 
-        int roomAcross = Math.max(cardWidth + MARGIN * 2, (int) (this.width * MOST_OF_THE_WINDOW));
-        int roomDown = Math.max(CARD_HEIGHT + MARGIN * 2 + header + FOOTER,
-                (int) (this.height * MOST_OF_THE_WINDOW));
+        int roomAcross = Math.max(cardWidth + MARGIN * 2, (int) (this.width * most));
+        int roomDown = Math.max(cardHeight + MARGIN * 2 + header + FOOTER,
+                (int) (this.height * most));
 
         columns = Math.max(1, Math.min(held, (roomAcross - MARGIN * 2 + GAP) / (cardWidth + GAP)));
         int rows = (held + columns - 1) / columns;
         int shown = Math.max(1, Math.min(rows,
-                (roomDown - MARGIN * 2 - header - FOOTER + GAP) / (CARD_HEIGHT + GAP)));
+                (roomDown - MARGIN * 2 - header - FOOTER + GAP) / (cardHeight + GAP)));
         // A pile with nothing in it needs room for a sentence, not for a card. Reserving a
         // card row for a card that is not there gave an empty graveyard a box the size of a
         // full one, which is the whole window's worth of nothing this screen was shrunk to
@@ -163,10 +196,10 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
         // Wide enough for the cards, and for the writing above and below them, and no wider.
         int wanted = Math.max(
                 columns * (cardWidth + GAP) - GAP + MARGIN * 2,
-                Math.min(roomAcross, widestLine(rows > shown) + MARGIN * 2));
+                Math.min(roomAcross, Math.max(widestLine(rows > shown), searching ? SEARCH_WIDTH : 0) + MARGIN * 2));
         int inTheGrid = sizedFor == 0
                 ? this.font.lineHeight * 2
-                : shown * (CARD_HEIGHT + GAP) - GAP;
+                : shown * (cardHeight + GAP) - GAP;
         int tall = inTheGrid + MARGIN * 2 + header + FOOTER;
         panel = new Rect(
                 (this.width - wanted) / 2, Math.max(0, (this.height - tall) / 2), wanted, tall);
@@ -179,6 +212,29 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
                 across, panel.height() - MARGIN * 2 - header - FOOTER);
         scroll = Math.min(scroll, hiddenBelow());
 
+        searchBox = null;
+        if (searching) {
+            // Over the cards and under the title, and focused from the start: somebody who opened
+            // a library to find a card types its name, and a box they had to click first is a
+            // click between them and it.
+            searchBox = new net.minecraft.client.gui.components.EditBox(this.font,
+                    panel.x() + MARGIN, panel.y() + MARGIN + HEADER, panel.width() - MARGIN * 2, SEARCH_HEIGHT,
+                    Component.translatable("screen.gathering.pile.search"));
+            searchBox.setMaxLength(dev.gathering.core.ui.PileSearch.MOST_CHARACTERS);
+            searchBox.setHint(Component.translatable("screen.gathering.pile.search").withColor(DIM));
+            searchBox.setValue(typed);
+            searchBox.setResponder(text -> {
+                typed = text;
+                // Back to the top: a search that leaves the view scrolled past its only result
+                // shows an empty box.
+                scroll = 0;
+            });
+            addRenderableWidget(searchBox);
+            if (searchWasFocused || this.getFocused() == null) {
+                setInitialFocus(searchBox);
+            }
+        }
+
         // At the bottom, centered, like the Done on every other screen in the mod. Beside the
         // title it was a second thing competing with the heading for the same line, and it
         // was the only screen here that put its way out at the top.
@@ -190,6 +246,60 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     }
 
     private static final int DONE_WIDTH = 60;
+
+    /** How much of the window a pile being read may take: more than a decision, to show more of it. */
+    private static final double MOST_OF_A_WINDOW_TO_READ = 0.86;
+
+    /** Whether this box gets a search box: a pile being read that is big enough to hunt through. */
+    private boolean searchable() {
+        return decision == null && sizedFor > 0 && (zone == Zone.LIBRARY || sizedFor >= SEARCH_FROM);
+    }
+
+    /**
+     * The cards on screen: the pile in order, less anything the search leaves out. What every
+     * slot index on a reading screen counts in.
+     */
+    private List<CardView> shown() {
+        List<CardView> cards = inOrder();
+        List<String> words = searchBox == null ? List.of() : dev.gathering.core.ui.PileSearch.words(typed);
+        if (words.isEmpty()) {
+            return cards;
+        }
+        List<CardView> found = new java.util.ArrayList<>();
+        for (CardView card : cards) {
+            if (!card.isFaceDown() && dev.gathering.core.ui.PileSearch.matches(words, saidOn(card))) {
+                found.add(card);
+            }
+        }
+        return found;
+    }
+
+    /** Everything a card says that a search looks at: names, type lines and rules, both faces. */
+    private List<String> saidOn(CardView card) {
+        List<String> said = new java.util.ArrayList<>();
+        summaryOf(card).ifPresent(summary -> {
+            said.add(summary.front().name());
+            said.add(summary.front().typeLine());
+            said.add(summary.front().oracleText());
+            summary.back().ifPresent(back -> {
+                said.add(back.name());
+                said.add(back.typeLine());
+                said.add(back.oracleText());
+            });
+        });
+        card.writtenOn().ifPresent(said::add);
+        return said;
+    }
+
+    /** The search box, for the harness: null when this box has none. */
+    net.minecraft.client.gui.components.EditBox searchBox() {
+        return searchBox;
+    }
+
+    /** How many cards are on screen after the search. For the harness. */
+    int shownCount() {
+        return shown().size();
+    }
 
     private static final int BUTTON_HEIGHT = 16;
 
@@ -362,7 +472,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        List<CardView> cards = inOrder();
+        List<CardView> cards = shown();
         GuiText.drawCentered(graphics, this.font, heading(),
                 panel.x() + panel.width() / 2, panel.y() + MARGIN,
                 panel.width() - MARGIN * 2, LABEL);
@@ -374,6 +484,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             // something that no longer said whose it was not.
             Component nothing = Component.translatable(count() == 0
                     ? "screen.gathering.pile.empty"
+                    : !cards().isEmpty() ? "screen.gathering.pile.no_match"
                     : "screen.gathering.pile.not_yours");
             int high = GuiText.linesNeeded(this.font, nothing, grid.width())
                     * (this.font.lineHeight + 1);
@@ -531,8 +642,8 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
      */
     private PileLayout laidOut() {
         return new PileLayout(
-                grid, columns, Math.max(8, CardShape.widthFor(CARD_HEIGHT)),
-                CARD_HEIGHT, GAP, scroll);
+                grid, columns, Math.max(8, CardShape.widthFor(cardHeight())),
+                cardHeight(), GAP, scroll);
     }
 
     // ---------------------------------------------------- the scripted harness
@@ -542,7 +653,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /** Where a card in this box is, so the harness can click the card and not a pixel. */
     Rect slotOfCard(int index) {
-        return index < 0 || index >= cards().size() ? Rect.NONE : slotOf(index);
+        return index < 0 || index >= shown().size() ? Rect.NONE : slotOf(index);
     }
 
     /**
@@ -584,7 +695,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     /** Whether every card this box holds is actually in it. For the harness, as above. */
     boolean everyCardIsOnScreen() {
-        int held = cards().size();
+        int held = shown().size();
         if (held == 0) {
             return true;
         }
@@ -606,7 +717,7 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
             }
         }
 
-        List<CardView> cards = inOrder();
+        List<CardView> cards = shown();
         int index = laidOut().slotAt(cards.size(), x, y);
         if (index >= 0) {
             if (cards.get(index) instanceof CardView.Visible visible) {
@@ -798,14 +909,14 @@ public final class PileScreen extends ChildScreen implements CardPreviewHost {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        scroll = Math.max(0, Math.min(hiddenBelow(), scroll - (int) scrollY * (CARD_HEIGHT / 3)));
+        scroll = Math.max(0, Math.min(hiddenBelow(), scroll - (int) scrollY * (cardHeight() / 3)));
         return true;
     }
 
     /** How much of the grid is off the bottom, which is how far a scroll can get. */
     private int hiddenBelow() {
-        int rows = (cards().size() + columns - 1) / columns;
-        return Math.max(0, rows * (CARD_HEIGHT + GAP) - GAP - grid.height());
+        int rows = (shown().size() + columns - 1) / columns;
+        return Math.max(0, rows * (cardHeight() + GAP) - GAP - grid.height());
     }
 
     /** Whether the table this pile belongs to has a command zone to send a card to. */

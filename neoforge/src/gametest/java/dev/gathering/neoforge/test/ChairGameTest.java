@@ -46,6 +46,32 @@ public final class ChairGameTest {
         helper.succeed();
     }
 
+    /** Sat in, a player's thighs lie on the seat: not sunk into the chair, not floating over it. */
+    @GameTest(template = "tables")
+    public static void aSitterSitsOnTheSeat(GameTestHelper helper) {
+        BlockPos table = TestTables.place(helper, 1, 2, 2);
+        ServerPlayer player = player(helper);
+        BlockPos chair = chairAt(helper, table.north(), Direction.SOUTH);
+        Chairs.sit(player, chair, helper.getLevel().getBlockState(chair));
+        if (!(player.getVehicle() instanceof ChairSeat seat)) {
+            helper.fail("the player sat in the chair is riding " + player.getVehicle());
+            return;
+        }
+        seat.positionRider(player);
+        double thighs = player.getY() + ChairSeat.HIP_HEIGHT - ChairSeat.HALF_A_THIGH;
+        double onTheSeat = chair.getY() + ChairBlock.SEAT_HEIGHT;
+        if (Math.abs(thighs - onTheSeat) > 1.0 / 32) {
+            helper.fail("a sitter's thighs are at " + String.format("%.3f", thighs - chair.getY())
+                    + " of the chair's block and its seat is at " + ChairBlock.SEAT_HEIGHT);
+            return;
+        }
+        if (!seat.chair().equals(chair)) {
+            helper.fail("the seat in the chair at " + chair + " thinks it is in " + seat.chair());
+            return;
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "tables")
     public static void gettingUpGivesTheSeatBack(GameTestHelper helper) {
         BlockPos table = TestTables.place(helper, 1, 2, 2);
