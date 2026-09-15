@@ -27,6 +27,7 @@ public final class PackGameTests {
         if (ModList.get().isLoaded("create")) {
             event.register(dev.gathering.neoforge.compat.create.CreateDisplayGameTest.class);
             event.register(dev.gathering.neoforge.compat.create.DeployerPacksGameTest.class);
+            event.register(dev.gathering.neoforge.compat.create.CreateContraptionGameTest.class);
         }
     }
 }

@@ -97,6 +97,11 @@ Stated plainly, because a compatibility claim nobody has run is worse than none:
   final places, prizes or sign-ups of the tournament the desk runs. Against a table it offers
   This Table's Match and Life Totals. In-world tested with Create installed; standings and pairings
   on a powered display board and a table's match on a sign have been seen in a real client.
+- **Create contraptions** (bearings, pistons, gantries, trains) leave tables and collections where
+  they are, as a piston does: a game and a collection's cards belong to a block position a
+  contraption's moving copy of the world does not have. For a table that travels, use Create
+  Aeronautics, whose structures keep their blocks in the world. A Scorekeeper's Desk is carried;
+  its host uses it again where it stops to bring signing up back to it.
 - **Create Deployers open boosters:** an empty-handed Deployer opens a booster lying loose on the
   ground (facing any way) or on a Depot or belt it faces sideways, turning it into its cards there.
   Facing *down* onto a Depot or belt does not work: Create gives that press to its belt processing,

@@ -328,6 +328,11 @@ by its own once-a-second tick and sent as the label only (guard `aLinkedDeskLabe
 proved failing both with the tick removed and with the event id in the client tag); linking turns a
 lectern's page. Seen in the pack scene: "Friday Night / Round 1 of 2" over the desk.
 
+**Create contraptions** leave tables and collections in place (their `PushReaction.BLOCK`, which Create's
+movement check honors) and carry a desk. Pack test `CreateContraptionGameTest`, proved failing with the
+table's push reaction made normal. Documented for pack authors. A table on a moving Create contraption
+is not supported: its game lives at a block position the contraption's copy of the world lacks.
+
 **Ponder scene for the desk** (`compat/create/client`, NeoForge with Create, client only): W over the
 desk teaches it on Create's Display Link schematic. Pack scene checks the scene exists, the desk is in
 Create's Display Link sources tag, every recorded line equals the lang file's (7 lines), and photographs
