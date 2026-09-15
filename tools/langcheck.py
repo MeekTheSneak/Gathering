@@ -54,7 +54,7 @@ EXPECTED_UNREFERENCED = {
 }
 # Ponder builds a scene's keys from its id and the order of its lines - "<ns>.ponder.<scene>.text_1" -
 # so nothing asks for them by name either. The pack scene checks they agree with what the scene says.
-for scene, lines in (("scorekeepers_desk", 6), ("table", 6)):
+for scene, lines in (("scorekeepers_desk", 7), ("table", 6)):
     EXPECTED_UNREFERENCED.update(
         [f"gathering.ponder.{scene}.header"] + [f"gathering.ponder.{scene}.text_{n}" for n in range(1, lines + 1)])
 # Turns pass whole rather than a step at a time, so nothing shows a phase now - but PhaseSet is

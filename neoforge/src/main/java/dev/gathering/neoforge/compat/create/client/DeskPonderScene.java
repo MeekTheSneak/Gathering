@@ -1,5 +1,6 @@
 package dev.gathering.neoforge.compat.create.client;
 
+import com.simibubi.create.AllBlocks;
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder;
 import dev.gathering.block.ScorekeepersDeskBlock;
 import dev.gathering.block.ScorekeepersDeskBlockEntity;
@@ -14,7 +15,7 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The Scorekeeper's Desk, taught in one scene: what it is for, what using it does and who may, and
- * a Display Link on it showing the tournament on a board.
+ * a Display Link on it showing the tournament on a board, and a Clipboard taking the round down.
  * <p>The words are the lang file's ({@code gathering.ponder.scorekeepers_desk.*}); those given here
  * are what Ponder records them as, and the pack scene checks the two agree.
  */
@@ -100,12 +101,23 @@ final class DeskPonderScene {
         scene.world().flashDisplayLink(linkPos);
         scene.idle(60);
 
-        scene.world().setDisplayBoardText(board, 0, Component.literal("1. Alice - Dana"));
-        scene.world().setDisplayBoardText(board, 1, Component.literal("2. Bob - Chris"));
+        // As short as a three-wide board wants them.
+        scene.world().setDisplayBoardText(board, 0, Component.literal("1 Alice-Dana"));
+        scene.world().setDisplayBoardText(board, 1, Component.literal("2 Bob-Chris"));
         scene.world().flashDisplayLink(linkPos);
         scene.overlay().showText(80)
                 .text("A table offers its own match and its game's life totals the same way")
                 .pointAt(util.vector().blockSurface(board, Direction.NORTH))
+                .placeNearTarget();
+        scene.idle(90);
+
+        scene.overlay().showControls(util.vector().topOf(deskPos), Pointing.DOWN, 50).rightClick()
+                .withItem(AllBlocks.CLIPBOARD.asStack());
+        scene.idle(10);
+        scene.overlay().showText(80)
+                .attachKeyFrame()
+                .text("A Clipboard used on the desk takes down the round's pairings and the standings")
+                .pointAt(util.vector().topOf(deskPos))
                 .placeNearTarget();
         scene.idle(90);
     }

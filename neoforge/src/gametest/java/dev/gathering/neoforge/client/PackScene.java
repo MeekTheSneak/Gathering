@@ -306,7 +306,7 @@ public final class PackScene {
             }
         });
         System.out.println("[packscene] the Ponder scenes have " + lines[0] + " lines, all in the lang file");
-        if (lines[0] < 14) {
+        if (lines[0] < 15) {
             fail("the Ponder scenes gave " + lines[0] + " lines to check");
         }
         net.minecraft.resources.ResourceLocation table = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(

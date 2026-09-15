@@ -1100,6 +1100,7 @@
   "gathering.ponder.scorekeepers_desk.text_4": "With a Display Link on the desk, a board shows its tournament",
   "gathering.ponder.scorekeepers_desk.text_5": "Choose what it shows: the standings, the pairings, the round and its clock, the final places, the prizes, or who has signed up",
   "gathering.ponder.scorekeepers_desk.text_6": "A table offers its own match and its game's life totals the same way",
+  "gathering.ponder.scorekeepers_desk.text_7": "A Clipboard used on the desk takes down the round's pairings and the standings",
   "gathering.display_source.table_match": "This Table's Match",
   "gathering.display_source.table_life": "Life Totals",
   "clipboard.gathering.pairings": "Round %s pairings",
