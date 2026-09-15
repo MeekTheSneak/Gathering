@@ -30,6 +30,8 @@ public final class TableSetupScreen extends Screen {
     private static final int DIM = 0xFF9A9690;
 
     private static final int PANEL_WIDTH = 260;
+    /** How wide the panel may grow on a short window, where it goes four formats across. */
+    private static final int WIDE_PANEL = 380;
     private static final int MARGIN = 10;
     private static final int ROW_HEIGHT = 18;
     private static final int GAP = 4;
@@ -42,6 +44,8 @@ public final class TableSetupScreen extends Screen {
 
     private Rect panel = Rect.NONE;
     private int formatsHeading;
+    private int columns = 3;
+    private boolean sharedLearnRow;
     private int lengthsHeading;
 
     public TableSetupScreen(BlockPos table) {
@@ -52,22 +56,30 @@ public final class TableSetupScreen extends Screen {
     @Override
     protected void init() {
         List<FormatPreset> formats = FormatPresets.all();
-        // The last term is the guided first game's row and the line under it saying what is
-        // chosen. Counted here rather than left to overflow: a button drawn past the bottom of
-        // the panel is a button on the felt.
-        int height = MARGIN * 2 + ROW_HEIGHT * 3 + GAP * 3
-                + rowsFor(formats.size() + 1) * (ROW_HEIGHT + GAP)
-                + (ROW_HEIGHT + GAP) * (touchingTables() > 1 ? 4 : 3)
-                + ROW_HEIGHT + GAP * 3;
+        boolean apart = touchingTables() > 1;
+        // Counted row by row, and fitted to the window: three formats across in the usual panel
+        // where it fits, and on a short window four across in a wider one with the guided first
+        // game sharing the event row. The count used to be a formula that missed a row, and on
+        // a 240-pixel-high interface the last row of buttons ran off the panel and over the
+        // line saying what is chosen.
+        int room = this.height - MARGIN * 2;
+        columns = 3;
+        sharedLearnRow = false;
+        int width = PANEL_WIDTH;
+        if (heightFor(formats.size() + 1, 3, false, apart) > room) {
+            columns = 4;
+            sharedLearnRow = true;
+            width = Math.max(PANEL_WIDTH, Math.min(WIDE_PANEL, this.width - MARGIN * 2));
+        }
+        int height = heightFor(formats.size() + 1, columns, sharedLearnRow, apart);
         panel = new Rect(
-                (this.width - PANEL_WIDTH) / 2,
+                (this.width - width) / 2,
                 Math.max(MARGIN, (this.height - height) / 2),
-                PANEL_WIDTH,
-                Math.min(height, this.height - MARGIN * 2));
+                width,
+                Math.min(height, room));
 
         int y = panel.y() + MARGIN + ROW_HEIGHT;
         formatsHeading = y - this.font.lineHeight - 2;
-        int columns = 3;
         int buttonWidth = (panel.width() - MARGIN * 2 - GAP * (columns - 1)) / columns;
 
         // Free play first, because it is the shorter answer to "what kind of game" and the
@@ -92,7 +104,7 @@ public final class TableSetupScreen extends Screen {
                     () -> chooseFormat(preset)));
         }
 
-        int lengthsTop = y + rowsFor(formats.size() + 1) * (ROW_HEIGHT + GAP) + ROW_HEIGHT;
+        int lengthsTop = y + rowsFor(formats.size() + 1, columns) * (ROW_HEIGHT + GAP) + ROW_HEIGHT;
         lengthsHeading = lengthsTop - this.font.lineHeight - 2;
         List<Integer> lengths = MatchRules.SUPPORTED_LENGTHS;
         int lengthWidth = (panel.width() - MARGIN * 2 - GAP * (lengths.size() - 1)) / lengths.size();
@@ -124,9 +136,12 @@ public final class TableSetupScreen extends Screen {
         // wanted. Always offered, not only the first time: somebody who said no a month ago
         // and now wants to know which key taps a card has nowhere else to go.
         int learnTop = decideTop + ROW_HEIGHT + GAP * 2;
-        net.minecraft.client.gui.components.Button learnButton = GatheringButtons.of(
-                panel.x() + MARGIN, learnTop, panel.width() - MARGIN * 2, ROW_HEIGHT,
-                Component.translatable("tutorial.gathering.offer.yes"), this::learn);
+        int third = (panel.width() - MARGIN * 2 - GAP * 2) / 3;
+        net.minecraft.client.gui.components.Button learnButton = sharedLearnRow
+                ? GatheringButtons.of(panel.x() + MARGIN, learnTop, third, ROW_HEIGHT,
+                        Component.translatable("tutorial.gathering.offer.yes"), this::learn)
+                : GatheringButtons.of(panel.x() + MARGIN, learnTop, panel.width() - MARGIN * 2, ROW_HEIGHT,
+                        Component.translatable("tutorial.gathering.offer.yes"), this::learn);
         // What it is for, on the button rather than above it. It was a line drawn in the eight
         // pixels between this row and Cancel and Start, which is a pixel less than a line of
         // text: the scripted client photographed it running through the bottom of both
@@ -139,10 +154,11 @@ public final class TableSetupScreen extends Screen {
 
         // Not a game at all: a draft or sealed event, which this table can host instead. Here
         // because this is the screen a table asks "what will it be" on.
-        int eventTop = learnTop + ROW_HEIGHT + GAP;
-        int halfRow = (panel.width() - MARGIN * 2 - GAP) / 2;
+        int eventTop = sharedLearnRow ? learnTop : learnTop + ROW_HEIGHT + GAP;
+        int halfRow = sharedLearnRow ? third : (panel.width() - MARGIN * 2 - GAP) / 2;
+        int eventLeft = sharedLearnRow ? panel.x() + MARGIN + third + GAP : panel.x() + MARGIN;
         addRenderableWidget(GatheringButtons.of(
-                panel.x() + MARGIN, eventTop, halfRow, ROW_HEIGHT,
+                eventLeft, eventTop, halfRow, ROW_HEIGHT,
                 Component.translatable("screen.gathering.setup.event"),
                 () -> this.minecraft.setScreen(new PodCreateScreen(table))));
         // Tournaments beside it: the list of them, and hosting one at this table.
@@ -153,14 +169,14 @@ public final class TableSetupScreen extends Screen {
 
         // A long table can be one surface or several tables side by side. Offered only where
         // there is more than one table to split, and said as what pressing it does.
-        if (touchingTables() > 1) {
-            boolean apart = dev.gathering.block.TableClusters.playsApart(this.minecraft.level, table);
+        if (apart) {
+            boolean playingApart = dev.gathering.block.TableClusters.playsApart(this.minecraft.level, table);
             addRenderableWidget(GatheringButtons.of(
                     panel.x() + MARGIN, eventTop + ROW_HEIGHT + GAP, panel.width() - MARGIN * 2, ROW_HEIGHT,
-                    Component.translatable(apart ? "screen.gathering.setup.play_together" : "screen.gathering.setup.play_apart",
+                    Component.translatable(playingApart ? "screen.gathering.setup.play_together" : "screen.gathering.setup.play_apart",
                             touchingTables()),
                     () -> {
-                        ClientNetworking.send(new dev.gathering.network.TablesApartPayload(table, !apart));
+                        ClientNetworking.send(new dev.gathering.network.TablesApartPayload(table, !playingApart));
                         this.onClose();
                     }));
         }
@@ -205,8 +221,26 @@ public final class TableSetupScreen extends Screen {
         }
     }
 
-    private static int rowsFor(int formats) {
-        return (formats + 2) / 3;
+    private static int rowsFor(int formats, int columns) {
+        return (formats + columns - 1) / columns;
+    }
+
+    /**
+     * How tall the panel is, row by row as {@link #init} lays it out: the title and format
+     * heading, the formats, the length heading and row, Cancel and Start, the guided first game
+     * (on a row of its own or sharing the event row), the event row, the play-apart row where
+     * there is one, and the line saying what is chosen.
+     */
+    private int heightFor(int buttons, int columns, boolean learnShares, boolean apart) {
+        return MARGIN + ROW_HEIGHT
+                + rowsFor(buttons, columns) * (ROW_HEIGHT + GAP)
+                + ROW_HEIGHT
+                + ROW_HEIGHT + GAP * 2
+                + ROW_HEIGHT + GAP * 2
+                + (learnShares ? 0 : ROW_HEIGHT + GAP)
+                + ROW_HEIGHT
+                + (apart ? ROW_HEIGHT + GAP : 0)
+                + GAP + this.font.lineHeight + GAP + 4;
     }
 
     /**

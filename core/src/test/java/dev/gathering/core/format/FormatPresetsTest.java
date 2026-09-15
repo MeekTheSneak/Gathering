@@ -18,8 +18,8 @@ class FormatPresetsTest {
         // was. The order is a decision: the ones most tables play, first.
         assertThat(FormatPresets.all())
                 .extracting(FormatPreset::id)
-                .containsExactly("commander", "oathbreaker", "standard", "pioneer",
-                        "modern", "legacy", "vintage", "pauper", "limited");
+                .containsExactly("commander", "oathbreaker", "duel", "standard", "pioneer",
+                        "modern", "legacy", "vintage", "pauper", "premodern", "limited");
     }
 
     @Test

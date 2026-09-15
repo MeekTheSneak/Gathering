@@ -359,6 +359,14 @@ only). Nine findings; checked, and these fixed:
 Left, and why: a cut game restarted by hand rather than by the event starts at
 random.
 
+**Duel Commander and Premodern** are formats now. Duel Commander (duelcommander.org): Commander's
+100-card singleton decks, one on one at twenty life, its own ban list (Scryfall's `duel`), and no
+commander damage - so a preset now says whether its command zone counts commander damage. Premodern
+is a sixty-card format on Scryfall's `premodern` legality. The table setup screen, with twelve
+choices, also stopped running off a 240-pixel-high window: its height was a formula that missed a
+row, and the last row of buttons covered the line saying what is chosen. On a short window it now
+goes four formats across in a wider panel with the guided first game sharing the event row.
+
 **Second independent review** (reviewer agent, read only, given the requirements and the diff of
 the drawn-game, chair, player-count and choose-to-draw work). Five findings, all fixed:
 - A cut match drawn in its deciding game ended "drawn", which a cut cannot be, and left the players

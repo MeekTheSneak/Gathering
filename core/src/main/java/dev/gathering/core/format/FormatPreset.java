@@ -2,7 +2,7 @@ package dev.gathering.core.format;
 
 /**
  * A format, as data.
- * <p>Nine fields and no code. Adding a format later is a table entry in
+ * <p>Ten fields and no code. Adding a format later is a table entry in
  * {@link FormatPresets}, not a new branch anywhere, which is the whole reason this is a
  * record and the validator is one method.
  * <p>None of this is ever consulted during play. Deck validation is the sole permitted
@@ -13,6 +13,7 @@ package dev.gathering.core.format;
  * @param maximumDeckSize   -1 for no maximum; Commander is exactly 100 either way
  * @param copyLimit         4 for most formats, 1 for singleton ones
  * @param maximumSideboard  0 where the format has no sideboard
+ * @param commanderDamage   whether its command zone comes with the 21 commander damage rule
  */
 public record FormatPreset(
         String id,
@@ -23,7 +24,15 @@ public record FormatPreset(
         int copyLimit,
         int startingLife,
         CommanderRules commanderRules,
-        int maximumSideboard) {
+        int maximumSideboard,
+        boolean commanderDamage) {
+
+    /** A preset whose commander damage follows its command zone: counted for Commander's rules. */
+    public FormatPreset(String id, String displayName, String legalitiesKey, int minimumDeckSize, int maximumDeckSize,
+            int copyLimit, int startingLife, CommanderRules commanderRules, int maximumSideboard) {
+        this(id, displayName, legalitiesKey, minimumDeckSize, maximumDeckSize, copyLimit, startingLife, commanderRules,
+                maximumSideboard, commanderRules == CommanderRules.COMMANDER);
+    }
 
     public FormatPreset {
         if (id == null || id.isBlank()) {
@@ -64,10 +73,10 @@ public record FormatPreset(
 
     /**
      * Whether damage from a commander is counted on its own in this format, to be shown beside
-     * the seats. Commander's 21 (rule 903.10a); Oathbreaker has a command zone and no such rule,
-     * and its signature spell is an instant or sorcery that could never deal combat damage.
+     * the seats. Commander's 21 (rule 903.10a). Oathbreaker has a command zone and no such rule,
+     * and neither does Duel Commander, which plays Commander's decks one on one at twenty life.
      */
     public boolean countsCommanderDamage() {
-        return commanderRules == CommanderRules.COMMANDER;
+        return commanderRules.inUse() && commanderDamage;
     }
 }

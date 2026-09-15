@@ -305,7 +305,15 @@ class DeckValidatorTest {
     @Test
     @DisplayName("every shipping preset is well formed")
     void shippingPresets() {
-        assertThat(FormatPresets.all()).hasSize(9);
+        assertThat(FormatPresets.all()).hasSize(11);
+        // Duel Commander: Commander's decks at twenty life, and no commander damage.
+        assertThat(FormatPresets.DUEL_COMMANDER.startingLife()).isEqualTo(20);
+        assertThat(FormatPresets.DUEL_COMMANDER.isSingleton()).isTrue();
+        assertThat(FormatPresets.DUEL_COMMANDER.hasCommandZone()).isTrue();
+        assertThat(FormatPresets.DUEL_COMMANDER.countsCommanderDamage()).isFalse();
+        assertThat(FormatPresets.COMMANDER.countsCommanderDamage()).isTrue();
+        assertThat(FormatPresets.OATHBREAKER.countsCommanderDamage()).isFalse();
+        assertThat(FormatPresets.PREMODERN.maximumSideboard()).isEqualTo(15);
         assertThat(FormatPresets.byId("commander")).contains(FormatPresets.COMMANDER);
         assertThat(FormatPresets.byId("COMMANDER")).contains(FormatPresets.COMMANDER);
         assertThat(FormatPresets.byId("brawl")).isEmpty();

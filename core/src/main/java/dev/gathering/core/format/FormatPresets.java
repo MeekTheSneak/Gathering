@@ -21,11 +21,22 @@ public final class FormatPresets {
             "oathbreaker", "Oathbreaker", "oathbreaker",
             60, 60, 1, 20, CommanderRules.OATHBREAKER, 0);
 
+    /**
+     * Commander's decks, one on one: twenty life, its own ban list, and no commander damage
+     * (duelcommander.org's rules). No sideboard, as in Commander.
+     */
+    public static final FormatPreset DUEL_COMMANDER = new FormatPreset(
+            "duel", "Duel Commander", "duel",
+            100, 100, 1, 20, CommanderRules.COMMANDER, 0, false);
+
     public static final FormatPreset STANDARD = sixtyCard("standard", "Standard");
     public static final FormatPreset PIONEER = sixtyCard("pioneer", "Pioneer");
     public static final FormatPreset MODERN = sixtyCard("modern", "Modern");
     public static final FormatPreset LEGACY = sixtyCard("legacy", "Legacy");
     public static final FormatPreset PAUPER = sixtyCard("pauper", "Pauper");
+
+    /** Cards from Fourth Edition to Scourge, as sixty-card decks with a sideboard of fifteen. */
+    public static final FormatPreset PREMODERN = sixtyCard("premodern", "Premodern");
 
     /**
      * Vintage needs no special handling at all.
@@ -52,7 +63,8 @@ public final class FormatPresets {
             Integer.MAX_VALUE);
 
     private static final Map<String, FormatPreset> BY_ID = index(
-            COMMANDER, OATHBREAKER, STANDARD, PIONEER, MODERN, LEGACY, VINTAGE, PAUPER, LIMITED);
+            COMMANDER, OATHBREAKER, DUEL_COMMANDER, STANDARD, PIONEER, MODERN, LEGACY, VINTAGE, PAUPER, PREMODERN,
+            LIMITED);
 
     private FormatPresets() {
     }
