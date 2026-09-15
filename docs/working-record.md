@@ -293,7 +293,10 @@ distance and nearby check (entity distances, which Sable corrects), the seat poi
 in-world tests registered only when Sable is installed (`PackGameTests`, `SableTablesGameTest`) assemble
 a table into a structure and check where it is, which side a player at a turned table is at, and where
 a chair is - each shown to fail with the conversion removed (and one fixed after it passed anyway,
-because it compared against the same conversion). **Not verified:** a real client on a moving vehicle.
+because it compared against the same conversion). On a client the conversions use Sable's render pose
+(where the structure is drawn this frame) rather than its logical pose, so the seated camera and pointer
+do not sit a tick ahead of a moving ship (2026-09-15; the pack scene's still structure is unchanged at
+0.515 blocks). **Not verified:** a real client on a moving vehicle.
 
 **Create display boards.** The owner asked for the tournament to be read off a host block, with what
 is shown chosen. A Display Link against a **Scorekeeper's Desk** offers one source, *Tournament*

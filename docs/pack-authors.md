@@ -90,8 +90,9 @@ Stated plainly, because a compatibility claim nobody has run is worse than none:
   when Sable is not installed). In-world tests assemble a real table into a Sable structure, turn
   it, and check each; they run with `./gradlew runPackGameTestServer` and the Sable jar in
   `neoforge/runs/pack-tests/mods`. What those tests cannot reach is a real client on a moving
-  airship: the camera follows the structure's logical pose rather than its interpolated one, so a
-  fast vehicle may show some judder under the seated view.
+  airship. On a client the seated camera, the pointer on the felt and the seat marker follow where
+  Sable draws the structure each frame (its render pose), not where it is this tick, so they move
+  with the ship rather than a tick ahead of it; nobody has sat at a table on a flying one yet.
 - **Create (6.0.10) display boards:** a Display Link against a Scorekeeper's Desk offers
   *Tournament*, set in the link's own settings to show the standings, pairings, round and clock,
   final places, prizes or sign-ups of the tournament the desk runs. Against a table it offers
