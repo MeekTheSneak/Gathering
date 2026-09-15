@@ -39,7 +39,11 @@ import org.lwjgl.glfw.GLFW;
  * <p>The side is declared on the annotation rather than guarded inside each method, so a
  * dedicated server never loads this class or anything it names.
  */
-@EventBusSubscriber(value = Dist.CLIENT, modid = Gathering.MOD_ID)
+// The mod bus said out loud. NeoForge from about 21.1.100 works the bus out from the event, and this mod was
+// built on one of those; on the earlier 21.1 releases its range admits, a mod-bus event on the game bus stopped
+// the mod loading at all ("IModBusEvent events are not allowed on the common NeoForge bus").
+@SuppressWarnings("removal")
+@EventBusSubscriber(value = Dist.CLIENT, modid = Gathering.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public final class GatheringNeoForgeClient {
 
     /** Hold to read a card. Deliberately a hold, not a toggle: reading is momentary. */
@@ -59,6 +63,9 @@ public final class GatheringNeoForgeClient {
         // to dev.gathering.client.TableShortcuts turns up in this loader's Controls screen and
         // in the other one's without anybody remembering to add it in two places.
         for (KeyMapping mapping : dev.gathering.client.TableShortcuts.all()) {
+            // Read only inside the table's screen, so they share keys with the game's own without either being a
+            // conflict: the Controls screen does not mark Q red for Drop and the table's untap.
+            mapping.setKeyConflictContext(net.neoforged.neoforge.client.settings.KeyConflictContext.GUI);
             event.register(mapping);
         }
     }

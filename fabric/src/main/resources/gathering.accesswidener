@@ -4,3 +4,7 @@ accessWidener	v2	named
 # opens the same one field, and for the same reason: a village's house pool is frozen after it
 # is loaded, and replacing it wholesale would delete every other mod's village building.
 accessible	field	net/minecraft/world/level/levelgen/structure/pools/StructureTemplatePool	templates	Lit/unimi/dsi/fastutil/objects/ObjectArrayList;
+
+# Every key mapping by name, which vanilla rebuilds its one-mapping-per-key lookup from. The table's verbs are
+# taken out of it so they never take a key from the game: see GatheringFabricClient.
+accessible	field	net/minecraft/client/KeyMapping	ALL	Ljava/util/Map;

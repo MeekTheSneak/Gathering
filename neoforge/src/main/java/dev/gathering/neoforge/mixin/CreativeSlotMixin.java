@@ -28,7 +28,9 @@ public abstract class CreativeSlotMixin {
     @Shadow
     public ServerPlayer player;
 
-    @ModifyVariable(method = "handleSetCreativeModeSlot", at = @At(value = "STORE", ordinal = 0))
+    // Optional (require = 0): if another mod has changed this vanilla method so the hook cannot find its place,
+    // the game still starts and DeckVault still restores a deck's cards on its next inventory tick - never a crash at launch for somebody's pack.
+    @ModifyVariable(method = "handleSetCreativeModeSlot", at = @At(value = "STORE", ordinal = 0), require = 0)
     private ItemStack gathering$keepTheDecksCards(ItemStack incoming, ServerboundSetCreativeModeSlotPacket packet) {
         return CreativeDecks.incoming(player, packet.slotNum(), incoming);
     }

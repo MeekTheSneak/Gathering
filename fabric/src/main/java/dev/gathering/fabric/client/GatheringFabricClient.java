@@ -57,6 +57,14 @@ public final class GatheringFabricClient implements ClientModInitializer {
         for (KeyMapping mapping : dev.gathering.client.TableShortcuts.all()) {
             KeyBindingHelper.registerKeyBinding(mapping);
         }
+        // And kept out of the game's key lookup. Fabric keeps vanilla's, which holds one mapping per key and is
+        // rebuilt from every mapping there is, so a verb on Q, / or 1 took that key from the game: Drop, the
+        // command line and the first hotbar slot stopped working with the mod installed (seen with
+        // :fabric:runKeyScene). The table's verbs are only ever read inside the table's screen, by matching a
+        // press against the key they are bound to, so they need no place in that lookup - and out of it they
+        // still sit in the Controls screen, where they can be moved and are saved with the rest.
+        KeyMapping.ALL.values().removeIf(dev.gathering.client.TableShortcuts.all()::contains);
+        KeyMapping.resetMapping();
 
         CardNameLookup.Binding.bind(ClientCardCache.get());
         DeckScreenHook.Binding.bind(hand -> Minecraft.getInstance().setScreen(new DeckContentsScreen(hand)));

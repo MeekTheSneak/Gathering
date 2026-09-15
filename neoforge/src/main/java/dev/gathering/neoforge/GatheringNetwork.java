@@ -16,7 +16,11 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
  * payload context into a server player. The client handlers live in the client package, wired in
  * from there, so nothing on a dedicated server ever names a client class.
  */
-@EventBusSubscriber(modid = Gathering.MOD_ID)
+// The mod bus said out loud. NeoForge from about 21.1.100 works the bus out from the event, and this mod was
+// built on one of those; on the earlier 21.1 releases its range admits, a mod-bus event on the game bus stopped
+// the mod loading at all ("IModBusEvent events are not allowed on the common NeoForge bus").
+@SuppressWarnings("removal")
+@EventBusSubscriber(modid = Gathering.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public final class GatheringNetwork {
 
     /** The shared protocol number, which NeoForge compares itself: see GatheringProtocol.VERSION. */

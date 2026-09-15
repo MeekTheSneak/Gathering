@@ -37,7 +37,9 @@ public abstract class CameraMixin {
     @Shadow
     protected abstract void setRotation(float yRot, float xRot);
 
-    @Inject(method = "setup", at = @At("TAIL"))
+    // Optional (require = 0): if another mod has changed this vanilla method so the hook cannot find its place,
+    // the game still starts and only this one behavior is lost - never a crash at launch for somebody's pack.
+    @Inject(method = "setup", at = @At("TAIL"), require = 0)
     private void gathering$overTheTable(
             net.minecraft.world.level.BlockGetter level, net.minecraft.world.entity.Entity entity,
             boolean detached, boolean thirdPersonReverse, float partialTick, CallbackInfo callback) {

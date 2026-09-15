@@ -1797,6 +1797,41 @@ Verified: gate green (560/16).
   down as finished after it (tour 296-372, no failures; the starter packs were given).
 - Protocol 20. Verified: gate green (564/16).
 
+### Twelfth batch: compatibility with other mods and older loaders (2026-09-15)
+
+The owner: as compatible with as many mods as possible, as few things that could conflict as possible.
+An audit of what the mod touches that is not its own, with each finding checked by running it:
+
+- **Fabric stole three of the game's keys.** Fabric keeps vanilla's key lookup, one mapping per key, rebuilt
+  from every mapping; the table's verbs default to Q, / and 1 among others, and took Drop, the command line
+  and hotbar slot 1 from the game with the mod installed. Found with a new scripted Fabric client,
+  `:fabric:runKeyScene` (testmod `KeyScene`), which presses each of the game's own mappings: "vanilla keys
+  taken: 3". The table's verbs are now removed from `KeyMapping.ALL` after registering (access widener on
+  that field, no mixin) and still match inside the table's screen and sit in the Controls screen: "taken: 0",
+  and Q and 2 still read as untap and draw. On NeoForge, whose lookup holds several mappings per key, they are
+  marked `KeyConflictContext.GUI`. The tour's opening (keys pressed on the board) ran clean after.
+- **The NeoForge version range was untrue.** `[21.1.0,21.2)` was never tried. On 21.1.80 the mod did not load
+  at all ("IModBusEvent events are not allowed on the common NeoForge bus"): three subscribers relied on newer
+  NeoForge working out the bus. They name the mod bus now; every in-world test passes on 21.1.80 (564), and the
+  tour's opening ran in a 21.1.80 client. The bundled Sable companion needs 21.1.80, so the range is now
+  `[21.1.80,21.2)`, what was run.
+- **Fabric asked for the newest loader and API** (0.19.3, 0.116.15), cutting out packs a release behind. The
+  Fabric in-world tests (16) and a client boot pass on Fabric Loader 0.15.11 with Fabric API 0.102.0; those
+  are the floors in `fabric.mod.json` now (`fabric_loader_min_version`, `fabric_api_min_version`), separate
+  from the versions it is built against.
+- **Mixins are optional.** Each injection is `require = 0`, so another mod changing the same vanilla method
+  costs one behavior rather than a crash at launch. The creative deck hook is backed by `DeckVault`.
+- Checked and left: tags are `replace: false`; loot is added as a pool, never a rewrite; the village shop is
+  added to the house pool; recipes are namespaced shapes over tags; the only cancelled events are on the mod's
+  own blocks and its own tooltip.
+- `docs/pack-authors.md` has a "Playing well with other mods" section, including why Cataclysm needs no
+  verification of its own. TESTING.md lists the key and loader-floor runs.
+
+Verified: gate green (564/16); tour steps 0-40 on NeoForge 21.1.248 (the table's keys pressed, Q for untap among them) and 0-16 on 21.1.80, no failures.
+
+**Not verified:** a real pack with many mods at once; Fabric's Controls screen still colors shared keys red
+(nothing is taken); NeoForge 21.1.0-21.1.79 (below the Sable companion's floor, so no longer admitted).
+
 ## Decisions needed from the owner
 
 1. ~~Should a drawn game use up one of a match's games?~~ **Decided by the owner (2026-09-14): yes,

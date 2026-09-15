@@ -23,7 +23,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public abstract class EntityRenderMixin {
 
-    @Inject(method = "renderEntity", at = @At("HEAD"), cancellable = true)
+    // Optional (require = 0): if another mod has changed this vanilla method so the hook cannot find its place,
+    // the game still starts and only this one behavior is lost - never a crash at launch for somebody's pack.
+    @Inject(method = "renderEntity", at = @At("HEAD"), cancellable = true, require = 0)
     private void gathering$outOfTheWay(
             Entity entity, double camX, double camY, double camZ, float partialTick,
             PoseStack poseStack, MultiBufferSource bufferSource, CallbackInfo callback) {

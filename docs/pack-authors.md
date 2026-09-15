@@ -73,6 +73,34 @@ The reward contract is **loader-generic**. It is the same folder, the same JSON 
 commands on NeoForge and on Fabric, and `required_mods` is answered by whichever loader is
 running. Both loaders are built and game-tested in this repository.
 
+## Playing well with other mods
+
+The aim is that Gathering can go into any 1.21.1 pack. What that rests on, and how each part was checked:
+
+- **Loaders.** NeoForge 21.1.80 or later (every in-world test run on 21.1.80, and the tour's opening in a
+  client), and Fabric Loader 0.15.11 with Fabric API 0.102.0 or later (the Fabric in-world tests and a client
+  boot run on exactly those). The metadata asks for those floors, not for the versions the mod was built on.
+- **Nothing of the game's is replaced.** Tags it adds to (`mineable`, `acquirable_job_site`) say
+  `"replace": false`; card packs are added to loot tables as an extra pool (a global loot modifier on NeoForge,
+  Fabric's loot event on Fabric), never by rewriting a table; villages get their card shop by adding to the
+  house pool, not replacing it; recipes and blocks are in the `gathering` namespace.
+- **Three code hooks, all optional.** A camera hook for the view down onto a table, one that hides entities
+  standing in that view, and one that keeps a creative deck's cards on the creative inventory packet. Each is
+  marked so that if another mod has changed the same vanilla method, the game still starts and only that one
+  behavior is lost (the creative one has a second line of defense that restores the cards anyway).
+- **Keys.** The table's verbs are read only inside the table's screen. On NeoForge they are marked as screen
+  keys, so they share Q, 1 or / with the game without a conflict. On Fabric, which keeps vanilla's
+  one-mapping-per-key lookup, they are kept out of that lookup: with the defaults on Q, / and 1 they had taken
+  Drop, the command line and the first hotbar slot from the game (found and fixed with `:fabric:runKeyScene`).
+  Fabric's Controls screen may still mark those keys red, because it compares every mapping there; nothing is
+  actually taken.
+- **Create, Create Aeronautics and Sable** are supported and tested (below). No other mod is required, and a
+  reward file naming a mod that is not installed loads quietly and is not granted.
+- **Cataclysm needs nothing.** Gathering has no Cataclysm code: the only thing it can do with Cataclysm, or any
+  boss mod, is what a pack author's reward file asks - a card pack as a boss reward - which uses the same
+  contract as every other mod and is tested against an absent mod. What has not been run is an example file
+  against Cataclysm's real loot table and advancement names, which is a pack author's file, not the mod.
+
 ## What has *not* been verified
 
 Stated plainly, because a compatibility claim nobody has run is worse than none:

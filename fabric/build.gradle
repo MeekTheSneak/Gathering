@@ -146,6 +146,14 @@ loom.runs {
         property 'gathering.protocolscene', 'host'
         programArgs '--username', 'Host'
     }
+    // The game's own keys, pressed with Gathering installed: see KeyScene.
+    keyScene {
+        client()
+        name 'Key check'
+        runDir 'runs/key-scene'
+        source sourceSets.testmod
+        property 'gathering.keyscene', '1'
+    }
     protocolJoin {
         client()
         name 'Protocol check: joiner'
@@ -179,11 +187,11 @@ processResources {
         mod_description: mod_description,
         minecraft_version: minecraft_version,
         java_version   : java_version,
-        fabric_loader_version: fabric_loader_version,
-        // The API this was built against. "fabric-api": "*" accepted any version at all,
-        // including ones for a different Minecraft, which turns a dependency refusal into a
-        // crash somewhere in the middle of a game.
-        fabric_api_version: fabric_api_version,
+        // The oldest loader and API it runs on, checked, rather than the ones it was built against. "fabric-api":
+        // "*" accepted any version at all, including ones for a different Minecraft, which turns a dependency
+        // refusal into a crash somewhere in the middle of a game; the newest cut out packs a release behind.
+        fabric_loader_version: fabric_loader_min_version,
+        fabric_api_version: fabric_api_min_version,
     ]
     inputs.properties(expandProps)
     filesMatching('fabric.mod.json') { expand expandProps }

@@ -13,7 +13,11 @@ import net.neoforged.neoforge.data.event.GatherDataEvent;
  * {@code GatherDataEvent} fires, which is why it can name client-side provider classes
  * without risking a dedicated server.
  */
-@EventBusSubscriber(modid = Gathering.MOD_ID)
+// The mod bus said out loud. NeoForge from about 21.1.100 works the bus out from the event, and this mod was
+// built on one of those; on the earlier 21.1 releases its range admits, a mod-bus event on the game bus stopped
+// the mod loading at all ("IModBusEvent events are not allowed on the common NeoForge bus").
+@SuppressWarnings("removal")
+@EventBusSubscriber(modid = Gathering.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public final class GatheringDataGenerators {
 
     private GatheringDataGenerators() {
