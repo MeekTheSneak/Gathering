@@ -210,9 +210,14 @@ public class TableMiniatureRenderer implements BlockEntityRenderer<TableBlockEnt
      * would be a question put to the session mid-cull.
      * <p>Not an {@code @Override}: this is NeoForge's own extension to the renderer interface
      * and the same class is loaded on Fabric, where nothing calls it and vanilla culls by
-     * chunk section instead. The signature is what matters - NeoForge finds it by name.
+     * chunk section instead.
+     * <p>The parameter is a {@code BlockEntity} because that is what NeoForge's generic method is
+     * after erasure, and the JVM matches the whole signature, not the name. This class is compiled
+     * without NeoForge, so nothing generates the bridge that a {@code TableBlockEntity} parameter
+     * would need: written that way it was never called, and the board was culled with its corner
+     * block all along. The pack scene asks through NeoForge's interface to keep it so.
      */
-    public net.minecraft.world.phys.AABB getRenderBoundingBox(TableBlockEntity table) {
+    public net.minecraft.world.phys.AABB getRenderBoundingBox(net.minecraft.world.level.block.entity.BlockEntity table) {
         int reach = TableCluster.MAX_TABLES * dev.gathering.core.table.TableCell.BLOCKS_PER_TABLE;
         return new net.minecraft.world.phys.AABB(table.getBlockPos()).inflate(reach, 1, reach);
     }

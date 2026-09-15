@@ -219,6 +219,7 @@ public final class PackScene {
                     }
                 }, () -> fail("the board on the block has no camera placement"));
                 shoot(client, "p07-the-board-on-a-table-on-a-structure");
+                checkRenderBoxes(client);
                 advance(SETTLE);
             }
             case 12 -> {
@@ -279,6 +280,28 @@ public final class PackScene {
                 advance(SETTLE);
             }
             default -> finish(client);
+        }
+    }
+
+    /**
+     * The render boxes NeoForge culls the table's board and the desk's label by, asked the way
+     * NeoForge asks: through its renderer extension. A method with the right name and the wrong
+     * parameter type is never called, and the box is the block's own cube.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void checkRenderBoxes(Minecraft client) {
+        for (BlockPos at : new BlockPos[] {boardTable, desk}) {
+            var entity = client.level.getBlockEntity(at);
+            var renderer = entity == null ? null : client.getBlockEntityRenderDispatcher().getRenderer(entity);
+            if (!(renderer instanceof net.neoforged.neoforge.client.extensions.IBlockEntityRendererExtension extension)) {
+                fail("no renderer to ask for a render box at " + at);
+                continue;
+            }
+            net.minecraft.world.phys.AABB box = extension.getRenderBoundingBox(entity);
+            System.out.println("[packscene] the render box at " + at + " is " + box.getXsize() + " by " + box.getYsize());
+            if (box.getXsize() <= 1.01 && box.getYsize() <= 1.01) {
+                fail("the renderer at " + at + " is culled by its block's own cube: " + box);
+            }
         }
     }
 

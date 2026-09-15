@@ -77,6 +77,7 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
     private UUID event;
     private Label label = Label.NONE;
     private boolean timeCalled;
+    private boolean toldSinceLoad;
     private Label drawnLabel;
     private Object drawnLines;
 
@@ -121,7 +122,10 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
 
     void refreshLabel(ServerLevel level) {
         boolean called = EventBoard.labelAtDesk(level, worldPosition).map(EventBoard.DeskLabel::timeCalled).orElse(false);
-        if (called != timeCalled) {
+        // And once after loading whatever it is: a comparator keeps the strength it had when its
+        // chunk was saved, and the round may have ended - or not - while nobody was here.
+        if (called != timeCalled || !toldSinceLoad) {
+            toldSinceLoad = true;
             timeCalled = called;
             level.updateNeighbourForOutputSignal(worldPosition, getBlockState().getBlock());
         }
@@ -169,11 +173,11 @@ public class ScorekeepersDeskBlockEntity extends BlockEntity {
         // Worked out now, not only on the tick: a desk that has just loaded, or stands beyond the
         // distance the server ticks at while inside the distance it is seen from, would otherwise be
         // sent with no label or an old one.
-        if (level instanceof ServerLevel server) {
-            label = labelNow(server);
-        }
+        // Into the tag only, not the field: the field is what the next refresh compares against to
+        // decide whether everybody already watching needs telling.
+        Label sent = level instanceof ServerLevel server ? labelNow(server) : label;
         CompoundTag tag = new CompoundTag();
-        tag.put(LABEL_KEY, label.save());
+        tag.put(LABEL_KEY, sent.save());
         return tag;
     }
 

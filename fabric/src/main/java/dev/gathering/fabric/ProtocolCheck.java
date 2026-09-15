@@ -25,7 +25,10 @@ import net.minecraft.server.network.ConfigurationTask;
  * number, the client answers with its own, and the server lets the connection go on only if they
  * match.
  * <p>A client without this mod never gets asked - it cannot receive the question - and is left to
- * Fabric's own registry check, which already refuses it by name.
+ * Fabric's own registry check, which already refuses it by name. So is a client with a build of
+ * this mod from before the check, which has no channel to be asked on: the check came in the same
+ * release as the Scorekeeper's Desk, whose block, item and block entity such a client does not have,
+ * and registry sync turns it away for those.
  */
 public record ProtocolCheck(int version) implements CustomPacketPayload {
 

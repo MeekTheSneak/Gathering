@@ -46,9 +46,11 @@ public class ScorekeepersDeskRenderer implements BlockEntityRenderer<Scorekeeper
     /**
      * Tall and wide enough for the label over the desk, so it is not culled with the desk's own cube -
      * looking up at the label from beside the desk, or with the desk just below the window's edge.
-     * <p>Not an {@code @Override}: NeoForge's extension, found by name; Fabric culls by chunk section.
+     * <p>Not an {@code @Override}: NeoForge's extension, which Fabric does not have - it culls by
+     * chunk section. A {@code BlockEntity} parameter, as the table renderer explains: the erased
+     * signature is the one that is called.
      */
-    public net.minecraft.world.phys.AABB getRenderBoundingBox(ScorekeepersDeskBlockEntity desk) {
+    public net.minecraft.world.phys.AABB getRenderBoundingBox(net.minecraft.world.level.block.entity.BlockEntity desk) {
         return new net.minecraft.world.phys.AABB(desk.getBlockPos()).expandTowards(0, 2, 0).inflate(1.5, 0.5, 1.5);
     }
 

@@ -133,10 +133,17 @@ public final class ScorekeepersDeskGameTest {
         // Signing up moved to another spot: this desk no longer says it happens here - and says so
         // in what it sends a client arriving now, not only after its next tick.
         state.registrationPoint = desk.offset(12, 0, 0);
-        entity.getUpdateTag(helper.getLevel().registryAccess());
-        if (!entity.label().phase().equals("signup_elsewhere")) {
+        String sentPhase = entity.getUpdateTag(helper.getLevel().registryAccess()).getCompound("label").getString("phase");
+        if (!sentPhase.equals("signup_elsewhere")) {
             Events.removeForTesting(state);
-            helper.fail("a desk signing up has moved away from is labeled " + entity.label());
+            helper.fail("a desk signing up has moved away from sends the label " + sentPhase);
+            return;
+        }
+        // Worked out for that tag without being kept: what the desk last told everybody watching is
+        // still what its next refresh compares against, so they are told too.
+        if (!entity.label().phase().equals("signup")) {
+            Events.removeForTesting(state);
+            helper.fail("sending one client a label changed what the desk thinks everybody was told: " + entity.label());
             return;
         }
         Events.setForTesting(state, state.tournament.cancel());
@@ -193,6 +200,41 @@ public final class ScorekeepersDeskGameTest {
             } finally {
                 Events.removeForTesting(state);
             }
+        });
+    }
+
+    /**
+     * A comparator that kept full strength through its chunk being unloaded is set right when the
+     * desk loads again, though whether time is called did not change while the desk was away.
+     */
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void aComparatorLeftLitIsPutOutWhenTheDeskLoads(GameTestHelper helper) {
+        ServerPlayer host = helper.makeMockServerPlayerInLevel();
+        EventState state = hostedBy(helper, host, "Friday Night");
+        BlockPos desk = helper.absolutePos(DESK);
+        BlockPos comparator = desk.east();
+        // Both as a chunk loads them, with no block updates between them: the comparator as it was
+        // saved while time was called, and the desk with only its tournament in its tag.
+        helper.getLevel().setBlock(comparator, net.minecraft.world.level.block.Blocks.COMPARATOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.ComparatorBlock.FACING, Direction.WEST)
+                .setValue(net.minecraft.world.level.block.ComparatorBlock.POWERED, true), 2);
+        if (helper.getLevel().getBlockEntity(comparator) instanceof net.minecraft.world.level.block.entity.ComparatorBlockEntity read) {
+            read.setOutputSignal(15);
+        }
+        helper.getLevel().setBlock(desk, GatheringContent.SCOREKEEPERS_DESK.get().defaultBlockState()
+                .setValue(dev.gathering.block.ScorekeepersDeskBlock.FACING, Direction.SOUTH), 2);
+        CompoundTag saved = new CompoundTag();
+        saved.putUUID("event", state.tournament.id());
+        deskOf(helper, desk).loadWithComponents(saved, helper.getLevel().registryAccess());
+        helper.runAfterDelay(30, () -> {
+            Events.removeForTesting(state);
+            int reading = helper.getLevel().getBlockEntity(comparator)
+                    instanceof net.minecraft.world.level.block.entity.ComparatorBlockEntity read ? read.getOutputSignal() : -1;
+            if (reading != 0) {
+                helper.fail("a comparator left at " + reading + " by a round long over still reads it");
+                return;
+            }
+            helper.succeed();
         });
     }
 

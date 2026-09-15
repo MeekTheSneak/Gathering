@@ -348,6 +348,18 @@ it mid-scene: the board shows standings and the desk's label "Friday Night / Rou
 run, not a gate test. Its first run found the
 label invisible (faced to the player's camera, not Ponder's) and that was fixed. The line check was shown failing with one lang line changed.
 
+**Third independent review** (protocol check, comparator, clipboard) found, all fixed: building a
+desk's update tag stored the fresh label, so the next refresh saw no change and players already watching
+were never told (guard in `aLinkedDeskLabelsItsTournament`, proved failing); a comparator kept a stale 15
+after its chunk reloaded with the round over (the desk tells neighbors once after loading - guard
+`aComparatorLeftLitIsPutOutWhenTheDeskLoads`, proved failing); **both renderers' `getRenderBoundingBox`
+had never been called on NeoForge** - `:common` compiles without NeoForge, so a `TableBlockEntity`
+parameter produced no bridge for the erased `BlockEntity` signature, and the table's board was culled with
+its corner block since that method was written (the pack scene now asks through NeoForge's interface:
+failed with 1 by 1 boxes before the fix, 17 by 3 and 4 by 4 after); the clipboard wrote a cancelled
+tournament's pages, and worked for spectators. A Fabric client from before the protocol check has no
+channel to be asked on; registry sync refuses it for the desk it lacks (documented, not tested).
+
 **Create Clipboard on the desk** (`DeskClipboard`, NeoForge with Create): writes the round's pairings,
 ticked once confirmed, and the standings, in pages; a desk running nothing leaves the clipboard alone;
 crouching is left to Create's placing. Pack test `aClipboardOnADeskTakesDownTheRound` (fake player,

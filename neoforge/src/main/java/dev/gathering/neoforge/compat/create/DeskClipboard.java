@@ -39,11 +39,13 @@ final class DeskClipboard {
     static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         ItemStack held = event.getItemStack();
         if (event.getHand() != InteractionHand.MAIN_HAND || !AllBlocks.CLIPBOARD.isIn(held) || event.getEntity().isShiftKeyDown()
+                || event.getEntity().isSpectator()
                 || !(event.getLevel().getBlockEntity(event.getPos()) instanceof ScorekeepersDeskBlockEntity desk)) {
             return;
         }
         if (event.getLevel() instanceof ServerLevel level) {
-            EventBoard.Board board = EventBoard.atDesk(level, event.getPos()).orElse(null);
+            EventBoard.Board board = EventBoard.atDesk(level, event.getPos())
+                    .filter(found -> found.phase() != dev.gathering.core.tournament.Tournament.Phase.CANCELLED).orElse(null);
             if (board == null) {
                 return;
             }
@@ -54,7 +56,8 @@ final class DeskClipboard {
             // The client knows a desk runs something by its label; without one it is a lectern.
             return;
         }
-        // Not also opened in the hand, which is what the clipboard would do next.
+        // Not also the desk's own use, which would open the tournament's screen over the hand. A called-off
+        // tournament shows no label and is passed over above, so a host can still take the desk on.
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.sidedSuccess(event.getLevel().isClientSide()));
     }
