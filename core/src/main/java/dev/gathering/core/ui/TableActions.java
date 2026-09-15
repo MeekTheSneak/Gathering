@@ -42,6 +42,7 @@ public final class TableActions {
             // The turn, and the two things everybody does at the start of one.
             of("draw", Category.LIBRARY, Target.NONE, false, "pick up"),
             of("pass_turn", Category.TABLE, Target.NONE, false, "end turn", "next"),
+            of("draw_first", Category.TABLE, Target.NONE, false, "on the draw", "go second", "draw instead"),
             of("untap_all", Category.TABLE, Target.NONE, false, "straighten all", "unturn"),
             of("shuffle", Category.LIBRARY, Target.NONE, false, "randomize", "randomise"),
             of("mulligan", Category.HAND, Target.NONE, false, "new hand", "redraw"),

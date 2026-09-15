@@ -4780,8 +4780,7 @@ public final class TableScreen extends Screen {
         // choice. See GameEvent.DrawChosen.
         view().filter(board -> board.turn().turnNumber() == 1 && board.turn().activeSeat().equals(me)
                         && board.players() > 1)
-                .ifPresent(board -> entries.add(entry("draw_first",
-                        () -> send(new GameEvent.DrawChosen(me, board.nextSeatWithABoard(me))))));
+                .ifPresent(board -> entries.add(entry("draw_first", () -> doAction(me, "draw_first"))));
         entries.add(entry("gain_life", () -> send(new GameEvent.LifeChanged(me, me, 1))));
         entries.add(entry("lose_life", () -> send(new GameEvent.LifeChanged(me, me, -1))));
         view().ifPresent(board -> entries.add(entry("my_counters",
@@ -5546,6 +5545,15 @@ public final class TableScreen extends Screen {
 
             case "pass_turn" -> {
                 view().ifPresent(board -> passTurn(board, me));
+                yield true;
+            }
+            case "draw_first" -> {
+                // Only while it is still a choice; anywhere else the server would refuse it.
+                GameView board = view().orElse(null);
+                if (board == null || board.turn().turnNumber() != 1 || !board.turn().activeSeat().equals(me)) {
+                    yield false;
+                }
+                send(new GameEvent.DrawChosen(me, board.nextSeatWithABoard(me)));
                 yield true;
             }
             case "scry" -> {
